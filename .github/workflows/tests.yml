@@ -22,9 +22,10 @@ jobs:
       - run: npm run test:coverage
       - run: npm run test:coverage:core
       - name: Recalculate and verify coverage badge
-        run: |
-          npm run test:coverage:report
-          git diff --exit-code -- badges/coverage.json
+        run: npm run test:coverage:report
+      - name: Verify committed coverage badge on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: git diff --exit-code -- badges/coverage.json
       - run: npm run build
       - name: Upload coverage reports
         if: always()
