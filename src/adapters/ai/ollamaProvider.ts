@@ -142,7 +142,7 @@ export function createOllamaProvider(
 
       if (!useTwoModels && !request.transcription) {
         // Compatibility mode for existing callers configured with one model.
-        return sendStream(analysisModel, buildPrompt(), request.images.map((image) => image.base64), onChunk, true, true);
+        return sendStream(analysisModel, buildPrompt(), (request.images ?? []).map((image) => image.base64), onChunk, true, true);
       }
 
       let transcription = request.transcription;
