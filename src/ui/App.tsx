@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createOllamaProvider, listOllamaModels } from '../adapters/ai/ollamaProvider.ts';
 import { prepareLocalFiles } from '../adapters/files/localFiles.ts';
 import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion } from '../domain/grading.ts';
@@ -16,6 +16,12 @@ const initialRubric: Rubric = {
 
 const defaultQuestion = 'Évaluez la réponse manuscrite à la question de biologie. Justifiez chaque attribution de points à partir des éléments visibles de la copie.';
 
+function formatElapsed(seconds: number): string {
+  const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const remainingSeconds = (seconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${remainingSeconds}`;
+}
+
 function rubricAsJson(rubric: Rubric): string {
   return JSON.stringify(rubric, null, 2);
 }
@@ -28,6 +34,8 @@ export function App() {
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [images, setImages] = useState<ImageInput[]>([]);
   const [busy, setBusy] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [connectionMessage, setConnectionMessage] = useState('');
   const [error, setError] = useState('');
   const [proposal, setProposal] = useState<GradingProposal | null>(null);
@@ -37,6 +45,16 @@ export function App() {
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
   const reviewedTotal = review.reduce((sum, item) => sum + item.teacherPoints, 0);
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
+
+  useEffect(() => {
+    if (!isAnalyzing) return;
+    const startedAt = Date.now();
+    setElapsedSeconds(0);
+    const timer = window.setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isAnalyzing]);
 
   function updateCriterion(id: string, patch: Partial<RubricCriterion>) {
     setRubric((current) => ({ ...current, criteria: current.criteria.map((criterion) => criterion.id === id ? { ...criterion, ...patch } : criterion) }));
@@ -81,6 +99,7 @@ export function App() {
 
   async function gradeCopies() {
     setBusy(true);
+    setIsAnalyzing(true);
     setError('');
     setReviewMessage('');
     try {
@@ -95,6 +114,7 @@ export function App() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
     } finally {
+      setIsAnalyzing(false);
       setBusy(false);
     }
   }
@@ -173,6 +193,19 @@ export function App() {
         <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
         <button className="primary-button grade-button" disabled={busy || !images.length || !model.trim() || !validation.valid} onClick={() => void gradeCopies()}>{busy ? 'Analyse locale en cours…' : 'Analyser les copies avec Ollama'}</button>
       </section>
+
+      {isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
+        <div className="analysis-spinner" aria-hidden="true" />
+        <div className="analysis-progress-copy">
+          <p className="eyebrow">TRAITEMENT LOCAL</p>
+          <h3>Analyse des copies en cours</h3>
+          <p>Le modèle Ollama examine les pages et prépare une proposition de correction. Gardez cette page ouverte.</p>
+          {elapsedSeconds >= 30 && <p className="analysis-long-wait">Cette analyse prend du temps : certains modèles locaux nécessitent plusieurs minutes, notamment avec plusieurs pages. Le temps affiché continue de mesurer l’attente.</p>}
+        </div>
+        <div className="analysis-timer" aria-label={`Temps écoulé : ${formatElapsed(elapsedSeconds)}`}>
+          <span>TEMPS ÉCOULÉ</span><strong>{formatElapsed(elapsedSeconds)}</strong>
+        </div>
+      </section>}
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 
