@@ -1,33 +1,25 @@
-# Architecture — Companion Correcteur Devoir
+# Architecture
 
-## Stack et structure
+## Principes
 
-Le projet suit la stack d'Enterprise Capacity Mapper : React, TypeScript, Vite et Vitest. La logique métier est isolée des composants React et des adaptateurs techniques.
+- React + TypeScript + Vite ; logique métier séparée de l'interface.
+- Traitement local par défaut : les fichiers sont convertis dans le navigateur, puis transmis uniquement à l'endpoint Ollama configuré explicitement.
+- Aucun repli silencieux vers une API cloud.
+- Contrats typés pour le fournisseur IA et les propositions de correction.
+- La correction proposée n'est jamais automatiquement validée.
 
-- `src/domain/` : contrats et règles métier pures (barèmes, critères, suggestions de correction).
-- `src/application/` : orchestration des cas d'usage.
-- `src/ports/` : interfaces typées des fournisseurs IA et du traitement documentaire.
-- `src/adapters/ai/` : adaptateurs de fournisseurs, en commençant par Ollama.
-- `src/components/` : interface React.
-- `tests/` : tests unitaires reproductibles sans réseau ni modèle local.
+## Flux
 
-## Flux cible
+1. L'enseignant ajuste un barème typé et sa consigne.
+2. Les photos sont lues localement. PDF.js convertit les pages PDF en images en mémoire, avec limites de taille et de nombre de pages.
+3. Le navigateur appelle l'API Ollama configurée avec les images et le barème.
+4. La réponse JSON est validée : critères connus uniquement, points dans les limites du barème, éléments justificatifs et niveau de confiance.
+5. Toute incertitude est présentée à l'enseignant ; il peut modifier les points, ajouter un commentaire, accepter ou exporter le récapitulatif.
 
-1. L'enseignant importe les photos localement et choisit un barème.
-2. Un traitement local prépare les pages et, si disponible, extrait le texte via OCR.
-3. Un modèle vision local ou un pipeline OCR/LLM propose une évaluation critère par critère.
-4. Chaque proposition contient les éléments de preuve, les points proposés et un niveau d'incertitude.
-5. Les réponses incertaines déclenchent une question ou une demande de revue.
-6. L'enseignant confirme ou modifie les propositions avant toute note finale.
+## Limites connues
 
-## Confidentialité
-
-- Aucun appel cloud n'est implémenté dans cette fondation.
-- Le futur adaptateur Ollama utilise une URL locale configurable, par défaut `http://localhost:11434`.
-- Pas de repli automatique vers le cloud si Ollama est indisponible.
-- Les images, OCR, prompts et corrections ne doivent pas être envoyés à un service distant par défaut.
-- Les résultats générés restent des suggestions non fiables tant que l'enseignant ne les a pas validés.
-
-## État de cette fondation
-
-L'interface affiche un premier écran de cadrage et vérifie localement la cohérence d'un barème. Les images, l'OCR, le stockage des copies et l'appel Ollama seront implémentés dans des PR dédiées.
+- Ollama doit être accessible depuis le navigateur ; la configuration CORS peut être nécessaire.
+- Un modèle de vision est requis pour analyser les images.
+- Le niveau de confiance est auto-déclaré par le modèle, ce n'est pas une mesure statistique calibrée.
+- Les éléments justificatifs générés par le modèle peuvent être inexacts : ils doivent être vérifiés sur la copie originale.
+- Le stockage persistant, OCR spécialisé, traitement par lot et authentification ne sont pas encore implémentés.

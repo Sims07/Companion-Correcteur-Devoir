@@ -20,3 +20,7 @@ export interface OllamaSettings {
   endpoint: string;
   model: string;
 }
+
+export interface OllamaModel {
+  name: string;
+}
