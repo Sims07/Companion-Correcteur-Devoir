@@ -68,20 +68,28 @@ export function createOllamaProvider(
         `CONSIGNE :\n${request.question}`,
       ].join('\n\n');
 
-      const response = await fetchImpl(`${endpoint}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: settings.model,
-          stream: false,
-          format: 'json',
-          messages: [{
-            role: 'user',
-            content: prompt,
-            images: request.images.map((image) => image.base64),
-          }],
-        }),
-      });
+      let response: Response;
+      try {
+        response = await fetchImpl(`${endpoint}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: settings.model,
+            stream: false,
+            format: 'json',
+            messages: [{
+              role: 'user',
+              content: prompt,
+              images: request.images.map((image) => image.base64),
+            }],
+          }),
+        });
+      } catch (cause) {
+        const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';
+        throw new Error(
+          `Connexion à Ollama interrompue pendant l’analyse (modèle « ${settings.model} », ${request.images.length} image(s)). Vérifiez que le serveur Ollama fonctionne toujours, que la mémoire disponible suffit et consultez ses journaux. Détail réseau : ${detail}`,
+        );
+      }
       if (!response.ok) throw new Error(`Ollama a répondu avec le statut HTTP ${response.status}.`);
       const data = await response.json() as OllamaChatResponse;
       if (data.error) throw new Error('Ollama n’a pas pu traiter la demande.');
