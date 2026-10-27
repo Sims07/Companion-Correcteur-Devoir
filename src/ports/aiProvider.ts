@@ -26,6 +26,8 @@ export interface OllamaSettings {
   visionModel?: string;
   /** Text model used to grade the transcription against the rubric. */
   analysisModel?: string;
+  /** Enable Ollama's thinking mode for analysis only; disabled by default for model compatibility. */
+  thinking?: boolean;
 }
 
 export interface OllamaModel {
