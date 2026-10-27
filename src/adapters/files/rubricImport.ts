@@ -1,7 +1,7 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as mammoth from 'mammoth';
-import readXlsxFile from 'read-excel-file';
+import readXlsxFile from 'read-excel-file/browser';
 import { validateRubric, type Rubric, type RubricCriterion } from '../../domain/rubric.ts';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
