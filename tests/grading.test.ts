@@ -4,34 +4,59 @@ import type { Rubric } from '../src/domain/rubric.ts';
 
 const rubric: Rubric = {
   title: 'Biologie',
-  criteria: [{ id: 'knowledge', title: 'Connaissances', description: 'Notions attendues', maxPoints: 8 }],
+  criteria: [
+    { id: 'knowledge', title: 'Connaissances', description: 'Notions attendues', maxPoints: 8 },
+    { id: 'reasoning', title: 'Raisonnement', description: 'Lien logique entre les étapes', maxPoints: 4 },
+  ],
 };
 
+const validCriteria = [
+  { criterionId: 'knowledge', points: 6, rationale: 'Deux notions justes', evidence: '« membrane plasmique »', confidence: 'high' },
+  { criterionId: 'reasoning', points: 3, rationale: 'Lien globalement cohérent', evidence: '« donc »', confidence: 'medium' },
+];
+
 describe('parseGradingProposal', () => {
-  it('parses a JSON proposal and preserves evidence and confidence', () => {
+  it('parses a complete JSON proposal and preserves evidence and confidence', () => {
     const proposal = parseGradingProposal(JSON.stringify({
       summary: 'Réponse globalement correcte',
-      criteria: [{ criterionId: 'knowledge', points: 6, rationale: 'Deux notions justes', evidence: '« membrane plasmique »', confidence: 'high' }],
+      criteria: validCriteria,
       questionsForTeacher: [],
     }), rubric);
     expect(proposal.criteria[0]).toMatchObject({ points: 6, evidence: '« membrane plasmique »', confidence: 'high' });
+    expect(proposal.criteria).toHaveLength(2);
     expect(toReviewedCriteria(proposal)[0].decision).toBe('pending');
   });
 
   it('flags a score outside the rubric instead of silently correcting it', () => {
     expect(() => parseGradingProposal(JSON.stringify({
-      criteria: [{ criterionId: 'knowledge', points: 9, rationale: '', evidence: '', confidence: 'high' }],
+      criteria: [{ ...validCriteria[0], points: 9 }, validCriteria[1]],
     }), rubric)).toThrow(/hors barème/);
   });
 
   it('asks the teacher to check low-confidence proposals', () => {
     const proposal = parseGradingProposal(JSON.stringify({
-      criteria: [{ criterionId: 'knowledge', points: 3, rationale: 'Lecture difficile', evidence: 'illisible', confidence: 'low' }],
+      criteria: [{ ...validCriteria[0], confidence: 'low', evidence: 'illisible' }, validCriteria[1]],
     }), rubric);
     expect(proposal.questionsForTeacher.length).toBeGreaterThan(0);
   });
 
   it('rejects malformed JSON', () => {
     expect(() => parseGradingProposal('not json', rubric)).toThrow(/format attendu/);
+  });
+
+  it('rejects an incomplete proposal rather than silently omitting rubric criteria', () => {
+    expect(() => parseGradingProposal(JSON.stringify({ criteria: [validCriteria[0]] }), rubric)).toThrow(/incomplète/);
+  });
+
+  it('rejects unknown criterion identifiers', () => {
+    expect(() => parseGradingProposal(JSON.stringify({
+      criteria: [{ ...validCriteria[0], criterionId: 'invented' }, validCriteria[1]],
+    }), rubric)).toThrow(/critère inconnu/);
+  });
+
+  it('rejects duplicate criterion proposals', () => {
+    expect(() => parseGradingProposal(JSON.stringify({
+      criteria: [validCriteria[0], validCriteria[0], validCriteria[1]],
+    }), rubric)).toThrow(/plusieurs propositions/);
   });
 });
