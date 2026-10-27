@@ -46,9 +46,9 @@ export function createOllamaProvider(
         'EXHAUSTIVITÉ ET COHÉRENCE : retourne exactement une entrée pour chaque critère du barème, sans doublon ni identifiant inconnu. Si la copie ne contient pas de réponse identifiable pour un critère, évalue seulement ce que le barème autorise et explique l’absence de preuve ; si tu ne peux pas déterminer si une réponse est absente ou illisible, demande confirmation.',
         'SCHÉMA JSON : {"summary":"résumé prudent","criteria":[{"criterionId":"identifiant exact","points":0,"rationale":"justification liée au barème","evidence":"preuve observable ou limite de lecture explicite","confidence":"low|medium|high","questionForTeacher":""}],"questionsForTeacher":[]}. summary doit signaler que la proposition est à vérifier. questionForTeacher peut être une chaîne vide si aucune clarification n’est nécessaire.',
         'La note et les explications sont des propositions de travail, jamais une validation définitive. N’affirme pas avoir vérifié un élément que tu ne peux pas lire.',
-        `BARÈME (JSON) :\\n${request.rubric}`,
-        `CONSIGNE DE L’ENSEIGNANT :\\n${request.question}`,
-      ].join('\\n\\n');
+        `BARÈME (JSON) :\n${request.rubric}`,
+        `CONSIGNE DE L’ENSEIGNANT :\n${request.question}`,
+      ].join('\n\n');
 
       const response = await fetchImpl(`${endpoint}/api/chat`, {
         method: 'POST',
