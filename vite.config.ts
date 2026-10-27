@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  // PDF.js and its worker must be served from the same, un-prebundled package
+  // version. Vite's dependency optimizer can otherwise rewrite the worker URL
+  // and trigger PDF.js's "Setting up fake worker" dynamic-import failure.
+  optimizeDeps: {
+    exclude: ['pdfjs-dist'],
+  },
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
