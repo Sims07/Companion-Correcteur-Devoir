@@ -3,6 +3,36 @@ import type { GradingProvider, GradingRequest, OllamaModel, OllamaSettings } fro
 interface OllamaChatResponse {
   message?: { content?: string };
   error?: string;
+  done?: boolean;
+}
+
+async function readOllamaStream(response: Response, onChunk?: (chunk: string) => void): Promise<string> {
+  if (!response.body) throw new Error('Ollama n’a pas fourni de flux de réponse lisible.');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let content = '';
+  const consumeLine = (line: string) => {
+    if (!line.trim()) return;
+    const event = JSON.parse(line) as OllamaChatResponse;
+    if (event.error) throw new Error('Ollama signale une erreur pendant la génération.');
+    const chunk = event.message?.content ?? '';
+    if (chunk) { content += chunk; onChunk?.(chunk); }
+  };
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) consumeLine(line);
+    }
+    buffer += decoder.decode();
+    consumeLine(buffer);
+  } finally { reader.releaseLock(); }
+  if (!content.trim()) throw new Error('Ollama a retourné une réponse vide.');
+  return content;
 }
 
 interface OllamaTagsResponse {
@@ -51,7 +81,7 @@ export function createOllamaProvider(
 ): GradingProvider {
   return {
     id: 'ollama',
-    async generate(request: GradingRequest): Promise<string> {
+    async generate(request: GradingRequest, onChunk?: (chunk: string) => void): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
       if (!settings.model.trim()) throw new Error('Choisissez un modèle Ollama.');
       if (!request.question.trim()) throw new Error('La consigne de correction est vide.');
@@ -79,7 +109,7 @@ export function createOllamaProvider(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: settings.model,
-            stream: false,
+            stream: true,
             format: 'json',
             messages: [{
               role: 'user',
@@ -95,11 +125,11 @@ export function createOllamaProvider(
         );
       }
       if (!response.ok) throw new Error(`Ollama a répondu avec le statut HTTP ${response.status}.`);
-      const data = await response.json() as OllamaChatResponse;
-      if (data.error) throw new Error('Ollama n’a pas pu traiter la demande.');
-      const content = data.message?.content?.trim();
-      if (!content) throw new Error('Ollama a retourné une réponse vide.');
-      return content;
+      try { return await readOllamaStream(response, onChunk); }
+      catch (cause) {
+        if (cause instanceof SyntaxError) throw new Error('Le flux envoyé par Ollama est mal formé. Vérifiez la version du serveur.');
+        throw cause;
+      }
     },
   };
 }

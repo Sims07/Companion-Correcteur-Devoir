@@ -37,6 +37,7 @@ export function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'grading'>('checking');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [streamedOutput, setStreamedOutput] = useState('');
   const [connectionMessage, setConnectionMessage] = useState('');
   const [error, setError] = useState('');
   const [proposal, setProposal] = useState<GradingProposal | null>(null);
@@ -102,6 +103,7 @@ export function App() {
     setBusy(true);
     setIsAnalyzing(true);
     setAnalysisStage('checking');
+    setStreamedOutput('');
     setError('');
     setReviewMessage('');
     try {
@@ -110,7 +112,7 @@ export function App() {
       await checkOllamaReady({ endpoint, model });
       setAnalysisStage('grading');
       const provider = createOllamaProvider({ endpoint, model });
-      const raw = await provider.generate({ question, rubric: rubricAsJson(rubric), images });
+      const raw = await provider.generate({ question, rubric: rubricAsJson(rubric), images }, (chunk) => setStreamedOutput((current) => current + chunk));
       const parsed = parseGradingProposal(raw, rubric);
       setProposal(parsed);
       setReview(toReviewedCriteria(parsed));
@@ -204,6 +206,7 @@ export function App() {
           <p className="eyebrow">TRAITEMENT LOCAL</p>
           <h3>{analysisStage === 'checking' ? 'Vérification du modèle Ollama…' : 'Le modèle répond : analyse des copies…'}</h3>
           <p>{analysisStage === 'checking' ? 'J’envoie un court message de test, sans copie jointe, pour vérifier que le modèle sélectionné répond bien. Le modèle peut avoir besoin de se charger en mémoire.' : 'Le modèle a répondu au test de disponibilité. Les copies sont maintenant envoyées pour préparer la proposition de correction. Gardez cette page ouverte.'}</p>
+          {streamedOutput && <div className="streaming-preview" aria-live="polite"><strong>Réponse reçue en streaming</strong><pre>{streamedOutput}</pre></div>}
           {elapsedSeconds >= 30 && <p className="analysis-long-wait">Cette analyse prend du temps : certains modèles locaux nécessitent plusieurs minutes, notamment avec plusieurs pages. Le temps affiché continue de mesurer l’attente.</p>}
         </div>
         <div className="analysis-timer" aria-label={`Temps écoulé : ${formatElapsed(elapsedSeconds)}`}>
