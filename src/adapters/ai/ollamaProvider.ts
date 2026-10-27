@@ -51,12 +51,12 @@ export async function checkOllamaReady(
   fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
   const endpoint = normalizedEndpoint(settings.endpoint);
-  if (!settings.model.trim()) throw new Error('Choisissez un modèle Ollama.');
+  const model = settings.model?.trim() || settings.visionModel?.trim() || settings.analysisModel?.trim() || '';\n  if (!model) throw new Error('Choisissez un modèle Ollama.');
   const response = await fetchImpl(`${endpoint}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: settings.model,
+      model,
       stream: false,
       think: false,
       messages: [{ role: 'user', content: 'Ceci est un test de disponibilité, aucune copie à analyser. Réponds uniquement par le mot PRÊT.' }],
@@ -82,12 +82,9 @@ export function createOllamaProvider(
 ): GradingProvider {
   return {
     id: 'ollama',
-    async generate(request: GradingRequest, onChunk?: (chunk: string) => void): Promise<string> {
+    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
       if (!(settings.visionModel?.trim() || settings.model?.trim()) || !(settings.analysisModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de lecture et un modèle d’analyse.');
-      if (!request.question.trim()) throw new Error('La consigne de correction est vide.');
-      if (!request.images?.length) throw new Error('Ajoutez au moins une photo ou un PDF avant de lancer la correction.');
-
       const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
       const analysisModel = settings.analysisModel?.trim() || settings.model?.trim() || '';
       const useTwoModels = Boolean(settings.visionModel?.trim() && settings.analysisModel?.trim());
