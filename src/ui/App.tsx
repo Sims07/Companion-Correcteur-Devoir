@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createOllamaProvider, listOllamaModels } from '../adapters/ai/ollamaProvider.ts';
+import { checkOllamaReady, createOllamaProvider, listOllamaModels } from '../adapters/ai/ollamaProvider.ts';
 import { prepareLocalFiles } from '../adapters/files/localFiles.ts';
 import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion } from '../domain/grading.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
@@ -35,6 +35,7 @@ export function App() {
   const [images, setImages] = useState<ImageInput[]>([]);
   const [busy, setBusy] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisStage, setAnalysisStage] = useState<'checking' | 'grading'>('checking');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [connectionMessage, setConnectionMessage] = useState('');
   const [error, setError] = useState('');
@@ -100,11 +101,14 @@ export function App() {
   async function gradeCopies() {
     setBusy(true);
     setIsAnalyzing(true);
+    setAnalysisStage('checking');
     setError('');
     setReviewMessage('');
     try {
       if (!validation.valid) throw new Error(validation.errors.join(' '));
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF.');
+      await checkOllamaReady({ endpoint, model });
+      setAnalysisStage('grading');
       const provider = createOllamaProvider({ endpoint, model });
       const raw = await provider.generate({ question, rubric: rubricAsJson(rubric), images });
       const parsed = parseGradingProposal(raw, rubric);
@@ -198,8 +202,8 @@ export function App() {
         <div className="analysis-spinner" aria-hidden="true" />
         <div className="analysis-progress-copy">
           <p className="eyebrow">TRAITEMENT LOCAL</p>
-          <h3>Analyse des copies en cours</h3>
-          <p>Le modèle Ollama examine les pages et prépare une proposition de correction. Gardez cette page ouverte.</p>
+          <h3>{analysisStage === 'checking' ? 'Vérification du modèle Ollama…' : 'Le modèle répond : analyse des copies…'}</h3>
+          <p>{analysisStage === 'checking' ? 'J’envoie un court message de test, sans copie jointe, pour vérifier que le modèle sélectionné répond bien. Le modèle peut avoir besoin de se charger en mémoire.' : 'Le modèle a répondu au test de disponibilité. Les copies sont maintenant envoyées pour préparer la proposition de correction. Gardez cette page ouverte.'}</p>
           {elapsedSeconds >= 30 && <p className="analysis-long-wait">Cette analyse prend du temps : certains modèles locaux nécessitent plusieurs minutes, notamment avec plusieurs pages. Le temps affiché continue de mesurer l’attente.</p>}
         </div>
         <div className="analysis-timer" aria-label={`Temps écoulé : ${formatElapsed(elapsedSeconds)}`}>
