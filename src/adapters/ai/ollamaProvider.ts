@@ -166,7 +166,7 @@ export function createOllamaProvider(
       onStage?.('grading');
       return sendStream(
         analysisModel,
-        buildPrompt(transcriptions.join('\\n\\n')),
+        buildPrompt(transcriptions.join('\n\n')),
         undefined,
         onChunk,
         true,
