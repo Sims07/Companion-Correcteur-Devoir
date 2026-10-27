@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { checkOllamaReady, createOllamaProvider, listOllamaModels } from '../adapters/ai/ollamaProvider.ts';
 import { prepareLocalFiles } from '../adapters/files/localFiles.ts';
+import { importRubricFile } from '../adapters/files/rubricImport.ts';
 import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion } from '../domain/grading.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { ImageInput } from '../ports/aiProvider.ts';
@@ -28,6 +29,7 @@ function rubricAsJson(rubric: Rubric): string {
 
 export function App() {
   const [rubric, setRubric] = useState<Rubric>(initialRubric);
+  const [rubricImportMessage, setRubricImportMessage] = useState('');
   const [question, setQuestion] = useState(defaultQuestion);
   const [endpoint, setEndpoint] = useState('http://localhost:11434');
   const [model, setModel] = useState('');
@@ -67,6 +69,22 @@ export function App() {
   function addCriterion() {
     const id = `criterion-${Date.now()}`;
     setRubric((current) => ({ ...current, criteria: [...current.criteria, { id, title: 'Nouveau critère', description: '', maxPoints: 1 }] }));
+  }
+
+  async function importRubricFileFromInput(file: File | undefined) {
+    if (!file) return;
+    setError('');
+    setRubricImportMessage('');
+    try {
+      const imported = await importRubricFile(file);
+      setRubric(imported.rubric);
+      setProposal(null);
+      setReview([]);
+      setTeacherQuestions('');
+      setRubricImportMessage(imported.warnings.length ? imported.warnings.join(' ') : `Barème « ${imported.rubric.title} » importé. Vérifiez les critères et le total avant de lancer la correction.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible d’importer ce barème localement.');
+    }
   }
 
   async function importFiles(files: FileList | null) {
@@ -161,6 +179,12 @@ export function App() {
       <section className="panel rubric-editor">
         <label className="field-label" htmlFor="rubric-title">Nom du barème</label>
         <input id="rubric-title" value={rubric.title} onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
+        <div className="rubric-import">
+          <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Word, Excel, CSV, TXT ou JSON)</label>
+          <input id="rubric-file" type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.json" onChange={(event) => { void importRubricFileFromInput(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} />
+          <p className="hint">Le fichier est analysé dans ce navigateur. Vérifiez toujours les critères, les points et le total : l’extraction automatique peut manquer des sous-critères.</p>
+          {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
+        </div>
         <div className="criteria-list">
           {rubric.criteria.map((criterion) => <div className="criterion-editor" key={criterion.id}>
             <div className="criterion-fields">
