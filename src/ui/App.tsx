@@ -242,7 +242,7 @@ export function App() {
           }
           <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
           {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
-          <p className="hint">Utilisez un modèle qui accepte les images. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p>
+          <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p>
         </article>
       </section>
 
