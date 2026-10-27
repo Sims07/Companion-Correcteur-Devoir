@@ -32,12 +32,13 @@ export function App() {
   const [rubricImportMessage, setRubricImportMessage] = useState('');
   const [question, setQuestion] = useState(defaultQuestion);
   const [endpoint, setEndpoint] = useState('http://localhost:11434');
-  const [model, setModel] = useState('');
+  const [visionModel, setVisionModel] = useState('');
+  const [analysisModel, setAnalysisModel] = useState('');
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [images, setImages] = useState<ImageInput[]>([]);
   const [busy, setBusy] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisStage, setAnalysisStage] = useState<'checking' | 'grading'>('checking');
+  const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [streamedOutput, setStreamedOutput] = useState('');
   const [connectionMessage, setConnectionMessage] = useState('');
@@ -109,8 +110,9 @@ export function App() {
     try {
       const models = await listOllamaModels(endpoint);
       setAvailableModels(models.map((item) => item.name));
-      if (!model && models[0]) setModel(models[0].name);
-      setConnectionMessage(models.length ? `Connexion réussie · ${models.length} modèle(s) disponible(s).` : 'Connexion réussie, mais aucun modèle installé. Installez un modèle de vision compatible avec les images.');
+      if (!visionModel && models[0]) setVisionModel(models[0].name);
+      if (!analysisModel && models[0]) setAnalysisModel(models[0].name);
+      setConnectionMessage(models.length ? `Connexion réussie · ${models.length} modèle(s) disponible(s). Choisissez un modèle de vision pour la lecture et un modèle textuel pour l’analyse.` : 'Connexion réussie, mais aucun modèle installé. Installez un modèle compatible avec les images et un modèle pour l’analyse.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Connexion à Ollama impossible.');
     } finally {
@@ -129,10 +131,15 @@ export function App() {
     try {
       if (!validation.valid) throw new Error(validation.errors.join(' '));
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF.');
-      await checkOllamaReady({ endpoint, model });
-      setAnalysisStage('grading');
-      const provider = createOllamaProvider({ endpoint, model });
-      const raw = await provider.generate({ question, rubric: rubricAsJson(rubric), images }, (chunk) => setStreamedOutput((current) => current + chunk));
+      await checkOllamaReady({ endpoint, model: visionModel });
+      await checkOllamaReady({ endpoint, model: analysisModel });
+      setAnalysisStage('reading');
+      const provider = createOllamaProvider({ endpoint, visionModel, analysisModel });
+      const raw = await provider.generate(
+        { question, rubric: rubricAsJson(rubric), images },
+        (chunk) => setStreamedOutput((current) => current + chunk),
+        (stage) => { setAnalysisStage(stage); if (stage === 'grading') setStreamedOutput(''); },
+      );
       const parsed = parseGradingProposal(raw, rubric);
       setProposal(parsed);
       setReview(toReviewedCriteria(parsed));
@@ -227,8 +234,12 @@ export function App() {
           <div className="panel-heading"><span className="number">03</span><div><h3>Modèle local Ollama</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
           <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur</label>
           <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder="http://localhost:11434" />
-          <label className="field-label" htmlFor="ollama-model">Modèle vision</label>
-          {availableModels.length > 0 ? <select id="ollama-model" value={model} onChange={(event) => setModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-model" value={model} onChange={(event) => setModel(event.target.value)} placeholder="ex. llava, qwen2.5vl" />}
+          <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture (vision)</label>
+          {availableModels.length > 0 ? <select id="ollama-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="ex. gemma3:4b, qwen2.5vl" />}
+          <p className="hint">Ce modèle lit les images et transcrit la copie sans la corriger.</p>
+          <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
+          {availableModels.length > 0 ? <select id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="ex. qwen3.5:4b, phi4-mini" />
+          }
           <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
           {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
           <p className="hint">Utilisez un modèle qui accepte les images. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p>
@@ -238,15 +249,15 @@ export function App() {
       <section className="panel question-panel">
         <label className="field-label" htmlFor="grading-question">Consigne / question de l’exercice</label>
         <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
-        <button className="primary-button grade-button" disabled={busy || !images.length || !model.trim() || !validation.valid} onClick={() => void gradeCopies()}>{busy ? 'Analyse locale en cours…' : 'Analyser les copies avec Ollama'}</button>
+        <button className="primary-button grade-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid} onClick={() => void gradeCopies()}>{busy ? 'Analyse locale en cours…' : 'Lire puis analyser les copies'}</button>
       </section>
 
       {isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
         <div className="analysis-spinner" aria-hidden="true" />
         <div className="analysis-progress-copy">
           <p className="eyebrow">TRAITEMENT LOCAL</p>
-          <h3>{analysisStage === 'checking' ? 'Vérification du modèle Ollama…' : 'Le modèle répond : analyse des copies…'}</h3>
-          <p>{analysisStage === 'checking' ? 'J’envoie un court message de test, sans copie jointe, pour vérifier que le modèle sélectionné répond bien. Le modèle peut avoir besoin de se charger en mémoire.' : 'Le modèle a répondu au test de disponibilité. Les copies sont maintenant envoyées pour préparer la proposition de correction. Gardez cette page ouverte.'}</p>
+          <h3>{analysisStage === 'checking' ? 'Vérification des modèles Ollama…' : analysisStage === 'reading' ? 'Lecture des images et transcription…' : 'Analyse de la réponse et application du barème…'}</h3>
+          <p>{analysisStage === 'checking' ? 'Je vérifie que les deux modèles répondent, sans joindre de copie.' : analysisStage === 'reading' ? 'Le modèle de lecture transcrit chaque page localement. La transcription s’affiche au fil du streaming.' : 'Le modèle d’analyse applique le barème à la transcription. La proposition de correction arrive en streaming.'}</p>
           {streamedOutput && <div className="streaming-preview" aria-live="polite"><strong>Réponse reçue en streaming</strong><pre>{streamedOutput}</pre></div>}
           {elapsedSeconds >= 30 && <p className="analysis-long-wait">Cette analyse prend du temps : certains modèles locaux nécessitent plusieurs minutes, notamment avec plusieurs pages. Le temps affiché continue de mesurer l’attente.</p>}
         </div>
