@@ -49,6 +49,13 @@ describe('Ollama adapter', () => {
     await expect(createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock).generate(request)).rejects.toThrow(/503/);
   });
 
+
+  it('explains when the browser loses the Ollama connection during grading', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch'));
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock);
+    await expect(provider.generate(request)).rejects.toThrow(/Connexion à Ollama interrompue.*llava.*1 image.*Failed to fetch/);
+  });
+
   it('lists available models from Ollama', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ models: [{ name: 'llava:latest' }, { name: 'qwen2.5vl:7b' }] }), { status: 200 }));
     await expect(listOllamaModels('http://localhost:11434', fetchMock)).resolves.toEqual([{ name: 'llava:latest' }, { name: 'qwen2.5vl:7b' }]);
