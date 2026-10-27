@@ -21,7 +21,7 @@
     "react": "latest",
     "react-dom": "latest",
     "mammoth": "latest",
-    "xlsx": "latest"
+    "read-excel-file": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",
