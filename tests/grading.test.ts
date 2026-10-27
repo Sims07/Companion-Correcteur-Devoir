@@ -33,11 +33,21 @@ describe('parseGradingProposal', () => {
     }), rubric)).toThrow(/hors barème/);
   });
 
-  it('asks the teacher to check low-confidence proposals', () => {
+  it('does not generate generic teacher questions just because confidence is low', () => {
     const proposal = parseGradingProposal(JSON.stringify({
       criteria: [{ ...validCriteria[0], confidence: 'low', evidence: 'illisible' }, validCriteria[1]],
     }), rubric);
-    expect(proposal.questionsForTeacher.length).toBeGreaterThan(0);
+    expect(proposal.criteria[0].confidence).toBe('low');
+    expect(proposal.questionsForTeacher).toEqual([]);
+  });
+
+  it('preserves a concrete question supplied by the model without duplicating it', () => {
+    const question = 'Le mot après « enzyme » est-il bien « active » ?';
+    const proposal = parseGradingProposal(JSON.stringify({
+      criteria: [{ ...validCriteria[0], confidence: 'low', questionForTeacher: question }, validCriteria[1]],
+      questionsForTeacher: [question],
+    }), rubric);
+    expect(proposal.questionsForTeacher).toEqual([question]);
   });
 
   it('rejects malformed JSON', () => {
