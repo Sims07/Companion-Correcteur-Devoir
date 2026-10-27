@@ -49,6 +49,37 @@ describe('Ollama adapter', () => {
     expect(body.messages[0].content).toContain('La confiance décrit la certitude de lecture/interprétation, pas le niveau de maîtrise');
   });
 
+  it('includes the exact rubric criterion IDs instead of a generic placeholder in the grading prompt', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434',
+      visionModel: 'gemma3:4b',
+      analysisModel: 'BioMistral-7B',
+    }, fetchMock);
+    const rubric = JSON.stringify({
+      title: 'Biologie moléculaire',
+      criteria: [
+        { id: 'replication-adn', title: 'Réplication de l’ADN', description: 'Étapes de la réplication', maxPoints: 4 },
+        { id: 'enzyme-role', title: 'Rôle des enzymes', description: 'Rôle des enzymes impliquées', maxPoints: 3 },
+      ],
+    });
+
+    await provider.generate({
+      question: request.question,
+      rubric,
+      images: [],
+      transcription: 'La réplication est semi-conservative.',
+    });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { messages: Array<{ content: string }> };
+    const prompt = body.messages[0].content;
+    expect(prompt).toContain('"replication-adn"');
+    expect(prompt).toContain('"enzyme-role"');
+    expect(prompt).toContain('IDENTIFIANTS DE CRITÈRES AUTORISÉS');
+    expect(prompt).not.toContain('"criterionId":"identifiant exact"');
+    expect(prompt).toContain('"criterionId":"replication-adn"');
+  });
+
   it('emits response chunks as they arrive', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('hello'));
     const onChunk = vi.fn<(chunk: string) => void>();
