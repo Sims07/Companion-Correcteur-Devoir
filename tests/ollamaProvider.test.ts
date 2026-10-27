@@ -4,7 +4,7 @@ import type { GradingRequest } from '../src/ports/aiProvider.ts';
 
 function streamingResponse(content: string): Response {
   const lines = [...content.split('').map((character) => JSON.stringify({ message: { content: character }, done: false })), JSON.stringify({ message: {}, done: true })];
-  return new Response(`${lines.join('\\n')}\\n`, { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
+  return new Response(lines.join('\n') + '\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
 }
 
 const request: GradingRequest = {
@@ -41,6 +41,15 @@ describe('Ollama adapter', () => {
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"images":["aGVsbG8="]');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"format":"json"');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"stream":true');
+  });
+
+  it('emits response chunks as they arrive', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('hello'));
+    const onChunk = vi.fn<(chunk: string) => void>();
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock);
+    await expect(provider.generate(request, onChunk)).resolves.toBe('hello');
+    expect(onChunk).toHaveBeenCalledTimes(5);
+    expect(onChunk).toHaveBeenNthCalledWith(1, 'h');
   });
 
   it('rejects invalid endpoints and missing images before networking', async () => {
