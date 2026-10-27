@@ -1,0 +1,39 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:coverage
+      - run: npm run test:coverage:core
+      - name: Recalculate and verify coverage badge
+        run: npm run test:coverage:report
+      - name: Verify committed coverage badge on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: git diff --exit-code -- badges/coverage.json
+      - run: npm run build
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            coverage-unit/
+            coverage-unit-core/
+          if-no-files-found: ignore
+          retention-days: 14
