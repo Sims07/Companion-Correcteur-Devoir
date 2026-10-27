@@ -80,4 +80,33 @@ describe('Ollama adapter', () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ models: [{ name: 'llava:latest' }, { name: 'qwen2.5vl:7b' }] }), { status: 200 }));
     await expect(listOllamaModels('http://localhost:11434', fetchMock)).resolves.toEqual([{ name: 'llava:latest' }, { name: 'qwen2.5vl:7b' }]);
   });
+
+  it('transcribes each image with the vision model, then grades the text with the analysis model', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse('Transcription fidèle de la copie'))
+      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const stages: string[] = [];
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434',
+      visionModel: 'gemma3:4b',
+      analysisModel: 'qwen3.5:4b',
+    }, fetchMock);
+
+    await expect(provider.generate(request, undefined, (stage) => stages.push(stage))).resolves.toBe('{"criteria":[]}');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const visionBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { model: string; messages: Array<{ content: string; images?: string[] }>; format?: string };
+    expect(visionBody.model).toBe('gemma3:4b');
+    expect(visionBody.messages[0].images).toEqual(['aGVsbG8=']);
+    expect(visionBody.messages[0].content).toContain('Transcris tout le texte lisible');
+    expect(visionBody.format).toBeUndefined();
+
+    const analysisBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { model: string; messages: Array<{ content: string; images?: string[] }>; format?: string };
+    expect(analysisBody.model).toBe('qwen3.5:4b');
+    expect(analysisBody.messages[0].content).toContain('Transcription fidèle de la copie');
+    expect(analysisBody.messages[0].content).toContain('BARÈME (JSON)');
+    expect(analysisBody.messages[0].images).toBeUndefined();
+    expect(analysisBody.format).toBe('json');
+    expect(stages).toEqual(['reading', 'grading']);
+  });
 });
