@@ -13,12 +13,17 @@ export interface GradingRequest {
 
 export interface GradingProvider {
   readonly id: string;
-  generate(request: GradingRequest, onChunk?: (chunk: string) => void): Promise<string>;
+  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void): Promise<string>;
 }
 
 export interface OllamaSettings {
   endpoint: string;
-  model: string;
+  /** Legacy single-model mode remains supported for existing integrations. */
+  model?: string;
+  /** Vision-capable model used only to transcribe each page locally. */
+  visionModel?: string;
+  /** Text model used to grade the transcription against the rubric. */
+  analysisModel?: string;
 }
 
 export interface OllamaModel {
