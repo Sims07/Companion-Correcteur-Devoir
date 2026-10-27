@@ -215,10 +215,25 @@ export function App() {
 
       {proposal && <section className="review-section">
         <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{pendingCount} À VÉRIFIER</span></div>
-        <div className="summary-card"><div><span>Total proposé</span><strong>{proposal.totalPoints} / {validation.maximumPoints}</strong></div><div><span>Total validé</span><strong>{reviewedTotal} / {validation.maximumPoints}</strong></div><div><span>Confiance</span><strong>{proposal.overallConfidence}</strong></div></div>
-        <div className="review-list">{review.map((item) => <article className="review-card" key={item.criterionId}><div><h3>{item.criterionTitle}</h3><p>{item.rationale}</p>{item.evidence && <blockquote>{item.evidence}</blockquote>}</div><label>Points<input type="number" min="0" max={item.maxPoints} step="0.5" value={item.teacherPoints} onChange={(event) => updateReview(item.criterionId, { teacherPoints: Number(event.target.value), decision: 'adjusted' })} /></label></article>)}</div>
-        <div className="teacher-actions"><button className="primary-button" onClick={decideAll}>Valider les propositions non modifiées</button><label className="field-label" htmlFor="teacher-questions">Questions / points à vérifier</label><textarea id="teacher-questions" rows={4} value={teacherQuestions} onChange={(event) => setTeacherQuestions(event.target.value)} /><p>{reviewMessage}</p></div>
+        <div className="summary-panel"><strong>Synthèse de l’assistant</strong><p>{proposal.summary}</p><span>Note proposée : {proposal.criteria.reduce((sum, item) => sum + item.points, 0)} / {validation.maximumPoints} points</span></div>
+        {review.map((item) => {
+          const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
+          return <article className="panel review-card" key={item.criterionId}>
+            <div className="review-card-heading"><div><h3>{criterion?.title ?? item.criterionId}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div><span className={`confidence confidence-${item.confidence}`}>Confiance {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</span></div>
+            <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p></div>
+            <p className="rationale">{item.rationale}</p>
+            {item.questionForTeacher && <p className="teacher-question"><strong>Question de l’assistant :</strong> {item.questionForTeacher}</p>}
+            <div className="review-controls">
+              <label><span className="field-label">Votre note</span><input type="number" min="0" max={criterion?.maxPoints ?? 0} step="0.5" value={item.teacherPoints} onChange={(event) => updateReview(item.criterionId, { teacherPoints: Number(event.target.value), decision: 'adjusted' })} /></label>
+              <label className="comment-field"><span className="field-label">Commentaire enseignant</span><input value={item.teacherComment} onChange={(event) => updateReview(item.criterionId, { teacherComment: event.target.value })} placeholder="Précision ou correction éventuelle" /></label>
+              <button className={item.decision === 'accepted' ? 'decision-button accepted' : 'decision-button'} onClick={() => updateReview(item.criterionId, { decision: item.decision === 'accepted' ? 'pending' : 'accepted' })}>{item.decision === 'accepted' ? '✓ Accepté' : item.decision === 'adjusted' ? 'Note ajustée' : 'Accepter'}</button>
+            </div>
+          </article>;
+        })}
+        <div className="panel final-review"><div><span className="eyebrow">RÉCAPITULATIF ENSEIGNANT</span><h3>{reviewedTotal} / {validation.maximumPoints} points</h3><p>{pendingCount} critère(s) encore en attente de validation.</p></div><label className="questions-field"><span className="field-label">Questions à résoudre avant validation</span><textarea rows={3} value={teacherQuestions} onChange={(event) => setTeacherQuestions(event.target.value)} placeholder="Questions signalées par l’assistant…" /></label><button className="primary-button" onClick={decideAll}>Accepter les propositions non modifiées</button><button className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal.summary, criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil. Vérifiez les questions ouvertes avant toute utilisation de la note.'); }}>Exporter le récapitulatif JSON</button>{reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}</div>
       </section>}
+
+      <footer><span>Compagnon Correcteur de Devoirs</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>
     </main>
   );
 }
