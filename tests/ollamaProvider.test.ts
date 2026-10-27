@@ -21,6 +21,7 @@ describe('Ollama adapter', () => {
       method: 'POST',
       body: expect.stringContaining('"stream":false'),
     }));
+    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"think":false');
     expect(String(fetchMock.mock.calls[0][1]?.body)).not.toContain('"images"');
   });
 
@@ -29,8 +30,7 @@ describe('Ollama adapter', () => {
     await expect(checkOllamaReady({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock)).rejects.toThrow(/n’a pas répondu/);
   });
 
-
-  it('sends the configured model, local image and JSON mode to the configured endpoint', async () => {
+  it('sends the configured model, local image, JSON mode and disabled thinking to the configured endpoint', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('{"criteria":[]}'));
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434/', model: 'llava' }, fetchMock);
     await expect(provider.generate(request)).resolves.toBe('{"criteria":[]}');
@@ -41,6 +41,7 @@ describe('Ollama adapter', () => {
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"images":["aGVsbG8="]');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"format":"json"');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"stream":true');
+    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"think":false');
   });
 
   it('emits response chunks as they arrive', async () => {
@@ -63,7 +64,6 @@ describe('Ollama adapter', () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 503 }));
     await expect(createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock).generate(request)).rejects.toThrow(/503/);
   });
-
 
   it('explains when the browser loses the Ollama connection during grading', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch'));
