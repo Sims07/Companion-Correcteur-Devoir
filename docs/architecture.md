@@ -1,31 +1,33 @@
-# Architecture initiale
+# Architecture — Companion Correcteur Devoir
 
-## Objectif
+## Stack et structure
 
-Construire un assistant de correction pour les enseignants en biologie, avec contrôle enseignant explicite et traitement local par défaut.
+Le projet suit la stack d'Enterprise Capacity Mapper : React, TypeScript, Vite et Vitest. La logique métier est isolée des composants React et des adaptateurs techniques.
 
-## Principes de conception
+- `src/domain/` : contrats et règles métier pures (barèmes, critères, suggestions de correction).
+- `src/application/` : orchestration des cas d'usage.
+- `src/ports/` : interfaces typées des fournisseurs IA et du traitement documentaire.
+- `src/adapters/ai/` : adaptateurs de fournisseurs, en commençant par Ollama.
+- `src/components/` : interface React.
+- `tests/` : tests unitaires reproductibles sans réseau ni modèle local.
 
-- **Local-first** : les photos, les extractions OCR et les retours de correction ne doivent pas quitter le poste local sans action explicite de l'enseignant.
-- **Ollama configurable** : le futur adaptateur LLM utilisera une URL locale et un modèle configurables. Aucun fournisseur cloud ne sera activé par défaut.
-- **Barème explicite** : les critères et leurs points sont des données structurées validées côté serveur.
-- **Incertitude visible** : toute suggestion peu sûre ou nécessitant une interprétation sera marquée pour relecture et pourra poser une question à l'enseignant.
-- **Décision humaine** : aucune note finale n'est publiée automatiquement.
-- **Traçabilité** : les suggestions devront conserver justification, version du barème et validation/correction humaine.
+## Flux cible
 
-## Étapes proposées
+1. L'enseignant importe les photos localement et choisit un barème.
+2. Un traitement local prépare les pages et, si disponible, extrait le texte via OCR.
+3. Un modèle vision local ou un pipeline OCR/LLM propose une évaluation critère par critère.
+4. Chaque proposition contient les éléments de preuve, les points proposés et un niveau d'incertitude.
+5. Les réponses incertaines déclenchent une question ou une demande de revue.
+6. L'enseignant confirme ou modifie les propositions avant toute note finale.
 
-1. Socle API et validation des barèmes (cette PR).
-2. Configuration et contrôle de disponibilité d'Ollama, avec tests simulés.
-3. Import local des images et prétraitement sans téléversement.
-4. OCR/vision locale et extraction structurée avec indicateurs de confiance.
-5. Comparaison au barème, questions de clarification et interface de relecture.
-6. Export des résultats après validation de l'enseignant.
+## Confidentialité
 
-## Sécurité et confidentialité
+- Aucun appel cloud n'est implémenté dans cette fondation.
+- Le futur adaptateur Ollama utilise une URL locale configurable, par défaut `http://localhost:11434`.
+- Pas de repli automatique vers le cloud si Ollama est indisponible.
+- Les images, OCR, prompts et corrections ne doivent pas être envoyés à un service distant par défaut.
+- Les résultats générés restent des suggestions non fiables tant que l'enseignant ne les a pas validés.
 
-Ne pas journaliser le contenu des copies, les images, les noms d'étudiants ni les réponses complètes. Les futurs tests doivent vérifier que les traitements locaux ne font aucun appel réseau externe. Les limites de confidentialité devront être documentées, notamment les journaux, les sauvegardes et la configuration du modèle.
+## État de cette fondation
 
-## État actuel
-
-Cette première base ne reçoit ni ne stocke de copies et n'appelle pas Ollama. Elle expose un contrôle de santé et un endpoint de validation des barèmes.
+L'interface affiche un premier écran de cadrage et vérifie localement la cohérence d'un barème. Les images, l'OCR, le stockage des copies et l'appel Ollama seront implémentés dans des PR dédiées.
