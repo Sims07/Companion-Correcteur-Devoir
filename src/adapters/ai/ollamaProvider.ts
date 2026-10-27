@@ -94,9 +94,29 @@ export function createOllamaProvider(
       if (!request.question.trim()) throw new Error('La consigne de correction est vide.');
       if (!request.transcription && !request.images?.length) throw new Error('Ajoutez au moins une photo ou un PDF avant de lancer la correction.');
 
-      const buildPrompt = (transcription?: string) => [
+      const buildPrompt = (transcription?: string) => {
+        // Give the model the real IDs explicitly: generic schema placeholders such as
+        // "identifiant exact" can be copied literally by smaller instruction-tuned models.
+        let rubricCriteria: Array<{ id: string; title: string }> = [];
+        try {
+          const parsedRubric: unknown = JSON.parse(request.rubric);
+          if (typeof parsedRubric === 'object' && parsedRubric !== null && 'criteria' in parsedRubric && Array.isArray(parsedRubric.criteria)) {
+            rubricCriteria = parsedRubric.criteria
+              .filter((criterion): criterion is { id: string; title: string } =>
+                typeof criterion === 'object' && criterion !== null &&
+                'id' in criterion && typeof criterion.id === 'string' &&
+                'title' in criterion && typeof criterion.title === 'string')
+              .map(({ id, title }) => ({ id, title }));
+          }
+        } catch {
+          // Keep the general instructions if a legacy caller supplies a non-JSON rubric.
+        }
+        const allowedCriterionIds = rubricCriteria.map((criterion) => criterion.id);
+        const exampleCriterionId = allowedCriterionIds[0] ?? 'ID_EXACT_DU_CRITÈRE';
+        return [
         'RÔLE : tu assistes un enseignant universitaire en biologie. Tu proposes une correction, tu ne prends jamais la décision finale.',
-        'CONTRAT DE SORTIE : retourne uniquement un objet JSON valide conforme au schéma fourni. Pas de Markdown, pas de texte avant ou après. Utilise les identifiants de critères exactement tels qu’ils apparaissent dans le barème.',
+        'CONTRAT DE SORTIE : retourne uniquement un objet JSON valide conforme au schéma fourni. Pas de Markdown, pas de texte avant ou après. Utilise les identifiants de critères exactement tels qu’ils apparaissent dans le barème. Ne copie jamais les libellés d’exemple ou les mots explicatifs à la place d’un identifiant.',
+        `IDENTIFIANTS DE CRITÈRES AUTORISÉS (à recopier à l’identique dans criterionId, sans traduction ni modification) : ${JSON.stringify(allowedCriterionIds)}. Chaque entrée criteria doit utiliser l’un de ces identifiants, et aucun autre.`,
         'FIDÉLITÉ AU BARÈME : évalue chaque critère séparément selon sa description et son maximum de points. N’ajoute, ne fusionne et ne supprime aucun critère. N’invente pas de sous-critères, de pénalités ou d’attendus absents du barème. Ne pénalise l’orthographe ou la formulation que si le barème le prévoit. Accepte une formulation scientifiquement équivalente lorsqu’elle exprime correctement la notion attendue.',
         'LECTURE DE LA COPIE : commence par identifier ce qui est réellement lisible dans la copie, puis évalue cette réponse avec le barème. N’infère pas qu’un élément est présent s’il est absent, coupé ou illisible. Ne confonds pas une mauvaise lecture de l’écriture manuscrite avec une erreur scientifique. Pour les schémas, légendes, symboles, unités et formules, ne décris que ce que tu peux réellement distinguer. Une réponse substantielle visible ne doit pas être notée zéro simplement parce qu’elle est formulée autrement que prévu.',
         'JUSTIFICATION : pour chaque critère, donne une rationale concise expliquant le lien entre la réponse observée et le barème, et une evidence courte, fidèle et repérable dans la copie. Si aucune preuve textuelle fiable ne peut être citée, dis-le explicitement dans evidence ; ne fabrique jamais de citation.',
@@ -106,13 +126,14 @@ export function createOllamaProvider(
         'INCERTITUDE : utilise confidence="low" uniquement pour le critère réellement incertain. Explique précisément ce qui est incertain. Pose une question au professeur uniquement si une ambiguïté concrète, identifiable et susceptible de changer la note doit être tranchée. La question doit citer cette ambiguïté. N’écris jamais des questions génériques comme « pouvez-vous vérifier ce critère ? ». Si aucun point précis ne nécessite de clarification, laisse questionForTeacher vide et questionsForTeacher vide. Une confiance faible n’impose pas à elle seule une question.',
         'EXHAUSTIVITÉ ET COHÉRENCE : retourne exactement une entrée pour chaque critère du barème, sans doublon ni identifiant inconnu. Si la copie ne contient pas de réponse identifiable pour un critère, évalue seulement ce que le barème autorise et explique l’absence de preuve ; si tu ne peux pas déterminer si une réponse est absente ou illisible, demande confirmation.',
         'AUTO-VÉRIFICATION AVANT RÉPONSE : relis chaque note et vérifie qu’elle est soutenue par une preuve concrète. Pour chaque note maximale, vérifie explicitement que tous les attendus du critère sont démontrés. Vérifie que la somme des points ne dépasse pas le total du barème et que la synthèse ne prétend pas que la réponse est complète si des attendus manquent.',
-        'SCHÉMA JSON : {"summary":"résumé prudent","criteria":[{"criterionId":"identifiant exact","points":0,"rationale":"justification liée au barème, avec éléments présents et manquants","evidence":"preuve observable ou limite de lecture explicite","confidence":"low|medium|high","questionForTeacher":""}],"questionsForTeacher":[]}. summary doit signaler que la proposition est à vérifier. questionForTeacher peut être une chaîne vide si aucune clarification n’est nécessaire.',
+        `SCHÉMA JSON : ${JSON.stringify({ summary: 'résumé prudent', criteria: [{ criterionId: exampleCriterionId, points: 0, rationale: 'justification liée au barème, avec éléments présents et manquants', evidence: 'preuve observable ou limite de lecture explicite', confidence: 'low', questionForTeacher: '' }], questionsForTeacher: [] })}. Utilise pour chaque critère son propre identifiant exact dans la liste autorisée, pas systématiquement l’identifiant d’exemple. summary doit signaler que la proposition est à vérifier. questionForTeacher peut être une chaîne vide si aucune clarification n’est nécessaire.`,
         'La note et les explications sont des propositions de travail, jamais une validation définitive. N’affirme pas avoir vérifié un élément que tu ne peux pas lire.',
         ...(transcription ? ['SOURCE DE LA COPIE : tu ne reçois pas les images originales mais leur transcription locale. Base tes preuves sur ce texte uniquement. Si une partie est marquée [illisible], ne devine pas son contenu ; signale si cette limite peut changer la note. Ne prétends pas avoir observé directement une image, un schéma ou une écriture.'] : []),
         ...(transcription ? [`TRANSCRIPTION DES COPIES (modèle de lecture, à traiter comme preuve textuelle et non comme corrigé) :\n${transcription}`] : []),
         `BARÈME (JSON) :\n${request.rubric}`,
         `CONSIGNE DE L’ENSEIGNANT :\n${request.question}`,
       ].join('\n\n');
+      };
 
       async function sendStream(model: string, content: string, images?: string[], streamChunk?: (chunk: string) => void, json = false, think = false): Promise<string> {
         let response: Response;
