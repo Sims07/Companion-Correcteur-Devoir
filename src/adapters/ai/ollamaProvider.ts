@@ -15,6 +15,29 @@ function normalizedEndpoint(endpoint: string): string {
   return value;
 }
 
+
+/** Sends a small text-only request first so the UI can confirm that the selected model actually responds. */
+export async function checkOllamaReady(
+  settings: OllamaSettings,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const endpoint = normalizedEndpoint(settings.endpoint);
+  if (!settings.model.trim()) throw new Error('Choisissez un modèle Ollama.');
+  const response = await fetchImpl(`${endpoint}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: settings.model,
+      stream: false,
+      messages: [{ role: 'user', content: 'Ceci est un test de disponibilité, aucune copie à analyser. Réponds uniquement par le mot PRÊT.' }],
+    }),
+  });
+  if (!response.ok) throw new Error(`Le test de disponibilité Ollama a échoué (HTTP ${response.status}).`);
+  const data = await response.json() as OllamaChatResponse;
+  if (data.error) throw new Error('Ollama signale une erreur pendant le test de disponibilité.');
+  if (!data.message?.content?.trim()) throw new Error('Le modèle Ollama n’a pas répondu au test de disponibilité.');
+}
+
 export async function listOllamaModels(endpoint: string, fetchImpl: typeof fetch = fetch): Promise<OllamaModel[]> {
   const response = await fetchImpl(`${normalizedEndpoint(endpoint)}/api/tags`);
   if (!response.ok) throw new Error(`Connexion Ollama impossible (HTTP ${response.status}). Vérifiez Ollama et ses autorisations CORS.`);
