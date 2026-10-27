@@ -30,7 +30,7 @@ describe('Ollama adapter', () => {
     await expect(checkOllamaReady({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock)).rejects.toThrow(/n’a pas répondu/);
   });
 
-  it('sends the configured model, local image, JSON mode and disabled thinking to the configured endpoint', async () => {
+  it('sends the configured model, local image, JSON mode and enabled thinking to the configured endpoint', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('{"criteria":[]}'));
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434/', model: 'llava' }, fetchMock);
     await expect(provider.generate(request)).resolves.toBe('{"criteria":[]}');
@@ -41,7 +41,7 @@ describe('Ollama adapter', () => {
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"images":["aGVsbG8="]');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"format":"json"');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"stream":true');
-    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"think":false');
+    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"think":true');
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { messages: Array<{ content: string }> };
     expect(body.messages[0].content).toContain('ne donne jamais automatiquement le maximum');
     expect(body.messages[0].content).toContain('tous les attendus du critère sont démontrés');
@@ -95,18 +95,20 @@ describe('Ollama adapter', () => {
     await expect(provider.generate(request, undefined, (stage) => stages.push(stage))).resolves.toBe('{"criteria":[]}');
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    const visionBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { model: string; messages: Array<{ content: string; images?: string[] }>; format?: string };
+    const visionBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { model: string; messages: Array<{ content: string; images?: string[] }>; format?: string; think?: boolean };
     expect(visionBody.model).toBe('gemma3:4b');
     expect(visionBody.messages[0].images).toEqual(['aGVsbG8=']);
     expect(visionBody.messages[0].content).toContain('Transcris tout le texte lisible');
     expect(visionBody.format).toBeUndefined();
+    expect(visionBody.think).toBe(false);
 
-    const analysisBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { model: string; messages: Array<{ content: string; images?: string[] }>; format?: string };
+    const analysisBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { model: string; messages: Array<{ content: string; images?: string[] }>; format?: string; think?: boolean };
     expect(analysisBody.model).toBe('qwen3.5:4b');
     expect(analysisBody.messages[0].content).toContain('Transcription fidèle de la copie');
     expect(analysisBody.messages[0].content).toContain('BARÈME (JSON)');
     expect(analysisBody.messages[0].images).toBeUndefined();
     expect(analysisBody.format).toBe('json');
+    expect(analysisBody.think).toBe(true);
     expect(stages).toEqual(['reading', 'grading']);
   });
 });
