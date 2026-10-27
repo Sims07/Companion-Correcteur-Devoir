@@ -1,0 +1,304 @@
+import { useEffect, useMemo, useState } from 'react';
+import { checkOllamaReady, createOllamaProvider, listOllamaModels } from '../adapters/ai/ollamaProvider.ts';
+import { prepareLocalFiles } from '../adapters/files/localFiles.ts';
+import { importRubricFile } from '../adapters/files/rubricImport.ts';
+import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion } from '../domain/grading.ts';
+import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
+import type { ImageInput } from '../ports/aiProvider.ts';
+
+const initialRubric: Rubric = {
+  title: 'Barème de biologie — exemple',
+  criteria: [
+    { id: 'knowledge', title: 'Connaissances scientifiques', description: 'Exactitude des notions et du vocabulaire.', maxPoints: 8 },
+    { id: 'reasoning', title: 'Raisonnement', description: 'Qualité de l’argumentation et des liens logiques.', maxPoints: 7 },
+    { id: 'clarity', title: 'Clarté de la réponse', description: 'Structure et lisibilité de la réponse.', maxPoints: 5 },
+  ],
+};
+
+const defaultQuestion = 'Évaluez la réponse manuscrite à la question de biologie. Justifiez chaque attribution de points à partir des éléments visibles de la copie.';
+
+function formatElapsed(seconds: number): string {
+  const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const remainingSeconds = (seconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${remainingSeconds}`;
+}
+
+function rubricAsJson(rubric: Rubric): string {
+  return JSON.stringify(rubric, null, 2);
+}
+
+export function App() {
+  const [rubric, setRubric] = useState<Rubric>(initialRubric);
+  const [rubricImportMessage, setRubricImportMessage] = useState('');
+  const [question, setQuestion] = useState(defaultQuestion);
+  const [endpoint, setEndpoint] = useState('http://localhost:11434');
+  const [visionModel, setVisionModel] = useState('');
+  const [analysisModel, setAnalysisModel] = useState('');
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [images, setImages] = useState<ImageInput[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [streamedOutput, setStreamedOutput] = useState('');
+  const [connectionMessage, setConnectionMessage] = useState('');
+  const [error, setError] = useState('');
+  const [proposal, setProposal] = useState<GradingProposal | null>(null);
+  const [review, setReview] = useState<ReviewedCriterion[]>([]);
+  const [teacherQuestions, setTeacherQuestions] = useState('');
+  const [reviewMessage, setReviewMessage] = useState('');
+  const [isFinalized, setIsFinalized] = useState(false);
+  const validation = useMemo(() => validateRubric(rubric), [rubric]);
+  const reviewedTotal = review.reduce((sum, item) => sum + item.teacherPoints, 0);
+  const pendingCount = review.filter((item) => item.decision === 'pending').length;
+
+  useEffect(() => {
+    if (!isAnalyzing) return;
+    const startedAt = Date.now();
+    setElapsedSeconds(0);
+    const timer = window.setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isAnalyzing]);
+
+  function updateCriterion(id: string, patch: Partial<RubricCriterion>) {
+    setRubric((current) => ({ ...current, criteria: current.criteria.map((criterion) => criterion.id === id ? { ...criterion, ...patch } : criterion) }));
+    setProposal(null);
+    setReview([]);
+  }
+
+  function addCriterion() {
+    const id = `criterion-${Date.now()}`;
+    setRubric((current) => ({ ...current, criteria: [...current.criteria, { id, title: 'Nouveau critère', description: '', maxPoints: 1 }] }));
+  }
+
+  async function importRubricFileFromInput(file: File | undefined) {
+    if (!file) return;
+    setError('');
+    setRubricImportMessage('');
+    try {
+      const imported = await importRubricFile(file);
+      setRubric(imported.rubric);
+      setProposal(null);
+      setReview([]);
+      setTeacherQuestions('');
+      setRubricImportMessage(imported.warnings.length ? imported.warnings.join(' ') : `Barème « ${imported.rubric.title} » importé. Vérifiez les critères et le total avant de lancer la correction.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible d’importer ce barème localement.');
+    }
+  }
+
+  async function importFiles(files: FileList | null) {
+    if (!files?.length) return;
+    setError('');
+    setReviewMessage('');
+    try {
+      const prepared = await prepareLocalFiles(files);
+      setImages((current) => [...current, ...prepared]);
+      setProposal(null);
+      setReview([]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Échec de préparation des fichiers en local.');
+    }
+  }
+
+  async function connectOllama() {
+    setBusy(true);
+    setError('');
+    setConnectionMessage('');
+    try {
+      const models = await listOllamaModels(endpoint);
+      setAvailableModels(models.map((item) => item.name));
+      if (!visionModel && models[0]) setVisionModel(models[0].name);
+      if (!analysisModel && models[0]) setAnalysisModel(models[0].name);
+      setConnectionMessage(models.length ? `Connexion réussie · ${models.length} modèle(s) disponible(s). Choisissez un modèle de vision pour la lecture et un modèle textuel pour l’analyse.` : 'Connexion réussie, mais aucun modèle installé. Installez un modèle compatible avec les images et un modèle pour l’analyse.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Connexion à Ollama impossible.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function gradeCopies() {
+    setBusy(true);
+    setIsAnalyzing(true);
+    setAnalysisStage('checking');
+    setStreamedOutput('');
+    setError('');
+    setReviewMessage('');
+    setIsFinalized(false);
+    try {
+      if (!validation.valid) throw new Error(validation.errors.join(' '));
+      if (!images.length) throw new Error('Importez au moins une photo ou un PDF.');
+      await checkOllamaReady({ endpoint, model: visionModel });
+      await checkOllamaReady({ endpoint, model: analysisModel });
+      setAnalysisStage('reading');
+      const provider = createOllamaProvider({ endpoint, visionModel, analysisModel });
+      const raw = await provider.generate(
+        { question, rubric: rubricAsJson(rubric), images },
+        (chunk) => setStreamedOutput((current) => current + chunk),
+        (stage) => { setAnalysisStage(stage); if (stage === 'grading') setStreamedOutput(''); },
+      );
+      const parsed = parseGradingProposal(raw, rubric);
+      setProposal(parsed);
+      setReview(toReviewedCriteria(parsed));
+      setTeacherQuestions(parsed.questionsForTeacher.join('\n'));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
+    } finally {
+      setIsAnalyzing(false);
+      setBusy(false);
+    }
+  }
+
+  function updateReview(id: string, patch: Partial<ReviewedCriterion>) {
+    setIsFinalized(false);
+    setReviewMessage('');
+    setReview((current) => current.map((item) => item.criterionId === id ? { ...item, ...patch } : item));
+  }
+
+  function finalizeReview() {
+    if (pendingCount > 0) {
+      setReviewMessage(`Impossible de finaliser : ${pendingCount} critère(s) attendent encore votre décision.`);
+      return;
+    }
+    setIsFinalized(true);
+    setReviewMessage(teacherQuestions.trim()
+      ? 'Correction finalisée sur cet appareil. Vérifiez les questions ouvertes avant de communiquer la note.'
+      : 'Correction finalisée sur cet appareil. Vous pouvez maintenant exporter le résultat en JSON.');
+  }
+
+  function decideAll() {
+    setIsFinalized(false);
+    setReviewMessage('');
+    setReview((current) => current.map((item) => ({ ...item, decision: item.decision === 'adjusted' ? 'adjusted' : 'accepted' })));
+    setReviewMessage('Les propositions non modifiées sont marquées comme acceptées par l’enseignant. Pensez à traiter les questions ouvertes.');
+  }
+
+  return (
+    <main className="app-shell">
+      <header className="topbar">
+        <div className="brand-mark" aria-hidden="true">CC</div>
+        <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
+        <span className="local-badge"><span /> Mode local prioritaire</span>
+      </header>
+
+      <section className="welcome">
+        <div className="welcome-copy">
+          <p className="eyebrow">ESPACE ENSEIGNANT · BIOLOGIE</p>
+          <h2>Une correction plus claire.<br /><em>Vous gardez la décision.</em></h2>
+          <p className="intro">Importez les copies, appliquez votre barème et révisez chaque proposition. L’assistant signale ses incertitudes ; aucune note n’est validée automatiquement.</p>
+        </div>
+        <div className="illustration" aria-hidden="true"><div className="paper"><span /><span /><span /><b>✓</b></div><div className="leaf leaf-one" /><div className="leaf leaf-two" /></div>
+      </section>
+
+      <section className="privacy-strip">
+        <span className="privacy-icon">⌂</span>
+        <div><strong>Traitement local, sans repli cloud</strong><p>Les fichiers sont lus et préparés dans votre navigateur, puis envoyés uniquement à l’adresse Ollama que vous configurez. Aucun stockage distant ni envoi vers un fournisseur cloud n’est prévu.</p></div>
+        <span className="privacy-status">OLLAMA LOCAL</span>
+      </section>
+
+      <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 1</p><h2>Configurer le barème</h2></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
+      <section className="panel rubric-editor">
+        <label className="field-label" htmlFor="rubric-title">Nom du barème</label>
+        <input id="rubric-title" value={rubric.title} onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
+        <div className="rubric-import">
+          <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Word (.docx), Excel (.xlsx), CSV, TXT ou JSON)</label>
+          <input id="rubric-file" type="file" accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.json" onChange={(event) => { void importRubricFileFromInput(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} />
+          <p className="hint">Le fichier est analysé dans ce navigateur. Vérifiez toujours les critères, les points et le total : l’extraction automatique peut manquer des sous-critères.</p>
+          {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
+        </div>
+        <div className="criteria-list">
+          {rubric.criteria.map((criterion) => <div className="criterion-editor" key={criterion.id}>
+            <div className="criterion-fields">
+              <label><span className="field-label">Critère</span><input value={criterion.title} onChange={(event) => updateCriterion(criterion.id, { title: event.target.value })} /></label>
+              <label><span className="field-label">Description / attendus</span><input value={criterion.description} onChange={(event) => updateCriterion(criterion.id, { description: event.target.value })} /></label>
+            </div>
+            <label className="points-field"><span className="field-label">Points max.</span><input type="number" min="0" step="0.5" value={criterion.maxPoints} onChange={(event) => updateCriterion(criterion.id, { maxPoints: Number(event.target.value) })} /></label>
+            <button className="icon-button" type="button" aria-label={`Supprimer ${criterion.title}`} onClick={() => setRubric((current) => ({ ...current, criteria: current.criteria.filter((item) => item.id !== criterion.id) }))}>×</button>
+          </div>)}
+        </div>
+        <div className="rubric-actions"><button className="secondary-button" onClick={addCriterion}>+ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
+      </section>
+
+      <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 2</p><h2>Importer les copies et configurer l’IA</h2></div><span className="step-count">{images.length} IMAGE(S) PRÉPARÉE(S)</span></div>
+      <section className="setup-grid">
+        <article className="panel copy-panel">
+          <div className="panel-heading"><span className="number">02</span><div><h3>Copies à corriger</h3><p>Photos, scans ou PDF multipages.</p></div></div>
+          <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les copies</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les fichiers</span><span className="upload-note">Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
+          <input id="copy-files" className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onChange={(event) => { void importFiles(event.target.files); event.currentTarget.value = ''; }} />
+          {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button className="text-button" onClick={() => setImages((current) => current.filter((_, imageIndex) => imageIndex !== index))}>Retirer</button></div>)}<button className="text-button" onClick={() => setImages([])}>Retirer toutes les pages</button></div>}
+        </article>
+        <article className="panel ollama-panel">
+          <div className="panel-heading"><span className="number">03</span><div><h3>Modèle local Ollama</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
+          <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur</label>
+          <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder="http://localhost:11434" />
+          <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture (vision)</label>
+          {availableModels.length > 0 ? <select id="ollama-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="ex. gemma3:4b, qwen2.5vl" />}
+          <p className="hint">Ce modèle lit les images et transcrit la copie sans la corriger.</p>
+          <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
+          {availableModels.length > 0 ? <select id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="ex. qwen3.5:4b, phi4-mini" />
+          }
+          <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
+          {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
+          <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p>
+        </article>
+      </section>
+
+      <section className="panel question-panel">
+        <label className="field-label" htmlFor="grading-question">Consigne / question de l’exercice</label>
+        <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
+        <button className="primary-button grade-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid} onClick={() => void gradeCopies()}>{busy ? 'Analyse locale en cours…' : 'Lire puis analyser les copies'}</button>
+      </section>
+
+      {isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
+        <div className="analysis-spinner" aria-hidden="true" />
+        <div className="analysis-progress-copy">
+          <p className="eyebrow">TRAITEMENT LOCAL · 2 ÉTAPES</p>
+          <div className="analysis-steps" aria-label="Étapes de la correction">
+            <div className={'analysis-step ' + (analysisStage === 'reading' ? 'current' : analysisStage === 'grading' ? 'complete' : '')} aria-current={analysisStage === 'reading' ? 'step' : undefined}>
+              <span className="analysis-step-number">{analysisStage === 'grading' ? '✓' : '1'}</span>
+              <div><strong>Lire l’image</strong><small>{analysisStage === 'checking' ? 'En attente' : analysisStage === 'reading' ? 'Lecture en cours…' : 'Lecture terminée'}</small></div>
+            </div>
+            <div className={'analysis-step ' + (analysisStage === 'grading' ? 'current' : '')} aria-current={analysisStage === 'grading' ? 'step' : undefined}>
+              <span className="analysis-step-number">2</span>
+              <div><strong>Analyser et noter</strong><small>{analysisStage === 'checking' || analysisStage === 'reading' ? 'À venir' : 'Analyse en cours…'}</small></div>
+            </div>
+          </div>
+          <h3>{analysisStage === 'checking' ? 'Vérification des modèles Ollama…' : analysisStage === 'reading' ? 'Étape 1/2 — Lecture des images et transcription…' : 'Étape 2/2 — Analyse du contenu et attribution des points…'}</h3>
+          <p>{analysisStage === 'checking' ? 'Je vérifie que les deux modèles répondent, sans joindre de copie.' : analysisStage === 'reading' ? 'Le modèle de lecture transcrit chaque page localement. La transcription s’affiche au fil du streaming.' : 'Le modèle d’analyse applique le barème à la transcription. La proposition de correction arrive en streaming.'}</p>
+          {streamedOutput && <div className="streaming-preview" aria-live="polite"><strong>Réponse reçue en streaming</strong><pre>{streamedOutput}</pre></div>}
+          {elapsedSeconds >= 30 && <p className="analysis-long-wait">Cette analyse prend du temps : certains modèles locaux nécessitent plusieurs minutes, notamment avec plusieurs pages. Le temps affiché continue de mesurer l’attente.</p>}
+        </div>
+        <div className="analysis-timer" aria-label={`Temps écoulé : ${formatElapsed(elapsedSeconds)}`}>
+          <span>TEMPS ÉCOULÉ</span><strong>{formatElapsed(elapsedSeconds)}</strong>
+        </div>
+      </section>}
+
+      {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
+
+      {proposal && <section className="review-section">
+        <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{pendingCount} À VÉRIFIER</span></div>
+        <div className="summary-panel"><strong>Synthèse de l’assistant</strong><p>{proposal.summary}</p><span>Note proposée : {proposal.criteria.reduce((sum, item) => sum + item.points, 0)} / {validation.maximumPoints} points</span></div>
+        {review.map((item) => {
+          const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
+          return <article className="panel review-card" key={item.criterionId}>
+            <div className="review-card-heading"><div><h3>{criterion?.title ?? item.criterionId}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div><span className={`confidence confidence-${item.confidence}`}>Confiance {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</span></div>
+            <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p></div>
+            <p className="rationale">{item.rationale}</p>
+            {item.confidence === 'low' && <p className="teacher-question"><strong>Lecture à vérifier :</strong> {item.questionForTeacher || 'Le modèle est incertain sur ce critère. Vérifiez la preuve citée et la note proposée ; aucune question précise ne peut être formulée automatiquement.'}</p>}
+            <div className="review-controls">
+              <label><span className="field-label">Votre note</span><input type="number" min="0" max={criterion?.maxPoints ?? 0} step="0.5" value={item.teacherPoints} onChange={(event) => updateReview(item.criterionId, { teacherPoints: Number(event.target.value), decision: 'adjusted' })} /></label>
+              <label className="comment-field"><span className="field-label">Commentaire enseignant</span><input value={item.teacherComment} onChange={(event) => updateReview(item.criterionId, { teacherComment: event.target.value })} placeholder="Précision ou correction éventuelle" /></label>
+              <button className={item.decision === 'accepted' ? 'decision-button accepted' : 'decision-button'} onClick={() => updateReview(item.criterionId, { decision: item.decision === 'accepted' ? 'pending' : 'accepted' })}>{item.decision === 'accepted' ? '✓ Accepté' : item.decision === 'adjusted' ? 'Note ajustée' : 'Accepter'}</button>
+            </div>
+          </article>;
+        })}
+        <div className="panel final-review"><div><span className="eyebrow">RÉCAPITULATIF ENSEIGNANT</span><h3>{reviewedTotal} / {validation.maximumPoints} points</h3><p>{pendingCount} critère(s) encore en attente de validation.</p>{isFinalized && <p className="finalized-status" role="status">✓ Correction finalisée localement</p>}</div><div className="questions-field"><span className="field-label">Points précis à clarifier</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question précise à vous soumettre. Vérifiez les éléments signalés comme incertains ci-dessus avant validation.</p>}</div><button className="primary-button" onClick={decideAll}>Accepter les propositions non modifiées</button><button className="primary-button" disabled={pendingCount > 0} onClick={finalizeReview}>Finaliser la correction</button><button className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal.summary, criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil. Vérifiez les questions ouvertes avant toute utilisation de la note.'); }}>{isFinalized ? 'Télécharger la correction finale (JSON)' : 'Exporter le récapitulatif provisoire (JSON)'}</button>{reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}</div>
+      </section>}
+
+      <footer><span>Compagnon Correcteur de Devoirs</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>
+    </main>
+  );
+}

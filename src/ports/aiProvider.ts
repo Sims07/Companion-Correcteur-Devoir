@@ -9,11 +9,13 @@ export interface GradingRequest {
   question: string;
   rubric: string;
   images?: ImageInput[];
+  /** Reuse a previously extracted local transcription to rerun grading without vision inference. */
+  transcription?: string;
 }
 
 export interface GradingProvider {
   readonly id: string;
-  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void): Promise<string>;
+  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string) => void): Promise<string>;
 }
 
 export interface OllamaSettings {

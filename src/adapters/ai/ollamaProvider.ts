@@ -83,7 +83,7 @@ export function createOllamaProvider(
 ): GradingProvider {
   return {
     id: 'ollama',
-    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void): Promise<string> {
+    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string) => void): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
       if (!(settings.visionModel?.trim() || settings.model?.trim()) || !(settings.analysisModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de lecture et un modèle d’analyse.');
       const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
@@ -92,7 +92,7 @@ export function createOllamaProvider(
       if (!visionModel || !analysisModel) throw new Error('Choisissez un modèle de lecture et un modèle d’analyse.');
 
       if (!request.question.trim()) throw new Error('La consigne de correction est vide.');
-      if (!request.images?.length) throw new Error('Ajoutez au moins une photo ou un PDF avant de lancer la correction.');
+      if (!request.transcription && !request.images?.length) throw new Error('Ajoutez au moins une photo ou un PDF avant de lancer la correction.');
 
       const buildPrompt = (transcription?: string) => [
         'RÔLE : tu assistes un enseignant universitaire en biologie. Tu proposes une correction, tu ne prends jamais la décision finale.',
@@ -145,29 +145,34 @@ export function createOllamaProvider(
         return sendStream(analysisModel, buildPrompt(), request.images.map((image) => image.base64), onChunk, true, true);
       }
 
-      onStage?.('reading');
-      const transcriptions: string[] = [];
-      for (const [index, image] of request.images.entries()) {
-        const pageLabel = image.fileName || `page ${index + 1}`;
-        const transcription = await sendStream(
-          visionModel,
-          [
-            'Tu es un outil de transcription fidèle de copies universitaires manuscrites.',
-            'Transcris tout le texte lisible de cette image, dans l’ordre de lecture, en conservant les paragraphes, listes, symboles, unités, formules et légendes.',
-            'Ne corrige pas les erreurs scientifiques ou grammaticales. N’ajoute aucune explication, interprétation, résumé ou notation.',
-            'Si un passage est illisible, indique [illisible] à son emplacement. Ne devine jamais les mots manquants.',
-            `Nom de la page : ${pageLabel}`,
-          ].join('\n\n'),
-          [image.base64],
-          onChunk,
-        );
-        transcriptions.push(`[ ${pageLabel} ]\n${transcription}`);
+      let transcription = request.transcription;
+      if (!transcription) {
+        onStage?.('reading');
+        const transcriptions: string[] = [];
+        for (const [index, image] of (request.images ?? []).entries()) {
+          const pageLabel = image.fileName || `page ${index + 1}`;
+          const pageTranscription = await sendStream(
+            visionModel,
+            [
+              'Tu es un outil de transcription fidèle de copies universitaires manuscrites.',
+              'Transcris tout le texte lisible de cette image, dans l’ordre de lecture, en conservant les paragraphes, listes, symboles, unités, formules et légendes.',
+              'Ne corrige pas les erreurs scientifiques ou grammaticales. N’ajoute aucune explication, interprétation, résumé ou notation.',
+              'Si un passage est illisible, indique [illisible] à son emplacement. Ne devine jamais les mots manquants.',
+              `Nom de la page : ${pageLabel}`,
+            ].join('\n\n'),
+            [image.base64],
+            onChunk,
+          );
+          transcriptions.push(`[ ${pageLabel} ]\n${pageTranscription}`);
+        }
+        transcription = transcriptions.join('\n\n');
+        onTranscription?.(transcription);
       }
 
       onStage?.('grading');
       return sendStream(
         analysisModel,
-        buildPrompt(transcriptions.join('\n\n')),
+        buildPrompt(transcription),
         undefined,
         onChunk,
         true,
