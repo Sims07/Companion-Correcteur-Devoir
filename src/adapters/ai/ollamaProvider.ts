@@ -10,8 +10,8 @@ interface OllamaTagsResponse {
 }
 
 function normalizedEndpoint(endpoint: string): string {
-  const value = endpoint.trim().replace(/\\/+$/, '');
-  if (!/^https?:\\/\\//i.test(value)) throw new Error('L’adresse Ollama doit commencer par http:// ou https://.');
+  const value = endpoint.trim().replace(/\/+$/, '');
+  if (!/^https?:\/\//i.test(value)) throw new Error('L’adresse Ollama doit commencer par http:// ou https://.');
   return value;
 }
 
