@@ -36,6 +36,7 @@ export function App() {
   const [analysisModel, setAnalysisModel] = useState('');
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [images, setImages] = useState<ImageInput[]>([]);
+  const [transcription, setTranscription] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
@@ -96,6 +97,7 @@ export function App() {
     try {
       const prepared = await prepareLocalFiles(files);
       setImages((current) => [...current, ...prepared]);
+      setTranscription(null);
       setProposal(null);
       setReview([]);
     } catch (cause) {
@@ -131,14 +133,15 @@ export function App() {
     try {
       if (!validation.valid) throw new Error(validation.errors.join(' '));
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF.');
-      await checkOllamaReady({ endpoint, model: visionModel });
+      if (!transcription) await checkOllamaReady({ endpoint, model: visionModel });
       await checkOllamaReady({ endpoint, model: analysisModel });
       setAnalysisStage('reading');
       const provider = createOllamaProvider({ endpoint, visionModel, analysisModel });
       const raw = await provider.generate(
-        { question, rubric: rubricAsJson(rubric), images },
+        { question, rubric: rubricAsJson(rubric), images, ...(transcription ? { transcription } : {}) },
         (chunk) => setStreamedOutput((current) => current + chunk),
         (stage) => { setAnalysisStage(stage); if (stage === 'grading') setStreamedOutput(''); },
+        (extracted) => setTranscription(extracted),
       );
       const parsed = parseGradingProposal(raw, rubric);
       setProposal(parsed);
@@ -222,21 +225,21 @@ export function App() {
         <div className="rubric-actions"><button className="secondary-button" onClick={addCriterion}>+ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
       </section>
 
-      <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 2</p><h2>Importer les copies et configurer l’IA</h2></div><span className="step-count">{images.length} IMAGE(S) PRÉPARÉE(S)</span></div>
+      <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 2</p><h2>Importer les copies et configurer l’IA</h2></div><span className="step-count">{images.length} IMAGE(S) PRÉPARÉE(S) · {transcription ? 'TRANSCRIPTION DISPONIBLE' : 'À LIRE'}</span></div>
       <section className="setup-grid">
         <article className="panel copy-panel">
           <div className="panel-heading"><span className="number">02</span><div><h3>Copies à corriger</h3><p>Photos, scans ou PDF multipages.</p></div></div>
           <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les copies</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les fichiers</span><span className="upload-note">Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
           <input id="copy-files" className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onChange={(event) => { void importFiles(event.target.files); event.currentTarget.value = ''; }} />
-          {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button className="text-button" onClick={() => setImages((current) => current.filter((_, imageIndex) => imageIndex !== index))}>Retirer</button></div>)}<button className="text-button" onClick={() => setImages([])}>Retirer toutes les pages</button></div>}
+          {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<button className="text-button" onClick={() => { setImages([]); setTranscription(null); }}>Retirer toutes les pages</button></div>}
         </article>
         <article className="panel ollama-panel">
           <div className="panel-heading"><span className="number">03</span><div><h3>Modèle local Ollama</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
           <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur</label>
-          <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder="http://localhost:11434" />
+          <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
           <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture (vision)</label>
-          {availableModels.length > 0 ? <select id="ollama-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="ex. gemma3:4b, qwen2.5vl" />}
-          <p className="hint">Ce modèle lit les images et transcrit la copie sans la corriger.</p>
+          {availableModels.length > 0 ? <select id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="ex. gemma3:4b, qwen2.5vl" />}
+          <p className="hint">Ce modèle lit les images et transcrit la copie sans la corriger. La transcription reste en mémoire locale pour relancer l’analyse sans refaire cette étape.</p>
           <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
           {availableModels.length > 0 ? <select id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="ex. qwen3.5:4b, phi4-mini" />
           }
@@ -249,7 +252,7 @@ export function App() {
       <section className="panel question-panel">
         <label className="field-label" htmlFor="grading-question">Consigne / question de l’exercice</label>
         <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
-        <button className="primary-button grade-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid} onClick={() => void gradeCopies()}>{busy ? 'Analyse locale en cours…' : 'Lire puis analyser les copies'}</button>
+        <button className="primary-button grade-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid} onClick={() => void gradeCopies()}>{busy ? 'Analyse locale en cours…' : transcription ? 'Relancer l’analyse sans relire les images' : 'Lire puis analyser les copies'}</button>
       </section>
 
       {isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
@@ -275,6 +278,8 @@ export function App() {
           <span>TEMPS ÉCOULÉ</span><strong>{formatElapsed(elapsedSeconds)}</strong>
         </div>
       </section>}
+
+      {transcription && <p className="validation valid" role="status">✓ Transcription disponible en mémoire locale : vous pouvez relancer l’analyse sans repasser par le modèle de vision.</p>}
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 

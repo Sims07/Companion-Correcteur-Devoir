@@ -111,4 +111,28 @@ describe('Ollama adapter', () => {
     expect(analysisBody.think).toBe(true);
     expect(stages).toEqual(['reading', 'grading']);
   });
+
+  it('reuses a cached transcription and skips vision inference on re-analysis', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const onTranscription = vi.fn<(transcription: string) => void>();
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434',
+      visionModel: 'gemma3:4b',
+      analysisModel: 'qwen3.5:4b',
+    }, fetchMock);
+
+    await expect(provider.generate({
+      question: request.question,
+      rubric: request.rubric,
+      images: [],
+      transcription: '[ copie.png ]\\nTranscription déjà extraite',
+    }, undefined, undefined, onTranscription)).resolves.toBe('{"criteria":[]}');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { model: string; messages: Array<{ content: string; images?: string[] }> };
+    expect(body.model).toBe('qwen3.5:4b');
+    expect(body.messages[0].content).toContain('Transcription déjà extraite');
+    expect(body.messages[0].images).toBeUndefined();
+    expect(onTranscription).not.toHaveBeenCalled();
+  });
 });
