@@ -34,6 +34,7 @@ export function App() {
   const [endpoint, setEndpoint] = useState('http://localhost:11434');
   const [visionModel, setVisionModel] = useState('');
   const [analysisModel, setAnalysisModel] = useState('');
+  const [analysisThinking, setAnalysisThinking] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [images, setImages] = useState<ImageInput[]>([]);
   const [transcription, setTranscription] = useState<string | null>(null);
@@ -136,7 +137,7 @@ export function App() {
       if (!transcription) await checkOllamaReady({ endpoint, model: visionModel });
       await checkOllamaReady({ endpoint, model: analysisModel });
       setAnalysisStage('reading');
-      const provider = createOllamaProvider({ endpoint, visionModel, analysisModel });
+      const provider = createOllamaProvider({ endpoint, visionModel, analysisModel, thinking: analysisThinking });
       const raw = await provider.generate(
         { question, rubric: rubricAsJson(rubric), images, ...(transcription ? { transcription } : {}) },
         (chunk) => setStreamedOutput((current) => current + chunk),
@@ -243,6 +244,10 @@ export function App() {
           <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
           {availableModels.length > 0 ? <select id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="ex. qwen3.5:4b, phi4-mini" />
           }
+          <label className="analysis-thinking-option" htmlFor="ollama-analysis-thinking">
+            <input id="ollama-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} />
+            <span><strong>Activer le mode thinking pour l’analyse</strong><small>Désactivé par défaut. Peut améliorer le raisonnement, mais allonger fortement le temps de correction et ne fonctionne pas avec tous les modèles.</small></span>
+          </label>
           <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
           {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
           <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p>
