@@ -84,11 +84,19 @@ export function createOllamaProvider(
     id: 'ollama',
     async generate(request: GradingRequest, onChunk?: (chunk: string) => void): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
-      if (!settings.model.trim()) throw new Error('Choisissez un modèle Ollama.');
+      if (!(settings.visionModel?.trim() || settings.model?.trim()) || !(settings.analysisModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de lecture et un modèle d’analyse.');
       if (!request.question.trim()) throw new Error('La consigne de correction est vide.');
       if (!request.images?.length) throw new Error('Ajoutez au moins une photo ou un PDF avant de lancer la correction.');
 
-      const prompt = [
+      const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
+      const analysisModel = settings.analysisModel?.trim() || settings.model?.trim() || '';
+      const useTwoModels = Boolean(settings.visionModel?.trim() && settings.analysisModel?.trim());
+      if (!visionModel || !analysisModel) throw new Error('Choisissez un modèle de lecture et un modèle d’analyse.');
+
+      if (!request.question.trim()) throw new Error('La consigne de correction est vide.');
+      if (!request.images?.length) throw new Error('Ajoutez au moins une photo ou un PDF avant de lancer la correction.');
+
+      const buildPrompt = (transcription?: string) => [
         'RÔLE : tu assistes un enseignant universitaire en biologie. Tu proposes une correction, tu ne prends jamais la décision finale.',
         'CONTRAT DE SORTIE : retourne uniquement un objet JSON valide conforme au schéma fourni. Pas de Markdown, pas de texte avant ou après. Utilise les identifiants de critères exactement tels qu’ils apparaissent dans le barème.',
         'FIDÉLITÉ AU BARÈME : évalue chaque critère séparément selon sa description et son maximum de points. N’ajoute, ne fusionne et ne supprime aucun critère. N’invente pas de sous-critères, de pénalités ou d’attendus absents du barème. Ne pénalise l’orthographe ou la formulation que si le barème le prévoit. Accepte une formulation scientifiquement équivalente lorsqu’elle exprime correctement la notion attendue.',
@@ -102,39 +110,68 @@ export function createOllamaProvider(
         'AUTO-VÉRIFICATION AVANT RÉPONSE : relis chaque note et vérifie qu’elle est soutenue par une preuve concrète. Pour chaque note maximale, vérifie explicitement que tous les attendus du critère sont démontrés. Vérifie que la somme des points ne dépasse pas le total du barème et que la synthèse ne prétend pas que la réponse est complète si des attendus manquent.',
         'SCHÉMA JSON : {"summary":"résumé prudent","criteria":[{"criterionId":"identifiant exact","points":0,"rationale":"justification liée au barème, avec éléments présents et manquants","evidence":"preuve observable ou limite de lecture explicite","confidence":"low|medium|high","questionForTeacher":""}],"questionsForTeacher":[]}. summary doit signaler que la proposition est à vérifier. questionForTeacher peut être une chaîne vide si aucune clarification n’est nécessaire.',
         'La note et les explications sont des propositions de travail, jamais une validation définitive. N’affirme pas avoir vérifié un élément que tu ne peux pas lire.',
+        ...(transcription ? [`TRANSCRIPTION DES COPIES (modèle de lecture, à traiter comme preuve textuelle et non comme corrigé) :\n${transcription}`] : []),
         `BARÈME (JSON) :\n${request.rubric}`,
         `CONSIGNE DE L’ENSEIGNANT :\n${request.question}`,
       ].join('\n\n');
 
-      let response: Response;
-      try {
-        response = await fetchImpl(`${endpoint}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: settings.model,
-            stream: true,
-            think: false,
-            format: 'json',
-            messages: [{
-              role: 'user',
-              content: prompt,
-              images: request.images.map((image) => image.base64),
-            }],
-          }),
-        });
-      } catch (cause) {
-        const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';
-        throw new Error(
-          `Connexion à Ollama interrompue pendant l’analyse (modèle « ${settings.model} », ${request.images.length} image(s)). Vérifiez que le serveur Ollama fonctionne toujours, que la mémoire disponible suffit et consultez ses journaux. Détail réseau : ${detail}`,
+      async function sendStream(model: string, content: string, images?: string[], streamChunk?: (chunk: string) => void, json = false): Promise<string> {
+        let response: Response;
+        try {
+          response = await fetchImpl(`${endpoint}/api/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model,
+              stream: true,
+              think: false,
+              ...(json ? { format: 'json' } : {}),
+              messages: [{ role: 'user', content, ...(images?.length ? { images } : {}) }],
+            }),
+          });
+        } catch (cause) {
+          const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';
+          throw new Error(`Connexion à Ollama interrompue pendant le traitement (modèle « ${model} »). Vérifiez que le serveur Ollama fonctionne et que la mémoire disponible suffit. Détail réseau : ${detail}`);
+        }
+        if (!response.ok) throw new Error(`Ollama a répondu avec le statut HTTP ${response.status} pour le modèle « ${model} ».`);
+        try { return await readOllamaStream(response, streamChunk); }
+        catch (cause) {
+          if (cause instanceof SyntaxError) throw new Error('Le flux envoyé par Ollama est mal formé. Vérifiez la version du serveur.');
+          throw cause;
+        }
+      }
+
+      if (!useTwoModels) {
+        // Compatibility mode for existing callers configured with one model.
+        return sendStream(analysisModel, buildPrompt(), request.images.map((image) => image.base64), onChunk, true);
+      }
+
+      onStage?.('reading');
+      const transcriptions: string[] = [];
+      for (const [index, image] of request.images.entries()) {
+        const pageLabel = image.fileName || `page ${index + 1}`;
+        const transcription = await sendStream(
+          visionModel,
+          [
+            'Tu es un outil de transcription fidèle de copies universitaires manuscrites.',
+            'Transcris tout le texte lisible de cette image, dans l’ordre de lecture, en conservant les paragraphes, listes, symboles, unités, formules et légendes.',
+            'Ne corrige pas les erreurs scientifiques ou grammaticales. N’ajoute aucune explication, interprétation, résumé ou notation.',
+            'Si un passage est illisible, indique [illisible] à son emplacement. Ne devine jamais les mots manquants.',
+            `Nom de la page : ${pageLabel}`,
+          ].join('\\n\\n'),
+          [image.base64],
         );
+        transcriptions.push(`[ ${pageLabel} ]\\n${transcription}`);
       }
-      if (!response.ok) throw new Error(`Ollama a répondu avec le statut HTTP ${response.status}.`);
-      try { return await readOllamaStream(response, onChunk); }
-      catch (cause) {
-        if (cause instanceof SyntaxError) throw new Error('Le flux envoyé par Ollama est mal formé. Vérifiez la version du serveur.');
-        throw cause;
-      }
+
+      onStage?.('grading');
+      return sendStream(
+        analysisModel,
+        buildPrompt(transcriptions.join('\\n\\n')),
+        undefined,
+        onChunk,
+        true,
+      );
     },
   };
 }
