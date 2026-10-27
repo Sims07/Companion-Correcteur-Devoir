@@ -11,15 +11,13 @@ export default defineConfig({
       include: ['src/**/*.ts', 'src/**/*.tsx'],
       exclude: [
         '**/*.test.*',
+        'src/ports/**', // Type-only contracts do not represent executable behavior.
         'src/main.tsx',
         // UI composition will be measured separately by browser E2E tests.
         'src/ui/**',
       ],
       reporter: ['text', 'text-summary', 'json-summary', 'html'],
       reportsDirectory: './coverage-unit',
-      // Start by publishing an honest baseline; thresholds can be set once
-      // the existing code has been measured and gaps have been addressed.
-      thresholds: undefined,
     },
   },
 });
