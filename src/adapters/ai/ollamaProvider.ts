@@ -51,7 +51,8 @@ export async function checkOllamaReady(
   fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
   const endpoint = normalizedEndpoint(settings.endpoint);
-  const model = settings.model?.trim() || settings.visionModel?.trim() || settings.analysisModel?.trim() || '';\n  if (!model) throw new Error('Choisissez un modèle Ollama.');
+  const model = settings.model?.trim() || settings.visionModel?.trim() || settings.analysisModel?.trim() || '';
+  if (!model) throw new Error('Choisissez un modèle Ollama.');
   const response = await fetchImpl(`${endpoint}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -155,10 +156,10 @@ export function createOllamaProvider(
             'Ne corrige pas les erreurs scientifiques ou grammaticales. N’ajoute aucune explication, interprétation, résumé ou notation.',
             'Si un passage est illisible, indique [illisible] à son emplacement. Ne devine jamais les mots manquants.',
             `Nom de la page : ${pageLabel}`,
-          ].join('\\n\\n'),
+          ].join('\n\n'),
           [image.base64],
         );
-        transcriptions.push(`[ ${pageLabel} ]\\n${transcription}`);
+        transcriptions.push(`[ ${pageLabel} ]\n${transcription}`);
       }
 
       onStage?.('grading');
