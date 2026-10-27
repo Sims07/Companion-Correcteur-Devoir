@@ -2,6 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { checkOllamaReady, createOllamaProvider, listOllamaModels } from '../src/adapters/ai/ollamaProvider.ts';
 import type { GradingRequest } from '../src/ports/aiProvider.ts';
 
+function streamingResponse(content: string): Response {
+  const lines = [...content.split('').map((character) => JSON.stringify({ message: { content: character }, done: false })), JSON.stringify({ message: {}, done: true })];
+  return new Response(`${lines.join('\\n')}\\n`, { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
+}
+
 const request: GradingRequest = {
   question: 'Expliquez la mitose',
   rubric: '{"criteria":[]}',
@@ -26,7 +31,7 @@ describe('Ollama adapter', () => {
 
 
   it('sends the configured model, local image and JSON mode to the configured endpoint', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ message: { content: '{"criteria":[]}' } }), { status: 200 }));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('{"criteria":[]}'));
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434/', model: 'llava' }, fetchMock);
     await expect(provider.generate(request)).resolves.toBe('{"criteria":[]}');
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:11434/api/chat', expect.objectContaining({
@@ -35,6 +40,7 @@ describe('Ollama adapter', () => {
     }));
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"images":["aGVsbG8="]');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"format":"json"');
+    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"stream":true');
   });
 
   it('rejects invalid endpoints and missing images before networking', async () => {
