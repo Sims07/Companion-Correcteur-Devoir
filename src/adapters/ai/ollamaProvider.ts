@@ -58,6 +58,7 @@ export async function checkOllamaReady(
     body: JSON.stringify({
       model: settings.model,
       stream: false,
+      think: false,
       messages: [{ role: 'user', content: 'Ceci est un test de disponibilité, aucune copie à analyser. Réponds uniquement par le mot PRÊT.' }],
     }),
   });
@@ -110,6 +111,7 @@ export function createOllamaProvider(
           body: JSON.stringify({
             model: settings.model,
             stream: true,
+            think: false,
             format: 'json',
             messages: [{
               role: 'user',
