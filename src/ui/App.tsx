@@ -180,8 +180,8 @@ export function App() {
         <label className="field-label" htmlFor="rubric-title">Nom du barème</label>
         <input id="rubric-title" value={rubric.title} onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
         <div className="rubric-import">
-          <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Word, Excel, CSV, TXT ou JSON)</label>
-          <input id="rubric-file" type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.json" onChange={(event) => { void importRubricFileFromInput(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} />
+          <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Word, Excel XLSX, CSV, TXT ou JSON)</label>
+          <input id="rubric-file" type="file" accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.json" onChange={(event) => { void importRubricFileFromInput(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} />
           <p className="hint">Le fichier est analysé dans ce navigateur. Vérifiez toujours les critères, les points et le total : l’extraction automatique peut manquer des sous-critères.</p>
           {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
         </div>
