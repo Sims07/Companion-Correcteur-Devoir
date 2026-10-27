@@ -1,18 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
-const { getDocumentMock, mammothMock, xlsxReadMock, sheetToJsonMock } = vi.hoisted(() => ({
+const { getDocumentMock, mammothMock, readXlsxFileMock } = vi.hoisted(() => ({
   getDocumentMock: vi.fn(),
   mammothMock: vi.fn(),
-  xlsxReadMock: vi.fn(),
-  sheetToJsonMock: vi.fn(),
+  readXlsxFileMock: vi.fn(),
 }));
 
 vi.mock('pdfjs-dist', () => ({ GlobalWorkerOptions: {}, getDocument: (...args: unknown[]) => getDocumentMock(...args) }));
 vi.mock('mammoth', () => ({ extractRawText: (...args: unknown[]) => mammothMock(...args) }));
-vi.mock('xlsx', () => ({
-  read: (...args: unknown[]) => xlsxReadMock(...args),
-  utils: { sheet_to_json: (...args: unknown[]) => sheetToJsonMock(...args) },
-}));
+vi.mock('read-excel-file', () => ({ default: (...args: unknown[]) => readXlsxFileMock(...args) }));
 
 import { importRubricFile } from '../src/adapters/files/rubricImport.ts';
 
@@ -48,10 +44,9 @@ describe('importRubricFile', () => {
   });
 
   it('uses the first worksheet of an Excel workbook', async () => {
-    xlsxReadMock.mockReturnValue({ SheetNames: ['Bareme'], Sheets: { Bareme: {} } });
-    sheetToJsonMock.mockReturnValue([['Critère', 'Points max'], ['Connaissances', '8']]);
+    readXlsxFileMock.mockResolvedValue([['Critère', 'Points max'], ['Connaissances', 8]]);
     const result = await importRubricFile(new File(['xlsx'], 'bareme.xlsx'));
-    expect(sheetToJsonMock).toHaveBeenCalledOnce();
+    expect(readXlsxFileMock).toHaveBeenCalledOnce();
     expect(result.rubric.criteria[0].title).toBe('Connaissances');
   });
 
