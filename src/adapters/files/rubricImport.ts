@@ -1,7 +1,7 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as mammoth from 'mammoth';
-import * as XLSX from 'xlsx';
+import readXlsxFile from 'read-excel-file';
 import { validateRubric, type Rubric, type RubricCriterion } from '../../domain/rubric.ts';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -145,13 +145,11 @@ export async function importRubricFile(file: File): Promise<ImportedRubric> {
     const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
     return rubricFromText(result.value, name);
   }
-  if (extension === 'xlsx' || extension === 'xls') {
-    const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
-    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    if (!firstSheet) throw new Error('Le classeur ne contient aucune feuille.');
-    return rubricFromRows(XLSX.utils.sheet_to_json<string[]>(firstSheet, { header: 1, raw: false }), name);
+  if (extension === 'xlsx') {
+    const rows = await readXlsxFile(file);
+    return rubricFromRows(rows.map((row) => row.map((cell) => cell == null ? '' : String(cell))), name);
   }
   if (extension === 'csv') return rubricFromRows(parseDelimitedRows(await file.text()), name);
   if (extension === 'txt' || extension === 'md') return rubricFromText(await file.text(), name);
-  throw new Error('Format non pris en charge. Utilisez PDF, DOCX, XLSX, XLS, CSV, TXT, MD ou JSON.');
+  throw new Error('Format non pris en charge. Utilisez PDF, DOCX, XLSX, CSV, TXT, MD ou JSON.');
 }
