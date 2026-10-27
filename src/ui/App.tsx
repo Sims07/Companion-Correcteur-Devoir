@@ -255,8 +255,18 @@ export function App() {
       {isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
         <div className="analysis-spinner" aria-hidden="true" />
         <div className="analysis-progress-copy">
-          <p className="eyebrow">TRAITEMENT LOCAL</p>
-          <h3>{analysisStage === 'checking' ? 'Vérification des modèles Ollama…' : analysisStage === 'reading' ? 'Lecture des images et transcription…' : 'Analyse de la réponse et application du barème…'}</h3>
+          <p className="eyebrow">TRAITEMENT LOCAL · 2 ÉTAPES</p>
+          <div className="analysis-steps" aria-label="Étapes de la correction">
+            <div className={'analysis-step ' + (analysisStage === 'reading' ? 'current' : analysisStage === 'grading' ? 'complete' : '')} aria-current={analysisStage === 'reading' ? 'step' : undefined}>
+              <span className="analysis-step-number">{analysisStage === 'grading' ? '✓' : '1'}</span>
+              <div><strong>Lire l’image</strong><small>{analysisStage === 'checking' ? 'En attente' : analysisStage === 'reading' ? 'Lecture en cours…' : 'Lecture terminée'}</small></div>
+            </div>
+            <div className={'analysis-step ' + (analysisStage === 'grading' ? 'current' : '')} aria-current={analysisStage === 'grading' ? 'step' : undefined}>
+              <span className="analysis-step-number">2</span>
+              <div><strong>Analyser et noter</strong><small>{analysisStage === 'checking' || analysisStage === 'reading' ? 'À venir' : 'Analyse en cours…'}</small></div>
+            </div>
+          </div>
+          <h3>{analysisStage === 'checking' ? 'Vérification des modèles Ollama…' : analysisStage === 'reading' ? 'Étape 1/2 — Lecture des images et transcription…' : 'Étape 2/2 — Analyse du contenu et attribution des points…'}</h3>
           <p>{analysisStage === 'checking' ? 'Je vérifie que les deux modèles répondent, sans joindre de copie.' : analysisStage === 'reading' ? 'Le modèle de lecture transcrit chaque page localement. La transcription s’affiche au fil du streaming.' : 'Le modèle d’analyse applique le barème à la transcription. La proposition de correction arrive en streaming.'}</p>
           {streamedOutput && <div className="streaming-preview" aria-live="polite"><strong>Réponse reçue en streaming</strong><pre>{streamedOutput}</pre></div>}
           {elapsedSeconds >= 30 && <p className="analysis-long-wait">Cette analyse prend du temps : certains modèles locaux nécessitent plusieurs minutes, notamment avec plusieurs pages. Le temps affiché continue de mesurer l’attente.</p>}
