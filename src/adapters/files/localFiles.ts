@@ -29,17 +29,18 @@ function readImage(file: File): Promise<ImageInput> {
 }
 
 async function renderPdf(file: File): Promise<ImageInput[]> {
-  const document = await getDocument({ data: await file.arrayBuffer() }).promise;
-  if (document.numPages > MAX_PDF_PAGES) {
-    await document.destroy();
-    throw new Error(`Le PDF « ${file.name} » contient ${document.numPages} pages. La limite locale est de ${MAX_PDF_PAGES} pages par fichier.`);
+  const pdfDocument = await getDocument({ data: await file.arrayBuffer() }).promise;
+  if (pdfDocument.numPages > MAX_PDF_PAGES) {
+    const pageCount = pdfDocument.numPages;
+    await pdfDocument.destroy();
+    throw new Error(`Le PDF « ${file.name} » contient ${pageCount} pages. La limite locale est de ${MAX_PDF_PAGES} pages par fichier.`);
   }
   const images: ImageInput[] = [];
   try {
-    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
-      const page = await document.getPage(pageNumber);
+    for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber += 1) {
+      const page = await pdfDocument.getPage(pageNumber);
       const viewport = page.getViewport({ scale: 1.6 });
-      const canvas = document.createElement('canvas');
+      const canvas = globalThis.document.createElement('canvas');
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
       const context = canvas.getContext('2d');
@@ -49,7 +50,7 @@ async function renderPdf(file: File): Promise<ImageInput[]> {
       page.cleanup();
     }
   } finally {
-    await document.destroy();
+    await pdfDocument.destroy();
   }
   return images;
 }
