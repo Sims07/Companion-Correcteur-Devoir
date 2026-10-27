@@ -129,7 +129,7 @@ export function createOllamaProvider(
           });
         } catch (cause) {
           const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';
-          throw new Error(`Connexion à Ollama interrompue pendant le traitement (modèle « ${model} »). Vérifiez que le serveur Ollama fonctionne et que la mémoire disponible suffit. Détail réseau : ${detail}`);
+          throw new Error(`Connexion à Ollama interrompue pendant le traitement (modèle « ${model} », ${request.images?.length ?? 0} image(s)). Vérifiez que le serveur Ollama fonctionne et que la mémoire disponible suffit. Détail réseau : ${detail}`);
         }
         if (!response.ok) throw new Error(`Ollama a répondu avec le statut HTTP ${response.status} pour le modèle « ${model} ».`);
         try { return await readOllamaStream(response, streamChunk); }
@@ -158,6 +158,7 @@ export function createOllamaProvider(
             `Nom de la page : ${pageLabel}`,
           ].join('\n\n'),
           [image.base64],
+          onChunk,
         );
         transcriptions.push(`[ ${pageLabel} ]\n${transcription}`);
       }
