@@ -13,7 +13,7 @@ export interface GradingRequest {
 
 export interface GradingProvider {
   readonly id: string;
-  generate(request: GradingRequest): Promise<string>;
+  generate(request: GradingRequest, onChunk?: (chunk: string) => void): Promise<string>;
 }
 
 export interface OllamaSettings {
