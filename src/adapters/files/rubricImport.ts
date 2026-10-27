@@ -1,7 +1,7 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as mammoth from 'mammoth';
-import readXlsxFile from 'read-excel-file/browser';
+import { readSheet } from 'read-excel-file/browser';
 import { validateRubric, type Rubric, type RubricCriterion } from '../../domain/rubric.ts';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -146,7 +146,7 @@ export async function importRubricFile(file: File): Promise<ImportedRubric> {
     return rubricFromText(result.value, name);
   }
   if (extension === 'xlsx') {
-    const rows = await readXlsxFile(file);
+    const rows = await readSheet(file);
     return rubricFromRows(rows.map((row) => row.map((cell) => cell == null ? '' : String(cell))), name);
   }
   if (extension === 'csv') return rubricFromRows(parseDelimitedRows(await file.text()), name);
