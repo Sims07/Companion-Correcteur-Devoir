@@ -55,6 +55,26 @@ describe('importRubricFile', () => {
     expect(result.rubric.criteria[0].title).toBe('Connaissances');
   });
 
+  it('preserves separate PDF text lines so multiple criteria can be extracted', async () => {
+    const destroy = vi.fn().mockResolvedValue(undefined);
+    const cleanup = vi.fn();
+    const getTextContent = vi.fn().mockResolvedValue({ items: [
+      { str: 'Connaissances : 8 points', transform: [1, 0, 0, 1, 0, 700] },
+      { str: 'Raisonnement : 12 points', transform: [1, 0, 0, 1, 0, 680] },
+    ] });
+    getDocumentMock.mockReturnValueOnce({
+      promise: Promise.resolve({ numPages: 1, getPage: vi.fn().mockResolvedValue({ getTextContent, cleanup }) }),
+      destroy,
+    });
+    const result = await importRubricFile(new File(['pdf'], 'bareme.pdf', { type: 'application/pdf' }));
+    expect(result.rubric.criteria.map((criterion) => [criterion.title, criterion.maxPoints])).toEqual([
+      ['Connaissances', 8],
+      ['Raisonnement', 12],
+    ]);
+    expect(destroy).toHaveBeenCalledOnce();
+    expect(cleanup).toHaveBeenCalledOnce();
+  });
+
   it('rejects unsupported formats with a helpful message', async () => {
     await expect(importRubricFile(new File(['data'], 'bareme.odt'))).rejects.toThrow('Format non pris en charge');
   });
