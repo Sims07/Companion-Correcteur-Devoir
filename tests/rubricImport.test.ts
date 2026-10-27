@@ -8,7 +8,7 @@ const { getDocumentMock, mammothMock, readXlsxFileMock } = vi.hoisted(() => ({
 
 vi.mock('pdfjs-dist', () => ({ GlobalWorkerOptions: {}, getDocument: (...args: unknown[]) => getDocumentMock(...args) }));
 vi.mock('mammoth', () => ({ extractRawText: (...args: unknown[]) => mammothMock(...args) }));
-vi.mock('read-excel-file', () => ({ default: (...args: unknown[]) => readXlsxFileMock(...args) }));
+vi.mock('read-excel-file/browser', () => ({ default: (...args: unknown[]) => readXlsxFileMock(...args) }));
 
 import { importRubricFile } from '../src/adapters/files/rubricImport.ts';
 
