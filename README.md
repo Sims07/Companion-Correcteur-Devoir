@@ -6,8 +6,8 @@ Application React + TypeScript pour aider les enseignants en biologie à corrige
 
 - React + TypeScript + Vite
 - Vitest pour les tests unitaires
-- Contrats métier typés, indépendants de l'interface et du fournisseur IA
-- Ollama comme fournisseur local cible
+- PDF.js pour convertir les pages PDF en images directement dans le navigateur
+- Ollama comme fournisseur IA local configurable
 
 ## Démarrage
 
@@ -24,8 +24,30 @@ npm test
 npm run build
 ```
 
-## Confidentialité et périmètre actuel
+## Utiliser le flux de correction local
 
-Cette fondation ne téléverse aucune copie et ne fait aucun appel IA. L'import d'images, l'OCR et l'intégration Ollama seront ajoutés dans des étapes distinctes. Le mode local devra rester explicite et ne jamais basculer silencieusement vers un fournisseur cloud.
+1. Modifiez le barème d'exemple ou ajoutez/supprimez des critères.
+2. Importez des photos JPG/PNG/WebP ou un PDF (10 pages maximum, 15 Mo par fichier). Les PDF sont rendus en images dans le navigateur ; aucun fichier n'est téléversé.
+3. Configurez l'adresse d'Ollama, par défaut `http://localhost:11434`, puis testez la connexion pour lister les modèles installés.
+4. Choisissez un modèle compatible avec les images (vision), renseignez la consigne et lancez l'analyse.
+5. Révisez les points, les éléments justificatifs et le niveau de confiance critère par critère. Les propositions à faible confiance déclenchent une question. Exportez au besoin un récapitulatif JSON local.
 
-Les suggestions de correction devront être justifiées par le barème et les éléments lisibles de la copie. Toute incertitude doit être signalée et soumise à l'enseignant ; aucune note ne sera validée automatiquement.
+## Confidentialité et limites
+
+- Les copies sont préparées en mémoire dans le navigateur et envoyées uniquement à l'endpoint Ollama explicitement configuré. Aucun fournisseur cloud n'est utilisé comme solution de secours.
+- Le serveur Ollama doit être installé sur une machine que vous contrôlez. Si l'endpoint n'est pas local, les copies iront à cet endpoint ; vérifiez-le avant l'utilisation.
+- Selon le navigateur, Ollama peut nécessiter une configuration CORS pour autoriser l'origine de l'application.
+- Utilisez un modèle de vision. Les performances sur l'écriture manuscrite varient selon le modèle et la qualité des photos.
+- Les propositions générées peuvent être erronées. Les éléments cités doivent être contrôlés ; aucune note n'est validée automatiquement.
+- Les copies et propositions ne sont pas persistées par l'application. L'export est une action explicite de l'enseignant.
+
+## Architecture
+
+- `src/domain` : validation du barème et contrat de proposition de correction
+- `src/ports` : contrats IA typés
+- `src/adapters/ai` : client Ollama local
+- `src/adapters/files` : conversion locale des photos et PDF
+- `src/ui` : flux de préparation, correction et validation enseignante
+- `tests` : tests unitaires du barème, du fournisseur IA et des propositions
+
+La décision finale appartient toujours à l'enseignant.
