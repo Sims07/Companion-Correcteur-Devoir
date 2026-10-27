@@ -32,7 +32,7 @@ function text(value: unknown, fallback = ''): string {
 }
 
 export function parseGradingProposal(raw: string, rubric: Rubric): GradingProposal {
-  const cleaned = raw.trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/, '');
+  const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   let parsed: unknown;
   try {
     parsed = JSON.parse(cleaned);
@@ -45,10 +45,20 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
 
   const knownCriteria = new Map(rubric.criteria.map((criterion) => [criterion.id, criterion]));
   const criteria: CriterionProposal[] = [];
+  const seenIds = new Set<string>();
   for (const item of parsed.criteria) {
-    if (!isRecord(item) || typeof item.criterionId !== 'string') continue;
+    if (!isRecord(item) || typeof item.criterionId !== 'string') {
+      throw new Error('Une entrée de la réponse du modèle ne contient pas d’identifiant de critère valide.');
+    }
     const rubricCriterion = knownCriteria.get(item.criterionId);
-    if (!rubricCriterion) continue;
+    if (!rubricCriterion) {
+      throw new Error(`La réponse du modèle contient un critère inconnu (« ${item.criterionId} »). Relancez la correction.`);
+    }
+    if (seenIds.has(item.criterionId)) {
+      throw new Error(`La réponse du modèle contient plusieurs propositions pour le critère « ${rubricCriterion.title} ».`);
+    }
+    seenIds.add(item.criterionId);
+
     const points = typeof item.points === 'number' ? item.points : Number.NaN;
     if (!Number.isFinite(points) || points < 0 || points > rubricCriterion.maxPoints) {
       throw new Error(`La proposition pour « ${rubricCriterion.title} » est hors barème. Vérifiez la réponse du modèle.`);
@@ -66,7 +76,11 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     });
   }
 
-  if (criteria.length === 0) throw new Error('Aucun critère du barème n’a pu être associé à la réponse du modèle.');
+  const missingCriteria = rubric.criteria.filter((criterion) => !seenIds.has(criterion.id));
+  if (missingCriteria.length > 0) {
+    throw new Error(`La réponse du modèle est incomplète : aucun résultat pour ${missingCriteria.map((criterion) => `« ${criterion.title} »`).join(', ')}. Relancez la correction pour obtenir une proposition pour chaque critère.`);
+  }
+
   const questions = Array.isArray(parsed.questionsForTeacher)
     ? parsed.questionsForTeacher.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean)
     : [];
