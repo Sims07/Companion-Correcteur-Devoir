@@ -125,7 +125,7 @@ async function extractPdfText(file: File): Promise<string> {
         line.push(item.str);
         lines.set(y, line);
       }
-      pages.push([...lines.entries()].sort(([left], [right]) => right - left).map(([, words]) => words.join(' ')).join('\\n'));
+      pages.push([...lines.entries()].sort(([left], [right]) => right - left).map(([, words]) => words.join(' ')).join('\n'));
       page.cleanup();
     }
     return pages.join('\n');
