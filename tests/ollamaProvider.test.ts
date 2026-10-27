@@ -46,7 +46,7 @@ describe('Ollama adapter', () => {
     expect(body.messages[0].content).toContain('ne donne jamais automatiquement le maximum');
     expect(body.messages[0].content).toContain('tous les attendus du critère sont démontrés');
     expect(body.messages[0].content).toContain('partiels, manquants et erronés');
-    expect(body.messages[0].content).toContain('la confiance décrit la certitude de lecture/interprétation, pas le niveau de maîtrise');
+    expect(body.messages[0].content).toContain('La confiance décrit la certitude de lecture/interprétation, pas le niveau de maîtrise');
   });
 
   it('emits response chunks as they arrive', async () => {
