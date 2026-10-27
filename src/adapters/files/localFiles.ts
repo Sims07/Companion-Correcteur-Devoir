@@ -29,10 +29,11 @@ function readImage(file: File): Promise<ImageInput> {
 }
 
 async function renderPdf(file: File): Promise<ImageInput[]> {
-  const pdfDocument = await getDocument({ data: await file.arrayBuffer() }).promise;
+  const loadingTask = getDocument({ data: await file.arrayBuffer() });
+  const pdfDocument = await loadingTask.promise;
   if (pdfDocument.numPages > MAX_PDF_PAGES) {
     const pageCount = pdfDocument.numPages;
-    await pdfDocument.destroy();
+    await loadingTask.destroy();
     throw new Error(`Le PDF « ${file.name} » contient ${pageCount} pages. La limite locale est de ${MAX_PDF_PAGES} pages par fichier.`);
   }
   const images: ImageInput[] = [];
