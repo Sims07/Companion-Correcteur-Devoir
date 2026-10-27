@@ -30,7 +30,7 @@ describe('Ollama adapter', () => {
     await expect(checkOllamaReady({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock)).rejects.toThrow(/n’a pas répondu/);
   });
 
-  it('sends the configured model, local image, JSON mode and enabled thinking to the configured endpoint', async () => {
+  it('sends the configured model, local image and JSON mode with thinking disabled by default', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('{"criteria":[]}'));
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434/', model: 'llava' }, fetchMock);
     await expect(provider.generate(request)).resolves.toBe('{"criteria":[]}');
@@ -41,7 +41,7 @@ describe('Ollama adapter', () => {
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"images":["aGVsbG8="]');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"format":"json"');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"stream":true');
-    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"think":true');
+    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"think":false');
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { messages: Array<{ content: string }> };
     expect(body.messages[0].content).toContain('ne donne jamais automatiquement le maximum');
     expect(body.messages[0].content).toContain('tous les attendus du critère sont démontrés');
@@ -108,7 +108,7 @@ describe('Ollama adapter', () => {
     expect(analysisBody.messages[0].content).toContain('BARÈME (JSON)');
     expect(analysisBody.messages[0].images).toBeUndefined();
     expect(analysisBody.format).toBe('json');
-    expect(analysisBody.think).toBe(true);
+    expect(analysisBody.think).toBe(false);
     expect(stages).toEqual(['reading', 'grading']);
   });
 });
