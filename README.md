@@ -1,5 +1,8 @@
 # Companion Correcteur Devoir
 
+[![Tests](https://github.com/Sims07/Companion-Correcteur-Devoir/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/Sims07/Companion-Correcteur-Devoir/actions/workflows/tests.yml)
+[![Couverture unitaire](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSims07%2FCompanion-Correcteur-Devoir%2Fmain%2Fbadges%2Fcoverage.json)](https://github.com/Sims07/Companion-Correcteur-Devoir/actions/workflows/tests.yml)
+
 Application React + TypeScript pour aider les enseignants en biologie à corriger des copies manuscrites à partir d'un barème, avec validation humaine et priorité au traitement local.
 
 ## Stack
@@ -21,8 +24,18 @@ Vérifications avant contribution :
 ```bash
 npm run typecheck
 npm test
+npm run test:coverage
+npm run test:coverage:core
 npm run build
 ```
+
+## Couverture des tests
+
+- `npm run test:coverage` : mesure la couverture ligne/fonction/branche du code TypeScript hors composition UI et produit un rapport HTML dans `coverage-unit/`.
+- `npm run test:coverage:core` : rapport ciblé sur le domaine et les cas d'usage (`coverage-unit-core/`).
+- Le badge de couverture est recalculé automatiquement à chaque push sur `main`. Il reflète la couverture de lignes mesurée par Vitest ; il ne remplace pas les tests de parcours navigateur ni une analyse de la pertinence pédagogique.
+
+Les seuils ne sont pas encore bloquants : on publie d'abord une mesure réelle, puis on pourra fixer des objectifs réalistes après avoir renforcé les tests sur les zones critiques.
 
 ## Utiliser le flux de correction local
 

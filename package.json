@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:coverage": "vitest run --coverage",
+    "test:coverage:core": "vitest run --coverage --coverage.include='src/domain/**' --coverage.include='src/application/**' --coverage.reportsDirectory=coverage-unit-core",
+    "test:coverage:report": "node scripts/update-coverage-badge.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
@@ -23,6 +26,7 @@
     "@types/react-dom": "latest",
     "typescript": "latest",
     "vitest": "latest",
-    "jsdom": "latest"
+    "jsdom": "latest",
+    "@vitest/coverage-v8": "latest"
   }
 }
