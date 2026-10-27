@@ -51,7 +51,7 @@ async function renderPdf(file: File): Promise<ImageInput[]> {
       page.cleanup();
     }
   } finally {
-    await pdfDocument.destroy();
+    await loadingTask.destroy();
   }
   return images;
 }
