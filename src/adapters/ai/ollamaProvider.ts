@@ -114,7 +114,7 @@ export function createOllamaProvider(
         `CONSIGNE DE L’ENSEIGNANT :\n${request.question}`,
       ].join('\n\n');
 
-      async function sendStream(model: string, content: string, images?: string[], streamChunk?: (chunk: string) => void, json = false, think = false): Promise<string> {
+      async function sendStream(model: string, content: string, images?: string[], streamChunk?: (chunk: string) => void, json = false): Promise<string> {
         let response: Response;
         try {
           response = await fetchImpl(`${endpoint}/api/chat`, {
@@ -123,7 +123,7 @@ export function createOllamaProvider(
             body: JSON.stringify({
               model,
               stream: true,
-              think,
+              think: false,
               ...(json ? { format: 'json' } : {}),
               messages: [{ role: 'user', content, ...(images?.length ? { images } : {}) }],
             }),
@@ -142,7 +142,7 @@ export function createOllamaProvider(
 
       if (!useTwoModels) {
         // Compatibility mode for existing callers configured with one model.
-        return sendStream(analysisModel, buildPrompt(), request.images.map((image) => image.base64), onChunk, true, true);
+        return sendStream(analysisModel, buildPrompt(), request.images.map((image) => image.base64), onChunk, true);
       }
 
       onStage?.('reading');
@@ -170,7 +170,6 @@ export function createOllamaProvider(
         buildPrompt(transcriptions.join('\n\n')),
         undefined,
         onChunk,
-        true,
         true,
       );
     },
