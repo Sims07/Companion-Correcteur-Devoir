@@ -163,6 +163,8 @@ export function App() {
   }
 
   function decideAll() {
+    setIsFinalized(false);
+    setReviewMessage('');
     setReview((current) => current.map((item) => ({ ...item, decision: item.decision === 'adjusted' ? 'adjusted' : 'accepted' })));
     setReviewMessage('Les propositions non modifiées sont marquées comme acceptées par l’enseignant. Pensez à traiter les questions ouvertes.');
   }
