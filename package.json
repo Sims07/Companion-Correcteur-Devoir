@@ -19,7 +19,9 @@
     "pdfjs-dist": "latest",
     "vite": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "mammoth": "latest",
+    "xlsx": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",
