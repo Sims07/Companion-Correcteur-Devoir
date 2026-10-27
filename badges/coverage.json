@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "label": "couverture lignes (Vitest)",
-  "message": "non mesurée",
-  "color": "lightgrey"
+  "message": "82.4%",
+  "color": "green"
 }

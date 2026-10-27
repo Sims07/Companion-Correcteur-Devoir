@@ -34,7 +34,7 @@ npm run build
 - `npm run test:coverage` : mesure la couverture ligne/fonction/branche du code TypeScript hors composition UI et produit un rapport HTML dans `coverage-unit/`.
 - `npm run test:coverage:core` : rapport ciblé sur le domaine et les cas d'usage (`coverage-unit-core/`).
 - Le contrat TypeScript des ports est exclu du pourcentage car il ne contient pas de comportement exécutable ; les adaptateurs de fichiers restent dans le périmètre et sont testés.
-- Le badge de couverture est recalculé automatiquement à chaque push sur `main`. Il reflète la couverture de lignes mesurée par Vitest ; il ne remplace pas les tests de parcours navigateur ni une analyse de la pertinence pédagogique.
+- Le badge reflète la couverture de lignes mesurée par Vitest. La CI recalcule sa valeur à chaque PR et échoue si le fichier du badge n'a pas été mis à jour dans la PR : le badge reste ainsi cohérent sans pousser automatiquement de commits sur `main`. Il ne remplace pas les tests de parcours navigateur ni une analyse de la pertinence pédagogique.
 
 Les seuils ne sont pas encore bloquants : on publie d'abord une mesure réelle, puis on pourra fixer des objectifs réalistes après avoir renforcé les tests sur les zones critiques.
 
