@@ -152,7 +152,7 @@ export function App() {
       <section className="setup-grid">
         <article className="panel copy-panel">
           <div className="panel-heading"><span className="number">02</span><div><h3>Copies à corriger</h3><p>Photos, scans ou PDF multipages.</p></div></div>
-          <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les copies</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les fichiers</span><span className="coming-soon">Conversion PDF en images dans le navigateur</span></label>
+          <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les copies</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les fichiers</span><span className="upload-note">Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
           <input id="copy-files" className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onChange={(event) => { void importFiles(event.target.files); event.currentTarget.value = ''; }} />
           {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button className="text-button" onClick={() => setImages((current) => current.filter((_, imageIndex) => imageIndex !== index))}>Retirer</button></div>)}<button className="text-button" onClick={() => setImages([])}>Retirer toutes les pages</button></div>}
         </article>
