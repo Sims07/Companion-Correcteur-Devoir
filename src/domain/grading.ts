@@ -84,9 +84,10 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
   const questions = Array.isArray(parsed.questionsForTeacher)
     ? parsed.questionsForTeacher.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean)
     : [];
-  criteria.filter((criterion) => criterion.confidence === 'low' || criterion.questionForTeacher).forEach((criterion) => {
+  // Only surface a teacher question when the model can identify a concrete ambiguity.
+  // Low confidence alone is a warning, not a reason to generate a generic question.
+  criteria.forEach((criterion) => {
     if (criterion.questionForTeacher) questions.push(criterion.questionForTeacher);
-    else questions.push(`Pouvez-vous vérifier la lecture ou l’évaluation du critère « ${knownCriteria.get(criterion.criterionId)?.title} » ?`);
   });
 
   return { summary: text(parsed.summary, 'Proposition générée ; vérification enseignante requise.'), criteria, questionsForTeacher: [...new Set(questions)] };
