@@ -138,7 +138,7 @@ export function App() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
-        <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Companion Correcteur Devoir</h1></div>
+        <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
         <span className="local-badge"><span /> Mode local prioritaire</span>
       </header>
 
@@ -236,7 +236,7 @@ export function App() {
         <div className="panel final-review"><div><span className="eyebrow">RÉCAPITULATIF ENSEIGNANT</span><h3>{reviewedTotal} / {validation.maximumPoints} points</h3><p>{pendingCount} critère(s) encore en attente de validation.</p></div><label className="questions-field"><span className="field-label">Questions à résoudre avant validation</span><textarea rows={3} value={teacherQuestions} onChange={(event) => setTeacherQuestions(event.target.value)} placeholder="Questions signalées par l’assistant…" /></label><button className="primary-button" onClick={decideAll}>Accepter les propositions non modifiées</button><button className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal.summary, criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil. Vérifiez les questions ouvertes avant toute utilisation de la note.'); }}>Exporter le récapitulatif JSON</button>{reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}</div>
       </section>}
 
-      <footer><span>Companion Correcteur Devoir</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>
+      <footer><span>Compagnon Correcteur de Devoirs</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>
     </main>
   );
 }
