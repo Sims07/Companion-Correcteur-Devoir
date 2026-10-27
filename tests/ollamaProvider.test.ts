@@ -42,6 +42,11 @@ describe('Ollama adapter', () => {
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"format":"json"');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"stream":true');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"think":false');
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { messages: Array<{ content: string }> };
+    expect(body.messages[0].content).toContain('ne donne jamais automatiquement le maximum');
+    expect(body.messages[0].content).toContain('tous les attendus du critère sont démontrés');
+    expect(body.messages[0].content).toContain('partiels, manquants et erronés');
+    expect(body.messages[0].content).toContain('La confiance décrit la certitude de lecture/interprétation, pas le niveau de maîtrise');
   });
 
   it('emits response chunks as they arrive', async () => {
