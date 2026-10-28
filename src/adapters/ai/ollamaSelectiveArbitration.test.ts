@@ -55,10 +55,7 @@ describe('selective arbitration', () => {
       if (body.model === 'model-one') return streamResponse(result(6, 9));
       if (body.model === 'model-two') return streamResponse(result(6.5, 7));
       return streamResponse(JSON.stringify({
-        finalScore: 8,
-        summary: 'Décision du juge',
-        criteria: [{ criterionId: 'reasoning', points: 8, rationale: 'Le barème tranche le désaccord.', evidence: 'preuve', confidence: 'high', questionForTeacher: '' }],
-        questionsForTeacher: [],
+        decisions: [{ criterionId: 'reasoning', selected: 'avis1', reason: 'La justification du premier avis respecte mieux les attendus.' }],
       }));
     });
 
@@ -74,11 +71,13 @@ describe('selective arbitration', () => {
     expect(judge.messages[0].content).toContain('La plante utilise la lumière');
     expect(judge.messages[0].content).toContain('AVIS 1');
     expect(judge.messages[0].content).toContain('AVIS 2');
+    expect(judge.messages[0].content).toContain('SORTIE JSON STRICTE');
+    expect(judge.messages[0].content).not.toContain('finalScore');
     expect(judge.messages[0].content).not.toContain('"knowledge"');
-    expect(final.finalScore).toBe(14.5);
+    expect(final.finalScore).toBe(15.25);
     expect(final.criteria).toEqual([
       { criterionId: 'knowledge', points: 6.25 },
-      { criterionId: 'reasoning', points: 8 },
+      { criterionId: 'reasoning', points: 9 },
     ]);
   });
 
