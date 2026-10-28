@@ -173,7 +173,6 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
   }
 
   const promptContext = buildLocalMemoryContext(suggestions);
-  const currentCorrection = corrections.find((item) => item.id === correctionId);
 
   return (
     <>
