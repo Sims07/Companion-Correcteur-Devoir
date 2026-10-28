@@ -406,7 +406,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <span className="privacy-status">OLLAMA LOCAL</span>
       </section>}
 
-      {interfaceMode === 'teacher' && showAiSettings && <section className="panel ollama-panel teacher-model-panel ai-settings-view" aria-labelledby="teacher-model-title">
+      {interfaceMode === 'teacher' && showAiSettings && <section className={`panel ollama-panel teacher-model-panel ai-settings-view ${visionModel.trim() && analysisModel.trim() ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
         <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DU POSTE</p><h2 id="teacher-model-title">Paramètres de l’IA locale</h2></div><span className="step-count">OLLAMA</span></div>
         <p className="settings-intro">Configurez les deux modèles utilisés par le parcours de correction. Les photos restent envoyées uniquement à votre serveur Ollama.</p>
         <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur Ollama</label>
