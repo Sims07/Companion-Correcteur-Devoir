@@ -25,7 +25,7 @@ test('teacher journey shows one task at a time and keeps Ollama settings tucked 
   await expect(page.getByLabel('Adresse du serveur Ollama')).toHaveCount(0);
 
   await page.reload();
-  await expect(page.getByLabel('Nom du devoir')).toHaveValue('Biologie cellulaire — partiel S1');
+  await expect(page.getByLabel('DEVOIR EN COURS')).toHaveValue('Biologie cellulaire — partiel S1');
 
   await page.getByRole('button', { name: 'Diagnostic IA' }).click();
   await expect(page.getByRole('navigation', { name: 'Étapes du devoir' })).toHaveCount(0);
