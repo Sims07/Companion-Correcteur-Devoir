@@ -357,11 +357,15 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       </header>
 
       {interfaceMode === 'teacher' && <aside className="teacher-sidebar" aria-label="Navigation de la correction">
-        <div className="teacher-sidebar-brand"><span className="sidebar-brand-mark" aria-hidden="true">CC</span><div><strong>Correction</strong><small>Espace enseignant</small></div></div>
         <div className="sidebar-assignment">
           <label className="field-label" htmlFor="assignment-title">DEVOIR EN COURS</label>
           <input id="assignment-title" value={assignmentTitle} onChange={(event) => setAssignmentTitle(event.target.value)} placeholder="Nom du devoir" />
         </div>
+        {(!visionModel.trim() || !analysisModel.trim()) && <section className="sidebar-ai-setup" aria-label="Configuration nécessaire de l’IA locale">
+          <span className="sidebar-ai-setup-icon" aria-hidden="true">⚙</span>
+          <div><strong>IA locale à configurer</strong><p>Choisissez les modèles avant de lancer votre première correction.</p></div>
+          <button type="button" onClick={() => { setTeacherStep('copy'); setShowAiSettings(true); }}>Configurer maintenant <span aria-hidden="true">→</span></button>
+        </section>}
         <nav className="teacher-step-nav" aria-label="Étapes du devoir">
           <p className="eyebrow">PARCOURS DE CORRECTION</p>
           <button type="button" className={teacherStep === 'rubric' ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'rubric' ? 'step' : undefined} onClick={() => setTeacherStep('rubric')}>
@@ -375,8 +379,12 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
           </button>
         </nav>
         <div className="teacher-sidebar-footer">
-          <div className="sidebar-local-status"><span aria-hidden="true">●</span><span><strong>Traitement local</strong><small>Vos copies restent sur votre serveur</small></span></div>
-          <button type="button" className={showAiSettings ? 'sidebar-settings active' : 'sidebar-settings'} onClick={() => { setTeacherStep('copy'); setShowAiSettings((current) => !current); }} aria-expanded={showAiSettings}><span aria-hidden="true">⚙</span> Paramètres de l’IA locale</button>
+          <div className={isAnalyzing ? "sidebar-local-status is-processing" : "sidebar-local-status"} role={isAnalyzing ? "status" : undefined} aria-live={isAnalyzing ? "polite" : undefined}>
+            <span aria-hidden="true">{isAnalyzing ? "◌" : "●"}</span>
+            <span><strong>{isAnalyzing ? analysisStage === 'checking' ? 'Préparation du traitement' : analysisStage === 'reading' ? 'Lecture des copies en cours' : 'Analyse et notation en cours' : 'Traitement local'}</strong>
+            <small>{isAnalyzing ? `${formatElapsed(elapsedSeconds)} écoulées · ${analysisStage === 'checking' ? 'vérification des modèles' : analysisStage === 'reading' ? 'étape 1 sur 2' : 'étape 2 sur 2'}` : 'Vos copies restent sur votre serveur'}</small></span>
+          </div>
+          <button type="button" className={showAiSettings ? 'sidebar-settings active' : 'sidebar-settings'} onClick={() => { setTeacherStep('copy'); setShowAiSettings((current) => !current); }} aria-expanded={showAiSettings}><span aria-hidden="true">⚙</span> Réglages de l’IA locale</button>
         </div>
       </aside>}
 
@@ -429,14 +437,14 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       {(interfaceMode === 'diagnostic' || teacherStep === 'copy') && <>
       <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 2 SUR 3' : 'ÉTAPE 2'}</p><h2>Ajouter une copie</h2></div><span className="step-count">{images.length} PAGE(S) · {transcription ? 'LECTURE DISPONIBLE' : 'À LIRE'}</span></div>
       <section className="panel correction-mode-panel" aria-labelledby="correction-mode-title">
-        <div className="panel-heading"><span className="number">02</span><div><h3 id="correction-mode-title">Où se trouvent les questions ?</h3><p>Choisissez le format utilisé pour ce devoir. Vous pourrez corriger les copies une par une.</p></div></div>
+        <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">02</span>}<div><h3 id="correction-mode-title">Où se trouvent les questions ?</h3><p>Choisissez le format utilisé pour ce devoir. Vous pourrez corriger les copies une par une.</p></div></div>
         <div className="correction-mode-options" role="group" aria-label="Mode de correction">
           <label className={correctionMode === 'integrated' ? 'correction-mode-option selected' : 'correction-mode-option'}><input type="radio" name="correction-mode" value="integrated" checked={correctionMode === 'integrated'} onChange={() => { setCorrectionMode('integrated'); setSubjectTranscription(null); }} /><span><strong>Questions intégrées à la copie</strong><small>Les questions et les réponses sont sur les mêmes feuilles.</small></span></label>
           <label className={correctionMode === 'separate' ? 'correction-mode-option selected' : 'correction-mode-option'}><input type="radio" name="correction-mode" value="separate" checked={correctionMode === 'separate'} onChange={() => { setCorrectionMode('separate'); setProposal(null); setReview([]); }} /><span><strong>Sujet fourni séparément</strong><small>Le sujet de référence est distinct des pages de réponses manuscrites.</small></span></label>
         </div>
       </section>
       {correctionMode === 'separate' && <section className="panel subject-panel">
-        <div className="panel-heading"><span className="number">A</span><div><h3>Sujet de référence</h3><p>Importez les questions et leurs éventuels schémas une seule fois pour ce devoir.</p></div></div>
+        <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">A</span>}<div><h3>Sujet de référence</h3><p>Importez les questions et leurs éventuels schémas une seule fois pour ce devoir.</p></div></div>
         <label className="upload-placeholder" htmlFor="subject-files"><span className="upload-icon">↑</span><strong>Choisir les pages du sujet</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Importer le sujet</span><span className="upload-note">Les pages sont préparées dans le navigateur. Elles sont transmises uniquement au serveur Ollama configuré pour en extraire le contenu.</span></label>
         <FilePicker id="subject-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importSubjectFiles(files); }} title="Déposer les pages du sujet ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Parcourir les fichiers" />
         {subjectImages.length > 0 && <div className="file-list"><strong>{subjectImages.length} page(s) de sujet prête(s)</strong>{subjectImages.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName || `Page ${index + 1}`}</span><button type="button" className="text-button" onClick={() => { setSubjectImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setSubjectTranscription(null); }}>Retirer</button></div>)}<button type="button" className="text-button" onClick={() => { setSubjectImages([]); setSubjectTranscription(null); }}>Retirer toutes les pages du sujet</button></div>}
@@ -444,7 +452,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       </section>}
       <section className="setup-grid">
         <article className="panel copy-panel">
-          <div className="panel-heading"><span className="number">03</span><div><h3>Copie de l’étudiant</h3><p>Importez les pages d’un seul étudiant à la fois.</p></div></div>
+          <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">03</span>}<div><h3>Copie de l’étudiant</h3><p>Importez les pages d’un seul étudiant à la fois.</p></div></div>
           <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
           <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
           {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<button className="text-button" onClick={() => { setImages([]); setTranscription(null); setProposal(null); setReview([]); setTeacherQuestions(''); setIsFinalized(false); }}>Effacer cette copie et passer à la suivante</button></div>}
