@@ -424,7 +424,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <div className="rubric-actions"><button className="secondary-button" onClick={addCriterion}>+ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
       </section>
 
-      <div className="teacher-step-footer"><span>Barème vérifié ? Passez à l’ajout du sujet et d’une copie.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('copy')}>Continuer vers la copie <span aria-hidden="true">→</span></button></div>
+      {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Barème vérifié ? Passez à l’ajout du sujet et d’une copie.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('copy')}>Continuer vers la copie <span aria-hidden="true">→</span></button></div>}
       </>}
 
       {(interfaceMode === 'diagnostic' || teacherStep === 'copy') && <>
