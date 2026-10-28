@@ -48,7 +48,7 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('grid-template-columns: 258px minmax(0, 1fr);');
     expect(correctionFlowStylesheet).toContain('.teacher-sidebar {');
     expect(correctionFlowStylesheet).toContain('.teacher-step.active');
-    expect(correctionFlowStylesheet).toContain('.teacher-settings');
+    expect(correctionFlowStylesheet).toContain('.teacher-model-panel');
     expect(correctionFlowStylesheet).toContain('.teacher-flow-shell .privacy-strip,');
     expect(correctionFlowStylesheet).toContain('@media (max-width: 720px)');
     expect(correctionFlowStylesheet).toContain('.teacher-step-nav { grid-template-columns: repeat(3, minmax(0, 1fr));');
