@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 
 const stylesheet = readFileSync(new URL('../src/ui/styles.css', import.meta.url), 'utf8');
 const correctionFlowStylesheet = readFileSync(new URL('../src/ui/correctionFlow.css', import.meta.url), 'utf8');
+const modelSelectStylesheet = readFileSync(new URL('../src/ui/modelSelect.css', import.meta.url), 'utf8');
 const memoryStylesheet = readFileSync(new URL('../src/ui/localMemory.css', import.meta.url), 'utf8');
 const memoryComponent = readFileSync(new URL('../src/ui/LocalMemoryCompanion.tsx', import.meta.url), 'utf8');
+const mainEntry = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
 
 describe('UI design system', () => {
   it('defines a shared spacing scale and reusable surface tokens', () => {
@@ -65,5 +67,17 @@ describe('UI design system', () => {
     expect(memoryComponent).toContain('Décision à conserver');
     expect(memoryComponent).toContain('Réutiliser cette décision avec le barème');
     expect(memoryComponent).toContain('+ Nouvelle correction');
+  });
+
+  it('styles Ollama model selectors as a reusable, accessible design-system control', () => {
+    expect(mainEntry).toContain("import './ui/modelSelect.css';");
+    expect(modelSelectStylesheet).toContain('.ollama-panel select[id$="-model"] {');
+    expect(modelSelectStylesheet).toContain('appearance: none;');
+    expect(modelSelectStylesheet).toContain('min-height: 48px;');
+    expect(modelSelectStylesheet).toContain('border-radius: 12px;');
+    expect(modelSelectStylesheet).toContain('box-shadow: 0 1px 2px');
+    expect(modelSelectStylesheet).toContain('select[id$="-model"]:focus-visible');
+    expect(modelSelectStylesheet).toContain('@media (max-width: 430px)');
+    expect(modelSelectStylesheet).toContain('@media (prefers-reduced-motion: reduce)');
   });
 });
