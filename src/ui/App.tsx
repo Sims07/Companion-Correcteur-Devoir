@@ -377,7 +377,6 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <div className="teacher-sidebar-footer">
           <div className="sidebar-local-status"><span aria-hidden="true">●</span><span><strong>Traitement local</strong><small>Vos copies restent sur votre serveur</small></span></div>
           <button type="button" className={showAiSettings ? 'sidebar-settings active' : 'sidebar-settings'} onClick={() => { setTeacherStep('copy'); setShowAiSettings((current) => !current); }} aria-expanded={showAiSettings}><span aria-hidden="true">⚙</span> Paramètres de l’IA locale</button>
-          <button type="button" className="sidebar-diagnostic-link" onClick={() => setInterfaceMode('diagnostic')}>Ouvrir le Diagnostic IA ↗</button>
         </div>
       </aside>}
 
