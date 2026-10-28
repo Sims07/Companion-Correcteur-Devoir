@@ -33,6 +33,36 @@ function text(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value.trim() : fallback;
 }
 
+function normalizeCriteria(parsed: Record<string, unknown>): unknown[] | null {
+  if (Array.isArray(parsed.criteria)) return parsed.criteria;
+
+  // Some local instruction-tuned models obey the JSON contract but serialize the
+  // criteria collection as an object keyed by criterion id instead of an array.
+  // Normalize that harmless shape before applying the strict domain validation.
+  const objectCriteria = isRecord(parsed.criteria) ? parsed.criteria : null;
+  if (objectCriteria) {
+    return Object.entries(objectCriteria).map(([criterionId, value]) => ({
+      ...(isRecord(value) ? value : {}),
+      criterionId: isRecord(value) && typeof value.criterionId === 'string' ? value.criterionId : criterionId,
+    }));
+  }
+
+  // A few Ollama models use a more natural `scores`/`criterionScores` object
+  // despite being asked for `criteria`. Accept it only when it is unambiguously
+  // keyed by criterion id; the normal validation still enforces the full rubric.
+  for (const key of ['criterionScores', 'scores']) {
+    const scores = isRecord(parsed[key]) ? parsed[key] : null;
+    if (scores) {
+      return Object.entries(scores).map(([criterionId, value]) => ({
+        ...(isRecord(value) ? value : { points: value }),
+        criterionId: isRecord(value) && typeof value.criterionId === 'string' ? value.criterionId : criterionId,
+      }));
+    }
+  }
+
+  return null;
+}
+
 export function parseGradingProposal(raw: string, rubric: Rubric): GradingProposal {
   const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   let parsed: unknown;
@@ -41,14 +71,18 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
   } catch {
     throw new Error('La réponse du modèle ne respecte pas le format attendu. Relancez la correction ou demandez une réponse JSON au modèle.');
   }
-  if (!isRecord(parsed) || !Array.isArray(parsed.criteria)) {
+  if (!isRecord(parsed)) {
+    throw new Error('La réponse du modèle ne contient pas de liste de critères exploitable.');
+  }
+  const normalizedCriteria = normalizeCriteria(parsed);
+  if (!normalizedCriteria) {
     throw new Error('La réponse du modèle ne contient pas de liste de critères exploitable.');
   }
 
   const knownCriteria = new Map(rubric.criteria.map((criterion) => [criterion.id, criterion]));
   const criteria: CriterionProposal[] = [];
   const seenIds = new Set<string>();
-  for (const item of parsed.criteria) {
+  for (const item of normalizedCriteria) {
     if (!isRecord(item) || typeof item.criterionId !== 'string') {
       throw new Error('Une entrée de la réponse du modèle ne contient pas d’identifiant de critère valide.');
     }
