@@ -50,6 +50,12 @@ test('teacher journey shows one task at a time and keeps Ollama settings tucked 
   await page.reload();
   await expect(page.getByLabel('DEVOIR EN COURS')).toHaveValue('Biologie cellulaire — partiel S1');
 
+  await page.getByRole('button', { name: /Corrections enregistrées/ }).click();
+  await expect(page.getByRole('heading', { name: 'Corrections enregistrées' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Aucune correction enregistrée pour le moment' })).toBeVisible();
+  await page.getByRole('button', { name: 'Ajouter une copie' }).click();
+  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
+
   await page.getByRole('button', { name: 'Diagnostic IA' }).click();
   await expect(page.getByRole('navigation', { name: 'Étapes du devoir' })).toHaveCount(0);
   await expect(page.getByLabel('Stratégie de comparaison')).toBeVisible();
