@@ -63,6 +63,29 @@ describe('Ollama diagnostic multi-model strategy', () => {
     expect(events.map((event) => event.model)).toEqual(['model-one', 'model-two']);
   });
 
+  it('reruns only arbitration from saved outputs without calling either analysis model', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { model: string; messages: Array<{ content: string }> };
+      expect(body.model).toBe('arbiter-model');
+      expect(body.messages[0].content).toContain('avis initial un');
+      expect(body.messages[0].content).toContain('avis initial deux');
+      return streamResponse('{"summary":"nouvel arbitrage"}');
+    });
+    const events: Array<{ kind: string; model: string }> = [];
+    const provider = createOllamaProvider({
+      ...settings,
+      diagnosticStrategy: 'arbitrate-only',
+      diagnosticFirstResult: '{"summary":"avis initial un"}',
+      diagnosticSecondResult: '{"summary":"avis initial deux"}',
+    }, fetchMock as typeof fetch);
+
+    const result = await provider.generate(request, undefined, undefined, undefined, (event) => events.push(event));
+
+    expect(result).toContain('nouvel arbitrage');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(events).toEqual([expect.objectContaining({ kind: 'arbitrator', model: 'arbiter-model' })]);
+  });
+
   it('rejects using the same model twice so the comparison stays independent', async () => {
     const provider = createOllamaProvider({ ...settings, secondAnalysisModel: 'model-one' }, vi.fn() as unknown as typeof fetch);
     await expect(provider.generate(request)).rejects.toThrow('Choisissez deux modèles d’analyse distincts');
