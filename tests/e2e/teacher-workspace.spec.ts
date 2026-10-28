@@ -24,13 +24,22 @@ test('teacher journey shows one task at a time and keeps Ollama settings tucked 
   await expect(page.getByRole('button', { name: /Réglages de l’IA locale/ })).toHaveAttribute('aria-expanded', 'false');
 
   await page.getByRole('button', { name: 'Réglages de l’IA locale' }).click();
+  await expect(page.getByRole('heading', { name: 'Paramètres de l’IA locale' })).toBeVisible();
   await expect(page.getByLabel('Adresse du serveur Ollama')).toBeVisible();
   await expect(page.getByLabel('Modèle de lecture des copies')).toBeVisible();
   await expect(page.getByLabel('Modèle d’analyse et de notation')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Lancer la lecture et la correction' })).toBeDisabled();
+  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Copie de l’étudiant' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Lancer la lecture et la correction' })).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Fermer' }).click();
+  await page.getByRole('button', { name: 'Terminé, revenir au devoir' }).click();
   await expect(page.getByLabel('Adresse du serveur Ollama')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Réglages de l’IA locale' }).click();
+  await expect(page.getByRole('heading', { name: 'Paramètres de l’IA locale' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Terminé, revenir au devoir' }).click();
 
   await page.reload();
   await expect(page.getByLabel('DEVOIR EN COURS')).toHaveValue('Biologie cellulaire — partiel S1');
