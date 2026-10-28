@@ -94,7 +94,7 @@ describe('UI design system', () => {
     expect(memoryComponent).toContain('+ Nouvelle correction');
   });
 
-  it('styles Ollama model selectors as a reusable, accessible design-system control', () => {  it('makes multiple local assignments discoverable and gives each assignment its own saved rubric and question', () => {
+  it('makes multiple local assignments discoverable and gives each assignment its own saved rubric and question', () => {
     expect(appComponent).toContain('assignmentProfilesKey');
     expect(appComponent).toContain('function createNewAssignment()');
     expect(appComponent).toContain('function switchAssignment(profile: AssignmentProfile)');
@@ -107,7 +107,7 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('@media (max-width: 720px)');
   });
 
-
+  it('styles Ollama model selectors as a reusable, accessible design-system control', () => {
     expect(mainEntry).toContain("import './ui/modelSelect.css';");
     expect(modelSelectStylesheet).toContain('.ollama-panel select {');
     expect(appComponent).toContain('id="diagnostic-strategy"');
@@ -119,5 +119,6 @@ describe('UI design system', () => {
     expect(modelSelectStylesheet).toContain('.ollama-panel select:focus-visible');
     expect(modelSelectStylesheet).toContain('@media (max-width: 430px)');
     expect(modelSelectStylesheet).toContain('@media (prefers-reduced-motion: reduce)');
+  });
   });
 });
