@@ -12,6 +12,12 @@ test('teacher journey shows one task at a time and keeps Ollama settings tucked 
   const assignmentTitle = page.getByLabel('DEVOIR EN COURS');
   await assignmentTitle.fill('Biologie cellulaire — partiel S1');
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
+  await page.getByRole('button', { name: /Configurer maintenant/ }).click();
+  await expect(page.getByRole('heading', { name: 'Paramètres de l’IA locale' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Préparer le barème' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Terminé, revenir au devoir' }).click();
+  await expect(page.getByRole('heading', { name: 'Préparer le barème' })).toBeVisible();
   await expect(page.getByLabel('Adresse du serveur Ollama')).toHaveCount(0);
 
   await page.getByRole('button', { name: /Continuer vers la copie/ }).click();
