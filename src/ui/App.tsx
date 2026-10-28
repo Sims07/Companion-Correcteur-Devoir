@@ -4,6 +4,7 @@ import type { CorrectionWorkspaceService } from '../application/correctionWorksp
 import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion } from '../domain/grading.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { ImageInput } from '../ports/aiProvider.ts';
+import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 
 const initialRubric: Rubric = {
   title: 'Barème de biologie — exemple',
@@ -15,6 +16,8 @@ const initialRubric: Rubric = {
 };
 
 const defaultQuestion = 'Évaluez la réponse manuscrite à la question de biologie. Justifiez chaque attribution de points à partir des éléments visibles de la copie.';
+
+type DiagnosticCriterionScore = { criterionId: string; title: string; points: number; maxPoints: number };
 
 type TimingRecord = {
   id: string;
@@ -28,6 +31,8 @@ type TimingRecord = {
   analysisSeconds: number | null;
   totalSeconds: number;
   outcome: 'success' | 'error';
+  modelScore: number | null;
+  criterionScores: DiagnosticCriterionScore[];
 };
 
 const timingHistoryKey = 'companion-correcteur:timing-history:v1';
@@ -47,7 +52,7 @@ function readTimingHistory(): TimingRecord[] {
       (item.readingSeconds === null || typeof item.readingSeconds === 'number') &&
       (item.analysisSeconds === null || typeof item.analysisSeconds === 'number') &&
       (item.outcome === 'success' || item.outcome === 'error')
-    ).slice(0, timingHistoryLimit);
+    ).map((item) => ({ ...item, modelScore: typeof item.modelScore === 'number' ? item.modelScore : null, criterionScores: Array.isArray(item.criterionScores) ? item.criterionScores.filter((criterion): criterion is DiagnosticCriterionScore => typeof criterion?.criterionId === 'string' && typeof criterion.title === 'string' && typeof criterion.points === 'number' && typeof criterion.maxPoints === 'number') : [] })).slice(0, timingHistoryLimit);
   } catch {
     return [];
   }
@@ -209,6 +214,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
     let readingDurationMs: number | null = null;
     let analysisStartedAt: number | null = null;
     let outcome: TimingRecord['outcome'] = 'error';
+    let diagnosticProposal: GradingProposal | null = null;
     setBusy(true);
     setIsAnalyzing(true);
     setAnalysisStage('checking');
@@ -243,6 +249,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         },
       );
       const parsed = parseGradingProposal(raw, rubric);
+      diagnosticProposal = parsed;
       setProposal(parsed);
       setReview(toReviewedCriteria(parsed));
       setTeacherQuestions(parsed.questionsForTeacher.join('\n'));
@@ -251,6 +258,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
     } finally {
       const finishedAt = Date.now();
+      const diagnosticScore = diagnosticProposal ? buildDiagnosticScore(diagnosticProposal, rubric) : null;
       const record: TimingRecord = {
         id: String(finishedAt) + '-' + String(images.length),
         completedAt: new Date(finishedAt).toISOString(),
@@ -263,6 +271,8 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         analysisSeconds: analysisStartedAt === null ? null : Math.round((finishedAt - analysisStartedAt) / 1000),
         totalSeconds: Math.round((finishedAt - runStartedAt) / 1000),
         outcome,
+        modelScore: diagnosticScore?.modelScore ?? null,
+        criterionScores: diagnosticScore?.criterionScores ?? [],
       };
       setTimingHistory((current) => {
         const next = [record, ...current].slice(0, timingHistoryLimit);
@@ -445,13 +455,14 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         </div>
         <div className="timing-history-table-wrap">
           <table className="timing-history-table">
-            <thead><tr><th scope="col">Date</th><th scope="col">Modèles (lecture / analyse)</th><th scope="col">Lecture</th><th scope="col">Analyse</th><th scope="col">Total</th><th scope="col">Résultat</th></tr></thead>
+            <thead><tr><th scope="col">Date</th><th scope="col">Modèles (lecture / analyse)</th><th scope="col">Lecture</th><th scope="col">Analyse</th><th scope="col">Total</th><th scope="col">Note du modèle</th><th scope="col">Résultat</th></tr></thead>
             <tbody>{timingHistory.map((item) => <tr key={item.id}>
               <td>{new Date(item.completedAt).toLocaleString()}</td>
               <td><strong>{item.visionModel || '—'}</strong><small>{item.analysisModel || '—'}{item.thinking ? ' · thinking' : ''}</small><small>{item.pageCount} page(s) · {item.correctionMode === 'separate' ? 'sujet séparé' : 'questions intégrées'}</small></td>
               <td>{item.readingSeconds === null ? 'Réutilisée / non mesurée' : formatElapsed(item.readingSeconds)}</td>
               <td>{item.analysisSeconds === null ? 'Non mesurée' : formatElapsed(item.analysisSeconds)}</td>
               <td><strong>{formatElapsed(item.totalSeconds)}</strong></td>
+              <td>{item.modelScore === null ? '—' : <details className="diagnostic-score-details"><summary><strong>{item.modelScore} / {item.criterionScores.reduce((sum, criterion) => sum + criterion.maxPoints, 0)}</strong><span>Détail par barème</span></summary>{item.criterionScores.length > 0 ? <ul>{item.criterionScores.map((criterion) => <li key={criterion.criterionId}><span>{criterion.title}</span><strong>{criterion.points} / {criterion.maxPoints}</strong></li>)}</ul> : <small>Aucun détail de critère enregistré.</small>}</details>}</td>
               <td><span className={item.outcome === 'success' ? 'timing-outcome success' : 'timing-outcome error'}>{item.outcome === 'success' ? 'Terminée' : 'Échec'}</span></td>
             </tr>)}</tbody>
           </table>
