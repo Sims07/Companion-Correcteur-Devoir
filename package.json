@@ -29,6 +29,7 @@
     "typescript": "latest",
     "vitest": "latest",
     "jsdom": "latest",
+    "fake-indexeddb": "latest",
     "@vitest/coverage-v8": "latest"
   }
 }
