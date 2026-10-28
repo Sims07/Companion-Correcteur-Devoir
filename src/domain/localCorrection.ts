@@ -1,6 +1,11 @@
 import type { GradingProposal, ReviewedCriterion } from './grading.ts';
 import type { Rubric } from './rubric.ts';
-import type { ImageInput } from '../ports/aiProvider.ts';
+
+export interface ArchivedImage {
+  base64: string;
+  mimeType: string;
+  fileName?: string;
+}
 
 export interface CorrectionArchiveSnapshot {
   assignmentTitle: string;
@@ -9,9 +14,9 @@ export interface CorrectionArchiveSnapshot {
   proposal: GradingProposal;
   review: ReviewedCriterion[];
   teacherQuestions: string;
-  images: ImageInput[];
+  images: ArchivedImage[];
   transcription: string | null;
-  subjectImages: ImageInput[];
+  subjectImages: ArchivedImage[];
   subjectTranscription: string | null;
   correctionMode: 'integrated' | 'separate';
   maximumPoints: number;
