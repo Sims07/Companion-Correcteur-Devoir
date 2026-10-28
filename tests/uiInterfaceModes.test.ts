@@ -34,11 +34,11 @@ describe('teacher and AI diagnostic interface modes', () => {
   it('keeps Ollama configuration hidden until explicitly opened from teacher settings', () => {
     const text = app();
     expect(text).toContain(`{interfaceMode === 'diagnostic' ? <article className="panel ollama-panel">`);
-    expect(text).toContain('showAiSettings && <article className="panel ollama-panel teacher-model-panel"');
+    expect(text).toContain("interfaceMode === 'teacher' && showAiSettings && <section className={`panel ollama-panel teacher-model-panel ai-settings-view");
     expect(text).toContain('Paramètres de l’IA locale');
     expect(text).toContain('Tester la connexion et détecter les modèles');
     expect(text).toContain('aria-expanded={showAiSettings}');
-    expect(text).toContain("setTeacherStep('copy'); setShowAiSettings((current) => !current)");
+    expect(text).toContain("onClick={() => setShowAiSettings((current) => !current)}");
     expect(text).toContain('Ces options ne sont appliquées qu’en mode Diagnostic IA. Le mode Correction reste sur un seul modèle.');
   });
 
@@ -52,7 +52,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Où se trouvent les questions ?');
     expect(text).toContain('Questions intégrées à la copie');
     expect(text).toContain('Sujet fourni séparément');
-    expect(text).toContain("correctionMode === 'separate' && <section className=\"panel subject-panel\">");
+    expect(text).toContain("correctionMode === 'separate' && <section className={`panel subject-panel ${subjectReady ? 'setup-complete' : 'setup-needed'}`}");
     expect(text).toContain('id="subject-files"');
     expect(text).toContain('Sélectionnez uniquement les pages d’un même étudiant');
     expect(text).toContain('subjectImages');
@@ -62,12 +62,14 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('provides a teacher-specific three-step navigation and shows only the active task', () => {
     const text = app();
-    expect(text).toContain("useState<'rubric' | 'copy' | 'review'>('rubric')");
+    expect(text).toContain("useState<'rubric' | 'copy' | 'progress' | 'review'>('rubric')");
     expect(text).toContain('aria-label="Navigation de la correction"');
     expect(text).toContain('aria-label="Étapes du devoir"');
     expect(text).toContain('Préparer le barème');
     expect(text).toContain('Ajouter une copie');
     expect(text).toContain('Réviser la note');
+    expect(text).toContain('Suivi du traitement');
+    expect(text).toContain("setTeacherStep('progress')");
     expect(text).toContain("(interfaceMode === 'diagnostic' || teacherStep === 'rubric') && <>");
     expect(text).toContain("(interfaceMode === 'diagnostic' || teacherStep === 'copy') && <>");
     expect(text).toContain("setTeacherStep('review')");

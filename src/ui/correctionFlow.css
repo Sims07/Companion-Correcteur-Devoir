@@ -671,3 +671,65 @@
 @media (prefers-reduced-motion: reduce) {
   .sidebar-local-status.is-processing > span:first-child { animation: none; }
 }
+
+
+/* A configuration screen is a focused task of its own, not a panel inside copy setup. */
+.ai-settings-view {
+  margin-top: 0;
+  padding: clamp(22px, 4vw, 36px);
+  border-color: #e5c77e;
+  background: linear-gradient(180deg, #fffdf7 0%, #fff 34%);
+  box-shadow: 0 10px 36px rgba(104, 78, 23, .07);
+}
+.ai-settings-view .workspace-heading { align-items: center; margin: 0 0 14px; }
+.ai-settings-view .workspace-heading h2 { margin: 0; }
+.ai-settings-view .settings-intro {
+  max-width: 68ch;
+  margin: 0 0 24px;
+  color: var(--flow-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.ai-settings-view .field-label { margin-top: 18px; }
+.ai-settings-view .settings-intro + .field-label { margin-top: 0; }
+.ai-settings-view input,
+.ai-settings-view select { min-height: 48px; }
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1px solid #f0e4c8;
+}
+.settings-actions .primary-button { min-height: 44px; }
+
+/* Orange means required work remains; green means the teacher has supplied it. */
+.teacher-flow-shell .setup-needed {
+  border-color: #e8c47a !important;
+  background: #fffaf0 !important;
+  box-shadow: 0 0 0 3px rgba(224, 166, 55, .09), 0 4px 16px rgba(104, 78, 23, .035);
+}
+.teacher-flow-shell .setup-complete {
+  border-color: #c5ddc8 !important;
+  background: #f7fcf7 !important;
+  box-shadow: 0 2px 12px rgba(44, 93, 54, .035);
+}
+.processing-workspace-heading { margin-bottom: 18px !important; }
+.processing-workspace-heading .step-count { border-color: #b8d8bf; background: #eef8ef; color: #28613a; }
+.teacher-flow-shell .analysis-progress {
+  min-height: 240px;
+  align-items: center;
+  margin-top: 0;
+  padding: clamp(22px, 4vw, 38px);
+  border-color: #a9cdb0;
+  background: linear-gradient(145deg, #f2faf3 0%, #fff 70%);
+  box-shadow: 0 10px 32px rgba(43, 91, 53, .07);
+}
+.teacher-flow-shell .analysis-progress-copy h3 { font-size: clamp(18px, 2.2vw, 24px); line-height: 1.35; }
+.teacher-flow-shell .analysis-progress-copy > p:not(.eyebrow) { max-width: 62ch; line-height: 1.7; }
+@media (max-width: 720px) {
+  .ai-settings-view { padding: 20px 16px; }
+  .ai-settings-view .workspace-heading { align-items: flex-start; }
+  .settings-actions .primary-button { width: 100%; }
+  .teacher-flow-shell .analysis-progress { min-height: 0; padding: 20px 16px; }
+}
