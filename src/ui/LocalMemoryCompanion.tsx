@@ -57,7 +57,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
         setSuggestions(candidateEntries.slice(0, 5));
       }
     } catch (cause) {
-      setStatus(cause instanceof Error ? cause.message : 'Impossible de lire la mémoire locale.');
+      setStatus(cause instanceof Error ? cause.message : 'Impossible de charger vos règles de correction.');
     }
   }
 
@@ -126,7 +126,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
       await refresh();
       await refreshCorrections();
     } catch (cause) {
-      setStatus(cause instanceof Error ? cause.message : 'Impossible d’enregistrer ce retour localement.');
+      setStatus(cause instanceof Error ? cause.message : 'Impossible d’enregistrer cette décision sur cet appareil.');
     }
   }
 
@@ -134,7 +134,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
     await service.deleteMemoryForCorrection(correctionId);
     setEntries([]);
     setSuggestions([]);
-    setStatus('Mémoire de cette correction supprimée de cet appareil.');
+    setStatus('Les retours de cette correction ont été effacés de cet appareil.');
   }
 
   async function removeCorrection(id: string) {
@@ -178,14 +178,14 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
   return (
     <>
       <button className="memory-fab" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="local-memory-panel">
-        <span aria-hidden="true">✦</span> Mémoire locale {entries.length > 0 && <b>{entries.length}</b>}
+        <span aria-hidden="true">✦</span> Règles de correction {entries.length > 0 && <b>{entries.length}</b>}
       </button>
-      {open && <aside id="local-memory-panel" className="memory-panel" aria-label="Mémoire locale de correction">
+      {open && <aside id="local-memory-panel" className="memory-panel" aria-label="Mes règles de correction">
         <div className="memory-header">
-          <div><p className="memory-kicker">APPRENTISSAGE LOCAL</p><h2>Mémoire de correction</h2></div>
+          <div><p className="memory-kicker">VOS DÉCISIONS PÉDAGOGIQUES</p><h2>Mes règles de correction</h2></div>
           <button className="memory-close" type="button" onClick={() => setOpen(false)} aria-label="Fermer">×</button>
         </div>
-        <p className="memory-explainer">Une correction possède un identifiant local indépendant de son titre. Vous pouvez la fermer puis la reprendre plus tard depuis cet appareil.</p>
+        <p className="memory-explainer">Conservez vos décisions pour éviter de répéter les mêmes remarques. Vos retours restent sur cet appareil ; seules les règles liées au même barème peuvent être réutilisées pour les copies suivantes. Cela n’entraîne pas le modèle d’IA.</p>
 
         <label className="memory-label">Correction en cours
           <select value={correctionId} onChange={(event) => selectCorrection(event.target.value)}>
@@ -198,16 +198,16 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
         <label className="memory-label">Nom de la correction<input value={label} onChange={(event) => persistLabel(event.target.value)} /></label>
         <div className="memory-scope"><span>Barème</span><strong>{rubric.title}</strong><small>{entries.length} retour(s) dans cette correction · les règles promues de ce barème sont réutilisables</small></div>
 
-        <label className="memory-label">Votre retour<textarea value={feedback} onChange={(event) => setFeedback(event.target.value)} placeholder="Ex. Cette formulation doit être acceptée dans ce barème…" rows={4} /></label>
+        <label className="memory-label">Quelle décision souhaitez-vous conserver ?<textarea value={feedback} onChange={(event) => setFeedback(event.target.value)} placeholder="Ex. Accepter cette formulation : le mécanisme biologique est correct, même si les mots diffèrent du corrigé." rows={4} /></label>
         <label className="memory-checkbox"><input type="checkbox" checked={promote} onChange={(event) => setPromote(event.target.checked)} /> <span><strong>Enregistrer comme règle du barème</strong><small>Réutilisable avec le même barème lors d’une prochaine correction.</small></span></label>
-        <button className="memory-primary" type="button" disabled={!feedback.trim()} onClick={() => void saveFeedback()}>Enregistrer le retour</button>
+        <button className="memory-primary" type="button" disabled={!feedback.trim()} onClick={() => void saveFeedback()}>Enregistrer cette décision</button>
 
-        {suggestions.length > 0 && <section className="memory-suggestions"><h3>Déjà rencontré</h3>{suggestions.map((entry) => <div className="memory-entry" key={entry.id}><span>{entry.promotedToRubric ? 'RÈGLE DU BARÈME' : 'RETOUR DE CETTE CORRECTION'}</span><p>{entry.text}</p></div>)}</section>}
+        {suggestions.length > 0 && <section className="memory-suggestions"><h3>Décisions déjà enregistrées</h3>{suggestions.map((entry) => <div className="memory-entry" key={entry.id}><span>{entry.promotedToRubric ? 'RÈGLE DU BARÈME' : 'RETOUR POUR CE DEVOIR'}</span><p>{entry.text}</p></div>)}</section>}
 
-        <div className="memory-actions"><button type="button" onClick={exportMemory} disabled={!entries.length}>Exporter</button><button type="button" onClick={() => importRef.current?.click()}>Importer</button><button type="button" onClick={() => void deleteCurrentMemory()} disabled={!entries.length}>Effacer les retours</button><button type="button" onClick={() => void removeCorrection(correctionId)}>Supprimer cette correction</button></div>
+        <div className="memory-actions"><button type="button" onClick={exportMemory} disabled={!entries.length}>Exporter</button><button type="button" onClick={() => importRef.current?.click()}>Importer</button><button type="button" onClick={() => void deleteCurrentMemory()} disabled={!entries.length}>Effacer les retours de ce devoir</button><button type="button" onClick={() => void removeCorrection(correctionId)}>Supprimer cette correction</button></div>
         <input ref={importRef} className="visually-hidden" type="file" accept="application/json,.json" onChange={(event) => void importMemory(event.currentTarget.files?.[0])} />
         {status && <p className="memory-status" role="status">{status}</p>}
-        <details className="memory-details"><summary>Contexte prêt pour l’analyse IA</summary><p>{promptContext || 'Aucun retour sélectionné pour l’instant. Les retours validés pourront être injectés dans le contexte d’analyse.'}</p></details>
+        <details className="memory-details"><summary>Voir les notes utilisées pour aider l’IA</summary><p>{promptContext || 'Aucune note pertinente sélectionnée pour cette analyse. Les règles du barème et les retours de ce devoir peuvent être transmis au modèle local comme contexte complémentaire.'}</p></details>
       </aside>}
     </>
   );
