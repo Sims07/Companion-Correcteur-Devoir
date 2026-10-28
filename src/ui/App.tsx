@@ -538,18 +538,6 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
 
   function startNextCopy() {
     setStudentLabel('');
-    setCurrentCorrectionId(null);
-    setReviewMessage('');
-    setError('');
-    setStreamedOutput('');
-    setDiagnosticRuns([]);
-    setIsFinalized(false);
-    setShowAiSettings(false);
-    setTeacherStep('rubric');
-  }
-
-
-    setStudentLabel('');
     setImages([]);
     setTranscription(null);
     setProposal(null);
