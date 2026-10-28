@@ -69,4 +69,29 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('RÈGLE DU BARÈME');
     expect(text).toContain('RETOUR POUR CE DEVOIR');
   });
+
+  it('keeps the extracted transcription available for teacher verification after image reading', () => {
+    const text = app();
+    expect(text).toContain('Vérifier le texte lu par l’IA');
+    expect(text).toContain('Relisez la transcription pour repérer les erreurs de lecture');
+    expect(text).toContain('{transcription && <section className="transcription-text-block">');
+    expect(text).toContain('{correctionMode === \'separate\' && subjectTranscription && <section className="transcription-text-block">');
+    expect(text).toContain('Texte de la copie étudiante');
+    expect(text).toContain('Texte du sujet de référence');
+    expect(text).toContain('className="transcription-review"');
+  });
+
+  it('records separate reading and analysis durations and keeps a local comparison history', () => {
+    const text = app();
+    expect(text).toContain("const timingHistoryKey = 'companion-correcteur:timing-history:v1'");
+    expect(text).toContain('readingSeconds:');
+    expect(text).toContain('analysisSeconds:');
+    expect(text).toContain('totalSeconds:');
+    expect(text).toContain('setItem(timingHistoryKey, JSON.stringify(next))');
+    expect(text).toContain('Temps des dernières corrections');
+    expect(text).toContain('Modèles (lecture / analyse)');
+    expect(text).toContain('Réutilisée / non mesurée');
+    expect(text).toContain('Effacer l’historique');
+    expect(text).toContain('pageCount: images.length');
+  });
 });

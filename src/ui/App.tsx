@@ -16,6 +16,43 @@ const initialRubric: Rubric = {
 
 const defaultQuestion = 'Évaluez la réponse manuscrite à la question de biologie. Justifiez chaque attribution de points à partir des éléments visibles de la copie.';
 
+type TimingRecord = {
+  id: string;
+  completedAt: string;
+  visionModel: string;
+  analysisModel: string;
+  thinking: boolean;
+  correctionMode: 'integrated' | 'separate';
+  pageCount: number;
+  readingSeconds: number | null;
+  analysisSeconds: number | null;
+  totalSeconds: number;
+  outcome: 'success' | 'error';
+};
+
+const timingHistoryKey = 'companion-correcteur:timing-history:v1';
+const timingHistoryLimit = 20;
+
+function readTimingHistory(): TimingRecord[] {
+  try {
+    const saved = window.localStorage.getItem(timingHistoryKey);
+    if (!saved) return [];
+    const parsed: unknown = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is TimingRecord =>
+      typeof item === 'object' && item !== null &&
+      typeof item.id === 'string' && typeof item.completedAt === 'string' &&
+      typeof item.visionModel === 'string' && typeof item.analysisModel === 'string' &&
+      typeof item.totalSeconds === 'number' &&
+      (item.readingSeconds === null || typeof item.readingSeconds === 'number') &&
+      (item.analysisSeconds === null || typeof item.analysisSeconds === 'number') &&
+      (item.outcome === 'success' || item.outcome === 'error')
+    ).slice(0, timingHistoryLimit);
+  } catch {
+    return [];
+  }
+}
+
 function formatElapsed(seconds: number): string {
   const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
   const remainingSeconds = (seconds % 60).toString().padStart(2, '0');
@@ -45,6 +82,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
   const [streamedOutput, setStreamedOutput] = useState('');
   const [connectionMessage, setConnectionMessage] = useState('');
   const [error, setError] = useState('');
@@ -166,6 +204,11 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
   }
 
   async function gradeCopies() {
+    const runStartedAt = Date.now();
+    let readingStartedAt: number | null = null;
+    let readingDurationMs: number | null = null;
+    let analysisStartedAt: number | null = null;
+    let outcome: TimingRecord['outcome'] = 'error';
     setBusy(true);
     setIsAnalyzing(true);
     setAnalysisStage('checking');
@@ -184,7 +227,16 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       const raw = await provider.generate(
         { question, rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
         (chunk) => setStreamedOutput((current) => current + chunk),
-        (stage) => { setAnalysisStage(stage); if (stage === 'grading') setStreamedOutput(''); },
+        (stage) => {
+          const now = Date.now();
+          if (stage === 'reading' && readingStartedAt === null) readingStartedAt = now;
+          if (stage === 'grading') {
+            if (readingStartedAt !== null && readingDurationMs === null) readingDurationMs = now - readingStartedAt;
+            analysisStartedAt = now;
+            setStreamedOutput('');
+          }
+          setAnalysisStage(stage);
+        },
         (extracted, kind) => {
           if (kind === 'subject') setSubjectTranscription(extracted);
           else setTranscription(extracted);
@@ -194,9 +246,29 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       setProposal(parsed);
       setReview(toReviewedCriteria(parsed));
       setTeacherQuestions(parsed.questionsForTeacher.join('\n'));
+      outcome = 'success';
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
     } finally {
+      const finishedAt = Date.now();
+      const record: TimingRecord = {
+        id: String(finishedAt) + '-' + String(images.length),
+        completedAt: new Date(finishedAt).toISOString(),
+        visionModel,
+        analysisModel,
+        thinking: analysisThinking,
+        correctionMode,
+        pageCount: images.length + (correctionMode === 'separate' ? subjectImages.length : 0),
+        readingSeconds: readingDurationMs === null ? (readingStartedAt === null ? null : Math.round((finishedAt - readingStartedAt) / 1000)) : Math.round(readingDurationMs / 1000),
+        analysisSeconds: analysisStartedAt === null ? null : Math.round((finishedAt - analysisStartedAt) / 1000),
+        totalSeconds: Math.round((finishedAt - runStartedAt) / 1000),
+        outcome,
+      };
+      setTimingHistory((current) => {
+        const next = [record, ...current].slice(0, timingHistoryLimit);
+        try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); } catch { /* Keep timings visible for this session if local storage is unavailable. */ }
+        return next;
+      });
       setIsAnalyzing(false);
       setBusy(false);
     }
@@ -347,7 +419,45 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         </div>
       </section>}
 
-      {transcription && <p className="validation valid" role="status">✓ Transcription disponible en mémoire locale : vous pouvez relancer l’analyse sans repasser par le modèle de vision.</p>}
+      {(transcription || (correctionMode === 'separate' && subjectTranscription)) && <section className="transcription-review" aria-labelledby="transcription-review-title">
+        <details>
+          <summary id="transcription-review-title">
+            <span><strong>Vérifier le texte lu par l’IA</strong><small>Relisez la transcription pour repérer les erreurs de lecture avant de vous fier à la correction.</small></span>
+            <span className="transcription-review-action">Afficher le texte</span>
+          </summary>
+          <div className="transcription-review-content">
+            {correctionMode === 'separate' && subjectTranscription && <section className="transcription-text-block">
+              <h3>Texte du sujet de référence</h3>
+              <pre>{subjectTranscription}</pre>
+            </section>}
+            {transcription && <section className="transcription-text-block">
+              <h3>Texte de la copie étudiante</h3>
+              <pre>{transcription}</pre>
+            </section>}
+          </div>
+        </details>
+      </section>}
+
+      {timingHistory.length > 0 && <section className="timing-history" aria-labelledby="timing-history-title">
+        <div className="timing-history-heading">
+          <div><p className="eyebrow">PERFORMANCES LOCALES</p><h2 id="timing-history-title">Temps des dernières corrections</h2><p>Historique conservé uniquement sur cet appareil pour comparer les modèles et réglages.</p></div>
+          <button type="button" className="text-button" onClick={() => { setTimingHistory([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button>
+        </div>
+        <div className="timing-history-table-wrap">
+          <table className="timing-history-table">
+            <thead><tr><th scope="col">Date</th><th scope="col">Modèles (lecture / analyse)</th><th scope="col">Lecture</th><th scope="col">Analyse</th><th scope="col">Total</th><th scope="col">Résultat</th></tr></thead>
+            <tbody>{timingHistory.map((item) => <tr key={item.id}>
+              <td>{new Date(item.completedAt).toLocaleString()}</td>
+              <td><strong>{item.visionModel || '—'}</strong><small>{item.analysisModel || '—'}{item.thinking ? ' · thinking' : ''}</small><small>{item.pageCount} page(s) · {item.correctionMode === 'separate' ? 'sujet séparé' : 'questions intégrées'}</small></td>
+              <td>{item.readingSeconds === null ? 'Réutilisée / non mesurée' : formatElapsed(item.readingSeconds)}</td>
+              <td>{item.analysisSeconds === null ? 'Non mesurée' : formatElapsed(item.analysisSeconds)}</td>
+              <td><strong>{formatElapsed(item.totalSeconds)}</strong></td>
+              <td><span className={item.outcome === 'success' ? 'timing-outcome success' : 'timing-outcome error'}>{item.outcome === 'success' ? 'Terminée' : 'Échec'}</span></td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+        <p className="hint">Les durées sont arrondies à la seconde. Une lecture déjà en mémoire n’est pas comptée comme une nouvelle lecture ; le temps de vérification d’Ollama est inclus dans le total, pas dans les durées des étapes.</p>
+      </section>}
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 
