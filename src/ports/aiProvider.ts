@@ -42,7 +42,10 @@ export interface OllamaSettings {
   /** Enable Ollama's thinking mode for analysis only; disabled by default for model compatibility. */
   thinking?: boolean;
   /** Experimental multi-model evaluation, enabled only from the diagnostic UI. */
-  diagnosticStrategy?: DiagnosticStrategy;
+  diagnosticStrategy?: DiagnosticStrategy | 'arbitrate-only';
+  /** Previously captured model outputs for rerunning arbitration without repeating analysis. */
+  diagnosticFirstResult?: string;
+  diagnosticSecondResult?: string;
   secondAnalysisModel?: string;
   arbitratorModel?: string;
 }
