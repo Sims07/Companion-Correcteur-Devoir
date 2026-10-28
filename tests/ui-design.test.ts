@@ -120,4 +120,16 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('.live-analysis-criteria');
     expect(correctionFlowStylesheet).toContain('@media(prefers-reduced-motion:reduce)');
   });
+  it('makes multiple local assignments discoverable and gives each assignment its own saved rubric and question', () => {
+    expect(appComponent).toContain('assignmentProfilesKey');
+    expect(appComponent).toContain('function createNewAssignment()');
+    expect(appComponent).toContain('function switchAssignment(profile: AssignmentProfile)');
+    expect(appComponent).toContain('aria-label="Mes devoirs"');
+    expect(appComponent).toContain('className="sidebar-new-assignment"');
+    expect(appComponent).toContain('setRubric(profile.rubric)');
+    expect(appComponent).toContain('setQuestion(profile.question)');
+    expect(correctionFlowStylesheet).toContain('.sidebar-assignment-item.active');
+    expect(correctionFlowStylesheet).toContain('.sidebar-new-assignment');
+    expect(correctionFlowStylesheet).toContain('@media (max-width: 720px)');
+  });
 });

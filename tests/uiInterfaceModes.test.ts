@@ -60,7 +60,7 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('offers integrated-question and separate-subject modes, with separate subject upload only when needed', () => {
     const text = app();
-    expect(text).toContain("useState<'integrated' | 'separate'>('integrated')");
+    expect(text).toContain("useState<'integrated' | 'separate'>(() => readActiveAssignmentProfile().correctionMode)");
     expect(text).toContain('Où se trouvent les questions ?');
     expect(text).toContain('Questions intégrées à la copie');
     expect(text).toContain('Sujet fourni séparément');
