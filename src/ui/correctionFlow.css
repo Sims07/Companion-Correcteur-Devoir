@@ -1,0 +1,227 @@
+:root {
+  --flow-space-2: 8px;
+  --flow-space-3: 12px;
+  --flow-space-4: 16px;
+  --flow-space-5: 20px;
+  --flow-space-6: 24px;
+  --flow-space-8: 32px;
+  --flow-surface: #ffffff;
+  --flow-subtle: #f7faf6;
+  --flow-border: #dfe8de;
+  --flow-border-strong: #cfdccc;
+  --flow-text: #294034;
+  --flow-muted: #718075;
+  --flow-accent: #477b55;
+}
+
+/* Make the numbered workflow legible without turning the page into a wizard. */
+.workspace-heading {
+  position: relative;
+  gap: var(--flow-space-6);
+  margin-top: var(--flow-space-8);
+  margin-bottom: var(--flow-space-4);
+}
+
+.workspace-heading .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  margin-bottom: var(--flow-space-2);
+  padding: 4px 9px;
+  border: 1px solid var(--flow-border);
+  border-radius: 999px;
+  background: var(--flow-subtle);
+  color: var(--flow-accent);
+  letter-spacing: 1.2px;
+  line-height: 1;
+}
+
+.workspace-heading h2 {
+  line-height: 1.25;
+}
+
+.step-count {
+  align-self: center;
+  padding: 6px 9px;
+  border: 1px solid var(--flow-border);
+  border-radius: 999px;
+  background: var(--flow-subtle);
+}
+
+/* Step 2 is a small decision flow, not a stack of unrelated panels. */
+.correction-mode-panel,
+.subject-panel {
+  margin-bottom: var(--flow-space-4);
+}
+
+.correction-mode-panel {
+  padding: var(--flow-space-6);
+  border-color: var(--flow-border-strong);
+  background: linear-gradient(180deg, #fff 0%, #fbfdfb 100%);
+}
+
+.correction-mode-panel .panel-heading {
+  margin-bottom: var(--flow-space-5);
+}
+
+.correction-mode-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--flow-space-4);
+}
+
+.correction-mode-option {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--flow-space-3);
+  min-height: 92px;
+  padding: var(--flow-space-5);
+  border: 1px solid var(--flow-border);
+  border-radius: 12px;
+  background: var(--flow-surface);
+  color: var(--flow-text);
+  cursor: pointer;
+  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease, transform .16s ease;
+}
+
+.correction-mode-option:hover {
+  border-color: #bfd0bf;
+  box-shadow: 0 5px 16px rgba(43, 71, 51, .07);
+  transform: translateY(-1px);
+}
+
+.correction-mode-option.selected {
+  border-color: #91b098;
+  background: #f4f9f3;
+  box-shadow: 0 0 0 2px rgba(71, 123, 85, .08);
+}
+
+.correction-mode-option input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--flow-accent);
+}
+
+.correction-mode-option span {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.correction-mode-option strong {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.correction-mode-option small {
+  max-width: 48ch;
+  color: var(--flow-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+/* Reveal a selected secondary panel as a deliberate next step. */
+.subject-panel {
+  padding: var(--flow-space-6);
+  background: #fcfdfb;
+  border-color: var(--flow-border);
+}
+
+.subject-panel .panel-heading {
+  margin-bottom: var(--flow-space-5);
+}
+
+.subject-panel .upload-placeholder,
+.copy-panel .upload-placeholder {
+  margin-top: 0;
+}
+
+.subject-panel .file-list,
+.copy-panel .file-list {
+  margin-top: var(--flow-space-5);
+  padding-top: var(--flow-space-4);
+  border-top: 1px solid #edf1eb;
+}
+
+/* Give the copy and AI panels their own visual rhythm inside the step. */
+.setup-grid {
+  gap: var(--flow-space-5);
+  align-items: stretch;
+}
+
+.setup-grid > .panel {
+  padding: var(--flow-space-6);
+}
+
+.setup-grid .panel-heading {
+  margin-bottom: var(--flow-space-5);
+}
+
+.copy-panel,
+.ollama-panel {
+  box-shadow: 0 2px 12px rgba(44, 66, 49, .035);
+}
+
+.copy-panel .upload-placeholder {
+  min-height: 190px;
+}
+
+.question-panel {
+  margin-top: var(--flow-space-5);
+  padding: var(--flow-space-6);
+}
+
+.question-panel .field-label {
+  margin-bottom: var(--flow-space-3);
+}
+
+.question-panel textarea {
+  min-height: 108px;
+}
+
+/* Separate the primary action from the explanatory content around it. */
+.grade-button {
+  margin-top: var(--flow-space-5);
+}
+
+@media (max-width: 760px) {
+  .correction-mode-options {
+    grid-template-columns: 1fr;
+  }
+
+  .correction-mode-option {
+    min-height: 0;
+  }
+
+  .workspace-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--flow-space-2);
+  }
+
+  .step-count {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 430px) {
+  .correction-mode-panel,
+  .subject-panel,
+  .setup-grid > .panel,
+  .question-panel {
+    padding: var(--flow-space-5);
+  }
+
+  .correction-mode-option {
+    padding: var(--flow-space-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .correction-mode-option {
+    transition: none;
+  }
+}
