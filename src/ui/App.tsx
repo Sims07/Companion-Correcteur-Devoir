@@ -384,9 +384,9 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       <div className={interfaceMode === 'teacher' ? 'teacher-content-column' : 'diagnostic-content-column'}>
       {interfaceMode === 'diagnostic' && <section className="welcome">
         <div className="welcome-copy">
-          <p className="eyebrow">{interfaceMode === 'teacher' ? 'ESPACE ENSEIGNANT · BIOLOGIE' : 'ESPACE DE DIAGNOSTIC · IA LOCALE'}</p>
-          <h2>{interfaceMode === 'teacher' ? <>Une correction plus claire.<br /><em>Vous gardez la décision.</em></> : <>Comprendre les résultats.<br /><em>Affiner les réglages IA.</em></>}</h2>
-          <p className="intro">{interfaceMode === 'teacher' ? 'Importez les copies, appliquez votre barème et révisez chaque proposition. L’assistant signale ses incertitudes ; aucune note n’est validée automatiquement.' : 'Accédez aux réglages Ollama, aux modèles et aux sorties de diagnostic pour analyser le comportement de l’assistant. Les copies restent traitées par le serveur configuré.'}</p>
+          <p className="eyebrow">ESPACE DE DIAGNOSTIC · IA LOCALE</p>
+          <h2>Comprendre les résultats.<br /><em>Affiner les réglages IA.</em></h2>
+          <p className="intro">Accédez aux réglages Ollama, aux modèles et aux sorties de diagnostic pour analyser le comportement de l’assistant. Les copies restent traitées par le serveur configuré.</p>
         </div>
         <div className="illustration" aria-hidden="true"><div className="paper"><span /><span /><span /><b>✓</b></div><div className="leaf leaf-one" /><div className="leaf leaf-two" /></div>
       </section>}
