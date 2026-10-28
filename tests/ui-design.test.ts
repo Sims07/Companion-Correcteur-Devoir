@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 const stylesheet = readFileSync(new URL('../src/ui/styles.css', import.meta.url), 'utf8');
 const correctionFlowStylesheet = readFileSync(new URL('../src/ui/correctionFlow.css', import.meta.url), 'utf8');
+const memoryStylesheet = readFileSync(new URL('../src/ui/localMemory.css', import.meta.url), 'utf8');
+const memoryComponent = readFileSync(new URL('../src/ui/LocalMemoryCompanion.tsx', import.meta.url), 'utf8');
 
 describe('UI design system', () => {
   it('defines a shared spacing scale and reusable surface tokens', () => {
@@ -49,5 +51,19 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('@media (max-width: 760px)');
     expect(correctionFlowStylesheet).toContain('@media (max-width: 430px)');
     expect(correctionFlowStylesheet).toContain('@media (prefers-reduced-motion: reduce)');
+  });
+
+  it('gives correction rules a clear hierarchy instead of a compact catch-all panel', () => {
+    expect(memoryStylesheet).toContain('.memory-panel{position:fixed');
+    expect(memoryStylesheet).toContain('width:min(560px');
+    expect(memoryStylesheet).toContain('.memory-correction-select{height:48px');
+    expect(memoryStylesheet).toContain('.memory-section{border-top:1px solid');
+    expect(memoryStylesheet).toContain('.memory-step{display:grid');
+    expect(memoryStylesheet).toContain('@media(max-width:600px)');
+    expect(memoryComponent).toContain('Correction active');
+    expect(memoryComponent).toContain('Barème utilisé');
+    expect(memoryComponent).toContain('Décision à conserver');
+    expect(memoryComponent).toContain('Réutiliser cette décision avec le barème');
+    expect(memoryComponent).toContain('+ Nouvelle correction');
   });
 });
