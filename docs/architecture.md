@@ -63,9 +63,9 @@ Seul point d'assemblage des adaptateurs concrets, services applicatifs et compos
 
 ## Flux principaux
 
-1. L'enseignant configure un barème et sélectionne des images ou un PDF.
-2. L'adaptateur fichiers prépare les pages localement en mémoire.
-3. Le port IA est fourni par l'adaptateur Ollama configuré par l'utilisateur. La correction utilise une lecture visuelle puis une analyse selon le barème ; la transcription conservée localement peut être réutilisée pour relancer une analyse. Pour importer un barème depuis une photo, un unique appel au modèle de vision Ollama demande une sortie JSON structurée, validée côté application avant affichage. Les imports de documents texte restent déterministes et locaux.
+1. L'enseignant configure un barème et choisit le mode : questions intégrées à la copie, ou sujet de référence fourni séparément.
+2. En mode sujet séparé, les pages du sujet sont préparées localement puis transcrites une seule fois par le modèle de vision Ollama. Cette transcription de référence est conservée en mémoire de la session et réutilisée pour les copies suivantes du même devoir ; chaque copie d'étudiant est importée et corrigée individuellement.
+3. L'adaptateur fichiers prépare localement les pages de la copie. Le port IA orchestre la transcription des pages étudiantes puis l'analyse selon le barème et, si présent, le sujet de référence. Les transcriptions peuvent être réutilisées pour relancer une analyse sans nouvel appel de vision. Pour importer un barème depuis une photo, un unique appel au modèle de vision Ollama demande une sortie JSON structurée, validée côté application avant affichage. Les imports de documents texte restent déterministes et locaux.
 4. La réponse est validée avant présentation. Une proposition n'est jamais automatiquement acceptée ; l'enseignant conserve la décision finale.
 5. Les corrections et retours choisis sont enregistrés par le cas d'usage via le port de persistance vers IndexedDB. Le navigateur n'envoie pas cette mémoire à un service cloud.
 6. Le contexte issu de la mémoire est consultatif et ne supplante jamais le barème courant.
