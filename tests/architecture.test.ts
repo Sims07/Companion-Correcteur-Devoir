@@ -60,3 +60,4 @@ describe('hexagonal architecture boundaries', () => {
     expect(text).toContain('service={correctionWorkspaceService}');
   });
 });
+
