@@ -1,0 +1,70 @@
+import { describe, expect, it, vi } from 'vitest';
+import { createOllamaProvider } from './ollamaProvider.ts';
+import type { GradingRequest, OllamaSettings } from '../../ports/aiProvider.ts';
+
+const request: GradingRequest = {
+  question: 'Explique la photosynthèse.',
+  rubric: JSON.stringify({ title: 'Biologie', criteria: [{ id: 'science', title: 'Exactitude' }] }),
+  transcription: 'La plante utilise la lumière.',
+};
+
+function streamResponse(content: string): Response {
+  return new Response(JSON.stringify({ message: { content } }) + '\n', {
+    status: 200,
+    headers: { 'Content-Type': 'application/x-ndjson' },
+  });
+}
+
+describe('Ollama diagnostic multi-model strategy', () => {
+  const settings: OllamaSettings = {
+    endpoint: 'http://localhost:11434',
+    visionModel: 'vision-model',
+    analysisModel: 'model-one',
+    secondAnalysisModel: 'model-two',
+    arbitratorModel: 'arbiter-model',
+    diagnosticStrategy: 'arbitrate',
+  };
+
+  it('runs two independent analyses then sends both results to the arbitrator', async () => {
+    const bodies: Array<{ model: string; messages: Array<{ content: string }> }> = [];
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { model: string; messages: Array<{ content: string }> };
+      bodies.push(body);
+      const answer = body.model === 'model-one' ? '{"summary":"avis un"}'
+        : body.model === 'model-two' ? '{"summary":"avis deux"}'
+          : '{"summary":"arbitrage"}';
+      return streamResponse(answer);
+    });
+    const events: Array<{ kind: string; model: string; raw: string; elapsedMs: number }> = [];
+    const provider = createOllamaProvider(settings, fetchMock as typeof fetch);
+
+    const result = await provider.generate(request, undefined, undefined, undefined, (event) => events.push(event));
+
+    expect(result).toContain('arbitrage');
+    expect(bodies.map((body) => body.model)).toEqual(['model-one', 'model-two', 'arbiter-model']);
+    expect(bodies[2].messages[0].content).toContain('avis un');
+    expect(bodies[2].messages[0].content).toContain('avis deux');
+    expect(events.map((event) => event.kind)).toEqual(['model', 'model', 'arbitrator']);
+    expect(events.every((event) => event.elapsedMs >= 0)).toBe(true);
+  });
+
+  it('returns the first proposal in comparison-only mode and does not call an arbitrator', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { model: string };
+      return streamResponse(body.model === 'model-one' ? '{"summary":"avis un"}' : '{"summary":"avis deux"}');
+    });
+    const events: Array<{ kind: string; model: string }> = [];
+    const provider = createOllamaProvider({ ...settings, diagnosticStrategy: 'compare' }, fetchMock as typeof fetch);
+
+    const result = await provider.generate(request, undefined, undefined, undefined, (event) => events.push(event));
+
+    expect(result).toContain('avis un');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(events.map((event) => event.model)).toEqual(['model-one', 'model-two']);
+  });
+
+  it('rejects using the same model twice so the comparison stays independent', async () => {
+    const provider = createOllamaProvider({ ...settings, secondAnalysisModel: 'model-one' }, vi.fn() as unknown as typeof fetch);
+    await expect(provider.generate(request)).rejects.toThrow('Choisissez deux modèles d’analyse distincts');
+  });
+});
