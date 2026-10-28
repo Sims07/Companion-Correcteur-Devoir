@@ -74,7 +74,7 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('provides a teacher-specific three-step navigation and shows only the active task', () => {
     const text = app();
-    expect(text).toContain("useState<'rubric' | 'copy' | 'progress' | 'review'>('rubric')");
+    expect(text).toContain("useState<'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric')");
     expect(text).toContain('aria-label="Navigation de la correction"');
     expect(text).toContain('aria-label="Étapes du devoir"');
     expect(text).toContain('Préparer le barème');
