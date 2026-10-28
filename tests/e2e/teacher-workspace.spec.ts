@@ -21,9 +21,9 @@ test('teacher journey shows one task at a time and keeps Ollama settings tucked 
   await expect(page.locator('.correction-mode-panel .number')).toHaveCount(0);
   await expect(page.locator('.copy-panel .number')).toHaveCount(0);
   await expect(page.getByLabel('Adresse du serveur Ollama')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /Paramètres de l’IA locale/ })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByRole('button', { name: /Réglages de l’IA locale/ })).toHaveAttribute('aria-expanded', 'false');
 
-  await page.getByRole('button', { name: 'Paramètres de l’IA locale' }).click();
+  await page.getByRole('button', { name: 'Réglages de l’IA locale' }).click();
   await expect(page.getByLabel('Adresse du serveur Ollama')).toBeVisible();
   await expect(page.getByLabel('Modèle de lecture des copies')).toBeVisible();
   await expect(page.getByLabel('Modèle d’analyse et de notation')).toBeVisible();
