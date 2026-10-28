@@ -1,4 +1,4 @@
-import { listLocalMemory } from '../storage/indexedDbMemory.ts';
+import type { LocalCorrectionRepository } from '../../ports/localCorrectionRepository.ts';
 import { fingerprintRubric, type LocalMemoryEntry } from '../../domain/localMemory.ts';
 import { buildLocalMemoryContext } from '../../domain/localMemoryContext.ts';
 
@@ -25,12 +25,12 @@ export function appendLocalMemoryContext(content: string, entries: LocalMemoryEn
   return context ? `${content}\n\n${context}` : content;
 }
 
-export async function augmentAnalysisPromptWithLocalMemory(content: string): Promise<string> {
+export async function augmentAnalysisPromptWithLocalMemory(content: string, repository: LocalCorrectionRepository): Promise<string> {
   if (!shouldAugmentAnalysisPrompt(content)) return content;
   const scope = readRubricScope();
   if (!scope) return content;
-  const current = await listLocalMemory(scope);
-  const rubricRules = (await listLocalMemory({ rubricFingerprint: scope.rubricFingerprint }))
+  const current = await repository.listMemory(scope);
+  const rubricRules = (await repository.listMemory({ rubricFingerprint: scope.rubricFingerprint }))
     .filter((entry) => entry.promotedToRubric && entry.correctionId !== scope.correctionId);
   return appendLocalMemoryContext(content, [...current, ...rubricRules].slice(0, 8));
 }
@@ -39,7 +39,7 @@ export async function augmentAnalysisPromptWithLocalMemory(content: string): Pro
  * Keeps the existing Ollama adapter unchanged while injecting only the locally
  * scoped teacher memory into grading prompts. Vision/transcription requests are untouched.
  */
-export function installLocalMemoryFetchBridge(): () => void {
+export function installLocalMemoryFetchBridge(repository: LocalCorrectionRepository): () => void {
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
@@ -51,7 +51,7 @@ export function installLocalMemoryFetchBridge(): () => void {
       const payload = JSON.parse(init.body) as { messages?: Array<{ role?: string; content?: string }> };
       const message = payload.messages?.find((item) => item.role === 'user');
       if (!message?.content || !shouldAugmentAnalysisPrompt(message.content)) return originalFetch(input, init);
-      const content = await augmentAnalysisPromptWithLocalMemory(message.content);
+      const content = await augmentAnalysisPromptWithLocalMemory(message.content, repository);
       if (content === message.content) return originalFetch(input, init);
       message.content = content;
       return originalFetch(input, { ...init, body: JSON.stringify(payload) });
