@@ -23,6 +23,55 @@ const defaultQuestion = 'Évaluez la réponse manuscrite à la question de biolo
 
 type DiagnosticCriterionScore = { criterionId: string; title: string; points: number; maxPoints: number };
 
+type AssignmentProfile = {
+  id: string;
+  title: string;
+  rubric: Rubric;
+  question: string;
+  correctionMode: 'integrated' | 'separate';
+};
+
+type AssignmentDraft = {
+  images: ImageInput[];
+  transcription: string | null;
+  subjectImages: ImageInput[];
+  subjectTranscription: string | null;
+  proposal: GradingProposal | null;
+  review: ReviewedCriterion[];
+  teacherQuestions: string;
+  studentLabel: string;
+  currentCorrectionId: string | null;
+  isFinalized: boolean;
+  reviewMessage: string;
+};
+
+const assignmentProfilesKey = 'companion-correcteur:assignments:v1';
+
+function readAssignmentProfiles(): AssignmentProfile[] {
+  try {
+    const saved = window.localStorage.getItem(assignmentProfilesKey);
+    if (saved) {
+      const parsed: unknown = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        const valid = parsed.filter((item): item is AssignmentProfile =>
+          typeof item?.id === 'string' && typeof item?.title === 'string' &&
+          typeof item?.question === 'string' &&
+          (item?.correctionMode === 'integrated' || item?.correctionMode === 'separate') &&
+          typeof item?.rubric?.title === 'string' && Array.isArray(item?.rubric?.criteria)
+        );
+        if (valid.length) return valid;
+      }
+    }
+  } catch { /* Fall back to the single-devoir preference from earlier versions. */ }
+  return [{
+    id: 'assignment-default',
+    title: readAssignmentTitle(),
+    rubric: initialRubric,
+    question: defaultQuestion,
+    correctionMode: 'integrated',
+  }];
+}
+
 type TimingRecord = {
   id: string;
   completedAt: string;
@@ -85,13 +134,16 @@ function rubricAsJson(rubric: Rubric): string {
 }
 
 export function App({ service, archiveService }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService }) {
-  const [assignmentTitle, setAssignmentTitle] = useState(readAssignmentTitle);
+  const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
+  const [activeAssignmentId, setActiveAssignmentId] = useState(() => readAssignmentProfiles()[0].id);
+  const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, AssignmentDraft>>({});
+  const [assignmentTitle, setAssignmentTitle] = useState(() => readAssignmentProfiles()[0].title);
   const [teacherStep, setTeacherStep] = useState<'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric');
   const [showAiSettings, setShowAiSettings] = useState(false);
-  const [rubric, setRubric] = useState<Rubric>(initialRubric);
+  const [rubric, setRubric] = useState<Rubric>(() => readAssignmentProfiles()[0].rubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
   const [rubricImageImporting, setRubricImageImporting] = useState(false);
-  const [question, setQuestion] = useState(defaultQuestion);
+  const [question, setQuestion] = useState(() => readAssignmentProfiles()[0].question);
   const [endpoint, setEndpoint] = useState('http://localhost:11434');
   const [visionModel, setVisionModel] = useState('');
   const [analysisModel, setAnalysisModel] = useState('');
@@ -101,7 +153,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [diagnosticRuns, setDiagnosticRuns] = useState<DiagnosticModelResult[]>([]);
   const [analysisThinking, setAnalysisThinking] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
-  const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>('integrated');
+  const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>(() => readAssignmentProfiles()[0].correctionMode);
   const [subjectImages, setSubjectImages] = useState<ImageInput[]>([]);
   const [subjectTranscription, setSubjectTranscription] = useState<string | null>(null);
   const [images, setImages] = useState<ImageInput[]>([]);
@@ -136,8 +188,18 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   ];
 
   useEffect(() => {
-    try { window.localStorage.setItem(assignmentTitleKey, assignmentTitle); } catch { /* Keep the assignment title usable if local storage is unavailable. */ }
-  }, [assignmentTitle]);
+    const current: AssignmentProfile = { id: activeAssignmentId, title: assignmentTitle, rubric, question, correctionMode };
+    setAssignmentProfiles((profiles) => {
+      const next = profiles.some((profile) => profile.id === activeAssignmentId)
+        ? profiles.map((profile) => profile.id === activeAssignmentId ? current : profile)
+        : [...profiles, current];
+      try {
+        window.localStorage.setItem(assignmentProfilesKey, JSON.stringify(next));
+        window.localStorage.setItem(assignmentTitleKey, assignmentTitle);
+      } catch { /* Keep the current assignment usable when browser storage is unavailable. */ }
+      return next;
+    });
+  }, [activeAssignmentId, assignmentTitle, rubric, question, correctionMode]);
 
   useEffect(() => {
     let active = true;
@@ -402,6 +464,80 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   }
 
   function startNextCopy() {
+  function captureActiveDraft(): AssignmentDraft {
+    return {
+      images, transcription, subjectImages, subjectTranscription, proposal, review,
+      teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage,
+    };
+  }
+
+  function applyAssignment(profile: AssignmentProfile) {
+    setActiveAssignmentId(profile.id);
+    setAssignmentTitle(profile.title);
+    setRubric(profile.rubric);
+    setQuestion(profile.question);
+    setCorrectionMode(profile.correctionMode);
+    const draft = assignmentDrafts[profile.id];
+    setImages(draft?.images ?? []);
+    setTranscription(draft?.transcription ?? null);
+    setSubjectImages(draft?.subjectImages ?? []);
+    setSubjectTranscription(draft?.subjectTranscription ?? null);
+    setProposal(draft?.proposal ?? null);
+    setReview(draft?.review ?? []);
+    setTeacherQuestions(draft?.teacherQuestions ?? '');
+    setStudentLabel(draft?.studentLabel ?? '');
+    setCurrentCorrectionId(draft?.currentCorrectionId ?? null);
+    setIsFinalized(draft?.isFinalized ?? false);
+    setReviewMessage(draft?.reviewMessage ?? '');
+    setError('');
+    setStreamedOutput('');
+    setDiagnosticRuns([]);
+    setIsFinalized(draft?.isFinalized ?? false);
+    setShowAiSettings(false);
+    setTeacherStep(draft?.proposal ? 'review' : 'rubric');
+  }
+
+  function switchAssignment(profile: AssignmentProfile) {
+    if (isAnalyzing || profile.id === activeAssignmentId) return;
+    setAssignmentDrafts((current) => ({ ...current, [activeAssignmentId]: captureActiveDraft() }));
+    applyAssignment(profile);
+  }
+
+  function createNewAssignment() {
+    if (isAnalyzing) return;
+    setAssignmentDrafts((current) => ({ ...current, [activeAssignmentId]: captureActiveDraft() }));
+    const profile: AssignmentProfile = {
+      id: `assignment-${crypto.randomUUID()}`,
+      title: 'Nouveau devoir',
+      rubric: structuredClone(initialRubric),
+      question: defaultQuestion,
+      correctionMode: 'integrated',
+    };
+    setAssignmentProfiles((current) => [...current, profile]);
+    setActiveAssignmentId(profile.id);
+    setAssignmentTitle(profile.title);
+    setRubric(profile.rubric);
+    setQuestion(profile.question);
+    setCorrectionMode(profile.correctionMode);
+    setImages([]);
+    setTranscription(null);
+    setSubjectImages([]);
+    setSubjectTranscription(null);
+    setProposal(null);
+    setReview([]);
+    setTeacherQuestions('');
+    setStudentLabel('');
+    setCurrentCorrectionId(null);
+    setReviewMessage('');
+    setError('');
+    setStreamedOutput('');
+    setDiagnosticRuns([]);
+    setIsFinalized(false);
+    setShowAiSettings(false);
+    setTeacherStep('rubric');
+  }
+
+
     setStudentLabel('');
     setImages([]);
     setTranscription(null);
@@ -461,6 +597,16 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           <label className="field-label" htmlFor="assignment-title">DEVOIR EN COURS</label>
           <input id="assignment-title" value={assignmentTitle} onChange={(event) => setAssignmentTitle(event.target.value)} placeholder="Nom du devoir" />
         </div>
+        <section className="sidebar-assignment-list" aria-label="Mes devoirs">
+          <div className="sidebar-assignment-list-heading"><span className="eyebrow">MES DEVOIRS</span><span>{assignmentProfiles.length}</span></div>
+          <div className="sidebar-assignment-items">
+            {assignmentProfiles.map((profile) => <button key={profile.id} type="button" className={profile.id === activeAssignmentId ? 'sidebar-assignment-item active' : 'sidebar-assignment-item'} aria-current={profile.id === activeAssignmentId ? 'page' : undefined} onClick={() => switchAssignment(profile)} disabled={isAnalyzing}>
+              <span className="sidebar-assignment-dot" aria-hidden="true" />
+              <span><strong>{profile.title.trim() || 'Devoir sans titre'}</strong><small>{profile.rubric.criteria.length} critères · {profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)} points</small></span>
+            </button>)}
+          </div>
+          <button type="button" className="sidebar-new-assignment" onClick={createNewAssignment} disabled={isAnalyzing}><span aria-hidden="true">＋</span> Nouveau devoir</button>
+        </section>
         {(!visionModel.trim() || !analysisModel.trim()) && <section className="sidebar-ai-setup" aria-label="Configuration nécessaire de l’IA locale">
           <span className="sidebar-ai-setup-icon" aria-hidden="true">⚙</span>
           <div><strong>IA locale à configurer</strong><p>Choisissez les modèles avant de lancer votre première correction.</p></div>
