@@ -36,6 +36,14 @@ function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
   });
 }
 
+function transactionToPromise(transaction: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error ?? new Error('Opération IndexedDB échouée.'));
+    transaction.onabort = () => reject(transaction.error ?? new Error('Opération IndexedDB interrompue.'));
+  });
+}
+
 function toStored(entry: LocalMemoryEntry): StoredMemoryEntry {
   return { ...entry, searchText: `${entry.text} ${entry.kind}` };
 }
@@ -49,12 +57,9 @@ export async function saveLocalMemory(entry: LocalMemoryEntry): Promise<void> {
   const database = await openDatabase();
   try {
     const transaction = database.transaction(STORE_NAME, 'readwrite');
-    await requestToPromise(transaction.objectStore(STORE_NAME).put(toStored(entry)));
-    await new Promise<void>((resolve, reject) => {
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error ?? new Error('Échec de l’enregistrement local.'));
-      transaction.onabort = () => reject(transaction.error ?? new Error('Enregistrement local interrompu.'));
-    });
+    const completion = transactionToPromise(transaction);
+    transaction.objectStore(STORE_NAME).put(toStored(entry));
+    await completion;
   } finally {
     database.close();
   }
@@ -85,8 +90,8 @@ export async function deleteLocalMemoryForCorrection(correctionId: string): Prom
   const database = await openDatabase();
   try {
     const transaction = database.transaction(STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.index('correctionId').openCursor(IDBKeyRange.only(correctionId));
+    const completion = transactionToPromise(transaction);
+    const request = transaction.objectStore(STORE_NAME).index('correctionId').openCursor(IDBKeyRange.only(correctionId));
     request.onerror = () => undefined;
     request.onsuccess = () => {
       const cursor = request.result;
@@ -94,11 +99,7 @@ export async function deleteLocalMemoryForCorrection(correctionId: string): Prom
       cursor.delete();
       cursor.continue();
     };
-    await new Promise<void>((resolve, reject) => {
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error ?? new Error('Échec de la suppression locale.'));
-      transaction.onabort = () => reject(transaction.error ?? new Error('Suppression locale interrompue.'));
-    });
+    await completion;
   } finally {
     database.close();
   }
