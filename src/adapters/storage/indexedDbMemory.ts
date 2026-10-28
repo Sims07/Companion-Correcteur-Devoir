@@ -119,3 +119,41 @@ export async function deleteLocalCorrection(correctionId: string): Promise<void>
     await completion;
   } finally { database.close(); }
 }
+
+
+// Concrete outbound adapter for the application persistence port.
+import type { LocalCorrectionRepository } from '../../ports/localCorrectionRepository.ts';
+
+export class IndexedDbLocalCorrectionRepository implements LocalCorrectionRepository {
+  saveCorrection(correction: LocalCorrection): Promise<void> {
+    return saveLocalCorrection(correction);
+  }
+
+  listCorrections(): Promise<LocalCorrection[]> {
+    return listLocalCorrections();
+  }
+
+  deleteCorrection(correctionId: string): Promise<void> {
+    return deleteLocalCorrection(correctionId);
+  }
+
+  saveMemory(entry: LocalMemoryEntry): Promise<void> {
+    return saveLocalMemory(entry);
+  }
+
+  listMemory(query: LocalMemoryQuery = {}): Promise<LocalMemoryEntry[]> {
+    return listLocalMemory(query);
+  }
+
+  findRelevantMemory(
+    query: string,
+    scope: Omit<LocalMemoryQuery, 'limit'> = {},
+    limit = 5,
+  ): Promise<LocalMemoryEntry[]> {
+    return findRelevantLocalMemory(query, scope, limit);
+  }
+
+  deleteMemoryForCorrection(correctionId: string): Promise<void> {
+    return deleteLocalMemoryForCorrection(correctionId);
+  }
+}

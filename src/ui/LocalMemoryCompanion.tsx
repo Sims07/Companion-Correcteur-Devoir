@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { deleteLocalCorrection, deleteLocalMemoryForCorrection, findRelevantLocalMemory, listLocalCorrections, listLocalMemory, saveLocalCorrection, saveLocalMemory } from '../adapters/storage/indexedDbMemory.ts';
+import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { fingerprintRubric, type LocalMemoryEntry } from '../domain/localMemory.ts';
 import type { LocalCorrection } from '../domain/localCorrection.ts';
 import { buildLocalMemoryContext, createTeacherMemoryEntry } from '../domain/localMemoryContext.ts';
@@ -25,7 +25,7 @@ function readRubricFingerprint(): { title: string; fingerprint: string } {
   return { title, fingerprint: fingerprintRubric(title, rubricJson) };
 }
 
-export function LocalMemoryCompanion() {
+export function LocalMemoryCompanion({ service }: { service: LocalCorrectionService }) {
   const [open, setOpen] = useState(false);
   const [correctionId, setCorrectionId] = useState(getOrCreateCorrectionId);
   const [label, setLabel] = useState(() => window.localStorage.getItem(CORRECTION_LABEL_KEY) ?? 'Correction actuelle');
@@ -41,18 +41,18 @@ export function LocalMemoryCompanion() {
   const scope = useMemo(() => ({ correctionId, rubricFingerprint: rubric.fingerprint }), [correctionId, rubric.fingerprint]);
 
   async function refreshCorrections() {
-    setCorrections(await listLocalCorrections());
+    setCorrections(await service.listCorrections());
   }
 
   async function refresh() {
     try {
-      const current = await listLocalMemory(scope);
-      const rubricRules = (await listLocalMemory({ rubricFingerprint: rubric.fingerprint }))
+      const current = await service.listMemory(scope);
+      const rubricRules = (await service.listMemory({ rubricFingerprint: rubric.fingerprint }))
         .filter((entry) => entry.promotedToRubric && entry.correctionId !== correctionId);
       setEntries(current);
       const candidateEntries = [...current, ...rubricRules];
       if (feedback.trim()) {
-        setSuggestions(await findRelevantLocalMemory(feedback, {}, 8).then((all) => all.filter((entry) => candidateEntries.some((candidate) => candidate.id === entry.id)).slice(0, 5)));
+        setSuggestions(await service.findRelevantMemory(feedback, {}, 8).then((all) => all.filter((entry) => candidateEntries.some((candidate) => candidate.id === entry.id)).slice(0, 5)));
       } else {
         setSuggestions(candidateEntries.slice(0, 5));
       }
@@ -71,7 +71,7 @@ export function LocalMemoryCompanion() {
 
   useEffect(() => {
     const now = new Date().toISOString();
-    void saveLocalCorrection({ id: correctionId, label, rubricTitle: rubric.title, rubricFingerprint: rubric.fingerprint, createdAt: now, updatedAt: now })
+    void service.saveCorrection({ id: correctionId, label, rubricTitle: rubric.title, rubricFingerprint: rubric.fingerprint, createdAt: now, updatedAt: now })
       .then(refreshCorrections)
       .catch(() => undefined);
   }, [correctionId]);
@@ -80,7 +80,7 @@ export function LocalMemoryCompanion() {
     const current = corrections.find((item) => item.id === correctionId);
     if (!current) return;
     if (current.label === label && current.rubricFingerprint === rubric.fingerprint && current.rubricTitle === rubric.title) return;
-    void saveLocalCorrection({ ...current, label, rubricTitle: rubric.title, rubricFingerprint: rubric.fingerprint, updatedAt: new Date().toISOString() })
+    void service.saveCorrection({ ...current, label, rubricTitle: rubric.title, rubricFingerprint: rubric.fingerprint, updatedAt: new Date().toISOString() })
       .then(refreshCorrections)
       .catch(() => undefined);
   }, [label, rubric.fingerprint, rubric.title]);
@@ -119,7 +119,7 @@ export function LocalMemoryCompanion() {
     if (!text) return;
     setStatus('');
     try {
-      await saveLocalMemory(createTeacherMemoryEntry({ correctionId, rubricFingerprint: rubric.fingerprint, text, promotedToRubric: promote }));
+      await service.saveMemory(createTeacherMemoryEntry({ correctionId, rubricFingerprint: rubric.fingerprint, text, promotedToRubric: promote }));
       setFeedback('');
       setPromote(false);
       setStatus(promote ? 'Règle enregistrée pour ce barème.' : 'Retour enregistré pour cette correction.');
@@ -131,7 +131,7 @@ export function LocalMemoryCompanion() {
   }
 
   async function deleteCurrentMemory() {
-    await deleteLocalMemoryForCorrection(correctionId);
+    await service.deleteMemoryForCorrection(correctionId);
     setEntries([]);
     setSuggestions([]);
     setStatus('Mémoire de cette correction supprimée de cet appareil.');
@@ -140,7 +140,7 @@ export function LocalMemoryCompanion() {
   async function removeCorrection(id: string) {
     const selected = corrections.find((item) => item.id === id);
     if (!selected || !window.confirm(`Supprimer la correction « ${selected.label} » et ses retours locaux ?`)) return;
-    await deleteLocalCorrection(id);
+    await service.deleteCorrection(id);
     if (id === correctionId) startNewCorrection();
     await refreshCorrections();
     setStatus(`Correction « ${selected.label} » supprimée.`);
@@ -162,7 +162,7 @@ export function LocalMemoryCompanion() {
     try {
       const payload = JSON.parse(await file.text()) as { entries?: LocalMemoryEntry[] };
       const imported = (payload.entries ?? []).filter((entry) => entry.text && entry.rubricFingerprint === rubric.fingerprint);
-      for (const entry of imported) await saveLocalMemory({ ...entry, correctionId });
+      for (const entry of imported) await service.saveMemory({ ...entry, correctionId });
       setStatus(`${imported.length} retour(s) importé(s) pour ce barème.`);
       await refresh();
     } catch (cause) {
