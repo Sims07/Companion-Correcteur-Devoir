@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const stylesheet = readFileSync(new URL('../src/ui/styles.css', import.meta.url), 'utf8');
+const correctionFlowStylesheet = readFileSync(new URL('../src/ui/correctionFlow.css', import.meta.url), 'utf8');
 
 describe('UI design system', () => {
   it('defines a shared spacing scale and reusable surface tokens', () => {
@@ -27,5 +28,26 @@ describe('UI design system', () => {
   it('respects reduced-motion preferences', () => {
     expect(stylesheet).toContain('@media (prefers-reduced-motion: reduce)');
     expect(stylesheet).toContain('animation-duration: .01ms');
+  });
+
+  it('gives the correction workflow an explicit visual hierarchy and breathing room', () => {
+    expect(correctionFlowStylesheet).toContain('.workspace-heading .eyebrow');
+    expect(correctionFlowStylesheet).toContain('.correction-mode-panel,\n.subject-panel {\n  margin-bottom: var(--flow-space-4);');
+    expect(correctionFlowStylesheet).toContain('.correction-mode-options {\n  display: grid;\n  grid-template-columns: repeat(2, minmax(0, 1fr));\n  gap: var(--flow-space-4);');
+    expect(correctionFlowStylesheet).toContain('.setup-grid {\n  gap: var(--flow-space-5);');
+    expect(correctionFlowStylesheet).toContain('.question-panel {\n  margin-top: var(--flow-space-5);');
+  });
+
+  it('turns correction-mode radios into distinct selectable cards', () => {
+    expect(correctionFlowStylesheet).toContain('.correction-mode-option {');
+    expect(correctionFlowStylesheet).toContain('.correction-mode-option.selected {');
+    expect(correctionFlowStylesheet).toContain('.correction-mode-option input[type="radio"] {');
+    expect(correctionFlowStylesheet).toContain('.correction-mode-option small {');
+  });
+
+  it('keeps the correction flow readable on mobile and with reduced motion', () => {
+    expect(correctionFlowStylesheet).toContain('@media (max-width: 760px)');
+    expect(correctionFlowStylesheet).toContain('@media (max-width: 430px)');
+    expect(correctionFlowStylesheet).toContain('@media (prefers-reduced-motion: reduce)');
   });
 });
