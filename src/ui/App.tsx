@@ -49,6 +49,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
   const [teacherQuestions, setTeacherQuestions] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [isFinalized, setIsFinalized] = useState(false);
+  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic'>('teacher');
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
   const reviewedTotal = review.reduce((sum, item) => sum + item.teacherPoints, 0);
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
@@ -96,7 +97,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
     setRubricImportMessage('');
     setRubricImageImporting(true);
     try {
-      if (!visionModel.trim()) throw new Error('Choisissez d’abord un modèle de vision Ollama dans la section de configuration.');
+      if (!visionModel.trim()) throw new Error('Passez en mode Diagnostic IA pour configurer un modèle de vision Ollama.');
       const prepared = await service.prepareFiles([file]);
       if (prepared.length !== 1) throw new Error('Choisissez une seule image de barème à la fois.');
       const imported = await service.importRubricImage(prepared[0], { endpoint, visionModel });
@@ -206,14 +207,14 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <span className="local-badge"><span /> Mode local prioritaire</span>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => setInterfaceMode('diagnostic')}>Diagnostic IA</button></div></div>
       </header>
 
       <section className="welcome">
         <div className="welcome-copy">
-          <p className="eyebrow">ESPACE ENSEIGNANT · BIOLOGIE</p>
-          <h2>Une correction plus claire.<br /><em>Vous gardez la décision.</em></h2>
-          <p className="intro">Importez les copies, appliquez votre barème et révisez chaque proposition. L’assistant signale ses incertitudes ; aucune note n’est validée automatiquement.</p>
+          <p className="eyebrow">{interfaceMode === 'teacher' ? 'ESPACE ENSEIGNANT · BIOLOGIE' : 'ESPACE DE DIAGNOSTIC · IA LOCALE'}</p>
+          <h2>{interfaceMode === 'teacher' ? <>Une correction plus claire.<br /><em>Vous gardez la décision.</em></> : <>Comprendre les résultats.<br /><em>Affiner les réglages IA.</em></>}</h2>
+          <p className="intro">{interfaceMode === 'teacher' ? 'Importez les copies, appliquez votre barème et révisez chaque proposition. L’assistant signale ses incertitudes ; aucune note n’est validée automatiquement.' : 'Accédez aux réglages Ollama, aux modèles et aux sorties de diagnostic pour analyser le comportement de l’assistant. Les copies restent traitées par le serveur configuré.'}</p>
         </div>
         <div className="illustration" aria-hidden="true"><div className="paper"><span /><span /><span /><b>✓</b></div><div className="leaf leaf-one" /><div className="leaf leaf-two" /></div>
       </section>
@@ -258,7 +259,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
           <input id="copy-files" className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onChange={(event) => { void importFiles(event.target.files); event.currentTarget.value = ''; }} />
           {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<button className="text-button" onClick={() => { setImages([]); setTranscription(null); }}>Retirer toutes les pages</button></div>}
         </article>
-        <article className="panel ollama-panel">
+        {interfaceMode === 'diagnostic' ? <article className="panel ollama-panel">
           <div className="panel-heading"><span className="number">03</span><div><h3>Modèle local Ollama</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
           <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur</label>
           <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
@@ -275,7 +276,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
           <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
           {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
           <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p>
-        </article>
+        </article> : <article className="panel ai-summary-panel"><div className="panel-heading"><span className="number"><span aria-hidden="true">✓</span></span><div><h3>IA locale</h3><p>{visionModel && analysisModel ? `Lecture : ${visionModel} · Analyse : ${analysisModel}` : 'Configuration à vérifier avant la première correction.'}</p></div></div><p className="hint">{connectionMessage || 'Les copies ne sont envoyées qu’à votre serveur Ollama configuré. Les réglages techniques restent masqués dans cette vue.'}</p><button type="button" className="secondary-button full-button" onClick={() => setInterfaceMode('diagnostic')}>{visionModel && analysisModel ? 'Modifier les paramètres IA' : 'Configurer Ollama et les modèles'}</button></article>}
       </section>
 
       <section className="panel question-panel">
@@ -300,7 +301,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
           </div>
           <h3>{analysisStage === 'checking' ? 'Vérification des modèles Ollama…' : analysisStage === 'reading' ? 'Étape 1/2 — Lecture des images et transcription…' : 'Étape 2/2 — Analyse du contenu et attribution des points…'}</h3>
           <p>{analysisStage === 'checking' ? 'Je vérifie que les deux modèles répondent, sans joindre de copie.' : analysisStage === 'reading' ? 'Le modèle de lecture transcrit chaque page localement. La transcription s’affiche au fil du streaming.' : 'Le modèle d’analyse applique le barème à la transcription. La proposition de correction arrive en streaming.'}</p>
-          {streamedOutput && <div className="streaming-preview" aria-live="polite"><strong>Réponse reçue en streaming</strong><pre>{streamedOutput}</pre></div>}
+          {interfaceMode === 'diagnostic' && streamedOutput && <div className="streaming-preview" aria-live="polite"><strong>Réponse reçue en streaming</strong><pre>{streamedOutput}</pre></div>}
           {elapsedSeconds >= 30 && <p className="analysis-long-wait">Cette analyse prend du temps : certains modèles locaux nécessitent plusieurs minutes, notamment avec plusieurs pages. Le temps affiché continue de mesurer l’attente.</p>}
         </div>
         <div className="analysis-timer" aria-label={`Temps écoulé : ${formatElapsed(elapsedSeconds)}`}>
