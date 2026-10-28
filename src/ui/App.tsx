@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { FilePicker } from './components/FilePicker.tsx';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
 import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion } from '../domain/grading.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
@@ -254,10 +255,10 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <input id="rubric-title" value={rubric.title} onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
         <div className="rubric-import">
           <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Word (.docx), Excel (.xlsx), CSV, TXT ou JSON)</label>
-          <input id="rubric-file" type="file" accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.json" onChange={(event) => { void importRubricFileFromInput(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} />
+          <FilePicker id="rubric-file" accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.json" onFilesSelected={(files) => { void importRubricFileFromInput(files?.[0]); }} title="Importer un document de barème" description="PDF, Word, Excel, CSV, TXT, Markdown ou JSON" actionLabel="Parcourir les fichiers" />
           <p className="hint">Les documents texte sont extraits localement dans le navigateur, sans IA. Vérifiez les critères, les points et le total après import.</p>
           <label className="field-label" htmlFor="rubric-image-file">Ou importer une photo / un scan du barème (JPEG, PNG, WebP)</label>
-          <input id="rubric-image-file" type="file" accept="image/jpeg,image/png,image/webp" disabled={rubricImageImporting} onChange={(event) => { void importRubricImageFromInput(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} />
+          <FilePicker id="rubric-image-file" accept="image/jpeg,image/png,image/webp" disabled={rubricImageImporting} onFilesSelected={(files) => { void importRubricImageFromInput(files?.[0]); }} title="Importer une photo ou un scan" description="JPEG, PNG ou WebP · une image à la fois" actionLabel={rubricImageImporting ? 'Lecture en cours…' : 'Choisir une image'} compact />
           <p className="hint">{rubricImageImporting ? 'Lecture du barème par le modèle de vision local…' : 'Une seule requête au modèle de vision Ollama sélectionné, avec sortie JSON structurée. L’image n’est envoyée qu’à votre serveur Ollama configuré ; aucun service cloud n’est utilisé. Vérifiez toujours le résultat avant utilisation.'}</p>
           {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
         </div>
@@ -285,7 +286,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       {correctionMode === 'separate' && <section className="panel subject-panel">
         <div className="panel-heading"><span className="number">A</span><div><h3>Sujet de référence</h3><p>Importez les questions et leurs éventuels schémas une seule fois pour ce devoir.</p></div></div>
         <label className="upload-placeholder" htmlFor="subject-files"><span className="upload-icon">↑</span><strong>Choisir les pages du sujet</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Importer le sujet</span><span className="upload-note">Les pages sont préparées dans le navigateur. Elles sont transmises uniquement au serveur Ollama configuré pour en extraire le contenu.</span></label>
-        <input id="subject-files" className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onChange={(event) => { void importSubjectFiles(event.target.files); event.currentTarget.value = ''; }} />
+        <FilePicker id="subject-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importSubjectFiles(files); }} title="Déposer les pages du sujet ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Parcourir les fichiers" />
         {subjectImages.length > 0 && <div className="file-list"><strong>{subjectImages.length} page(s) de sujet prête(s)</strong>{subjectImages.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName || `Page ${index + 1}`}</span><button type="button" className="text-button" onClick={() => { setSubjectImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setSubjectTranscription(null); }}>Retirer</button></div>)}<button type="button" className="text-button" onClick={() => { setSubjectImages([]); setSubjectTranscription(null); }}>Retirer toutes les pages du sujet</button></div>}
         {subjectTranscription && <p className="validation valid" role="status">Sujet lu localement et prêt à être réutilisé pour les copies suivantes de ce devoir.</p>}
       </section>}
@@ -293,7 +294,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <article className="panel copy-panel">
           <div className="panel-heading"><span className="number">03</span><div><h3>Copie de l’étudiant</h3><p>Importez les pages d’un seul étudiant à la fois.</p></div></div>
           <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
-          <input id="copy-files" className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onChange={(event) => { void importFiles(event.target.files); event.currentTarget.value = ''; }} />
+          <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
           {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<button className="text-button" onClick={() => { setImages([]); setTranscription(null); setProposal(null); setReview([]); setTeacherQuestions(''); setIsFinalized(false); }}>Effacer cette copie et passer à la suivante</button></div>}
         </article>
         {interfaceMode === 'diagnostic' ? <article className="panel ollama-panel">
