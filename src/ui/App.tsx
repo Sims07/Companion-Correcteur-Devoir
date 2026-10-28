@@ -39,7 +39,13 @@ type TimingRecord = {
 };
 
 const timingHistoryKey = 'companion-correcteur:timing-history:v1';
+const assignmentTitleKey = 'companion-correcteur:assignment-title:v1';
 const timingHistoryLimit = 20;
+
+function readAssignmentTitle(): string {
+  try { return window.localStorage.getItem(assignmentTitleKey) || 'Devoir de biologie'; }
+  catch { return 'Devoir de biologie'; }
+}
 
 function readTimingHistory(): TimingRecord[] {
   try {
@@ -76,6 +82,7 @@ function rubricAsJson(rubric: Rubric): string {
 }
 
 export function App({ service }: { service: CorrectionWorkspaceService }) {
+  const [assignmentTitle, setAssignmentTitle] = useState(readAssignmentTitle);
   const [rubric, setRubric] = useState<Rubric>(initialRubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
   const [rubricImageImporting, setRubricImageImporting] = useState(false);
@@ -111,6 +118,17 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
   const reviewedTotal = review.reduce((sum, item) => sum + item.teacherPoints, 0);
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
+  const subjectReady = correctionMode === 'integrated' || subjectImages.length > 0 || Boolean(subjectTranscription);
+  const setupChecks = [
+    { label: 'Barème vérifié', detail: validation.valid ? `${validation.maximumPoints} points répartis sur ${rubric.criteria.length} critères` : 'Corrigez les points ou les critères signalés', ready: validation.valid },
+    { label: 'Sujet prêt', detail: correctionMode === 'integrated' ? 'Questions intégrées aux pages de la copie' : subjectReady ? `${subjectImages.length} page(s) du sujet importée(s)` : 'Importez le sujet de référence', ready: subjectReady },
+    { label: 'Copie importée', detail: images.length ? `${images.length} page(s) · une seule copie à la fois` : 'Ajoutez les pages d’un étudiant', ready: images.length > 0 },
+    { label: 'IA locale configurée', detail: visionModel.trim() && analysisModel.trim() ? `Lecture : ${visionModel} · analyse : ${analysisModel}` : 'Choisissez les modèles Ollama', ready: Boolean(visionModel.trim() && analysisModel.trim()) },
+  ];
+
+  useEffect(() => {
+    try { window.localStorage.setItem(assignmentTitleKey, assignmentTitle); } catch { /* Keep the assignment title usable if local storage is unavailable. */ }
+  }, [assignmentTitle]);
 
   useEffect(() => {
     if (!isAnalyzing) return;
@@ -350,7 +368,22 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <span className="privacy-status">OLLAMA LOCAL</span>
       </section>
 
-      <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 1</p><h2>Configurer le barème</h2></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
+      {interfaceMode === 'teacher' && <section className="assignment-workspace" aria-labelledby="assignment-workspace-title">
+        <div className="assignment-workspace-heading">
+          <div><p className="eyebrow">VOTRE ESPACE DE CORRECTION</p><h2 id="assignment-workspace-title">Un devoir, un espace de travail</h2><p>Préparez les règles une fois, puis traitez les copies une par une. Vos choix restent sur cet appareil.</p></div>
+          <span className="assignment-local-label"><span aria-hidden="true">●</span> Espace local</span>
+        </div>
+        <label className="field-label" htmlFor="assignment-title">Nom du devoir / session</label>
+        <input id="assignment-title" className="assignment-title-input" value={assignmentTitle} onChange={(event) => setAssignmentTitle(event.target.value)} placeholder="Ex. Biologie cellulaire — partiel de novembre" />
+        <div className="setup-overview" aria-label="État de préparation du devoir">
+          <div className="setup-overview-heading"><strong>Préparation du devoir</strong><span>{setupChecks.filter((item) => item.ready).length} / {setupChecks.length} éléments prêts</span></div>
+          <div className="setup-checklist">{setupChecks.map((item) => <div className={item.ready ? 'setup-check ready' : 'setup-check'} key={item.label}>
+            <span className="setup-check-icon" aria-hidden="true">{item.ready ? '✓' : '○'}</span><span><strong>{item.label}</strong><small>{item.detail}</small></span>
+          </div>)}</div>
+        </div>
+      </section>}
+
+      <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'PRÉPARATION · 1' : 'ÉTAPE 1'}</p><h2>Configurer le barème</h2></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
       <section className="panel rubric-editor">
         <label className="field-label" htmlFor="rubric-title">Nom du barème</label>
         <input id="rubric-title" value={rubric.title} onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
@@ -376,7 +409,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <div className="rubric-actions"><button className="secondary-button" onClick={addCriterion}>+ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
       </section>
 
-      <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 2</p><h2>Préparer le sujet et la copie</h2></div><span className="step-count">{images.length} PAGE(S) DE COPIE · {transcription ? 'TRANSCRIPTION DISPONIBLE' : 'À LIRE'}</span></div>
+      <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'PRÉPARATION · 2' : 'ÉTAPE 2'}</p><h2>Préparer le sujet et la copie</h2></div><span className="step-count">{images.length} PAGE(S) DE COPIE · {transcription ? 'TRANSCRIPTION DISPONIBLE' : 'À LIRE'}</span></div>
       <section className="panel correction-mode-panel" aria-labelledby="correction-mode-title">
         <div className="panel-heading"><span className="number">02</span><div><h3 id="correction-mode-title">Où se trouvent les questions ?</h3><p>Choisissez le format utilisé pour ce devoir. Vous pourrez corriger les copies une par une.</p></div></div>
         <div className="correction-mode-options" role="group" aria-label="Mode de correction">
@@ -435,13 +468,28 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
           <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
           {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
           <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p>
-        </article> : <article className="panel ai-summary-panel"><div className="panel-heading"><span className="number"><span aria-hidden="true">✓</span></span><div><h3>IA locale</h3><p>{visionModel && analysisModel ? `Lecture : ${visionModel} · Analyse : ${analysisModel}` : 'Configuration à vérifier avant la première correction.'}</p></div></div><p className="hint">{connectionMessage || 'Les copies ne sont envoyées qu’à votre serveur Ollama configuré. Les réglages techniques restent masqués dans cette vue.'}</p><button type="button" className="secondary-button full-button" onClick={() => setInterfaceMode('diagnostic')}>{visionModel && analysisModel ? 'Modifier les paramètres IA' : 'Configurer Ollama et les modèles'}</button></article>}
+        </article> : <article className="panel ollama-panel teacher-model-panel" aria-labelledby="teacher-model-title">
+          <div className="panel-heading"><span className="number" aria-hidden="true">✓</span><div><h3 id="teacher-model-title">Correction par IA locale</h3><p>Configurez le traitement sans quitter votre espace enseignant.</p></div></div>
+          <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur Ollama</label>
+          <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
+          <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture des copies</label>
+          {availableModels.length > 0 ? <select id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }} placeholder="Ex. gemma3:4b ou qwen2.5vl" />}
+          <p className="hint">Choisissez un modèle compatible avec les images. La lecture est réutilisée lors d’une nouvelle analyse si la copie n’a pas changé.</p>
+          <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
+          {availableModels.length > 0 ? <select id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}
+          <p className="hint">Ce modèle applique le barème au texte lu. Le mode thinking reste désactivé pour privilégier une correction plus rapide et compatible.</p>
+          <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button>
+          {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
+          <p className="hint">Les photos sont envoyées uniquement à votre serveur Ollama configuré. En cas d’échec, aucune solution cloud n’est utilisée.</p>
+        </article>}
       </section>
 
-      <section className="panel question-panel">
+      <section className="panel question-panel teacher-launch-panel">
+        <div className="teacher-launch-heading"><div><p className="eyebrow">LANCER LA CORRECTION</p><h2>{assignmentTitle.trim() || 'Devoir de biologie'}</h2><p>La proposition sera détaillée critère par critère. Vous gardez la décision finale sur chaque note.</p></div><span className="launch-ready-count">{setupChecks.filter((item) => item.ready).length}/{setupChecks.length} prêts</span></div>
         <label className="field-label" htmlFor="grading-question">Consigne / question de l’exercice</label>
         <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
-        <button className="primary-button grade-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid} onClick={() => void gradeCopies()}>{busy ? 'Analyse locale en cours…' : transcription ? 'Relancer l’analyse sans relire les images' : 'Lire puis analyser les copies'}</button>
+        <button className="primary-button grade-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? 'Correction locale en cours…' : transcription ? 'Relancer l’analyse sans relire les images' : 'Lancer la lecture et la correction'}</button>
+        <p className="launch-footnote">Aucune note n’est validée automatiquement. Après l’analyse, vous pourrez vérifier les éléments de preuve, ajuster chaque critère et finaliser la correction.</p>
       </section>
 
       {isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
