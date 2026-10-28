@@ -5,15 +5,23 @@ import { LocalMemoryCompanion } from './ui/LocalMemoryCompanion.tsx';
 import { installLocalMemoryFetchBridge } from './adapters/ai/localMemoryFetchBridge.ts';
 import { IndexedDbLocalCorrectionRepository } from './adapters/storage/indexedDbMemory.ts';
 import { createLocalCorrectionService } from './application/localCorrectionService.ts';
+import { createCorrectionWorkspaceService } from './application/correctionWorkspaceService.ts';
+import { checkOllamaReady, createOllamaProvider, listOllamaModels } from './adapters/ai/ollamaProvider.ts';
+import { prepareLocalFiles } from './adapters/files/localFiles.ts';
+import { importRubricFile } from './adapters/files/rubricImport.ts';
 import './ui/styles.css';
 
 const localCorrectionRepository = new IndexedDbLocalCorrectionRepository();
 const localCorrectionService = createLocalCorrectionService(localCorrectionRepository);
 installLocalMemoryFetchBridge(localCorrectionRepository);
+const correctionWorkspaceService = createCorrectionWorkspaceService(
+  { checkReady: checkOllamaReady, listModels: listOllamaModels, createProvider: createOllamaProvider },
+  { prepareFiles: prepareLocalFiles, importRubric: importRubricFile },
+);
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <App service={correctionWorkspaceService} />
     <LocalMemoryCompanion service={localCorrectionService} />
   </React.StrictMode>,
 );
