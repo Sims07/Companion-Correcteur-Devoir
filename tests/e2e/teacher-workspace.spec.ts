@@ -24,6 +24,7 @@ test('teacher can create and switch between independent local assignments', asyn
 
   await page.reload();
   await expect(title).toHaveValue('Génétique moléculaire');
+  await expect(rubricTitle).toHaveValue('Barème génétique');
   await expect(page.getByRole('button', { name: /Biologie cellulaire/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Génétique moléculaire/ })).toBeVisible();
 });
