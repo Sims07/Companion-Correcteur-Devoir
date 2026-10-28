@@ -21,9 +21,11 @@ describe('hexagonal architecture boundaries', () => {
   });
 
   it('keeps application use cases dependent only on domain and ports', () => {
-    const text = source('../src/application/localCorrectionService.ts');
-    expect(imports(text).every((path) => path.startsWith('../domain/') || path.startsWith('../ports/'))).toBe(true);
-    expect(text).not.toMatch(/\b(window|document|indexedDB|React)\b/);
+    for (const file of ['../src/application/localCorrectionService.ts', '../src/application/correctionWorkspaceService.ts']) {
+      const text = source(file);
+      expect(imports(text).every((path) => path.startsWith('../domain/') || path.startsWith('../ports/')), file).toBe(true);
+      expect(text, file).not.toMatch(/\\b(window|document|indexedDB|React)\\b/);
+    }
   });
 
   it('prevents UI components from importing concrete adapters', () => {
