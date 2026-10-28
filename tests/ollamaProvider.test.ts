@@ -142,7 +142,7 @@ describe('Ollama adapter', () => {
     const analysisBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { model: string; messages: Array<{ content: string; images?: string[] }>; format?: string; think?: boolean };
     expect(analysisBody.model).toBe('qwen3.5:4b');
     expect(analysisBody.messages[0].content).toContain('Transcription fidèle de la copie');
-    expect(analysisBody.messages[0].content).toContain('BARÈME (JSON)');
+    expect(analysisBody.messages[0].content).toContain('BARÈME ACTUEL (JSON, référence de notation)');
     expect(analysisBody.messages[0].images).toBeUndefined();
     expect(analysisBody.format).toBe('json');
     expect(analysisBody.think).toBe(false);
