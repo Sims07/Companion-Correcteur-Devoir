@@ -71,12 +71,13 @@ describe('UI design system', () => {
 
   it('styles Ollama model selectors as a reusable, accessible design-system control', () => {
     expect(mainEntry).toContain("import './ui/modelSelect.css';");
-    expect(modelSelectStylesheet).toContain('.ollama-panel select[id$="-model"] {');
+    expect(modelSelectStylesheet).toContain('.ollama-panel select {');
+    expect(modelSelectStylesheet).toContain('select#diagnostic-strategy');
     expect(modelSelectStylesheet).toContain('appearance: none;');
     expect(modelSelectStylesheet).toContain('min-height: 48px;');
     expect(modelSelectStylesheet).toContain('border-radius: 12px;');
     expect(modelSelectStylesheet).toContain('box-shadow: 0 1px 2px');
-    expect(modelSelectStylesheet).toContain('select[id$="-model"]:focus-visible');
+    expect(modelSelectStylesheet).toContain('.ollama-panel select:focus-visible');
     expect(modelSelectStylesheet).toContain('@media (max-width: 430px)');
     expect(modelSelectStylesheet).toContain('@media (prefers-reduced-motion: reduce)');
   });
