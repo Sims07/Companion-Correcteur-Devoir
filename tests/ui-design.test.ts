@@ -107,4 +107,17 @@ describe('UI design system', () => {
     expect(modelSelectStylesheet).toContain('@media (max-width: 430px)');
     expect(modelSelectStylesheet).toContain('@media (prefers-reduced-motion: reduce)');
   });
+
+  it('renders a live transcription preview while reading and a visual rubric analysis while grading', () => {
+    expect(appComponent).toContain('className="live-copy-preview panel"');
+    expect(appComponent).toContain('className="live-copy-layout"');
+    expect(appComponent).toContain('Page ${index + 1} de la copie en cours de lecture');
+    expect(appComponent).toContain('className="live-transcription-panel"');
+    expect(appComponent).toContain('className="live-analysis-preview panel"');
+    expect(appComponent).toContain('className="live-analysis-criteria"');
+    expect(correctionFlowStylesheet).toContain('.live-copy-page img');
+    expect(correctionFlowStylesheet).toContain('.live-transcription-text');
+    expect(correctionFlowStylesheet).toContain('.live-analysis-criteria');
+    expect(correctionFlowStylesheet).toContain('@media(prefers-reduced-motion:reduce)');
+  });
 });
