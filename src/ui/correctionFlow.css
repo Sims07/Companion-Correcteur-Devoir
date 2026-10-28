@@ -537,14 +537,25 @@
   background: #f8faf7;
   color: var(--flow-text);
 }
-.teacher-sidebar-brand { display: flex; align-items: center; gap: 11px; padding: 0 0 24px; }
-.sidebar-brand-mark {
-  display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px;
-  background: #254d35; color: #fff; font-size: 13px; font-weight: 850; letter-spacing: -.5px;
+.teacher-sidebar-brand { display: none; }
+.sidebar-ai-setup {
+  display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: start; gap: 9px;
+  margin: 0 0 18px; padding: 13px 11px; border: 1px solid #e2c98e; border-radius: 12px;
+  background: #fff9e9; color: #58451c;
 }
-.teacher-sidebar-brand > div { display: grid; gap: 4px; }
-.teacher-sidebar-brand strong { font-size: 14px; letter-spacing: -.2px; }
-.teacher-sidebar-brand small { color: var(--flow-muted); font-size: 11px; }
+.sidebar-ai-setup-icon {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;
+  background: #f5e9c8; color: #70561e; font-size: 15px;
+}
+.sidebar-ai-setup > div { min-width: 0; }
+.sidebar-ai-setup strong { display: block; font-size: 11px; line-height: 1.4; }
+.sidebar-ai-setup p { margin: 4px 0 0; color: #796b4a; font-size: 10px; line-height: 1.5; }
+.sidebar-ai-setup button {
+  grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; padding: 9px 10px; border: 1px solid #e5d5ac; border-radius: 8px;
+  background: #fff; color: #58451c; font-size: 10px; font-weight: 750; text-align: left; cursor: pointer;
+}
+.sidebar-ai-setup button:hover { background: #fffdf6; border-color: #cbb574; }
 .sidebar-assignment { padding: 15px 0 20px; border-top: 1px solid var(--flow-border); }
 .sidebar-assignment .field-label { margin-bottom: 8px; font-size: 9px; letter-spacing: 1px; }
 .sidebar-assignment input {
@@ -571,10 +582,13 @@
 .teacher-step small { color: var(--flow-muted); font-size: 10px; line-height: 1.45; }
 .teacher-sidebar-footer { display: grid; gap: 12px; margin-top: auto; padding-top: 24px; }
 .sidebar-local-status { display: flex; align-items: flex-start; gap: 9px; padding: 12px 10px; border: 1px solid #dce8dc; border-radius: 10px; background: #fff; color: #326344; }
+.sidebar-local-status.is-processing { border-color: #9fc7a7; background: #eef8ef; color: #245d35; }
+.sidebar-local-status.is-processing > span:first-child { animation: sidebar-processing-pulse 1.4s ease-in-out infinite; }
 .sidebar-local-status > span:first-child { font-size: 10px; padding-top: 3px; }
-.sidebar-local-status > span:last-child { display: grid; gap: 4px; }
-.sidebar-local-status strong { font-size: 10px; }
+.sidebar-local-status > span:last-child { display: grid; gap: 4px; min-width: 0; }
+.sidebar-local-status strong { font-size: 10px; line-height: 1.4; }
 .sidebar-local-status small { color: var(--flow-muted); font-size: 10px; line-height: 1.45; }
+@keyframes sidebar-processing-pulse { 50% { opacity: .35; } }
 .sidebar-settings, .sidebar-diagnostic-link {
   display: flex; align-items: center; gap: 9px; width: 100%; padding: 11px 10px; border: 1px solid transparent;
   border-radius: 9px; background: transparent; color: var(--flow-text); font-size: 11px; font-weight: 700; text-align: left; cursor: pointer;
@@ -636,8 +650,9 @@
   .teacher-step strong { font-size: 10px; }
   .teacher-step small { font-size: 9px; }
   .teacher-sidebar-footer { display: flex; flex-wrap: wrap; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--flow-border); }
-  .sidebar-local-status { display: none; }
+  .sidebar-local-status { display: flex; flex: 1 1 100%; padding: 9px 10px; }
   .sidebar-settings, .sidebar-diagnostic-link { width: auto; padding: 8px; font-size: 10px; }
+  .sidebar-ai-setup { margin-bottom: 12px; }
   .teacher-content-column { padding-top: 24px; }
   .teacher-flow-shell .rubric-editor,
   .teacher-flow-shell .correction-mode-panel,
@@ -650,4 +665,9 @@
   .teacher-step > span:last-child { gap: 3px; }
   .teacher-step-footer, .teacher-copy-footer { align-items: stretch; flex-direction: column; }
   .teacher-step-footer .primary-button { width: 100%; }
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-local-status.is-processing > span:first-child { animation: none; }
 }
