@@ -15,8 +15,8 @@ describe('teacher and AI diagnostic interface modes', () => {
   it('exposes an accessible switch whose buttons reflect the selected mode', () => {
     const text = app();
     expect(text).toContain('role="group" aria-label="Mode d’interface"');
-    expect(text).toContain("aria-pressed={interfaceMode === \\'teacher\\'}");
-    expect(text).toContain("aria-pressed={interfaceMode === \\'diagnostic\\'}");
+    expect(text).toContain("aria-pressed={interfaceMode === 'teacher'}");
+    expect(text).toContain("aria-pressed={interfaceMode === 'diagnostic'}");
     expect(text).toContain("onClick={() => setInterfaceMode('teacher')}");
     expect(text).toContain("onClick={() => setInterfaceMode('diagnostic')}");
   });
