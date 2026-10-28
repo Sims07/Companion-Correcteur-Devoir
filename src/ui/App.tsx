@@ -463,7 +463,6 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     }
   }
 
-  function startNextCopy() {
   function captureActiveDraft(): AssignmentDraft {
     return {
       images, transcription, subjectImages, subjectTranscription, proposal, review,
@@ -526,6 +525,18 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setProposal(null);
     setReview([]);
     setTeacherQuestions('');
+    setStudentLabel('');
+    setCurrentCorrectionId(null);
+    setReviewMessage('');
+    setError('');
+    setStreamedOutput('');
+    setDiagnosticRuns([]);
+    setIsFinalized(false);
+    setShowAiSettings(false);
+    setTeacherStep('rubric');
+  }
+
+  function startNextCopy() {
     setStudentLabel('');
     setCurrentCorrectionId(null);
     setReviewMessage('');
