@@ -56,6 +56,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('setupChecks.filter((item) => item.ready).length');
     expect(text).toContain('Lancer la lecture et la correction');
     expect(text).toContain('Vous gardez la décision finale sur chaque note.');
+    expect(text).toContain("interfaceMode === 'teacher' ? \"panel question-panel teacher-launch-panel\" : \"panel question-panel\"");
+    expect(text).toContain("interfaceMode === 'teacher' && <p className=\"launch-footnote\"");
   });
 
   it('changes the welcome copy to match the selected mode', () => {
