@@ -52,6 +52,11 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('.sidebar-local-status.is-processing > span:first-child { animation: none; }');
     expect(correctionFlowStylesheet).toContain('.teacher-step.active');
     expect(correctionFlowStylesheet).toContain('.teacher-model-panel');
+    expect(correctionFlowStylesheet).toContain('.sidebar-archive-button');
+    expect(correctionFlowStylesheet).toContain('.correction-archive');
+    expect(correctionFlowStylesheet).toContain('.archive-card');
+    expect(correctionFlowStylesheet).toContain('.finalized-next-actions');
+    expect(correctionFlowStylesheet).toContain('.student-label-field');
     expect(correctionFlowStylesheet).toContain('.ai-settings-view');
     expect(correctionFlowStylesheet).toContain('.teacher-flow-shell .setup-needed');
     expect(correctionFlowStylesheet).toContain('.teacher-flow-shell .setup-complete');
