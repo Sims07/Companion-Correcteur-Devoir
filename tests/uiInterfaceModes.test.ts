@@ -6,6 +6,18 @@ const source = (path: string) => readFileSync(new URL(path, import.meta.url), 'u
 describe('teacher and AI diagnostic interface modes', () => {
   const app = () => source('../src/ui/App.tsx');
 
+  it('keeps a local archive and next-copy path after finalization', () => {
+    const text = app();
+    expect(text).toContain("useState<'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric')");
+    expect(text).toContain('Corrections enregistrées');
+    expect(text).toContain('Ajouter une autre copie');
+    expect(text).toContain('Consulter la correction');
+    expect(text).toContain('archiveService.saveCorrection(correction)');
+    expect(text).toContain('images: structuredClone(images)');
+    expect(text).toContain('snapshot.review');
+    expect(text).toContain('stocké dans ce navigateur');
+  });
+
   it('defaults to the teacher correction view', () => {
     expect(app()).toContain("useState<'teacher' | 'diagnostic'>('teacher')");
     expect(app()).toContain("interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'");
