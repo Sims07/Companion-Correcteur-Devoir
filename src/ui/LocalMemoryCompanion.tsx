@@ -173,38 +173,58 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
   }
 
   const promptContext = buildLocalMemoryContext(suggestions);
-  const currentCorrection = corrections.find((item) => item.id === correctionId);
 
   return (
     <>
       <button className="memory-fab" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="local-memory-panel">
         <span aria-hidden="true">✦</span> Règles de correction {entries.length > 0 && <b>{entries.length}</b>}
       </button>
-      {open && <aside id="local-memory-panel" className="memory-panel" aria-label="Mes règles de correction">
+      {open && <aside id="local-memory-panel" className="memory-panel" aria-label="Règles de correction">
         <div className="memory-header">
-          <div><p className="memory-kicker">VOS DÉCISIONS PÉDAGOGIQUES</p><h2>Mes règles de correction</h2></div>
+          <div><p className="memory-kicker">DÉCISIONS DE L’ENSEIGNANT</p><h2>Règles de correction</h2></div>
           <button className="memory-close" type="button" onClick={() => setOpen(false)} aria-label="Fermer">×</button>
         </div>
-        <p className="memory-explainer">Conservez vos décisions pour éviter de répéter les mêmes remarques. Vos retours restent sur cet appareil ; seules les règles liées au même barème peuvent être réutilisées pour les copies suivantes. Cela n’entraîne pas le modèle d’IA.</p>
+        <p className="memory-explainer">Ici, vous indiquez à l’assistant comment appliquer votre correction. Deux niveaux sont possibles : un retour valable pour ce devoir, ou une règle que vous souhaitez réutiliser avec ce barème.</p>
 
-        <label className="memory-label">Correction en cours
-          <select value={correctionId} onChange={(event) => selectCorrection(event.target.value)}>
-            {corrections.map((item) => <option key={item.id} value={item.id}>{item.label} — {item.rubricTitle}</option>)}
-          </select>
-        </label>
-        <div className="memory-actions"><button type="button" onClick={startNewCorrection}>Nouvelle correction</button></div>
+        <section className="memory-section memory-correction-section" aria-labelledby="memory-correction-heading">
+          <div className="memory-section-heading">
+            <div><span className="memory-step">1</span><div><h3 id="memory-correction-heading">Correction active</h3><p>Choisissez le devoir auquel vos décisions s’appliquent.</p></div></div>
+            <span className="memory-count">{corrections.length} correction{corrections.length > 1 ? 's' : ''}</span>
+          </div>
+          <label className="memory-label" htmlFor="memory-correction-select">Correction sélectionnée
+            <select id="memory-correction-select" className="memory-correction-select" value={correctionId} onChange={(event) => selectCorrection(event.target.value)}>
+              {corrections.map((item) => <option key={item.id} value={item.id}>{item.label} — {item.rubricTitle}</option>)}
+            </select>
+          </label>
+          <p className="memory-selection-hint">Les retours enregistrés ici restent associés à cette correction. Ils ne sont pas appliqués automatiquement à un autre devoir.</p>
+          <div className="memory-correction-actions">
+            <label className="memory-label" htmlFor="memory-correction-label">Nom de la correction
+              <input id="memory-correction-label" value={label} onChange={(event) => persistLabel(event.target.value)} />
+            </label>
+            <button className="memory-secondary" type="button" onClick={startNewCorrection}>+ Nouvelle correction</button>
+          </div>
+        </section>
 
-        {currentCorrection && <div className="memory-scope"><span>Correction sélectionnée</span><strong>{currentCorrection.label}</strong><small>Dernière utilisation : {new Date(currentCorrection.updatedAt).toLocaleString('fr-FR')}</small></div>}
-        <label className="memory-label">Nom de la correction<input value={label} onChange={(event) => persistLabel(event.target.value)} /></label>
-        <div className="memory-scope"><span>Barème</span><strong>{rubric.title}</strong><small>{entries.length} retour(s) dans cette correction · les règles promues de ce barème sont réutilisables</small></div>
+        <section className="memory-section" aria-labelledby="memory-rubric-heading">
+          <div className="memory-section-heading"><div><span className="memory-step">2</span><div><h3 id="memory-rubric-heading">Barème utilisé</h3><p>Les règles peuvent être réutilisées uniquement avec ce même barème.</p></div></div></div>
+          <div className="memory-rubric-card"><span>BARÈME ACTIF</span><strong>{rubric.title}</strong><small>{entries.length} retour{entries.length > 1 ? 's' : ''} enregistré{entries.length > 1 ? 's' : ''} pour cette correction</small></div>
+        </section>
 
-        <label className="memory-label">Quelle décision souhaitez-vous conserver ?<textarea value={feedback} onChange={(event) => setFeedback(event.target.value)} placeholder="Ex. Accepter cette formulation : le mécanisme biologique est correct, même si les mots diffèrent du corrigé." rows={4} /></label>
-        <label className="memory-checkbox"><input type="checkbox" checked={promote} onChange={(event) => setPromote(event.target.checked)} /> <span><strong>Enregistrer comme règle du barème</strong><small>Réutilisable avec le même barème lors d’une prochaine correction.</small></span></label>
-        <button className="memory-primary" type="button" disabled={!feedback.trim()} onClick={() => void saveFeedback()}>Enregistrer cette décision</button>
+        <section className="memory-section memory-decision-section" aria-labelledby="memory-decision-heading">
+          <div className="memory-section-heading"><div><span className="memory-step">3</span><div><h3 id="memory-decision-heading">Décision à conserver</h3><p>Notez une décision que l’assistant pourra retrouver plus tard.</p></div></div></div>
+          <label className="memory-label" htmlFor="memory-feedback">Votre décision
+            <textarea id="memory-feedback" value={feedback} onChange={(event) => setFeedback(event.target.value)} placeholder="Ex. Accepter cette formulation : le mécanisme biologique est correct, même si les mots diffèrent du corrigé." rows={4} />
+          </label>
+          <label className="memory-checkbox"><input type="checkbox" checked={promote} onChange={(event) => setPromote(event.target.checked)} /> <span><strong>Réutiliser cette décision avec le barème</strong><small>Sinon, elle reste limitée à la correction active.</small></span></label>
+          <button className="memory-primary" type="button" disabled={!feedback.trim()} onClick={() => void saveFeedback()}>Enregistrer la décision</button>
+        </section>
 
-        {suggestions.length > 0 && <section className="memory-suggestions"><h3>Décisions déjà enregistrées</h3>{suggestions.map((entry) => <div className="memory-entry" key={entry.id}><span>{entry.promotedToRubric ? 'RÈGLE DU BARÈME' : 'RETOUR POUR CE DEVOIR'}</span><p>{entry.text}</p></div>)}</section>}
+        {suggestions.length > 0 && <section className="memory-section memory-suggestions" aria-labelledby="memory-suggestions-heading"><div className="memory-section-heading"><div><span className="memory-step memory-step-muted">4</span><div><h3 id="memory-suggestions-heading">Décisions déjà enregistrées</h3><p>Les notes pertinentes pour cette correction.</p></div></div></div>{suggestions.map((entry) => <div className="memory-entry" key={entry.id}><span>{entry.promotedToRubric ? 'RÈGLE DU BARÈME' : 'RETOUR POUR CE DEVOIR'}</span><p>{entry.text}</p></div>)}</section>}
 
-        <div className="memory-actions"><button type="button" onClick={exportMemory} disabled={!entries.length}>Exporter</button><button type="button" onClick={() => importRef.current?.click()}>Importer</button><button type="button" onClick={() => void deleteCurrentMemory()} disabled={!entries.length}>Effacer les retours de ce devoir</button><button type="button" onClick={() => void removeCorrection(correctionId)}>Supprimer cette correction</button></div>
+        <section className="memory-tools" aria-label="Gestion des règles locales">
+          <div><strong>Gérer les données locales</strong><p>Exporter, importer ou effacer les décisions conservées sur cet appareil.</p></div>
+          <div className="memory-actions"><button type="button" onClick={exportMemory} disabled={!entries.length}>Exporter</button><button type="button" onClick={() => importRef.current?.click()}>Importer</button><button type="button" onClick={() => void deleteCurrentMemory()} disabled={!entries.length}>Effacer les retours de ce devoir</button><button type="button" onClick={() => void removeCorrection(correctionId)}>Supprimer cette correction</button></div>
+        </section>
         <input ref={importRef} className="visually-hidden" type="file" accept="application/json,.json" onChange={(event) => void importMemory(event.currentTarget.files?.[0])} />
         {status && <p className="memory-status" role="status">{status}</p>}
         <details className="memory-details"><summary>Voir les notes utilisées pour aider l’IA</summary><p>{promptContext || 'Aucune note pertinente sélectionnée pour cette analyse. Les règles du barème et les retours de ce devoir peuvent être transmis au modèle local comme contexte complémentaire.'}</p></details>
