@@ -3,15 +3,11 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as mammoth from 'mammoth';
 import { readSheet } from 'read-excel-file/browser';
 import { validateRubric, type Rubric, type RubricCriterion } from '../../domain/rubric.ts';
+import type { ImportedRubric } from '../../ports/correctionWorkspace.ts';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
-
-export interface ImportedRubric {
-  rubric: Rubric;
-  warnings: string[];
-}
 
 function slugify(value: string, index: number): string {
   const slug = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
