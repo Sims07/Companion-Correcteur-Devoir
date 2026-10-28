@@ -1,6 +1,7 @@
 import type { DiagnosticModelResult, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
 import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
+import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 
 interface OllamaChatResponse {
   message?: { content?: string };
@@ -255,17 +256,24 @@ export function createOllamaProvider(
           criteria: result.criteria.filter((criterion) => disputedIds.has(criterion.criterionId)),
         });
         const arbitrationPrompt = [
-          'Tu es le juge final. Arbitre uniquement les critères litigieux entre deux évaluateurs.',
-          'Pour chaque critère fourni, décide les points finaux à partir du barème et de la transcription. Ne refais pas une correction générale et ne moyenne pas les deux avis pour les critères litigieux.',
-          'Retourne uniquement un JSON valide avec finalScore, summary, criteria et questionsForTeacher. criteria doit contenir exactement les critères fournis, avec criterionId, points, rationale, evidence, confidence et questionForTeacher. finalScore est la somme des points des critères fournis.',
-          `BARÈME :\n${JSON.stringify(disputedRubric)}`,
-          `TRANSCRIPTION :\n${transcription ?? ''}`,
-          `AVIS 1 :\n${JSON.stringify(selectCriteria(firstProposal))}`,
-          `AVIS 2 :\n${JSON.stringify(selectCriteria(secondProposal))}`,
-        ].join('\n\n');
+          'RÔLE : arbitre uniquement, tu n’es pas un troisième correcteur. Tu ne dois pas générer de correction complète.',
+          'Pour chaque critère litigieux, choisis exclusivement la note déjà donnée par AVIS 1 ou AVIS 2. Interdiction de créer une troisième note, de calculer une moyenne ou de modifier un critère non litigieux.',
+          'SORTIE JSON STRICTE : {"decisions":[{"criterionId":"ID_EXACT","selected":"avis1","reason":"justification courte"}]}. selected doit valoir exactement "avis1" ou "avis2". Retourne une décision pour chaque critère litigieux et aucun autre champ. Ne retourne pas finalScore, summary, criteria, points ou questionsForTeacher.',
+          `BARÈME DES CRITÈRES LITIGIEUX :\\n${JSON.stringify(disputedRubric)}`,
+          `TRANSCRIPTION :\\n${transcription ?? ''}`,
+          `AVIS 1 (JSON) :\\n${JSON.stringify(selectCriteria(firstProposal))}`,
+          `AVIS 2 (JSON) :\\n${JSON.stringify(selectCriteria(secondProposal))}`,
+        ].join('\\n\\n');
         const startedAt = Date.now();
         const raw = await sendStream(arbitratorModel, arbitrationPrompt, undefined, onChunk, true, settings.thinking ?? false);
-        const judged = parseGradingProposal(raw, disputedRubric);
+        const decisions = parseArbitrationDecisions(raw, resolution.disputedCriterionIds, firstProposal.criteria, secondProposal.criteria);
+        const judgedCriteria = resolution.disputedCriterionIds.map((criterionId) => {
+          const decision = decisions.find((item) => item.criterionId === criterionId)!;
+          const first = firstProposal.criteria.find((item) => item.criterionId === criterionId)!;
+          const second = secondProposal.criteria.find((item) => item.criterionId === criterionId)!;
+          const selected = decision.selected === 'avis1' ? first : second;
+          return { ...selected, rationale: `Arbitrage : ${decision.reason} Note retenue depuis ${decision.selected}.` };
+        });
         const mergedCriteria = [...resolution.automaticCriteria, ...judged.criteria].sort(
           (a, b) => rubric.criteria.findIndex((criterion) => criterion.id === a.criterionId) - rubric.criteria.findIndex((criterion) => criterion.id === b.criterionId),
         );
