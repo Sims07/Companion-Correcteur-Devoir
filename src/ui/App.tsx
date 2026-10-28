@@ -484,12 +484,12 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         </article>}
       </section>
 
-      <section className="panel question-panel teacher-launch-panel">
-        <div className="teacher-launch-heading"><div><p className="eyebrow">LANCER LA CORRECTION</p><h2>{assignmentTitle.trim() || 'Devoir de biologie'}</h2><p>La proposition sera détaillée critère par critère. Vous gardez la décision finale sur chaque note.</p></div><span className="launch-ready-count">{setupChecks.filter((item) => item.ready).length}/{setupChecks.length} prêts</span></div>
+      <section className={interfaceMode === 'teacher' ? "panel question-panel teacher-launch-panel" : "panel question-panel"}>
+        {interfaceMode === 'teacher' && <div className="teacher-launch-heading"><div><p className="eyebrow">LANCER LA CORRECTION</p><h2>{assignmentTitle.trim() || 'Devoir de biologie'}</h2><p>La proposition sera détaillée critère par critère. Vous gardez la décision finale sur chaque note.</p></div><span className="launch-ready-count">{setupChecks.filter((item) => item.ready).length}/{setupChecks.length} prêts</span></div>}
         <label className="field-label" htmlFor="grading-question">Consigne / question de l’exercice</label>
         <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
-        <button className="primary-button grade-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? 'Correction locale en cours…' : transcription ? 'Relancer l’analyse sans relire les images' : 'Lancer la lecture et la correction'}</button>
-        <p className="launch-footnote">Aucune note n’est validée automatiquement. Après l’analyse, vous pourrez vérifier les éléments de preuve, ajuster chaque critère et finaliser la correction.</p>
+        <button className="primary-button grade-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? 'Correction locale en cours…' : 'Analyse locale en cours…') : transcription ? 'Relancer l’analyse sans relire les images' : interfaceMode === 'teacher' ? 'Lancer la lecture et la correction' : 'Lire puis analyser les copies'}</button>
+        {interfaceMode === 'teacher' && <p className="launch-footnote">Aucune note n’est validée automatiquement. Après l’analyse, vous pourrez vérifier les éléments de preuve, ajuster chaque critère et finaliser la correction.</p>}
       </section>
 
       {isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
