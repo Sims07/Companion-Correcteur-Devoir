@@ -83,7 +83,7 @@ function rubricAsJson(rubric: Rubric): string {
 
 export function App({ service }: { service: CorrectionWorkspaceService }) {
   const [assignmentTitle, setAssignmentTitle] = useState(readAssignmentTitle);
-  const [teacherStep, setTeacherStep] = useState<'rubric' | 'copy' | 'review'>('rubric');
+  const [teacherStep, setTeacherStep] = useState<'rubric' | 'copy' | 'progress' | 'review'>('rubric');
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(initialRubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
@@ -251,6 +251,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
     const previousModelResults = strategyOverride === 'arbitrate-only' ? diagnosticRuns.filter((run) => run.kind === 'model') : [];
     const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
     setBusy(true);
+    if (interfaceMode === 'teacher') { setShowAiSettings(false); setTeacherStep('progress'); }
     setIsAnalyzing(true);
     setAnalysisStage('checking');
     setStreamedOutput('');
@@ -293,6 +294,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       if (interfaceMode === 'teacher') setTeacherStep('review');
       outcome = 'success';
     } catch (cause) {
+      if (interfaceMode === 'teacher') setTeacherStep('copy');
       setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
     } finally {
       const finishedAt = Date.now();
@@ -364,18 +366,18 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         {(!visionModel.trim() || !analysisModel.trim()) && <section className="sidebar-ai-setup" aria-label="Configuration nécessaire de l’IA locale">
           <span className="sidebar-ai-setup-icon" aria-hidden="true">⚙</span>
           <div><strong>IA locale à configurer</strong><p>Choisissez les modèles avant de lancer votre première correction.</p></div>
-          <button type="button" onClick={() => { setTeacherStep('copy'); setShowAiSettings(true); }}>Configurer maintenant <span aria-hidden="true">→</span></button>
+          <button type="button" onClick={() => setShowAiSettings(true)}>Configurer maintenant <span aria-hidden="true">→</span></button>
         </section>}
         <nav className="teacher-step-nav" aria-label="Étapes du devoir">
           <p className="eyebrow">PARCOURS DE CORRECTION</p>
-          <button type="button" className={teacherStep === 'rubric' ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'rubric' ? 'step' : undefined} onClick={() => setTeacherStep('rubric')}>
+          <button type="button" className={teacherStep === 'rubric' && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'rubric' && !showAiSettings ? 'step' : undefined} onClick={() => { setShowAiSettings(false); setTeacherStep('rubric'); }}>
             <span className="teacher-step-number">1</span><span><strong>Préparer le barème</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères</small></span>
           </button>
-          <button type="button" className={teacherStep === 'copy' ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'copy' ? 'step' : undefined} onClick={() => setTeacherStep('copy')}>
+          <button type="button" className={teacherStep === 'copy' && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'copy' && !showAiSettings ? 'step' : undefined} onClick={() => { setShowAiSettings(false); setTeacherStep('copy'); }}>
             <span className="teacher-step-number">2</span><span><strong>Ajouter une copie</strong><small>{images.length ? images.length + ' page(s) importée(s)' : 'Sujet et pages étudiant'}</small></span>
           </button>
-          <button type="button" className={teacherStep === 'review' ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'review' ? 'step' : undefined} disabled={!proposal} onClick={() => setTeacherStep('review')}>
-            <span className="teacher-step-number">3</span><span><strong>Réviser la note</strong><small>{proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
+          <button type="button" className={(teacherStep === 'progress' || teacherStep === 'review') && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={(teacherStep === 'progress' || teacherStep === 'review') && !showAiSettings ? 'step' : undefined} disabled={!proposal && !isAnalyzing} onClick={() => { setShowAiSettings(false); setTeacherStep(isAnalyzing ? 'progress' : 'review'); }}>
+            <span className="teacher-step-number">3</span><span><strong>{isAnalyzing ? 'Suivi du traitement' : 'Réviser la note'}</strong><small>{isAnalyzing ? `${formatElapsed(elapsedSeconds)} écoulées · ${analysisStage === 'reading' ? 'Lecture en cours' : analysisStage === 'grading' ? 'Analyse en cours' : 'Préparation'}` : proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
           </button>
         </nav>
         <div className="teacher-sidebar-footer">
@@ -384,7 +386,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
             <span><strong>{isAnalyzing ? analysisStage === 'checking' ? 'Préparation du traitement' : analysisStage === 'reading' ? 'Lecture des copies en cours' : 'Analyse et notation en cours' : 'Traitement local'}</strong>
             <small>{isAnalyzing ? `${formatElapsed(elapsedSeconds)} écoulées · ${analysisStage === 'checking' ? 'vérification des modèles' : analysisStage === 'reading' ? 'étape 1 sur 2' : 'étape 2 sur 2'}` : 'Vos copies restent sur votre serveur'}</small></span>
           </div>
-          <button type="button" className={showAiSettings ? 'sidebar-settings active' : 'sidebar-settings'} onClick={() => { setTeacherStep('copy'); setShowAiSettings((current) => !current); }} aria-expanded={showAiSettings}><span aria-hidden="true">⚙</span> Réglages de l’IA locale</button>
+          <button type="button" className={showAiSettings ? 'sidebar-settings active' : 'sidebar-settings'} onClick={() => setShowAiSettings((current) => !current)} aria-expanded={showAiSettings}><span aria-hidden="true">⚙</span> Réglages de l’IA locale</button>
         </div>
       </aside>}
 
@@ -404,6 +406,23 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <span className="privacy-status">OLLAMA LOCAL</span>
       </section>}
 
+      {interfaceMode === 'teacher' && showAiSettings && <section className="panel ollama-panel teacher-model-panel ai-settings-view" aria-labelledby="teacher-model-title">
+        <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DU POSTE</p><h2 id="teacher-model-title">Paramètres de l’IA locale</h2></div><span className="step-count">OLLAMA</span></div>
+        <p className="settings-intro">Configurez les deux modèles utilisés par le parcours de correction. Les photos restent envoyées uniquement à votre serveur Ollama.</p>
+        <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur Ollama</label>
+        <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
+        <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture des copies</label>
+        {availableModels.length > 0 ? <select id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }} placeholder="Ex. gemma3:4b ou qwen2.5vl" />}
+        <p className="hint">Choisissez un modèle compatible avec les images. La lecture est réutilisée lors d’une nouvelle analyse si la copie n’a pas changé.</p>
+        <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
+        {availableModels.length > 0 ? <select id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}
+        <p className="hint">Ce modèle applique le barème au texte lu. Le mode thinking reste désactivé pour privilégier une correction plus rapide et compatible.</p>
+        <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button>
+        {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
+        <p className="hint">En cas d’échec, aucune solution cloud n’est utilisée.</p>
+        <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
+      </section>}
+      {(interfaceMode === 'diagnostic' || !showAiSettings) && <>
       {(interfaceMode === 'diagnostic' || teacherStep === 'rubric') && <>
       <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 SUR 3' : 'ÉTAPE 1'}</p><h2>Préparer le barème</h2></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
       <section className="panel rubric-editor">
@@ -443,7 +462,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
           <label className={correctionMode === 'separate' ? 'correction-mode-option selected' : 'correction-mode-option'}><input type="radio" name="correction-mode" value="separate" checked={correctionMode === 'separate'} onChange={() => { setCorrectionMode('separate'); setProposal(null); setReview([]); }} /><span><strong>Sujet fourni séparément</strong><small>Le sujet de référence est distinct des pages de réponses manuscrites.</small></span></label>
         </div>
       </section>
-      {correctionMode === 'separate' && <section className="panel subject-panel">
+      {correctionMode === 'separate' && <section className={`panel subject-panel ${subjectReady ? 'setup-complete' : 'setup-needed'}`}>
         <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">A</span>}<div><h3>Sujet de référence</h3><p>Importez les questions et leurs éventuels schémas une seule fois pour ce devoir.</p></div></div>
         <label className="upload-placeholder" htmlFor="subject-files"><span className="upload-icon">↑</span><strong>Choisir les pages du sujet</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Importer le sujet</span><span className="upload-note">Les pages sont préparées dans le navigateur. Elles sont transmises uniquement au serveur Ollama configuré pour en extraire le contenu.</span></label>
         <FilePicker id="subject-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importSubjectFiles(files); }} title="Déposer les pages du sujet ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Parcourir les fichiers" />
@@ -451,7 +470,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         {subjectTranscription && <p className="validation valid" role="status">Sujet lu localement et prêt à être réutilisé pour les copies suivantes de ce devoir.</p>}
       </section>}
       <section className="setup-grid">
-        <article className="panel copy-panel">
+        <article className={`panel copy-panel ${images.length ? 'setup-complete' : 'setup-needed'}`}>
           <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">03</span>}<div><h3>Copie de l’étudiant</h3><p>Importez les pages d’un seul étudiant à la fois.</p></div></div>
           <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
           <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
@@ -520,7 +539,8 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       {interfaceMode === 'teacher' && <div className="teacher-copy-footer"><button type="button" className="secondary-button" onClick={() => setTeacherStep('rubric')}>← Revoir le barème</button><span>Une seule copie à la fois · validation humaine avant finalisation</span></div>}
       </>}
 
-      {isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
+      {interfaceMode === 'teacher' && teacherStep === 'progress' && isAnalyzing && <div className="workspace-heading processing-workspace-heading"><div><p className="eyebrow">ÉTAPE 3 SUR 3</p><h2>Suivi du traitement</h2></div><span className="step-count">{formatElapsed(elapsedSeconds)} ÉCOULÉES</span></div>}
+        {isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
         <div className="analysis-spinner" aria-hidden="true" />
         <div className="analysis-progress-copy">
           <p className="eyebrow">TRAITEMENT LOCAL · 2 ÉTAPES</p>
@@ -638,6 +658,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <div className="panel final-review"><div><span className="eyebrow">RÉCAPITULATIF ENSEIGNANT</span><h3>{reviewedTotal} / {validation.maximumPoints} points</h3><p>{pendingCount} critère(s) encore en attente de validation.</p>{isFinalized && <p className="finalized-status" role="status">✓ Correction finalisée localement</p>}</div><div className="questions-field"><span className="field-label">Points précis à clarifier</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question précise à vous soumettre. Vérifiez les éléments signalés comme incertains ci-dessus avant validation.</p>}</div><button className="primary-button" onClick={decideAll}>Accepter les propositions non modifiées</button><button className="primary-button" disabled={pendingCount > 0} onClick={finalizeReview}>Finaliser la correction</button><button className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal.summary, criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil. Vérifiez les questions ouvertes avant toute utilisation de la note.'); }}>{isFinalized ? 'Télécharger la correction finale (JSON)' : 'Exporter le récapitulatif provisoire (JSON)'}</button>{reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}</div>
       </section>}
 
+      </>}
       <footer><span>Compagnon Correcteur de Devoirs</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>
       </div>
     </main>
