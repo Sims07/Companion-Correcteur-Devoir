@@ -47,5 +47,6 @@ describe('hexagonal architecture boundaries', () => {
     expect(text).toContain('new IndexedDbLocalCorrectionRepository()');
     expect(text).toContain('createLocalCorrectionService(localCorrectionRepository)');
     expect(text).toContain('service={localCorrectionService}');
+    expect(text).toContain('service={correctionWorkspaceService}');
   });
 });
