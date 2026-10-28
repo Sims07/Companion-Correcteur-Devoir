@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { deleteLocalMemoryForCorrection, findRelevantLocalMemory, listLocalMemory, saveLocalMemory } from '../adapters/storage/indexedDbMemory.ts';
+import { deleteLocalCorrection, deleteLocalMemoryForCorrection, findRelevantLocalMemory, listLocalCorrections, listLocalMemory, saveLocalCorrection, saveLocalMemory } from '../adapters/storage/indexedDbMemory.ts';
 import { fingerprintRubric, type LocalMemoryEntry } from '../domain/localMemory.ts';
+import type { LocalCorrection } from '../domain/localCorrection.ts';
 import { buildLocalMemoryContext, createTeacherMemoryEntry } from '../domain/localMemoryContext.ts';
 import './localMemory.css';
 
@@ -29,6 +30,7 @@ export function LocalMemoryCompanion() {
   const [correctionId, setCorrectionId] = useState(getOrCreateCorrectionId);
   const [label, setLabel] = useState(() => window.localStorage.getItem(CORRECTION_LABEL_KEY) ?? 'Correction actuelle');
   const [rubric, setRubric] = useState(readRubricFingerprint);
+  const [corrections, setCorrections] = useState<LocalCorrection[]>([]);
   const [feedback, setFeedback] = useState('');
   const [promote, setPromote] = useState(false);
   const [entries, setEntries] = useState<LocalMemoryEntry[]>([]);
@@ -37,6 +39,10 @@ export function LocalMemoryCompanion() {
   const importRef = useRef<HTMLInputElement>(null);
 
   const scope = useMemo(() => ({ correctionId, rubricFingerprint: rubric.fingerprint }), [correctionId, rubric.fingerprint]);
+
+  async function refreshCorrections() {
+    setCorrections(await listLocalCorrections());
+  }
 
   async function refresh() {
     try {
@@ -57,20 +63,52 @@ export function LocalMemoryCompanion() {
 
   useEffect(() => {
     void refresh();
+    void refreshCorrections();
     const updateRubric = () => setRubric(readRubricFingerprint());
     document.addEventListener('input', updateRubric);
     return () => document.removeEventListener('input', updateRubric);
   }, [correctionId]);
+
+  useEffect(() => {
+    const now = new Date().toISOString();
+    void saveLocalCorrection({ id: correctionId, label, rubricTitle: rubric.title, rubricFingerprint: rubric.fingerprint, createdAt: now, updatedAt: now })
+      .then(refreshCorrections)
+      .catch(() => undefined);
+  }, [correctionId]);
+
+  useEffect(() => {
+    const current = corrections.find((item) => item.id === correctionId);
+    if (!current) return;
+    if (current.label === label && current.rubricFingerprint === rubric.fingerprint && current.rubricTitle === rubric.title) return;
+    void saveLocalCorrection({ ...current, label, rubricTitle: rubric.title, rubricFingerprint: rubric.fingerprint, updatedAt: new Date().toISOString() })
+      .then(refreshCorrections)
+      .catch(() => undefined);
+  }, [label, rubric.fingerprint, rubric.title]);
 
   function persistLabel(value: string) {
     setLabel(value);
     window.localStorage.setItem(CORRECTION_LABEL_KEY, value);
   }
 
+  function selectCorrection(id: string) {
+    const selected = corrections.find((item) => item.id === id);
+    if (!selected) return;
+    window.localStorage.setItem(CORRECTION_ID_KEY, selected.id);
+    window.localStorage.setItem(CORRECTION_LABEL_KEY, selected.label);
+    setCorrectionId(selected.id);
+    setLabel(selected.label);
+    setFeedback('');
+    setSuggestions([]);
+    setStatus(`Correction « ${selected.label} » reprise. Les retours de cette correction sont à nouveau actifs.`);
+  }
+
   function startNewCorrection() {
     const id = `correction-${crypto.randomUUID()}`;
+    const newLabel = 'Nouvelle correction';
     window.localStorage.setItem(CORRECTION_ID_KEY, id);
+    window.localStorage.setItem(CORRECTION_LABEL_KEY, newLabel);
     setCorrectionId(id);
+    setLabel(newLabel);
     setFeedback('');
     setSuggestions([]);
     setStatus('Nouvelle correction : les retours précédents ne seront pas utilisés automatiquement. Les règles explicitement promues au barème restent disponibles.');
@@ -81,16 +119,12 @@ export function LocalMemoryCompanion() {
     if (!text) return;
     setStatus('');
     try {
-      await saveLocalMemory(createTeacherMemoryEntry({
-        correctionId,
-        rubricFingerprint: rubric.fingerprint,
-        text,
-        promotedToRubric: promote,
-      }));
+      await saveLocalMemory(createTeacherMemoryEntry({ correctionId, rubricFingerprint: rubric.fingerprint, text, promotedToRubric: promote }));
       setFeedback('');
       setPromote(false);
       setStatus(promote ? 'Règle enregistrée pour ce barème.' : 'Retour enregistré pour cette correction.');
       await refresh();
+      await refreshCorrections();
     } catch (cause) {
       setStatus(cause instanceof Error ? cause.message : 'Impossible d’enregistrer ce retour localement.');
     }
@@ -101,6 +135,15 @@ export function LocalMemoryCompanion() {
     setEntries([]);
     setSuggestions([]);
     setStatus('Mémoire de cette correction supprimée de cet appareil.');
+  }
+
+  async function removeCorrection(id: string) {
+    const selected = corrections.find((item) => item.id === id);
+    if (!selected || !window.confirm(`Supprimer la correction « ${selected.label} » et ses retours locaux ?`)) return;
+    await deleteLocalCorrection(id);
+    if (id === correctionId) startNewCorrection();
+    await refreshCorrections();
+    setStatus(`Correction « ${selected.label} » supprimée.`);
   }
 
   function exportMemory() {
@@ -130,6 +173,7 @@ export function LocalMemoryCompanion() {
   }
 
   const promptContext = buildLocalMemoryContext(suggestions);
+  const currentCorrection = corrections.find((item) => item.id === correctionId);
 
   return (
     <>
@@ -141,8 +185,16 @@ export function LocalMemoryCompanion() {
           <div><p className="memory-kicker">APPRENTISSAGE LOCAL</p><h2>Mémoire de correction</h2></div>
           <button className="memory-close" type="button" onClick={() => setOpen(false)} aria-label="Fermer">×</button>
         </div>
-        <p className="memory-explainer">Les remarques restent sur cet appareil. Une remarque devient une règle du barème uniquement si vous le demandez.</p>
+        <p className="memory-explainer">Une correction possède un identifiant local indépendant de son titre. Vous pouvez la fermer puis la reprendre plus tard depuis cet appareil.</p>
 
+        <label className="memory-label">Correction en cours
+          <select value={correctionId} onChange={(event) => selectCorrection(event.target.value)}>
+            {corrections.map((item) => <option key={item.id} value={item.id}>{item.label} — {item.rubricTitle}</option>)}
+          </select>
+        </label>
+        <div className="memory-actions"><button type="button" onClick={startNewCorrection}>Nouvelle correction</button></div>
+
+        {currentCorrection && <div className="memory-scope"><span>Correction sélectionnée</span><strong>{currentCorrection.label}</strong><small>Dernière utilisation : {new Date(currentCorrection.updatedAt).toLocaleString('fr-FR')}</small></div>}
         <label className="memory-label">Nom de la correction<input value={label} onChange={(event) => persistLabel(event.target.value)} /></label>
         <div className="memory-scope"><span>Barème</span><strong>{rubric.title}</strong><small>{entries.length} retour(s) dans cette correction · les règles promues de ce barème sont réutilisables</small></div>
 
@@ -152,7 +204,7 @@ export function LocalMemoryCompanion() {
 
         {suggestions.length > 0 && <section className="memory-suggestions"><h3>Déjà rencontré</h3>{suggestions.map((entry) => <div className="memory-entry" key={entry.id}><span>{entry.promotedToRubric ? 'RÈGLE DU BARÈME' : 'RETOUR DE CETTE CORRECTION'}</span><p>{entry.text}</p></div>)}</section>}
 
-        <div className="memory-actions"><button type="button" onClick={startNewCorrection}>Nouvelle correction</button><button type="button" onClick={exportMemory} disabled={!entries.length}>Exporter</button><button type="button" onClick={() => importRef.current?.click()}>Importer</button><button type="button" onClick={() => void deleteCurrentMemory()} disabled={!entries.length}>Effacer</button></div>
+        <div className="memory-actions"><button type="button" onClick={exportMemory} disabled={!entries.length}>Exporter</button><button type="button" onClick={() => importRef.current?.click()}>Importer</button><button type="button" onClick={() => void deleteCurrentMemory()} disabled={!entries.length}>Effacer les retours</button><button type="button" onClick={() => void removeCorrection(correctionId)}>Supprimer cette correction</button></div>
         <input ref={importRef} className="visually-hidden" type="file" accept="application/json,.json" onChange={(event) => void importMemory(event.currentTarget.files?.[0])} />
         {status && <p className="memory-status" role="status">{status}</p>}
         <details className="memory-details"><summary>Contexte prêt pour l’analyse IA</summary><p>{promptContext || 'Aucun retour sélectionné pour l’instant. Les retours validés pourront être injectés dans le contexte d’analyse.'}</p></details>
