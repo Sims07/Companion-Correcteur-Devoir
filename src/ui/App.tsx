@@ -508,7 +508,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setAssignmentDrafts((current) => ({ ...current, [activeAssignmentId]: captureActiveDraft() }));
     const profile: AssignmentProfile = {
       id: `assignment-${crypto.randomUUID()}`,
-      title: 'Nouveau devoir',
+      title: assignmentProfiles.length === 1 ? 'Nouveau devoir' : `Nouveau devoir ${assignmentProfiles.length}`,
       rubric: structuredClone(initialRubric),
       question: defaultQuestion,
       correctionMode: 'integrated',
@@ -557,7 +557,20 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   function openArchivedCorrection(correction: LocalCorrection) {
     const snapshot = correction.snapshot;
     if (!snapshot) return;
-    setAssignmentTitle(snapshot.assignmentTitle || correction.assignmentTitle || assignmentTitle);
+    const archivedTitle = snapshot.assignmentTitle || correction.assignmentTitle || assignmentTitle;
+    let matchingAssignment = assignmentProfiles.find((profile) => profile.title === archivedTitle);
+    if (!matchingAssignment) {
+      matchingAssignment = {
+        id: `assignment-${crypto.randomUUID()}`,
+        title: archivedTitle,
+        rubric: snapshot.rubric,
+        question: snapshot.question,
+        correctionMode: snapshot.correctionMode,
+      };
+      setAssignmentProfiles((current) => [...current, matchingAssignment!]);
+    }
+    setActiveAssignmentId(matchingAssignment.id);
+    setAssignmentTitle(archivedTitle);
     setStudentLabel(correction.label);
     setQuestion(snapshot.question);
     setRubric(snapshot.rubric);
