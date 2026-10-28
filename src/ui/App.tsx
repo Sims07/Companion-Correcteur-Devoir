@@ -513,20 +513,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
           <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
           {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
           <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p>
-        </article> : showAiSettings && <article className="panel ollama-panel teacher-model-panel" aria-labelledby="teacher-model-title">
-          <div className="panel-heading"><span className="number" aria-hidden="true">⚙</span><div><h3 id="teacher-model-title">Paramètres de l’IA locale</h3><p>Ces réglages sont réservés à la configuration de votre poste.</p></div><button type="button" className="text-button" onClick={() => setShowAiSettings(false)}>Fermer</button></div>
-          <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur Ollama</label>
-          <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
-          <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture des copies</label>
-          {availableModels.length > 0 ? <select id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }} placeholder="Ex. gemma3:4b ou qwen2.5vl" />}
-          <p className="hint">Choisissez un modèle compatible avec les images. La lecture est réutilisée lors d’une nouvelle analyse si la copie n’a pas changé.</p>
-          <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
-          {availableModels.length > 0 ? <select id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}
-          <p className="hint">Ce modèle applique le barème au texte lu. Le mode thinking reste désactivé pour privilégier une correction plus rapide et compatible.</p>
-          <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button>
-          {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
-          <p className="hint">Les photos sont envoyées uniquement à votre serveur Ollama configuré. En cas d’échec, aucune solution cloud n’est utilisée.</p>
-        </article>}
+        </article> : null}
       </section>
 
       <section className={interfaceMode === 'teacher' ? "panel question-panel teacher-launch-panel" : "panel question-panel"}>
