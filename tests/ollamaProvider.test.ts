@@ -152,6 +152,37 @@ describe('Ollama adapter', () => {
     expect(stages).toEqual(['reading', 'grading']);
   });
 
+  it('transcribes a separate reference subject before the student copy and includes it in grading context', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse('Question 1 : Décrire la mitose.'))
+      .mockResolvedValueOnce(streamingResponse('La mitose comporte quatre phases.'))
+      .mockResolvedValueOnce(streamingResponse('{\"criteria\":[]}'));
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
+    const subject = { base64: 'c3ViamV0', mimeType: 'image/png', fileName: 'sujet.png' };
+    await expect(provider.generate({ ...request, subjectImages: [subject] })).resolves.toBe('{\"criteria\":[]}');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const subjectBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { messages: Array<{ content: string; images?: string[] }> };
+    expect(subjectBody.messages[0].content).toContain('sans corriger ni résoudre les questions');
+    expect(subjectBody.messages[0].images).toEqual(['c3ViamV0']);
+    const copyBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { messages: Array<{ content: string; images?: string[] }> };
+    expect(copyBody.messages[0].content).toContain('transcription fidèle d’une page de copie');
+    const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
+    expect(gradingBody.messages[0].content).toContain('<sujet_reference>');
+    expect(gradingBody.messages[0].content).toContain('Question 1 : Décrire la mitose.');
+    expect(gradingBody.messages[0].content).toContain('<transcription_etudiant>');
+  });
+
+  it('reuses a cached subject transcription without sending subject images to vision again', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(streamingResponse('{\"criteria\":[]}'));
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
+    await expect(provider.generate({ ...request, images: [], transcription: 'Réponse de l’étudiant', subjectImages: [{ base64: 'c3ViamV0', mimeType: 'image/png' }], subjectTranscription: 'Question 1 : Décrire la mitose.' })).resolves.toBe('{\"criteria\":[]}');
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { messages: Array<{ content: string; images?: string[] }> };
+    expect(body.messages[0].content).toContain('Question 1 : Décrire la mitose.');
+    expect(body.messages[0].content).toContain('Réponse de l’étudiant');
+    expect(body.messages[0].images).toBeUndefined();
+  });
+
   it('enables thinking for the analysis model only when explicitly configured', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const provider = createOllamaProvider({

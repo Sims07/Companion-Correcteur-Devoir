@@ -32,6 +32,18 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(app()).toContain(`{interfaceMode === 'diagnostic' && streamedOutput && <div className="streaming-preview"`);
   });
 
+  it('offers integrated-question and separate-subject modes, with separate subject upload only when needed', () => {
+    const text = app();
+    expect(text).toContain("useState<'integrated' | 'separate'>('integrated')");
+    expect(text).toContain('Où se trouvent les questions ?');
+    expect(text).toContain('Questions intégrées à la copie');
+    expect(text).toContain('Sujet fourni séparément');
+    expect(text).toContain("correctionMode === 'separate' && <section className=\"panel subject-panel\">");
+    expect(text).toContain('id="subject-files"');
+    expect(text).toContain('Sélectionnez uniquement les pages d’un même étudiant');
+    expect(text).toContain('subjectImages');
+  });
+
   it('changes the welcome copy to match the selected mode', () => {
     const text = app();
     expect(text).toContain("interfaceMode === 'teacher' ? 'ESPACE ENSEIGNANT · BIOLOGIE' : 'ESPACE DE DIAGNOSTIC · IA LOCALE'");

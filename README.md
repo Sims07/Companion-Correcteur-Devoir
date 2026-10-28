@@ -41,9 +41,9 @@ Les seuils ne sont pas encore bloquants : on publie d'abord une mesure réelle, 
 ## Utiliser le flux de correction local
 
 1. Modifiez le barème d'exemple ou ajoutez/supprimez des critères.
-2. Importez des photos JPG/PNG/WebP ou un PDF (10 pages maximum, 15 Mo par fichier). Les PDF sont rendus en images dans le navigateur ; aucun fichier n'est téléversé.
+2. Choisissez le format du devoir : questions intégrées aux copies, ou sujet de référence séparé. Dans ce second mode, importez les pages du sujet une fois ; sa transcription locale sera réutilisée pendant la session. Importez ensuite les pages d’une seule copie étudiante à la fois (photos JPG/PNG/WebP ou PDF, 10 pages maximum, 15 Mo par fichier). Les PDF sont rendus en images dans le navigateur ; aucun fichier n'est téléversé.
 3. Configurez l'adresse d'Ollama, par défaut `http://localhost:11434`, puis testez la connexion pour lister les modèles installés.
-4. Choisissez séparément un **modèle de lecture (vision)** et un **modèle d'analyse et de notation**. Le premier transcrit chaque page en local ; le second applique le barème à cette transcription et produit le JSON de correction. Les deux peuvent être le même modèle, mais un modèle de vision est nécessaire pour la lecture des images.
+4. Choisissez séparément un **modèle de lecture (vision)** et un **modèle d'analyse et de notation**. En mode sujet séparé, le premier transcrit d’abord les pages du sujet, puis celles de la copie en local ; le second applique le barème au sujet de référence et à la transcription étudiante et produit le JSON de correction. Les deux peuvent être le même modèle, mais un modèle de vision est nécessaire pour la lecture des images.
 5. Renseignez la consigne et lancez l'analyse. Le streaming indique d'abord la transcription, puis la génération de la correction.
 6. Révisez les points, les éléments justificatifs et le niveau de confiance critère par critère. Les propositions à faible confiance déclenchent une question. Exportez au besoin un récapitulatif JSON local.
 
@@ -54,6 +54,7 @@ Les seuils ne sont pas encore bloquants : on publie d'abord une mesure réelle, 
 - Selon le navigateur, Ollama peut nécessiter une configuration CORS pour autoriser l'origine de l'application.
 - Utilisez un modèle de vision. Les performances sur l'écriture manuscrite varient selon le modèle et la qualité des photos.
 - Les propositions générées peuvent être erronées. Les éléments cités doivent être contrôlés ; aucune note n'est validée automatiquement.
+- La transcription du sujet séparé est conservée uniquement en mémoire de la page pendant la session ; le traitement initial de plusieurs copies en lot est volontairement hors périmètre.
 - Les copies et propositions ne sont pas persistées par l'application. L'export est une action explicite de l'enseignant.
 
 ## Architecture

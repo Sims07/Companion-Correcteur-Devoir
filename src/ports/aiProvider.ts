@@ -9,13 +9,17 @@ export interface GradingRequest {
   question: string;
   rubric: string;
   images?: ImageInput[];
+  /** Reference subject pages, distinct from the student's handwritten answer pages. */
+  subjectImages?: ImageInput[];
+  /** Reuse the locally extracted reference subject when grading again. */
+  subjectTranscription?: string;
   /** Reuse a previously extracted local transcription to rerun grading without vision inference. */
   transcription?: string;
 }
 
 export interface GradingProvider {
   readonly id: string;
-  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string) => void): Promise<string>;
+  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject') => void): Promise<string>;
 }
 
 export interface OllamaSettings {

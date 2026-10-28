@@ -35,6 +35,9 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
   const [analysisModel, setAnalysisModel] = useState('');
   const [analysisThinking, setAnalysisThinking] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>('integrated');
+  const [subjectImages, setSubjectImages] = useState<ImageInput[]>([]);
+  const [subjectTranscription, setSubjectTranscription] = useState<string | null>(null);
   const [images, setImages] = useState<ImageInput[]>([]);
   const [transcription, setTranscription] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -128,6 +131,22 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
     }
   }
 
+  async function importSubjectFiles(files: FileList | null) {
+    if (!files?.length) return;
+    setError('');
+    setReviewMessage('');
+    try {
+      const prepared = await service.prepareFiles(files);
+      setSubjectImages((current) => [...current, ...prepared]);
+      setSubjectTranscription(null);
+      setTranscription(null);
+      setProposal(null);
+      setReview([]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Échec de préparation du sujet en local.');
+    }
+  }
+
   async function connectOllama() {
     setBusy(true);
     setError('');
@@ -155,16 +174,20 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
     setIsFinalized(false);
     try {
       if (!validation.valid) throw new Error(validation.errors.join(' '));
-      if (!images.length) throw new Error('Importez au moins une photo ou un PDF.');
-      if (!transcription) await service.checkReady({ endpoint, model: visionModel });
+      if (!images.length) throw new Error('Importez au moins une photo ou un PDF de la copie.');
+      if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) throw new Error('Importez le sujet de référence pour ce mode de correction.');
+      if ((!transcription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, model: visionModel });
       await service.checkReady({ endpoint, model: analysisModel });
       setAnalysisStage('reading');
       const provider = service.createProvider({ endpoint, visionModel, analysisModel, thinking: analysisThinking });
       const raw = await provider.generate(
-        { question, rubric: rubricAsJson(rubric), images, ...(transcription ? { transcription } : {}) },
+        { question, rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
         (chunk) => setStreamedOutput((current) => current + chunk),
         (stage) => { setAnalysisStage(stage); if (stage === 'grading') setStreamedOutput(''); },
-        (extracted) => setTranscription(extracted),
+        (extracted, kind) => {
+          if (kind === 'subject') setSubjectTranscription(extracted);
+          else setTranscription(extracted);
+        },
       );
       const parsed = parseGradingProposal(raw, rubric);
       setProposal(parsed);
@@ -251,13 +274,27 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <div className="rubric-actions"><button className="secondary-button" onClick={addCriterion}>+ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
       </section>
 
-      <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 2</p><h2>Importer les copies et configurer l’IA</h2></div><span className="step-count">{images.length} IMAGE(S) PRÉPARÉE(S) · {transcription ? 'TRANSCRIPTION DISPONIBLE' : 'À LIRE'}</span></div>
+      <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 2</p><h2>Préparer le sujet et la copie</h2></div><span className="step-count">{images.length} PAGE(S) DE COPIE · {transcription ? 'TRANSCRIPTION DISPONIBLE' : 'À LIRE'}</span></div>
+      <section className="panel correction-mode-panel" aria-labelledby="correction-mode-title">
+        <div className="panel-heading"><span className="number">02</span><div><h3 id="correction-mode-title">Où se trouvent les questions ?</h3><p>Choisissez le format utilisé pour ce devoir. Vous pourrez corriger les copies une par une.</p></div></div>
+        <div className="correction-mode-options" role="group" aria-label="Mode de correction">
+          <label className={correctionMode === 'integrated' ? 'correction-mode-option selected' : 'correction-mode-option'}><input type="radio" name="correction-mode" value="integrated" checked={correctionMode === 'integrated'} onChange={() => { setCorrectionMode('integrated'); setSubjectTranscription(null); }} /><span><strong>Questions intégrées à la copie</strong><small>Les questions et les réponses sont sur les mêmes feuilles.</small></span></label>
+          <label className={correctionMode === 'separate' ? 'correction-mode-option selected' : 'correction-mode-option'}><input type="radio" name="correction-mode" value="separate" checked={correctionMode === 'separate'} onChange={() => { setCorrectionMode('separate'); setProposal(null); setReview([]); }} /><span><strong>Sujet fourni séparément</strong><small>Le sujet de référence est distinct des pages de réponses manuscrites.</small></span></label>
+        </div>
+      </section>
+      {correctionMode === 'separate' && <section className="panel subject-panel">
+        <div className="panel-heading"><span className="number">A</span><div><h3>Sujet de référence</h3><p>Importez les questions et leurs éventuels schémas une seule fois pour ce devoir.</p></div></div>
+        <label className="upload-placeholder" htmlFor="subject-files"><span className="upload-icon">↑</span><strong>Choisir les pages du sujet</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Importer le sujet</span><span className="upload-note">Les pages sont préparées dans le navigateur. Elles sont transmises uniquement au serveur Ollama configuré pour en extraire le contenu.</span></label>
+        <input id="subject-files" className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onChange={(event) => { void importSubjectFiles(event.target.files); event.currentTarget.value = ''; }} />
+        {subjectImages.length > 0 && <div className="file-list"><strong>{subjectImages.length} page(s) de sujet prête(s)</strong>{subjectImages.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName || `Page ${index + 1}`}</span><button type="button" className="text-button" onClick={() => { setSubjectImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setSubjectTranscription(null); }}>Retirer</button></div>)}<button type="button" className="text-button" onClick={() => { setSubjectImages([]); setSubjectTranscription(null); }}>Retirer toutes les pages du sujet</button></div>}
+        {subjectTranscription && <p className="validation valid" role="status">Sujet lu localement et prêt à être réutilisé pour les copies suivantes de ce devoir.</p>}
+      </section>}
       <section className="setup-grid">
         <article className="panel copy-panel">
-          <div className="panel-heading"><span className="number">02</span><div><h3>Copies à corriger</h3><p>Photos, scans ou PDF multipages.</p></div></div>
-          <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les copies</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les fichiers</span><span className="upload-note">Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
+          <div className="panel-heading"><span className="number">03</span><div><h3>Copie de l’étudiant</h3><p>Importez les pages d’un seul étudiant à la fois.</p></div></div>
+          <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
           <input id="copy-files" className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onChange={(event) => { void importFiles(event.target.files); event.currentTarget.value = ''; }} />
-          {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<button className="text-button" onClick={() => { setImages([]); setTranscription(null); }}>Retirer toutes les pages</button></div>}
+          {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<button className="text-button" onClick={() => { setImages([]); setTranscription(null); setProposal(null); setReview([]); setTeacherQuestions(''); setIsFinalized(false); }}>Effacer cette copie et passer à la suivante</button></div>}
         </article>
         {interfaceMode === 'diagnostic' ? <article className="panel ollama-panel">
           <div className="panel-heading"><span className="number">03</span><div><h3>Modèle local Ollama</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
