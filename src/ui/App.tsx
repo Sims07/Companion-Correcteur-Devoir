@@ -395,7 +395,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <span className="privacy-icon">⌂</span>
         <div><strong>Traitement local, sans repli cloud</strong><p>Les fichiers sont lus et préparés dans votre navigateur, puis envoyés uniquement à l’adresse Ollama que vous configurez. Aucun stockage distant ni envoi vers un fournisseur cloud n’est prévu.</p></div>
         <span className="privacy-status">OLLAMA LOCAL</span>
-      </section>
+      </section>}
 
       {(interfaceMode === 'diagnostic' || teacherStep === 'rubric') && <>
       <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 SUR 3' : 'ÉTAPE 1'}</p><h2>Préparer le barème</h2></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
@@ -509,7 +509,8 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
         <button className="primary-button grade-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? 'Correction locale en cours…' : 'Analyse locale en cours…') : transcription ? 'Relancer l’analyse sans relire les images' : interfaceMode === 'teacher' ? 'Lancer la lecture et la correction' : 'Lire puis analyser les copies'}</button>
         {interfaceMode === 'teacher' && <p className="launch-footnote">Aucune note n’est validée automatiquement. Après l’analyse, vous pourrez vérifier les éléments de preuve, ajuster chaque critère et finaliser la correction.</p>}
-      <div className="teacher-copy-footer"><button type="button" className="secondary-button" onClick={() => setTeacherStep('rubric')}>← Revoir le barème</button><span>Une seule copie à la fois · validation humaine avant finalisation</span></div>
+      </section>
+      {interfaceMode === 'teacher' && <div className="teacher-copy-footer"><button type="button" className="secondary-button" onClick={() => setTeacherStep('rubric')}>← Revoir le barème</button><span>Une seule copie à la fois · validation humaine avant finalisation</span></div>}
       </>}
 
       {isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
