@@ -274,13 +274,13 @@ export function createOllamaProvider(
           const selected = decision.selected === 'avis1' ? first : second;
           return { ...selected, rationale: `Arbitrage : ${decision.reason} Note retenue depuis ${decision.selected}.` };
         });
-        const mergedCriteria = [...resolution.automaticCriteria, ...judged.criteria].sort(
+        const mergedCriteria = [...resolution.automaticCriteria, ...judgedCriteria].sort(
           (a, b) => rubric.criteria.findIndex((criterion) => criterion.id === a.criterionId) - rubric.criteria.findIndex((criterion) => criterion.id === b.criterionId),
         );
         const merged = {
-          summary: judged.summary,
+          summary: 'Correction fusionnée : accords/moyennes automatiques et décisions du juge sur les seuls critères litigieux.',
           criteria: mergedCriteria,
-          questionsForTeacher: judged.questionsForTeacher,
+          questionsForTeacher: [],
           finalScore: Math.round(mergedCriteria.reduce((sum, criterion) => sum + criterion.points, 0) * 100) / 100,
         };
         const mergedRaw = JSON.stringify(merged);
