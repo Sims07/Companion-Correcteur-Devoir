@@ -17,7 +17,8 @@ function readRubricScope(): { correctionId: string; rubricFingerprint: string } 
 }
 
 export function shouldAugmentAnalysisPrompt(content: string): boolean {
-  return content.includes('RÔLE : tu assistes un enseignant universitaire en biologie.') && content.includes('BARÈME (JSON)');
+  return content.includes('RÔLE ET LIMITE : tu es un assistant de correction pour un enseignant universitaire en biologie.') &&
+    content.includes('BARÈME ACTUEL (JSON, référence de notation)');
 }
 
 export function appendLocalMemoryContext(content: string, entries: LocalMemoryEntry[]): string {
