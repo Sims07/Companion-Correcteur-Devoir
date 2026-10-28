@@ -20,6 +20,17 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain("onClick={() => setInterfaceMode('diagnostic')}");
   });
 
+  it('removes duplicate branding and makes missing local AI setup obvious in the sidebar', () => {
+    const text = app();
+    expect(text).not.toContain('<strong>Correction</strong><small>Espace enseignant</small>');
+    expect(text).toContain('IA locale à configurer');
+    expect(text).toContain('Configurer maintenant');
+    expect(text).toContain('setShowAiSettings(true)');
+    expect(text).toContain('is-processing');
+    expect(text).toContain('Lecture des copies en cours');
+    expect(text).toContain('Analyse et notation en cours');
+  });
+
   it('keeps Ollama configuration hidden until explicitly opened from teacher settings', () => {
     const text = app();
     expect(text).toContain(`{interfaceMode === 'diagnostic' ? <article className="panel ollama-panel">`);
@@ -45,6 +56,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('id="subject-files"');
     expect(text).toContain('Sélectionnez uniquement les pages d’un même étudiant');
     expect(text).toContain('subjectImages');
+    expect(text).toContain(`{interfaceMode === 'diagnostic' && <span className="number">02</span>}`);
+    expect(text).toContain(`{interfaceMode === 'diagnostic' && <span className="number">03</span>}`);
   });
 
   it('provides a teacher-specific three-step navigation and shows only the active task', () => {
