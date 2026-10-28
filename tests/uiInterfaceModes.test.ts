@@ -49,22 +49,23 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain("interfaceMode === 'teacher' ? 'ESPACE ENSEIGNANT · BIOLOGIE' : 'ESPACE DE DIAGNOSTIC · IA LOCALE'");
     expect(text).toContain("interfaceMode === 'teacher' ? 'Importez les copies");
   });
-  
+
   it('presents saved teacher decisions in plain language instead of technical local-memory terminology', () => {
     const text = source('../src/ui/LocalMemoryCompanion.tsx');
     expect(text).toContain('Règles de correction');
-    expect(text).toContain('Mes règles de correction');
-    expect(text).toContain('Conservez vos décisions pour éviter de répéter les mêmes remarques.');
-    expect(text).toContain('Cela n’entraîne pas le modèle d’IA.');
-    expect(text).toContain('Quelle décision souhaitez-vous conserver ?');
-    expect(text).toContain('Enregistrer cette décision');
+    expect(text).toContain('DÉCISIONS DE L’ENSEIGNANT');
+    expect(text).toContain('Ici, vous indiquez à l’assistant comment appliquer votre correction.');
+    expect(text).toContain('Votre décision');
+    expect(text).toContain('Enregistrer la décision');
     expect(text).not.toContain('> Mémoire locale ');
   });
 
   it('explains the distinction between feedback for a correction and reusable rubric rules', () => {
     const text = source('../src/ui/LocalMemoryCompanion.tsx');
-    expect(text).toContain('Enregistrer comme règle du barème');
-    expect(text).toContain('Réutilisable avec le même barème lors d’une prochaine correction.');
+    expect(text).toContain('Correction active');
+    expect(text).toContain('Barème utilisé');
+    expect(text).toContain('Réutiliser cette décision avec le barème');
+    expect(text).toContain('Sinon, elle reste limitée à la correction active.');
     expect(text).toContain('RÈGLE DU BARÈME');
     expect(text).toContain('RETOUR POUR CE DEVOIR');
   });
