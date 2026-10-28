@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkOllamaReady, createOllamaProvider, listOllamaModels } from '../src/adapters/ai/ollamaProvider.ts';
+import { checkOllamaReady, createOllamaProvider, importRubricImageWithOllama, listOllamaModels } from '../src/adapters/ai/ollamaProvider.ts';
 import type { GradingRequest } from '../src/ports/aiProvider.ts';
 
 function streamingResponse(content: string): Response {
@@ -196,4 +196,69 @@ describe('Ollama adapter', () => {
     expect(body.messages[0].images).toBeUndefined();
     expect(onTranscription).not.toHaveBeenCalled();
   });
+
+  it('imports a rubric photo with exactly one local vision request and structured JSON output', async () => {
+    const rubricJson = JSON.stringify({
+      title: 'Barème de biologie',
+      criteria: [
+        { title: 'Connaissances', description: 'Notions exactes', maxPoints: 8 },
+        { title: 'Connaissances', description: 'Vocabulaire', maxPoints: 2.5 },
+      ],
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ message: { content: rubricJson } }), { status: 200 }),
+    );
+    const imported = await importRubricImageWithOllama(
+      { base64: 'aGVsbG8=', mimeType: 'image/png', fileName: 'bareme.png' },
+      { endpoint: 'http://localhost:11434/', visionModel: 'qwen3.5:4b', analysisModel: 'text-model' },
+      fetchMock,
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:11434/api/chat', expect.objectContaining({ method: 'POST' }));
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as {
+      model: string; stream: boolean; think: boolean; format: { type: string; properties: Record<string, unknown> };
+      messages: Array<{ content: string; images: string[] }>;
+    };
+    expect(body.model).toBe('qwen3.5:4b');
+    expect(body.stream).toBe(false);
+    expect(body.think).toBe(false);
+    expect(body.format.type).toBe('object');
+    expect(body.format.properties).toHaveProperty('criteria');
+    expect(body.messages[0].images).toEqual(['aGVsbG8=']);
+    expect(body.messages[0].content).toContain('Ne transforme pas le barème');
+    expect(imported.rubric).toEqual({
+      title: 'Barème de biologie',
+      criteria: [
+        { id: 'connaissances', title: 'Connaissances', description: 'Notions exactes', maxPoints: 8 },
+        { id: 'connaissances-2', title: 'Connaissances', description: 'Vocabulaire', maxPoints: 2.5 },
+      ],
+    });
+    expect(imported.warnings.join(' ')).toContain('vérifiez');
+  });
+
+  it('rejects invalid structured rubric data and never retries against another service', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ message: { content: JSON.stringify({
+        title: 'Barème', criteria: [{ title: 'Critère', description: '', maxPoints: -2 }],
+      }) } }), { status: 200 }),
+    );
+    await expect(importRubricImageWithOllama(
+      { base64: 'aGVsbG8=', mimeType: 'image/jpeg' },
+      { endpoint: 'http://localhost:11434', visionModel: 'vision-model' },
+      fetchMock,
+    )).rejects.toThrow(/maximum de points positif ou nul/);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('rejects rubric image imports without a vision model before networking', async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    await expect(importRubricImageWithOllama(
+      { base64: 'aGVsbG8=', mimeType: 'image/png' },
+      { endpoint: 'http://localhost:11434' },
+      fetchMock,
+    )).rejects.toThrow(/modèle de vision/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
 });
