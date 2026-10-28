@@ -1,4 +1,3 @@
-// @ts-expect-error Node built-in used by Vitest source-contract tests; browser app typings omit @types/node.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
