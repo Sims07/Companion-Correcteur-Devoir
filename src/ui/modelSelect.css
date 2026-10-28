@@ -1,4 +1,4 @@
-.ollama-panel select[id$="-model"] {
+.ollama-panel select {
   appearance: none;
   width: 100%;
   min-height: 48px;
@@ -18,33 +18,33 @@
   transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
 }
 
-.ollama-panel select[id$="-model"]:hover {
+.ollama-panel select:hover {
   border-color: #afc6b2;
   background-color: #fdfefd;
   box-shadow: 0 2px 4px #2942350c, 0 6px 16px #2942350a;
 }
 
-.ollama-panel select[id$="-model"]:focus-visible {
+.ollama-panel select:focus-visible {
   border-color: #5f8d6c;
   outline: 3px solid #cfe1d2;
   outline-offset: 1px;
   box-shadow: 0 0 0 1px #5f8d6c, 0 6px 18px #29423512;
 }
 
-.ollama-panel select[id$="-model"]:disabled {
+.ollama-panel select:disabled {
   cursor: not-allowed;
   opacity: .6;
   background-color: #f3f6f2;
 }
 
-.ollama-panel select[id$="-model"] option {
+.ollama-panel select option {
   padding: 10px;
   color: #294235;
   background: #fff;
 }
 
 @media (max-width: 430px) {
-  .ollama-panel select[id$="-model"] {
+  .ollama-panel select {
     min-height: 46px;
     padding-left: 13px;
     font-size: 12px;
@@ -52,7 +52,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ollama-panel select[id$="-model"] {
+  .ollama-panel select {
     transition: none;
   }
 }
