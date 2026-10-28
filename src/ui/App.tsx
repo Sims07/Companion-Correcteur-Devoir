@@ -4,6 +4,7 @@ import type { CorrectionWorkspaceService } from '../application/correctionWorksp
 import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion } from '../domain/grading.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { ImageInput } from '../ports/aiProvider.ts';
+import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 
 const initialRubric: Rubric = {
   title: 'Barème de biologie — exemple',
@@ -257,6 +258,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
     } finally {
       const finishedAt = Date.now();
+      const diagnosticScore = diagnosticProposal ? buildDiagnosticScore(diagnosticProposal, rubric) : null;
       const record: TimingRecord = {
         id: String(finishedAt) + '-' + String(images.length),
         completedAt: new Date(finishedAt).toISOString(),
@@ -269,11 +271,8 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         analysisSeconds: analysisStartedAt === null ? null : Math.round((finishedAt - analysisStartedAt) / 1000),
         totalSeconds: Math.round((finishedAt - runStartedAt) / 1000),
         outcome,
-        modelScore: diagnosticProposal ? diagnosticProposal.criteria.reduce((sum, criterion) => sum + criterion.points, 0) : null,
-        criterionScores: diagnosticProposal ? diagnosticProposal.criteria.map((criterion) => {
-          const rubricCriterion = rubric.criteria.find((item) => item.id === criterion.criterionId);
-          return { criterionId: criterion.criterionId, title: rubricCriterion?.title ?? criterion.criterionId, points: criterion.points, maxPoints: rubricCriterion?.maxPoints ?? 0 };
-        }) : [],
+        modelScore: diagnosticScore?.modelScore ?? null,
+        criterionScores: diagnosticScore?.criterionScores ?? [],
       };
       setTimingHistory((current) => {
         const next = [record, ...current].slice(0, timingHistoryLimit);
