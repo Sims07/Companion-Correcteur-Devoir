@@ -63,10 +63,12 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).not.toContain('Un devoir, un espace de travail');
   });
 
-  it('changes the welcome copy to match the selected mode', () => {
+  it('keeps the diagnostic welcome isolated from the teacher workspace', () => {
     const text = app();
-    expect(text).toContain("interfaceMode === 'teacher' ? 'ESPACE ENSEIGNANT · BIOLOGIE' : 'ESPACE DE DIAGNOSTIC · IA LOCALE'");
-    expect(text).toContain("interfaceMode === 'teacher' ? 'Importez les copies");
+    expect(text).toContain("{interfaceMode === 'diagnostic' && <section className=\"welcome\">");
+    expect(text).toContain('ESPACE DE DIAGNOSTIC · IA LOCALE');
+    expect(text).toContain('Accédez aux réglages Ollama, aux modèles et aux sorties de diagnostic');
+    expect(text).not.toContain('Un devoir, un espace de travail');
   });
 
   it('presents saved teacher decisions in plain language instead of technical local-memory terminology', () => {
