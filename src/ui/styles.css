@@ -210,3 +210,4 @@ footer { padding-top: 24px; line-height: 1.6; }
   .file-picker-action { grid-column: 1 / -1; width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .file-picker, .file-picker-action { transition: none; } }
+.diagnostic-score-details{min-width:150px}.diagnostic-score-details summary{cursor:pointer;display:flex;flex-direction:column;gap:3px;list-style-position:inside}.diagnostic-score-details summary strong{font-size:13px;color:#315e3d}.diagnostic-score-details summary span{font-size:9px;color:#718075}.diagnostic-score-details ul{list-style:none;padding:8px 0 0;margin:0;min-width:220px}.diagnostic-score-details li{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid #edf0ec;font-size:10px}.diagnostic-score-details li span{overflow-wrap:anywhere}.diagnostic-score-details li strong{white-space:nowrap;color:#315e3d}.diagnostic-score-details small{display:block;padding-top:7px;color:#859187}
