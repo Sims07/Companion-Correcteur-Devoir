@@ -46,6 +46,17 @@ type AssignmentDraft = {
 };
 
 const assignmentProfilesKey = 'companion-correcteur:assignments:v1';
+const activeAssignmentKey = 'companion-correcteur:active-assignment:v1';
+
+function readActiveAssignmentProfile(): AssignmentProfile {
+  const profiles = readAssignmentProfiles();
+  try {
+    const savedId = window.localStorage.getItem(activeAssignmentKey);
+    const savedProfile = profiles.find((profile) => profile.id === savedId);
+    if (savedProfile) return savedProfile;
+  } catch { /* Use the first available assignment if local storage is unavailable. */ }
+  return profiles[0];
+}
 
 function readAssignmentProfiles(): AssignmentProfile[] {
   try {
@@ -135,15 +146,15 @@ function rubricAsJson(rubric: Rubric): string {
 
 export function App({ service, archiveService }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService }) {
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
-  const [activeAssignmentId, setActiveAssignmentId] = useState(() => readAssignmentProfiles()[0].id);
+  const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, AssignmentDraft>>({});
-  const [assignmentTitle, setAssignmentTitle] = useState(() => readAssignmentProfiles()[0].title);
+  const [assignmentTitle, setAssignmentTitle] = useState(() => readActiveAssignmentProfile().title);
   const [teacherStep, setTeacherStep] = useState<'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric');
   const [showAiSettings, setShowAiSettings] = useState(false);
-  const [rubric, setRubric] = useState<Rubric>(() => readAssignmentProfiles()[0].rubric);
+  const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
   const [rubricImageImporting, setRubricImageImporting] = useState(false);
-  const [question, setQuestion] = useState(() => readAssignmentProfiles()[0].question);
+  const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
   const [endpoint, setEndpoint] = useState('http://localhost:11434');
   const [visionModel, setVisionModel] = useState('');
   const [analysisModel, setAnalysisModel] = useState('');
@@ -153,7 +164,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [diagnosticRuns, setDiagnosticRuns] = useState<DiagnosticModelResult[]>([]);
   const [analysisThinking, setAnalysisThinking] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
-  const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>(() => readAssignmentProfiles()[0].correctionMode);
+  const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>(() => readActiveAssignmentProfile().correctionMode);
   const [subjectImages, setSubjectImages] = useState<ImageInput[]>([]);
   const [subjectTranscription, setSubjectTranscription] = useState<string | null>(null);
   const [images, setImages] = useState<ImageInput[]>([]);
@@ -195,6 +206,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         : [...profiles, current];
       try {
         window.localStorage.setItem(assignmentProfilesKey, JSON.stringify(next));
+        window.localStorage.setItem(activeAssignmentKey, activeAssignmentId);
         window.localStorage.setItem(assignmentTitleKey, assignmentTitle);
       } catch { /* Keep the current assignment usable when browser storage is unavailable. */ }
       return next;
