@@ -225,3 +225,111 @@
     transition: none;
   }
 }
+
+
+/* Keep the result of image reading available after the progress indicator disappears. */
+.transcription-review {
+  margin: var(--flow-space-5) 0;
+  border: 1px solid var(--flow-border-strong);
+  border-radius: 14px;
+  background: var(--flow-surface);
+  color: var(--flow-text);
+  overflow: hidden;
+}
+
+.transcription-review details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--flow-space-4);
+  padding: var(--flow-space-5) var(--flow-space-6);
+  cursor: pointer;
+  list-style: none;
+}
+
+.transcription-review details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.transcription-review details > summary > span:first-child {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.transcription-review details > summary strong {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.transcription-review details > summary small {
+  color: var(--flow-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.transcription-review-action {
+  flex: 0 0 auto;
+  color: var(--flow-accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.transcription-review details[open] .transcription-review-action {
+  font-size: 0;
+}
+
+.transcription-review details[open] .transcription-review-action::after {
+  content: "Masquer le texte";
+  font-size: 12px;
+}
+
+.transcription-review-content {
+  display: grid;
+  gap: var(--flow-space-5);
+  padding: 0 var(--flow-space-6) var(--flow-space-6);
+}
+
+.transcription-text-block {
+  min-width: 0;
+  padding-top: var(--flow-space-4);
+  border-top: 1px solid var(--flow-border);
+}
+
+.transcription-text-block h3 {
+  margin: 0 0 var(--flow-space-3);
+  font-size: 13px;
+}
+
+.transcription-text-block pre {
+  max-height: 420px;
+  margin: 0;
+  padding: var(--flow-space-4);
+  overflow: auto;
+  border: 1px solid var(--flow-border);
+  border-radius: 10px;
+  background: var(--flow-subtle);
+  color: var(--flow-text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .transcription-review details > summary {
+    align-items: flex-start;
+    padding: var(--flow-space-4);
+  }
+
+  .transcription-review-content {
+    padding: 0 var(--flow-space-4) var(--flow-space-4);
+  }
+
+  .transcription-review-action {
+    max-width: 84px;
+    text-align: right;
+    line-height: 1.4;
+  }
+}

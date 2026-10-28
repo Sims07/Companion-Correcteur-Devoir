@@ -69,4 +69,15 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('RÈGLE DU BARÈME');
     expect(text).toContain('RETOUR POUR CE DEVOIR');
   });
+
+  it('keeps the extracted transcription available for teacher verification after image reading', () => {
+    const text = app();
+    expect(text).toContain('Vérifier le texte lu par l’IA');
+    expect(text).toContain('Relisez la transcription pour repérer les erreurs de lecture');
+    expect(text).toContain('{transcription}');
+    expect(text).toContain('{subjectTranscription}');
+    expect(text).toContain('Texte de la copie étudiante');
+    expect(text).toContain('Texte du sujet de référence');
+    expect(text).toContain('className="transcription-review"');
+  });
 });

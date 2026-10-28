@@ -347,7 +347,24 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         </div>
       </section>}
 
-      {transcription && <p className="validation valid" role="status">✓ Transcription disponible en mémoire locale : vous pouvez relancer l’analyse sans repasser par le modèle de vision.</p>}
+      {(transcription || (correctionMode === 'separate' && subjectTranscription)) && <section className="transcription-review" aria-labelledby="transcription-review-title">
+        <details>
+          <summary id="transcription-review-title">
+            <span><strong>Vérifier le texte lu par l’IA</strong><small>Relisez la transcription pour repérer les erreurs de lecture avant de vous fier à la correction.</small></span>
+            <span className="transcription-review-action">Afficher le texte</span>
+          </summary>
+          <div className="transcription-review-content">
+            {correctionMode === 'separate' && subjectTranscription && <section className="transcription-text-block">
+              <h3>Texte du sujet de référence</h3>
+              <pre>{subjectTranscription}</pre>
+            </section>}
+            {transcription && <section className="transcription-text-block">
+              <h3>Texte de la copie étudiante</h3>
+              <pre>{transcription}</pre>
+            </section>}
+          </div>
+        </details>
+      </section>}
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 
