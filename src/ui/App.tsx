@@ -221,19 +221,20 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
     }
   }
 
-  async function gradeCopies() {
+  async function gradeCopies(strategyOverride?: 'arbitrate-only') {
     const runStartedAt = Date.now();
     let readingStartedAt: number | null = null;
     let readingDurationMs: number | null = null;
     let analysisStartedAt: number | null = null;
     let outcome: TimingRecord['outcome'] = 'error';
     let diagnosticProposal: GradingProposal | null = null;
-    const diagnosticResultsForHistory: DiagnosticModelResult[] = [];
+    const previousModelResults = strategyOverride === 'arbitrate-only' ? diagnosticRuns.filter((run) => run.kind === 'model') : [];
+    const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
     setBusy(true);
     setIsAnalyzing(true);
     setAnalysisStage('checking');
     setStreamedOutput('');
-    setDiagnosticRuns([]);
+    setDiagnosticRuns(previousModelResults);
     setError('');
     setReviewMessage('');
     setIsFinalized(false);
@@ -244,7 +245,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       if ((!transcription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, model: visionModel });
       await service.checkReady({ endpoint, model: analysisModel });
       setAnalysisStage('reading');
-      const provider = service.createProvider({ endpoint, visionModel, analysisModel, thinking: analysisThinking, ...(interfaceMode === 'diagnostic' ? { diagnosticStrategy, secondAnalysisModel, arbitratorModel } : {}) });
+      const provider = service.createProvider({ endpoint, visionModel, analysisModel, thinking: analysisThinking, ...(interfaceMode === 'diagnostic' ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
       const raw = await provider.generate(
         { question, rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
         (chunk) => setStreamedOutput((current) => current + chunk),
@@ -289,7 +290,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         outcome,
         modelScore: diagnosticScore?.modelScore ?? null,
         criterionScores: diagnosticScore?.criterionScores ?? [],
-        diagnosticStrategy: interfaceMode === 'diagnostic' ? diagnosticStrategy : 'single',
+        diagnosticStrategy: interfaceMode === 'diagnostic' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
         diagnosticRuns: diagnosticResultsForHistory,
       };
       setTimingHistory((current) => {
@@ -466,6 +467,8 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
           <span>TEMPS ÉCOULÉ</span><strong>{formatElapsed(elapsedSeconds)}</strong>
         </div>
       </section>}
+
+      {interfaceMode === 'diagnostic' && transcription && diagnosticRuns.filter((run) => run.kind === 'model').length === 2 && <button type="button" className="secondary-button full-button" disabled={busy || !arbitratorModel.trim()} onClick={() => void gradeCopies('arbitrate-only')}>Relancer uniquement l’arbitrage avec les deux avis enregistrés</button>}
 
       {interfaceMode === 'diagnostic' && diagnosticRuns.length > 0 && <section className="panel diagnostic-results" aria-labelledby="diagnostic-results-title">
         <div className="panel-heading"><span className="number">IA</span><div><h3 id="diagnostic-results-title">Résultats de l’expérience multi-modèles</h3><p>Notes et temps mesurés sur cette copie. Les sorties sont conservées dans cette vue locale.</p></div></div>
