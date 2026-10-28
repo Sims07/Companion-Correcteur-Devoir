@@ -15,6 +15,8 @@ export interface GradingProposal {
   summary: string;
   criteria: CriterionProposal[];
   questionsForTeacher: string[];
+  /** Explicit total proposed by the model; validated against criterion points. */
+  finalScore: number;
 }
 
 export interface ReviewedCriterion extends CriterionProposal {
@@ -84,13 +86,22 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
   const questions = Array.isArray(parsed.questionsForTeacher)
     ? parsed.questionsForTeacher.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean)
     : [];
-  // Only surface a teacher question when the model can identify a concrete ambiguity.
-  // Low confidence alone is a warning, not a reason to generate a generic question.
   criteria.forEach((criterion) => {
     if (criterion.questionForTeacher) questions.push(criterion.questionForTeacher);
   });
 
-  return { summary: text(parsed.summary, 'Proposition générée ; vérification enseignante requise.'), criteria, questionsForTeacher: [...new Set(questions)] };
+  const calculatedFinalScore = criteria.reduce((sum, criterion) => sum + criterion.points, 0);
+  const declaredFinalScore = typeof parsed.finalScore === 'number' ? parsed.finalScore : calculatedFinalScore;
+  if (!Number.isFinite(declaredFinalScore) || Math.abs(declaredFinalScore - calculatedFinalScore) > 0.0001) {
+    throw new Error(`La note finale annoncée (${String(parsed.finalScore)}) ne correspond pas à la somme des points par critère (${calculatedFinalScore}).`);
+  }
+
+  return {
+    summary: text(parsed.summary, 'Proposition générée ; vérification enseignante requise.'),
+    criteria,
+    questionsForTeacher: [...new Set(questions)],
+    finalScore: calculatedFinalScore,
+  };
 }
 
 export function toReviewedCriteria(proposal: GradingProposal): ReviewedCriterion[] {

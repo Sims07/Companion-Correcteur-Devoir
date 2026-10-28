@@ -18,6 +18,7 @@ const proposal: GradingProposal = {
     { criterionId: 'knowledge', points: 6, rationale: '', evidence: '', confidence: 'high' },
     { criterionId: 'reasoning', points: 9.5, rationale: '', evidence: '', confidence: 'medium' },
   ],
+  finalScore: 15.5,
 };
 
 describe('buildDiagnosticScore', () => {
