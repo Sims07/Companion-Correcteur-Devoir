@@ -23,14 +23,14 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('keeps detailed Ollama configuration in diagnostic mode and offers an explicit entry point from teacher mode', () => {
     const text = app();
-    expect(text).toContain("{interfaceMode === 'diagnostic' ? <article className=\\\"panel ollama-panel\\\">");
-    expect(text).toContain("</article> : <article className=\\\"panel ai-summary-panel\\\">");
+    expect(text).toContain(`{interfaceMode === 'diagnostic' ? <article className="panel ollama-panel">`);
+    expect(text).toContain(`</article> : <article className="panel ai-summary-panel">`);
     expect(text).toContain("onClick={() => setInterfaceMode('diagnostic')}");
     expect(text).toContain('Tester la connexion et lister les modèles');
   });
 
   it('only displays raw streaming output in diagnostic mode', () => {
-    expect(app()).toContain("{interfaceMode === 'diagnostic' && streamedOutput && <div className=\\\"streaming-preview\\\"");
+    expect(app()).toContain(`{interfaceMode === 'diagnostic' && streamedOutput && <div className="streaming-preview"`);
   });
 
   it('changes the welcome copy to match the selected mode', () => {
