@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { checkOllamaReady, createOllamaProvider, listOllamaModels } from '../adapters/ai/ollamaProvider.ts';
-import { prepareLocalFiles } from '../adapters/files/localFiles.ts';
-import { importRubricFile } from '../adapters/files/rubricImport.ts';
+import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
 import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion } from '../domain/grading.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { ImageInput } from '../ports/aiProvider.ts';
@@ -27,7 +25,7 @@ function rubricAsJson(rubric: Rubric): string {
   return JSON.stringify(rubric, null, 2);
 }
 
-export function App() {
+export function App({ service }: { service: CorrectionWorkspaceService }) {
   const [rubric, setRubric] = useState<Rubric>(initialRubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
   const [question, setQuestion] = useState(defaultQuestion);
@@ -80,7 +78,7 @@ export function App() {
     setError('');
     setRubricImportMessage('');
     try {
-      const imported = await importRubricFile(file);
+      const imported = await service.importRubric(file);
       setRubric(imported.rubric);
       setProposal(null);
       setReview([]);
@@ -96,7 +94,7 @@ export function App() {
     setError('');
     setReviewMessage('');
     try {
-      const prepared = await prepareLocalFiles(files);
+      const prepared = await service.prepareFiles(files);
       setImages((current) => [...current, ...prepared]);
       setTranscription(null);
       setProposal(null);
@@ -111,7 +109,7 @@ export function App() {
     setError('');
     setConnectionMessage('');
     try {
-      const models = await listOllamaModels(endpoint);
+      const models = await service.listModels(endpoint);
       setAvailableModels(models.map((item) => item.name));
       if (!visionModel && models[0]) setVisionModel(models[0].name);
       if (!analysisModel && models[0]) setAnalysisModel(models[0].name);
@@ -134,10 +132,10 @@ export function App() {
     try {
       if (!validation.valid) throw new Error(validation.errors.join(' '));
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF.');
-      if (!transcription) await checkOllamaReady({ endpoint, model: visionModel });
-      await checkOllamaReady({ endpoint, model: analysisModel });
+      if (!transcription) await service.checkReady({ endpoint, model: visionModel });
+      await service.checkReady({ endpoint, model: analysisModel });
       setAnalysisStage('reading');
-      const provider = createOllamaProvider({ endpoint, visionModel, analysisModel, thinking: analysisThinking });
+      const provider = service.createProvider({ endpoint, visionModel, analysisModel, thinking: analysisThinking });
       const raw = await provider.generate(
         { question, rubric: rubricAsJson(rubric), images, ...(transcription ? { transcription } : {}) },
         (chunk) => setStreamedOutput((current) => current + chunk),
