@@ -74,8 +74,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     const text = app();
     expect(text).toContain('Vérifier le texte lu par l’IA');
     expect(text).toContain('Relisez la transcription pour repérer les erreurs de lecture');
-    expect(text).toContain('{transcription}');
-    expect(text).toContain('{subjectTranscription}');
+    expect(text).toContain('{transcription && <section className="transcription-text-block">');
+    expect(text).toContain('{correctionMode === \'separate\' && subjectTranscription && <section className="transcription-text-block">');
     expect(text).toContain('Texte de la copie étudiante');
     expect(text).toContain('Texte du sujet de référence');
     expect(text).toContain('className="transcription-review"');
