@@ -1,0 +1,83 @@
+name: Patch judge selection
+on:
+  push:
+    branches:
+      - fix/judge-criteria-json
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Patch arbitration semantics and tests
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/adapters/ai/ollamaProvider.ts')
+          s = p.read_text()
+          old = """          'Tu es le juge final. Arbitre uniquement les critères litigieux entre deux évaluateurs.',
+          'Pour chaque critère fourni, décide les points finaux à partir du barème et de la transcription. Ne refais pas une correction générale et ne moyenne pas les deux avis pour les critères litigieux.',
+          'Retourne uniquement un JSON valide avec finalScore, summary, criteria et questionsForTeacher. criteria doit contenir exactement les critères fournis, avec criterionId, points, rationale, evidence, confidence et questionForTeacher. finalScore est la somme des points des critères fournis.',
+"""
+          new = """          'Tu es le juge final. Tu n’es PAS un troisième correcteur : tu arbitres uniquement entre les deux décisions déjà produites pour les critères litigieux.',
+          'Pour chaque critère litigieux, choisis obligatoirement l’une des deux notes proposées par les évaluateurs. Tu peux retenir l’avis 1 ou l’avis 2 ; tu ne dois jamais inventer une troisième note, recalculer une note indépendante ou produire une note située entre les deux.',
+          'Le juge doit expliquer pourquoi il retient l’avis 1 ou l’avis 2 au regard du barème et des preuves déjà fournies. La transcription sert uniquement à départager les deux avis et ne doit pas conduire à refaire une correction indépendante.',
+          'Retourne uniquement un JSON valide avec finalScore, summary, criteria et questionsForTeacher. criteria doit contenir exactement les critères fournis, avec criterionId, points, rationale, evidence, confidence et questionForTeacher. Pour chaque critère, points doit être EXACTEMENT égal à la valeur points de l’avis 1 ou de l’avis 2. finalScore est la somme des points retenus pour les critères litigieux.',
+"""
+          if old not in s: raise SystemExit('judge prompt anchor not found')
+          s = s.replace(old, new, 1)
+          old2 = """        const judged = parseGradingProposal(raw, disputedRubric);
+        const mergedCriteria = [...resolution.automaticCriteria, ...judged.criteria].sort(
+"""
+          new2 = """        const judged = parseGradingProposal(raw, disputedRubric);
+        const proposalById = new Map([
+          ...firstProposal.criteria.map((criterion) => [criterion.criterionId, criterion.points] as const),
+          ...secondProposal.criteria.map((criterion) => [criterion.criterionId, criterion.points] as const),
+        ]);
+        const firstById = new Map(firstProposal.criteria.map((criterion) => [criterion.criterionId, criterion.points] as const));
+        const secondById = new Map(secondProposal.criteria.map((criterion) => [criterion.criterionId, criterion.points] as const));
+        for (const criterion of judged.criteria) {
+          const firstPoints = firstById.get(criterion.criterionId);
+          const secondPoints = secondById.get(criterion.criterionId);
+          if (firstPoints === undefined || secondPoints === undefined || (criterion.points !== firstPoints && criterion.points !== secondPoints)) {
+            throw new Error(`Le juge a produit une note qui ne correspond à aucun des deux avis pour le critère « ${criterion.criterionId} ». Le juge doit arbitrer les avis existants, pas produire une nouvelle note.`);
+          }
+        }
+        const mergedCriteria = [...resolution.automaticCriteria, ...judged.criteria].sort(
+"""
+          if old2 not in s: raise SystemExit('judge validation anchor not found')
+          s = s.replace(old2, new2, 1)
+          p.write_text(s)
+
+          t = Path('src/adapters/ai/ollamaJudgeSelection.test.ts')
+          t.write_text(r'''import { describe, expect, it } from 'vitest';
+import { parseGradingProposal } from './grading.ts';
+
+const rubric = { title: 'Bio', criteria: [{ id: 'c1', title: 'Critère', description: 'Attendu', maxPoints: 5 }] };
+
+describe('judge selection contract', () => {
+  it('accepts a judge decision selecting either existing evaluator score', () => {
+    const result = parseGradingProposal(JSON.stringify({ finalScore: 3, summary: 'Je retiens avis 1', criteria: [{ criterionId: 'c1', points: 3, rationale: 'Avis 1 mieux étayé', evidence: 'preuve', confidence: 'high', questionForTeacher: '' }], questionsForTeacher: [] }), rubric);
+    expect(result.criteria[0].points).toBe(3);
+  });
+});
+''')
+          PY
+      - name: Run tests
+        run: npm install && npm run typecheck && npm test -- --run
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/adapters/ai/ollamaProvider.ts src/adapters/ai/ollamaJudgeSelection.test.ts
+          git commit -m "fix(arbitration): make judge select an existing score"
+          git push
+      - name: Remove patch workflow
+        run: |
+          git rm .github/workflows/patch-judge-selection.yml
+          git commit -m "chore: remove temporary judge selection patch workflow"
+          git push
