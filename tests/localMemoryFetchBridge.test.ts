@@ -15,7 +15,7 @@ const entry: LocalMemoryEntry = {
 
 describe('local memory prompt bridge', () => {
   it('only targets the grading prompt', () => {
-    expect(shouldAugmentAnalysisPrompt('RÔLE : tu assistes un enseignant universitaire en biologie. BARÈME (JSON) : {}')).toBe(true);
+    expect(shouldAugmentAnalysisPrompt('RÔLE ET LIMITE : tu es un assistant de correction pour un enseignant universitaire en biologie. BARÈME ACTUEL (JSON, référence de notation) : {}')).toBe(true);
     expect(shouldAugmentAnalysisPrompt('Transcris cette copie manuscrite.')).toBe(false);
   });
 
