@@ -11,6 +11,7 @@ import { prepareLocalFiles } from './adapters/files/localFiles.ts';
 import { importRubricFile } from './adapters/files/rubricImport.ts';
 import './ui/styles.css';
 import './ui/correctionFlow.css';
+import './ui/modelSelect.css';
 
 const localCorrectionRepository = new IndexedDbLocalCorrectionRepository();
 const localCorrectionService = createLocalCorrectionService(localCorrectionRepository);
