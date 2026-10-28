@@ -83,6 +83,8 @@ function rubricAsJson(rubric: Rubric): string {
 
 export function App({ service }: { service: CorrectionWorkspaceService }) {
   const [assignmentTitle, setAssignmentTitle] = useState(readAssignmentTitle);
+  const [teacherStep, setTeacherStep] = useState<'rubric' | 'copy' | 'review'>('rubric');
+  const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(initialRubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
   const [rubricImageImporting, setRubricImageImporting] = useState(false);
@@ -173,7 +175,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
     setRubricImportMessage('');
     setRubricImageImporting(true);
     try {
-      if (!visionModel.trim()) throw new Error('Passez en mode Diagnostic IA pour configurer un modèle de vision Ollama.');
+      if (!visionModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale dans le panneau latéral pour choisir un modèle de lecture.');
       const prepared = await service.prepareFiles([file]);
       if (prepared.length !== 1) throw new Error('Choisissez une seule image de barème à la fois.');
       const imported = await service.importRubricImage(prepared[0], { endpoint, visionModel });
@@ -288,6 +290,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       setProposal(parsed);
       setReview(toReviewedCriteria(parsed));
       setTeacherQuestions(parsed.questionsForTeacher.join('\n'));
+      if (interfaceMode === 'teacher') setTeacherStep('review');
       outcome = 'success';
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
@@ -346,44 +349,56 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
   }
 
   return (
-    <main className="app-shell">
+    <main className={interfaceMode === 'teacher' ? "app-shell teacher-flow-shell" : "app-shell"}>
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
         <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => setInterfaceMode('diagnostic')}>Diagnostic IA</button></div></div>
       </header>
 
-      <section className="welcome">
+      {interfaceMode === 'teacher' && <aside className="teacher-sidebar" aria-label="Navigation de la correction">
+        <div className="teacher-sidebar-brand"><span className="sidebar-brand-mark" aria-hidden="true">CC</span><div><strong>Correction</strong><small>Espace enseignant</small></div></div>
+        <div className="sidebar-assignment">
+          <label className="field-label" htmlFor="assignment-title">DEVOIR EN COURS</label>
+          <input id="assignment-title" value={assignmentTitle} onChange={(event) => setAssignmentTitle(event.target.value)} placeholder="Nom du devoir" />
+        </div>
+        <nav className="teacher-step-nav" aria-label="Étapes du devoir">
+          <p className="eyebrow">PARCOURS DE CORRECTION</p>
+          <button type="button" className={teacherStep === 'rubric' ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'rubric' ? 'step' : undefined} onClick={() => setTeacherStep('rubric')}>
+            <span className="teacher-step-number">1</span><span><strong>Préparer le barème</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères</small></span>
+          </button>
+          <button type="button" className={teacherStep === 'copy' ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'copy' ? 'step' : undefined} onClick={() => setTeacherStep('copy')}>
+            <span className="teacher-step-number">2</span><span><strong>Ajouter une copie</strong><small>{images.length ? images.length + ' page(s) importée(s)' : 'Sujet et pages étudiant'}</small></span>
+          </button>
+          <button type="button" className={teacherStep === 'review' ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'review' ? 'step' : undefined} disabled={!proposal} onClick={() => setTeacherStep('review')}>
+            <span className="teacher-step-number">3</span><span><strong>Réviser la note</strong><small>{proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
+          </button>
+        </nav>
+        <div className="teacher-sidebar-footer">
+          <div className="sidebar-local-status"><span aria-hidden="true">●</span><span><strong>Traitement local</strong><small>Vos copies restent sur votre serveur</small></span></div>
+          <button type="button" className={showAiSettings ? 'sidebar-settings active' : 'sidebar-settings'} onClick={() => { setTeacherStep('copy'); setShowAiSettings((current) => !current); }} aria-expanded={showAiSettings}><span aria-hidden="true">⚙</span> Paramètres de l’IA locale</button>
+          <button type="button" className="sidebar-diagnostic-link" onClick={() => setInterfaceMode('diagnostic')}>Ouvrir le Diagnostic IA ↗</button>
+        </div>
+      </aside>}
+
+      <div className={interfaceMode === 'teacher' ? 'teacher-content-column' : 'diagnostic-content-column'}>
+      {interfaceMode === 'diagnostic' && <section className="welcome">
         <div className="welcome-copy">
           <p className="eyebrow">{interfaceMode === 'teacher' ? 'ESPACE ENSEIGNANT · BIOLOGIE' : 'ESPACE DE DIAGNOSTIC · IA LOCALE'}</p>
           <h2>{interfaceMode === 'teacher' ? <>Une correction plus claire.<br /><em>Vous gardez la décision.</em></> : <>Comprendre les résultats.<br /><em>Affiner les réglages IA.</em></>}</h2>
           <p className="intro">{interfaceMode === 'teacher' ? 'Importez les copies, appliquez votre barème et révisez chaque proposition. L’assistant signale ses incertitudes ; aucune note n’est validée automatiquement.' : 'Accédez aux réglages Ollama, aux modèles et aux sorties de diagnostic pour analyser le comportement de l’assistant. Les copies restent traitées par le serveur configuré.'}</p>
         </div>
         <div className="illustration" aria-hidden="true"><div className="paper"><span /><span /><span /><b>✓</b></div><div className="leaf leaf-one" /><div className="leaf leaf-two" /></div>
-      </section>
+      </section>}
 
-      <section className="privacy-strip">
+      {interfaceMode === 'diagnostic' && <section className="privacy-strip">
         <span className="privacy-icon">⌂</span>
         <div><strong>Traitement local, sans repli cloud</strong><p>Les fichiers sont lus et préparés dans votre navigateur, puis envoyés uniquement à l’adresse Ollama que vous configurez. Aucun stockage distant ni envoi vers un fournisseur cloud n’est prévu.</p></div>
         <span className="privacy-status">OLLAMA LOCAL</span>
       </section>
 
-      {interfaceMode === 'teacher' && <section className="assignment-workspace" aria-labelledby="assignment-workspace-title">
-        <div className="assignment-workspace-heading">
-          <div><p className="eyebrow">VOTRE ESPACE DE CORRECTION</p><h2 id="assignment-workspace-title">Un devoir, un espace de travail</h2><p>Préparez le barème et le sujet une fois, puis traitez les copies une par une.</p></div>
-          <span className="assignment-local-label"><span aria-hidden="true">●</span> Espace local</span>
-        </div>
-        <label className="field-label" htmlFor="assignment-title">Nom du devoir / session</label>
-        <input id="assignment-title" className="assignment-title-input" value={assignmentTitle} onChange={(event) => setAssignmentTitle(event.target.value)} placeholder="Ex. Biologie cellulaire — partiel de novembre" />
-        <div className="setup-overview" aria-label="État de préparation du devoir">
-          <div className="setup-overview-heading"><strong>Préparation du devoir</strong><span>{setupChecks.filter((item) => item.ready).length} / {setupChecks.length} éléments prêts</span></div>
-          <div className="setup-checklist">{setupChecks.map((item) => <div className={item.ready ? 'setup-check ready' : 'setup-check'} key={item.label}>
-            <span className="setup-check-icon" aria-hidden="true">{item.ready ? '✓' : '○'}</span><span><strong>{item.label}</strong><small>{item.detail}</small></span>
-          </div>)}</div>
-        </div>
-      </section>}
-
-      <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'PRÉPARATION · 1' : 'ÉTAPE 1'}</p><h2>Configurer le barème</h2></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
+      {(interfaceMode === 'diagnostic' || teacherStep === 'rubric') && <>
+      <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 SUR 3' : 'ÉTAPE 1'}</p><h2>Préparer le barème</h2></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
       <section className="panel rubric-editor">
         <label className="field-label" htmlFor="rubric-title">Nom du barème</label>
         <input id="rubric-title" value={rubric.title} onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
@@ -409,7 +424,11 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <div className="rubric-actions"><button className="secondary-button" onClick={addCriterion}>+ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
       </section>
 
-      <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'PRÉPARATION · 2' : 'ÉTAPE 2'}</p><h2>Préparer le sujet et la copie</h2></div><span className="step-count">{images.length} PAGE(S) DE COPIE · {transcription ? 'TRANSCRIPTION DISPONIBLE' : 'À LIRE'}</span></div>
+      <div className="teacher-step-footer"><span>Barème vérifié ? Passez à l’ajout du sujet et d’une copie.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('copy')}>Continuer vers la copie <span aria-hidden="true">→</span></button></div>
+      </>}
+
+      {(interfaceMode === 'diagnostic' || teacherStep === 'copy') && <>
+      <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 2 SUR 3' : 'ÉTAPE 2'}</p><h2>Ajouter une copie</h2></div><span className="step-count">{images.length} PAGE(S) · {transcription ? 'LECTURE DISPONIBLE' : 'À LIRE'}</span></div>
       <section className="panel correction-mode-panel" aria-labelledby="correction-mode-title">
         <div className="panel-heading"><span className="number">02</span><div><h3 id="correction-mode-title">Où se trouvent les questions ?</h3><p>Choisissez le format utilisé pour ce devoir. Vous pourrez corriger les copies une par une.</p></div></div>
         <div className="correction-mode-options" role="group" aria-label="Mode de correction">
@@ -468,8 +487,8 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
           <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
           {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
           <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p>
-        </article> : <article className="panel ollama-panel teacher-model-panel" aria-labelledby="teacher-model-title">
-          <div className="panel-heading"><span className="number" aria-hidden="true">✓</span><div><h3 id="teacher-model-title">Correction par IA locale</h3><p>Configurez le traitement sans quitter votre espace enseignant.</p></div></div>
+        </article> : showAiSettings && <article className="panel ollama-panel teacher-model-panel" aria-labelledby="teacher-model-title">
+          <div className="panel-heading"><span className="number" aria-hidden="true">⚙</span><div><h3 id="teacher-model-title">Paramètres de l’IA locale</h3><p>Ces réglages sont réservés à la configuration de votre poste.</p></div><button type="button" className="text-button" onClick={() => setShowAiSettings(false)}>Fermer</button></div>
           <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur Ollama</label>
           <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
           <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture des copies</label>
@@ -490,7 +509,8 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
         <button className="primary-button grade-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? 'Correction locale en cours…' : 'Analyse locale en cours…') : transcription ? 'Relancer l’analyse sans relire les images' : interfaceMode === 'teacher' ? 'Lancer la lecture et la correction' : 'Lire puis analyser les copies'}</button>
         {interfaceMode === 'teacher' && <p className="launch-footnote">Aucune note n’est validée automatiquement. Après l’analyse, vous pourrez vérifier les éléments de preuve, ajuster chaque critère et finaliser la correction.</p>}
-      </section>
+      <div className="teacher-copy-footer"><button type="button" className="secondary-button" onClick={() => setTeacherStep('rubric')}>← Revoir le barème</button><span>Une seule copie à la fois · validation humaine avant finalisation</span></div>
+      </>}
 
       {isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
         <div className="analysis-spinner" aria-hidden="true" />
@@ -547,7 +567,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         })}</div>
       </section>}
 
-      {(transcription || (correctionMode === 'separate' && subjectTranscription)) && <section className="transcription-review" aria-labelledby="transcription-review-title">
+      {(interfaceMode === 'diagnostic' || teacherStep === 'copy') && (transcription || (correctionMode === 'separate' && subjectTranscription)) && <section className="transcription-review" aria-labelledby="transcription-review-title">
         <details>
           <summary id="transcription-review-title">
             <span><strong>Vérifier le texte lu par l’IA</strong><small>Relisez la transcription pour repérer les erreurs de lecture avant de vous fier à la correction.</small></span>
@@ -566,7 +586,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         </details>
       </section>}
 
-      {timingHistory.length > 0 && <section className="timing-history" aria-labelledby="timing-history-title">
+      {interfaceMode === 'diagnostic' && timingHistory.length > 0 && <section className="timing-history" aria-labelledby="timing-history-title">
         <div className="timing-history-heading">
           <div><p className="eyebrow">PERFORMANCES LOCALES</p><h2 id="timing-history-title">Temps des dernières corrections</h2><p>Historique conservé uniquement sur cet appareil pour comparer les modèles et réglages.</p></div>
           <button type="button" className="text-button" onClick={() => { setTimingHistory([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button>
@@ -590,7 +610,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 
-      {proposal && <section className="review-section">
+      {proposal && (interfaceMode === 'diagnostic' || teacherStep === 'review') && <section className="review-section">
         <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{pendingCount} À VÉRIFIER</span></div>
         <div className="summary-panel"><strong>Synthèse de l’assistant</strong><p>{proposal.summary}</p><span>Note proposée : {proposal.criteria.reduce((sum, item) => sum + item.points, 0)} / {validation.maximumPoints} points</span></div>
         {review.map((item) => {
@@ -611,6 +631,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       </section>}
 
       <footer><span>Compagnon Correcteur de Devoirs</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>
+      </div>
     </main>
   );
 }
