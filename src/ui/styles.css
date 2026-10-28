@@ -264,3 +264,14 @@ footer { padding-top: 24px; line-height: 1.6; }
   .diagnostic-comparison-summary > .hint { grid-column: auto; }
   .diagnostic-disagreements li { gap: 0.5rem; }
 }
+
+.diagnostic-history-runs { display: grid; gap: 0.65rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border, #cbd5e1); }
+.diagnostic-history-runs > div { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: 0.5rem; }
+.diagnostic-history-runs > div > span { overflow-wrap: anywhere; }
+.diagnostic-history-runs small { color: var(--muted, #64748b); }
+.diagnostic-history-runs ul { grid-column: 1 / -1; margin: 0; padding-left: 1rem; }
+.diagnostic-history-runs li { display: flex; justify-content: space-between; gap: 0.75rem; }
+@media (max-width: 560px) {
+  .diagnostic-history-runs > div { grid-template-columns: minmax(0, 1fr) auto; }
+  .diagnostic-history-runs small { grid-column: 1 / -1; }
+}
