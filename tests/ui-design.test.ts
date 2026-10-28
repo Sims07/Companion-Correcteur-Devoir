@@ -120,5 +120,4 @@ describe('UI design system', () => {
     expect(modelSelectStylesheet).toContain('@media (max-width: 430px)');
     expect(modelSelectStylesheet).toContain('@media (prefers-reduced-motion: reduce)');
   });
-  });
 });
