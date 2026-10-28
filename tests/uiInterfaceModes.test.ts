@@ -20,12 +20,14 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain("onClick={() => setInterfaceMode('diagnostic')}");
   });
 
-  it('keeps detailed Ollama configuration in diagnostic mode and offers an explicit entry point from teacher mode', () => {
+  it('keeps a complete Ollama setup path inside the teacher workspace without redirecting to diagnostics', () => {
     const text = app();
     expect(text).toContain(`{interfaceMode === 'diagnostic' ? <article className="panel ollama-panel">`);
-    expect(text).toContain(`</article> : <article className="panel ai-summary-panel">`);
-    expect(text).toContain("onClick={() => setInterfaceMode('diagnostic')}");
-    expect(text).toContain('Tester la connexion et lister les modèles');
+    expect(text).toContain('className="panel ollama-panel teacher-model-panel"');
+    expect(text).toContain('Correction par IA locale');
+    expect(text).toContain('Tester la connexion et détecter les modèles');
+    expect(text).not.toContain('onClick={() => setInterfaceMode(\'diagnostic\')}>{visionModel && analysisModel ?');
+    expect(text).toContain('Ces options ne sont appliquées qu’en mode Diagnostic IA. Le mode Correction reste sur un seul modèle.');
   });
 
   it('only displays raw streaming output in diagnostic mode', () => {
@@ -42,6 +44,20 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('id="subject-files"');
     expect(text).toContain('Sélectionnez uniquement les pages d’un même étudiant');
     expect(text).toContain('subjectImages');
+  });
+
+  it('provides an assignment-centred teacher workspace with a live preparation checklist and local title persistence', () => {
+    const text = app();
+    expect(text).toContain('Un devoir, un espace de travail');
+    expect(text).toContain('id="assignment-title"');
+    expect(text).toContain("const assignmentTitleKey = 'companion-correcteur:assignment-title:v1'");
+    expect(text).toContain('setItem(assignmentTitleKey, assignmentTitle)');
+    expect(text).toContain('État de préparation du devoir');
+    expect(text).toContain('setupChecks.filter((item) => item.ready).length');
+    expect(text).toContain('Lancer la lecture et la correction');
+    expect(text).toContain('Vous gardez la décision finale sur chaque note.');
+    expect(text).toContain("interfaceMode === 'teacher' ? \"panel question-panel teacher-launch-panel\" : \"panel question-panel\"");
+    expect(text).toContain("interfaceMode === 'teacher' && <p className=\"launch-footnote\"");
   });
 
   it('changes the welcome copy to match the selected mode', () => {
