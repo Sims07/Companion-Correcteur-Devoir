@@ -1,6 +1,7 @@
 import type { CriterionProposal } from './grading.ts';
 import type { Rubric } from './rubric.ts';
 
+/** Differences up to one point are considered close enough to resolve locally. */
 export const AUTOMATIC_ARBITRATION_MAX_DIFFERENCE = 1;
 
 export interface DiagnosticResolution {
