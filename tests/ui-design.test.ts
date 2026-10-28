@@ -43,13 +43,15 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('.question-panel {\n  margin-top: var(--flow-space-5);');
   });
 
-  it('uses an assignment workspace and a responsive readiness checklist for the teacher journey', () => {
-    expect(correctionFlowStylesheet).toContain('.assignment-workspace {');
-    expect(correctionFlowStylesheet).toContain('.setup-checklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));');
-    expect(correctionFlowStylesheet).toContain('.teacher-model-panel');
-    expect(correctionFlowStylesheet).toContain('.teacher-launch-panel .grade-button { width: 100%;');
-    expect(correctionFlowStylesheet).toContain('@media (max-width: 760px)');
-    expect(correctionFlowStylesheet).toContain('.setup-checklist { grid-template-columns: 1fr; }');
+  it('creates a persistent teacher sidebar and responsive single-task workspace', () => {
+    expect(correctionFlowStylesheet).toContain('.teacher-flow-shell {');
+    expect(correctionFlowStylesheet).toContain('grid-template-columns: 258px minmax(0, 1fr);');
+    expect(correctionFlowStylesheet).toContain('.teacher-sidebar {');
+    expect(correctionFlowStylesheet).toContain('.teacher-step.active');
+    expect(correctionFlowStylesheet).toContain('.teacher-settings');
+    expect(correctionFlowStylesheet).toContain('.teacher-flow-shell .privacy-strip,');
+    expect(correctionFlowStylesheet).toContain('@media (max-width: 720px)');
+    expect(correctionFlowStylesheet).toContain('.teacher-step-nav { grid-template-columns: repeat(3, minmax(0, 1fr));');
   });
 
   it('turns correction-mode radios into distinct selectable cards', () => {
