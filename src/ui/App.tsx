@@ -28,6 +28,7 @@ function rubricAsJson(rubric: Rubric): string {
 export function App({ service }: { service: CorrectionWorkspaceService }) {
   const [rubric, setRubric] = useState<Rubric>(initialRubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
+  const [rubricImageImporting, setRubricImageImporting] = useState(false);
   const [question, setQuestion] = useState(defaultQuestion);
   const [endpoint, setEndpoint] = useState('http://localhost:11434');
   const [visionModel, setVisionModel] = useState('');
@@ -86,6 +87,28 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       setRubricImportMessage(imported.warnings.length ? imported.warnings.join(' ') : `Barème « ${imported.rubric.title} » importé. Vérifiez les critères et le total avant de lancer la correction.`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible d’importer ce barème localement.');
+    }
+  }
+
+  async function importRubricImageFromInput(file: File | undefined) {
+    if (!file) return;
+    setError('');
+    setRubricImportMessage('');
+    setRubricImageImporting(true);
+    try {
+      if (!visionModel.trim()) throw new Error('Choisissez d’abord un modèle de vision Ollama dans la section de configuration.');
+      const prepared = await service.prepareFiles([file]);
+      if (prepared.length !== 1) throw new Error('Choisissez une seule image de barème à la fois.');
+      const imported = await service.importRubricImage(prepared[0], { endpoint, visionModel });
+      setRubric(imported.rubric);
+      setProposal(null);
+      setReview([]);
+      setTeacherQuestions('');
+      setRubricImportMessage(imported.warnings.join(' ') || `Barème « ${imported.rubric.title} » importé. Vérifiez les critères et le total.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible d’extraire le barème avec le modèle de vision local.');
+    } finally {
+      setRubricImageImporting(false);
     }
   }
 
@@ -208,7 +231,10 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <div className="rubric-import">
           <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Word (.docx), Excel (.xlsx), CSV, TXT ou JSON)</label>
           <input id="rubric-file" type="file" accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.json" onChange={(event) => { void importRubricFileFromInput(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} />
-          <p className="hint">Le fichier est analysé dans ce navigateur. Vérifiez toujours les critères, les points et le total : l’extraction automatique peut manquer des sous-critères.</p>
+          <p className="hint">Les documents texte sont extraits localement dans le navigateur, sans IA. Vérifiez les critères, les points et le total après import.</p>
+          <label className="field-label" htmlFor="rubric-image-file">Ou importer une photo / un scan du barème (JPEG, PNG, WebP)</label>
+          <input id="rubric-image-file" type="file" accept="image/jpeg,image/png,image/webp" disabled={rubricImageImporting} onChange={(event) => { void importRubricImageFromInput(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} />
+          <p className="hint">{rubricImageImporting ? 'Lecture du barème par le modèle de vision local…' : 'Une seule requête au modèle de vision Ollama sélectionné, avec sortie JSON structurée. L’image n’est envoyée qu’à votre serveur Ollama configuré ; aucun service cloud n’est utilisé. Vérifiez toujours le résultat avant utilisation.'}</p>
           {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
         </div>
         <div className="criteria-list">
