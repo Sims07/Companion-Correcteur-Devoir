@@ -370,7 +370,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
 
       {interfaceMode === 'teacher' && <section className="assignment-workspace" aria-labelledby="assignment-workspace-title">
         <div className="assignment-workspace-heading">
-          <div><p className="eyebrow">VOTRE ESPACE DE CORRECTION</p><h2 id="assignment-workspace-title">Un devoir, un espace de travail</h2><p>Préparez les règles une fois, puis traitez les copies une par une. Vos choix restent sur cet appareil.</p></div>
+          <div><p className="eyebrow">VOTRE ESPACE DE CORRECTION</p><h2 id="assignment-workspace-title">Un devoir, un espace de travail</h2><p>Préparez le barème et le sujet une fois, puis traitez les copies une par une.</p></div>
           <span className="assignment-local-label"><span aria-hidden="true">●</span> Espace local</span>
         </div>
         <label className="field-label" htmlFor="assignment-title">Nom du devoir / session</label>
