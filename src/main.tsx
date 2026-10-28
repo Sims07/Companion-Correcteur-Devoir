@@ -23,7 +23,7 @@ const correctionWorkspaceService = createCorrectionWorkspaceService(
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App service={correctionWorkspaceService} />
+    <App service={correctionWorkspaceService} archiveService={localCorrectionService} />
     <LocalMemoryCompanion service={localCorrectionService} />
   </React.StrictMode>,
 );

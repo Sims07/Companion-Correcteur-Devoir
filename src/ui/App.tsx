@@ -5,6 +5,9 @@ import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type Re
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
+import { fingerprintRubric } from '../domain/localMemory.ts';
+import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/localCorrection.ts';
+import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 
 const initialRubric: Rubric = {
@@ -81,9 +84,9 @@ function rubricAsJson(rubric: Rubric): string {
   return JSON.stringify(rubric, null, 2);
 }
 
-export function App({ service }: { service: CorrectionWorkspaceService }) {
+export function App({ service, archiveService }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService }) {
   const [assignmentTitle, setAssignmentTitle] = useState(readAssignmentTitle);
-  const [teacherStep, setTeacherStep] = useState<'rubric' | 'copy' | 'progress' | 'review'>('rubric');
+  const [teacherStep, setTeacherStep] = useState<'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric');
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(initialRubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
@@ -112,6 +115,10 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
   const [connectionMessage, setConnectionMessage] = useState('');
   const [error, setError] = useState('');
   const [proposal, setProposal] = useState<GradingProposal | null>(null);
+  const [studentLabel, setStudentLabel] = useState('');
+  const [currentCorrectionId, setCurrentCorrectionId] = useState<string | null>(null);
+  const [archivedCorrections, setArchivedCorrections] = useState<LocalCorrection[]>([]);
+  const [archiveMessage, setArchiveMessage] = useState('');
   const [review, setReview] = useState<ReviewedCriterion[]>([]);
   const [teacherQuestions, setTeacherQuestions] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
@@ -131,6 +138,16 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
   useEffect(() => {
     try { window.localStorage.setItem(assignmentTitleKey, assignmentTitle); } catch { /* Keep the assignment title usable if local storage is unavailable. */ }
   }, [assignmentTitle]);
+
+  useEffect(() => {
+    let active = true;
+    void archiveService.listCorrections().then((items) => {
+      if (active) setArchivedCorrections(items.filter((item) => Boolean(item.snapshot)));
+    }).catch(() => {
+      if (active) setArchiveMessage('Impossible de lire les corrections enregistrées sur cet appareil.');
+    });
+    return () => { active = false; };
+  }, [archiveService]);
 
   useEffect(() => {
     if (!isAnalyzing) return;
@@ -332,15 +349,96 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
     setReview((current) => current.map((item) => item.criterionId === id ? { ...item, ...patch } : item));
   }
 
-  function finalizeReview() {
+  async function finalizeReview() {
     if (pendingCount > 0) {
       setReviewMessage(`Impossible de finaliser : ${pendingCount} critère(s) attendent encore votre décision.`);
       return;
     }
+    if (!proposal) {
+      setReviewMessage('Aucune proposition à archiver. Lancez d’abord l’analyse de la copie.');
+      return;
+    }
+    const now = new Date().toISOString();
+    const id = currentCorrectionId ?? `correction-${crypto.randomUUID()}`;
+    const previous = archivedCorrections.find((item) => item.id === id);
+    const snapshot: CorrectionArchiveSnapshot = {
+      assignmentTitle: assignmentTitle.trim() || 'Devoir de biologie',
+      question,
+      rubric: structuredClone(rubric),
+      proposal: structuredClone(proposal),
+      review: structuredClone(review),
+      teacherQuestions,
+      images: structuredClone(images),
+      transcription,
+      subjectImages: structuredClone(subjectImages),
+      subjectTranscription,
+      correctionMode,
+      maximumPoints: validation.maximumPoints,
+    };
+    const correction: LocalCorrection = {
+      id,
+      label: studentLabel.trim() || images[0]?.fileName || `Copie du ${new Date(now).toLocaleDateString('fr-FR')}`,
+      rubricTitle: rubric.title,
+      rubricFingerprint: fingerprintRubric(rubric.title, rubricAsJson(rubric)),
+      createdAt: previous?.createdAt ?? now,
+      updatedAt: now,
+      assignmentTitle: snapshot.assignmentTitle,
+      snapshot,
+    };
+    try {
+      await archiveService.saveCorrection(correction);
+      const saved = await archiveService.listCorrections();
+      setArchivedCorrections(saved.filter((item) => Boolean(item.snapshot)));
+      setCurrentCorrectionId(id);
+      setIsFinalized(true);
+      setArchiveMessage('Correction enregistrée localement avec la copie et les éléments de révision.');
+      setReviewMessage(teacherQuestions.trim()
+        ? 'Correction finalisée et archivée sur cet appareil. Vérifiez les questions ouvertes avant de communiquer la note.'
+        : 'Correction finalisée et archivée sur cet appareil. Vous pourrez la retrouver dans « Corrections enregistrées ».');
+    } catch {
+      setIsFinalized(false);
+      setReviewMessage('La correction n’a pas pu être archivée dans le stockage local. Vérifiez l’espace disponible du navigateur puis réessayez.');
+    }
+  }
+
+  function startNextCopy() {
+    setStudentLabel('');
+    setImages([]);
+    setTranscription(null);
+    setProposal(null);
+    setReview([]);
+    setTeacherQuestions('');
+    setReviewMessage('');
+    setError('');
+    setIsFinalized(false);
+    setCurrentCorrectionId(null);
+    setDiagnosticRuns([]);
+    setStreamedOutput('');
+    setTeacherStep('copy');
+    setArchiveMessage('');
+  }
+
+  function openArchivedCorrection(correction: LocalCorrection) {
+    const snapshot = correction.snapshot;
+    if (!snapshot) return;
+    setAssignmentTitle(snapshot.assignmentTitle || correction.assignmentTitle || assignmentTitle);
+    setStudentLabel(correction.label);
+    setQuestion(snapshot.question);
+    setRubric(snapshot.rubric);
+    setProposal(snapshot.proposal);
+    setReview(snapshot.review);
+    setTeacherQuestions(snapshot.teacherQuestions);
+    setImages(snapshot.images);
+    setTranscription(snapshot.transcription);
+    setSubjectImages(snapshot.subjectImages);
+    setSubjectTranscription(snapshot.subjectTranscription);
+    setCorrectionMode(snapshot.correctionMode);
+    setCurrentCorrectionId(correction.id);
     setIsFinalized(true);
-    setReviewMessage(teacherQuestions.trim()
-      ? 'Correction finalisée sur cet appareil. Vérifiez les questions ouvertes avant de communiquer la note.'
-      : 'Correction finalisée sur cet appareil. Vous pouvez maintenant exporter le résultat en JSON.');
+    setReviewMessage('Correction enregistrée ouverte en lecture et révision locale.');
+    setArchiveMessage('');
+    setShowAiSettings(false);
+    setTeacherStep('review');
   }
 
   function decideAll() {
@@ -380,6 +478,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
             <span className="teacher-step-number">3</span><span><strong>{isAnalyzing ? 'Suivi du traitement' : 'Réviser la note'}</strong><small>{isAnalyzing ? `${formatElapsed(elapsedSeconds)} écoulées · ${analysisStage === 'reading' ? 'Lecture en cours' : analysisStage === 'grading' ? 'Analyse en cours' : 'Préparation'}` : proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
           </button>
         </nav>
+        <button type="button" className={teacherStep === 'archive' && !showAiSettings ? 'sidebar-archive-button active' : 'sidebar-archive-button'} onClick={() => { setShowAiSettings(false); setTeacherStep('archive'); }} disabled={isAnalyzing}><span aria-hidden="true">▤</span><span><strong>Corrections enregistrées</strong><small>{archivedCorrections.length} copie(s) archivée(s)</small></span></button>
         <div className="teacher-sidebar-footer">
           <div className={isAnalyzing ? "sidebar-local-status is-processing" : "sidebar-local-status"} role={isAnalyzing ? "status" : undefined} aria-live={isAnalyzing ? "polite" : undefined}>
             <span aria-hidden="true">{isAnalyzing ? "◌" : "●"}</span>
@@ -423,6 +522,16 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}
       {(interfaceMode === 'diagnostic' || !showAiSettings) && <>
+      {interfaceMode === 'teacher' && teacherStep === 'archive' && <section className="correction-archive" aria-labelledby="correction-archive-title">
+        <div className="workspace-heading"><div><p className="eyebrow">HISTORIQUE LOCAL</p><h2 id="correction-archive-title">Corrections enregistrées</h2><p>Retrouvez les copies finalisées, leur note validée et les éléments de preuve. Tout reste stocké dans ce navigateur.</p></div><span className="step-count">{archivedCorrections.length} COPIE(S)</span></div>
+        {archiveMessage && <p className="validation" role="status">{archiveMessage}</p>}
+        {archivedCorrections.length === 0 ? <div className="panel archive-empty"><span className="archive-empty-icon" aria-hidden="true">▤</span><h3>Aucune correction enregistrée pour le moment</h3><p>Une fois une correction finalisée, elle apparaîtra ici avec sa copie, sa transcription et la note validée.</p><button type="button" className="primary-button" onClick={() => { setTeacherStep('copy'); setShowAiSettings(false); }}>Ajouter une copie</button></div> : <div className="archive-list">{archivedCorrections.map((item) => {
+          const snapshot = item.snapshot!;
+          const total = snapshot.review.reduce((sum, criterion) => sum + criterion.teacherPoints, 0);
+          return <article className="panel archive-card" key={item.id}><div className="archive-card-main"><div><span className="archive-status">✓ FINALISÉE</span><h3>{item.label}</h3><p>{item.assignmentTitle || snapshot.assignmentTitle} · {snapshot.images.length} page(s)</p><small>Finalisée le {new Date(item.updatedAt).toLocaleString('fr-FR')}</small></div><strong className="archive-score">{total} <span>/ {snapshot.maximumPoints}</span></strong></div><div className="archive-card-actions"><button type="button" className="secondary-button" onClick={() => openArchivedCorrection(item)}>Consulter la correction</button><button type="button" className="text-button" onClick={() => { if (window.confirm('Supprimer définitivement cette correction de cet appareil ?')) { void archiveService.deleteCorrection(item.id).then(() => archiveService.listCorrections()).then((items) => setArchivedCorrections(items.filter((entry) => Boolean(entry.snapshot)))).catch(() => setArchiveMessage('La suppression a échoué. Réessayez.')); } }}>Supprimer</button></div></article>;
+        })}</div>}
+        <div className="archive-footer"><button type="button" className="primary-button" onClick={startNextCopy}>+ Ajouter une autre copie</button><p>Les copies archivées ne sont pas envoyées dans le cloud. Elles occupent de l’espace dans le stockage local de ce navigateur.</p></div>
+      </section>}
       {(interfaceMode === 'diagnostic' || teacherStep === 'rubric') && <>
       <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 SUR 3' : 'ÉTAPE 1'}</p><h2>Préparer le barème</h2></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
       <section className="panel rubric-editor">
@@ -472,9 +581,10 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       <section className="setup-grid">
         <article className={`panel copy-panel ${images.length ? 'setup-complete' : 'setup-needed'}`}>
           <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">03</span>}<div><h3>Copie de l’étudiant</h3><p>Importez les pages d’un seul étudiant à la fois.</p></div></div>
+          {interfaceMode === 'teacher' && <div className="student-label-field"><label className="field-label" htmlFor="student-label">Nom ou identifiant de l’étudiant <span>(facultatif)</span></label><input id="student-label" value={studentLabel} onChange={(event) => setStudentLabel(event.target.value)} placeholder="Ex. Étudiant 014 ou groupe B" /></div>}
           <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
           <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
-          {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<button className="text-button" onClick={() => { setImages([]); setTranscription(null); setProposal(null); setReview([]); setTeacherQuestions(''); setIsFinalized(false); }}>Effacer cette copie et passer à la suivante</button></div>}
+          {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie et passer à la suivante</button></div>}
         </article>
         {interfaceMode === 'diagnostic' ? <article className="panel ollama-panel">
           <div className="panel-heading"><span className="number">03</span><div><h3>Modèle local Ollama</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
@@ -642,6 +752,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
             </div>
           </article>;
         })}
+        {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Cette correction est enregistrée sur cet appareil</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" onClick={startNextCopy}>Ajouter une autre copie</button><button type="button" className="secondary-button" onClick={() => { setTeacherStep('archive'); setShowAiSettings(false); }}>Voir les corrections enregistrées</button></div></div>}
         <div className="panel final-review"><div><span className="eyebrow">RÉCAPITULATIF ENSEIGNANT</span><h3>{reviewedTotal} / {validation.maximumPoints} points</h3><p>{pendingCount} critère(s) encore en attente de validation.</p>{isFinalized && <p className="finalized-status" role="status">✓ Correction finalisée localement</p>}</div><div className="questions-field"><span className="field-label">Points précis à clarifier</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question précise à vous soumettre. Vérifiez les éléments signalés comme incertains ci-dessus avant validation.</p>}</div><button className="primary-button" onClick={decideAll}>Accepter les propositions non modifiées</button><button className="primary-button" disabled={pendingCount > 0} onClick={finalizeReview}>Finaliser la correction</button><button className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal.summary, criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil. Vérifiez les questions ouvertes avant toute utilisation de la note.'); }}>{isFinalized ? 'Télécharger la correction finale (JSON)' : 'Exporter le récapitulatif provisoire (JSON)'}</button>{reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}</div>
       </section>}
 

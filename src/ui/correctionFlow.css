@@ -733,3 +733,63 @@
   .settings-actions .primary-button { width: 100%; }
   .teacher-flow-shell .analysis-progress { min-height: 0; padding: 20px 16px; }
 }
+
+
+/* Local correction archive: finalized copies remain available for later review. */
+.sidebar-archive-button {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--flow-border);
+  border-radius: 12px;
+  color: var(--flow-text);
+  background: var(--flow-surface, #fff);
+  text-align: left;
+  cursor: pointer;
+}
+.sidebar-archive-button > span:first-child { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #eef5ef; color: #28613a; font-size: 18px; }
+.sidebar-archive-button > span:last-child { display: grid; gap: 3px; min-width: 0; }
+.sidebar-archive-button strong { font-size: 12px; }
+.sidebar-archive-button small { color: var(--flow-muted); font-size: 11px; }
+.sidebar-archive-button:hover, .sidebar-archive-button.active { border-color: #9fc7a8; background: #f3faf4; }
+.sidebar-archive-button:disabled { opacity: .5; cursor: not-allowed; }
+.student-label-field { margin: 18px 0 8px; }
+.student-label-field .field-label span { color: var(--flow-muted); font-weight: 400; }
+.student-label-field input { min-height: 44px; }
+.correction-archive { display: grid; gap: 18px; }
+.correction-archive > .workspace-heading { align-items: flex-start; }
+.correction-archive > .workspace-heading h2 { margin-bottom: 7px; }
+.correction-archive > .workspace-heading p:not(.eyebrow) { max-width: 66ch; color: var(--flow-muted); line-height: 1.6; font-size: 13px; }
+.archive-list { display: grid; gap: 12px; }
+.archive-card { padding: 20px; border-color: #c9dfce; background: linear-gradient(145deg, #f7fcf7 0%, #fff 70%); }
+.archive-card-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.archive-card-main h3 { margin: 8px 0 5px; font-size: 16px; }
+.archive-card-main p { margin: 0 0 6px; color: var(--flow-muted); font-size: 12px; }
+.archive-card-main small { color: var(--flow-muted); font-size: 11px; }
+.archive-status { display: inline-flex; padding: 4px 7px; border-radius: 5px; color: #28613a; background: #e8f5ea; font-size: 9px; font-weight: 800; letter-spacing: .07em; }
+.archive-score { white-space: nowrap; color: #225b34; font-size: 25px; font-variant-numeric: tabular-nums; }
+.archive-score span { color: var(--flow-muted); font-size: 13px; font-weight: 500; }
+.archive-card-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 17px; padding-top: 14px; border-top: 1px solid #e3eee5; }
+.archive-empty { display: grid; justify-items: start; gap: 10px; padding: 30px; border: 1px dashed #c6d8c9; background: #f8fcf8; }
+.archive-empty h3, .archive-empty p { margin: 0; }
+.archive-empty p { max-width: 58ch; color: var(--flow-muted); font-size: 13px; line-height: 1.65; }
+.archive-empty-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: #e8f5ea; color: #28613a; font-size: 22px; }
+.archive-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 6px; }
+.archive-footer p { max-width: 42ch; color: var(--flow-muted); font-size: 11px; line-height: 1.5; }
+.finalized-next-actions { display: flex; align-items: center; justify-content: space-between; gap: 22px; margin-bottom: 16px; padding: 22px; border-color: #b7d7be; background: linear-gradient(135deg, #eff9f0 0%, #fff 80%); }
+.finalized-next-actions h3 { margin: 6px 0; font-size: 16px; }
+.finalized-next-actions p { max-width: 60ch; margin: 0; color: var(--flow-muted); font-size: 12px; line-height: 1.6; }
+.finalized-next-actions > div:last-child { display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 210px; }
+@media (max-width: 720px) {
+  .sidebar-archive-button { margin-top: 10px; }
+  .archive-card { padding: 16px; }
+  .archive-card-main { gap: 8px; }
+  .archive-score { font-size: 21px; }
+  .archive-card-actions, .archive-footer, .finalized-next-actions { align-items: stretch; flex-direction: column; }
+  .archive-card-actions .secondary-button, .archive-footer .primary-button, .finalized-next-actions button { width: 100%; }
+  .finalized-next-actions { padding: 18px; }
+  .finalized-next-actions > div:last-child { min-width: 0; }
+}
