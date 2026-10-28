@@ -262,6 +262,11 @@ export function createOllamaProvider(
         const raw = await sendStream(model, gradingPrompt, undefined, undefined, true, settings.thinking ?? false);
         onDiagnosticResult?.({ kind: 'model', model, raw, elapsedMs: Date.now() - startedAt });
         return raw;
+      };
+      const firstResult = await runIndependentAnalysis(analysisModel);
+      const secondResult = await runIndependentAnalysis(secondModel);
+      if (strategy === 'compare') return firstResult;
+      return runArbitration(firstResult, secondResult);
     },
   };
 }
