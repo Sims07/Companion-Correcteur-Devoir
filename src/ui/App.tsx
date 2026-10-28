@@ -3,8 +3,9 @@ import { FilePicker } from './components/FilePicker.tsx';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
 import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion } from '../domain/grading.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
-import type { ImageInput } from '../ports/aiProvider.ts';
+import type { DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
+import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 
 const initialRubric: Rubric = {
   title: 'Barème de biologie — exemple',
@@ -33,6 +34,8 @@ type TimingRecord = {
   outcome: 'success' | 'error';
   modelScore: number | null;
   criterionScores: DiagnosticCriterionScore[];
+  diagnosticStrategy?: DiagnosticStrategy;
+  diagnosticRuns?: DiagnosticModelResult[];
 };
 
 const timingHistoryKey = 'companion-correcteur:timing-history:v1';
@@ -64,6 +67,10 @@ function formatElapsed(seconds: number): string {
   return `${minutes}:${remainingSeconds}`;
 }
 
+function safeDiagnosticProposal(raw: string, rubric: Rubric): GradingProposal | null {
+  try { return parseGradingProposal(raw, rubric); } catch { return null; }
+}
+
 function rubricAsJson(rubric: Rubric): string {
   return JSON.stringify(rubric, null, 2);
 }
@@ -76,6 +83,10 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
   const [endpoint, setEndpoint] = useState('http://localhost:11434');
   const [visionModel, setVisionModel] = useState('');
   const [analysisModel, setAnalysisModel] = useState('');
+  const [secondAnalysisModel, setSecondAnalysisModel] = useState('');
+  const [arbitratorModel, setArbitratorModel] = useState('');
+  const [diagnosticStrategy, setDiagnosticStrategy] = useState<DiagnosticStrategy>('single');
+  const [diagnosticRuns, setDiagnosticRuns] = useState<DiagnosticModelResult[]>([]);
   const [analysisThinking, setAnalysisThinking] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>('integrated');
@@ -200,6 +211,8 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       setAvailableModels(models.map((item) => item.name));
       if (!visionModel && models[0]) setVisionModel(models[0].name);
       if (!analysisModel && models[0]) setAnalysisModel(models[0].name);
+      if (!secondAnalysisModel && models[1]) setSecondAnalysisModel(models[1].name);
+      if (!arbitratorModel && models[0]) setArbitratorModel(models[0].name);
       setConnectionMessage(models.length ? `Connexion réussie · ${models.length} modèle(s) disponible(s). Choisissez un modèle de vision pour la lecture et un modèle textuel pour l’analyse.` : 'Connexion réussie, mais aucun modèle installé. Installez un modèle compatible avec les images et un modèle pour l’analyse.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Connexion à Ollama impossible.');
@@ -208,17 +221,20 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
     }
   }
 
-  async function gradeCopies() {
+  async function gradeCopies(strategyOverride?: 'arbitrate-only') {
     const runStartedAt = Date.now();
     let readingStartedAt: number | null = null;
     let readingDurationMs: number | null = null;
     let analysisStartedAt: number | null = null;
     let outcome: TimingRecord['outcome'] = 'error';
     let diagnosticProposal: GradingProposal | null = null;
+    const previousModelResults = strategyOverride === 'arbitrate-only' ? diagnosticRuns.filter((run) => run.kind === 'model') : [];
+    const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
     setBusy(true);
     setIsAnalyzing(true);
     setAnalysisStage('checking');
     setStreamedOutput('');
+    setDiagnosticRuns(previousModelResults);
     setError('');
     setReviewMessage('');
     setIsFinalized(false);
@@ -229,7 +245,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
       if ((!transcription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, model: visionModel });
       await service.checkReady({ endpoint, model: analysisModel });
       setAnalysisStage('reading');
-      const provider = service.createProvider({ endpoint, visionModel, analysisModel, thinking: analysisThinking });
+      const provider = service.createProvider({ endpoint, visionModel, analysisModel, thinking: analysisThinking, ...(interfaceMode === 'diagnostic' ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
       const raw = await provider.generate(
         { question, rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
         (chunk) => setStreamedOutput((current) => current + chunk),
@@ -247,6 +263,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
           if (kind === 'subject') setSubjectTranscription(extracted);
           else setTranscription(extracted);
         },
+        (result) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); },
       );
       const parsed = parseGradingProposal(raw, rubric);
       diagnosticProposal = parsed;
@@ -273,6 +290,8 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         outcome,
         modelScore: diagnosticScore?.modelScore ?? null,
         criterionScores: diagnosticScore?.criterionScores ?? [],
+        diagnosticStrategy: interfaceMode === 'diagnostic' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
+        diagnosticRuns: diagnosticResultsForHistory,
       };
       setTimingHistory((current) => {
         const next = [record, ...current].slice(0, timingHistoryLimit);
@@ -389,6 +408,26 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
           <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
           {availableModels.length > 0 ? <select id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="ex. qwen3.5:4b, phi4-mini" />
           }
+          <div className="diagnostic-experiment">
+            <p className="eyebrow">EXPÉRIMENTAL · DIAGNOSTIC UNIQUEMENT</p>
+            <label className="field-label" htmlFor="diagnostic-strategy">Stratégie de comparaison</label>
+            <select id="diagnostic-strategy" value={diagnosticStrategy} onChange={(event) => setDiagnosticStrategy(event.target.value as DiagnosticStrategy)}>
+              <option value="single">Un modèle — référence</option>
+              <option value="compare">Deux modèles — comparer les avis</option>
+              <option value="arbitrate">Deux modèles + un arbitre</option>
+            </select>
+            {diagnosticStrategy !== 'single' && <>
+              <label className="field-label" htmlFor="diagnostic-second-model">Second modèle d’analyse</label>
+              {availableModels.length > 0 ? <select id="diagnostic-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="diagnostic-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle Ollama" />}
+              <p className="hint">Les deux modèles évaluent indépendamment la même transcription et le même barème. Ils sont exécutés successivement pour limiter la pression mémoire.</p>
+            </>}
+            {diagnosticStrategy === 'arbitrate' && <>
+              <label className="field-label" htmlFor="diagnostic-arbitrator-model">Modèle arbitre</label>
+              {availableModels.length > 0 ? <select id="diagnostic-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input id="diagnostic-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)} placeholder="Modèle qui réexamine les deux avis" />}
+              <p className="hint">L’arbitre réexamine les preuves et le barème ; il ne fait ni moyenne ni vote. Son avis reste une proposition à vérifier par l’enseignant.</p>
+            </>}
+            <p className="hint">Ces options ne sont appliquées qu’en mode Diagnostic IA. Le mode Correction reste sur un seul modèle.</p>
+          </div>
           <label className="analysis-thinking-option" htmlFor="ollama-analysis-thinking">
             <input id="ollama-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} />
             <span><strong>Activer le mode thinking pour l’analyse</strong><small>Désactivé par défaut. Peut améliorer le raisonnement, mais allonger fortement le temps de correction et ne fonctionne pas avec tous les modèles.</small></span>
@@ -429,6 +468,37 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         </div>
       </section>}
 
+      {interfaceMode === 'diagnostic' && transcription && diagnosticRuns.filter((run) => run.kind === 'model').length === 2 && <button type="button" className="secondary-button full-button" disabled={busy || !arbitratorModel.trim()} onClick={() => void gradeCopies('arbitrate-only')}>Relancer uniquement l’arbitrage avec les deux avis enregistrés</button>}
+
+      {interfaceMode === 'diagnostic' && diagnosticRuns.length > 0 && <section className="panel diagnostic-results" aria-labelledby="diagnostic-results-title">
+        <div className="panel-heading"><span className="number">IA</span><div><h3 id="diagnostic-results-title">Résultats de l’expérience multi-modèles</h3><p>Notes et temps mesurés sur cette copie. Les sorties sont conservées dans cette vue locale.</p></div></div>
+        {(() => {
+          const independent = diagnosticRuns.filter((run) => run.kind === 'model');
+          if (independent.length !== 2) return null;
+          const first = safeDiagnosticProposal(independent[0].raw, rubric);
+          const second = safeDiagnosticProposal(independent[1].raw, rubric);
+          if (!first || !second) return <p className="hint">Impossible de comparer les notes automatiquement : au moins une sortie intermédiaire ne respecte pas le format de correction attendu. Consultez les sorties brutes ci-dessous.</p>;
+          const comparison = compareDiagnosticProposals(first, second, rubric);
+          return <div className="diagnostic-comparison-summary">
+            <div className="diagnostic-total"><span>{independent[0].model}</span><strong>{comparison.firstTotal} / {validation.maximumPoints}</strong></div>
+            <div className="diagnostic-total"><span>{independent[1].model}</span><strong>{comparison.secondTotal} / {validation.maximumPoints}</strong></div>
+            <p className="hint">Écart total : {comparison.totalDifference > 0 ? '+' : ''}{comparison.totalDifference} point(s) pour le second modèle. {comparison.disagreements.length} critère(s) avec des notes différentes.</p>
+            {comparison.disagreements.length > 0 && <ul className="diagnostic-disagreements">{comparison.disagreements.map((item) => <li key={item.criterionId}><span>{item.title}</span><strong>{item.firstPoints} → {item.secondPoints} / {item.maxPoints}</strong></li>)}</ul>}
+          </div>;
+        })()}
+        <div className="diagnostic-run-list">{diagnosticRuns.map((run, index) => {
+          const parsed = safeDiagnosticProposal(run.raw, rubric);
+          const total = parsed?.criteria.reduce((sum, item) => sum + item.points, 0);
+          return <details className="diagnostic-run" key={run.kind + run.model + index}>
+            <summary><span><strong>{run.kind === 'arbitrator' ? 'Arbitre' : 'Avis indépendant'} · {run.model}</strong><small>{run.kind === 'arbitrator' ? 'Synthèse finale' : 'Correction indépendante'}{total === undefined ? '' : ' · Note : ' + total + ' / ' + validation.maximumPoints}</small></span><strong>{formatElapsed(Math.round(run.elapsedMs / 1000))}</strong></summary>
+            {parsed ? <><p>{parsed.summary}</p><ul className="diagnostic-disagreements">{parsed.criteria.map((item) => {
+              const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
+              return <li key={item.criterionId}><span><strong>{criterion?.title ?? item.criterionId}</strong><small>{item.rationale}</small><small>Preuve : {item.evidence}</small></span><strong>{item.points} / {criterion?.maxPoints ?? 0}</strong></li>;
+            })}</ul></> : <pre>{run.raw}</pre>}
+          </details>;
+        })}</div>
+      </section>}
+
       {(transcription || (correctionMode === 'separate' && subjectTranscription)) && <section className="transcription-review" aria-labelledby="transcription-review-title">
         <details>
           <summary id="transcription-review-title">
@@ -462,7 +532,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
               <td>{item.readingSeconds === null ? 'Réutilisée / non mesurée' : formatElapsed(item.readingSeconds)}</td>
               <td>{item.analysisSeconds === null ? 'Non mesurée' : formatElapsed(item.analysisSeconds)}</td>
               <td><strong>{formatElapsed(item.totalSeconds)}</strong></td>
-              <td>{item.modelScore === null ? '—' : <details className="diagnostic-score-details"><summary><strong>{item.modelScore} / {item.criterionScores.reduce((sum, criterion) => sum + criterion.maxPoints, 0)}</strong><span>Détail par barème</span></summary>{item.criterionScores.length > 0 ? <ul>{item.criterionScores.map((criterion) => <li key={criterion.criterionId}><span>{criterion.title}</span><strong>{criterion.points} / {criterion.maxPoints}</strong></li>)}</ul> : <small>Aucun détail de critère enregistré.</small>}</details>}</td>
+              <td>{item.modelScore === null ? '—' : <details className="diagnostic-score-details"><summary><strong>{item.modelScore} / {item.criterionScores.reduce((sum, criterion) => sum + criterion.maxPoints, 0)}</strong><span>Détail par barème</span></summary>{item.criterionScores.length > 0 ? <ul>{item.criterionScores.map((criterion) => <li key={criterion.criterionId}><span>{criterion.title}</span><strong>{criterion.points} / {criterion.maxPoints}</strong></li>)}</ul> : <small>Aucun détail de critère enregistré.</small>}{(item.diagnosticRuns ?? []).length > 0 && <div className="diagnostic-history-runs"><strong>Essai multi-modèles · {item.diagnosticStrategy === 'arbitrate' ? 'avec arbitre' : item.diagnosticStrategy === 'compare' ? 'comparaison' : 'modèle unique'}</strong>{(item.diagnosticRuns ?? []).map((run, index) => { const parsed = safeDiagnosticProposal(run.raw, rubric); const total = parsed?.criteria.reduce((sum, criterion) => sum + criterion.points, 0); return <div key={run.kind + run.model + index}><span>{run.kind === 'arbitrator' ? 'Arbitre' : 'Avis'} · {run.model}</span><strong>{total === undefined ? 'Sortie non exploitable' : total + ' / ' + validation.maximumPoints}</strong><small>{formatElapsed(Math.round(run.elapsedMs / 1000))}</small>{parsed && <ul>{parsed.criteria.map((criterion) => <li key={criterion.criterionId}><span>{rubric.criteria.find((entry) => entry.id === criterion.criterionId)?.title ?? criterion.criterionId}</span><strong>{criterion.points} / {rubric.criteria.find((entry) => entry.id === criterion.criterionId)?.maxPoints ?? 0}</strong></li>)}</ul>}</div>; })}</div>}</details>}</td>
               <td><span className={item.outcome === 'success' ? 'timing-outcome success' : 'timing-outcome error'}>{item.outcome === 'success' ? 'Terminée' : 'Échec'}</span></td>
             </tr>)}</tbody>
           </table>

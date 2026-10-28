@@ -17,9 +17,18 @@ export interface GradingRequest {
   transcription?: string;
 }
 
+export interface DiagnosticModelResult {
+  kind: 'model' | 'arbitrator';
+  model: string;
+  raw: string;
+  elapsedMs: number;
+}
+
+export type DiagnosticStrategy = 'single' | 'compare' | 'arbitrate';
+
 export interface GradingProvider {
   readonly id: string;
-  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject') => void): Promise<string>;
+  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void): Promise<string>;
 }
 
 export interface OllamaSettings {
@@ -32,6 +41,13 @@ export interface OllamaSettings {
   analysisModel?: string;
   /** Enable Ollama's thinking mode for analysis only; disabled by default for model compatibility. */
   thinking?: boolean;
+  /** Experimental multi-model evaluation, enabled only from the diagnostic UI. */
+  diagnosticStrategy?: DiagnosticStrategy | 'arbitrate-only';
+  /** Previously captured model outputs for rerunning arbitration without repeating analysis. */
+  diagnosticFirstResult?: string;
+  diagnosticSecondResult?: string;
+  secondAnalysisModel?: string;
+  arbitratorModel?: string;
 }
 
 export interface OllamaModel {

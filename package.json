@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test:coverage": "vitest run --coverage",
     "test:coverage:core": "vitest run --coverage --coverage.include='src/domain/**' --coverage.include='src/application/**' --coverage.reportsDirectory=coverage-unit-core",
-    "test:coverage:report": "node scripts/update-coverage-badge.mjs"
+    "test:coverage:report": "node scripts/update-coverage-badge.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
@@ -31,6 +32,7 @@
     "vitest": "latest",
     "jsdom": "latest",
     "fake-indexeddb": "latest",
-    "@vitest/coverage-v8": "latest"
+    "@vitest/coverage-v8": "latest",
+    "@playwright/test": "latest"
   }
 }

@@ -17,6 +17,8 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:coverage
@@ -34,6 +36,8 @@ jobs:
             git push origin HEAD:main
           fi
       - run: npm run build
+      - name: Run browser-level diagnostic workflow tests
+        run: npm run test:e2e
       - name: Upload coverage reports
         if: always()
         uses: actions/upload-artifact@v4
