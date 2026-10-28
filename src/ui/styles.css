@@ -14,3 +14,140 @@
 
 /* Separate the everyday correction workflow from advanced AI diagnostics. */
 .topbar-actions{margin-left:auto;display:flex;align-items:center;gap:12px}.topbar-actions .local-badge{margin-left:0}.view-switch{display:flex;gap:3px;padding:3px;border:1px solid #dce5dc;border-radius:10px;background:#fff}.view-switch-button{border:0;border-radius:7px;padding:9px 12px;background:transparent;color:#647467;font-size:11px;font-weight:750;white-space:nowrap}.view-switch-button.active{background:#234b3a;color:#fff;box-shadow:0 1px 2px #20342b18}.ai-summary-panel{display:flex;flex-direction:column;align-items:stretch;justify-content:center;min-height:100%;background:#fbfcfa}.ai-summary-panel .panel-heading{margin-bottom:8px}.ai-summary-panel .hint{margin:4px 0 12px}.ai-summary-panel .full-button{margin-top:0}@media(max-width:760px){.topbar{align-items:flex-start;flex-wrap:wrap}.topbar-actions{width:100%;margin-left:0;justify-content:space-between;flex-wrap:wrap}.topbar-actions .local-badge{margin-left:0}.view-switch{margin-left:auto}}@media(max-width:430px){.topbar-actions{gap:8px}.view-switch-button{padding:8px 9px;font-size:10px}.topbar-actions .local-badge{font-size:10px;padding:8px 10px}.topbar-actions .local-badge span{width:7px;height:7px}}
+
+
+/* Design-system pass: consistent rhythm, clearer hierarchy and accessible interaction states. */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --surface: #fff;
+  --surface-subtle: #f8faf7;
+  --border: #dfe7dd;
+  --text-primary: #20342b;
+  --text-secondary: #647467;
+  --focus-ring: #477f54;
+}
+html { color-scheme: light; }
+body { color: var(--text-primary); line-height: 1.5; }
+button, input, textarea, select { line-height: 1.45; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible,
+.upload-placeholder:focus-visible, .view-switch-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--focus-ring) 32%, transparent);
+  outline-offset: 2px;
+}
+.app-shell { max-width: 1240px; padding: clamp(20px, 3.2vw, 40px) clamp(16px, 3vw, 36px) 28px; }
+.topbar { gap: 14px; }
+.brand-mark { flex: 0 0 43px; }
+.topbar h1 { line-height: 1.3; }
+.welcome { margin-top: 28px; min-height: 204px; padding: clamp(24px, 3vw, 36px); gap: 24px; }
+.welcome h2 { max-width: 640px; line-height: 1.12; margin: 8px 0 14px; }
+.intro { font-size: 13px; line-height: 1.75; }
+.privacy-strip { margin-top: 16px; padding: 14px 18px; gap: 12px; }
+.privacy-strip p { line-height: 1.6; }
+.workspace-heading { margin: 30px 0 16px; gap: 16px; }
+.workspace-heading h2 { line-height: 1.3; }
+.setup-grid { gap: 18px; align-items: stretch; }
+.panel { padding: clamp(18px, 2.1vw, 24px); border-radius: 14px; }
+.panel-heading { gap: 12px; margin-bottom: 18px; }
+.panel-heading h3 { line-height: 1.4; }
+.panel-heading p { line-height: 1.5; }
+.field-label { line-height: 1.4; margin-bottom: 8px; }
+.rubric-editor>input, .criterion-fields input, .points-field input, .ollama-panel input,
+.ollama-panel select, .question-panel textarea, .review-controls input, .questions-field textarea {
+  min-height: 42px;
+  padding: 10px 12px;
+  border-color: #d7e1d6;
+  border-radius: 9px;
+  background: #fcfdfb;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+.rubric-editor>input:focus, .criterion-fields input:focus, .points-field input:focus,
+.ollama-panel input:focus, .ollama-panel select:focus, .question-panel textarea:focus,
+.review-controls input:focus, .questions-field textarea:focus {
+  border-color: #7fa888;
+  box-shadow: 0 0 0 3px #7fa88824;
+  background: #fff;
+  outline: none;
+}
+.criterion-editor { gap: 12px; padding: 14px 0; }
+.criterion-fields { gap: 12px; }
+.points-field { width: 100px; }
+.icon-button { min-width: 36px; min-height: 38px; }
+.secondary-button, .primary-button, .decision-button, .text-button {
+  transition: background-color .15s ease, border-color .15s ease, transform .15s ease;
+}
+.secondary-button, .primary-button { min-height: 40px; padding: 10px 15px; border-radius: 9px; }
+.secondary-button:hover { background: #e7eee5; }
+.primary-button:hover { background: #1b3d2e; }
+.primary-button:active, .secondary-button:active, .decision-button:active { transform: translateY(1px); }
+.upload-placeholder { gap: 2px; padding: 24px; transition: border-color .15s ease, background-color .15s ease; }
+.upload-placeholder:hover { border-color: #91b398; background: #f5f9f3; }
+.upload-placeholder p { line-height: 1.6; }
+.rubric-import { margin-top: 16px; padding: 16px; }
+.hint { line-height: 1.65; }
+.question-panel { margin-top: 18px; }
+.question-panel textarea, .questions-field textarea { line-height: 1.65; }
+.analysis-progress { gap: 16px; padding: 18px 20px; }
+.analysis-progress-copy>p:not(.eyebrow) { line-height: 1.65; }
+.analysis-steps { gap: 12px; margin: 14px 0 16px; }
+.analysis-step { padding: 12px; gap: 12px; line-height: 1.45; }
+.review-section { margin-top: 16px; }
+.summary-panel { padding: 20px 22px; margin-bottom: 16px; }
+.summary-panel p { margin: 8px 0; line-height: 1.7; }
+.review-card { margin-top: 14px; }
+.review-card-heading { gap: 16px; }
+.review-card-heading h3 { line-height: 1.4; }
+.evidence { margin-top: 16px; padding: 14px; }
+.evidence p, .rationale, .teacher-question { line-height: 1.7; }
+.review-controls { gap: 12px; margin-top: 18px; }
+.review-controls input { min-height: 40px; }
+.decision-button { min-height: 40px; padding: 10px 14px; }
+.final-review { gap: 16px; margin-top: 18px; }
+.final-review h3 { line-height: 1.2; }
+footer { padding-top: 24px; line-height: 1.6; }
+.local-badge { padding: 7px 11px; }
+.view-switch { padding: 4px; }
+.view-switch-button { min-height: 36px; padding: 8px 12px; }
+.view-switch-button:hover:not(.active) { background: #f1f5ef; color: #34533d; }
+@media (max-width: 760px) {
+  .app-shell { padding: 20px 16px 24px; }
+  .welcome { margin-top: 22px; padding: 24px; gap: 12px; }
+  .workspace-heading { align-items: flex-start; flex-direction: column; gap: 6px; margin-top: 26px; }
+  .setup-grid { gap: 14px; }
+  .panel { padding: 20px; }
+}
+@media (max-width: 560px) {
+  .app-shell { padding: 16px 12px 20px; }
+  .welcome { padding: 22px 18px; border-radius: 14px; }
+  .welcome h2 { font-size: clamp(25px, 7vw, 29px); letter-spacing: -.8px; }
+  .privacy-strip { align-items: flex-start; padding: 13px; }
+  .privacy-icon { flex: 0 0 34px; }
+  .panel { padding: 16px; border-radius: 12px; }
+  .panel-heading { align-items: flex-start; margin-bottom: 16px; }
+  .criterion-editor { gap: 8px; }
+  .criterion-fields { gap: 8px; }
+  .review-controls { align-items: stretch; }
+  .review-controls>label:first-child { width: 100%; }
+  .review-controls .comment-field { min-width: 100%; }
+  .decision-button { flex: 1; }
+  .analysis-progress { gap: 10px; padding: 14px; }
+  .analysis-timer { padding-left: 10px; }
+  footer { padding: 20px 2px 0; }
+}
+@media (max-width: 380px) {
+  .topbar-actions { align-items: stretch; }
+  .topbar-actions .local-badge { font-size: 9px; }
+  .view-switch { width: 100%; justify-content: stretch; }
+  .view-switch-button { flex: 1; padding-inline: 7px; }
+  .analysis-progress { flex-wrap: wrap; }
+  .analysis-timer { margin-left: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}
