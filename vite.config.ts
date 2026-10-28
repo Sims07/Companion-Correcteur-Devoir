@@ -2,6 +2,10 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { resolveBasePath } from './scripts/pagesBase.ts';
 
+declare const process: {
+  env: Record<string, string | undefined>;
+};
+
 export default defineConfig({
   plugins: [react()],
   // GitHub Pages publishes this project under /Companion-Correcteur-Devoir/.
