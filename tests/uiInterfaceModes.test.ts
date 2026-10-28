@@ -20,13 +20,14 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain("onClick={() => setInterfaceMode('diagnostic')}");
   });
 
-  it('keeps a complete Ollama setup path inside the teacher workspace without redirecting to diagnostics', () => {
+  it('keeps Ollama configuration hidden until explicitly opened from teacher settings', () => {
     const text = app();
     expect(text).toContain(`{interfaceMode === 'diagnostic' ? <article className="panel ollama-panel">`);
-    expect(text).toContain('className="panel ollama-panel teacher-model-panel"');
-    expect(text).toContain('Correction par IA locale');
+    expect(text).toContain('showAiSettings && <article className="panel ollama-panel teacher-model-panel"');
+    expect(text).toContain('Paramètres de l’IA locale');
     expect(text).toContain('Tester la connexion et détecter les modèles');
-    expect(text).not.toContain('onClick={() => setInterfaceMode(\'diagnostic\')}>{visionModel && analysisModel ?');
+    expect(text).toContain('aria-expanded={showAiSettings}');
+    expect(text).toContain("setTeacherStep('copy'); setShowAiSettings((current) => !current)");
     expect(text).toContain('Ces options ne sont appliquées qu’en mode Diagnostic IA. Le mode Correction reste sur un seul modèle.');
   });
 
@@ -46,24 +47,28 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('subjectImages');
   });
 
-  it('provides an assignment-centred teacher workspace with a live preparation checklist and local title persistence', () => {
+  it('provides a teacher-specific three-step navigation and shows only the active task', () => {
     const text = app();
-    expect(text).toContain('Un devoir, un espace de travail');
-    expect(text).toContain('id="assignment-title"');
+    expect(text).toContain("useState<'rubric' | 'copy' | 'review'>('rubric')");
+    expect(text).toContain('aria-label="Navigation de la correction"');
+    expect(text).toContain('aria-label="Étapes du devoir"');
+    expect(text).toContain('Préparer le barème');
+    expect(text).toContain('Ajouter une copie');
+    expect(text).toContain('Réviser la note');
+    expect(text).toContain("(interfaceMode === 'diagnostic' || teacherStep === 'rubric') && <>");
+    expect(text).toContain("(interfaceMode === 'diagnostic' || teacherStep === 'copy') && <>");
+    expect(text).toContain("setTeacherStep('review')");
     expect(text).toContain("const assignmentTitleKey = 'companion-correcteur:assignment-title:v1'");
     expect(text).toContain('setItem(assignmentTitleKey, assignmentTitle)');
-    expect(text).toContain('État de préparation du devoir');
-    expect(text).toContain('setupChecks.filter((item) => item.ready).length');
-    expect(text).toContain('Lancer la lecture et la correction');
-    expect(text).toContain('Vous gardez la décision finale sur chaque note.');
-    expect(text).toContain("interfaceMode === 'teacher' ? \"panel question-panel teacher-launch-panel\" : \"panel question-panel\"");
-    expect(text).toContain("interfaceMode === 'teacher' && <p className=\"launch-footnote\"");
+    expect(text).not.toContain('Un devoir, un espace de travail');
   });
 
-  it('changes the welcome copy to match the selected mode', () => {
+  it('keeps the diagnostic welcome isolated from the teacher workspace', () => {
     const text = app();
-    expect(text).toContain("interfaceMode === 'teacher' ? 'ESPACE ENSEIGNANT · BIOLOGIE' : 'ESPACE DE DIAGNOSTIC · IA LOCALE'");
-    expect(text).toContain("interfaceMode === 'teacher' ? 'Importez les copies");
+    expect(text).toContain("{interfaceMode === 'diagnostic' && <section className=\"welcome\">");
+    expect(text).toContain('ESPACE DE DIAGNOSTIC · IA LOCALE');
+    expect(text).toContain('Accédez aux réglages Ollama, aux modèles et aux sorties de diagnostic');
+    expect(text).not.toContain('Un devoir, un espace de travail');
   });
 
   it('presents saved teacher decisions in plain language instead of technical local-memory terminology', () => {

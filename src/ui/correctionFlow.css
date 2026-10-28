@@ -507,3 +507,147 @@
   .assignment-workspace, .teacher-launch-panel { padding: var(--flow-space-4); }
   .setup-overview-heading { align-items: flex-start; flex-direction: column; gap: 6px; }
 }
+
+
+/* A focused teacher journey: persistent navigation, one task in the main canvas. */
+.teacher-flow-shell {
+  display: grid;
+  grid-template-columns: 258px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  align-items: start;
+  gap: 0 28px;
+  max-width: 1560px;
+  padding: 0 28px 28px 0;
+}
+.teacher-flow-shell > .topbar {
+  grid-column: 1 / -1;
+  width: auto;
+  margin: 0 0 0 28px;
+}
+.teacher-sidebar {
+  position: sticky;
+  top: 16px;
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: min(760px, calc(100vh - 32px));
+  padding: 22px 16px 16px 22px;
+  border-right: 1px solid var(--flow-border);
+  background: #f8faf7;
+  color: var(--flow-text);
+}
+.teacher-sidebar-brand { display: flex; align-items: center; gap: 11px; padding: 0 0 24px; }
+.sidebar-brand-mark {
+  display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px;
+  background: #254d35; color: #fff; font-size: 13px; font-weight: 850; letter-spacing: -.5px;
+}
+.teacher-sidebar-brand > div { display: grid; gap: 4px; }
+.teacher-sidebar-brand strong { font-size: 14px; letter-spacing: -.2px; }
+.teacher-sidebar-brand small { color: var(--flow-muted); font-size: 11px; }
+.sidebar-assignment { padding: 15px 0 20px; border-top: 1px solid var(--flow-border); }
+.sidebar-assignment .field-label { margin-bottom: 8px; font-size: 9px; letter-spacing: 1px; }
+.sidebar-assignment input {
+  width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--flow-border);
+  border-radius: 9px; background: #fff; color: var(--flow-text); font-size: 12px; font-weight: 650;
+}
+.teacher-step-nav { display: grid; gap: 7px; }
+.teacher-step-nav > .eyebrow { margin: 0 0 7px; font-size: 9px; letter-spacing: 1px; }
+.teacher-step {
+  display: grid; grid-template-columns: 31px minmax(0, 1fr); align-items: start; gap: 10px;
+  width: 100%; padding: 12px 10px; border: 1px solid transparent; border-radius: 11px;
+  background: transparent; color: var(--flow-text); text-align: left; cursor: pointer;
+}
+.teacher-step:hover:not(:disabled) { background: #f0f4ef; }
+.teacher-step.active { border-color: #d5e2d5; background: #eaf2e9; box-shadow: inset 3px 0 #386748; }
+.teacher-step:disabled { opacity: .56; cursor: not-allowed; }
+.teacher-step-number {
+  display: grid; place-items: center; width: 29px; height: 29px; border: 1px solid #dce4dc;
+  border-radius: 9px; background: #fff; color: #48614e; font-size: 12px; font-weight: 800;
+}
+.teacher-step.active .teacher-step-number { border-color: #386748; background: #386748; color: #fff; }
+.teacher-step > span:last-child { display: grid; gap: 5px; padding-top: 2px; }
+.teacher-step strong { font-size: 12px; line-height: 1.35; }
+.teacher-step small { color: var(--flow-muted); font-size: 10px; line-height: 1.45; }
+.teacher-sidebar-footer { display: grid; gap: 12px; margin-top: auto; padding-top: 24px; }
+.sidebar-local-status { display: flex; align-items: flex-start; gap: 9px; padding: 12px 10px; border: 1px solid #dce8dc; border-radius: 10px; background: #fff; color: #326344; }
+.sidebar-local-status > span:first-child { font-size: 10px; padding-top: 3px; }
+.sidebar-local-status > span:last-child { display: grid; gap: 4px; }
+.sidebar-local-status strong { font-size: 10px; }
+.sidebar-local-status small { color: var(--flow-muted); font-size: 10px; line-height: 1.45; }
+.sidebar-settings, .sidebar-diagnostic-link {
+  display: flex; align-items: center; gap: 9px; width: 100%; padding: 11px 10px; border: 1px solid transparent;
+  border-radius: 9px; background: transparent; color: var(--flow-text); font-size: 11px; font-weight: 700; text-align: left; cursor: pointer;
+}
+.sidebar-settings:hover, .sidebar-settings.active { border-color: var(--flow-border); background: #fff; }
+.sidebar-settings > span { font-size: 15px; }
+.sidebar-diagnostic-link { color: var(--flow-muted); font-weight: 600; }
+.teacher-content-column { grid-column: 2; grid-row: 2; min-width: 0; padding: 28px 0 0; }
+.diagnostic-content-column { min-width: 0; }
+.teacher-flow-shell .privacy-strip,
+.teacher-flow-shell .welcome,
+.teacher-flow-shell .assignment-workspace { display: none; }
+.teacher-flow-shell .workspace-heading { margin: 0 0 20px; }
+.teacher-flow-shell .workspace-heading .eyebrow { margin-bottom: 9px; }
+.teacher-flow-shell .workspace-heading h2 { font-size: clamp(24px, 2.6vw, 34px); letter-spacing: -1px; }
+.teacher-flow-shell .workspace-heading .step-count { font-size: 10px; }
+.teacher-flow-shell .rubric-editor,
+.teacher-flow-shell .correction-mode-panel,
+.teacher-flow-shell .subject-panel,
+.teacher-flow-shell .setup-grid > .panel,
+.teacher-flow-shell .question-panel { padding: 24px; border-radius: 15px; }
+.teacher-flow-shell .rubric-editor { box-shadow: 0 8px 32px rgba(30, 52, 35, .045); }
+.teacher-flow-shell .setup-grid { grid-template-columns: minmax(0, 1fr); }
+.teacher-flow-shell .copy-panel .upload-placeholder { min-height: 150px; }
+.teacher-step-footer {
+  display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-top: 18px; padding: 16px 0 0;
+  border-top: 1px solid var(--flow-border);
+}
+.teacher-step-footer > span, .teacher-copy-footer > span { color: var(--flow-muted); font-size: 11px; line-height: 1.5; }
+.teacher-step-footer .primary-button { flex: 0 0 auto; min-height: 44px; }
+.teacher-copy-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 18px; }
+.teacher-model-panel { margin-top: 16px; }
+.teacher-model-panel .panel-heading { align-items: flex-start; }
+.teacher-model-panel .panel-heading .text-button { margin-left: auto; }
+.teacher-flow-shell .teacher-launch-panel { margin-top: 20px; }
+.teacher-flow-shell footer { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--flow-border); }
+.teacher-flow-shell .review-section { margin-top: 0; }
+.teacher-flow-shell .review-section > .workspace-heading { margin-bottom: 18px; }
+.teacher-flow-shell .timing-history { display: none; }
+
+@media (max-width: 980px) {
+  .teacher-flow-shell { grid-template-columns: 220px minmax(0, 1fr); gap: 0 20px; padding-right: 20px; }
+  .teacher-flow-shell > .topbar { margin-left: 20px; }
+  .teacher-sidebar { padding-left: 16px; }
+}
+@media (max-width: 720px) {
+  .teacher-flow-shell { display: block; padding: 0 16px 20px; }
+  .teacher-flow-shell > .topbar { margin: 0; }
+  .teacher-sidebar {
+    position: static; min-height: 0; margin: 0 -16px; padding: 12px 16px;
+    border-right: 0; border-bottom: 1px solid var(--flow-border); background: #f8faf7;
+  }
+  .teacher-sidebar-brand { display: none; }
+  .sidebar-assignment { padding: 0 0 12px; border-top: 0; }
+  .teacher-step-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+  .teacher-step-nav > .eyebrow { grid-column: 1 / -1; margin-bottom: 2px; }
+  .teacher-step { grid-template-columns: 25px minmax(0, 1fr); gap: 6px; padding: 9px 6px; }
+  .teacher-step-number { width: 24px; height: 24px; border-radius: 7px; font-size: 10px; }
+  .teacher-step strong { font-size: 10px; }
+  .teacher-step small { font-size: 9px; }
+  .teacher-sidebar-footer { display: flex; flex-wrap: wrap; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--flow-border); }
+  .sidebar-local-status { display: none; }
+  .sidebar-settings, .sidebar-diagnostic-link { width: auto; padding: 8px; font-size: 10px; }
+  .teacher-content-column { padding-top: 24px; }
+  .teacher-flow-shell .rubric-editor,
+  .teacher-flow-shell .correction-mode-panel,
+  .teacher-flow-shell .subject-panel,
+  .teacher-flow-shell .setup-grid > .panel,
+  .teacher-flow-shell .question-panel { padding: 18px; }
+}
+@media (max-width: 430px) {
+  .teacher-step { display: flex; flex-direction: column; }
+  .teacher-step > span:last-child { gap: 3px; }
+  .teacher-step-footer, .teacher-copy-footer { align-items: stretch; flex-direction: column; }
+  .teacher-step-footer .primary-button { width: 100%; }
+}
