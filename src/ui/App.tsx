@@ -661,6 +661,27 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         </div>
       </section>}
 
+      {isAnalyzing && interfaceMode === 'teacher' && analysisStage === 'reading' && <section className="live-copy-preview panel" aria-labelledby="live-copy-preview-title">
+        <div className="live-preview-heading"><div><p className="eyebrow">ÉTAPE 1 · LECTURE LOCALE</p><h3 id="live-copy-preview-title">La copie en cours de lecture</h3><p>Les pages restent visibles à côté du texte reconnu par le modèle local.</p></div><span className="live-preview-state">Lecture en cours</span></div>
+        <div className="live-copy-layout">
+          <div className="live-copy-pages" aria-label="Pages de la copie importée">
+            {images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-' + index}>
+              <img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page ${index + 1} de la copie en cours de lecture`} />
+              <figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption>
+            </figure>)}
+          </div>
+          <div className="live-transcription-panel"><div className="live-panel-heading"><span className="live-panel-icon" aria-hidden="true">Aa</span><div><strong>Transcription reconnue</strong><small>{transcription ? 'Texte extrait localement' : 'En attente de lecture'}</small></div></div>
+            {transcription ? <pre className="live-transcription-text">{transcription}</pre> : <div className="live-transcription-placeholder" role="status"><span className="live-text-skeleton" /><span className="live-text-skeleton short" /><span className="live-text-skeleton" /><p>Le texte apparaîtra dès que le modèle aura terminé la lecture.</p></div>}
+          </div>
+        </div>
+      </section>}
+      {isAnalyzing && interfaceMode === 'teacher' && analysisStage === 'grading' && <section className="live-analysis-preview panel" aria-labelledby="live-analysis-preview-title">
+        <div className="live-preview-heading"><div><p className="eyebrow">ÉTAPE 2 · ANALYSE DU BARÈME</p><h3 id="live-analysis-preview-title">Analyse de la réponse</h3><p>La transcription est confrontée aux critères du barème.</p></div><span className="live-preview-state analysis">Notation en cours</span></div>
+        <div className="live-analysis-context"><span className="live-panel-icon" aria-hidden="true">✓</span><div><strong>Transcription disponible</strong><p>{transcription ? transcription.trim().split(/\s+/).filter(Boolean).length + ' mots extraits de la copie' : 'La transcription est conservée pour cette analyse.'}</p></div></div>
+        <div className="live-analysis-criteria" aria-label="Critères en cours d’évaluation">{rubric.criteria.map((criterion) => <div className="live-analysis-criterion" key={criterion.id}><span>{criterion.title}</span><span className="live-score-placeholder" aria-hidden="true" /><small>Évaluation en cours</small></div>)}</div>
+        <div className="live-analysis-output" aria-live="polite"><div className="live-panel-heading"><span className="live-panel-icon" aria-hidden="true">✳</span><div><strong>Réponse du modèle</strong><small>{streamedOutput ? 'Réponse reçue en streaming' : 'Préparation de la proposition'}</small></div></div>{streamedOutput ? <pre>{streamedOutput}</pre> : <div className="live-transcription-placeholder"><span className="live-text-skeleton" /><span className="live-text-skeleton medium" /><span className="live-text-skeleton short" /></div>}</div>
+      </section>}
+
       {interfaceMode === 'diagnostic' && transcription && diagnosticRuns.filter((run) => run.kind === 'model').length === 2 && <button type="button" className="secondary-button full-button" disabled={busy || !arbitratorModel.trim()} onClick={() => void gradeCopies('arbitrate-only')}>Relancer uniquement l’arbitrage avec les deux avis enregistrés</button>}
 
       {interfaceMode === 'diagnostic' && diagnosticRuns.length > 0 && <section className="panel diagnostic-results" aria-labelledby="diagnostic-results-title">
