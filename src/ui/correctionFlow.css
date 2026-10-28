@@ -12,6 +12,9 @@
   --flow-text: #294034;
   --flow-muted: #718075;
   --flow-accent: #477b55;
+  --flow-surface-soft: #f7faf6;
+  --flow-accent-soft: #edf5ed;
+  --flow-radius-lg: 14px;
 }
 
 /* Make the numbered workflow legible without turning the page into a wizard. */
