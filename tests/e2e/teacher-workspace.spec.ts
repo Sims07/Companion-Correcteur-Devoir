@@ -4,17 +4,23 @@ test('teacher can create and switch between independent local assignments', asyn
   await page.goto('/');
   const title = page.getByLabel('DEVOIR EN COURS');
   await title.fill('Biologie cellulaire');
+  const rubricTitle = page.getByLabel('Nom du barème');
+  await rubricTitle.fill('Barème cellulaire');
   await expect(page.getByRole('button', { name: /Biologie cellulaire/ })).toBeVisible();
 
   await page.getByRole('button', { name: 'Nouveau devoir' }).click();
   await expect(title).toHaveValue('Nouveau devoir');
+  await expect(rubricTitle).toHaveValue('Barème de biologie — exemple');
+  await rubricTitle.fill('Barème génétique');
   await title.fill('Génétique moléculaire');
   await expect(page.getByRole('button', { name: /Génétique moléculaire/ })).toBeVisible();
 
   await page.getByRole('button', { name: /Biologie cellulaire/ }).click();
   await expect(title).toHaveValue('Biologie cellulaire');
+  await expect(rubricTitle).toHaveValue('Barème cellulaire');
   await page.getByRole('button', { name: /Génétique moléculaire/ }).click();
   await expect(title).toHaveValue('Génétique moléculaire');
+  await expect(rubricTitle).toHaveValue('Barème génétique');
 
   await page.reload();
   await expect(title).toHaveValue('Génétique moléculaire');
