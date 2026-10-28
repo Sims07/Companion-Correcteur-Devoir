@@ -205,7 +205,6 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
 
   async function gradeCopies() {
     const runStartedAt = Date.now();
-    const hadTranscription = Boolean(transcription);
     let readingStartedAt: number | null = null;
     let readingDurationMs: number | null = null;
     let analysisStartedAt: number | null = null;
@@ -230,7 +229,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         (chunk) => setStreamedOutput((current) => current + chunk),
         (stage) => {
           const now = Date.now();
-          if (stage === 'reading' && readingStartedAt === null && !hadTranscription) readingStartedAt = now;
+          if (stage === 'reading' && readingStartedAt === null) readingStartedAt = now;
           if (stage === 'grading') {
             if (readingStartedAt !== null && readingDurationMs === null) readingDurationMs = now - readingStartedAt;
             analysisStartedAt = now;
@@ -260,7 +259,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         thinking: analysisThinking,
         correctionMode,
         pageCount: images.length + (correctionMode === 'separate' ? subjectImages.length : 0),
-        readingSeconds: readingDurationMs === null ? (hadTranscription ? null : (readingStartedAt === null ? null : Math.round((finishedAt - readingStartedAt) / 1000))) : Math.round(readingDurationMs / 1000),
+        readingSeconds: readingDurationMs === null ? (readingStartedAt === null ? null : Math.round((finishedAt - readingStartedAt) / 1000)) : Math.round(readingDurationMs / 1000),
         analysisSeconds: analysisStartedAt === null ? null : Math.round((finishedAt - analysisStartedAt) / 1000),
         totalSeconds: Math.round((finishedAt - runStartedAt) / 1000),
         outcome,
