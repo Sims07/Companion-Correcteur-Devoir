@@ -34,6 +34,8 @@ type TimingRecord = {
   outcome: 'success' | 'error';
   modelScore: number | null;
   criterionScores: DiagnosticCriterionScore[];
+  diagnosticStrategy?: DiagnosticStrategy;
+  diagnosticRuns?: DiagnosticModelResult[];
 };
 
 const timingHistoryKey = 'companion-correcteur:timing-history:v1';
@@ -226,6 +228,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
     let analysisStartedAt: number | null = null;
     let outcome: TimingRecord['outcome'] = 'error';
     let diagnosticProposal: GradingProposal | null = null;
+    const diagnosticResultsForHistory: DiagnosticModelResult[] = [];
     setBusy(true);
     setIsAnalyzing(true);
     setAnalysisStage('checking');
@@ -259,7 +262,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
           if (kind === 'subject') setSubjectTranscription(extracted);
           else setTranscription(extracted);
         },
-        (result) => setDiagnosticRuns((current) => [...current, result]),
+        (result) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); },
       );
       const parsed = parseGradingProposal(raw, rubric);
       diagnosticProposal = parsed;
@@ -286,6 +289,8 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
         outcome,
         modelScore: diagnosticScore?.modelScore ?? null,
         criterionScores: diagnosticScore?.criterionScores ?? [],
+        diagnosticStrategy: interfaceMode === 'diagnostic' ? diagnosticStrategy : 'single',
+        diagnosticRuns: diagnosticResultsForHistory,
       };
       setTimingHistory((current) => {
         const next = [record, ...current].slice(0, timingHistoryLimit);
@@ -524,7 +529,7 @@ export function App({ service }: { service: CorrectionWorkspaceService }) {
               <td>{item.readingSeconds === null ? 'Réutilisée / non mesurée' : formatElapsed(item.readingSeconds)}</td>
               <td>{item.analysisSeconds === null ? 'Non mesurée' : formatElapsed(item.analysisSeconds)}</td>
               <td><strong>{formatElapsed(item.totalSeconds)}</strong></td>
-              <td>{item.modelScore === null ? '—' : <details className="diagnostic-score-details"><summary><strong>{item.modelScore} / {item.criterionScores.reduce((sum, criterion) => sum + criterion.maxPoints, 0)}</strong><span>Détail par barème</span></summary>{item.criterionScores.length > 0 ? <ul>{item.criterionScores.map((criterion) => <li key={criterion.criterionId}><span>{criterion.title}</span><strong>{criterion.points} / {criterion.maxPoints}</strong></li>)}</ul> : <small>Aucun détail de critère enregistré.</small>}</details>}</td>
+              <td>{item.modelScore === null ? '—' : <details className="diagnostic-score-details"><summary><strong>{item.modelScore} / {item.criterionScores.reduce((sum, criterion) => sum + criterion.maxPoints, 0)}</strong><span>Détail par barème</span></summary>{item.criterionScores.length > 0 ? <ul>{item.criterionScores.map((criterion) => <li key={criterion.criterionId}><span>{criterion.title}</span><strong>{criterion.points} / {criterion.maxPoints}</strong></li>)}</ul> : <small>Aucun détail de critère enregistré.</small>}{(item.diagnosticRuns ?? []).length > 0 && <div className="diagnostic-history-runs"><strong>Essai multi-modèles · {item.diagnosticStrategy === 'arbitrate' ? 'avec arbitre' : item.diagnosticStrategy === 'compare' ? 'comparaison' : 'modèle unique'}</strong>{(item.diagnosticRuns ?? []).map((run, index) => { const parsed = safeDiagnosticProposal(run.raw, rubric); const total = parsed?.criteria.reduce((sum, criterion) => sum + criterion.points, 0); return <div key={run.kind + run.model + index}><span>{run.kind === 'arbitrator' ? 'Arbitre' : 'Avis'} · {run.model}</span><strong>{total === undefined ? 'Sortie non exploitable' : total + ' / ' + validation.maximumPoints}</strong><small>{formatElapsed(Math.round(run.elapsedMs / 1000))}</small>{parsed && <ul>{parsed.criteria.map((criterion) => <li key={criterion.criterionId}><span>{rubric.criteria.find((entry) => entry.id === criterion.criterionId)?.title ?? criterion.criterionId}</span><strong>{criterion.points} / {rubric.criteria.find((entry) => entry.id === criterion.criterionId)?.maxPoints ?? 0}</strong></li>)}</ul>}</div>; })}</div>}</details>}</td>
               <td><span className={item.outcome === 'success' ? 'timing-outcome success' : 'timing-outcome error'}>{item.outcome === 'success' ? 'Terminée' : 'Échec'}</span></td>
             </tr>)}</tbody>
           </table>
