@@ -10,6 +10,11 @@ const mainEntry = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf
 const appComponent = readFileSync(new URL('../src/ui/App.tsx', import.meta.url), 'utf8');
 
 describe('UI design system', () => {
+  it('does not present a location hint as a handwritten comment', () => {
+    expect(appComponent).toContain('{item.annotationSuggestion && <section className="annotation-suggestion"');
+    expect(appComponent).not.toContain('{(item.annotationSuggestion || item.locationHint) && <section className="annotation-suggestion"');
+  });
+
   it('defines a shared spacing scale and reusable surface tokens', () => {
     expect(stylesheet).toContain('--space-1: 4px');
     expect(stylesheet).toContain('--space-8: 32px');
