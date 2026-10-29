@@ -577,6 +577,28 @@ export async function importRubricTextWithOllama(
   const source = parsed as Record<string, unknown>;
   if (typeof source.title !== 'string' || !Array.isArray(source.criteria)) throw new Error('Le JSON du modèle doit contenir un titre et une liste de critères.');
   if (source.criteria.length === 0) throw new Error('Le modèle n’a extrait aucun critère. Vérifiez que le document contient du texte lisible ou essayez la lecture visuelle locale.');
+  if (source.criteria.length > 100) {
+    throw new Error(`L’extraction a retourné ${source.criteria.length} critères, ce qui dépasse la limite de sécurité de 100. Vérifiez le PDF multipage et relancez l’import.`);
+  }
+
+  // Prevent a model from hallucinating numbered questions that do not exist in the extracted source.
+  // PDF page markers are metadata; they must never be interpreted as question numbers.
+  const questionNumberPattern = /\\b(?:question|quest\\.?|exercice|probl[eè]me|q)\\s*(?:n[°o]\\s*)?(\\d{1,3})\\b/gi;
+  const sourceQuestionNumbers = new Set<number>();
+  for (const match of text.matchAll(questionNumberPattern)) sourceQuestionNumbers.add(Number(match[1]));
+  if (sourceQuestionNumbers.size > 0) {
+    const unsupportedQuestions = source.criteria.flatMap((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+      const title = (item as Record<string, unknown>).title;
+      if (typeof title !== 'string') return [];
+      const match = title.match(/^\\s*(?:question|quest\\.?|exercice|probl[eè]me|q)\\s*(?:n[°o]\\s*)?(\\d{1,3})\\b/i);
+      return match && !sourceQuestionNumbers.has(Number(match[1])) ? [match[1]] : [];
+    });
+    if (unsupportedQuestions.length > 0) {
+      throw new Error(`L’IA a proposé des numéros de question absents du document (${[...new Set(unsupportedQuestions)].join(', ')}). Aucun barème n’a été importé pour éviter d’inventer des questions. Vérifiez l’extraction du PDF multipage et réessayez.`);
+    }
+  }
+
   const seenIds = new Set<string>();
   const criteria: RubricCriterion[] = source.criteria.map((item, index) => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error(`Le critère ${index + 1} retourné par le modèle est invalide.`);
