@@ -972,3 +972,26 @@
   .sidebar-assignment-delete { width: 28px; }
   .workspace-description { font-size: 11px; }
 }
+
+
+/* Source-page focus is deliberately page-level: no unsupported pixel-level precision is implied. */
+.review-source-pages .live-copy-page.evidence-page-focused {
+  border-color: #3d7b4c;
+  background: #f0f8ed;
+  box-shadow: 0 0 0 4px #3d7b4c35, 0 8px 22px #244e2c18;
+}
+.evidence-location-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 7px 10px;
+  border: 1px solid #c9ddc7;
+  border-radius: 8px;
+  background: #fff;
+  color: #315f3c;
+  font-size: 10px;
+  font-weight: 750;
+}
+.evidence-location-button:hover { border-color: #80a985; background: #f0f7ed; }
+.evidence-location-button:focus-visible { outline: 3px solid #477f5452; outline-offset: 2px; }
