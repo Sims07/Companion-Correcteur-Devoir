@@ -705,6 +705,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         return { transcription: extractedTranscription, raw, score, proposal: parsedProposal, readingMs, analysisMs: analysisStartedAt === null ? 0 : Math.max(0, finishedAt - analysisStartedAt), tokens, elapsedMs: finishedAt - startedAt };
       },
     });
+    setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: 'running' } : current);
     setEvaluationStage('saving');
     const results = outputs.map((output) => ({
       profileId: output.configuration.id,
@@ -745,6 +746,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
     } catch {
       setError('Les résultats sont disponibles dans cette session, mais leur sauvegarde dans l’historique local a échoué.');
     }
+    setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: evaluationCancelledRef.current ? 'cancelled' : 'completed' } : current);
     setEvaluationStage('completed');
     setIsAnalyzing(false);
     setBusy(false);
