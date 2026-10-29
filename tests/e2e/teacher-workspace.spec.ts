@@ -10,6 +10,10 @@ test('teacher can create and switch between independent local assignments', asyn
 
   await page.getByRole('button', { name: 'Nouveau devoir' }).click();
   await expect(title).toHaveValue('Nouveau devoir');
+  await expect(page.getByRole('heading', { name: 'Définir le devoir' })).toBeVisible();
+  await page.getByLabel('Description et objectifs pédagogiques').fill('Comprendre les mécanismes de transmission génétique.');
+  await page.getByLabel('Niveau scolaire / universitaire').selectOption('Université — Licence 2');
+  await page.getByRole('button', { name: /Continuer vers le barème/ }).click();
   await expect(rubricTitle).toHaveValue('Barème à définir');
   await rubricTitle.fill('Barème génétique');
   await title.fill('Génétique moléculaire');
@@ -21,9 +25,17 @@ test('teacher can create and switch between independent local assignments', asyn
   await page.locator('.sidebar-assignment-item').filter({ hasText: 'Génétique moléculaire' }).click();
   await expect(title).toHaveValue('Génétique moléculaire');
   await expect(rubricTitle).toHaveValue('Barème génétique');
+  await page.getByRole('button', { name: /Définir le devoir/ }).click();
+  await expect(page.getByLabel('Description et objectifs pédagogiques')).toHaveValue('Comprendre les mécanismes de transmission génétique.');
+  await expect(page.getByLabel('Niveau scolaire / universitaire')).toHaveValue('Université — Licence 2');
 
   await page.reload();
   await expect(title).toHaveValue('Génétique moléculaire');
+  await page.getByRole('button', { name: /Définir le devoir/ }).click();
+  await expect(page.getByRole('heading', { name: 'Définir le devoir' })).toBeVisible();
+  await expect(page.getByLabel('Description et objectifs pédagogiques')).toHaveValue('Comprendre les mécanismes de transmission génétique.');
+  await expect(page.getByLabel('Niveau scolaire / universitaire')).toHaveValue('Université — Licence 2');
+  await page.getByRole('button', { name: /Continuer vers le barème/ }).click();
   await expect(rubricTitle).toHaveValue('Barème génétique');
   await expect(page.locator('.sidebar-assignment-item').filter({ hasText: 'Biologie cellulaire' })).toBeVisible();
   await expect(page.locator('.sidebar-assignment-item').filter({ hasText: 'Génétique moléculaire' })).toBeVisible();

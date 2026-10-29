@@ -12,6 +12,7 @@ import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewInsights, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
 import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../domain/copyQueue.ts';
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
+import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 
 const initialRubric: Rubric = {
   title: 'Barème de biologie — exemple',
@@ -29,6 +30,8 @@ type DiagnosticCriterionScore = { criterionId: string; title: string; points: nu
 type AssignmentProfile = {
   id: string;
   title: string;
+  description?: string;
+  educationLevel?: string;
   rubric: Rubric;
   question: string;
   correctionMode: 'integrated' | 'separate';
@@ -178,7 +181,9 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, AssignmentDraft>>({});
   const [assignmentTitle, setAssignmentTitle] = useState(() => readActiveAssignmentProfile().title);
-  const [teacherStep, setTeacherStep] = useState<'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric');
+  const [assignmentDescription, setAssignmentDescription] = useState(() => readActiveAssignmentProfile().description ?? '');
+  const [educationLevel, setEducationLevel] = useState(() => readActiveAssignmentProfile().educationLevel ?? '');
+  const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric');
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
@@ -281,7 +286,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   }
 
   useEffect(() => {
-    const current: AssignmentProfile = { id: activeAssignmentId, title: assignmentTitle, rubric, question, correctionMode };
+    const current: AssignmentProfile = { id: activeAssignmentId, title: assignmentTitle, description: assignmentDescription, educationLevel, rubric, question, correctionMode };
     setAssignmentProfiles((profiles) => {
       const next = profiles.some((profile) => profile.id === activeAssignmentId)
         ? profiles.map((profile) => profile.id === activeAssignmentId ? current : profile)
@@ -295,7 +300,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       } catch { /* Keep the current assignment usable when browser storage is unavailable. */ }
       return next;
     });
-  }, [activeAssignmentId, assignmentTitle, rubric, question, correctionMode]);
+  }, [activeAssignmentId, assignmentTitle, assignmentDescription, educationLevel, rubric, question, correctionMode]);
 
   useEffect(() => {
     let active = true;
@@ -444,7 +449,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       setAnalysisStage('reading');
       const provider = service.createProvider({ endpoint, visionModel, analysisModel, thinking: analysisThinking, ...(interfaceMode === 'diagnostic' ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
       const raw = await provider.generate(
-        { question, rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
+        { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
         (chunk) => setStreamedOutput((current) => current + chunk),
         (stage) => {
           const now = Date.now();
@@ -600,6 +605,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setFocusedEvidencePage(null);
     setActiveAssignmentId(profile.id);
     setAssignmentTitle(profile.title);
+    setAssignmentDescription(profile.description ?? '');
+    setEducationLevel(profile.educationLevel ?? '');
     setRubric(profile.rubric);
     setQuestion(profile.question);
     setCorrectionMode(profile.correctionMode);
@@ -657,7 +664,9 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setAssignmentDrafts((current) => ({ ...current, [activeAssignmentId]: captureActiveDraft() }));
     const profile: AssignmentProfile = {
       id: `assignment-${crypto.randomUUID()}`,
-      title: assignmentProfiles.length === 1 ? 'Nouveau devoir' : `Nouveau devoir ${assignmentProfiles.length}`,
+      title: 'Nouveau devoir',
+      description: '',
+      educationLevel: '',
       rubric: { title: 'Barème à définir', criteria: [] },
       question: defaultQuestion,
       correctionMode: 'integrated',
@@ -665,6 +674,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setAssignmentProfiles((current) => [...current, profile]);
     setActiveAssignmentId(profile.id);
     setAssignmentTitle(profile.title);
+    setAssignmentDescription(profile.description ?? '');
+    setEducationLevel(profile.educationLevel ?? '');
     setRubric(profile.rubric);
     setQuestion(profile.question);
     setCorrectionMode(profile.correctionMode);
@@ -684,7 +695,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setDiagnosticRuns([]);
     setIsFinalized(false);
     setShowAiSettings(false);
-    setTeacherStep('rubric');
+    setTeacherStep('details');
   }
 
   function queueCurrentCopy() {
@@ -822,6 +833,9 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         </section>}
         <nav className="teacher-step-nav" aria-label="Étapes du devoir">
           <p className="eyebrow">PARCOURS DE CORRECTION</p>
+          <button type="button" className={teacherStep === 'details' && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'details' && !showAiSettings ? 'step' : undefined} onClick={() => { setShowAiSettings(false); setTeacherStep('details'); }}>
+            <span className="teacher-step-number">0</span><span><strong>Définir le devoir</strong><small>{assignmentTitle.trim() || 'Sans titre'}{educationLevel ? ' · ' + educationLevel : ''}</small></span>
+          </button>
           <button type="button" className={teacherStep === 'rubric' && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'rubric' && !showAiSettings ? 'step' : undefined} onClick={() => { setShowAiSettings(false); setTeacherStep('rubric'); }}>
             <span className="teacher-step-number">1</span><span><strong>Préparer le barème</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères</small></span>
           </button>
@@ -899,6 +913,27 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         })}</div>}
         <div className="archive-footer"><button type="button" className="primary-button" onClick={startNextCopy}>+ Ajouter une autre copie</button><p>Les copies archivées ne sont pas envoyées dans le cloud. Elles occupent de l’espace dans le stockage local de ce navigateur.</p></div>
       </section>}
+      {interfaceMode === 'teacher' && teacherStep === 'details' && <>
+        <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 0 · CONTEXTE</p><h2>Définir le devoir</h2><p className="workspace-description">Donnez un nom à l’évaluation et précisez le public visé. Ces informations guideront les modèles pendant la correction ; le barème pourra porter son propre nom.</p></div><span className="step-count">PRÉPARATION</span></div>
+        <section className="panel assignment-details-panel" aria-labelledby="assignment-details-title">
+          <div className="panel-heading"><div><h3 id="assignment-details-title">Informations générales</h3><p>Ces informations sont enregistrées avec le devoir sur cet appareil.</p></div></div>
+          <label className="field-label" htmlFor="assignment-title-main">Nom du devoir</label>
+          <input id="assignment-title-main" value={assignmentTitle} onChange={(event) => setAssignmentTitle(event.target.value)} placeholder="Ex. Contrôle de biologie cellulaire — chapitre 3" />
+          <label className="field-label" htmlFor="assignment-description">Description et objectifs pédagogiques</label>
+          <textarea id="assignment-description" rows={3} value={assignmentDescription} onChange={(event) => setAssignmentDescription(event.target.value)} placeholder="Ex. Vérifier la compréhension de la mitose, la capacité à interpréter un schéma et à utiliser le vocabulaire scientifique." />
+          <label className="field-label" htmlFor="assignment-education-level">Niveau scolaire / universitaire</label>
+          <select id="assignment-education-level" value={educationLevel} onChange={(event) => setEducationLevel(event.target.value)}>
+            <option value="">Choisir un niveau (facultatif)</option>
+            <option value="Lycée — Seconde">Lycée — Seconde</option><option value="Lycée — Première">Lycée — Première</option><option value="Lycée — Terminale">Lycée — Terminale</option>
+            <option value="Université — Licence 1">Université — Licence 1</option><option value="Université — Licence 2">Université — Licence 2</option><option value="Université — Licence 3">Université — Licence 3</option>
+            <option value="Université — Master 1">Université — Master 1</option><option value="Université — Master 2">Université — Master 2</option><option value="Université — Doctorat">Université — Doctorat</option>
+            <option value="Autre">Autre</option>
+          </select>
+          <p className="hint">Le niveau sert à calibrer les attentes : vocabulaire, profondeur du raisonnement et précision scientifique. Il ne remplace pas les critères explicites du barème.</p>
+          <div className="teacher-step-footer"><span>Vous pourrez modifier ces informations à tout moment.</span><button type="button" className="primary-button" onClick={() => setTeacherStep('rubric')}>Continuer vers le barème <span aria-hidden="true">→</span></button></div>
+        </section>
+      </>}
+
       {(interfaceMode === 'diagnostic' || teacherStep === 'rubric') && <>
       <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 SUR 3' : 'ÉTAPE 1'}</p><h2>Préparer le barème de correction</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
       <section className="panel rubric-editor">

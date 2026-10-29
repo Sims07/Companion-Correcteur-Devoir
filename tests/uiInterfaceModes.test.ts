@@ -8,7 +8,7 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('keeps a local archive and next-copy path after finalization', () => {
     const text = app();
-    expect(text).toContain("useState<'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric')");
+    expect(text).toContain("useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric')");
     expect(text).toContain('Corrections enregistrées');
     expect(text).toContain('Ajouter une autre copie');
     expect(text).toContain('Consulter la correction');
@@ -72,9 +72,20 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain(`{interfaceMode === 'diagnostic' && <span className="number">03</span>}`);
   });
 
+  it('starts new assignments with pedagogical context before the independent rubric', () => {
+    const text = app();
+    expect(text).toContain("setTeacherStep('details')");
+    expect(text).toContain('ÉTAPE 0 · CONTEXTE');
+    expect(text).toContain('Description et objectifs pédagogiques');
+    expect(text).toContain('Niveau scolaire / universitaire');
+    expect(text).toContain('id="assignment-education-level"');
+    expect(text).toContain('buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question })');
+    expect(text).toContain('description: assignmentDescription, educationLevel');
+  });
+
   it('provides a teacher-specific three-step navigation and shows only the active task', () => {
     const text = app();
-    expect(text).toContain("useState<'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric')");
+    expect(text).toContain("useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric')");
     expect(text).toContain('aria-label="Navigation de la correction"');
     expect(text).toContain('aria-label="Étapes du devoir"');
     expect(text).toContain('Préparer le barème');
