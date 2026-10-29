@@ -72,3 +72,51 @@ test('diagnostic history exposes per-model time and Ollama token usage', async (
   await expect(page.getByText('gemma3:4b').first()).toBeVisible();
   await expect(page.getByText(/Tokens d’entrée : 1\s?000/)).toBeVisible();
 });
+
+
+test('diagnostic history compares two saved experiments with visual charts', async ({ page }) => {
+  await page.addInitScript(() => {
+    const base = {
+      thinking: false,
+      correctionMode: 'integrated',
+      pageCount: 1,
+      readingSeconds: 3,
+      analysisSeconds: 7,
+      outcome: 'success',
+      criterionScores: [{ criterionId: 'science', title: 'Exactitude', points: 8, maxPoints: 10 }],
+      diagnosticStrategy: 'compare',
+    };
+    localStorage.setItem('companion-correcteur:timing-history:v1', JSON.stringify([
+      {
+        ...base, id: 'compare-a', completedAt: '2026-10-29T12:00:00.000Z',
+        visionModel: 'qwen3.5:4b', analysisModel: 'gemma3:4b', totalSeconds: 10, modelScore: 8,
+        diagnosticRuns: [
+          { kind: 'vision', stage: 'reading', model: 'qwen3.5:4b', raw: '', elapsedMs: 3000, promptTokens: 1000, generatedTokens: 100, totalTokens: 1100 },
+          { kind: 'model', stage: 'analysis', model: 'gemma3:4b', raw: '', elapsedMs: 7000, promptTokens: 2000, generatedTokens: 400, totalTokens: 2400 },
+        ],
+      },
+      {
+        ...base, id: 'compare-b', completedAt: '2026-10-29T13:00:00.000Z',
+        visionModel: 'phi-mini', analysisModel: 'qwen3.5:4b', totalSeconds: 18, modelScore: 6,
+        diagnosticRuns: [
+          { kind: 'vision', stage: 'reading', model: 'phi-mini', raw: '', elapsedMs: 6000, promptTokens: 1200, generatedTokens: 200, totalTokens: 1400 },
+          { kind: 'model', stage: 'analysis', model: 'qwen3.5:4b', raw: '', elapsedMs: 12000, promptTokens: 3000, generatedTokens: 700, totalTokens: 3700 },
+        ],
+      },
+    ]));
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Diagnostic IA' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Comparer deux essais' })).toBeVisible();
+  await page.getByRole('checkbox', { name: /Sélectionner l’essai phi-mini/ }).check();
+  await page.getByRole('checkbox', { name: /Sélectionner l’essai qwen3.5:4b \/ gemma3:4b/ }).check();
+
+  await expect(page.getByRole('heading', { name: 'Comparaison de deux essais' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Temps total' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tokens d’entrée' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tokens générés' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Temps et tokens par modèle / étape' })).toBeVisible();
+  await expect(page.getByText('Essai A')).toBeVisible();
+  await expect(page.getByText('Essai B')).toBeVisible();
+});
