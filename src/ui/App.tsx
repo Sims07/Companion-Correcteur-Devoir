@@ -1277,7 +1277,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
               const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
               return <li key={item.criterionId}><span><strong>{criterion?.title ?? item.criterionId}</strong><small>{item.rationale}</small><small>Preuve : {item.evidence || 'Aucune preuve textuelle fournie'}</small><small className={item.confidence === 'low' ? 'diagnostic-confidence low' : 'diagnostic-confidence'}>Confiance déclarée : {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</small></span><strong>{item.points} / {criterion?.maxPoints ?? 0}</strong></li>;
             })}</ul>
-            {parsed.questionsForTeacher.length > 0 && <div className="diagnostic-questions"><strong>Points nécessitant un arbitrage humain</strong><ul>{parsed.questionsForTeacher.map((question, questionIndex) => <li key={questionIndex}>{question}</li>)}</ul></div></> : <><p className="diagnostic-raw-warning">La sortie n’a pas pu être interprétée comme une correction structurée. Elle ne doit pas être considérée comme une note exploitable.</p><pre>{run.raw}</pre></>}
+            {parsed.questionsForTeacher.length > 0 && <div className="diagnostic-questions"><strong>Points nécessitant un arbitrage humain</strong><ul>{parsed.questionsForTeacher.map((question, questionIndex) => <li key={questionIndex}>{question}</li>)}</ul></div>}</> : <><p className="diagnostic-raw-warning">La sortie n’a pas pu être interprétée comme une correction structurée. Elle ne doit pas être considérée comme une note exploitable.</p><pre>{run.raw}</pre></>}
           </details>;
         })}</div>
         </>}
