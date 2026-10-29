@@ -68,7 +68,7 @@ test('diagnostic history exposes per-model time and Ollama token usage', async (
   await expect(page.getByText('Tokens mesurés (entrée + sortie)')).toBeVisible();
 
   await page.getByText('2 groupe(s) modèle / étape').click();
-  await expect(page.getByText('qwen3.5:4b')).toBeVisible();
-  await expect(page.getByText('gemma3:4b')).toBeVisible();
+  await expect(page.getByText('qwen3.5:4b').first()).toBeVisible();
+  await expect(page.getByText('gemma3:4b').first()).toBeVisible();
   await expect(page.getByText(/Tokens d’entrée : 1\s?000/)).toBeVisible();
 });
