@@ -259,6 +259,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
   const [currentTimingRecordId, setCurrentTimingRecordId] = useState<string | null>(null);
+  const [selectedComparisonIds, setSelectedComparisonIds] = useState<string[]>([]);
   const [referenceScoreInputs, setReferenceScoreInputs] = useState<Record<string, string>>({});
   const [referenceMessage, setReferenceMessage] = useState('');
   const [streamedOutput, setStreamedOutput] = useState('');
@@ -1305,7 +1306,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       {interfaceMode === 'diagnostic' && timingHistory.length > 0 && <section className="timing-history" aria-labelledby="timing-history-title">
         <div className="timing-history-heading">
           <div><p className="eyebrow">EXPÉRIENCES CONSERVÉES</p><h2 id="timing-history-title">Historique des essais</h2><p>Comparez les durées, les modèles et les notes obtenues sur vos précédentes expériences. L’historique reste sur cet appareil.</p></div>
-          <button type="button" className="text-button" onClick={() => { setTimingHistory([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button>
+          <button type="button" className="text-button" onClick={() => { setTimingHistory([]); setSelectedComparisonIds([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button>
         </div>
         {(() => {
           const allRuns = timingHistory.flatMap((item) => item.diagnosticRuns ?? []);
@@ -1322,12 +1323,63 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
             <div><span>Vitesse de génération pondérée</span><strong>{generationMs > 0 ? (generatedTokens / (generationMs / 1000)).toFixed(2).replace('.', ',') + ' tokens/s' : '—'}</strong></div>
           </div>;
         })()}
+        {(() => {
+          const selectedComparisons = timingHistory.filter((item) => selectedComparisonIds.includes(item.id)).slice(0, 2);
+          if (selectedComparisons.length < 2) return <section className="diagnostic-comparison-panel" aria-labelledby="diagnostic-comparison-title">
+            <div className="diagnostic-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h3 id="diagnostic-comparison-title">Comparer deux essais</h3><p>Sélectionnez deux lignes de l’historique pour comparer les performances et les consommations côte à côte.</p></div><span className="diagnostic-comparison-count">{selectedComparisons.length}/2 sélectionné(s)</span></div>
+            <p className="diagnostic-comparison-empty">{selectedComparisons.length === 0 ? 'Cochez deux essais dans le tableau ci-dessous pour afficher les graphiques.' : 'Encore un essai à sélectionner pour afficher les graphiques.'}</p>
+          </section>;
+          const usageFor = (record: TimingRecord) => {
+            const runs = record.diagnosticRuns ?? [];
+            return {
+              prompt: runs.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0),
+              generated: runs.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0),
+              total: runs.reduce((sum, run) => sum + (run.totalTokens ?? 0), 0),
+              groups: groupDiagnosticUsage(runs),
+            };
+          };
+          const usage = selectedComparisons.map((record) => usageFor(record));
+          const metrics = [
+            { key: 'duration', label: 'Temps total', unit: 's', values: selectedComparisons.map((record) => record.totalSeconds), display: (value: number | null) => value === null ? '—' : formatElapsed(value) },
+            { key: 'prompt', label: 'Tokens d’entrée', unit: 'tokens', values: usage.map((item) => item.prompt), display: (value: number | null) => value === null ? '—' : formatTokenCount(value) },
+            { key: 'generated', label: 'Tokens générés', unit: 'tokens', values: usage.map((item) => item.generated), display: (value: number | null) => value === null ? '—' : formatTokenCount(value) },
+            { key: 'score', label: 'Note proposée', unit: 'points', values: selectedComparisons.map((record) => record.modelScore), display: (value: number | null) => value === null ? 'Non disponible' : String(value) },
+          ];
+          const allGroups = usage.flatMap((item, index) => item.groups.map((group) => ({ ...group, runIndex: index })));
+          const maxGroupElapsed = Math.max(1, ...allGroups.map((group) => group.elapsedMs));
+          const maxGroupTokens = Math.max(1, ...allGroups.map((group) => group.promptTokens + group.generatedTokens));
+          return <section className="diagnostic-comparison-panel" aria-labelledby="diagnostic-comparison-title">
+            <div className="diagnostic-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h3 id="diagnostic-comparison-title">Comparaison de deux essais</h3><p>Les barres partagent la même échelle au sein de chaque graphique. Les valeurs indisponibles restent distinctes de zéro.</p></div><button type="button" className="text-button" onClick={() => setSelectedComparisonIds([])}>Réinitialiser la sélection</button></div>
+            <div className="diagnostic-comparison-legend">{selectedComparisons.map((record, index) => <div key={record.id}><span className={index === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><span><strong>Essai {index === 0 ? 'A' : 'B'}</strong><small>{record.visionModel} / {record.analysisModel} · {new Date(record.completedAt).toLocaleString()}</small></span></div>)}</div>
+            <div className="diagnostic-comparison-charts">{metrics.map((metric) => {
+              const values = metric.values.map((value) => typeof value === 'number' && Number.isFinite(value) ? value : null);
+              const max = Math.max(1, ...values.map((value) => value ?? 0));
+              return <article className="diagnostic-comparison-chart" key={metric.key}>
+                <h4>{metric.label}</h4>
+                {values.map((value, index) => <div className="diagnostic-comparison-bar-row" key={selectedComparisons[index].id}>
+                  <div className="diagnostic-comparison-bar-label"><span>Essai {index === 0 ? 'A' : 'B'}</span><strong>{metric.display(value)}</strong></div>
+                  <div className="diagnostic-comparison-track" role="img" aria-label={`Essai ${index === 0 ? 'A' : 'B'} : ${metric.display(value)}`}><span className={index === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: value === null ? '0%' : `${Math.max(value > 0 ? 2 : 0, value / max * 100)}%` }} /></div>
+                </div>)}
+              </article>;
+            })}</div>
+            <div className="diagnostic-comparison-stage">
+              <div><h4>Temps et tokens par modèle / étape</h4><p>Chaque barre de temps utilise la même échelle entre les deux essais. Les appels sans métriques Ollama restent signalés.</p></div>
+              {allGroups.length === 0 ? <p className="diagnostic-comparison-empty">Aucun détail par modèle enregistré dans ces essais.</p> : <div className="diagnostic-comparison-models">{allGroups.map((group, index) => <article key={selectedComparisons[group.runIndex].id + group.stage + group.model + index}>
+                <div className="diagnostic-comparison-model-heading"><span className={group.runIndex === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><strong>Essai {group.runIndex === 0 ? 'A' : 'B'} · {group.model}</strong><small>{diagnosticStageLabel(group.stage)} · {group.calls} appel(s)</small></div>
+                <div className="diagnostic-comparison-bar-label"><span>Temps cumulé</span><strong>{formatElapsed(Math.round(group.elapsedMs / 1000))}</strong></div>
+                <div className="diagnostic-comparison-track" role="img" aria-label={`Temps ${group.model} ${diagnosticStageLabel(group.stage)} : ${formatElapsed(Math.round(group.elapsedMs / 1000))}`}><span className={group.runIndex === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: `${group.elapsedMs / maxGroupElapsed * 100}%` }} /></div>
+                <div className="diagnostic-comparison-bar-label"><span>Tokens entrée + sortie</span><strong>{group.measuredCalls ? formatTokenCount(group.promptTokens + group.generatedTokens) : 'Non mesurés'}</strong></div>
+                <div className="diagnostic-comparison-track" role="img" aria-label={`Tokens ${group.model} ${diagnosticStageLabel(group.stage)} : ${group.measuredCalls ? formatTokenCount(group.promptTokens + group.generatedTokens) : 'non mesurés'}`}><span className={group.runIndex === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: group.measuredCalls ? `${(group.promptTokens + group.generatedTokens) / maxGroupTokens * 100}%` : '0%' }} /></div>
+              </article>)}</div>}
+            </div>
+          </section>;
+        })()}
         <p className="hint">Les tokens sont les compteurs remontés par Ollama : entrée (prompt), sortie (générés) et total lorsqu’ils sont disponibles. Le temps par modèle correspond à la durée murale des appels, tandis que le temps de génération et de chargement sont des métriques Ollama. Les anciennes expériences sans ces métadonnées restent consultables, mais ne peuvent pas être recalculées.</p>
         <div className="timing-history-table-wrap">
           <table className="timing-history-table">
-            <thead><tr><th scope="col">Date</th><th scope="col">Modèles (lecture / analyse)</th><th scope="col">Lecture</th><th scope="col">Analyse</th><th scope="col">Total</th><th scope="col">Tokens consommés</th><th scope="col">Usage par modèle</th><th scope="col">Note du modèle</th><th scope="col">Résultat</th></tr></thead>
+            <thead><tr><th scope="col">Comparer</th><th scope="col">Date</th><th scope="col">Modèles (lecture / analyse)</th><th scope="col">Lecture</th><th scope="col">Analyse</th><th scope="col">Total</th><th scope="col">Tokens consommés</th><th scope="col">Usage par modèle</th><th scope="col">Note du modèle</th><th scope="col">Résultat</th></tr></thead>
             <tbody>{timingHistory.map((item) => { const runs = item.diagnosticRuns ?? []; const usage = groupDiagnosticUsage(runs); const measured = runs.filter((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined); const promptTokens = runs.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0); const generatedTokens = runs.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0); const totalTokens = runs.reduce((sum, run) => sum + (run.totalTokens ?? 0), 0); return <tr key={item.id}>
-              <td>{new Date(item.completedAt).toLocaleString()}</td>
+              <td><input type="checkbox" className="diagnostic-comparison-checkbox" aria-label={`Sélectionner l’essai ${item.visionModel} / ${item.analysisModel} pour comparaison`} checked={selectedComparisonIds.includes(item.id)} disabled={!selectedComparisonIds.includes(item.id) && selectedComparisonIds.length >= 2} onChange={(event) => setSelectedComparisonIds((current) => event.target.checked ? (current.length < 2 ? [...current, item.id] : current) : current.filter((id) => id !== item.id))} /></td><td>{new Date(item.completedAt).toLocaleString()}</td>
               <td><strong>{item.visionModel || '—'}</strong><small>{item.analysisModel || '—'}{item.thinking ? ' · thinking' : ''}</small><small>{item.pageCount} page(s) · {item.correctionMode === 'separate' ? 'sujet séparé' : 'questions intégrées'}</small></td>
               <td>{item.readingSeconds === null ? 'Réutilisée / non mesurée' : formatElapsed(item.readingSeconds)}</td>
               <td>{item.analysisSeconds === null ? 'Non mesurée' : formatElapsed(item.analysisSeconds)}</td>
