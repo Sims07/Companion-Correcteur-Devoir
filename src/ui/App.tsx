@@ -855,8 +855,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       {interfaceMode === 'diagnostic' && <section className="welcome">
         <div className="welcome-copy">
           <p className="eyebrow">ESPACE DE DIAGNOSTIC · IA LOCALE</p>
-          <h2>Comprendre les résultats.<br /><em>Affiner les réglages IA.</em></h2>
-          <p className="intro">Accédez aux réglages Ollama, aux modèles et aux sorties de diagnostic pour analyser le comportement de l’assistant. Les copies restent traitées par le serveur configuré.</p>
+          <h2>Quel modèle corrige le mieux vos copies&nbsp;?</h2>
+          <p className="intro">Construisez une expérience reproductible, comparez les corrections produites par vos modèles locaux et examinez leurs écarts avant de choisir celui qui convient à vos devoirs.</p>
         </div>
         <div className="illustration" aria-hidden="true"><div className="paper"><span /><span /><span /><b>✓</b></div><div className="leaf leaf-one" /><div className="leaf leaf-two" /></div>
       </section>}
@@ -866,6 +866,18 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         <div><strong>Traitement local, sans repli cloud</strong><p>Les fichiers sont lus et préparés dans votre navigateur, puis envoyés uniquement à l’adresse Ollama que vous configurez. Aucun stockage distant ni envoi vers un fournisseur cloud n’est prévu.</p></div>
         <span className="privacy-status">OLLAMA LOCAL</span>
       </section>}
+
+      {interfaceMode === 'diagnostic' && <nav className="diagnostic-journey" aria-label="Parcours d’évaluation des modèles">
+        <button type="button" className="diagnostic-journey-step" onClick={() => document.getElementById('diagnostic-experiment-setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+          <span className="diagnostic-journey-number">1</span><span><strong>Préparer l’expérience</strong><small>Barème, copie et modèles</small></span><span aria-hidden="true">↓</span>
+        </button>
+        <button type="button" className="diagnostic-journey-step" onClick={() => document.getElementById('diagnostic-results-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+          <span className="diagnostic-journey-number">2</span><span><strong>Analyser les résultats</strong><small>Notes, écarts et preuves</small></span><span aria-hidden="true">↓</span>
+        </button>
+        <button type="button" className="diagnostic-journey-step" disabled={timingHistory.length === 0} onClick={() => document.getElementById('timing-history-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+          <span className="diagnostic-journey-number">3</span><span><strong>Comparer dans le temps</strong><small>{timingHistory.length} expérience(s) locale(s)</small></span><span aria-hidden="true">↓</span>
+        </button>
+      </nav>}
 
       {interfaceMode === 'teacher' && showAiSettings && <section className={`panel ollama-panel teacher-model-panel ai-settings-view ${visionModel.trim() && analysisModel.trim() ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
         <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DU POSTE</p><h2 id="teacher-model-title">Paramètres de l’IA locale</h2></div><span className="step-count">OLLAMA</span></div>
@@ -929,7 +941,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       </>}
 
       {(interfaceMode === 'diagnostic' || teacherStep === 'rubric') && <>
-      <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 SUR 3' : 'ÉTAPE 1'}</p><h2>Préparer le barème de correction</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
+      <div id={interfaceMode === 'diagnostic' ? 'diagnostic-experiment-setup' : undefined} className="workspace-heading diagnostic-setup-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 SUR 3' : 'EXPÉRIENCE · ÉTAPE 1'}</p><h2>Préparer le barème de correction</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
       <section className="panel rubric-editor">
         <div className="rubric-assignment-context"><span className="eyebrow">BARÈME ASSOCIÉ AU DEVOIR</span><strong>{assignmentTitle.trim() || 'Devoir sans titre'}</strong><p>Vous pouvez donner au barème un nom différent de celui du devoir.</p></div>
         <label className="field-label" htmlFor="rubric-title">Nom du barème (distinct du devoir)</label>
@@ -1096,8 +1108,13 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
 
       {interfaceMode === 'diagnostic' && transcription && diagnosticRuns.filter((run) => run.kind === 'model').length === 2 && <button type="button" className="secondary-button full-button" disabled={busy || !arbitratorModel.trim()} onClick={() => void gradeCopies('arbitrate-only')}>Relancer uniquement l’arbitrage avec les deux avis enregistrés</button>}
 
-      {interfaceMode === 'diagnostic' && diagnosticRuns.length > 0 && <section className="panel diagnostic-results" aria-labelledby="diagnostic-results-title">
+      {interfaceMode === 'diagnostic' && <section className="panel diagnostic-results" aria-labelledby="diagnostic-results-title">
         <div className="panel-heading"><span className="number">IA</span><div><h3 id="diagnostic-results-title">Résultats de l’expérience multi-modèles</h3><p>Notes et temps mesurés sur cette copie. Les sorties sont conservées dans cette vue locale.</p></div></div>
+        {diagnosticRuns.length === 0 ? <div className="diagnostic-empty-state">
+          <span className="diagnostic-empty-icon" aria-hidden="true">↗</span>
+          <div><h4>Aucun résultat pour le moment</h4><p>Préparez le barème et importez une copie, puis lancez une analyse. Les résultats des modèles apparaîtront ici pour cette même copie et cette même consigne.</p></div>
+          <button type="button" className="secondary-button" onClick={() => document.getElementById('diagnostic-experiment-setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Préparer une expérience</button>
+        </div> : <>
         {(() => {
           const independent = diagnosticRuns.filter((run) => run.kind === 'model');
           if (independent.length !== 2) return null;
@@ -1130,6 +1147,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
             {parsed.questionsForTeacher.length > 0 && <div className="diagnostic-questions"><strong>Points nécessitant un arbitrage humain</strong><ul>{parsed.questionsForTeacher.map((question, questionIndex) => <li key={questionIndex}>{question}</li>)}</ul></div>}</> : <><p className="diagnostic-raw-warning">La sortie n’a pas pu être interprétée comme une correction structurée. Elle ne doit pas être considérée comme une note exploitable.</p><pre>{run.raw}</pre></>}
           </details>;
         })}</div>
+        </>}
       </section>}
 
       {(interfaceMode === 'diagnostic' || teacherStep === 'copy') && (transcription || (correctionMode === 'separate' && subjectTranscription)) && <section className="transcription-review" aria-labelledby="transcription-review-title">
@@ -1153,7 +1171,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
 
       {interfaceMode === 'diagnostic' && timingHistory.length > 0 && <section className="timing-history" aria-labelledby="timing-history-title">
         <div className="timing-history-heading">
-          <div><p className="eyebrow">PERFORMANCES LOCALES</p><h2 id="timing-history-title">Temps des dernières corrections</h2><p>Historique conservé uniquement sur cet appareil pour comparer les modèles et réglages.</p></div>
+          <div><p className="eyebrow">EXPÉRIENCES CONSERVÉES</p><h2 id="timing-history-title">Historique des essais</h2><p>Comparez les durées, les modèles et les notes obtenues sur vos précédentes expériences. L’historique reste sur cet appareil.</p></div>
           <button type="button" className="text-button" onClick={() => { setTimingHistory([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button>
         </div>
         <div className="timing-history-table-wrap">
