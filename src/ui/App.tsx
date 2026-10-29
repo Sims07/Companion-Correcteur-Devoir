@@ -1295,18 +1295,36 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           <div><p className="eyebrow">EXPÉRIENCES CONSERVÉES</p><h2 id="timing-history-title">Historique des essais</h2><p>Comparez les durées, les modèles et les notes obtenues sur vos précédentes expériences. L’historique reste sur cet appareil.</p></div>
           <button type="button" className="text-button" onClick={() => { setTimingHistory([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button>
         </div>
+        {(() => {
+          const allRuns = timingHistory.flatMap((item) => item.diagnosticRuns ?? []);
+          const measuredRuns = allRuns.filter((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined);
+          const models = [...new Set(allRuns.map((run) => run.model))];
+          const promptTokens = measuredRuns.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0);
+          const generatedTokens = measuredRuns.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0);
+          const elapsedMs = allRuns.reduce((sum, run) => sum + run.elapsedMs, 0);
+          const generationMs = measuredRuns.reduce((sum, run) => sum + (run.generationMs ?? 0), 0);
+          return <div className="diagnostic-usage-overview" aria-label="Synthèse de consommation des modèles">
+            <div><span>Modèles observés</span><strong>{models.length}</strong></div>
+            <div><span>Temps cumulé des appels</span><strong>{formatElapsed(Math.round(elapsedMs / 1000))}</strong></div>
+            <div><span>Tokens mesurés (entrée + sortie)</span><strong>{formatTokenCount(promptTokens + generatedTokens)}</strong><small>{measuredRuns.length}/{allRuns.length} appels mesurés</small></div>
+            <div><span>Vitesse de génération pondérée</span><strong>{generationMs > 0 ? (generatedTokens / (generationMs / 1000)).toFixed(2).replace('.', ',') + ' tokens/s' : '—'}</strong></div>
+          </div>;
+        })()}
+        <p className="hint">Les tokens sont les compteurs remontés par Ollama : entrée (prompt), sortie (générés) et total lorsqu’ils sont disponibles. Le temps par modèle correspond à la durée murale des appels, tandis que le temps de génération et de chargement sont des métriques Ollama. Les anciennes expériences sans ces métadonnées restent consultables, mais ne peuvent pas être recalculées.</p>
         <div className="timing-history-table-wrap">
           <table className="timing-history-table">
-            <thead><tr><th scope="col">Date</th><th scope="col">Modèles (lecture / analyse)</th><th scope="col">Lecture</th><th scope="col">Analyse</th><th scope="col">Total</th><th scope="col">Note du modèle</th><th scope="col">Résultat</th></tr></thead>
-            <tbody>{timingHistory.map((item) => <tr key={item.id}>
+            <thead><tr><th scope="col">Date</th><th scope="col">Modèles (lecture / analyse)</th><th scope="col">Lecture</th><th scope="col">Analyse</th><th scope="col">Total</th><th scope="col">Tokens consommés</th><th scope="col">Usage par modèle</th><th scope="col">Note du modèle</th><th scope="col">Résultat</th></tr></thead>
+            <tbody>{timingHistory.map((item) => { const runs = item.diagnosticRuns ?? []; const usage = groupDiagnosticUsage(runs); const measured = runs.filter((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined); const promptTokens = runs.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0); const generatedTokens = runs.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0); const totalTokens = runs.reduce((sum, run) => sum + (run.totalTokens ?? 0), 0); return <tr key={item.id}>
               <td>{new Date(item.completedAt).toLocaleString()}</td>
               <td><strong>{item.visionModel || '—'}</strong><small>{item.analysisModel || '—'}{item.thinking ? ' · thinking' : ''}</small><small>{item.pageCount} page(s) · {item.correctionMode === 'separate' ? 'sujet séparé' : 'questions intégrées'}</small></td>
               <td>{item.readingSeconds === null ? 'Réutilisée / non mesurée' : formatElapsed(item.readingSeconds)}</td>
               <td>{item.analysisSeconds === null ? 'Non mesurée' : formatElapsed(item.analysisSeconds)}</td>
               <td><strong>{formatElapsed(item.totalSeconds)}</strong></td>
+              <td>{measured.length ? <><span>Entrée : {formatTokenCount(promptTokens)}</span><small>Générés : {formatTokenCount(generatedTokens)} · Total : {formatTokenCount(totalTokens)}</small><small>{measured.length}/{runs.length} appel(s) avec métriques</small></> : 'Non fournis par Ollama pour cet essai'}</td>
+              <td>{usage.length ? <details className="diagnostic-usage-details"><summary>{usage.length} groupe(s) modèle / étape</summary><div className="diagnostic-usage-groups">{usage.map((group) => <section key={group.stage + group.model}><strong>{group.model}</strong><span>{diagnosticStageLabel(group.stage)} · {group.calls} appel(s)</span><small>Temps cumulé : {formatElapsed(Math.round(group.elapsedMs / 1000))}</small><small>Tokens d’entrée : {formatTokenCount(group.promptTokens)} · générés : {formatTokenCount(group.generatedTokens)} · total : {formatTokenCount(group.totalTokens)}</small><small>Mesures de tokens disponibles : {group.measuredCalls}/{group.calls} appel(s)</small><small>Vitesse de génération : {group.generationMs > 0 && group.generatedTokens > 0 ? (group.generatedTokens / (group.generationMs / 1000)).toFixed(2).replace('.', ',') + ' tokens/s' : 'Non mesurée'} · Chargement : {group.loadMs > 0 ? formatElapsed(Math.round(group.loadMs / 1000)) : 'Non mesuré'}</small></section>)}</div></details> : 'Aucun détail de consommation enregistré'}</td>
               <td>{item.modelScore === null ? '—' : <details className="diagnostic-score-details"><summary><strong>{item.modelScore} / {item.criterionScores.reduce((sum, criterion) => sum + criterion.maxPoints, 0)}</strong><span>Détail par barème</span></summary>{item.criterionScores.length > 0 ? <ul>{item.criterionScores.map((criterion) => <li key={criterion.criterionId}><span>{criterion.title}</span><strong>{criterion.points} / {criterion.maxPoints}</strong></li>)}</ul> : <small>Aucun détail de critère enregistré.</small>}{(item.diagnosticRuns ?? []).length > 0 && <div className="diagnostic-history-runs"><strong>Essai multi-modèles · {item.diagnosticStrategy === 'arbitrate' ? 'avec arbitre' : item.diagnosticStrategy === 'compare' ? 'comparaison' : 'modèle unique'}</strong>{(item.diagnosticRuns ?? []).map((run, index) => { const parsed = safeDiagnosticProposal(run.raw, rubric); const total = parsed?.criteria.reduce((sum, criterion) => sum + criterion.points, 0); return <div key={run.kind + run.model + index}><span>{run.kind === 'arbitrator' ? 'Arbitre' : 'Avis'} · {run.model}</span><strong>{total === undefined ? 'Sortie non exploitable' : total + ' / ' + validation.maximumPoints}</strong><small>{formatElapsed(Math.round(run.elapsedMs / 1000))}</small>{parsed && <ul>{parsed.criteria.map((criterion) => <li key={criterion.criterionId}><span>{rubric.criteria.find((entry) => entry.id === criterion.criterionId)?.title ?? criterion.criterionId}</span><strong>{criterion.points} / {rubric.criteria.find((entry) => entry.id === criterion.criterionId)?.maxPoints ?? 0}</strong></li>)}</ul>}</div>; })}</div>}</details>}</td>
               <td><span className={item.outcome === 'success' ? 'timing-outcome success' : 'timing-outcome error'}>{item.outcome === 'success' ? 'Terminée' : 'Échec'}</span></td>
-            </tr>)}</tbody>
+            </tr>; })}</tbody>
           </table>
         </div>
         <p className="hint">Les durées sont arrondies à la seconde. Une lecture déjà en mémoire n’est pas comptée comme une nouvelle lecture ; le temps de vérification d’Ollama est inclus dans le total, pas dans les durées des étapes.</p>
