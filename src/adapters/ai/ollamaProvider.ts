@@ -512,7 +512,7 @@ export async function importRubricImageWithOllama(
   if (payload.error) throw new Error('Ollama signale une erreur pendant l’extraction du barème.');
   const content = payload.message?.content;
   if (!content?.trim()) throw new Error('Le modèle de vision n’a retourné aucun barème.');
-  onProgress?.({ stage: 'parsing', page: 1, totalPages: 1, message: 'Réponse du modèle reçue : validation du JSON et des critères…' });
+  onProgress?.({ stage: 'parsing', page: 1, totalPages: 1, message: 'Réponse du modèle reçue : validation du JSON et des critères…', rawResponse: content });
   let parsed: unknown;
   try { parsed = JSON.parse(content); }
   catch { throw new Error('La sortie du modèle de vision n’est pas un JSON valide. Vérifiez le barème ou essayez un autre modèle compatible.'); }
