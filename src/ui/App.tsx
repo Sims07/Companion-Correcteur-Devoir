@@ -1266,7 +1266,90 @@ export function App({ service, archiveService, evaluationService }: { service: C
         <section className="transcription-review"><h3>Dernière réponse reçue en streaming</h3>{streamedOutput ? <pre>{streamedOutput}</pre> : <p className="hint">Aucune réponse en streaming disponible.</p>}</section>
         <section className="transcription-review"><h3>Sorties brutes des modèles ({diagnosticRuns.length})</h3>{diagnosticRuns.length ? diagnosticRuns.map((run, index) => <details key={run.kind + run.model + index} className="rubric-import-raw-response"><summary>{run.model} · {run.kind} · {formatElapsed(Math.round(run.elapsedMs / 1000))}</summary><pre>{run.raw}</pre></details>) : <p className="hint">Aucune trace technique enregistrée. Lancez une expérience dans « Évaluation des modèles » puis revenez ici pour examiner les réponses brutes.</p>}</section>
         <section className="transcription-review debug-evaluation-traces"><h3>Traces des évaluations indépendantes ({modelEvaluationResults.length})</h3>{modelEvaluationResults.length ? modelEvaluationResults.map((result) => <details key={result.profileId} className="rubric-import-raw-response"><summary>{result.profileName} · {result.status} · {formatElapsed(Math.round(result.elapsedMs / 1000))}</summary><p>Lecture : {result.readingMs ? formatElapsed(Math.round(result.readingMs / 1000)) : '—'} · Analyse : {result.analysisMs ? formatElapsed(Math.round(result.analysisMs / 1000)) : '—'} · Tokens : {result.tokens === null ? 'non mesurés' : formatTokenCount(result.tokens)}</p>{result.error && <p className="validation" role="alert">{result.error}</p>}{result.transcription && <><h4>Transcription</h4><pre>{result.transcription}</pre></>}{result.raw && <><h4>Réponse brute</h4><pre>{result.raw}</pre></>}</details>) : <p className="hint">Les réponses brutes des expériences indépendantes apparaîtront ici après un lancement dans Évaluation des modèles.</p>}</section>
-      </section> : (interfaceMode === 'diagnostic' || !showAiSettings) && <>      {interfaceMode === 'teacher' && teacherStep === 'archive' && <section className="correction-archive" aria-labelledby="correction-archive-title">
+            {interfaceMode === 'debug' && transcription && diagnosticRuns.filter((run) => run.kind === 'model').length === 2 && <button type="button" className="secondary-button full-button" disabled={busy || !arbitratorModel.trim()} onClick={() => void gradeCopies('arbitrate-only')}>Relancer uniquement l’arbitrage avec les deux avis enregistrés</button>}
+
+      {interfaceMode === 'debug' && <section className="panel diagnostic-results" aria-labelledby="diagnostic-results-title">
+        <div className="panel-heading"><span className="number">IA</span><div><h3 id="diagnostic-results-title">Résultats de l’expérience multi-modèles</h3><p>Notes et temps mesurés sur cette copie. Les sorties sont conservées dans cette vue locale.</p></div></div>
+        {diagnosticRuns.length === 0 ? <div className="diagnostic-empty-state">
+          <span className="diagnostic-empty-icon" aria-hidden="true">↗</span>
+          <div><h4>Aucun résultat pour le moment</h4><p>Préparez le barème et importez une copie, puis lancez une analyse. Les résultats des modèles apparaîtront ici pour cette même copie et cette même consigne.</p><p className="diagnostic-reference-optional-note">Pas encore de correction de référence validée ? Aucun problème : comparez les modèles dès maintenant et ajoutez une référence plus tard si vous le souhaitez.</p></div>
+          <button type="button" className="secondary-button" onClick={() => document.getElementById('diagnostic-experiment-setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Préparer une expérience</button>
+        </div> : <>
+        {(() => {
+          const independent = diagnosticRuns.filter((run) => run.kind === 'model');
+          if (independent.length !== 2) return null;
+          const first = safeDiagnosticProposal(independent[0].raw, rubric);
+          const second = safeDiagnosticProposal(independent[1].raw, rubric);
+          if (!first || !second) return <p className="hint">Impossible de comparer les notes automatiquement : au moins une sortie intermédiaire ne respecte pas le format de correction attendu. Consultez les sorties brutes ci-dessous.</p>;
+          const comparison = compareDiagnosticProposals(first, second, rubric);
+          return <div className="diagnostic-comparison-summary">
+            <div className="diagnostic-total"><span>{independent[0].model}</span><strong>{comparison.firstTotal} / {validation.maximumPoints}</strong></div>
+            <div className="diagnostic-total"><span>{independent[1].model}</span><strong>{comparison.secondTotal} / {validation.maximumPoints}</strong></div>
+            <p className="hint">Écart total : {comparison.totalDifference > 0 ? '+' : ''}{comparison.totalDifference} point(s) pour le second modèle. {comparison.disagreements.length} critère(s) avec des notes différentes.</p>
+            {comparison.disagreements.length > 0 && <ul className="diagnostic-disagreements">{comparison.disagreements.map((item) => <li key={item.criterionId}><span>{item.title}</span><strong>{item.firstPoints} → {item.secondPoints} / {item.maxPoints}</strong></li>)}</ul>}
+          </div>;
+        })()}
+        {(() => {
+          const savedReference = timingHistory.find((record) => record.id === currentTimingRecordId)?.referenceScores;
+          const reference = savedReference && validateDiagnosticReference(savedReference, rubric).valid ? savedReference : null;
+          const modelRuns = diagnosticRuns.filter((run) => run.kind === 'model' || run.kind === 'arbitrator');
+          const comparisons = reference ? modelRuns.map((run) => {
+            const parsed = safeDiagnosticProposal(run.raw, rubric);
+            if (!parsed) return { run, comparison: null };
+            return { run, comparison: compareWithDiagnosticReference(buildDiagnosticScore(parsed, rubric).criterionScores, reference, rubric) };
+          }) : [];
+          return <section className="diagnostic-reference" aria-labelledby="diagnostic-reference-title">
+            <div className="diagnostic-reference-heading">
+              <div><h4 id="diagnostic-reference-title">Correction de référence <span>(facultative)</span></h4><p>Tu peux évaluer les modèles tout de suite. Quand tu disposes d’une correction validée par le professeur, saisis les points attribués à chaque critère pour mesurer l’écart réel. Cette référence reste sur cet appareil.</p></div>
+            </div>
+            <div className="diagnostic-reference-fields">{rubric.criteria.map((criterion) => <label className="diagnostic-reference-field" key={criterion.id}>
+              <span>{criterion.title}<small>Sur {criterion.maxPoints} point(s)</small></span>
+              <input type="number" min="0" max={criterion.maxPoints} step="0.25" inputMode="decimal" aria-label={`Note de référence — ${criterion.title}`} value={referenceScoreInputs[criterion.id] ?? savedReference?.find((score) => score.criterionId === criterion.id)?.points.toString() ?? ''} onChange={(event) => setReferenceScoreInputs((current) => ({ ...current, [criterion.id]: event.target.value }))} />
+            </label>)}</div>
+            <div className="diagnostic-reference-actions"><button type="button" className="secondary-button" disabled={!currentTimingRecordId || !rubric.criteria.length} onClick={saveDiagnosticReference}>Enregistrer la référence</button>{savedReference && <button type="button" className="text-button" onClick={clearDiagnosticReference}>Retirer cette référence</button>}</div>
+            <p className={referenceMessage.startsWith('Correction de référence enregistrée') ? 'diagnostic-reference-message success' : 'diagnostic-reference-message'} role="status">{referenceMessage || 'Aucune référence n’est nécessaire pour lancer ou comparer des essais.'}</p>
+            {reference && <div className="diagnostic-reference-comparisons"><h5>Écart par rapport à la référence validée</h5><p className="hint">L’erreur absolue moyenne est calculée en points par critère ; plus elle est faible, plus les notes sont proches. Elle ne remplace pas la vérification pédagogique.</p>
+              {comparisons.map(({ run, comparison }) => <div className="diagnostic-reference-comparison" key={run.kind + run.model}>
+                <strong>{run.kind === 'arbitrator' ? 'Arbitre' : 'Modèle'} · {run.model}</strong>
+                {comparison ? <span>Erreur moyenne : <b>{comparison.meanAbsoluteError} pt</b> · Correspondances exactes : <b>{comparison.exactMatches}/{comparison.comparedCriteria}</b> · Écart de note totale : <b>{comparison.absoluteTotalError} pt</b></span> : <span>Non comparable : sortie structurée indisponible.</span>}
+              </div>)}
+            </div>}
+          </section>;
+        })()}
+        <div className="diagnostic-run-list">{diagnosticRuns.map((run, index) => {
+          const parsed = run.kind === 'vision' ? null : safeDiagnosticProposal(run.raw, rubric);
+          const total = parsed?.criteria.reduce((sum, item) => sum + item.points, 0);
+          return <details className="diagnostic-run" key={run.kind + run.model + index}>
+            <summary><span><strong>{run.kind === 'vision' ? 'Lecture / transcription' : run.kind === 'arbitrator' ? 'Arbitre' : 'Avis indépendant'} · {run.model}</strong><small>{run.kind === 'vision' ? 'Lecture locale de la page' : run.kind === 'arbitrator' ? 'Synthèse finale' : 'Correction indépendante'}{total === undefined ? '' : ' · Note : ' + total + ' / ' + validation.maximumPoints}</small></span><strong>{formatElapsed(Math.round(run.elapsedMs / 1000))}</strong></summary>
+            {run.kind === 'vision' ? <div className="diagnostic-run-metrics diagnostic-usage-run-metrics" aria-label={`Consommation de ${run.model}`}>
+              <div><span>Tokens d’entrée</span><strong>{formatTokenCount(run.promptTokens)}</strong></div>
+              <div><span>Tokens générés</span><strong>{formatTokenCount(run.generatedTokens)}</strong></div>
+              <div><span>Total de tokens</span><strong>{formatTokenCount(run.totalTokens)}</strong></div>
+              <div><span>Vitesse de génération</span><strong>{run.tokensPerSecond === undefined ? '—' : run.tokensPerSecond.toFixed(2).replace('.', ',') + ' tokens/s'}</strong></div>
+              <div><span>Chargement du modèle</span><strong>{run.loadMs === undefined ? '—' : formatElapsed(Math.round(run.loadMs / 1000))}</strong></div>
+              <div><span>Prétraitement du prompt</span><strong>{run.promptEvaluationMs === undefined ? '—' : formatElapsed(Math.round(run.promptEvaluationMs / 1000))}</strong></div>
+            </div> : <div className="diagnostic-run-metrics" aria-label={`Indicateurs de qualité pour ${run.model}`}>
+              <div><span>Format exploitable</span><strong className={parsed ? 'metric-good' : 'metric-warning'}>{parsed ? 'Oui' : 'Non'}</strong></div>
+              <div><span>Critères évalués</span><strong>{parsed ? parsed.criteria.length : 0} / {rubric.criteria.length}</strong></div>
+              <div><span>Confiance moyenne déclarée</span><strong>{parsed && parsed.criteria.length ? Math.round(parsed.criteria.reduce((sum, item) => sum + (item.confidence === 'high' ? 3 : item.confidence === 'medium' ? 2 : 1), 0) / parsed.criteria.length * 100 / 3) : '—'}{parsed && parsed.criteria.length ? ' %' : ''}</strong></div>
+              <div><span>Questions au professeur</span><strong>{parsed?.questionsForTeacher.length ?? '—'}</strong></div>
+              <div><span>Tokens d’entrée</span><strong>{formatTokenCount(run.promptTokens)}</strong></div>
+              <div><span>Tokens générés</span><strong>{formatTokenCount(run.generatedTokens)}</strong></div>
+              <div><span>Total de tokens</span><strong>{formatTokenCount(run.totalTokens)}</strong></div>
+              <div><span>Vitesse de génération</span><strong>{run.tokensPerSecond === undefined ? '—' : run.tokensPerSecond.toFixed(2).replace('.', ',') + ' tokens/s'}</strong></div>
+              <div><span>Chargement du modèle</span><strong>{run.loadMs === undefined ? '—' : formatElapsed(Math.round(run.loadMs / 1000))}</strong></div>
+            </div>}
+            {run.kind === 'vision' ? <p className="hint">La transcription est conservée dans le panneau « Vérifier le texte lu par l’IA » ; cette entrée affiche uniquement les métriques de la requête de lecture.</p> : parsed ? <><p className="diagnostic-run-summary">{parsed.summary}</p><ul className="diagnostic-disagreements">{parsed.criteria.map((item) => {
+              const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
+              return <li key={item.criterionId}><span><strong>{criterion?.title ?? item.criterionId}</strong><small>{item.rationale}</small><small>Preuve : {item.evidence || 'Aucune preuve textuelle fournie'}</small><small className={item.confidence === 'low' ? 'diagnostic-confidence low' : 'diagnostic-confidence'}>Confiance déclarée : {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</small></span><strong>{item.points} / {criterion?.maxPoints ?? 0}</strong></li>;
+            })}</ul>
+            {parsed.questionsForTeacher.length > 0 && <div className="diagnostic-questions"><strong>Points nécessitant un arbitrage humain</strong><ul>{parsed.questionsForTeacher.map((question, questionIndex) => <li key={questionIndex}>{question}</li>)}</ul></div>}</> : <><p className="diagnostic-raw-warning">La sortie n’a pas pu être interprétée comme une correction structurée. Elle ne doit pas être considérée comme une note exploitable.</p><pre>{run.raw}</pre></>}
+          </details>;
+        })}</div>
+        </>}
+      </section>}
+
+</section> : (interfaceMode === 'diagnostic' || !showAiSettings) && <>      {interfaceMode === 'teacher' && teacherStep === 'archive' && <section className="correction-archive" aria-labelledby="correction-archive-title">
         <div className="workspace-heading"><div><p className="eyebrow">HISTORIQUE LOCAL</p><h2 id="correction-archive-title">Corrections enregistrées</h2><p>Retrouvez les copies finalisées, leur note validée et les éléments de preuve. Tout reste stocké dans ce navigateur.</p></div><span className="step-count">{archivedCorrections.length} COPIE(S)</span></div>
         {archiveMessage && <p className="validation" role="status">{archiveMessage}</p>}
         {archivedCorrections.length === 0 ? <div className="panel archive-empty"><span className="archive-empty-icon" aria-hidden="true">▤</span><h3>Aucune correction enregistrée pour le moment</h3><p>Une fois une correction finalisée, elle apparaîtra ici avec sa copie, sa transcription et la note validée.</p><button type="button" className="primary-button" onClick={() => { setTeacherStep('copy'); setShowAiSettings(false); }}>Ajouter une copie</button></div> : <div className="archive-list">{archivedCorrections.map((item) => {
