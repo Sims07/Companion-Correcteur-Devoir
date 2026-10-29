@@ -10,6 +10,7 @@ import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/local
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewInsights, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
+import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../domain/copyQueue.ts';
 
 const initialRubric: Rubric = {
   title: 'Barème de biologie — exemple',
@@ -31,8 +32,6 @@ type AssignmentProfile = {
   question: string;
   correctionMode: 'integrated' | 'separate';
 };
-
-type QueuedCopy = { id: string; label: string; images: ImageInput[] };
 
 type AssignmentDraft = {
   copyQueue: QueuedCopy[];
@@ -572,7 +571,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       label: studentLabel.trim() || images[0]?.fileName || `Copie ${copyQueue.length + 1}`,
       images: structuredClone(images),
     };
-    setCopyQueue((current) => [...current, queued]);
+    setCopyQueue((current) => appendQueuedCopy(current, queued));
     setStudentLabel('');
     setImages([]);
     setTranscription(null);
@@ -585,7 +584,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
 
   function loadNextQueuedCopy() {
     if (!copyQueue.length || isAnalyzing) return;
-    const [next, ...remaining] = copyQueue;
+    const { next, remaining } = takeNextQueuedCopy(copyQueue);
+    if (!next) return;
     setCopyQueue(remaining);
     setStudentLabel(next.label);
     setImages(next.images);
