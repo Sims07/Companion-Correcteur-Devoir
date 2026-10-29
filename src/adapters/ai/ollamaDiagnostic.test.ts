@@ -124,8 +124,13 @@ describe('Ollama diagnostic multi-model strategy', () => {
   });
 
   it('captures token usage from an OpenAI-compatible usage event when available', async () => {
-    const fetchMock = vi.fn(async () => streamResponse('{"summary":"ok"}', {
-      usage: { prompt_tokens: 321, completion_tokens: 67, total_tokens: 388 },
+    const fetchMock = vi.fn(async () => new Response([
+      JSON.stringify({ message: { content: '{"summary":"ok"}' } }),
+      JSON.stringify({ usage: { prompt_tokens: 321, completion_tokens: 67, total_tokens: 388 } }),
+      JSON.stringify({ done: true }),
+    ].join('\n') + '\n', {
+      status: 200,
+      headers: { 'Content-Type': 'application/x-ndjson' },
     }));
     const events: Array<{ promptTokens?: number; generatedTokens?: number; totalTokens?: number }> = [];
     const provider = createOllamaProvider({ ...settings, diagnosticStrategy: 'single' }, fetchMock as typeof fetch);
