@@ -191,8 +191,13 @@ describe('Évaluation des modèles — débit de génération', () => {
   });
 });
 
-describe('Évaluation des modèles — navigation sans chevauchement', () => {
-  it('keeps the laboratory sidebar in normal document flow while scrolling through step content', () => {
-    expect(evaluationStyles).toContain('.evaluation-step-nav{position:static}');
+describe('Évaluation des modèles — navigation et alignement du contenu', () => {
+  it('keeps the laboratory sidebar sticky on desktop and static in the responsive layout', () => {
+    expect(evaluationStyles).toContain('.evaluation-step-nav{position:sticky;top:18px;z-index:1;display:flex;');
+    expect(evaluationStyles).toContain('@media(max-width:999px){.evaluation-step-nav{position:static;');
+  });
+
+  it('aligns the configuration and experiment panels in the same desktop content column', () => {
+    expect(evaluationStyles).toContain('@media(min-width:1000px){.evaluation-step-nav{float:left;width:224px;margin-right:24px}.evaluation-config-workspace,.evaluation-results-workspace{margin-left:248px}');
   });
 });
