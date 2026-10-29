@@ -3,6 +3,7 @@ import { FilePicker } from './components/FilePicker.tsx';
 import { DesignSystemSelect } from './components/DesignSystemSelect.tsx';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
 import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion } from '../domain/grading.ts';
+import { runModelEvaluation, type ModelEvaluationProgress } from '../domain/modelEvaluation.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
@@ -258,6 +259,10 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [selectedAiModelProfileId, setSelectedAiModelProfileId] = useState('');
   const [aiModelProfileMessage, setAiModelProfileMessage] = useState('');
   const [diagnosticRuns, setDiagnosticRuns] = useState<DiagnosticModelResult[]>([]);
+  const [selectedEvaluationProfileIds, setSelectedEvaluationProfileIds] = useState<string[]>([]);
+  const [modelEvaluationResults, setModelEvaluationResults] = useState<Array<{ profileId: string; profileName: string; elapsedMs: number; status: 'success' | 'failed' | 'cancelled'; transcription: string; raw: string; score: number | null; error?: string }>>([]);
+  const [evaluationProgress, setEvaluationProgress] = useState<ModelEvaluationProgress | null>(null);
+  const evaluationCancelledRef = useRef(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>(() => readActiveAssignmentProfile().correctionMode);
   const [subjectImages, setSubjectImages] = useState<ImageInput[]>([]);
@@ -630,6 +635,75 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       setIsAnalyzing(false);
       setBusy(false);
     }
+  }
+
+  async function startModelEvaluation() {
+    const selectedProfiles = aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
+    if (selectedProfiles.length < 2) { setError('Sélectionnez au moins deux configurations enregistrées pour les comparer.'); return; }
+    if (!validation.valid) { setError(validation.errors.join(' ')); return; }
+    if (!images.length) { setError('Importez une copie avant de lancer une évaluation.'); return; }
+    if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
+    evaluationCancelledRef.current = false;
+    setModelEvaluationResults([]);
+    setEvaluationProgress({ completed: 0, total: selectedProfiles.length, currentConfiguration: null, status: 'running' });
+    setError('');
+    setBusy(true);
+    setIsAnalyzing(true);
+    const outputs = await runModelEvaluation({
+      configurations: selectedProfiles.map((profile) => ({
+        id: profile.id,
+        name: profile.name,
+        visionModel: profile.configuration.visionModel,
+        analysisModel: profile.configuration.analysisModel,
+        thinking: profile.configuration.analysisThinking,
+      })),
+      isCancelled: () => evaluationCancelledRef.current,
+      onProgress: setEvaluationProgress,
+      execute: async (configuration) => {
+        if (!configuration.visionModel.trim() || !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle de vision et un modèle d’analyse.');
+        await service.checkReady({ endpoint, model: configuration.visionModel });
+        await service.checkReady({ endpoint, model: configuration.analysisModel });
+        let extractedTranscription = '';
+        let raw = '';
+        const startedAt = Date.now();
+        const provider = service.createProvider({
+          endpoint,
+          visionModel: configuration.visionModel,
+          analysisModel: configuration.analysisModel,
+          thinking: configuration.thinking,
+          diagnosticStrategy: 'single',
+        });
+        raw = await provider.generate({
+          question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+          rubric: rubricAsJson(rubric),
+          images: structuredClone(images),
+          ...(correctionMode === 'separate' ? { subjectImages: structuredClone(subjectImages), ...(subjectTranscription ? { subjectTranscription } : {}) } : {}),
+        }, undefined, (stage) => setAnalysisStage(stage === 'reading' ? 'reading' : 'grading'), (text, kind) => {
+          if (kind !== 'subject') extractedTranscription = text;
+        });
+        let score: number | null = null;
+        try { score = buildDiagnosticScore(parseGradingProposal(raw, rubric), rubric).modelScore; } catch { /* Preserve raw output for inspection even when it cannot be scored. */ }
+        return { transcription: extractedTranscription, raw, score, elapsedMs: Date.now() - startedAt };
+      },
+    });
+    const results = outputs.map((output) => ({
+      profileId: output.configuration.id,
+      profileName: output.configuration.name,
+      elapsedMs: output.elapsedMs,
+      status: output.status,
+      transcription: output.value?.transcription ?? '',
+      raw: output.value?.raw ?? '',
+      score: output.value?.score ?? null,
+      ...(output.error ? { error: output.error } : {}),
+    }));
+    setModelEvaluationResults(results);
+    setIsAnalyzing(false);
+    setBusy(false);
+  }
+
+  function cancelModelEvaluation() {
+    evaluationCancelledRef.current = true;
+    setError('Annulation demandée : l’appel Ollama en cours sera laissé se terminer avant l’arrêt de la séquence.');
   }
 
   function saveDiagnosticReference() {
@@ -1072,6 +1146,13 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
         <p className="hint">En cas d’échec, aucune solution cloud n’est utilisée.</p>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
+      </section>}
+      {interfaceMode === 'diagnostic' && <section className="panel diagnostic-evaluation-setup" aria-labelledby="model-evaluation-setup-title">
+        <div className="workspace-heading"><div><p className="eyebrow">EXPÉRIENCE REPRODUCTIBLE · LOCAL</p><h2 id="model-evaluation-setup-title">Évaluation indépendante des configurations</h2><p className="workspace-description">Chaque configuration relit les images originales puis note avec le même barème. Les essais sont séquentiels pour limiter la mémoire utilisée par Ollama.</p></div></div>
+        {aiModelProfiles.length < 2 ? <p className="hint">Enregistrez au moins deux configurations dans les paramètres de l’IA locale avant de pouvoir les comparer.</p> : <fieldset className="evaluation-profile-list"><legend>Configurations à comparer (2 à 3)</legend>{aiModelProfiles.map((profile) => <label key={profile.id} className="evaluation-profile-option"><input type="checkbox" checked={selectedEvaluationProfileIds.includes(profile.id)} disabled={busy || (!selectedEvaluationProfileIds.includes(profile.id) && selectedEvaluationProfileIds.length >= 3)} onChange={(event) => setSelectedEvaluationProfileIds((current) => event.target.checked ? [...current, profile.id].slice(-3) : current.filter((id) => id !== profile.id))} /><span><strong>{profile.name}</strong><small>Vision : {profile.configuration.visionModel || 'non défini'} · Analyse : {profile.configuration.analysisModel || 'non défini'}{profile.configuration.analysisThinking ? ' · raisonnement activé' : ''}</small></span></label>)}</fieldset>}
+        <div className="settings-actions"><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 2 || !images.length} onClick={() => void startModelEvaluation()}>Lancer l’évaluation indépendante</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
+        {evaluationProgress && <div className="evaluation-progress" role="status"><strong>{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation annulée' : 'Évaluation en cours'}</strong><span>{evaluationProgress.completed} / {evaluationProgress.total} configuration(s)</span>{evaluationProgress.currentConfiguration && <p>Configuration active : {evaluationProgress.currentConfiguration.name} · lecture de l’image puis analyse</p>}<div className="evaluation-progress-track"><span style={{ width: (evaluationProgress.completed / Math.max(1, evaluationProgress.total) * 100) + '%' }} /></div></div>}
+        {modelEvaluationResults.length > 0 && <div className="evaluation-result-list"><h3>Résultats de cette expérience</h3>{modelEvaluationResults.map((result) => <article key={result.profileId} className="transcription-review"><h4>{result.profileName}</h4><p>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Annulé' : 'Échec'} · {formatElapsed(Math.round(result.elapsedMs / 1000))} · {result.score === null ? 'Note non exploitable' : result.score + ' / ' + validation.maximumPoints}</p>{result.error && <p className="validation" role="alert">{result.error}</p>}{result.transcription && <details><summary>Transcription extraite indépendamment</summary><pre>{result.transcription}</pre></details>}{result.raw && <details><summary>Réponse brute</summary><pre>{result.raw}</pre></details>}</article>)}</div>}
       </section>}
       {interfaceMode === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
         <div className="workspace-heading"><div><p className="eyebrow">OUTILS DE DIAGNOSTIC</p><h2 id="debug-workspace-title">Debug des appels IA locaux</h2><p className="workspace-description">Les réponses brutes et la transcription restent sur cet appareil. Lancez d’abord une évaluation pour afficher ses traces.</p></div></div>
