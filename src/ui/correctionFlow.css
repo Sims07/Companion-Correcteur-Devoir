@@ -858,3 +858,38 @@
   .sidebar-assignment-item { flex: 0 0 min(190px, 62vw); }
   .sidebar-new-assignment { min-height: 38px; }
 }
+
+
+/* Teacher-first review: surface actionable risks while preserving the complete rubric. */
+.review-alerts { display: grid; gap: 10px; margin: 16px 0; padding: 18px; border: 1px solid var(--flow-border); border-radius: 14px; background: var(--flow-surface-soft); }
+.review-alerts-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.review-alerts-heading h3 { margin: 4px 0 0; font-size: 16px; }
+.review-alert-count { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #e8efe7; color: #345a3d; font-size: 12px; font-weight: 750; }
+.review-alert { display: grid; gap: 5px; padding: 12px 14px; border: 1px solid #d7e3d6; border-radius: 10px; background: #fff; }
+.review-alert strong { color: var(--flow-text); font-size: 13px; }
+.review-alert p, .review-all-clear { margin: 0; color: var(--flow-muted); font-size: 12px; line-height: 1.55; }
+.review-alert-warning { border-color: #e8c98d; background: #fffaf0; }
+.review-alert-warning strong { color: #79521b; }
+.review-alert-actions, .correction-batch-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.review-alert-actions .secondary-button, .correction-batch-actions .secondary-button, .correction-batch-actions .primary-button { min-height: 38px; }
+.text-action { justify-self: start; padding: 4px 0; border: 0; background: transparent; color: #28613a; font-size: 12px; font-weight: 750; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.text-action:focus-visible { outline: 3px solid #477b55; outline-offset: 3px; border-radius: 3px; }
+.text-action:disabled { opacity: .5; cursor: not-allowed; }
+.review-source-evidence { display: grid; gap: 12px; padding-top: 14px; border-top: 1px solid var(--flow-border); }
+.review-source-heading h4 { margin: 0 0 4px; font-size: 14px; }
+.review-source-heading p { margin: 0; color: var(--flow-muted); font-size: 12px; line-height: 1.5; }
+.review-source-evidence .live-copy-layout { margin-top: 0; }
+.review-source-evidence .live-copy-pages { align-content: start; }
+.review-criteria-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0 8px; color: var(--flow-muted); font-size: 12px; }
+.review-criteria-toolbar .text-action { flex: 0 0 auto; }
+.correction-batch-progress { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 8px; padding: 14px; border: 1px solid var(--flow-border); border-radius: 12px; background: #fff; }
+.correction-batch-progress > div:first-child { display: grid; gap: 4px; }
+.correction-batch-progress strong { color: var(--flow-text); font-size: 13px; }
+.correction-batch-progress p { margin: 0; color: var(--flow-muted); font-size: 12px; line-height: 1.45; }
+@media (max-width: 720px) {
+  .review-alerts { padding: 14px; }
+  .review-alerts-heading, .review-criteria-toolbar { align-items: flex-start; }
+  .review-alert-actions, .correction-batch-actions { align-items: stretch; }
+  .review-alert-actions > button, .correction-batch-actions > button { width: 100%; }
+  .correction-batch-progress { align-items: stretch; flex-direction: column; }
+}
