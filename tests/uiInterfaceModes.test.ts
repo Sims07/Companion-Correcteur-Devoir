@@ -72,6 +72,22 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('ces écarts ne mesurent pas l’exactitude');
   });
 
+  it('presents saved model configurations as responsive, accessible design-system cards', () => {
+    const text = app();
+    const styles = source('../src/ui/styles.css');
+    expect(text).toContain('className="evaluation-profile-options"');
+    expect(text).toContain("className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}");
+    expect(text).toContain('className="evaluation-profile-models"');
+    expect(text).toContain('aria-live="polite">{selectedEvaluationProfileIds.length} / 3 sélectionnée(s)');
+    expect(text).toContain('aria-describedby="evaluation-profile-selection-help"');
+    expect(text).toContain('className="evaluation-profile-selection-mark" aria-hidden="true"');
+    expect(styles).toContain('.evaluation-profile-option.is-selected');
+    expect(styles).toContain('.evaluation-profile-option:focus-within');
+    expect(styles).toContain('.evaluation-profile-option.is-disabled');
+    expect(styles).toContain('@media (max-width: 640px)');
+    expect(styles).toContain('@media (prefers-reduced-motion: reduce)');
+  });
+
   it('separates model evaluation from raw local debug output', () => {
     const text = app();
     expect(text).toContain('>Évaluation des modèles</button>');
