@@ -240,7 +240,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [rubricImportFileName, setRubricImportFileName] = useState('');
   const [rubricImportProgress, setRubricImportProgress] = useState<RubricImportProgress | null>(null);
   const [rubricImportEvents, setRubricImportEvents] = useState<string[]>([]);
-  const [rubricImportRawResponse, setRubricImportRawResponse] = useState('');
+  const [rubricImportVisionResponse, setRubricImportVisionResponse] = useState('');
+  const [rubricImportAnalysisResponse, setRubricImportAnalysisResponse] = useState('');
   const [rubricImageImporting, setRubricImageImporting] = useState(false);
   const [rubricFileImporting, setRubricFileImporting] = useState(false);
   const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
@@ -404,7 +405,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setRubricImportMessage('');
     setRubricImportFileName(file.name);
     setRubricImportEvents([`Fichier sélectionné : ${file.name}`]);
-    setRubricImportRawResponse('');
+    setRubricImportVisionResponse('');
+    setRubricImportAnalysisResponse('');
     setRubricImportProgress({ stage: 'preparing', message: 'Lecture du fichier local…' });
     setRubricFileImporting(true);
     try {
@@ -434,19 +436,30 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setRubricImportMessage('');
     setRubricImportFileName(file.name);
     setRubricImportEvents([`Fichier sélectionné : ${file.name}`]);
-    setRubricImportRawResponse('');
+    setRubricImportVisionResponse('');
+    setRubricImportAnalysisResponse('');
     setRubricImportProgress({ stage: 'preparing', message: 'Préparation du fichier et conversion des pages en images dans le navigateur…' });
     setRubricImageImporting(true);
     try {
-      if (!visionModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale dans le panneau latéral pour choisir un modèle de lecture.');
+      if (!visionModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale pour choisir un modèle de vision pour la lecture du barème.');
+      if (!analysisModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale pour choisir un modèle d’analyse pour structurer le barème.');
       const prepared = await service.prepareFiles([file]);
       if (prepared.length === 0) throw new Error('Aucune page du barème n’a pu être préparée.');
       const preparedMessage = `${prepared.length} page(s) préparée(s) en images. Envoi au modèle de vision Ollama « ${visionModel} »…`;
       setRubricImportProgress({ stage: 'preparing', message: preparedMessage, page: 0, totalPages: prepared.length });
       setRubricImportEvents((events) => [...events, preparedMessage]);
-      const imported = await service.importRubricImage(prepared, { endpoint, visionModel }, (progress) => {
+      const imported = await service.importRubricImage(prepared, { endpoint, visionModel, analysisModel, thinking: analysisThinking }, (progress) => {
         setRubricImportProgress(progress);
-        if (progress.rawResponse !== undefined) setRubricImportRawResponse(progress.rawResponse);
+        if (progress.rawResponse !== undefined && progress.rawResponseStage === 'vision') {
+          setRubricImportVisionResponse((current) => {
+            const pageLabel = `--- Page ${progress.page ?? 1} ---`;
+            const entry = `${pageLabel}\n${progress.rawResponse}`;
+            return current ? `${current}\n\n${entry}` : entry;
+          });
+        }
+        if (progress.rawResponse !== undefined && progress.rawResponseStage === 'analysis') {
+          setRubricImportAnalysisResponse(progress.rawResponse);
+        }
         setRubricImportEvents((events) => events.at(-1) === progress.message ? events : [...events, progress.message]);
       });
       const total = imported.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
@@ -1117,11 +1130,17 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
             <ol className="rubric-import-progress-events">{rubricImportEvents.map((event, index) => <li key={`${index}-${event}`}>{event}</li>)}</ol>
             {rubricImportProgress && <p className="rubric-import-progress-current" role="status">{rubricImportProgress.message}</p>}
             {rubricImportProgress?.stage === 'complete' && <p className="rubric-import-progress-review">Le résultat extrait est maintenant affiché dans les champs modifiables ci-dessous. Comparez chaque critère et ses points avec le document original avant de valider le barème.</p>}
-            {rubricImportRawResponse && <details className="rubric-import-raw-response">
-              <summary>Voir la réponse brute du modèle</summary>
-              <p>Contenu exact reçu d’Ollama avant validation. Il est conservé même si le barème est refusé.</p>
-              <pre>{rubricImportRawResponse}</pre>
-              <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportRawResponse); }}>Copier la réponse</button>
+            {rubricImportVisionResponse && <details className="rubric-import-raw-response">
+              <summary>Voir la transcription brute du modèle de vision</summary>
+              <p>Texte transcrit depuis les images par « {visionModel} », avant structuration. Utile pour repérer une erreur de lecture ou une valeur mal reconnue.</p>
+              <pre>{rubricImportVisionResponse}</pre>
+              <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportVisionResponse); }}>Copier la transcription</button>
+            </details>}
+            {rubricImportAnalysisResponse && <details className="rubric-import-raw-response">
+              <summary>Voir le JSON brut du modèle d’analyse</summary>
+              <p>Réponse exacte de « {analysisModel} » avant validation, conservée même si le JSON ou les critères sont invalides.</p>
+              <pre>{rubricImportAnalysisResponse}</pre>
+              <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportAnalysisResponse); }}>Copier le JSON</button>
             </details>}
           </section>}
           {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
