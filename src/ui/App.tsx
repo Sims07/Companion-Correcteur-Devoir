@@ -1384,7 +1384,6 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
                 return { record, run, runIndex, score: score?.modelScore ?? null, maxPoints, elapsedSeconds: run.elapsedMs / 1000, tokens, usageGroup, referenceComparison, qualityPercent, criterionErrors, hasReference: Boolean(validReference), assignmentTitle: record.assignmentTitle ?? 'Devoir historique' };
               });
           });
-          const rubricMaximum = Math.max(0, ...selectedComparisons.map((record) => rubricFor(record).criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)));
           const maxGroupElapsed = Math.max(1, ...allGroups.map((group) => group.elapsedMs));
           const maxGroupTokens = Math.max(1, ...allGroups.map((group) => group.promptTokens + group.generatedTokens));
           const plotMaxSeconds = Math.max(1, ...modelScores.map((item) => item.elapsedSeconds));
