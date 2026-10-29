@@ -176,7 +176,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('analysisSeconds:');
     expect(text).toContain('totalSeconds:');
     expect(text).toContain('setItem(timingHistoryKey, JSON.stringify(next))');
-    expect(text).toContain('Historique des essais');
+    expect(text).toContain('Tableau de bord des expériences');
+    expect(text).toContain('LABORATOIRE LOCAL · OLLAMA');
     expect(text).toContain('EXPÉRIENCES CONSERVÉES');
     expect(text).toContain('Modèles (lecture / analyse)');
     expect(text).toContain('Réutilisée / non mesurée');
