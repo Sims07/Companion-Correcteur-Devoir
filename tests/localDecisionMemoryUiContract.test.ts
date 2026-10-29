@@ -18,6 +18,8 @@ describe('local decision memory integration contract', () => {
     expect(app).toContain('LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY');
     expect(app).toContain('LOCAL_MEMORY_RUBRIC_UPDATED_EVENT');
     expect(memoryCompanion).toContain('window.addEventListener(LOCAL_MEMORY_RUBRIC_UPDATED_EVENT');
+    expect(app).toContain('LOCAL_MEMORY_UPDATED_EVENT');
+    expect(memoryCompanion).toContain('window.addEventListener(LOCAL_MEMORY_UPDATED_EVENT, updateMemory)');
     expect(memoryBridge).toContain('window.localStorage.getItem(LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY)');
   });
 
