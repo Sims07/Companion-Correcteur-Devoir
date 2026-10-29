@@ -427,10 +427,10 @@ export async function importRubricImageWithOllama(
   const endpoint = normalizedEndpoint(settings.endpoint);
   const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
   const analysisModel = settings.analysisModel?.trim();
-  if (!visionModel) throw new Error('Choisissez un modèle de vision Ollama pour lire le barème.');
-  if (!analysisModel) throw new Error('Choisissez un modèle d’analyse Ollama pour structurer le barème.');
   const images = Array.isArray(inputImages) ? inputImages : [inputImages];
   if (images.length === 0) throw new Error('Aucune page du barème n’a pu être préparée.');
+  if (!visionModel) throw new Error('Choisissez un modèle de vision Ollama pour lire le barème.');
+  if (!analysisModel) throw new Error('Choisissez un modèle d’analyse Ollama pour structurer le barème.');
   if (images.some((image) => !image.base64 || !/^image\/(jpeg|png|webp)$/i.test(image.mimeType))) {
     throw new Error('L’import IA du barème attend des pages JPEG, PNG ou WebP.');
   }
