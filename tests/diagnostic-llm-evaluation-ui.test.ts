@@ -190,3 +190,9 @@ describe('Évaluation des modèles — débit de génération', () => {
     expect(appSource).toContain("result.readingTokensPerSecond == null ? '—'");
   });
 });
+
+describe('Évaluation des modèles — navigation sans chevauchement', () => {
+  it('keeps the laboratory sidebar in normal document flow while scrolling through step content', () => {
+    expect(evaluationStyles).toContain('.evaluation-step-nav{position:static}');
+  });
+});

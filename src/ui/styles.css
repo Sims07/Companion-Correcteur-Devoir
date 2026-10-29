@@ -877,3 +877,6 @@ footer { padding-top: 24px; line-height: 1.6; }
 /* Show measured Ollama generation throughput without implying wall-clock speed. */
 .evaluation-history-model-stats .evaluation-throughput{font-weight:750;color:#3f7549;font-variant-numeric:tabular-nums}
 @media(max-width:520px){.evaluation-history-chart-grid{grid-template-columns:1fr}}
+
+/* Keep the evaluation sidebar in normal flow so it cannot cover step content while scrolling. */
+.evaluation-step-nav{position:static}
