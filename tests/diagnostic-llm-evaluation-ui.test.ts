@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const appSource = readFileSync(resolve(process.cwd(), 'src/ui/App.tsx'), 'utf8');
+const domainSource = readFileSync(resolve(process.cwd(), 'src/domain/modelEvaluation.ts'), 'utf8');
 const styles = readFileSync(resolve(process.cwd(), 'src/ui/correctionFlow.css'), 'utf8');
 const evaluationStyles = readFileSync(resolve(process.cwd(), 'src/ui/styles.css'), 'utf8');
 
@@ -129,8 +130,8 @@ describe('Évaluation des modèles — comparaison graphique de l’historique',
     expect(appSource).toContain("sumReportedTokensForStage(measuredRuns, 'reading')");
     expect(appSource).toContain('readingTokens: output.value?.readingTokens ?? null');
     expect(appSource).toContain('analysisTokens: output.value?.analysisTokens ?? null');
-    expect(appSource).toContain('readingTokens?: number | null');
-    expect(appSource).toContain('analysisTokens?: number | null');
+    expect(domainSource).toContain('readingTokens?: number | null');
+    expect(domainSource).toContain('analysisTokens?: number | null');
   });
 
   it('lets teachers select two saved experiments and compare four visual indicators', () => {
