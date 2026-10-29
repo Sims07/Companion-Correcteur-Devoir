@@ -101,7 +101,7 @@ describe('UI design system', () => {
   });
 
   it('routes every application dropdown through the shared design-system control', () => {
-    expect(appComponent).not.toMatch(/<select\\b/);
+    expect(appComponent).not.toMatch(/<select\b/);
     expect(appComponent).toContain('<DesignSystemSelect id="assignment-education-level"');
     expect(appComponent).toContain('<DesignSystemSelect id="diagnostic-strategy"');
     expect(dropdownComponent).toContain("'design-system-select'");
