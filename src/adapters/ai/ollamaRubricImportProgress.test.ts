@@ -39,6 +39,26 @@ describe('rubric import progress', () => {
     expect(progress.at(-1)?.message).toContain('1 critère');
   });
 
+  it('keeps the exact model response visible when rubric validation fails', async () => {
+    const progress: RubricImportProgress[] = [];
+    const rawResponse = JSON.stringify({
+      title: 'Barème de biologie',
+      criteria: [{ title: '', description: 'Description présente', maxPoints: 2 }],
+    });
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      message: { content: rawResponse },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })) as unknown as typeof fetch;
+
+    await expect(importRubricImageWithOllama(
+      image('bareme.png'),
+      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b' },
+      fetchMock,
+      (event) => progress.push(event),
+    )).rejects.toThrow('Le critère 1 doit avoir un titre');
+
+    expect(progress.find((event) => event.stage === 'parsing')?.rawResponse).toBe(rawResponse);
+  });
+
   it('reports progress for each page of a multi-page PDF', async () => {
     const progress: RubricImportProgress[] = [];
     let requestNumber = 0;
