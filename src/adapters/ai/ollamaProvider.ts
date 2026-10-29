@@ -287,6 +287,7 @@ export function createOllamaProvider(
             ].join('\n\n'),
             [image.base64],
             onChunk,
+            false, false, { kind: 'vision', stage: 'reading' },
           );
           transcriptions.push(`[ ${pageLabel} ]\n${pageTranscription}`);
         }
@@ -312,7 +313,7 @@ export function createOllamaProvider(
             finalScore: Math.round(resolution.automaticCriteria.reduce((sum, criterion) => sum + criterion.points, 0) * 100) / 100,
           };
           const raw = JSON.stringify(automatic);
-          onDiagnosticResult?.({ kind: 'arbitrator', model: arbitratorModel, raw, elapsedMs: 0 });
+          onDiagnosticResult?.({ kind: 'arbitrator', stage: 'arbitration', model: arbitratorModel, raw, elapsedMs: 0 });
           return raw;
         }
 
@@ -333,7 +334,6 @@ export function createOllamaProvider(
           `AVIS 1 (JSON) :\\n${JSON.stringify(selectCriteria(firstProposal))}`,
           `AVIS 2 (JSON) :\\n${JSON.stringify(selectCriteria(secondProposal))}`,
         ].join('\\n\\n');
-        const startedAt = Date.now();
         const raw = await sendStream(arbitratorModel, arbitrationPrompt, undefined, onChunk, true, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration' });
         const decisions = parseArbitrationDecisions(raw, resolution.disputedCriterionIds, firstProposal.criteria, secondProposal.criteria);
         const judgedCriteria = resolution.disputedCriterionIds.map((criterionId) => {
@@ -371,7 +371,6 @@ export function createOllamaProvider(
       if (secondModel === analysisModel) throw new Error('Choisissez deux modèles d’analyse distincts pour comparer des avis indépendants.');
 
       const runIndependentAnalysis = async (model: string): Promise<string> => {
-        const startedAt = Date.now();
         const raw = await sendStream(model, gradingPrompt, undefined, undefined, true, settings.thinking ?? false, { kind: 'model', stage: 'analysis' });
         return raw;
       };
