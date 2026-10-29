@@ -690,3 +690,35 @@ footer { padding-top: 24px; line-height: 1.6; }
 @media (prefers-reduced-motion: reduce) {
   .evaluation-progress-track > span { transition: none; }
 }
+
+/* Comparative analysis: teacher-readable synthesis kept separate from raw model output. */
+.evaluation-comparison-analysis{margin-top:18px;border-color:#d6e3d5;background:#fcfdfb}
+.evaluation-analysis-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.evaluation-analysis-heading h3{font-size:17px;margin:0 0 8px}
+.evaluation-analysis-count{border-radius:99px;background:#e8f2e7;color:#356b43;padding:7px 10px;font-size:10px;font-weight:800;white-space:nowrap}
+.evaluation-analysis-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
+.evaluation-analysis-metrics article{min-width:0;padding:14px;border:1px solid #e0e9de;border-radius:10px;background:#fff;display:flex;flex-direction:column;gap:7px}
+.evaluation-analysis-metrics article>span{font-size:10px;color:#6e7f71;font-weight:750}
+.evaluation-analysis-metrics article>strong{font-size:23px;letter-spacing:-.5px;color:#294f35;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.evaluation-analysis-metrics article>small{font-size:9px;line-height:1.5;color:#829084}
+.evaluation-analysis-columns{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.evaluation-analysis-subsection{min-width:0;padding:16px;border:1px solid #e4ebe2;border-radius:11px;background:#fff}
+.evaluation-analysis-subsection h4{font-size:12px;margin:0 0 12px}
+.evaluation-model-summary{padding:12px 0;border-top:1px solid #edf1eb}
+.evaluation-model-summary>div{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.evaluation-model-summary>div strong{font-size:11px;overflow-wrap:anywhere}
+.evaluation-model-summary>div span{font-size:11px;font-weight:800;color:#315f3d;white-space:nowrap}
+.evaluation-model-summary p{font-size:10px;line-height:1.55;color:#748276;margin:6px 0 0}
+.evaluation-disagreement-list{padding-left:21px;margin:0}
+.evaluation-disagreement-list li{padding:10px 0;border-top:1px solid #edf1eb}
+.evaluation-disagreement-list li>div{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.evaluation-disagreement-list li>div strong{font-size:11px}
+.evaluation-disagreement-list li>div span{font-size:10px;font-weight:800;color:#9a642c;text-align:right}
+.evaluation-disagreement-list li p{font-size:10px;line-height:1.6;color:#657568;margin:6px 0 0;overflow-wrap:anywhere}
+.evaluation-analysis-empty{font-size:11px;line-height:1.6;color:#718075}
+.evaluation-analysis-warning{font-size:10px;line-height:1.6;padding:10px;border-radius:8px;background:#fff5e4;color:#8a602c}
+.evaluation-pairwise-details{margin-top:15px;padding-top:13px;border-top:1px solid #e4ebe2}
+.evaluation-pairwise-details>summary{font-size:11px;font-weight:800;color:#426c4b;cursor:pointer}
+.evaluation-pairwise-details .transcription-review{margin-top:10px}
+@media(max-width:760px){.evaluation-analysis-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.evaluation-analysis-columns{grid-template-columns:1fr}}
+@media(max-width:430px){.evaluation-analysis-heading{flex-direction:column}.evaluation-analysis-metrics article>strong{font-size:20px}.evaluation-model-summary>div{align-items:flex-start;flex-direction:column;gap:4px}.evaluation-disagreement-list li>div{align-items:flex-start;flex-direction:column;gap:4px}}
