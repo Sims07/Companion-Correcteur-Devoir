@@ -25,6 +25,7 @@ test('diagnostic presents a guided journey and a useful empty results state', as
   await expect(page.getByRole('button', { name: /Analyser les résultats/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Comparer dans le temps/ })).toBeDisabled();
   await expect(page.getByRole('heading', { name: 'Aucun résultat pour le moment' })).toBeVisible();
+  await expect(page.getByText(/comparez les modèles dès maintenant et ajoutez une référence plus tard/i)).toBeVisible();
 
   await page.getByRole('button', { name: /Analyser les résultats/ }).click();
   await expect(page.getByRole('heading', { name: 'Résultats de l’expérience multi-modèles' })).toBeInViewport();
