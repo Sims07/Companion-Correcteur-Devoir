@@ -1346,6 +1346,13 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
             { key: 'score', label: 'Note proposée', unit: 'points', values: selectedComparisons.map((record) => record.modelScore), display: (value: number | null) => value === null ? 'Non disponible' : String(value) },
           ];
           const allGroups = usage.flatMap((item, index) => item.groups.map((group) => ({ ...group, runIndex: index })));
+          const modelScores = selectedComparisons.flatMap((record, runIndex) => (record.diagnosticRuns ?? [])
+            .filter((run) => run.kind === 'model' || run.kind === 'arbitrator')
+            .map((run) => {
+              const parsed = safeDiagnosticProposal(run.raw, rubric);
+              return { record, run, runIndex, score: parsed ? buildDiagnosticScore(parsed, rubric).modelScore : null };
+            }));
+          const rubricMaximum = rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
           const maxGroupElapsed = Math.max(1, ...allGroups.map((group) => group.elapsedMs));
           const maxGroupTokens = Math.max(1, ...allGroups.map((group) => group.promptTokens + group.generatedTokens));
           return <section className="diagnostic-comparison-panel" aria-labelledby="diagnostic-comparison-title">
@@ -1370,6 +1377,14 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
                 <div className="diagnostic-comparison-track" role="img" aria-label={`Temps ${group.model} ${diagnosticStageLabel(group.stage)} : ${formatElapsed(Math.round(group.elapsedMs / 1000))}`}><span className={group.runIndex === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: `${group.elapsedMs / maxGroupElapsed * 100}%` }} /></div>
                 <div className="diagnostic-comparison-bar-label"><span>Tokens entrée + sortie</span><strong>{group.measuredCalls ? formatTokenCount(group.promptTokens + group.generatedTokens) : 'Non mesurés'}</strong></div>
                 <div className="diagnostic-comparison-track" role="img" aria-label={`Tokens ${group.model} ${diagnosticStageLabel(group.stage)} : ${group.measuredCalls ? formatTokenCount(group.promptTokens + group.generatedTokens) : 'non mesurés'}`}><span className={group.runIndex === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: group.measuredCalls ? `${(group.promptTokens + group.generatedTokens) / maxGroupTokens * 100}%` : '0%' }} /></div>
+              </article>)}</div>}
+            </div>
+            <div className="diagnostic-comparison-stage">
+              <div><h4>Note par modèle</h4><p>Les notes sont calculées à partir de la sortie structurée enregistrée pour chaque modèle. Elles ne sont pas disponibles si la sortie n’est pas exploitable.</p></div>
+              {modelScores.length === 0 ? <p className="diagnostic-comparison-empty">Aucune note par modèle exploitable n’a été conservée dans ces essais.</p> : <div className="diagnostic-comparison-models">{modelScores.map(({ record, run, runIndex, score }, index) => <article key={record.id + run.kind + run.model + index}>
+                <div className="diagnostic-comparison-model-heading"><span className={runIndex === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><strong>Essai {runIndex === 0 ? 'A' : 'B'} · {run.kind === 'arbitrator' ? 'Arbitre' : 'Modèle'} · {run.model}</strong><small>Note proposée sur {rubricMaximum} points</small></div>
+                <div className="diagnostic-comparison-bar-label"><span>Note</span><strong>{score === null ? 'Non comparable' : `${score} / ${rubricMaximum}`}</strong></div>
+                <div className="diagnostic-comparison-track" role="img" aria-label={`Note ${run.model} : ${score === null ? 'non comparable' : `${score} sur ${rubricMaximum}`}`}><span className={runIndex === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: score === null || rubricMaximum <= 0 ? '0%' : `${Math.max(0, Math.min(100, score / rubricMaximum * 100))}%` }} /></div>
               </article>)}</div>}
             </div>
           </section>;
