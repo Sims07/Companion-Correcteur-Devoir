@@ -15,10 +15,16 @@ import { prepareLocalFiles } from '../src/adapters/files/localFiles.ts';
 describe('prepareLocalFiles', () => {
   beforeEach(() => {
     getDocumentMock.mockReset();
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 7, height: 7, close: vi.fn() }));
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      drawImage: vi.fn(), fillRect: vi.fn(), fillStyle: '#ffffff',
+    } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/jpeg;base64,YmlvbG9neQ==');
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('returns an empty list when no files were selected', async () => {
@@ -62,13 +68,12 @@ describe('prepareLocalFiles', () => {
     const images = await prepareLocalFiles([new File(['image'], 'large.png', { type: 'image/png' })]);
 
     expect(images[0]).toMatchObject({ mimeType: 'image/jpeg', fileName: 'large.png' });
-    expect(HTMLCanvasElement.prototype.width).toBeDefined();
     expect(drawImage).toHaveBeenCalledWith(expect.objectContaining({ width: 4000, height: 3000 }), 0, 0, 1300, 975);
     expect(HTMLCanvasElement.prototype.toDataURL).toHaveBeenCalledWith('image/jpeg', 0.85);
     expect(close).toHaveBeenCalledOnce();
   });
 
-  it('renders each PDF page to a local PNG payload and cleans up the loading task', async () => {
+  it('renders each PDF page to a compressed JPEG payload and cleans up the loading task', async () => {
     const destroy = vi.fn().mockResolvedValue(undefined);
     const cleanup = vi.fn();
     const render = vi.fn().mockReturnValue({ promise: Promise.resolve() });

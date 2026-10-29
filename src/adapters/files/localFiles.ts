@@ -37,20 +37,6 @@ function dataUrlToImage(dataUrl: string, fileName: string): ImageInput {
   return { mimeType, base64: dataUrl.slice(separator + 1), fileName };
 }
 
-function readImage(file: File): Promise<ImageInput> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error(`Impossible de lire le fichier « ${file.name} ».`));
-    reader.onload = () => {
-      if (typeof reader.result !== 'string') {
-        reject(new Error(`Format illisible pour « ${file.name} ».`));
-        return;
-      }
-      resolve(dataUrlToImage(reader.result, file.name));
-    };
-    reader.readAsDataURL(file);
-  });
-}
 
 async function renderPdf(file: File): Promise<ImageInput[]> {
   const loadingTask = getDocument({ data: await file.arrayBuffer() });
