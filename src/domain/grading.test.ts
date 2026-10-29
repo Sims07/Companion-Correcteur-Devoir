@@ -49,6 +49,22 @@ describe('parseGradingProposal final score', () => {
     expect(proposal.finalScore).toBe(7);
   });
 
+  it('preserves teacher annotation suggestions and approximate location hints without requiring them from older models', () => {
+    const proposal = parseGradingProposal(JSON.stringify({
+      summary: 'Proposition avec commentaires pédagogiques.',
+      criteria: [
+        { ...criterion('science', 4), pageNumber: 2, annotationSuggestion: 'Préciser le rôle de la membrane.', locationHint: 'À côté de la deuxième phrase de la réponse.' },
+        criterion('reasoning', 3),
+      ],
+      questionsForTeacher: [],
+    }), rubric);
+
+    expect(proposal.criteria[0].annotationSuggestion).toBe('Préciser le rôle de la membrane.');
+    expect(proposal.criteria[0].locationHint).toBe('À côté de la deuxième phrase de la réponse.');
+    expect(proposal.criteria[1].annotationSuggestion).toBeUndefined();
+    expect(proposal.criteria[1].locationHint).toBeUndefined();
+  });
+
   it('preserves a valid one-based source page and ignores invalid page references', () => {
     const proposal = parseGradingProposal(JSON.stringify({
       summary: 'Preuves associées à leurs pages.',

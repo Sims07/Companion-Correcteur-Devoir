@@ -17,6 +17,36 @@
   --flow-radius-lg: 14px;
 }
 
+.annotation-suggestion {
+  margin: 0.85rem 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--flow-border);
+  border-left: 3px solid var(--flow-accent);
+  border-radius: 0.75rem;
+  background: var(--flow-surface-soft);
+}
+.annotation-suggestion-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.annotation-suggestion-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--flow-muted);
+}
+.annotation-suggestion-text {
+  margin: 0.6rem 0;
+  font-weight: 600;
+}
+.annotation-location {
+  margin: 0.4rem 0 0.65rem;
+  font-size: 0.9rem;
+  color: var(--flow-muted);
+}
+
 /* Make the numbered workflow legible without turning the page into a wizard. */
 .workspace-heading {
   position: relative;

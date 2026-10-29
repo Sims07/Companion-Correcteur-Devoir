@@ -9,6 +9,10 @@ export interface CriterionProposal {
   evidence: string;
   /** One-based source page when the model can identify it reliably. */
   pageNumber?: number;
+  /** Short teacher-facing comment that can be copied by hand onto the paper copy. */
+  annotationSuggestion?: string;
+  /** Approximate textual landmark to help the teacher find the passage on the page. */
+  locationHint?: string;
   confidence: Confidence;
   questionForTeacher?: string;
 }
@@ -110,6 +114,8 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
       rationale: text(item.rationale, 'Justification non fournie.'),
       evidence: text(item.evidence, 'Aucun élément précis de la copie cité.'),
       ...(typeof item.pageNumber === 'number' && Number.isInteger(item.pageNumber) && item.pageNumber >= 1 ? { pageNumber: item.pageNumber } : {}),
+      ...(text(item.annotationSuggestion) ? { annotationSuggestion: text(item.annotationSuggestion) } : {}),
+      ...(text(item.locationHint) ? { locationHint: text(item.locationHint) } : {}),
       confidence,
       ...(text(item.questionForTeacher) ? { questionForTeacher: text(item.questionForTeacher) } : {}),
     });
