@@ -122,3 +122,33 @@ describe('Évaluation des modèles — navigation par espace', () => {
     expect(evaluationStyles).toContain('.evaluation-step-nav button.is-active');
   });
 });
+
+
+describe('Évaluation des modèles — comparaison graphique de l’historique', () => {
+  it('stores token usage separately for reading and analysis while preserving legacy records', () => {
+    expect(appSource).toContain("sumReportedTokensForStage(measuredRuns, 'reading')");
+    expect(appSource).toContain('readingTokens: output.value?.readingTokens ?? null');
+    expect(appSource).toContain('analysisTokens: output.value?.analysisTokens ?? null');
+    expect(appSource).toContain('readingTokens?: number | null');
+    expect(appSource).toContain('analysisTokens?: number | null');
+  });
+
+  it('lets teachers select two saved experiments and compare four visual indicators', () => {
+    expect(appSource).toContain('selectedEvaluationHistoryIds');
+    expect(appSource).toContain('Sélectionnez deux expériences');
+    expect(appSource).toContain('Deux expériences, quatre indicateurs');
+    expect(appSource).toContain("title: 'Temps de lecture'");
+    expect(appSource).toContain("title: 'Temps d’analyse'");
+    expect(appSource).toContain("title: 'Tokens de lecture'");
+    expect(appSource).toContain("title: 'Tokens d’analyse'");
+    expect(appSource).toContain("aria-label={'Graphique ' + metric.title}");
+    expect(appSource).toContain('Non mesuré');
+  });
+
+  it('styles the comparison charts responsively and respects reduced-motion settings', () => {
+    expect(evaluationStyles).toContain('.evaluation-history-chart-grid');
+    expect(evaluationStyles).toContain('.evaluation-history-bar-fill.experiment-1');
+    expect(evaluationStyles).toContain('@media(max-width:760px){.evaluation-history-selection');
+    expect(evaluationStyles).toContain('prefers-reduced-motion:reduce){.evaluation-history-bar-fill');
+  });
+});
