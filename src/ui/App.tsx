@@ -282,6 +282,8 @@ export function App({ service, archiveService, evaluationService }: { service: C
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [readingElapsedMs, setReadingElapsedMs] = useState<number | null>(null);
+  const [analysisElapsedMs, setAnalysisElapsedMs] = useState<number | null>(null);
   const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
   const [currentTimingRecordId, setCurrentTimingRecordId] = useState<string | null>(null);
   const [referenceScoreInputs, setReferenceScoreInputs] = useState<Record<string, string>>({});
@@ -566,6 +568,8 @@ export function App({ service, archiveService, evaluationService }: { service: C
     if (interfaceMode === 'diagnostic' || interfaceMode === 'debug') { setCurrentTimingRecordId(null); setReferenceScoreInputs({}); setReferenceMessage(''); }
     if (interfaceMode === 'teacher') { setShowAiSettings(false); setTeacherStep('progress'); }
     setIsAnalyzing(true);
+    setReadingElapsedMs(null);
+    setAnalysisElapsedMs(null);
     setAnalysisStage('checking');
     setStreamedOutput('');
     setDiagnosticRuns(previousModelResults);
@@ -587,7 +591,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
           const now = Date.now();
           if (stage === 'reading' && readingStartedAt === null) readingStartedAt = now;
           if (stage === 'grading') {
-            if (readingStartedAt !== null && readingDurationMs === null) readingDurationMs = now - readingStartedAt;
+            if (readingStartedAt !== null && readingDurationMs === null) { readingDurationMs = now - readingStartedAt; setReadingElapsedMs(readingDurationMs); }
             analysisStartedAt = now;
             setStreamedOutput('');
           }
@@ -611,6 +615,8 @@ export function App({ service, archiveService, evaluationService }: { service: C
       setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
     } finally {
       const finishedAt = Date.now();
+      if (readingDurationMs !== null) setReadingElapsedMs(readingDurationMs);
+      if (analysisStartedAt !== null) setAnalysisElapsedMs(Math.max(0, finishedAt - analysisStartedAt));
       const diagnosticScore = diagnosticProposal ? buildDiagnosticScore(diagnosticProposal, rubric) : null;
       const record: TimingRecord = {
         id: String(finishedAt) + '-' + String(images.length),
@@ -667,7 +673,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       })),
       isCancelled: () => evaluationCancelledRef.current,
       onProgress: setEvaluationProgress,
-      execute: async (configuration) => {
+      execute: async (configuration, _isCancelled, onStage) => {
         setEvaluationStage('preparing');
         if (!configuration.visionModel.trim() || !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle de vision et un modèle d’analyse.');
         await service.checkReady({ endpoint: configuration.endpoint, model: configuration.visionModel });
@@ -693,8 +699,8 @@ export function App({ service, archiveService, evaluationService }: { service: C
           ...(correctionMode === 'separate' ? { subjectImages: structuredClone(subjectImages), ...(subjectTranscription ? { subjectTranscription } : {}) } : {}),
         }, (chunk) => setStreamedOutput((current) => current + chunk), (stage) => {
           const now = Date.now();
-          if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = Math.max(0, now - startedAt); analysisStartedAt = now; } setEvaluationStage('grading'); setAnalysisStage('grading'); setStreamedOutput(''); }
-          else { setEvaluationStage('reading'); setAnalysisStage('reading'); }
+          if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = Math.max(0, now - startedAt); analysisStartedAt = now; } onStage('analysis'); setEvaluationStage('grading'); setAnalysisStage('grading'); setStreamedOutput(''); }
+          else { onStage('reading'); setEvaluationStage('reading'); setAnalysisStage('reading'); }
         }, (text, kind) => {
           if (kind !== 'subject') extractedTranscription = text;
         }, (result) => measuredRuns.push(result));
@@ -1680,9 +1686,9 @@ export function App({ service, archiveService, evaluationService }: { service: C
         <div className="evaluation-section-heading"><div><p className="eyebrow">{evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION' : evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS' : 'ÉTAPE 4 · ANALYSE & HISTORIQUE'}</p><h2 id="evaluation-results-title">{evaluationWorkspaceStep === 'execution' ? 'Exécution de l’expérience' : evaluationWorkspaceStep === 'results' ? 'Résultats de l’évaluation' : 'Analyser et comparer les expériences'}</h2><p>{evaluationWorkspaceStep === 'execution' ? 'Suivez la progression des modèles locaux et le détail de chaque étape de traitement.' : evaluationWorkspaceStep === 'results' ? 'Comparez les notes, les temps de traitement et les écarts entre configurations.' : 'Retrouvez les essais précédents et comparez leurs performances grâce aux indicateurs graphiques.'}</p></div><span className="evaluation-step-chip">{evaluationWorkspaceStep === 'history' ? savedModelEvaluations.length + ' essai(s)' : modelEvaluationResults.length + ' résultat(s)'}</span></div>
         {evaluationWorkspaceStep === 'execution' && <div className="evaluation-run-actions"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>{!validation.valid ? 'Vérifiez le barème avant de lancer l’expérience.' : !images.length ? 'Importez les pages de la copie dans l’étape précédente.' : selectedEvaluationProfileIds.length < 2 ? 'Sélectionnez au moins deux configurations.' : 'Le jeu d’essai est prêt à être lancé.'}</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 2 || !images.length || !validation.valid} onClick={() => void startModelEvaluation()}>{busy ? 'Évaluation locale en cours…' : 'Lancer l’expérience'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>}
                 {evaluationWorkspaceStep === 'execution' && evaluationProgress && <section className="evaluation-progress" aria-labelledby="evaluation-progress-title" aria-live="polite">
-          <div className="evaluation-progress-heading"><div><p className="eyebrow">SUIVI DE L’EXPÉRIENCE</p><h3 id="evaluation-progress-title">{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation interrompue' : 'Évaluation en cours'}</h3><p>{evaluationProgress.status === 'completed' ? 'Toutes les configurations ont été traitées.' : evaluationProgress.status === 'cancelled' ? 'La séquence a été arrêtée après l’appel en cours.' : evaluationProgress.currentConfiguration ? 'La configuration active est indiquée ci-dessous.' : 'Préparation de la prochaine configuration…'}</p></div><strong className="evaluation-progress-counter">{evaluationProgress.completed} / {evaluationProgress.total} terminée(s)</strong></div>
-          <div className="evaluation-progress-track" role="progressbar" aria-label="Configurations terminées" aria-valuemin={0} aria-valuemax={evaluationProgress.total} aria-valuenow={evaluationProgress.completed}><span style={{ width: (evaluationProgress.completed / Math.max(1, evaluationProgress.total) * 100) + '%' }} /></div>
-          <ol className="evaluation-configuration-steps" aria-label="Progression par configuration">{selectedEvaluationProfiles.map((profile, index) => { const active = evaluationProgress.currentConfiguration?.id === profile.id; const complete = index < evaluationProgress.completed || (evaluationProgress.status === 'completed' && index < evaluationProgress.total); const result = modelEvaluationResults.find((item) => item.profileId === profile.id); const failed = complete && result?.status === 'failed'; return <li key={profile.id} className={`evaluation-configuration-step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''} ${failed ? 'has-failed' : ''}`}><span className="evaluation-configuration-step-index" aria-hidden="true">{complete ? (failed ? '!' : '✓') : index + 1}</span><div><strong>{profile.name}</strong><span>{active ? 'En cours maintenant' : complete ? (failed ? 'Échec — voir le détail' : 'Terminé') : 'En attente'}</span><small>{profile.configuration.visionModel || 'Vision non définie'} → {profile.configuration.analysisModel || 'Analyse non définie'}</small></div>{active && <span className="evaluation-active-pill">EN COURS</span>}</li>; })}</ol>
+          <div className="evaluation-progress-heading"><div><p className="eyebrow">SUIVI DE L’EXPÉRIENCE</p><h3 id="evaluation-progress-title">{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation interrompue' : 'Évaluation en cours'}</h3><p>{evaluationProgress.status === 'completed' ? 'Toutes les configurations ont été traitées.' : evaluationProgress.status === 'cancelled' ? 'La séquence a été arrêtée après l’appel en cours.' : evaluationProgress.currentConfiguration ? 'La configuration active est indiquée ci-dessous.' : 'Préparation de la prochaine configuration…'}</p></div><strong className="evaluation-progress-counter">{evaluationProgress.completedSteps} / {evaluationProgress.totalSteps} étapes terminées</strong></div>
+          <div className="evaluation-progress-track" role="progressbar" aria-label="Étapes de traitement terminées" aria-valuemin={0} aria-valuemax={evaluationProgress.totalSteps} aria-valuenow={evaluationProgress.completedSteps}><span style={{ width: (evaluationProgress.completedSteps / Math.max(1, evaluationProgress.totalSteps) * 100) + '%' }} /></div>
+          <ol className="evaluation-configuration-steps" aria-label="Progression par configuration">{selectedEvaluationProfiles.map((profile, index) => { const active = evaluationProgress.currentConfiguration?.id === profile.id; const complete = index < evaluationProgress.completed || (evaluationProgress.status === 'completed' && index < evaluationProgress.total); const result = modelEvaluationResults.find((item) => item.profileId === profile.id); const failed = complete && result?.status === 'failed'; return <li key={profile.id} className={`evaluation-configuration-step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''} ${failed ? 'has-failed' : ''}`}><span className="evaluation-configuration-step-index" aria-hidden="true">{complete ? (failed ? '!' : '✓') : index + 1}</span><div><strong>{profile.name}</strong><span>{active ? (evaluationProgress.currentStage === 'analysis' ? 'Analyse en cours · lecture terminée' : evaluationProgress.currentStage === 'reading' ? 'Lecture en cours' : 'Préparation') : complete ? (failed ? 'Échec — voir le détail' : 'Terminé') : 'En attente'}</span><small>{profile.configuration.visionModel || 'Vision non définie'} → {profile.configuration.analysisModel || 'Analyse non définie'}</small></div>{active && <span className="evaluation-active-pill">EN COURS</span>}</li>; })}</ol>
           {evaluationProgress.status === 'running' && <div className="evaluation-phase-panel"><strong>{evaluationStage === 'preparing' ? '1. Préparation des modèles' : evaluationStage === 'reading' ? '2. Lecture des images et extraction du texte' : evaluationStage === 'grading' ? '3. Analyse de la copie et attribution des notes' : evaluationStage === 'parsing' ? '4. Structuration et vérification du résultat' : evaluationStage === 'saving' ? '5. Enregistrement de l’expérience locale' : 'Initialisation'}</strong><p>{evaluationStage === 'preparing' ? 'Vérification de la disponibilité des modèles Ollama avant de commencer cette configuration.' : evaluationStage === 'reading' ? 'Le modèle Vision traite les images originales de la copie.' : evaluationStage === 'grading' ? 'Le modèle d’analyse confronte la transcription au barème et prépare les notes.' : evaluationStage === 'parsing' ? 'La réponse est convertie en critères, notes et justifications exploitables.' : evaluationStage === 'saving' ? 'Les résultats, les images et le barème sont enregistrés dans l’historique local.' : 'Mise en place de la séquence de test.'}</p></div>}
         </section>}
         {evaluationWorkspaceStep === 'execution' && busy && streamedOutput && <section className="transcription-review" aria-live="polite"><h3>Réponse du modèle en streaming</h3><pre>{streamedOutput}</pre></section>}
@@ -1803,11 +1809,11 @@ export function App({ service, archiveService, evaluationService }: { service: C
           <div className="analysis-steps" aria-label="Étapes de la correction">
             <div className={'analysis-step ' + (analysisStage === 'reading' ? 'current' : analysisStage === 'grading' ? 'complete' : '')} aria-current={analysisStage === 'reading' ? 'step' : undefined}>
               <span className="analysis-step-number">{analysisStage === 'grading' ? '✓' : '1'}</span>
-              <div><strong>Lire l’image</strong><small>{analysisStage === 'checking' ? 'En attente' : analysisStage === 'reading' ? 'Lecture en cours…' : 'Lecture terminée'}</small></div>
+              <div><strong>Lire l’image</strong><small>{analysisStage === 'checking' ? 'En attente' : analysisStage === 'reading' ? 'Lecture en cours…' : readingElapsedMs === null ? 'Lecture terminée' : `Lecture terminée · ${formatElapsed(Math.round(readingElapsedMs / 1000))}`}</small></div>
             </div>
             <div className={'analysis-step ' + (analysisStage === 'grading' ? 'current' : '')} aria-current={analysisStage === 'grading' ? 'step' : undefined}>
               <span className="analysis-step-number">2</span>
-              <div><strong>Analyser et noter</strong><small>{analysisStage === 'checking' || analysisStage === 'reading' ? 'À venir' : 'Analyse en cours…'}</small></div>
+              <div><strong>Analyser et noter</strong><small>{analysisStage === 'checking' || analysisStage === 'reading' ? 'À venir' : analysisElapsedMs === null ? 'Analyse en cours…' : `Analyse terminée · ${formatElapsed(Math.round(analysisElapsedMs / 1000))}`}</small></div>
             </div>
           </div>
           <h3>{analysisStage === 'checking' ? 'Vérification des modèles Ollama…' : analysisStage === 'reading' ? 'Étape 1/2 — Lecture des images et transcription…' : 'Étape 2/2 — Analyse du contenu et attribution des points…'}</h3>
