@@ -1,13 +1,13 @@
 import type { LocalCorrectionRepository } from '../../ports/localCorrectionRepository.ts';
-import { fingerprintRubric, type LocalMemoryEntry } from '../../domain/localMemory.ts';
+import { fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, type LocalMemoryEntry, rankLocalMemories } from '../../domain/localMemory.ts';
 import { buildLocalMemoryContext } from '../../domain/localMemoryContext.ts';
-
-const CORRECTION_ID_KEY = 'companion-current-correction-id';
 
 function readRubricScope(): { correctionId: string; rubricFingerprint: string } | null {
   if (typeof window === 'undefined') return null;
-  const correctionId = window.localStorage.getItem(CORRECTION_ID_KEY);
+  const correctionId = window.localStorage.getItem(LOCAL_MEMORY_CORRECTION_ID_KEY);
   if (!correctionId) return null;
+  const storedFingerprint = window.localStorage.getItem(LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY);
+  if (storedFingerprint) return { correctionId, rubricFingerprint: storedFingerprint };
   const titleElement = document.getElementById('rubric-title') as HTMLInputElement | null;
   const title = titleElement?.value.trim() || 'Barème sans nom';
   const rubricEditor = document.querySelector('.rubric-editor');
@@ -30,10 +30,18 @@ export async function augmentAnalysisPromptWithLocalMemory(content: string, repo
   if (!shouldAugmentAnalysisPrompt(content)) return content;
   const scope = readRubricScope();
   if (!scope) return content;
-  const current = await repository.listMemory(scope);
-  const rubricRules = (await repository.listMemory({ rubricFingerprint: scope.rubricFingerprint }))
-    .filter((entry) => entry.promotedToRubric && entry.correctionId !== scope.correctionId);
-  return appendLocalMemoryContext(content, [...current, ...rubricRules].slice(0, 8));
+  const currentEntries = await repository.listMemory(scope);
+  const current = rankLocalMemories(currentEntries, content, 8);
+  const rubricRules = rankLocalMemories(
+    (await repository.listMemory({ rubricFingerprint: scope.rubricFingerprint }))
+      .filter((entry) => entry.promotedToRubric && entry.correctionId !== scope.correctionId),
+    content,
+    5,
+  );
+  const selected = [...current, ...rubricRules]
+    .filter((entry, index, entries) => entries.findIndex((candidate) => candidate.id === entry.id) === index)
+    .slice(0, 8);
+  return appendLocalMemoryContext(content, selected);
 }
 
 /**
