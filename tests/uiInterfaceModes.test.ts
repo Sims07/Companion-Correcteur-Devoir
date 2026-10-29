@@ -195,8 +195,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Réviser la note');
     expect(text).toContain('Suivi du traitement');
     expect(text).toContain("setTeacherStep('progress')");
-    expect(text).toContain("(interfaceMode === 'diagnostic' || teacherStep === 'rubric') && <>");
-    expect(text).toContain("(interfaceMode === 'diagnostic' || teacherStep === 'copy') && <>");
+    expect(text).toContain("(interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration')");
+    expect(text).toContain("(interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration')");
     expect(text).toContain("setTeacherStep('review')");
     expect(text).toContain("const assignmentTitleKey = 'companion-correcteur:assignment-title:v1'");
     expect(text).toContain('setItem(assignmentTitleKey, assignmentTitle)');
@@ -209,8 +209,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Évaluation des modèles');
     expect(text).toContain('ESPACE EXPÉRIMENTAL · OLLAMA LOCAL');
     expect(text).toContain('className="evaluation-step-nav"');
-    expect(text).toContain('Créer et sélectionner');
-    expect(text).toContain('Comparer les sorties');
+    expect(text).toContain('Modèles, barème et copie');
+    expect(text).toContain('Notes, temps et tokens');
     expect(text).not.toContain('Un devoir, un espace de travail');
   });
 

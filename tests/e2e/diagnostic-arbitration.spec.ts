@@ -15,25 +15,30 @@ test('advanced multi-model strategy is available in Debug, not in Correction', a
   await expect(page.getByLabel('Stratégie de comparaison')).toHaveCount(0);
 });
 
-test('evaluation presents a three-step workspace and keeps launch disabled until the test copy is ready', async ({ page }) => {
+test('evaluation presents four focused spaces and keeps launch disabled until the test copy is ready', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
 
-  await expect(page.getByRole('navigation', { name: 'Étapes de l’évaluation' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Configurations/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Jeu d’essai/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Résultats/ })).toBeVisible();
+  const navigation = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
+  await expect(navigation).toBeVisible();
+  await expect(navigation.getByRole('button', { name: /Configuration/ })).toHaveAttribute('aria-current', 'step');
+  await expect(navigation.getByRole('button', { name: /Exécution/ })).toBeVisible();
+  await expect(navigation.getByRole('button', { name: /Résultats/ })).toBeVisible();
+  await expect(navigation.getByRole('button', { name: /Analyse & historique/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Choisir les configurations à comparer' })).toBeVisible();
   await expect(page.getByText('Il faut au moins deux configurations.')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Préparer le barème de correction' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Lancer et comparer les résultats' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lancer et comparer les résultats' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Lancer l’expérience' })).toBeDisabled();
 
-  await page.getByRole('button', { name: /Résultats/ }).click();
-  await expect(page.getByRole('heading', { name: 'Lancer et comparer les résultats' })).toBeInViewport();
-  await page.getByRole('button', { name: /Jeu d’essai/ }).click();
-  await expect(page.getByRole('heading', { name: 'Préparer le barème de correction' })).toBeInViewport();
+  await navigation.getByRole('button', { name: /Exécution/ }).click();
+  await expect(page.getByRole('heading', { name: 'Lancer et comparer les résultats' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Préparer le barème de correction' })).toHaveCount(0);
+  await navigation.getByRole('button', { name: /Résultats/ }).click();
+  await expect(navigation.getByRole('button', { name: /Résultats/ })).toHaveAttribute('aria-current', 'step');
+  await navigation.getByRole('button', { name: /Analyse & historique/ }).click();
+  await expect(navigation.getByRole('button', { name: /Analyse & historique/ })).toHaveAttribute('aria-current', 'step');
 });
 
 test('diagnostic history exposes per-model time and Ollama token usage', async ({ page }) => {
