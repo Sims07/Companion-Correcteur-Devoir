@@ -43,6 +43,8 @@ describe('Ollama adapter', () => {
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"format":"json"');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"stream":true');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"think":false');
+    // Model generation has no request timeout or AbortSignal: let slow local inference finish.
+    expect(fetchMock.mock.calls[0][1]?.signal).toBeUndefined();
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { messages: Array<{ content: string }> };
     expect(body.messages[0].content).toContain('Le maximum n’est justifié que si tous les attendus essentiels explicitement décrits sont démontrés');
     expect(body.messages[0].content).toContain('Le maximum n’est justifié que si tous les attendus essentiels explicitement décrits sont démontrés');
