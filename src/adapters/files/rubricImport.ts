@@ -130,6 +130,23 @@ async function extractPdfText(file: File): Promise<string> {
   }
 }
 
+/** Extracts text locally so it can be interpreted by the explicitly configured local Ollama model. */
+export async function extractRubricText(file: File): Promise<string> {
+  if (file.size > MAX_FILE_BYTES) throw new Error('Le fichier de barème dépasse la limite de 15 Mo.');
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  let text: string;
+  if (extension === 'pdf') text = await extractPdfText(file);
+  else if (extension === 'docx') {
+    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    text = result.value;
+  } else if (extension === 'txt' || extension === 'md') text = await file.text();
+  else throw new Error('L’extraction IA textuelle prend en charge PDF, DOCX, TXT et Markdown.');
+  if (!text.trim()) {
+    throw new Error('Aucun texte n’a pu être extrait de ce document. S’il s’agit d’un scan, utilisez « importer une photo / un scan du barème » pour lancer la lecture visuelle locale.');
+  }
+  return text.trim();
+}
+
 /** Extracts rubric content in-browser. No file is uploaded or sent to an AI service. */
 export async function importRubricFile(file: File): Promise<ImportedRubric> {
   if (file.size > MAX_FILE_BYTES) throw new Error('Le fichier de barème dépasse la limite de 15 Mo.');

@@ -235,7 +235,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
-  const [rubricImageImporting, setRubricImageImporting] = useState(false);
+  const [rubricImageImporting, setRubricImageImporting] = useState(false);\n  const [rubricFileImporting, setRubricFileImporting] = useState(false);
   const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
   const [endpoint, setEndpoint] = useState(() => readAiModelConfiguration().endpoint);
   const [visionModel, setVisionModel] = useState(() => readAiModelConfiguration().visionModel);
@@ -390,15 +390,27 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     if (!file) return;
     setError('');
     setRubricImportMessage('');
+    setRubricFileImporting(true);
     try {
-      const imported = await service.importRubric(file);
-      setRubric(imported.rubric);
+      const extension = file.name.split('.').pop()?.toLowerCase();
+      const requiresAiExtraction = ['pdf', 'docx', 'txt', 'md'].includes(extension ?? '');
+      const imported = requiresAiExtraction
+        ? await (async () => {
+            if (!analysisModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale dans le panneau latéral pour choisir un modèle d’analyse avant d’importer un barème PDF, Word, TXT ou Markdown.');
+            const text = await service.extractRubricText(file);
+            return service.importRubricText(text, file.name, { endpoint, analysisModel });
+          })()
+        : service.importRubric(file);
+      const resolved = await imported;
+      setRubric(resolved.rubric);
       setProposal(null);
       setReview([]);
       setTeacherQuestions('');
-      setRubricImportMessage(imported.warnings.length ? imported.warnings.join(' ') : `Barème « ${imported.rubric.title} » importé. Vérifiez les critères et le total avant de lancer la correction.`);
+      setRubricImportMessage(resolved.warnings.length ? resolved.warnings.join(' ') : `Barème « ${resolved.rubric.title} » importé. Vérifiez les critères et le total avant de lancer la correction.`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible d’importer ce barème localement.');
+    } finally {
+      setRubricFileImporting(false);
     }
   }
 
@@ -1063,7 +1075,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         {rubric.criteria.length === 0 && <div className="rubric-empty-state" role="status"><strong>Le barème n’est pas encore défini</strong><p>Importez un barème existant ou ajoutez les critères et leurs points ci-dessous. La correction restera indisponible tant qu’un barème valide n’est pas prêt.</p></div>}
         <div className="rubric-import">
           <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Word (.docx), Excel (.xlsx), CSV, TXT ou JSON)</label>
-          <FilePicker id="rubric-file" accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.json" onFilesSelected={(files) => { void importRubricFileFromInput(files?.[0]); }} title="Importer un document de barème" description="PDF, Word, Excel, CSV, TXT, Markdown ou JSON" actionLabel="Parcourir les fichiers" />
+          <FilePicker id="rubric-file" accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.json" disabled={rubricFileImporting} onFilesSelected={(files) => { void importRubricFileFromInput(files?.[0]); }} title="Importer un document de barème" description={rubricFileImporting ? "Extraction par l’IA locale en cours…" : "PDF, Word, Excel, CSV, TXT, Markdown ou JSON"} actionLabel={rubricFileImporting ? "Analyse en cours…" : "Parcourir les fichiers"} />
           <p className="hint">Les documents texte sont extraits localement dans le navigateur, sans IA. Vérifiez les critères, les points et le total après import.</p>
           <label className="field-label" htmlFor="rubric-image-file">Ou importer une photo / un scan du barème (JPEG, PNG, WebP)</label>
           <FilePicker id="rubric-image-file" accept="image/jpeg,image/png,image/webp" disabled={rubricImageImporting} onFilesSelected={(files) => { void importRubricImageFromInput(files?.[0]); }} title="Importer une photo ou un scan" description="JPEG, PNG ou WebP · une image à la fois" actionLabel={rubricImageImporting ? 'Lecture en cours…' : 'Choisir une image'} compact />

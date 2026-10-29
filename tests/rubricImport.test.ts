@@ -10,7 +10,7 @@ vi.mock('pdfjs-dist', () => ({ GlobalWorkerOptions: {}, getDocument: (...args: u
 vi.mock('mammoth', () => ({ extractRawText: (...args: unknown[]) => mammothMock(...args) }));
 vi.mock('read-excel-file/browser', () => ({ readSheet: (...args: unknown[]) => readXlsxFileMock(...args) }));
 
-import { importRubricFile } from '../src/adapters/files/rubricImport.ts';
+import { extractRubricText, importRubricFile } from '../src/adapters/files/rubricImport.ts';
 
 describe('importRubricFile', () => {
   it('imports a JSON rubric without sending it anywhere', async () => {
@@ -70,7 +70,32 @@ describe('importRubricFile', () => {
     expect(cleanup).toHaveBeenCalledOnce();
   });
 
-  it('rejects unsupported formats with a helpful message', async () => {
+  it('extracts readable PDF text locally for the Ollama rubric-import step', async () => {
+    const destroy = vi.fn().mockResolvedValue(undefined);
+    const getTextContent = vi.fn().mockResolvedValue({ items: [
+      { str: 'Question 1 — Photosynthèse (/5)', transform: [1, 0, 0, 1, 0, 700] },
+      { str: 'Question 2 — Membrane plasmique (/5)', transform: [1, 0, 0, 1, 0, 680] },
+    ] });
+    getDocumentMock.mockReturnValueOnce({
+      promise: Promise.resolve({ numPages: 1, getPage: vi.fn().mockResolvedValue({ getTextContent, cleanup: vi.fn() }) }),
+      destroy,
+    });
+    const text = await extractRubricText(new File(['pdf'], 'bareme.pdf', { type: 'application/pdf' }));
+    expect(text).toContain('Question 1 — Photosynthèse (/5)');
+    expect(text).toContain('Question 2 — Membrane plasmique (/5)');
+    expect(destroy).toHaveBeenCalledOnce();
+  });
+
+  it('rejects scanned PDFs without a text layer and directs the teacher to visual import', async () => {
+    const destroy = vi.fn().mockResolvedValue(undefined);
+    getDocumentMock.mockReturnValueOnce({
+      promise: Promise.resolve({ numPages: 1, getPage: vi.fn().mockResolvedValue({ getTextContent: vi.fn().mockResolvedValue({ items: [] }), cleanup: vi.fn() }) }),
+      destroy,
+    });
+    await expect(extractRubricText(new File(['scan'], 'scan.pdf', { type: 'application/pdf' }))).rejects.toThrow('lecture visuelle locale');
+  });
+
+  it('rejects unsupported formats with a helpful message', async () =>
     await expect(importRubricFile(new File(['data'], 'bareme.odt'))).rejects.toThrow('Format non pris en charge');
   });
 
