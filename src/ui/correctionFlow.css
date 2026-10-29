@@ -1470,3 +1470,47 @@
 @media (prefers-reduced-motion: reduce) {
   .diagnostic-workspace-hero *, .diagnostic-workspace-hero::after { animation: none !important; transition: none !important; }
 }
+
+
+/* Persistent, accessible feedback for local rubric imports. */
+.rubric-import-progress {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--flow-border-strong);
+  border-radius: 12px;
+  background: var(--flow-subtle);
+  color: var(--flow-text);
+}
+.rubric-import-progress.has-error {
+  border-color: #c76b63;
+  background: #fff7f6;
+}
+.rubric-import-progress-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rubric-import-progress-heading strong { font-size: 13px; }
+.rubric-import-progress-heading span {
+  overflow-wrap: anywhere;
+  color: var(--flow-muted);
+  font-size: 12px;
+}
+.rubric-import-progress-events {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 22px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.rubric-import-progress-events li::marker { color: var(--flow-accent); font-weight: 700; }
+.rubric-import-progress.has-error .rubric-import-progress-events li::marker { color: #a83d35; }
+.rubric-import-progress-current,
+.rubric-import-progress-review { margin: 0; font-size: 12px; line-height: 1.55; }
+.rubric-import-progress-current { font-weight: 600; }
+.rubric-import-progress-review { padding-top: 10px; border-top: 1px solid var(--flow-border); }
