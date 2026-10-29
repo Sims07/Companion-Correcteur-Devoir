@@ -260,7 +260,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [aiModelProfileMessage, setAiModelProfileMessage] = useState('');
   const [diagnosticRuns, setDiagnosticRuns] = useState<DiagnosticModelResult[]>([]);
   const [selectedEvaluationProfileIds, setSelectedEvaluationProfileIds] = useState<string[]>([]);
-  const [modelEvaluationResults, setModelEvaluationResults] = useState<Array<{ profileId: string; profileName: string; elapsedMs: number; status: 'success' | 'failed' | 'cancelled'; transcription: string; raw: string; score: number | null; proposal: GradingProposal | null; error?: string }>>([]);
+  const [modelEvaluationResults, setModelEvaluationResults] = useState<Array<{ profileId: string; profileName: string; elapsedMs: number; readingMs: number; analysisMs: number; tokens: number | null; status: 'success' | 'failed' | 'cancelled'; transcription: string; raw: string; score: number | null; proposal: GradingProposal | null; error?: string }>>([]);
   const [evaluationProgress, setEvaluationProgress] = useState<ModelEvaluationProgress | null>(null);
   const evaluationCancelledRef = useRef(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
@@ -667,6 +667,9 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         let extractedTranscription = '';
         let raw = '';
         const startedAt = Date.now();
+        let readingMs = 0;
+        let analysisStartedAt: number | null = null;
+        const measuredRuns: DiagnosticModelResult[] = [];
         const provider = service.createProvider({
           endpoint: configuration.endpoint,
           visionModel: configuration.visionModel,
@@ -679,19 +682,28 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           rubric: rubricAsJson(rubric),
           images: structuredClone(images),
           ...(correctionMode === 'separate' ? { subjectImages: structuredClone(subjectImages), ...(subjectTranscription ? { subjectTranscription } : {}) } : {}),
-        }, undefined, (stage) => setAnalysisStage(stage === 'reading' ? 'reading' : 'grading'), (text, kind) => {
+        }, undefined, (stage) => {
+          const now = Date.now();
+          if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = Math.max(0, now - startedAt); analysisStartedAt = now; } setAnalysisStage('grading'); }
+          else setAnalysisStage('reading');
+        }, (text, kind) => {
           if (kind !== 'subject') extractedTranscription = text;
-        });
+        }, (result) => measuredRuns.push(result));
         let score: number | null = null;
         let parsedProposal: GradingProposal | null = null;
         try { parsedProposal = parseGradingProposal(raw, rubric); score = buildDiagnosticScore(parsedProposal, rubric).modelScore; } catch { /* Preserve raw output for inspection even when it cannot be scored. */ }
-        return { transcription: extractedTranscription, raw, score, proposal: parsedProposal, elapsedMs: Date.now() - startedAt };
+        const finishedAt = Date.now();
+        const tokens = measuredRuns.some((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined) ? measuredRuns.reduce((sum, run) => sum + (run.totalTokens ?? run.promptTokens ?? 0) + (run.totalTokens === undefined && run.generatedTokens !== undefined ? run.generatedTokens : 0), 0) : null;
+        return { transcription: extractedTranscription, raw, score, proposal: parsedProposal, readingMs, analysisMs: analysisStartedAt === null ? 0 : Math.max(0, finishedAt - analysisStartedAt), tokens, elapsedMs: finishedAt - startedAt };
       },
     });
     const results = outputs.map((output) => ({
       profileId: output.configuration.id,
       profileName: output.configuration.name,
       elapsedMs: output.elapsedMs,
+      readingMs: output.value?.readingMs ?? 0,
+      analysisMs: output.value?.analysisMs ?? 0,
+      tokens: output.value?.tokens ?? null,
       status: output.status,
       transcription: output.value?.transcription ?? '',
       raw: output.value?.raw ?? '',
@@ -1155,7 +1167,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         {aiModelProfiles.length < 2 ? <p className="hint">Enregistrez au moins deux configurations dans les paramètres de l’IA locale avant de pouvoir les comparer.</p> : <fieldset className="evaluation-profile-list"><legend>Configurations à comparer (2 à 3)</legend>{aiModelProfiles.map((profile) => <label key={profile.id} className="evaluation-profile-option"><input type="checkbox" checked={selectedEvaluationProfileIds.includes(profile.id)} disabled={busy || (!selectedEvaluationProfileIds.includes(profile.id) && selectedEvaluationProfileIds.length >= 3)} onChange={(event) => setSelectedEvaluationProfileIds((current) => event.target.checked ? [...current, profile.id].slice(-3) : current.filter((id) => id !== profile.id))} /><span><strong>{profile.name}</strong><small>Vision : {profile.configuration.visionModel || 'non défini'} · Analyse : {profile.configuration.analysisModel || 'non défini'}{profile.configuration.analysisThinking ? ' · raisonnement activé' : ''}</small></span></label>)}</fieldset>}
         <div className="settings-actions"><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 2 || !images.length} onClick={() => void startModelEvaluation()}>Lancer l’évaluation indépendante</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
         {evaluationProgress && <div className="evaluation-progress" role="status"><strong>{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation annulée' : 'Évaluation en cours'}</strong><span>{evaluationProgress.completed} / {evaluationProgress.total} configuration(s)</span>{evaluationProgress.currentConfiguration && <p>Configuration active : {evaluationProgress.currentConfiguration.name} · lecture de l’image puis analyse</p>}<div className="evaluation-progress-track"><span style={{ width: (evaluationProgress.completed / Math.max(1, evaluationProgress.total) * 100) + '%' }} /></div></div>}
-        {modelEvaluationResults.length > 0 && <div className="evaluation-result-list"><h3>Résultats de cette expérience</h3>{modelEvaluationResults.map((result) => <article key={result.profileId} className="transcription-review"><h4>{result.profileName}</h4><p>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Annulé' : 'Échec'} · {formatElapsed(Math.round(result.elapsedMs / 1000))} · {result.score === null ? 'Note non exploitable' : result.score + ' / ' + validation.maximumPoints}</p>{result.error && <p className="validation" role="alert">{result.error}</p>}{result.transcription && <details><summary>Transcription extraite indépendamment</summary><pre>{result.transcription}</pre></details>}{result.proposal && <details open><summary>Détail par critère et justifications</summary><ul>{result.proposal.criteria.map((criterion) => { const rubricCriterion = rubric.criteria.find((item) => item.id === criterion.criterionId); return <li key={criterion.criterionId}><strong>{rubricCriterion?.title ?? criterion.criterionId} : {criterion.points} / {rubricCriterion?.maxPoints ?? '—'}</strong><p>{criterion.rationale || 'Aucune justification fournie.'}</p><p><strong>Preuve :</strong> {criterion.evidence || 'Aucune preuve textuelle fournie.'}</p><small>Confiance déclarée : {criterion.confidence === 'high' ? 'élevée' : criterion.confidence === 'medium' ? 'moyenne' : 'faible'}</small></li>; })}</ul>{result.proposal.questionsForTeacher.length > 0 && <div className="diagnostic-questions"><strong>Questions à vérifier</strong><ul>{result.proposal.questionsForTeacher.map((question, index) => <li key={index}>{question}</li>)}</ul></div>}</details>}{result.raw && <details><summary>Réponse brute</summary><pre>{result.raw}</pre></details>}</article>)}</div>}
+        {modelEvaluationResults.length > 0 && <div className="evaluation-result-list"><h3>Résultats de cette expérience</h3>{modelEvaluationResults.map((result) => <article key={result.profileId} className="transcription-review"><h4>{result.profileName}</h4><p>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Annulé' : 'Échec'} · Total {formatElapsed(Math.round(result.elapsedMs / 1000))} · Lecture {result.readingMs ? formatElapsed(Math.round(result.readingMs / 1000)) : '—'} · Analyse {result.analysisMs ? formatElapsed(Math.round(result.analysisMs / 1000)) : '—'} · Tokens {result.tokens === null ? 'non mesurés' : formatTokenCount(result.tokens)} · {result.score === null ? 'Note non exploitable' : result.score + ' / ' + validation.maximumPoints}</p>{result.error && <p className="validation" role="alert">{result.error}</p>}{result.transcription && <details><summary>Transcription extraite indépendamment</summary><pre>{result.transcription}</pre></details>}{result.proposal && <details open><summary>Détail par critère et justifications</summary><ul>{result.proposal.criteria.map((criterion) => { const rubricCriterion = rubric.criteria.find((item) => item.id === criterion.criterionId); return <li key={criterion.criterionId}><strong>{rubricCriterion?.title ?? criterion.criterionId} : {criterion.points} / {rubricCriterion?.maxPoints ?? '—'}</strong><p>{criterion.rationale || 'Aucune justification fournie.'}</p><p><strong>Preuve :</strong> {criterion.evidence || 'Aucune preuve textuelle fournie.'}</p><small>Confiance déclarée : {criterion.confidence === 'high' ? 'élevée' : criterion.confidence === 'medium' ? 'moyenne' : 'faible'}</small></li>; })}</ul>{result.proposal.questionsForTeacher.length > 0 && <div className="diagnostic-questions"><strong>Questions à vérifier</strong><ul>{result.proposal.questionsForTeacher.map((question, index) => <li key={index}>{question}</li>)}</ul></div>}</details>}{result.raw && <details><summary>Réponse brute</summary><pre>{result.raw}</pre></details>}</article>)}</div>}
       </section>}
       {interfaceMode === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
         <div className="workspace-heading"><div><p className="eyebrow">OUTILS DE DIAGNOSTIC</p><h2 id="debug-workspace-title">Debug des appels IA locaux</h2><p className="workspace-description">Les réponses brutes et la transcription restent sur cet appareil. Lancez d’abord une évaluation pour afficher ses traces.</p></div></div>
