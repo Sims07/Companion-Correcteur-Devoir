@@ -66,6 +66,10 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Consulter / recharger la référence');
     expect(text).toContain('IndexedDB sur cet appareil');
     expect(text).toContain('Réponse du modèle en streaming');
+    expect(text).toContain('Lecture des images');
+    expect(text).toContain('Analyse et notation');
+    expect(text).toContain('Comparaison relative des notes');
+    expect(text).toContain('ces écarts ne mesurent pas l’exactitude');
   });
 
   it('separates model evaluation from raw local debug output', () => {
