@@ -118,6 +118,9 @@ type TimingRecord = {
   outcome: 'success' | 'error';
   modelScore: number | null;
   criterionScores: DiagnosticCriterionScore[];
+  assignmentId?: string;
+  assignmentTitle?: string;
+  rubricSnapshot?: Rubric;
   diagnosticStrategy?: DiagnosticStrategy;
   diagnosticRuns?: DiagnosticModelResult[];
   referenceScores?: ReferenceCriterionScore[];
@@ -548,6 +551,9 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         outcome,
         modelScore: diagnosticScore?.modelScore ?? null,
         criterionScores: diagnosticScore?.criterionScores ?? [],
+        assignmentId: activeAssignmentId,
+        assignmentTitle: assignmentTitle.trim() || 'Devoir sans titre',
+        rubricSnapshot: structuredClone(rubric),
         diagnosticStrategy: interfaceMode === 'diagnostic' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
         diagnosticRuns: diagnosticResultsForHistory,
       };
@@ -1304,9 +1310,9 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       </section>}
 
       {interfaceMode === 'diagnostic' && timingHistory.length > 0 && <section className="timing-history" aria-labelledby="timing-history-title">
-        <div className="timing-history-heading">
-          <div><p className="eyebrow">EXPÉRIENCES CONSERVÉES</p><h2 id="timing-history-title">Historique des essais</h2><p>Comparez les durées, les modèles et les notes obtenues sur vos précédentes expériences. L’historique reste sur cet appareil.</p></div>
-          <button type="button" className="text-button" onClick={() => { setTimingHistory([]); setSelectedComparisonIds([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button>
+        <div className="timing-history-heading diagnostic-dashboard-header">
+          <div><p className="eyebrow">LABORATOIRE LOCAL · OLLAMA</p><h2 id="timing-history-title">Tableau de bord des expériences</h2><p>Comparez les compromis entre qualité, consommation et vitesse sur les mêmes devoirs et barèmes. Toutes les données restent dans ce navigateur.</p></div>
+          <div className="diagnostic-dashboard-header-actions"><span className="diagnostic-local-pill"><span></span> Données locales</span><button type="button" className="text-button" onClick={() => { setTimingHistory([]); setSelectedComparisonIds([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button></div>
         </div>
         {(() => {
           const allRuns = timingHistory.flatMap((item) => item.diagnosticRuns ?? []);
@@ -1346,15 +1352,52 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
             { key: 'score', label: 'Note proposée', unit: 'points', values: selectedComparisons.map((record) => record.modelScore), display: (value: number | null) => value === null ? 'Non disponible' : String(value) },
           ];
           const allGroups = usage.flatMap((item, index) => item.groups.map((group) => ({ ...group, runIndex: index })));
-          const modelScores = selectedComparisons.flatMap((record, runIndex) => (record.diagnosticRuns ?? [])
-            .filter((run) => run.kind === 'model' || run.kind === 'arbitrator')
-            .map((run) => {
-              const parsed = safeDiagnosticProposal(run.raw, rubric);
-              return { record, run, runIndex, score: parsed ? buildDiagnosticScore(parsed, rubric).modelScore : null };
-            }));
-          const rubricMaximum = rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
+          const rubricFor = (record: TimingRecord) => record.rubricSnapshot ?? rubric;
+          const rubricSignature = (record: TimingRecord) => JSON.stringify(rubricFor(record).criteria.map((criterion) => ({ id: criterion.id, maxPoints: criterion.maxPoints })));
+          const referenceSource = selectedComparisons.find((record) => {
+            const reference = record.referenceScores;
+            return Boolean(reference && validateDiagnosticReference(reference, rubricFor(record)).valid);
+          });
+          const sharedReference = referenceSource?.referenceScores;
+          const modelScores = selectedComparisons.flatMap((record, runIndex) => {
+            const recordRubric = rubricFor(record);
+            const compatibleSharedReference = sharedReference && selectedComparisons.every((candidate) => candidate.assignmentId === record.assignmentId && rubricSignature(candidate) === rubricSignature(record));
+            const reference = compatibleSharedReference ? sharedReference : record.referenceScores;
+            const validReference = reference && validateDiagnosticReference(reference, recordRubric).valid ? reference : null;
+            return (record.diagnosticRuns ?? [])
+              .filter((run) => run.kind === 'model' || run.kind === 'arbitrator')
+              .map((run) => {
+                const parsed = safeDiagnosticProposal(run.raw, recordRubric);
+                const score = parsed ? buildDiagnosticScore(parsed, recordRubric) : null;
+                const referenceComparison = score && validReference ? compareWithDiagnosticReference(score.criterionScores, validReference, recordRubric) : null;
+                const maxPoints = recordRubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
+                const usageGroup = groupDiagnosticUsage([run])[0];
+                const tokens = run.promptTokens !== undefined || run.generatedTokens !== undefined ? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0) : null;
+                const qualityPercent = referenceComparison && maxPoints > 0
+                  ? Math.max(0, 100 - referenceComparison.meanAbsoluteError / maxPoints * 100)
+                  : score && maxPoints > 0 ? score.modelScore / maxPoints * 100 : null;
+                const criterionErrors = score && validReference ? recordRubric.criteria.flatMap((criterion) => {
+                  const modelCriterion = score.criterionScores.find((item) => item.criterionId === criterion.id);
+                  const referenceCriterion = validReference.find((item) => item.criterionId === criterion.id);
+                  return modelCriterion && referenceCriterion ? [{ id: criterion.id, title: criterion.title, maxPoints: criterion.maxPoints, modelPoints: modelCriterion.points, referencePoints: referenceCriterion.points, error: Math.abs(modelCriterion.points - referenceCriterion.points) }] : [];
+                }) : [];
+                return { record, run, runIndex, score: score?.modelScore ?? null, maxPoints, elapsedSeconds: run.elapsedMs / 1000, tokens, usageGroup, referenceComparison, qualityPercent, criterionErrors, hasReference: Boolean(validReference), assignmentTitle: record.assignmentTitle ?? 'Devoir historique' };
+              });
+          });
+          const rubricMaximum = Math.max(0, ...selectedComparisons.map((record) => rubricFor(record).criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)));
           const maxGroupElapsed = Math.max(1, ...allGroups.map((group) => group.elapsedMs));
           const maxGroupTokens = Math.max(1, ...allGroups.map((group) => group.promptTokens + group.generatedTokens));
+          const plotMaxSeconds = Math.max(1, ...modelScores.map((item) => item.elapsedSeconds));
+          const plotMaxTokens = Math.max(1, ...modelScores.map((item) => item.tokens ?? 0));
+          const hasReferenceQuality = modelScores.some((item) => item.referenceComparison !== null);
+          const qualityMetricLabel = hasReferenceQuality ? 'Proximité de la référence' : 'Note proposée (% du barème)';
+          const scatterPoints = modelScores.filter((item) => item.qualityPercent !== null).map((item, index) => ({
+            ...item,
+            x: 76 + item.elapsedSeconds / plotMaxSeconds * 590,
+            y: 224 - (item.qualityPercent ?? 0) / 100 * 170,
+            radius: 6 + Math.sqrt((item.tokens ?? 0) / plotMaxTokens) * 8,
+            key: item.record.id + item.run.model + index,
+          }));
           return <section className="diagnostic-comparison-panel" aria-labelledby="diagnostic-comparison-title">
             <div className="diagnostic-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h3 id="diagnostic-comparison-title">Comparaison de deux essais</h3><p>Les barres partagent la même échelle au sein de chaque graphique. Les valeurs indisponibles restent distinctes de zéro.</p></div><button type="button" className="text-button" onClick={() => setSelectedComparisonIds([])}>Réinitialiser la sélection</button></div>
             <div className="diagnostic-comparison-legend">{selectedComparisons.map((record, index) => <div key={record.id}><span className={index === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><span><strong>Essai {index === 0 ? 'A' : 'B'}</strong><small>{record.visionModel} / {record.analysisModel} · {new Date(record.completedAt).toLocaleString()}</small></span></div>)}</div>
@@ -1379,12 +1422,37 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
                 <div className="diagnostic-comparison-track" role="img" aria-label={`Tokens ${group.model} ${diagnosticStageLabel(group.stage)} : ${group.measuredCalls ? formatTokenCount(group.promptTokens + group.generatedTokens) : 'non mesurés'}`}><span className={group.runIndex === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: group.measuredCalls ? `${(group.promptTokens + group.generatedTokens) / maxGroupTokens * 100}%` : '0%' }} /></div>
               </article>)}</div>}
             </div>
+            <div className="diagnostic-dashboard-kpis" aria-label="Indicateurs qualité, coût et vitesse">
+              <article className="diagnostic-kpi quality"><span className="diagnostic-kpi-icon" aria-hidden="true">◎</span><div><span>Qualité mesurée</span><strong>{hasReferenceQuality ? 'Référence active' : 'À confirmer'}</strong><small>{hasReferenceQuality ? 'Écart aux notes du professeur' : 'La note proposée n’est pas une mesure de justesse'}</small></div></article>
+              <article className="diagnostic-kpi cost"><span className="diagnostic-kpi-icon" aria-hidden="true">◈</span><div><span>Consommation comparée</span><strong>{modelScores.filter((item) => item.tokens !== null).length} modèle(s) mesuré(s)</strong><small>Tokens d’entrée + de sortie réellement remontés par Ollama</small></div></article>
+              <article className="diagnostic-kpi speed"><span className="diagnostic-kpi-icon" aria-hidden="true">◷</span><div><span>Temps de calcul</span><strong>{modelScores.length ? formatElapsed(Math.round(modelScores.reduce((sum, item) => sum + item.elapsedSeconds, 0))) : '—'}</strong><small>Somme des appels d’analyse comparés</small></div></article>
+            </div>
+            <div className="diagnostic-comparison-stage diagnostic-quality-speed-stage">
+              <div className="diagnostic-section-title"><div><p className="eyebrow">QUALITÉ × VITESSE × COÛT</p><h4>Compromis entre qualité et temps</h4><p>{hasReferenceQuality ? 'Plus un point est haut, plus sa note est proche de la référence du professeur. La taille du point représente les tokens consommés.' : 'En l’absence de référence, l’axe vertical affiche la note proposée en pourcentage du barème — pas une mesure de justesse. La taille du point représente les tokens consommés.'}</p></div><span className="diagnostic-chart-legend"><i className="comparison-swatch comparison-swatch-a"></i> Essai A <i className="comparison-swatch comparison-swatch-b"></i> Essai B</span></div>
+              {scatterPoints.length === 0 ? <p className="diagnostic-comparison-empty">Aucune note structurée exploitable pour tracer ce graphique.</p> : <div className="diagnostic-scatter-wrap">
+                <svg className="diagnostic-scatter" viewBox="0 0 720 270" role="img" aria-label={`Graphique ${qualityMetricLabel} en fonction du temps de calcul ; taille des points proportionnelle aux tokens`}>
+                  {[0,25,50,75,100].map((tick) => <g key={tick}><line x1="76" x2="666" y1={224-tick/100*170} y2={224-tick/100*170} className="diagnostic-chart-gridline" /><text x="64" y={228-tick/100*170} textAnchor="end" className="diagnostic-chart-tick">{tick}%</text></g>)}
+                  <line x1="76" x2="76" y1="54" y2="224" className="diagnostic-chart-axis" /><line x1="76" x2="666" y1="224" y2="224" className="diagnostic-chart-axis" />
+                  <text x="370" y="258" textAnchor="middle" className="diagnostic-chart-axis-label">Temps d’analyse (secondes) · plus rapide à gauche</text>
+                  {scatterPoints.map((point) => <g key={point.key}>
+                    <circle cx={point.x} cy={point.y} r={point.radius} className={point.runIndex === 0 ? 'diagnostic-scatter-point point-a' : 'diagnostic-scatter-point point-b'}><title>{point.run.model} — {point.qualityPercent?.toFixed(1)} %, {point.elapsedSeconds.toFixed(1)} s, {point.tokens === null ? 'tokens non mesurés' : formatTokenCount(point.tokens)}</title></circle>
+                    <text x={Math.min(645, point.x + point.radius + 5)} y={point.y - 8} className="diagnostic-chart-point-label">{point.run.model}</text>
+                  </g>)}
+                </svg>
+                <div className="diagnostic-scatter-caption"><span><i className="comparison-swatch comparison-swatch-a"></i> Essai A · {selectedComparisons[0].analysisModel}</span><span><i className="comparison-swatch comparison-swatch-b"></i> Essai B · {selectedComparisons[1].analysisModel}</span><span>Surface du point ∝ tokens mesurés</span></div>
+              </div>}
+            </div>
             <div className="diagnostic-comparison-stage">
-              <div><h4>Note par modèle</h4><p>Les notes sont calculées à partir de la sortie structurée enregistrée pour chaque modèle. Elles ne sont pas disponibles si la sortie n’est pas exploitable.</p></div>
-              {modelScores.length === 0 ? <p className="diagnostic-comparison-empty">Aucune note par modèle exploitable n’a été conservée dans ces essais.</p> : <div className="diagnostic-comparison-models">{modelScores.map(({ record, run, runIndex, score }, index) => <article key={record.id + run.kind + run.model + index}>
-                <div className="diagnostic-comparison-model-heading"><span className={runIndex === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><strong>Essai {runIndex === 0 ? 'A' : 'B'} · {run.kind === 'arbitrator' ? 'Arbitre' : 'Modèle'} · {run.model}</strong><small>Note proposée sur {rubricMaximum} points</small></div>
-                <div className="diagnostic-comparison-bar-label"><span>Note</span><strong>{score === null ? 'Non comparable' : `${score} / ${rubricMaximum}`}</strong></div>
-                <div className="diagnostic-comparison-track" role="img" aria-label={`Note ${run.model} : ${score === null ? 'non comparable' : `${score} sur ${rubricMaximum}`}`}><span className={runIndex === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: score === null || rubricMaximum <= 0 ? '0%' : `${Math.max(0, Math.min(100, score / rubricMaximum * 100))}%` }} /></div>
+              <div className="diagnostic-section-title"><div><p className="eyebrow">DÉTAIL DES MODÈLES</p><h4>Qualité, coût et vitesse par modèle</h4><p>Les métriques sont calculées séparément pour chaque avis et pour l’arbitre. Une référence compatible peut être réutilisée entre les deux essais.</p></div></div>
+              {modelScores.length === 0 ? <p className="diagnostic-comparison-empty">Aucune note par modèle exploitable n’a été conservée dans ces essais.</p> : <div className="diagnostic-model-score-grid">{modelScores.map((item) => <article className="diagnostic-model-score-card" key={item.record.id + item.run.kind + item.run.model}>
+                <div className="diagnostic-model-score-top"><span className={item.runIndex === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><div><strong>{item.run.kind === 'arbitrator' ? 'Arbitre' : 'Avis indépendant'} · {item.run.model}</strong><small>Essai {item.runIndex === 0 ? 'A' : 'B'} · {item.assignmentTitle}</small></div></div>
+                <div className="diagnostic-model-score-main"><strong>{item.score === null ? '—' : item.score}</strong><span>/ {item.maxPoints} points</span></div>
+                <div className="diagnostic-model-score-metrics">
+                  <div><span>{item.hasReference ? 'Erreur moyenne' : 'Note / barème'}</span><strong>{item.referenceComparison ? `${item.referenceComparison.meanAbsoluteError} pt` : item.score === null || item.maxPoints <= 0 ? '—' : `${(item.score/item.maxPoints*100).toFixed(1).replace('.', ',')} %`}</strong><small>{item.referenceComparison ? `${item.referenceComparison.exactMatches}/${item.referenceComparison.comparedCriteria} critères exacts` : 'Référence facultative'}</small></div>
+                  <div><span>Temps</span><strong>{formatElapsed(Math.round(item.elapsedSeconds))}</strong><small>{item.usageGroup?.generationMs ? `${(item.usageGroup.generationMs > 0 ? (item.usageGroup.generatedTokens/(item.usageGroup.generationMs/1000)).toFixed(1) : '—')} tokens/s` : 'Vitesse non mesurée'}</small></div>
+                  <div><span>Tokens</span><strong>{item.tokens === null ? 'Non mesurés' : formatTokenCount(item.tokens)}</strong><small>{item.run.promptTokens === undefined ? 'Entrée non mesurée' : `Entrée : ${formatTokenCount(item.run.promptTokens)}`}</small></div>
+                </div>
+                {item.criterionErrors.length > 0 && <details className="diagnostic-criterion-error-details"><summary>Écart par critère</summary><div className="diagnostic-criterion-error-list">{item.criterionErrors.map((criterion) => <div key={criterion.id}><span>{criterion.title}</span><strong>{criterion.modelPoints} / {criterion.maxPoints}</strong><div className="diagnostic-comparison-track"><span className="comparison-bar-b" style={{width: `${criterion.maxPoints > 0 ? criterion.error / criterion.maxPoints * 100 : 0}%`}} /></div><small>Écart à la référence : {criterion.error} pt</small></div>)}</div></details>}
               </article>)}</div>}
             </div>
           </section>;
