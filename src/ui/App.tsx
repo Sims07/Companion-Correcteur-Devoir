@@ -1361,7 +1361,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           const sharedReference = referenceSource?.referenceScores;
           const modelScores = selectedComparisons.flatMap((record, runIndex) => {
             const recordRubric = rubricFor(record);
-            const compatibleSharedReference = sharedReference && selectedComparisons.every((candidate) => candidate.assignmentId === record.assignmentId && rubricSignature(candidate) === rubricSignature(record));
+            const compatibleSharedReference = Boolean(record.assignmentId && sharedReference && selectedComparisons.every((candidate) => candidate.assignmentId === record.assignmentId && rubricSignature(candidate) === rubricSignature(record)));
             const reference = compatibleSharedReference ? sharedReference : record.referenceScores;
             const validReference = reference && validateDiagnosticReference(reference, recordRubric).valid ? reference : null;
             return (record.diagnosticRuns ?? [])
@@ -1374,7 +1374,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
                 const usageGroup = groupDiagnosticUsage([run])[0];
                 const tokens = run.promptTokens !== undefined || run.generatedTokens !== undefined ? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0) : null;
                 const qualityPercent = referenceComparison && maxPoints > 0
-                  ? Math.max(0, 100 - referenceComparison.meanAbsoluteError / maxPoints * 100)
+                  ? Math.max(0, 100 - referenceComparison.absoluteTotalError / maxPoints * 100)
                   : score && maxPoints > 0 ? score.modelScore / maxPoints * 100 : null;
                 const criterionErrors = score && validReference ? recordRubric.criteria.flatMap((criterion) => {
                   const modelCriterion = score.criterionScores.find((item) => item.criterionId === criterion.id);
@@ -1400,6 +1400,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           }));
           return <section className="diagnostic-comparison-panel" aria-labelledby="diagnostic-comparison-title">
             <div className="diagnostic-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h3 id="diagnostic-comparison-title">Comparaison de deux essais</h3><p>Les barres partagent la même échelle au sein de chaque graphique. Les valeurs indisponibles restent distinctes de zéro.</p></div><button type="button" className="text-button" onClick={() => setSelectedComparisonIds([])}>Réinitialiser la sélection</button></div>
+            {selectedComparisons[0].assignmentId !== selectedComparisons[1].assignmentId || rubricSignature(selectedComparisons[0]) !== rubricSignature(selectedComparisons[1]) ? <p className="diagnostic-comparison-warning" role="note">Ces essais ne partagent pas le même devoir et le même barème. Les temps et tokens restent comparables ; les notes et écarts pédagogiques doivent être interprétés avec prudence.</p> : null}
             <div className="diagnostic-comparison-legend">{selectedComparisons.map((record, index) => <div key={record.id}><span className={index === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><span><strong>Essai {index === 0 ? 'A' : 'B'}</strong><small>{record.visionModel} / {record.analysisModel} · {new Date(record.completedAt).toLocaleString()}</small></span></div>)}</div>
             <div className="diagnostic-comparison-charts">{metrics.map((metric) => {
               const values = metric.values.map((value) => typeof value === 'number' && Number.isFinite(value) ? value : null);
