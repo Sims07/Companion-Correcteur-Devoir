@@ -1,13 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-test('multi-model experiment is available in Diagnostic IA only', async ({ page }) => {
+test('advanced multi-model strategy is available in Debug, not in Correction', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
+  await page.getByRole('button', { name: 'Debug', exact: true }).click();
 
   const strategy = page.getByLabel('Stratégie de comparaison');
   await expect(strategy).toBeVisible();
   await expect(strategy).toHaveValue('single');
-
   await strategy.selectOption('arbitrate');
   await expect(page.getByLabel('Second modèle d’analyse')).toBeVisible();
   await expect(page.getByLabel('Modèle arbitre')).toBeVisible();
@@ -16,22 +15,25 @@ test('multi-model experiment is available in Diagnostic IA only', async ({ page 
   await expect(page.getByLabel('Stratégie de comparaison')).toHaveCount(0);
 });
 
-test('diagnostic presents a guided journey and a useful empty results state', async ({ page }) => {
+test('evaluation presents a three-step workspace and keeps launch disabled until the test copy is ready', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
 
-  await expect(page.getByRole('navigation', { name: 'Parcours d’évaluation des modèles' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Préparer l’expérience/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Analyser les résultats/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Comparer dans le temps/ })).toBeDisabled();
-  await expect(page.getByRole('heading', { name: 'Aucun résultat pour le moment' })).toBeVisible();
-  await expect(page.getByText(/comparez les modèles dès maintenant et ajoutez une référence plus tard/i)).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Étapes de l’évaluation' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Configurations/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Jeu d’essai/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Résultats/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Choisir les configurations à comparer' })).toBeVisible();
+  await expect(page.getByText('Il faut au moins deux configurations.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Préparer le barème de correction' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lancer et comparer les résultats' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Lancer l’expérience' })).toBeDisabled();
 
-  await page.getByRole('button', { name: /Analyser les résultats/ }).click();
-  await expect(page.getByRole('heading', { name: 'Résultats de l’expérience multi-modèles' })).toBeInViewport();
-
-  await page.getByRole('button', { name: /Préparer l’expérience/ }).click();
-  await expect(page.getByRole('heading', { name: 'Préparer le barème' })).toBeInViewport();
+  await page.getByRole('button', { name: /Résultats/ }).click();
+  await expect(page.getByRole('heading', { name: 'Lancer et comparer les résultats' })).toBeInViewport();
+  await page.getByRole('button', { name: /Jeu d’essai/ }).click();
+  await expect(page.getByRole('heading', { name: 'Préparer le barème de correction' })).toBeInViewport();
 });
 
 test('diagnostic history exposes per-model time and Ollama token usage', async ({ page }) => {
@@ -61,7 +63,8 @@ test('diagnostic history exposes per-model time and Ollama token usage', async (
     }]));
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
+  await page.getByRole('button', { name: 'Debug', exact: true }).click();
+  await page.getByText('Historique et comparaison des performances').click();
 
   await expect(page.getByRole('heading', { name: 'Tableau de bord des expériences' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Tokens consommés' })).toBeVisible();
@@ -112,7 +115,8 @@ test('diagnostic history compares two saved experiments with visual charts', asy
     ]));
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
+  await page.getByRole('button', { name: 'Debug', exact: true }).click();
+  await page.getByText('Historique et comparaison des performances').click();
 
   await expect(page.getByRole('heading', { name: 'Comparer deux essais' })).toBeVisible();
   await page.getByRole('checkbox', { name: /Sélectionner l’essai phi-mini/ }).check();
@@ -135,14 +139,14 @@ test('model evaluation and raw debug are separate workspaces', async ({ page }) 
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Évaluation indépendante des configurations' })).toBeVisible();
-  await expect(page.getByText(/Enregistrez au moins deux configurations/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Choisir les configurations à comparer' })).toBeVisible();
+  await expect(page.getByText('Il faut au moins deux configurations.')).toBeVisible();
 
   await page.getByRole('button', { name: 'Debug', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Debug des appels IA locaux' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Évaluation indépendante des configurations' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Choisir les configurations à comparer' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Sorties brutes des modèles (0)' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
-  await expect(page.getByRole('heading', { name: 'Évaluation indépendante des configurations' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Choisir les configurations à comparer' })).toBeVisible();
 });
