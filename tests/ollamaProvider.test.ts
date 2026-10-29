@@ -158,6 +158,35 @@ describe('Ollama adapter', () => {
   });
 
 
+
+  it('unloads each independent analysis model immediately during comparison', async () => {
+    const response = '{"criteria":[]}';
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse(response))
+      .mockResolvedValueOnce(streamingResponse(response));
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434',
+      visionModel: 'gemma3:4b',
+      analysisModel: 'qwen3.5:4b',
+      secondAnalysisModel: 'phi4-mini',
+      diagnosticStrategy: 'compare',
+    }, fetchMock);
+
+    await expect(provider.generate({
+      question: request.question,
+      rubric: request.rubric,
+      images: [],
+      transcription: 'Transcription déjà disponible',
+    })).resolves.toBe(response);
+
+    const firstAnalysis = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { model: string; keep_alive?: string | number };
+    const secondAnalysis = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { model: string; keep_alive?: string | number };
+    expect(firstAnalysis.model).toBe('qwen3.5:4b');
+    expect(firstAnalysis.keep_alive).toBe(0);
+    expect(secondAnalysis.model).toBe('phi4-mini');
+    expect(secondAnalysis.keep_alive).toBe(0);
+  });
+
   it('keeps the vision model warm between pages and unloads it before analysis', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse('Transcription page 1'))
