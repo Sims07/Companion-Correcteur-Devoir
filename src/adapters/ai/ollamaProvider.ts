@@ -276,10 +276,11 @@ export function createOllamaProvider(
       }
 
       let subjectTranscription = request.subjectTranscription;
-      if (!subjectTranscription && request.subjectImages?.length) {
+      const subjectImages = request.subjectImages ?? [];
+      if (!subjectTranscription && subjectImages.length > 0) {
         onStage?.('reading');
         const subjectPages: string[] = [];
-        for (const [index, image] of request.subjectImages.entries()) {
+        for (const [index, image] of subjectImages.entries()) {
           const pageLabel = image.fileName || `sujet page ${index + 1}`;
           const pageText = await sendStream(visionModel, [
             'RÔLE : extrais fidèlement le contenu d’une page de sujet d’examen universitaire, sans corriger ni résoudre les questions.',
@@ -289,7 +290,7 @@ export function createOllamaProvider(
             `ÉTIQUETTE DE PAGE (métadonnée) : ${JSON.stringify(pageLabel)}`,
           ].join('\n\n'), [image.base64], onChunk, false, false, {
             kind: 'vision', stage: 'reading',
-            keepAlive: index < request.subjectImages.length - 1 || (!request.transcription && (request.images?.length ?? 0) > 0) ? '30s' : 0,
+            keepAlive: index < subjectImages.length - 1 || (!request.transcription && (request.images?.length ?? 0) > 0) ? '30s' : 0,
           });
           subjectPages.push(`[ ${pageLabel} ]\n${pageText}`);
         }
