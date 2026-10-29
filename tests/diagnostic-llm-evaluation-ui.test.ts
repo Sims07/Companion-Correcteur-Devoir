@@ -41,3 +41,28 @@ describe('Diagnostic IA — correction de référence facultative', () => {
     expect(appSource).toContain('Écart de note totale :');
   });
 });
+
+describe('Diagnostic IA — consommation réelle des modèles Ollama', () => {
+  it('shows token usage, per-model timing, generation speed and local hardware-loading time in history', () => {
+    expect(appSource).toContain('Tokens consommés');
+    expect(appSource).toContain('Usage par modèle');
+    expect(appSource).toContain('Tokens d’entrée');
+    expect(appSource).toContain('Tokens générés');
+    expect(appSource).toContain('Vitesse de génération pondérée');
+    expect(appSource).toContain('Chargement :');
+    expect(appSource).toContain('Les tokens sont les compteurs remontés par Ollama');
+  });
+
+  it('aggregates repeated calls per model and stage without treating missing metadata as zero usage', () => {
+    expect(appSource).toContain('function groupDiagnosticUsage');
+    expect(appSource).toContain('measuredCalls');
+    expect(appSource).toContain('Non fournis par Ollama pour cet essai');
+    expect(appSource).toContain('formatTokenCount');
+  });
+
+  it('keeps the usage dashboard responsive', () => {
+    expect(styles).toContain('.diagnostic-usage-overview');
+    expect(styles).toContain('.diagnostic-usage-groups');
+    expect(styles).toContain('@media (max-width: 420px)');
+  });
+});
