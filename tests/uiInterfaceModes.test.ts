@@ -18,6 +18,23 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('stocké dans ce navigateur');
   });
 
+
+  it('keeps one clear primary action to save a reviewed correction', () => {
+    const text = app();
+    expect(text).toContain("item.decision === 'pending' ? 'accepted' : 'pending'");
+    expect(text).toContain('Confirmer ce critère');
+    expect(text).toContain('✓ Critère confirmé');
+    expect(text).toContain('Enregistrer la correction');
+    expect(text).toContain('Enregistrer les modifications');
+    expect(text).toContain('Exporter le récapitulatif (JSON)');
+    expect(text).not.toContain('function decideAll()');
+    expect(text).not.toContain('Accepter les propositions non modifiées');
+    expect(text).not.toContain('Finaliser la correction');
+    expect(text).not.toContain('Correction finalisée localement');
+    expect(text).toContain('Chaque copie enregistrée reste disponible dans « Corrections enregistrées ».');
+    expect(text).toContain('setIsFinalized(false)');
+  });
+
   it('defaults to the teacher correction view', () => {
     expect(app()).toContain("useState<'teacher' | 'diagnostic'>('teacher')");
     expect(app()).toContain("interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'");
