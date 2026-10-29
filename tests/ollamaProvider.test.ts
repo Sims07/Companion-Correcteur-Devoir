@@ -210,13 +210,17 @@ describe('Ollama adapter', () => {
       ],
     })).resolves.toBe('{"criteria":[]}');
 
-    const firstPage = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { model: string; keep_alive?: string | number };
-    const lastPage = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { model: string; keep_alive?: string | number };
+    const firstPage = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { model: string; keep_alive?: string | number; options?: { temperature?: number }; messages: Array<{ images?: string[]; content: string }> };
+    const lastPage = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { model: string; keep_alive?: string | number; options?: { temperature?: number }; messages: Array<{ images?: string[]; content: string }> };
     const analysis = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { model: string; keep_alive?: string | number };
     expect(firstPage.model).toBe('gemma3:4b');
     expect(firstPage.keep_alive).toBe('30s');
+    expect(firstPage.messages[0].images).toEqual(['cGFnZTE=']);
+    expect(firstPage.options?.temperature).toBe(0);
     expect(lastPage.model).toBe('gemma3:4b');
     expect(lastPage.keep_alive).toBe(0);
+    expect(lastPage.messages[0].images).toEqual(['cGFnZTI=']);
+    expect(lastPage.options?.temperature).toBe(0);
     expect(analysis.model).toBe('qwen3.5:4b');
     expect(analysis.keep_alive).toBe(0);
   });
