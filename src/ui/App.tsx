@@ -558,6 +558,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
     let readingStartedAt: number | null = null;
     let readingDurationMs: number | null = null;
     let analysisStartedAt: number | null = null;
+    let analysisDurationMs: number | null = null;
     let outcome: TimingRecord['outcome'] = 'error';
     let diagnosticProposal: GradingProposal | null = null;
     const previousModelResults = strategyOverride === 'arbitrate-only' ? diagnosticRuns.filter((run) => run.kind === 'model') : [];
@@ -603,6 +604,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         },
         (result) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); },
       );
+      if (analysisStartedAt !== null) { analysisDurationMs = Math.max(0, Date.now() - analysisStartedAt); setAnalysisElapsedMs(analysisDurationMs); }
       const parsed = parseGradingProposal(raw, rubric);
       diagnosticProposal = parsed;
       setProposal(parsed);
@@ -616,7 +618,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
     } finally {
       const finishedAt = Date.now();
       if (readingDurationMs !== null) setReadingElapsedMs(readingDurationMs);
-      if (analysisStartedAt !== null) setAnalysisElapsedMs(Math.max(0, finishedAt - analysisStartedAt));
+      if (analysisStartedAt !== null) setAnalysisElapsedMs(analysisDurationMs ?? Math.max(0, finishedAt - analysisStartedAt));
       const diagnosticScore = diagnosticProposal ? buildDiagnosticScore(diagnosticProposal, rubric) : null;
       const record: TimingRecord = {
         id: String(finishedAt) + '-' + String(images.length),
@@ -704,6 +706,8 @@ export function App({ service, archiveService, evaluationService }: { service: C
         }, (text, kind) => {
           if (kind !== 'subject') extractedTranscription = text;
         }, (result) => measuredRuns.push(result));
+        const analysisFinishedAt = Date.now();
+        const analysisMs = analysisStartedAt === null ? 0 : Math.max(0, analysisFinishedAt - analysisStartedAt);
         setEvaluationStage('parsing');
         let score: number | null = null;
         let parsedProposal: GradingProposal | null = null;
@@ -714,7 +718,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         const readingTokensPerSecond = calculateReportedTokensPerSecondForStage(measuredRuns, 'reading');
         const analysisTokensPerSecond = calculateReportedTokensPerSecondForStage(measuredRuns, 'analysis');
         const tokens = measuredRuns.some((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined || run.totalTokens !== undefined) ? measuredRuns.reduce((sum, run) => sum + (run.totalTokens ?? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0)), 0) : null;
-        return { transcription: extractedTranscription, raw, score, proposal: parsedProposal, readingMs, analysisMs: analysisStartedAt === null ? 0 : Math.max(0, finishedAt - analysisStartedAt), readingTokens, analysisTokens, readingTokensPerSecond, analysisTokensPerSecond, tokens, elapsedMs: finishedAt - startedAt };
+        return { transcription: extractedTranscription, raw, score, proposal: parsedProposal, readingMs, analysisMs, readingTokens, analysisTokens, readingTokensPerSecond, analysisTokensPerSecond, tokens, elapsedMs: finishedAt - startedAt };
       },
     });
     setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: 'running' } : current);
