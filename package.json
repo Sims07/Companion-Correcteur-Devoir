@@ -21,7 +21,6 @@
     "vite": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "mammoth": "latest",
     "read-excel-file": "latest"
   },
   "devDependencies": {

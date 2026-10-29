@@ -16,7 +16,7 @@ export function createCorrectionWorkspaceService(
     checkReady: (settings: OllamaSettings) => ollama.checkReady(settings),
     listModels: (endpoint) => ollama.listModels(endpoint),
     createProvider: (settings) => ollama.createProvider(settings),
-    importRubricImage: (image, settings) => ollama.importRubricImage(image, settings),
+    importRubricImage: (images, settings) => ollama.importRubricImage(images, settings),
     prepareFiles: (selected) => files.prepareFiles(selected),
     importRubric: (file) => files.importRubric(file),
   };
