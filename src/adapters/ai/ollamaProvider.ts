@@ -410,7 +410,7 @@ export function createOllamaProvider(
 
 import { validateRubric, type Rubric, type RubricCriterion } from '../../domain/rubric.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
-import type { ImportedRubric } from '../../ports/correctionWorkspace.ts';
+import type { ImportedRubric, RubricImportProgress } from '../../ports/correctionWorkspace.ts';
 
 function rubricSlug(value: string, index: number): string {
   const slug = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -422,6 +422,7 @@ export async function importRubricImageWithOllama(
   inputImages: ImageInput[] | ImageInput,
   settings: OllamaSettings,
   fetchImpl: typeof fetch = fetch,
+  onProgress?: (progress: RubricImportProgress) => void,
 ): Promise<ImportedRubric> {
   const endpoint = normalizedEndpoint(settings.endpoint);
   const model = settings.visionModel?.trim() || settings.model?.trim() || '';
@@ -437,13 +438,16 @@ export async function importRubricImageWithOllama(
   if (images.length > 1) {
     const pageResults: ImportedRubric[] = [];
     for (const image of images) {
-      pageResults.push(await importRubricImageWithOllama(image, settings, fetchImpl));
+      onProgress?.({ stage: 'sending', page: index + 1, totalPages: images.length, message: `Envoi de la page ${index + 1} sur ${images.length} à Ollama…` });
+      pageResults.push(await importRubricImageWithOllama(image, settings, fetchImpl, (event) => onProgress?.({ ...event, page: index + 1, totalPages: images.length })));
+      onProgress?.({ stage: 'page-complete', page: index + 1, totalPages: images.length, message: `Page ${index + 1} sur ${images.length} analysée : ${pageResults[index].rubric.criteria.length} critère(s) détecté(s).` });
     }
     const criteria = pageResults.flatMap(({ rubric: pageRubric }) => pageRubric.criteria);
     if (criteria.length > 100) throw new Error('Le barème extrait contient plus de 100 critères. Vérifiez le document et importez-le en plusieurs parties.');
     const rubric: Rubric = { title: pageResults.find(({ rubric: pageRubric }) => pageRubric.title.trim())?.rubric.title ?? 'Barème importé', criteria };
     const validation = validateRubric(rubric);
     if (!validation.valid) throw new Error(`Le barème extrait doit être vérifié : ${validation.errors.join(' ')}`);
+    onProgress?.({ stage: 'complete', page: images.length, totalPages: images.length, message: `Extraction terminée : ${criteria.length} critère(s) regroupé(s) depuis ${images.length} page(s).` });
     return {
       rubric,
       warnings: ['Import par le modèle de vision local, page par page : vérifiez chaque intitulé, description, sous-critère et maximum de points sur les pages originales avant utilisation.'],
@@ -472,6 +476,7 @@ export async function importRubricImageWithOllama(
     additionalProperties: false,
   };
   let response: Response;
+  onProgress?.({ stage: 'sending', page: 1, totalPages: 1, message: 'Requête envoyée au serveur Ollama configuré. En attente de la réponse du modèle…' });
   try {
     response = await fetchImpl(`${endpoint}/api/chat`, {
       method: 'POST',
@@ -501,11 +506,13 @@ export async function importRubricImageWithOllama(
     const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';
     throw new Error(`Impossible de joindre le serveur Ollama local pour lire le barème. Vérifiez la connexion et la configuration CORS. Détail : ${detail}`);
   }
+  onProgress?.({ stage: 'response', page: 1, totalPages: 1, message: 'Réponse reçue du serveur Ollama. Vérification du résultat…' });
   if (!response.ok) throw new Error(`Ollama a refusé l’import du barème (HTTP ${response.status}). Vérifiez la compatibilité du modèle avec la vision et la sortie JSON structurée.`);
   const payload = await response.json() as { message?: { content?: string }; error?: string };
   if (payload.error) throw new Error('Ollama signale une erreur pendant l’extraction du barème.');
   const content = payload.message?.content;
   if (!content?.trim()) throw new Error('Le modèle de vision n’a retourné aucun barème.');
+  onProgress?.({ stage: 'parsing', page: 1, totalPages: 1, message: 'Réponse du modèle reçue : validation du JSON et des critères…' });
   let parsed: unknown;
   try { parsed = JSON.parse(content); }
   catch { throw new Error('La sortie du modèle de vision n’est pas un JSON valide. Vérifiez le barème ou essayez un autre modèle compatible.'); }
@@ -531,6 +538,7 @@ export async function importRubricImageWithOllama(
   const rubric: Rubric = { title: source.title.trim() || 'Barème importé', criteria };
   const validation = validateRubric(rubric);
   if (!validation.valid) throw new Error(`Le barème extrait doit être vérifié : ${validation.errors.join(' ')}`);
+  onProgress?.({ stage: 'complete', page: 1, totalPages: 1, message: `Extraction terminée : ${criteria.length} critère(s) détecté(s).` });
   return {
     rubric,
     warnings: ['Import par le modèle de vision local : vérifiez chaque intitulé, description, sous-critère et maximum de points sur les pages originales avant utilisation.'],
