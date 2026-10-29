@@ -1163,7 +1163,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         <div className="panel-heading"><span className="number">IA</span><div><h3 id="diagnostic-results-title">Résultats de l’expérience multi-modèles</h3><p>Notes et temps mesurés sur cette copie. Les sorties sont conservées dans cette vue locale.</p></div></div>
         {diagnosticRuns.length === 0 ? <div className="diagnostic-empty-state">
           <span className="diagnostic-empty-icon" aria-hidden="true">↗</span>
-          <div><h4>Aucun résultat pour le moment</h4><p>Préparez le barème et importez une copie, puis lancez une analyse. Les résultats des modèles apparaîtront ici pour cette même copie et cette même consigne.</p></div>
+          <div><h4>Aucun résultat pour le moment</h4><p>Préparez le barème et importez une copie, puis lancez une analyse. Les résultats des modèles apparaîtront ici pour cette même copie et cette même consigne.</p><p className="diagnostic-reference-optional-note">Pas encore de correction de référence validée ? Aucun problème : comparez les modèles dès maintenant et ajoutez une référence plus tard si vous le souhaitez.</p></div>
           <button type="button" className="secondary-button" onClick={() => document.getElementById('diagnostic-experiment-setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Préparer une expérience</button>
         </div> : <>
         {(() => {
