@@ -31,7 +31,7 @@ describe('rubric import progress', () => {
 
     const result = await importRubricImageWithOllama(
       image('bareme.png'),
-      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b' },
+      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b' },
       fetchMock,
       (event) => progress.push(event),
     );
@@ -57,7 +57,7 @@ describe('rubric import progress', () => {
 
     await expect(importRubricImageWithOllama(
       image('bareme.png'),
-      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b' },
+      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b' },
       fetchMock,
       (event) => progress.push(event),
     )).rejects.toThrow('Le critère 1 doit avoir un titre');
@@ -74,10 +74,10 @@ describe('rubric import progress', () => {
 
     await expect(importRubricImageWithOllama(
       image('bareme.png'),
-      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b' },
+      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b' },
       fetchMock,
       (event) => progress.push(event),
-    )).rejects.toThrow('La sortie du modèle de vision n’est pas un JSON valide');
+    )).rejects.toThrow('La sortie du modèle d’analyse n’est pas un JSON valide');
 
     expect(progress.find((event) => event.stage === 'parsing' && event.rawResponseStage === 'analysis')?.rawResponse).toBe(rawResponse);
   });
@@ -123,7 +123,7 @@ describe('rubric import progress', () => {
 
     await expect(importRubricImageWithOllama(
       image('bareme.png'),
-      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b' },
+      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b' },
       fetchMock,
     )).rejects.toThrow('Le critère 1 doit avoir un titre, une description textuelle et un maximum de points positif ou nul');
   });
