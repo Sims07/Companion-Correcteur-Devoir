@@ -4,6 +4,7 @@ import type { Rubric } from './rubric.ts';
 export const LOCAL_MEMORY_CORRECTION_ID_KEY = 'companion-current-correction-id';
 export const LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY = 'companion-current-rubric-fingerprint';
 export const LOCAL_MEMORY_RUBRIC_UPDATED_EVENT = 'companion-rubric-fingerprint-updated';
+export const LOCAL_MEMORY_UPDATED_EVENT = 'companion-local-memory-updated';
 
 export type LocalMemoryKind = 'teacher-feedback' | 'rubric-rule' | 'correction-example';
 
