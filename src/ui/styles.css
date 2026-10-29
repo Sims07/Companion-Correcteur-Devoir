@@ -873,3 +873,7 @@ footer { padding-top: 24px; line-height: 1.6; }
 .evaluation-history-record-footer>span{font-size:10px;color:#788679}
 .evaluation-history-record-footer .text-button{font-size:11px;color:#98624c}
 @media(max-width:620px){.evaluation-history-record{padding:13px}.evaluation-history-record-heading{flex-direction:column}.evaluation-history-load{width:100%}.evaluation-history-record-metrics{grid-template-columns:1fr}.evaluation-history-record-footer{align-items:flex-start;flex-direction:column}}
+
+/* Show measured Ollama generation throughput without implying wall-clock speed. */
+.evaluation-history-model-stats .evaluation-throughput{font-weight:750;color:#3f7549;font-variant-numeric:tabular-nums}
+@media(max-width:520px){.evaluation-history-chart-grid{grid-template-columns:1fr}}
