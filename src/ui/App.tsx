@@ -1208,7 +1208,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       </section>}
       {interfaceMode === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
         <div className="workspace-heading"><div><p className="eyebrow">OUTILS DE DIAGNOSTIC</p><h2 id="debug-workspace-title">Debug des appels IA locaux</h2><p className="workspace-description">Espace technique séparé : consultez les traces brutes d’une exécution déjà réalisée. Pour créer une expérience ou comparer les résultats, utilisez Évaluation des modèles.</p></div></div>
-        <section className="debug-advanced-settings" aria-label="Configuration avancée du diagnostic">
+        <section id="debug-advanced-settings" className="debug-advanced-settings" aria-label="Configuration avancée du diagnostic">
           <div className="workspace-heading"><div><p className="eyebrow">OUTILS AVANCÉS</p><h3>Configuration du diagnostic multi-modèles</h3><p>Ces réglages techniques servent aux essais de diagnostic et restent séparés de l’évaluation indépendante.</p></div></div>
           <article className="panel ollama-panel">
           <div className="panel-heading"><span className="number">03</span><div><h3>Modèle local Ollama</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
@@ -1273,7 +1273,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         {diagnosticRuns.length === 0 ? <div className="diagnostic-empty-state">
           <span className="diagnostic-empty-icon" aria-hidden="true">↗</span>
           <div><h4>Aucun résultat pour le moment</h4><p>Préparez le barème et importez une copie, puis lancez une analyse. Les résultats des modèles apparaîtront ici pour cette même copie et cette même consigne.</p><p className="diagnostic-reference-optional-note">Pas encore de correction de référence validée ? Aucun problème : comparez les modèles dès maintenant et ajoutez une référence plus tard si vous le souhaitez.</p></div>
-          <button type="button" className="secondary-button" onClick={() => document.getElementById('diagnostic-experiment-setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Préparer une expérience</button>
+          <button type="button" className="secondary-button" onClick={() => document.getElementById('debug-advanced-settings')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Préparer une expérience</button>
         </div> : <>
         {(() => {
           const independent = diagnosticRuns.filter((run) => run.kind === 'model');
