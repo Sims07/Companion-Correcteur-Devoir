@@ -87,6 +87,9 @@ test('diagnostic history compares two saved experiments with visual charts', asy
       analysisSeconds: 7,
       outcome: 'success',
       criterionScores: [{ criterionId: 'science', title: 'Exactitude', points: 8, maxPoints: 10 }],
+      assignmentId: 'biology-midterm',
+      assignmentTitle: 'Contrôle de biologie',
+      rubricSnapshot: { title: 'Barème de biologie', criteria: [{ id: 'science', title: 'Exactitude', description: 'Exactitude scientifique', maxPoints: 10 }] },
       diagnosticStrategy: 'compare',
     };
     localStorage.setItem('companion-correcteur:timing-history:v1', JSON.stringify([
