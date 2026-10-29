@@ -22,6 +22,7 @@ describe('Ollama adapter', () => {
       body: expect.stringContaining('"stream":false'),
     }));
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"think":false');
+    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"keep_alive":0');
     expect(String(fetchMock.mock.calls[0][1]?.body)).not.toContain('"images"');
   });
 
@@ -143,6 +144,7 @@ describe('Ollama adapter', () => {
     expect(visionBody.messages[0].content).toContain('[illisible]');
     expect(visionBody.format).toBeUndefined();
     expect(visionBody.think).toBe(false);
+    expect(visionBody.keep_alive).toBe(0); // The only page: release vision before analysis.
 
     const analysisBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { model: string; messages: Array<{ content: string; images?: string[] }>; format?: string; think?: boolean };
     expect(analysisBody.model).toBe('qwen3.5:4b');
@@ -151,7 +153,39 @@ describe('Ollama adapter', () => {
     expect(analysisBody.messages[0].images).toBeUndefined();
     expect(analysisBody.format).toBe('json');
     expect(analysisBody.think).toBe(false);
+    expect(analysisBody.keep_alive).toBe(0);
     expect(stages).toEqual(['reading', 'grading']);
+  });
+
+
+  it('keeps the vision model warm between pages and unloads it before analysis', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse('Transcription page 1'))
+      .mockResolvedValueOnce(streamingResponse('Transcription page 2'))
+      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434',
+      visionModel: 'gemma3:4b',
+      analysisModel: 'qwen3.5:4b',
+    }, fetchMock);
+
+    await expect(provider.generate({
+      ...request,
+      images: [
+        { base64: 'cGFnZTE=', mimeType: 'image/png', fileName: 'page-1.png' },
+        { base64: 'cGFnZTI=', mimeType: 'image/png', fileName: 'page-2.png' },
+      ],
+    })).resolves.toBe('{"criteria":[]}');
+
+    const firstPage = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { model: string; keep_alive?: string | number };
+    const lastPage = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { model: string; keep_alive?: string | number };
+    const analysis = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { model: string; keep_alive?: string | number };
+    expect(firstPage.model).toBe('gemma3:4b');
+    expect(firstPage.keep_alive).toBe('30s');
+    expect(lastPage.model).toBe('gemma3:4b');
+    expect(lastPage.keep_alive).toBe(0);
+    expect(analysis.model).toBe('qwen3.5:4b');
+    expect(analysis.keep_alive).toBe(0);
   });
 
   it('transcribes a separate reference subject before the student copy and includes it in grading context', async () => {
@@ -163,11 +197,13 @@ describe('Ollama adapter', () => {
     const subject = { base64: 'c3ViamV0', mimeType: 'image/png', fileName: 'sujet.png' };
     await expect(provider.generate({ ...request, subjectImages: [subject] })).resolves.toBe('{\"criteria\":[]}');
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    const subjectBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { messages: Array<{ content: string; images?: string[] }> };
+    const subjectBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { keep_alive?: string | number; messages: Array<{ content: string; images?: string[] }> };
     expect(subjectBody.messages[0].content).toContain('sans corriger ni résoudre les questions');
     expect(subjectBody.messages[0].images).toEqual(['c3ViamV0']);
-    const copyBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { messages: Array<{ content: string; images?: string[] }> };
+    expect(subjectBody.keep_alive).toBe('30s'); // Keep vision warm for the following copy page.
+    const copyBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { keep_alive?: string | number; messages: Array<{ content: string; images?: string[] }> };
     expect(copyBody.messages[0].content).toContain('transcription fidèle d’une page de copie');
+    expect(copyBody.keep_alive).toBe(0); // Final vision page: release RAM before grading.
     const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
     expect(gradingBody.messages[0].content).toContain('<sujet_reference>');
     expect(gradingBody.messages[0].content).toContain('Question 1 : Décrire la mitose.');
@@ -251,22 +287,24 @@ describe('Ollama adapter', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(1, 'http://localhost:11434/api/chat', expect.objectContaining({ method: 'POST' }));
     expect(fetchMock).toHaveBeenNthCalledWith(2, 'http://localhost:11434/api/chat', expect.objectContaining({ method: 'POST' }));
     const visionBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as {
-      model: string; stream: boolean; think: boolean; format?: unknown;
+      model: string; stream: boolean; think: boolean; keep_alive?: string | number; format?: unknown;
       messages: Array<{ content: string; images: string[] }>;
     };
     expect(visionBody.model).toBe('qwen3.5:4b');
     expect(visionBody.stream).toBe(false);
     expect(visionBody.think).toBe(false);
+    expect(visionBody.keep_alive).toBe(0); // Single-page import: do not keep vision loaded for structuring.
     expect(visionBody.format).toBeUndefined();
     expect(visionBody.messages[0].content).toContain('Transcris ce qui est réellement visible');
     expect(visionBody.messages[0].images).toEqual(['aGVsbG8=']);
     const analysisBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as {
-      model: string; stream: boolean; think: boolean; format: { type: string; properties: Record<string, unknown> };
+      model: string; stream: boolean; think: boolean; keep_alive?: string | number; format: { type: string; properties: Record<string, unknown> };
       messages: Array<{ content: string; images?: string[] }>;
     };
     expect(analysisBody.model).toBe('text-model');
     expect(analysisBody.stream).toBe(false);
     expect(analysisBody.think).toBe(false);
+    expect(analysisBody.keep_alive).toBe(0);
     expect(analysisBody.format.type).toBe('object');
     expect(analysisBody.format.properties).toHaveProperty('criteria');
     expect(analysisBody.messages[0].images).toBeUndefined();
