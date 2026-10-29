@@ -46,8 +46,19 @@ describe('teacher and AI diagnostic interface modes', () => {
   });
 
   it('defaults to the teacher correction view', () => {
-    expect(app()).toContain("useState<'teacher' | 'diagnostic'>('teacher')");
+    expect(app()).toContain("useState<'teacher' | 'diagnostic' | 'debug'>('teacher')");
     expect(app()).toContain("interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'");
+  });
+
+  it('separates model evaluation from raw local debug output', () => {
+    const text = app();
+    expect(text).toContain('>Évaluation des modèles</button>');
+    expect(text).toContain('>Debug</button>');
+    expect(text).toContain('aria-pressed={interfaceMode === \'debug\'}');
+    expect(text).toContain('Debug des appels IA locaux');
+    expect(text).toContain('Sorties brutes des modèles');
+    expect(text).toContain('transcription actuellement chargée');
+    expect(text).toContain("interfaceMode === 'debug' ? <section className=\"panel diagnostic-results\"");
   });
 
   it('exposes an accessible switch whose buttons reflect the selected mode', () => {
