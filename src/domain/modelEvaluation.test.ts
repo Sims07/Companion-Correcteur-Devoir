@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { runModelEvaluation, type ModelEvaluationConfiguration } from './modelEvaluation.ts';
 
 const config = (id: string): ModelEvaluationConfiguration => ({
-  id, name: id, visionModel: 'gemma3:4b', analysisModel: id, thinking: false,
+  id, name: id, endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: id, thinking: false,
 });
 
 describe('runModelEvaluation', () => {
