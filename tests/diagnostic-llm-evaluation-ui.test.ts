@@ -41,3 +41,59 @@ describe('Diagnostic IA — correction de référence facultative', () => {
     expect(appSource).toContain('Écart de note totale :');
   });
 });
+
+describe('Diagnostic IA — consommation réelle des modèles Ollama', () => {
+  it('shows token usage, per-model timing, generation speed and local hardware-loading time in history', () => {
+    expect(appSource).toContain('Tokens consommés');
+    expect(appSource).toContain('Usage par modèle');
+    expect(appSource).toContain('Tokens d’entrée');
+    expect(appSource).toContain('Tokens générés');
+    expect(appSource).toContain('Vitesse de génération pondérée');
+    expect(appSource).toContain('Chargement :');
+    expect(appSource).toContain('Les tokens sont les compteurs remontés par Ollama');
+  });
+
+  it('aggregates repeated calls per model and stage without treating missing metadata as zero usage', () => {
+    expect(appSource).toContain('function groupDiagnosticUsage');
+    expect(appSource).toContain('measuredCalls');
+    expect(appSource).toContain('Non fournis par Ollama pour cet essai');
+    expect(appSource).toContain('formatTokenCount');
+  });
+
+  it('keeps the usage dashboard responsive', () => {
+    expect(styles).toContain('.diagnostic-usage-overview');
+    expect(styles).toContain('.diagnostic-usage-groups');
+    expect(styles).toContain('@media (max-width: 420px)');
+  });
+});
+
+
+describe('Diagnostic IA — comparaison graphique des essais conservés', () => {
+  it('offers selection of two past experiments and charts for time, tokens and score', () => {
+    expect(appSource).toContain('Sélectionner l’essai');
+    expect(appSource).toContain('Comparer deux essais');
+    expect(appSource).toContain('Comparaison de deux essais');
+    expect(appSource).toContain('Tokens d’entrée');
+    expect(appSource).toContain('Tokens générés');
+    expect(appSource).toContain('Temps et tokens par modèle / étape');
+    expect(appSource).toContain('Laboratoire de correction IA');
+    expect(appSource).toContain('Qualité, coût et vitesse par modèle');
+    expect(appSource).toContain('Compromis entre qualité et temps');
+    expect(appSource).toContain('Proximité de la référence');
+    expect(appSource).toContain('rubricSnapshot');
+    expect(appSource).toContain('Erreur moyenne');
+    expect(appSource).toContain('buildDiagnosticScore(parsed, recordRubric)');
+    expect(appSource).toContain('setSelectedComparisonIds');
+  });
+
+  it('styles comparison charts responsively and respects reduced-motion preferences', () => {
+    expect(styles).toContain('.diagnostic-comparison-charts');
+    expect(styles).toContain('.diagnostic-comparison-models');
+    expect(styles).toContain('.diagnostic-workspace-hero');
+    expect(styles).toContain('.diagnostic-dashboard-kpis');
+    expect(styles).toContain('.diagnostic-scatter');
+    expect(styles).toContain('.diagnostic-model-score-grid');
+    expect(styles).toContain('@media (max-width: 520px)');
+    expect(styles).toContain('prefers-reduced-motion: reduce');
+  });
+});

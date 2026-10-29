@@ -18,10 +18,22 @@ export interface GradingRequest {
 }
 
 export interface DiagnosticModelResult {
-  kind: 'model' | 'arbitrator';
+  /** Vision/transcription, independent grading model, or arbitration result. */
+  kind: 'vision' | 'model' | 'arbitrator';
+  stage?: 'reading' | 'analysis' | 'arbitration';
   model: string;
+  /** Raw model output is retained for grading/arbitration only; vision output stays in the transcription state. */
   raw: string;
+  /** Wall-clock duration for this specific Ollama request. */
   elapsedMs: number;
+  /** Usage reported by Ollama's final streaming event; absent when unsupported. */
+  promptTokens?: number;
+  generatedTokens?: number;
+  totalTokens?: number;
+  promptEvaluationMs?: number;
+  generationMs?: number;
+  loadMs?: number;
+  tokensPerSecond?: number;
 }
 
 export type DiagnosticStrategy = 'single' | 'compare' | 'arbitrate';
