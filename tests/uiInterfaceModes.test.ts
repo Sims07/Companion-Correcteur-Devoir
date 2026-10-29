@@ -96,7 +96,9 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('En cours maintenant');
     expect(text).toContain('En attente');
     expect(text).toContain('evaluationProgress.currentConfiguration?.id === profile.id');
-    expect(text).toContain('aria-valuenow={evaluationProgress.completed}');
+    expect(text).toContain('aria-valuenow={evaluationProgress.completedSteps}');
+    expect(text).toContain('aria-valuemax={evaluationProgress.totalSteps}');
+    expect(text).toContain('evaluationProgress.currentStage');
     expect(text).toContain('evaluationStage === \'preparing\'');
     expect(text).toContain('evaluationStage === \'reading\'');
     expect(text).toContain('evaluationStage === \'grading\'');

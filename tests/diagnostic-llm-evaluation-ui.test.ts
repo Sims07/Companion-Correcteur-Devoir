@@ -201,3 +201,24 @@ describe('Évaluation des modèles — navigation et alignement du contenu', () 
     expect(evaluationStyles).toContain('@media(min-width:1000px){.evaluation-step-nav{float:left;width:224px;margin-right:24px}.evaluation-config-workspace,.evaluation-results-workspace{margin-left:248px}');
   });
 });
+
+describe('Durées réelles des étapes de traitement', () => {
+  it('keeps the measured reading and analysis durations visible in the teacher review', () => {
+    expect(appSource).toContain('readingElapsedMs');
+    expect(appSource).toContain('analysisElapsedMs');
+    expect(appSource).toContain('Lecture de l’image :');
+    expect(appSource).toContain('Analyse et notation :');
+    expect(appSource).toContain('completed-stage-timings');
+    expect(styles).toContain('.completed-stage-timings');
+  });
+
+  it('tracks model evaluation progress for each completed reading and analysis stage', () => {
+    expect(domainSource).toContain('completedSteps');
+    expect(domainSource).toContain('totalSteps');
+    expect(domainSource).toContain('currentStage');
+    expect(appSource).toContain('Étapes de traitement terminées');
+    expect(appSource).toContain('evaluationProgress.completedSteps');
+    expect(appSource).toContain("onStage('reading')");
+    expect(appSource).toContain("onStage('analysis')");
+  });
+});
