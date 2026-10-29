@@ -558,7 +558,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
     const previousModelResults = strategyOverride === 'arbitrate-only' ? diagnosticRuns.filter((run) => run.kind === 'model') : [];
     const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
     setBusy(true);
-    if (interfaceMode === 'diagnostic' && strategyOverride !== 'arbitrate-only') {
+    if ((interfaceMode === 'diagnostic' || interfaceMode === 'debug') && strategyOverride !== 'arbitrate-only') {
     }
     if (interfaceMode === 'diagnostic' || interfaceMode === 'debug') { setCurrentTimingRecordId(null); setReferenceScoreInputs({}); setReferenceMessage(''); }
     if (interfaceMode === 'teacher') { setShowAiSettings(false); setTeacherStep('progress'); }
@@ -576,7 +576,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       if ((!transcription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, model: visionModel });
       await service.checkReady({ endpoint, model: analysisModel });
       setAnalysisStage('reading');
-      const provider = service.createProvider({ endpoint, visionModel, analysisModel, thinking: analysisThinking, ...(interfaceMode === 'diagnostic' ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
+      const provider = service.createProvider({ endpoint, visionModel, analysisModel, thinking: analysisThinking, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
       const raw = await provider.generate(
         { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
         (chunk) => setStreamedOutput((current) => current + chunk),
@@ -626,7 +626,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         assignmentId: activeAssignmentId,
         assignmentTitle: assignmentTitle.trim() || 'Devoir sans titre',
         rubricSnapshot: structuredClone(rubric),
-        diagnosticStrategy: interfaceMode === 'diagnostic' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
+        diagnosticStrategy: interfaceMode === 'diagnostic' || interfaceMode === 'debug' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
         diagnosticRuns: diagnosticResultsForHistory,
       };
       setCurrentTimingRecordId(record.id);
@@ -1208,6 +1208,60 @@ export function App({ service, archiveService, evaluationService }: { service: C
       </section>}
       {interfaceMode === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
         <div className="workspace-heading"><div><p className="eyebrow">OUTILS DE DIAGNOSTIC</p><h2 id="debug-workspace-title">Debug des appels IA locaux</h2><p className="workspace-description">Espace technique séparé : consultez les traces brutes d’une exécution déjà réalisée. Pour créer une expérience ou comparer les résultats, utilisez Évaluation des modèles.</p></div></div>
+        <section className="debug-advanced-settings" aria-label="Configuration avancée du diagnostic">
+          <div className="workspace-heading"><div><p className="eyebrow">OUTILS AVANCÉS</p><h3>Configuration du diagnostic multi-modèles</h3><p>Ces réglages techniques servent aux essais de diagnostic et restent séparés de l’évaluation indépendante.</p></div></div>
+          <article className="panel ollama-panel">
+          <div className="panel-heading"><span className="number">03</span><div><h3>Modèle local Ollama</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
+        <div className="diagnostic-ai-profile-controls" aria-label="Profils de configuration IA">
+          <label className="field-label" htmlFor="debug-ai-model-profile">Configuration enregistrée</label>
+          <div className="ai-profile-row">
+            <DesignSystemSelect id="debug-ai-model-profile" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else setSelectedAiModelProfileId(''); }}>
+              <option value="">Configuration actuelle</option>
+              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'}</option>)}
+            </DesignSystemSelect>
+            <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
+          </div>
+          <button type="button" className="secondary-button full-button" onClick={saveAiModelProfile}>Enregistrer cette configuration</button>
+          {aiModelProfileMessage && <p className="validation" role="status">{aiModelProfileMessage}</p>}
+          <p className="hint">Les derniers réglages sont restaurés automatiquement. Les profils conservent le serveur, les modèles et la stratégie de diagnostic sur cet appareil.</p>
+        </div>
+          <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur</label>
+          <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
+          <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture (vision)</label>
+          {availableModels.length > 0 ? <DesignSystemSelect id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="ex. gemma3:4b, qwen2.5vl" />}
+          <p className="hint">Ce modèle lit les images et transcrit la copie sans la corriger. La transcription reste en mémoire locale pour relancer l’analyse sans refaire cette étape.</p>
+          <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
+          {availableModels.length > 0 ? <DesignSystemSelect id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="ex. qwen3.5:4b, phi4-mini" />
+          }
+          <div className="diagnostic-experiment">
+            <p className="eyebrow">EXPÉRIMENTAL · DIAGNOSTIC UNIQUEMENT</p>
+            <label className="field-label" htmlFor="diagnostic-strategy">Stratégie de comparaison</label>
+            <DesignSystemSelect id="diagnostic-strategy" value={diagnosticStrategy} onChange={(event) => setDiagnosticStrategy(event.target.value as DiagnosticStrategy)}>
+              <option value="single">Un modèle — référence</option>
+              <option value="compare">Deux modèles — comparer les avis</option>
+              <option value="arbitrate">Deux modèles + un arbitre</option>
+            </DesignSystemSelect>
+            {diagnosticStrategy !== 'single' && <>
+              <label className="field-label" htmlFor="diagnostic-second-model">Second modèle d’analyse</label>
+              {availableModels.length > 0 ? <DesignSystemSelect id="diagnostic-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="diagnostic-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle Ollama" />}
+              <p className="hint">Les deux modèles évaluent indépendamment la même transcription et le même barème. Ils sont exécutés successivement pour limiter la pression mémoire.</p>
+            </>}
+            {diagnosticStrategy === 'arbitrate' && <>
+              <label className="field-label" htmlFor="diagnostic-arbitrator-model">Modèle arbitre</label>
+              {availableModels.length > 0 ? <DesignSystemSelect id="diagnostic-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="diagnostic-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)} placeholder="Modèle qui réexamine les deux avis" />}
+              <p className="hint">L’arbitre réexamine les preuves et le barème ; il ne fait ni moyenne ni vote. Son avis reste une proposition à vérifier par l’enseignant.</p>
+            </>}
+            <p className="hint">Ces options ne sont appliquées qu’en mode Diagnostic IA. Le mode Correction reste sur un seul modèle.</p>
+          </div>
+          <label className="analysis-thinking-option" htmlFor="ollama-analysis-thinking">
+            <input id="ollama-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} />
+            <span><strong>Activer le mode thinking pour l’analyse</strong><small>Désactivé par défaut. Peut améliorer le raisonnement, mais allonger fortement le temps de correction et ne fonctionne pas avec tous les modèles.</small></span>
+          </label>
+          <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
+          {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
+          <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p></article>
+          <div className="debug-run-actions"><button type="button" className="primary-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? 'Diagnostic local en cours…' : 'Lancer le diagnostic avancé'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
+        </section>
         <section className="transcription-review"><h3>Transcription actuellement chargée</h3>{transcription ? <pre>{transcription}</pre> : <p className="hint">Aucune transcription disponible.</p>}</section>
         <section className="transcription-review"><h3>Dernière réponse reçue en streaming</h3>{streamedOutput ? <pre>{streamedOutput}</pre> : <p className="hint">Aucune réponse en streaming disponible.</p>}</section>
         <section className="transcription-review"><h3>Sorties brutes des modèles ({diagnosticRuns.length})</h3>{diagnosticRuns.length ? diagnosticRuns.map((run, index) => <details key={run.kind + run.model + index} className="rubric-import-raw-response"><summary>{run.model} · {run.kind} · {formatElapsed(Math.round(run.elapsedMs / 1000))}</summary><pre>{run.raw}</pre></details>) : <p className="hint">Aucune trace technique enregistrée. Lancez une expérience dans « Évaluation des modèles » puis revenez ici pour examiner les réponses brutes.</p>}</section>
