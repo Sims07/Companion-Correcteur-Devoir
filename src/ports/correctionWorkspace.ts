@@ -2,7 +2,7 @@ import type { ImageInput, GradingProvider, OllamaModel, OllamaSettings } from '.
 import type { Rubric } from '../domain/rubric.ts';
 
 export type RubricImportProgress = {
-  stage: 'preparing' | 'sending' | 'vision-reading' | 'structuring' | 'response' | 'parsing' | 'page-complete' | 'complete' | 'error';
+  stage: 'preparing' | 'sending' | 'vision-reading' | 'structuring' | 'response' | 'parsing' | 'page-complete' | 'complete' | 'cancelled' | 'error';
   message: string;
   /** Exact model content, retained even when JSON or rubric validation fails. */
   rawResponse?: string;
@@ -22,7 +22,7 @@ export interface OllamaGateway {
   checkReady(settings: OllamaSettings): Promise<void>;
   listModels(endpoint: string): Promise<OllamaModel[]>;
   createProvider(settings: OllamaSettings): GradingProvider;
-  importRubricImage(images: ImageInput[], settings: OllamaSettings, onProgress?: (progress: RubricImportProgress) => void): Promise<ImportedRubric>;
+  importRubricImage(images: ImageInput[], settings: OllamaSettings, onProgress?: (progress: RubricImportProgress) => void, signal?: AbortSignal): Promise<ImportedRubric>;
 }
 
 export interface LocalFileGateway {

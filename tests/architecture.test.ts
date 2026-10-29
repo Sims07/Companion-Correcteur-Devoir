@@ -47,8 +47,9 @@ describe('hexagonal architecture boundaries', () => {
   it('exposes image-based rubric extraction through the Ollama port rather than UI adapter imports', () => {
     const port = source('../src/ports/correctionWorkspace.ts');
     expect(port).toContain('importRubricImage(images: ImageInput[], settings: OllamaSettings, onProgress?');
+    expect(port).toContain('signal?: AbortSignal');
     const service = source('../src/application/correctionWorkspaceService.ts');
-    expect(service).toContain('ollama.importRubricImage(images, settings, onProgress)');
+    expect(service).toContain('ollama.importRubricImage(images, settings, onProgress, signal)');
   });
 
   it('uses main as the composition root for concrete dependencies', () => {
