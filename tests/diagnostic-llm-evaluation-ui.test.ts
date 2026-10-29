@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const appSource = readFileSync(resolve(process.cwd(), 'src/ui/App.tsx'), 'utf8');
 const styles = readFileSync(resolve(process.cwd(), 'src/ui/correctionFlow.css'), 'utf8');
+const evaluationStyles = readFileSync(resolve(process.cwd(), 'src/ui/styles.css'), 'utf8');
 
 describe('Diagnostic IA — indicateurs d’évaluation des LLM', () => {
   it('exposes output validity, criterion coverage, declared confidence and teacher questions per run', () => {
@@ -96,5 +97,28 @@ describe('Diagnostic IA — comparaison graphique des essais conservés', () => 
     expect(styles).toContain('.diagnostic-model-score-grid');
     expect(styles).toContain('@media (max-width: 520px)');
     expect(styles).toContain('prefers-reduced-motion: reduce');
+  });
+});
+
+
+describe('Évaluation des modèles — navigation par espace', () => {
+  it('provides four focused spaces and marks the selected step accessibly', () => {
+    expect(appSource).toContain("useState<'configuration' | 'execution' | 'results' | 'history'>('configuration')");
+    expect(appSource).toContain('Espaces de l’évaluation');
+    expect(appSource).toContain('Analyse & historique');
+    expect(appSource).toContain("aria-current={evaluationWorkspaceStep === 'history' ? 'step' : undefined}");
+  });
+
+  it('keeps configuration and rubric preparation out of execution and history views', () => {
+    expect(appSource).toContain("evaluationWorkspaceStep === 'configuration' && <section id=\"evaluation-configurations\"");
+    expect(appSource).toContain("(interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration')");
+    expect(appSource).toContain("evaluationWorkspaceStep !== 'configuration' && <section id=\"evaluation-results\"");
+  });
+
+  it('separates live execution, result comparison and historical analysis visually', () => {
+    expect(evaluationStyles).toContain('.evaluation-results-workspace[data-evaluation-step="execution"] .evaluation-result-list');
+    expect(evaluationStyles).toContain('.evaluation-results-workspace[data-evaluation-step="results"] .evaluation-result-list');
+    expect(evaluationStyles).toContain('.evaluation-results-workspace[data-evaluation-step="history"] .evaluation-progress');
+    expect(evaluationStyles).toContain('.evaluation-step-nav button.is-active');
   });
 });
