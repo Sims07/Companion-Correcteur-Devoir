@@ -88,6 +88,27 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(styles).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
+  it('shows which saved configuration is active and which phase a long evaluation is running', () => {
+    const text = app();
+    const styles = source('../src/ui/styles.css');
+    expect(text).toContain('SUIVI DE L’EXPÉRIENCE');
+    expect(text).toContain('evaluation-configuration-steps');
+    expect(text).toContain('En cours maintenant');
+    expect(text).toContain('En attente');
+    expect(text).toContain('evaluationProgress.currentConfiguration?.id === profile.id');
+    expect(text).toContain('aria-valuenow={evaluationProgress.completed}');
+    expect(text).toContain('evaluationStage === \'preparing\'');
+    expect(text).toContain('evaluationStage === \'reading\'');
+    expect(text).toContain('evaluationStage === \'grading\'');
+    expect(text).toContain('evaluationStage === \'parsing\'');
+    expect(text).toContain('evaluationStage === \'saving\'');
+    expect(text).toContain('setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: \'running\' } : current)');
+    expect(styles).toContain('.evaluation-configuration-step.is-active');
+    expect(styles).toContain('.evaluation-configuration-step.is-complete');
+    expect(styles).toContain('.evaluation-phase-panel');
+    expect(styles).toContain('@media (max-width: 700px)');
+  });
+
   it('separates model evaluation from raw local debug output', () => {
     const text = app();
     expect(text).toContain('>Évaluation des modèles</button>');
