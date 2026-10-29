@@ -514,10 +514,10 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       setCurrentCorrectionId(id);
       setIsFinalized(true);
       setArchiveMessage('Correction enregistrée localement avec la copie et les éléments de révision.');
-      const memoryStatus = savedDecisionCount > 0
-        ? ` ${savedDecisionCount} décision(s) ajustée(s) ou commentée(s) ont été conservées dans la mémoire locale pour les prochaines analyses de ce contexte.`
-        : memorySaveFailed
-          ? ' La correction est archivée, mais la mémoire locale des décisions n’a pas pu être mise à jour.'
+      const memoryStatus = memorySaveFailed
+        ? ` ${savedDecisionCount} décision(s) ont été conservées, mais la mémoire locale n’a pas pu être entièrement mise à jour.`
+        : savedDecisionCount > 0
+          ? ` ${savedDecisionCount} décision(s) ajustée(s) ou commentée(s) ont été conservées dans la mémoire locale pour les prochaines analyses de ce contexte.`
           : '';
       setReviewMessage(teacherQuestions.trim()
         ? `Correction finalisée et archivée sur cet appareil.${memoryStatus} Vérifiez les questions ouvertes avant de communiquer la note.`
