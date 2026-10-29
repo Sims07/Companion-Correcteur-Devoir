@@ -1125,23 +1125,50 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           <label className="field-label" htmlFor="rubric-image-file">Ou importer une photo / un scan du barème (JPEG, PNG, WebP)</label>
           <FilePicker id="rubric-image-file" accept="image/jpeg,image/png,image/webp" disabled={rubricImageImporting} onFilesSelected={(files) => { void importRubricImageFromInput(files?.[0]); }} title="Importer une photo ou un scan" description="JPEG, PNG ou WebP · ou PDF multipage" actionLabel={rubricImageImporting ? 'Lecture en cours…' : 'Choisir une image'} compact />
           <p className="hint">{rubricImageImporting ? 'Lecture du barème par le modèle de vision local…' : 'Une seule requête au modèle de vision Ollama sélectionné, avec toutes les pages PDF dans l’ordre et une sortie JSON structurée. Les pages ne sont envoyées qu’à votre serveur Ollama configuré ; aucun service cloud n’est utilisé. Vérifiez toujours le résultat avant utilisation.'}</p>
-          {rubricImportEvents.length > 0 && <section className={`rubric-import-progress ${rubricImportProgress?.stage === 'error' ? 'has-error' : ''}`} aria-label="Suivi de l’import du barème" aria-live="polite">
-            <div className="rubric-import-progress-heading"><strong>Suivi de l’import</strong><span>{rubricImportFileName}</span></div>
-            <ol className="rubric-import-progress-events">{rubricImportEvents.map((event, index) => <li key={`${index}-${event}`}>{event}</li>)}</ol>
-            {rubricImportProgress && <p className="rubric-import-progress-current" role="status">{rubricImportProgress.message}</p>}
-            {rubricImportProgress?.stage === 'complete' && <p className="rubric-import-progress-review">Le résultat extrait est maintenant affiché dans les champs modifiables ci-dessous. Comparez chaque critère et ses points avec le document original avant de valider le barème.</p>}
-            {rubricImportVisionResponse && <details className="rubric-import-raw-response">
-              <summary>Voir la transcription brute du modèle de vision</summary>
-              <p>Texte transcrit depuis les images par « {visionModel} », avant structuration. Utile pour repérer une erreur de lecture ou une valeur mal reconnue.</p>
-              <pre>{rubricImportVisionResponse}</pre>
-              <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportVisionResponse); }}>Copier la transcription</button>
-            </details>}
-            {rubricImportAnalysisResponse && <details className="rubric-import-raw-response">
-              <summary>Voir le JSON brut du modèle d’analyse</summary>
-              <p>Réponse exacte de « {analysisModel} » avant validation, conservée même si le JSON ou les critères sont invalides.</p>
-              <pre>{rubricImportAnalysisResponse}</pre>
-              <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportAnalysisResponse); }}>Copier le JSON</button>
-            </details>}
+          {rubricImportEvents.length > 0 && <section className={`rubric-import-progress ${rubricImportProgress?.stage === 'error' ? 'has-error' : ''}`} aria-label="Étapes de l’import du barème" aria-live="polite">
+            <div className="rubric-import-progress-heading"><strong>Import du barème</strong><span>{rubricImportFileName}</span></div>
+            {(() => {
+              const stage = rubricImportProgress?.stage;
+              const failed = stage === 'error';
+              const readingDone = Boolean(rubricImportVisionResponse) && ['structuring', 'response', 'parsing', 'complete'].includes(stage ?? '');
+              const extractionStarted = ['structuring', 'response', 'parsing', 'complete'].includes(stage ?? '');
+              const extractionDone = stage === 'complete';
+              return <ol className="rubric-import-steps">
+                <li className={`rubric-import-step ${readingDone ? 'is-complete' : !extractionStarted && !failed ? 'is-active' : ''}`}>
+                  <span className="rubric-import-step-number" aria-hidden="true">{readingDone ? '✓' : '1'}</span>
+                  <div className="rubric-import-step-content">
+                    <strong>1. Lecture du document</strong>
+                    <p>{readingDone ? 'Lecture terminée : le texte reconnu est consultable ci-dessous.' : failed && !extractionStarted ? 'La lecture a rencontré une erreur.' : 'Le modèle de vision lit les pages dans leur ordre.'}</p>
+                    {rubricImportProgress && !readingDone && !extractionStarted && <p className="rubric-import-step-status" role="status">{rubricImportProgress.message}</p>}
+                    {rubricImportVisionResponse ? <details className="rubric-import-raw-response">
+                      <summary>Voir le texte lu par le modèle de vision</summary>
+                      <p>Transcription brute de « {visionModel} », avant structuration du barème.</p>
+                      <pre>{rubricImportVisionResponse}</pre>
+                      <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportVisionResponse); }}>Copier la transcription</button>
+                    </details> : <p className="rubric-import-step-hint">Le texte reconnu apparaîtra ici dès que la lecture sera disponible.</p>}
+                  </div>
+                </li>
+                <li className={`rubric-import-step ${extractionDone ? 'is-complete' : extractionStarted ? 'is-active' : ''}`}>
+                  <span className="rubric-import-step-number" aria-hidden="true">{extractionDone ? '✓' : '2'}</span>
+                  <div className="rubric-import-step-content">
+                    <strong>2. Extraction du barème</strong>
+                    <p>{extractionDone ? 'Extraction terminée : les critères et les points sont éditables ci-dessous.' : extractionStarted ? 'Le modèle d’analyse structure la transcription en critères, descriptions et points.' : 'Cette étape démarre après la lecture de toutes les pages.'}</p>
+                    {extractionStarted && !extractionDone && rubricImportProgress && <p className="rubric-import-step-status" role="status">{rubricImportProgress.message}</p>}
+                    {rubricImportAnalysisResponse ? <details className="rubric-import-raw-response">
+                      <summary>Voir le JSON brut extrait</summary>
+                      <p>Réponse de « {analysisModel} » avant validation, y compris si le JSON ou certains critères sont invalides.</p>
+                      <pre>{rubricImportAnalysisResponse}</pre>
+                      <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportAnalysisResponse); }}>Copier le JSON</button>
+                    </details> : <p className="rubric-import-step-hint">Le JSON extrait apparaîtra ici après l’analyse.</p>}
+                  </div>
+                </li>
+              </ol>;
+            })()}
+            <details className="rubric-import-event-log">
+              <summary>Afficher le journal détaillé de l’import</summary>
+              <ol className="rubric-import-progress-events">{rubricImportEvents.map((event, index) => <li key={`${index}-${event}`}>{event}</li>)}</ol>
+            </details>
+            {rubricImportProgress?.stage === 'complete' && <p className="rubric-import-progress-review">Vérifiez le résultat extrait dans les champs modifiables ci-dessous, puis comparez chaque critère et ses points avec le document original avant de valider le barème.</p>}
           </section>}
           {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
         </div>
