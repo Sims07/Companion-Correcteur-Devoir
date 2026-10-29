@@ -1088,3 +1088,90 @@
 @media (max-width: 380px) {
   .diagnostic-run-metrics { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+/* Diagnostic IA: a dedicated evaluation journey, separate from the teacher correction flow. */
+.diagnostic-journey {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0 28px;
+}
+.diagnostic-journey-step {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--flow-border, #dfe8de);
+  border-radius: 13px;
+  color: var(--flow-text, #243328);
+  background: var(--flow-surface, #fff);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.diagnostic-journey-step:hover:not(:disabled) {
+  border-color: #9abda1;
+  background: #f6fbf6;
+  transform: translateY(-1px);
+}
+.diagnostic-journey-step:focus-visible {
+  outline: 3px solid #8ab99a;
+  outline-offset: 2px;
+}
+.diagnostic-journey-step:disabled { opacity: .55; cursor: not-allowed; }
+.diagnostic-journey-number {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: #28613a;
+  background: #eaf5ec;
+  font-size: 13px;
+  font-weight: 800;
+}
+.diagnostic-journey-step > span:nth-child(2) { display: grid; gap: 4px; min-width: 0; }
+.diagnostic-journey-step strong { font-size: 12px; line-height: 1.35; }
+.diagnostic-journey-step small { color: var(--flow-muted, #647067); font-size: 10px; line-height: 1.45; }
+.diagnostic-journey-step > span:last-child { color: var(--flow-muted, #647067); }
+.diagnostic-setup-heading { scroll-margin-top: 24px; }
+.diagnostic-results, .timing-history { scroll-margin-top: 24px; }
+.diagnostic-results > .panel-heading { margin-bottom: 18px; }
+.diagnostic-results > .panel-heading p { max-width: 64ch; line-height: 1.6; }
+.diagnostic-empty-state {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border: 1px dashed #c7d8c9;
+  border-radius: 12px;
+  background: #f8fcf8;
+}
+.diagnostic-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #e8f5ea;
+  color: #28613a;
+  font-size: 22px;
+}
+.diagnostic-empty-state h4 { margin: 0 0 5px; font-size: 14px; }
+.diagnostic-empty-state p { margin: 0; max-width: 62ch; color: var(--flow-muted, #647067); font-size: 12px; line-height: 1.6; }
+.diagnostic-empty-state .secondary-button { white-space: nowrap; }
+@media (max-width: 760px) {
+  .diagnostic-journey { grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 14px 0 22px; }
+  .diagnostic-journey-step { padding: 12px; }
+  .diagnostic-empty-state { grid-template-columns: 38px minmax(0, 1fr); gap: 12px; padding: 16px; }
+  .diagnostic-empty-icon { width: 38px; height: 38px; }
+  .diagnostic-empty-state .secondary-button { grid-column: 1 / -1; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .diagnostic-journey-step { transition: none; }
+  .diagnostic-journey-step:hover:not(:disabled) { transform: none; }
+}
