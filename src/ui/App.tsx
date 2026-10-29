@@ -434,6 +434,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setRubricImportMessage('');
     setRubricImportFileName(file.name);
     setRubricImportEvents([`Fichier sélectionné : ${file.name}`]);
+    setRubricImportRawResponse('');
     setRubricImportProgress({ stage: 'preparing', message: 'Préparation du fichier et conversion des pages en images dans le navigateur…' });
     setRubricImageImporting(true);
     try {
