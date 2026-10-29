@@ -5,6 +5,7 @@ const stylesheet = readFileSync(new URL('../src/ui/styles.css', import.meta.url)
 const correctionFlowStylesheet = readFileSync(new URL('../src/ui/correctionFlow.css', import.meta.url), 'utf8');
 const modelSelectStylesheet = readFileSync(new URL('../src/ui/modelSelect.css', import.meta.url), 'utf8');
 const memoryStylesheet = readFileSync(new URL('../src/ui/localMemory.css', import.meta.url), 'utf8');
+const dropdownComponent = readFileSync(new URL('../src/ui/components/DesignSystemSelect.tsx', import.meta.url), 'utf8');
 const memoryComponent = readFileSync(new URL('../src/ui/LocalMemoryCompanion.tsx', import.meta.url), 'utf8');
 const mainEntry = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
 const appComponent = readFileSync(new URL('../src/ui/App.tsx', import.meta.url), 'utf8');
@@ -97,6 +98,17 @@ describe('UI design system', () => {
     expect(memoryComponent).toContain('Décision à conserver');
     expect(memoryComponent).toContain('Réutiliser cette décision avec le barème');
     expect(memoryComponent).toContain('+ Nouvelle correction');
+  });
+
+  it('routes every application dropdown through the shared design-system control', () => {
+    expect(appComponent).not.toMatch(/<select\\b/);
+    expect(appComponent).toContain('<DesignSystemSelect id="assignment-education-level"');
+    expect(appComponent).toContain('<DesignSystemSelect id="diagnostic-strategy"');
+    expect(dropdownComponent).toContain("'design-system-select'");
+    expect(stylesheet).toContain('.design-system-select {');
+    expect(stylesheet).toContain('appearance: none;');
+    expect(stylesheet).toContain('.design-system-select:focus-visible');
+    expect(stylesheet).toContain('.design-system-select:disabled');
   });
 
   it('styles Ollama model selectors as a reusable, accessible design-system control', () => {
