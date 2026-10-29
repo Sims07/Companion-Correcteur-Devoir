@@ -288,3 +288,31 @@ footer { padding-top: 24px; line-height: 1.6; }
 .evidence-region-active circle{fill:#0284c7}
 .evidence-anchor-count{font-size:.75rem;color:var(--muted,#64748b)}
 @media(prefers-reduced-motion:no-preference){.evidence-region rect{transition:fill .15s ease,stroke .15s ease}}
+
+
+/* Shared design-system dropdown: consistent appearance across every workflow step. */
+.design-system-select {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 46px;
+  padding: 0.7rem 2.65rem 0.7rem 0.9rem;
+  border: 1px solid var(--border, #d6ded7);
+  border-radius: 12px;
+  background-color: var(--surface, #fff);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%23647467' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  color: var(--text-primary, #26352b);
+  font: inherit;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+.design-system-select:hover:not(:disabled) { border-color: var(--accent, #7a9b80); }
+.design-system-select:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent, #64866a) 28%, transparent); outline-offset: 2px; border-color: var(--accent, #64866a); }
+.design-system-select:disabled { opacity: 0.58; cursor: not-allowed; background-color: var(--surface-subtle, #f8faf7); }
+.design-system-select option { color: #26352b; background: #fff; }
+@media (max-width: 560px) { .design-system-select { min-height: 48px; font-size: 16px; } }
+@media (prefers-reduced-motion: reduce) { .design-system-select { transition: none; } }
