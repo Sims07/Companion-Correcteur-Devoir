@@ -400,16 +400,26 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     }
     setError('');
     setRubricImportMessage('');
+    setRubricImportFileName(file.name);
+    setRubricImportEvents([`Fichier sélectionné : ${file.name}`]);
+    setRubricImportProgress({ stage: 'preparing', message: 'Lecture du fichier local…' });
     setRubricFileImporting(true);
     try {
       const imported = await service.importRubric(file);
+      const total = imported.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
       setRubric(imported.rubric);
       setProposal(null);
       setReview([]);
       setTeacherQuestions('');
-      setRubricImportMessage(imported.warnings.length ? imported.warnings.join(' ') : `Barème « ${imported.rubric.title} » importé. Vérifiez les critères et le total avant de lancer la correction.`);
+      const summary = `Barème extrait : ${imported.rubric.criteria.length} critère(s), ${total} point(s) au total. Les critères sont affichés ci-dessous pour vérification et modification.`;
+      setRubricImportProgress({ stage: 'complete', message: summary });
+      setRubricImportEvents((events) => [...events, 'Lecture locale terminée.', summary]);
+      setRubricImportMessage(imported.warnings.length ? imported.warnings.join(' ') : summary);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible d’importer ce barème localement.');
+      const message = cause instanceof Error ? cause.message : 'Impossible d’importer ce barème localement.';
+      setError(message);
+      setRubricImportProgress({ stage: 'error', message });
+      setRubricImportEvents((events) => [...events, `Échec : ${message}`]);
     } finally {
       setRubricFileImporting(false);
     }
@@ -419,19 +429,35 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     if (!file) return;
     setError('');
     setRubricImportMessage('');
+    setRubricImportFileName(file.name);
+    setRubricImportEvents([`Fichier sélectionné : ${file.name}`]);
+    setRubricImportProgress({ stage: 'preparing', message: 'Préparation du fichier et conversion des pages en images dans le navigateur…' });
     setRubricImageImporting(true);
     try {
       if (!visionModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale dans le panneau latéral pour choisir un modèle de lecture.');
       const prepared = await service.prepareFiles([file]);
       if (prepared.length === 0) throw new Error('Aucune page du barème n’a pu être préparée.');
-      const imported = await service.importRubricImage(prepared, { endpoint, visionModel });
+      const preparedMessage = `${prepared.length} page(s) préparée(s) en images. Envoi au modèle de vision Ollama « ${visionModel} »…`;
+      setRubricImportProgress({ stage: 'preparing', message: preparedMessage, page: 0, totalPages: prepared.length });
+      setRubricImportEvents((events) => [...events, preparedMessage]);
+      const imported = await service.importRubricImage(prepared, { endpoint, visionModel }, (progress) => {
+        setRubricImportProgress(progress);
+        setRubricImportEvents((events) => events.at(-1) === progress.message ? events : [...events, progress.message]);
+      });
+      const total = imported.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
       setRubric(imported.rubric);
       setProposal(null);
       setReview([]);
       setTeacherQuestions('');
-      setRubricImportMessage(imported.warnings.join(' ') || `Barème « ${imported.rubric.title} » importé. Vérifiez les critères et le total.`);
+      const summary = `Barème extrait : ${imported.rubric.criteria.length} critère(s), ${total} point(s) au total. Les critères sont affichés ci-dessous pour vérification et modification.`;
+      setRubricImportProgress({ stage: 'complete', message: summary, page: prepared.length, totalPages: prepared.length });
+      setRubricImportEvents((events) => [...events, summary]);
+      setRubricImportMessage(imported.warnings.join(' ') || summary);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible d’extraire le barème avec le modèle de vision local.');
+      const message = cause instanceof Error ? cause.message : 'Impossible d’extraire le barème avec le modèle de vision local.';
+      setError(message);
+      setRubricImportProgress({ stage: 'error', message });
+      setRubricImportEvents((events) => [...events, `Échec : ${message}`]);
     } finally {
       setRubricImageImporting(false);
     }
