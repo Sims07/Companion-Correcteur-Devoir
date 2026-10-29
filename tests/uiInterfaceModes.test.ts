@@ -6,6 +6,16 @@ const source = (path: string) => readFileSync(new URL(path, import.meta.url), 'u
 describe('teacher and AI diagnostic interface modes', () => {
   const app = () => source('../src/ui/App.tsx');
 
+  it('shows optional teacher-facing annotation suggestions linked to the source page', () => {
+    const text = app();
+    expect(text).toContain('COMMENTAIRE ÉVENTUEL À REPORTER AU STYLO');
+    expect(text).toContain('Suggestion IA');
+    expect(text).toContain('Repère indicatif');
+    expect(text).toContain('Afficher la page liée');
+    expect(text).toContain('item.annotationSuggestion');
+    expect(text).toContain('item.locationHint');
+  });
+
   it('keeps a local archive and next-copy path after finalization', () => {
     const text = app();
     expect(text).toContain("useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric')");
