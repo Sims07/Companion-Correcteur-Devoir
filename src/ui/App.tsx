@@ -721,7 +721,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       completedAt: new Date().toISOString(),
       assignmentId: activeAssignmentId,
       assignmentTitle: assignmentTitle.trim() || 'Devoir sans titre',
-      question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+      question,
       rubricSnapshot: structuredClone(rubric),
       correctionMode,
       images: structuredClone(images),
