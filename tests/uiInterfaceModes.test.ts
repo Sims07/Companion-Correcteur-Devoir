@@ -52,9 +52,9 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('offers a sequential independent evaluation for saved model configurations', () => {
     const text = app();
-    expect(text).toContain('Évaluation indépendante des configurations');
-    expect(text).toContain('Configurations à comparer (2 à 3)');
-    expect(text).toContain('Lancer l’évaluation indépendante');
+    expect(text).toContain('Choisir les configurations à comparer');
+    expect(text).toContain('Configurations à exécuter');
+    expect(text).toContain('Lancer l’expérience');
     expect(text).toContain('Annuler après l’appel en cours');
     expect(text).toContain('runModelEvaluation({');
     expect(text).toContain('images: structuredClone(images)');
@@ -78,7 +78,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('className="evaluation-profile-options"');
     expect(text).toContain("className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}");
     expect(text).toContain('className="evaluation-profile-models"');
-    expect(text).toContain('aria-live="polite">{selectedEvaluationProfileIds.length} / 3 sélectionnée(s)');
+    expect(text).toContain('aria-live="polite" className={selectedEvaluationProfileIds.length >= 2 ?');
     expect(text).toContain('aria-describedby="evaluation-profile-selection-help"');
     expect(text).toContain('className="evaluation-profile-selection-mark" aria-hidden="true"');
     expect(styles).toContain('.evaluation-profile-option.is-selected');
@@ -140,19 +140,24 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Analyse et notation en cours');
   });
 
-  it('keeps Ollama configuration hidden until explicitly opened from teacher settings', () => {
+  it('keeps model evaluation configuration in its own workspace and advanced diagnostic settings in Debug', () => {
     const text = app();
-    expect(text).toContain(`{interfaceMode === 'diagnostic' ? <article className="panel ollama-panel">`);
+    expect(text).toContain('id="evaluation-configurations"');
+    expect(text).toContain('id="evaluation-profile-name"');
+    expect(text).toContain('id="evaluation-vision-model"');
+    expect(text).toContain('id="evaluation-analysis-model"');
+    expect(text).toContain('className="debug-advanced-settings"');
+    expect(text).toContain('id="diagnostic-strategy"');
     expect(text).toContain("interfaceMode === 'teacher' && showAiSettings && <section className={`panel ollama-panel teacher-model-panel ai-settings-view");
     expect(text).toContain('Paramètres de l’IA locale');
-    expect(text).toContain('Tester la connexion et détecter les modèles');
     expect(text).toContain('aria-expanded={showAiSettings}');
-    expect(text).toContain("onClick={() => setShowAiSettings((current) => !current)}");
-    expect(text).toContain('Ces options ne sont appliquées qu’en mode Diagnostic IA. Le mode Correction reste sur un seul modèle.');
   });
 
-  it('only displays raw streaming output in diagnostic mode', () => {
-    expect(app()).toContain(`{interfaceMode === 'diagnostic' && streamedOutput && <div className="streaming-preview"`);
+  it('keeps model-evaluation streaming separate from technical debug traces', () => {
+    const text = app();
+    expect(text).toContain('{busy && streamedOutput && <section className="transcription-review"');
+    expect(text).toContain('Dernière réponse reçue en streaming');
+    expect(text).toContain('debug-evaluation-traces');
   });
 
   it('offers integrated-question and separate-subject modes, with separate subject upload only when needed', () => {
