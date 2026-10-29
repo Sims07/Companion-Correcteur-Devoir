@@ -155,7 +155,7 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('keeps model-evaluation streaming separate from technical debug traces', () => {
     const text = app();
-    expect(text).toContain('{busy && streamedOutput && <section className="transcription-review"');
+    expect(text).toContain("evaluationWorkspaceStep === 'execution' && busy && streamedOutput && <section className=\"transcription-review\"");
     expect(text).toContain('Dernière réponse reçue en streaming');
     expect(text).toContain('debug-evaluation-traces');
   });
