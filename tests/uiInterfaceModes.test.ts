@@ -68,8 +68,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Réponse du modèle en streaming');
     expect(text).toContain('Lecture des images');
     expect(text).toContain('Analyse et notation');
-    expect(text).toContain('Comparaison relative des notes');
-    expect(text).toContain('ces écarts ne mesurent pas l’exactitude');
+    expect(text).toContain('Analyse comparative des configurations');
+    expect(text).toContain('Sans note de référence validée par l’enseignant');
   });
 
   it('presents saved model configurations as responsive, accessible design-system cards', () => {
