@@ -28,6 +28,9 @@ describe('importRubricImageWithOllama', () => {
     expect(firstBody.stream).toBe(false);
     expect(firstBody.think).toBe(false);
     expect(firstBody.messages[0].content).toContain('Transcris ce qui est réellement visible');
+    expect(firstBody.messages[0].content).toContain('Arrête-toi à la dernière ligne visible');
+    expect(firstBody.messages[0].content).toContain('N’invente jamais la suite d’une question');
+    expect(firstBody.options.num_predict).toBe(1536);
     const analysisBody = JSON.parse(fetchMock.mock.calls[2][1].body as string);
     expect(analysisBody.model).toBe('text-model');
     expect(analysisBody.messages[0].images).toBeUndefined();
@@ -38,6 +41,24 @@ describe('importRubricImageWithOllama', () => {
     ]);
     expect(result.warnings.join(' ')).toContain('modèle de vision local');
     expect(result.warnings.join(' ')).toContain('modèle d’analyse local');
+  });
+
+  it('aborts an in-flight vision request when the teacher cancels the import', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => {
+        const error = new Error('aborted');
+        error.name = 'AbortError';
+        reject(error);
+      }, { once: true });
+    })) as typeof fetch;
+    const pending = importRubricImageWithOllama(page('PAGE_ONE', 'bareme.png'), {
+      endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b', analysisModel: 'text-model',
+    }, fetchMock, undefined, controller.signal);
+    controller.abort();
+    await expect(pending).rejects.toThrow('interrompu par l’enseignant');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
   });
 
   it('accepts one image for a photo rubric using both configured models', async () => {
