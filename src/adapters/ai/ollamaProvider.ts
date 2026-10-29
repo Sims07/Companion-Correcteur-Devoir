@@ -496,7 +496,7 @@ export async function importRubricImageWithOllama(
   if (!validation.valid) throw new Error(`Le barème extrait doit être vérifié : ${validation.errors.join(' ')}`);
   return {
     rubric,
-    warnings: ['Import par IA locale : vérifiez chaque intitulé, description, sous-critère et maximum de points sur l’image originale avant utilisation.'],
+    warnings: ['Import par le modèle de vision local : vérifiez chaque intitulé, description, sous-critère et maximum de points sur les pages originales avant utilisation.'],
   };
 }
 
