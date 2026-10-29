@@ -13,6 +13,8 @@ interface OllamaChatResponse {
   load_duration?: number;
   prompt_eval_duration?: number;
   eval_duration?: number;
+  /** Usage shape exposed by OpenAI-compatible streaming proxies, when enabled. */
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 }
 
 interface OllamaStreamResult {
@@ -43,7 +45,7 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
     if (event.error) throw new Error('Ollama signale une erreur pendant la génération.');
     const chunk = event.message?.content ?? '';
     if (chunk) { content += chunk; onChunk?.(chunk); }
-    if (event.done || event.prompt_eval_count !== undefined || event.eval_count !== undefined) finalEvent = event;
+    if (event.done || event.prompt_eval_count !== undefined || event.eval_count !== undefined || event.usage !== undefined) finalEvent = event;
   };
   try {
     while (true) {
@@ -58,15 +60,20 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
     consumeLine(buffer);
   } finally { reader.releaseLock(); }
   if (!content.trim()) throw new Error('Ollama a retourné une réponse vide.');
-  const promptTokens = typeof finalEvent?.prompt_eval_count === 'number' ? finalEvent.prompt_eval_count : undefined;
-  const generatedTokens = typeof finalEvent?.eval_count === 'number' ? finalEvent.eval_count : undefined;
+  const promptTokens = typeof finalEvent?.prompt_eval_count === 'number'
+    ? finalEvent.prompt_eval_count
+    : typeof finalEvent?.usage?.prompt_tokens === 'number' ? finalEvent.usage.prompt_tokens : undefined;
+  const generatedTokens = typeof finalEvent?.eval_count === 'number'
+    ? finalEvent.eval_count
+    : typeof finalEvent?.usage?.completion_tokens === 'number' ? finalEvent.usage.completion_tokens : undefined;
+  const reportedTotalTokens = typeof finalEvent?.usage?.total_tokens === 'number' ? finalEvent.usage.total_tokens : undefined;
   const generationDurationNs = typeof finalEvent?.eval_duration === 'number' ? finalEvent.eval_duration : undefined;
   const generationMs = nanosecondsToMilliseconds(generationDurationNs);
   return {
     content,
     ...(promptTokens !== undefined ? { promptTokens } : {}),
     ...(generatedTokens !== undefined ? { generatedTokens } : {}),
-    ...(promptTokens !== undefined && generatedTokens !== undefined ? { totalTokens: promptTokens + generatedTokens } : {}),
+    ...(reportedTotalTokens !== undefined ? { totalTokens: reportedTotalTokens } : promptTokens !== undefined && generatedTokens !== undefined ? { totalTokens: promptTokens + generatedTokens } : {}),
     ...(typeof finalEvent?.prompt_eval_duration === 'number' ? { promptEvaluationMs: nanosecondsToMilliseconds(finalEvent.prompt_eval_duration) } : {}),
     ...(generationMs !== undefined ? { generationMs } : {}),
     ...(typeof finalEvent?.load_duration === 'number' ? { loadMs: nanosecondsToMilliseconds(finalEvent.load_duration) } : {}),
