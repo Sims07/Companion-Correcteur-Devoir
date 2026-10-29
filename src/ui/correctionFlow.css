@@ -1419,3 +1419,54 @@
 @media (prefers-reduced-motion: reduce) {
   .diagnostic-model-score-card, .diagnostic-kpi, .diagnostic-comparison-chart { transition: none; }
 }
+
+
+.diagnostic-workspace-hero {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 24px;
+  overflow: hidden;
+  margin: 8px 0 24px;
+  padding: clamp(22px, 3.5vw, 38px);
+  border: 1px solid #264b38;
+  border-radius: 22px;
+  background: radial-gradient(ellipse at 88% 20%, rgba(105, 161, 113, .24), transparent 42%), linear-gradient(125deg, #152b21 0%, #203f2e 65%, #244936 100%);
+  color: #f4faf4;
+  box-shadow: 0 18px 44px rgba(22, 52, 35, .18);
+}
+.diagnostic-workspace-hero::after { position: absolute; right: 24%; bottom: -130px; width: 280px; height: 280px; border: 1px solid rgba(228, 244, 228, .09); border-radius: 50%; content: ""; pointer-events: none; }
+.diagnostic-workspace-hero-copy { position: relative; z-index: 1; max-width: 760px; }
+.diagnostic-workspace-hero .eyebrow { margin: 0 0 11px; color: #a7d8b0; font-size: 10px; font-weight: 800; letter-spacing: .14em; }
+.diagnostic-workspace-hero h1 { margin: 0 0 12px; font-size: clamp(27px, 3.3vw, 40px); font-weight: 750; line-height: 1.08; letter-spacing: -.045em; }
+.diagnostic-workspace-hero-copy > p:not(.eyebrow) { max-width: 68ch; margin: 0; color: #d0e2d3; font-size: 13px; line-height: 1.75; }
+.diagnostic-workspace-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.diagnostic-workspace-badges span { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid rgba(221, 244, 224, .17); border-radius: 999px; background: rgba(255,255,255,.055); color: #e1f0e3; font-size: 10px; font-weight: 650; }
+.diagnostic-workspace-badges i { width: 6px; height: 6px; border-radius: 50%; background: #8dd79b; box-shadow: 0 0 0 3px rgba(141,215,155,.13); }
+.diagnostic-workspace-hero-aside { position: relative; z-index: 1; display: flex; flex: 0 0 230px; align-items: center; gap: 13px; align-self: center; padding: 16px; border: 1px solid rgba(226,244,228,.15); border-radius: 15px; background: rgba(5, 24, 14, .22); backdrop-filter: blur(8px); }
+.diagnostic-workspace-hero-aside > div { display: grid; gap: 6px; min-width: 0; }
+.diagnostic-workspace-hero-aside small { color: #a7d8b0; font-size: 9px; font-weight: 750; letter-spacing: .08em; }
+.diagnostic-workspace-hero-aside strong { color: #fff; font-size: 13px; line-height: 1.4; }
+.diagnostic-workspace-hero-aside span:not(.diagnostic-hero-orbit) { color: #d0e2d3; font-size: 10px; }
+.diagnostic-hero-orbit { position: relative; display: block; flex: 0 0 46px; width: 46px; height: 46px; border: 1px solid rgba(167,216,176,.65); border-radius: 50%; }
+.diagnostic-hero-orbit::before, .diagnostic-hero-orbit::after { position: absolute; inset: 7px; border: 1px solid rgba(167,216,176,.4); border-radius: 50%; content: ""; }
+.diagnostic-hero-orbit::after { inset: 15px; background: #a7d8b0; box-shadow: 0 0 16px rgba(167,216,176,.65); }
+.diagnostic-hero-orbit i { position: absolute; top: 2px; left: 19px; width: 6px; height: 6px; border-radius: 50%; background: #e5f8e8; }
+.diagnostic-hero-orbit i:nth-child(2) { top: 31px; left: 3px; }
+.diagnostic-hero-orbit i:nth-child(3) { top: 28px; left: 35px; }
+.diagnostic-comparison-warning { margin: 0; padding: 12px 14px; border: 1px solid #e7d3a5; border-radius: 10px; background: #fff8e9; color: #78531c; font-size: 11px; line-height: 1.55; }
+@media (max-width: 900px) {
+  .diagnostic-workspace-hero { flex-direction: column; }
+  .diagnostic-workspace-hero-aside { flex-basis: auto; align-self: stretch; max-width: 360px; }
+}
+@media (max-width: 520px) {
+  .diagnostic-workspace-hero { gap: 20px; padding: 20px; border-radius: 16px; }
+  .diagnostic-workspace-hero h1 { font-size: 27px; }
+  .diagnostic-workspace-badges { gap: 6px; }
+  .diagnostic-workspace-badges span { font-size: 9px; }
+  .diagnostic-workspace-hero-aside { max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .diagnostic-workspace-hero *, .diagnostic-workspace-hero::after { animation: none !important; transition: none !important; }
+}
