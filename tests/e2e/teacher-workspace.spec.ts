@@ -25,12 +25,13 @@ test('teacher can create and switch between independent local assignments', asyn
   await page.locator('.sidebar-assignment-item').filter({ hasText: 'Génétique moléculaire' }).click();
   await expect(title).toHaveValue('Génétique moléculaire');
   await expect(rubricTitle).toHaveValue('Barème génétique');
-  await page.getByRole('button', { name: '0 Définir le devoir' }).click();
+  await page.getByRole('button', { name: /Définir le devoir/ }).click();
   await expect(page.getByLabel('Description et objectifs pédagogiques')).toHaveValue('Comprendre les mécanismes de transmission génétique.');
   await expect(page.getByLabel('Niveau scolaire / universitaire')).toHaveValue('Université — Licence 2');
 
   await page.reload();
   await expect(title).toHaveValue('Génétique moléculaire');
+  await page.getByRole('button', { name: /Définir le devoir/ }).click();
   await expect(page.getByRole('heading', { name: 'Définir le devoir' })).toBeVisible();
   await expect(page.getByLabel('Description et objectifs pédagogiques')).toHaveValue('Comprendre les mécanismes de transmission génétique.');
   await expect(page.getByLabel('Niveau scolaire / universitaire')).toHaveValue('Université — Licence 2');
