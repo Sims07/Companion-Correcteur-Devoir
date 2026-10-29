@@ -270,4 +270,31 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(styles).toContain('.evaluation-disagreement-list');
   });
 
+
+  it('keeps model evaluation separate from correction and exposes profile creation in the evaluation workspace', () => {
+    const text = app();
+    const evaluation = text.slice(text.indexOf('id="evaluation-configurations"'), text.indexOf("interfaceMode === 'debug' ? <section"));
+    expect(text).toContain('Évaluation des modèles');
+    expect(text).toContain('id="evaluation-configurations"');
+    expect(text).toContain('Nouvelle configuration');
+    expect(text).toContain('Enregistrer la configuration');
+    expect(text).toContain('id="evaluation-profile-name"');
+    expect(text).toContain('id="evaluation-vision-model"');
+    expect(text).toContain('id="evaluation-analysis-model"');
+    expect(text).toContain('id="evaluation-results"');
+    expect(text).toContain('Lancer l’expérience');
+    expect(text).toContain('Debug des appels IA locaux');
+    expect(evaluation).toContain('Sélection pour cette expérience');
+    expect(evaluation).not.toContain('Lancer la correction');
+    expect(text).not.toContain('diagnostic-experiment-setup');
+  });
+
+  it('uses readable typography and responsive layout for the evaluation workspace', () => {
+    const styles = source('../src/ui/styles.css');
+    expect(styles).toContain('.evaluation-page-header');
+    expect(styles).toContain('.evaluation-config-fields');
+    expect(styles).toContain('.evaluation-run-actions');
+    expect(styles).toContain('@media(max-width:760px)');
+  });
+
 });
