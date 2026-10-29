@@ -59,6 +59,23 @@ describe('rubric import progress', () => {
     expect(progress.find((event) => event.stage === 'parsing')?.rawResponse).toBe(rawResponse);
   });
 
+  it('keeps a non-JSON model response available for diagnosis', async () => {
+    const progress: RubricImportProgress[] = [];
+    const rawResponse = 'Je ne peux pas extraire ce barème.';
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      message: { content: rawResponse },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })) as unknown as typeof fetch;
+
+    await expect(importRubricImageWithOllama(
+      image('bareme.png'),
+      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b' },
+      fetchMock,
+      (event) => progress.push(event),
+    )).rejects.toThrow('La sortie du modèle de vision n’est pas un JSON valide');
+
+    expect(progress.find((event) => event.stage === 'parsing')?.rawResponse).toBe(rawResponse);
+  });
+
   it('reports progress for each page of a multi-page PDF', async () => {
     const progress: RubricImportProgress[] = [];
     let requestNumber = 0;
