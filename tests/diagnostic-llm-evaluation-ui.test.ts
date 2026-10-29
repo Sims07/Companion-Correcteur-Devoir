@@ -153,3 +153,23 @@ describe('Évaluation des modèles — comparaison graphique de l’historique',
     expect(evaluationStyles).toContain('prefers-reduced-motion:reduce){.evaluation-history-bar-fill');
   });
 });
+
+
+describe('Évaluation des modèles — cohérence des étapes et historique', () => {
+  it('uses the correct step number and heading for execution, results and history', () => {
+    expect(appSource).toContain("evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION'");
+    expect(appSource).toContain("evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS'");
+    expect(appSource).toContain("'ÉTAPE 4 · ANALYSE & HISTORIQUE'");
+    expect(appSource).toContain("evaluationWorkspaceStep === 'history' && savedModelEvaluations.length > 0");
+    expect(appSource).toContain("evaluationWorkspaceStep === 'results' && modelEvaluationResults.some");
+  });
+
+  it('presents each saved experiment as a structured card with model and stage metrics', () => {
+    expect(appSource).toContain('evaluation-history-record-heading');
+    expect(appSource).toContain('evaluation-history-model-name');
+    expect(appSource).toContain('evaluation-history-model-stats');
+    expect(appSource).toContain('evaluation-history-record-footer');
+    expect(evaluationStyles).toContain('.evaluation-history-model-stats');
+    expect(evaluationStyles).toContain('@media(max-width:620px){.evaluation-history-record');
+  });
+});

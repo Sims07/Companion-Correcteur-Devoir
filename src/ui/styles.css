@@ -842,3 +842,34 @@ footer { padding-top: 24px; line-height: 1.6; }
 .evaluation-history-record{margin-top:12px}
 @media(max-width:760px){.evaluation-history-selection,.evaluation-history-chart-grid{grid-template-columns:1fr}.evaluation-history-comparison{padding:13px}.evaluation-history-comparison-heading{flex-direction:column}.evaluation-history-comparison-heading>span{text-align:left}.evaluation-history-bar-label{flex-direction:column;gap:3px}.evaluation-history-bar-label span{text-align:left}}
 @media(prefers-reduced-motion:reduce){.evaluation-history-bar-fill{transition:none}}
+
+
+/* Consistent visual hierarchy for execution, results and historical experiment cards. */
+.evaluation-results-workspace>.evaluation-section-heading{margin-bottom:20px;align-items:flex-start}
+.evaluation-results-workspace>.evaluation-section-heading h2{font-size:23px;letter-spacing:-.55px;line-height:1.25;margin:0 0 7px}
+.evaluation-results-workspace>.evaluation-section-heading .eyebrow{letter-spacing:.09em}
+.evaluation-current-results{margin-top:22px}
+.evaluation-current-results>h3{font-size:18px;letter-spacing:-.25px;margin:0 0 14px}
+.evaluation-history-record{margin-top:16px;padding:18px;border:1px solid #dce6db;border-radius:13px;background:linear-gradient(180deg,#fff 0%,#fbfdfb 100%);box-shadow:0 3px 12px rgb(30 58 35 / 4%)}
+.evaluation-history-record-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding-bottom:15px;border-bottom:1px solid #e7ede5}
+.evaluation-history-record-heading h4{font-size:17px;line-height:1.35;letter-spacing:-.25px;margin:2px 0 5px;overflow-wrap:anywhere}
+.evaluation-history-record-heading p:not(.eyebrow){font-size:11px;color:#718071;line-height:1.5;margin:0}
+.evaluation-history-record-heading .eyebrow{font-size:9px;margin:0;color:#64806a;letter-spacing:.1em}
+.evaluation-history-load{flex:0 0 auto;white-space:nowrap}
+.evaluation-history-record-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:11px;padding:15px 0 12px}
+.evaluation-history-model-metric{min-width:0;padding:13px;border:1px solid #e2eae0;border-radius:10px;background:#fff}
+.evaluation-history-model-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.evaluation-history-model-heading>strong{font-size:12px;overflow-wrap:anywhere}
+.evaluation-history-status{display:inline-flex;align-items:center;border-radius:99px;padding:4px 7px;background:#f7eee8;color:#8b593d;font-size:9px;font-weight:650;white-space:nowrap}
+.evaluation-history-status.is-success{background:#e8f4e8;color:#39734a}
+.evaluation-history-model-name{font-size:10px;color:#718071;line-height:1.55;overflow-wrap:anywhere;margin:8px 0 12px}
+.evaluation-history-model-name span{padding:0 3px;color:#96a396}
+.evaluation-history-model-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.evaluation-history-model-stats>div{min-width:0;padding:9px 8px;border-radius:7px;background:#f5f8f4;display:flex;flex-direction:column;gap:4px}
+.evaluation-history-model-stats span{font-size:9px;color:#738273}
+.evaluation-history-model-stats strong{font-size:13px;line-height:1.25;color:#273d2b;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.evaluation-history-model-stats small{font-size:9px;line-height:1.4;color:#7d897d;overflow-wrap:anywhere}
+.evaluation-history-record-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:12px;border-top:1px solid #e7ede5}
+.evaluation-history-record-footer>span{font-size:10px;color:#788679}
+.evaluation-history-record-footer .text-button{font-size:11px;color:#98624c}
+@media(max-width:620px){.evaluation-history-record{padding:13px}.evaluation-history-record-heading{flex-direction:column}.evaluation-history-load{width:100%}.evaluation-history-record-metrics{grid-template-columns:1fr}.evaluation-history-record-footer{align-items:flex-start;flex-direction:column}}
