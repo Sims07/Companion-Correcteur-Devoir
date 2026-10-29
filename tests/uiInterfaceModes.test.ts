@@ -132,7 +132,9 @@ describe('teacher and AI diagnostic interface modes', () => {
     const text = app();
     expect(text).toContain("{interfaceMode === 'diagnostic' && <section className=\"welcome\">");
     expect(text).toContain('ESPACE DE DIAGNOSTIC · IA LOCALE');
-    expect(text).toContain('Accédez aux réglages Ollama, aux modèles et aux sorties de diagnostic');
+    expect(text).toContain('Quel modèle corrige le mieux vos copies');
+    expect(text).toContain('Construisez une expérience reproductible');
+    expect(text).toContain('Parcours d’évaluation des modèles');
     expect(text).not.toContain('Un devoir, un espace de travail');
   });
 
@@ -174,7 +176,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('analysisSeconds:');
     expect(text).toContain('totalSeconds:');
     expect(text).toContain('setItem(timingHistoryKey, JSON.stringify(next))');
-    expect(text).toContain('Temps des dernières corrections');
+    expect(text).toContain('Historique des essais');
+    expect(text).toContain('EXPÉRIENCES CONSERVÉES');
     expect(text).toContain('Modèles (lecture / analyse)');
     expect(text).toContain('Réutilisée / non mesurée');
     expect(text).toContain('Effacer l’historique');
