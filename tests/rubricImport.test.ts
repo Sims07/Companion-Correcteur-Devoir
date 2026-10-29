@@ -95,7 +95,7 @@ describe('importRubricFile', () => {
     await expect(extractRubricText(new File(['scan'], 'scan.pdf', { type: 'application/pdf' }))).rejects.toThrow('lecture visuelle locale');
   });
 
-  it('rejects unsupported formats with a helpful message', async () =>
+  it('rejects unsupported formats with a helpful message', async () => {
     await expect(importRubricFile(new File(['data'], 'bareme.odt'))).rejects.toThrow('Format non pris en charge');
   });
 
