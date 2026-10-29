@@ -32,7 +32,10 @@ type AssignmentProfile = {
   correctionMode: 'integrated' | 'separate';
 };
 
+type QueuedCopy = { id: string; label: string; images: ImageInput[] };
+
 type AssignmentDraft = {
+  copyQueue: QueuedCopy[];
   images: ImageInput[];
   transcription: string | null;
   subjectImages: ImageInput[];
@@ -169,6 +172,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [subjectImages, setSubjectImages] = useState<ImageInput[]>([]);
   const [subjectTranscription, setSubjectTranscription] = useState<string | null>(null);
   const [images, setImages] = useState<ImageInput[]>([]);
+  const [copyQueue, setCopyQueue] = useState<QueuedCopy[]>([]);
   const [transcription, setTranscription] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -485,7 +489,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
 
   function captureActiveDraft(): AssignmentDraft {
     return {
-      images, transcription, subjectImages, subjectTranscription, proposal, review,
+      copyQueue, images, transcription, subjectImages, subjectTranscription, proposal, review,
       teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage,
     };
   }
@@ -499,6 +503,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setQuestion(profile.question);
     setCorrectionMode(profile.correctionMode);
     const draft = assignmentDrafts[profile.id];
+    setCopyQueue(draft?.copyQueue ?? []);
     setImages(draft?.images ?? []);
     setTranscription(draft?.transcription ?? null);
     setSubjectImages(draft?.subjectImages ?? []);
@@ -541,6 +546,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setRubric(profile.rubric);
     setQuestion(profile.question);
     setCorrectionMode(profile.correctionMode);
+    setCopyQueue([]);
     setImages([]);
     setTranscription(null);
     setSubjectImages([]);
@@ -559,7 +565,46 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setTeacherStep('rubric');
   }
 
+  function queueCurrentCopy() {
+    if (!images.length || isAnalyzing || proposal) return;
+    const queued: QueuedCopy = {
+      id: `queued-copy-${crypto.randomUUID()}`,
+      label: studentLabel.trim() || images[0]?.fileName || `Copie ${copyQueue.length + 1}`,
+      images: structuredClone(images),
+    };
+    setCopyQueue((current) => [...current, queued]);
+    setStudentLabel('');
+    setImages([]);
+    setTranscription(null);
+    setProposal(null);
+    setReview([]);
+    setTeacherQuestions('');
+    setReviewMessage('Copie ajoutée à la file locale. Importez la suivante ou chargez une copie en attente.');
+    setTeacherStep('copy');
+  }
+
+  function loadNextQueuedCopy() {
+    if (!copyQueue.length || isAnalyzing) return;
+    const [next, ...remaining] = copyQueue;
+    setCopyQueue(remaining);
+    setStudentLabel(next.label);
+    setImages(next.images);
+    setTranscription(null);
+    setProposal(null);
+    setReview([]);
+    setTeacherQuestions('');
+    setShowOnlyFlagged(false);
+    setShowSourceEvidence(false);
+    setReviewMessage('Copie chargée depuis la file locale. Lancez la lecture et la correction quand vous êtes prêt.');
+    setError('');
+    setCurrentCorrectionId(null);
+    setIsFinalized(false);
+    setTeacherStep('copy');
+    setArchiveMessage('');
+  }
+
   function startNextCopy() {
+    if (copyQueue.length > 0) { loadNextQueuedCopy(); return; }
     setStudentLabel('');
     setImages([]);
     setTranscription(null);
@@ -769,7 +814,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           {interfaceMode === 'teacher' && <div className="student-label-field"><label className="field-label" htmlFor="student-label">Nom ou identifiant de l’étudiant <span>(facultatif)</span></label><input id="student-label" value={studentLabel} onChange={(event) => setStudentLabel(event.target.value)} placeholder="Ex. Étudiant 014 ou groupe B" /></div>}
           <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
           <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
-          {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie et passer à la suivante</button></div>}
+          {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button type="button" className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie</button></div></div>}
+          {copyQueue.length > 0 && <section className="copy-queue" aria-label="File des copies à corriger"><div className="copy-queue-heading"><div><span className="eyebrow">FILE LOCALE</span><h4>{copyQueue.length} copie(s) à traiter</h4></div><button type="button" className="primary-button" onClick={loadNextQueuedCopy} disabled={isAnalyzing}>Charger la prochaine copie</button></div><p>Les copies en attente restent sur cet appareil et réutilisent le barème de ce devoir. La file est conservée en mémoire pendant cette session.</p><ol>{copyQueue.map((copy, index) => <li key={copy.id}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{copy.label}</strong><small>{copy.images.length} page(s) · À traiter</small></span><button type="button" className="text-button" onClick={() => setCopyQueue((current) => current.filter((item) => item.id !== copy.id))} disabled={isAnalyzing}>Retirer</button></li>)}</ol></section>}
         </article>
         {interfaceMode === 'diagnostic' ? <article className="panel ollama-panel">
           <div className="panel-heading"><span className="number">03</span><div><h3>Modèle local Ollama</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
