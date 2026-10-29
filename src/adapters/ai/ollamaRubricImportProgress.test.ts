@@ -128,6 +128,16 @@ describe('rubric import progress', () => {
     )).rejects.toThrow('Le critère 1 doit avoir un titre, une description textuelle et un maximum de points positif ou nul');
   });
 
+  it('requires a configured analysis model and does not send images without one', async () => {
+    const fetchMock = vi.fn() as unknown as typeof fetch;
+    await expect(importRubricImageWithOllama(
+      image('bareme.png'),
+      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b' },
+      fetchMock,
+    )).rejects.toThrow('Choisissez un modèle d’analyse Ollama pour structurer le barème.');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('reports progress for each page of a multi-page PDF', async () => {
     const progress: RubricImportProgress[] = [];
     const analysisResult = new Response(JSON.stringify({ message: { content: JSON.stringify({
