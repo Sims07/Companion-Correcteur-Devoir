@@ -78,7 +78,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
     void service.saveCorrection({ id: correctionId, label, rubricTitle: rubric.title, rubricFingerprint: rubric.fingerprint, createdAt: now, updatedAt: now })
       .then(refreshCorrections)
       .catch(() => undefined);
-  }, [correctionId]);
+  }, [correctionId, rubric.fingerprint]);
 
   useEffect(() => {
     const current = corrections.find((item) => item.id === correctionId);
