@@ -1082,6 +1082,36 @@
 .diagnostic-questions ul { margin: 8px 0 0; padding-left: 20px; }
 .diagnostic-questions li { margin: 5px 0; }
 .diagnostic-raw-warning { font-weight: 600; }
+
+.diagnostic-reference {
+  margin: 18px 0 22px;
+  padding: 18px;
+  border: 1px solid var(--flow-border, #dfe8de);
+  border-radius: 14px;
+  background: var(--flow-surface, #fff);
+}
+.diagnostic-reference-heading h4 { margin: 0 0 6px; font-size: 1rem; }
+.diagnostic-reference-heading h4 span { color: var(--flow-muted, #647067); font-size: .85rem; font-weight: 500; }
+.diagnostic-reference-heading p { max-width: 76ch; margin: 0; color: var(--flow-muted, #647067); line-height: 1.55; font-size: .88rem; }
+.diagnostic-reference-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+.diagnostic-reference-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 10px 12px; border: 1px solid var(--flow-border, #dfe8de); border-radius: 9px; }
+.diagnostic-reference-field > span { display: grid; gap: 3px; min-width: 0; font-size: .88rem; font-weight: 600; }
+.diagnostic-reference-field small { color: var(--flow-muted, #647067); font-size: .75rem; font-weight: 400; }
+.diagnostic-reference-field input { width: 82px; min-width: 0; padding: 9px; border: 1px solid var(--flow-border, #cbd5cb); border-radius: 7px; background: var(--flow-surface, #fff); color: inherit; font: inherit; }
+.diagnostic-reference-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.diagnostic-reference-message { margin: 10px 0 0; color: var(--flow-muted, #647067); font-size: .82rem; line-height: 1.45; }
+.diagnostic-reference-message.success { color: #28784b; }
+.diagnostic-reference-comparisons { display: grid; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--flow-border, #dfe8de); }
+.diagnostic-reference-comparisons h5 { margin: 0; font-size: .92rem; }
+.diagnostic-reference-comparisons > .hint { margin: 0 0 4px; }
+.diagnostic-reference-comparison { display: grid; gap: 5px; padding: 11px 12px; border-radius: 9px; background: var(--flow-subtle, #f7faf6); }
+.diagnostic-reference-comparison > strong { font-size: .87rem; }
+.diagnostic-reference-comparison > span { color: var(--flow-muted, #647067); font-size: .82rem; line-height: 1.5; }
+.diagnostic-reference-comparison b { color: var(--flow-text, #26352b); }
+@media (max-width: 560px) {
+  .diagnostic-reference { padding: 13px; }
+  .diagnostic-reference-fields { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 760px) {
   .diagnostic-run-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
