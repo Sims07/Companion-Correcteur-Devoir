@@ -625,7 +625,6 @@ export function App({ service, archiveService, evaluationService }: { service: C
         diagnosticStrategy: interfaceMode === 'diagnostic' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
         diagnosticRuns: diagnosticResultsForHistory,
       };
-      setCurrentTimingRecordId(record.id);
       setTimingHistory((current) => {
         const next = [record, ...current].slice(0, timingHistoryLimit);
         try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); } catch { /* Keep timings visible for this session if local storage is unavailable. */ }
