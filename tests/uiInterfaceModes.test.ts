@@ -68,8 +68,45 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Réponse du modèle en streaming');
     expect(text).toContain('Lecture des images');
     expect(text).toContain('Analyse et notation');
-    expect(text).toContain('Comparaison relative des notes');
-    expect(text).toContain('ces écarts ne mesurent pas l’exactitude');
+    expect(text).toContain('Analyse comparative des configurations');
+    expect(text).toContain('Sans note de référence validée par l’enseignant');
+  });
+
+  it('presents saved model configurations as responsive, accessible design-system cards', () => {
+    const text = app();
+    const styles = source('../src/ui/styles.css');
+    expect(text).toContain('className="evaluation-profile-options"');
+    expect(text).toContain("className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}");
+    expect(text).toContain('className="evaluation-profile-models"');
+    expect(text).toContain('aria-live="polite">{selectedEvaluationProfileIds.length} / 3 sélectionnée(s)');
+    expect(text).toContain('aria-describedby="evaluation-profile-selection-help"');
+    expect(text).toContain('className="evaluation-profile-selection-mark" aria-hidden="true"');
+    expect(styles).toContain('.evaluation-profile-option.is-selected');
+    expect(styles).toContain('.evaluation-profile-option:focus-within');
+    expect(styles).toContain('.evaluation-profile-option.is-disabled');
+    expect(styles).toContain('@media (max-width: 640px)');
+    expect(styles).toContain('@media (prefers-reduced-motion: reduce)');
+  });
+
+  it('shows which saved configuration is active and which phase a long evaluation is running', () => {
+    const text = app();
+    const styles = source('../src/ui/styles.css');
+    expect(text).toContain('SUIVI DE L’EXPÉRIENCE');
+    expect(text).toContain('evaluation-configuration-steps');
+    expect(text).toContain('En cours maintenant');
+    expect(text).toContain('En attente');
+    expect(text).toContain('evaluationProgress.currentConfiguration?.id === profile.id');
+    expect(text).toContain('aria-valuenow={evaluationProgress.completed}');
+    expect(text).toContain('evaluationStage === \'preparing\'');
+    expect(text).toContain('evaluationStage === \'reading\'');
+    expect(text).toContain('evaluationStage === \'grading\'');
+    expect(text).toContain('evaluationStage === \'parsing\'');
+    expect(text).toContain('evaluationStage === \'saving\'');
+    expect(text).toContain('setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: \'running\' } : current)');
+    expect(styles).toContain('.evaluation-configuration-step.is-active');
+    expect(styles).toContain('.evaluation-configuration-step.is-complete');
+    expect(styles).toContain('.evaluation-phase-panel');
+    expect(styles).toContain('@media (max-width: 700px)');
   });
 
   it('separates model evaluation from raw local debug output', () => {
@@ -217,4 +254,20 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Effacer l’historique');
     expect(text).toContain('pageCount: images.length');
   });
+  it('shows a comparative analysis summary beyond raw model responses', () => {
+    const text = app();
+    const styles = source('../src/ui/styles.css');
+    expect(text).toContain('Analyse comparative des configurations');
+    expect(text).toContain('Écart entre les notes');
+    expect(text).toContain('Note moyenne');
+    expect(text).toContain('Critères en désaccord');
+    expect(text).toContain('Questions à vérifier');
+    expect(text).toContain('Critères à examiner en priorité');
+    expect(text).toContain('faible confiance');
+    expect(text).toContain('Afficher les comparaisons détaillées deux à deux');
+    expect(text).toContain('Sans note de référence validée par l’enseignant');
+    expect(styles).toContain('.evaluation-analysis-metrics');
+    expect(styles).toContain('.evaluation-disagreement-list');
+  });
+
 });
