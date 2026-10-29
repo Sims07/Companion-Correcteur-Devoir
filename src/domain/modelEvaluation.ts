@@ -72,7 +72,6 @@ export async function runModelEvaluation<T>(options: ModelEvaluationOptions<T>):
       if (isCancelled()) break;
     } catch (cause) {
       const finished = now();
-      if (currentStage === 'analysis') completedSteps += 1;
       outputs.push({
         configuration, startedAt, finishedAt: new Date(finished).toISOString(), elapsedMs: Math.max(0, finished - started),
         status: isCancelled() ? 'cancelled' : 'failed',
