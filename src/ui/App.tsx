@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FilePicker } from './components/FilePicker.tsx';
 import { DesignSystemSelect } from './components/DesignSystemSelect.tsx';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
@@ -243,6 +243,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [rubricImportVisionResponse, setRubricImportVisionResponse] = useState('');
   const [rubricImportAnalysisResponse, setRubricImportAnalysisResponse] = useState('');
   const [rubricImageImporting, setRubricImageImporting] = useState(false);
+  const rubricImportAbortController = useRef<AbortController | null>(null);
   const [rubricFileImporting, setRubricFileImporting] = useState(false);
   const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
   const [endpoint, setEndpoint] = useState(() => readAiModelConfiguration().endpoint);
@@ -439,11 +440,14 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setRubricImportVisionResponse('');
     setRubricImportAnalysisResponse('');
     setRubricImportProgress({ stage: 'preparing', message: 'Préparation du fichier et conversion des pages en images dans le navigateur…' });
+    const abortController = new AbortController();
+    rubricImportAbortController.current = abortController;
     setRubricImageImporting(true);
     try {
       if (!visionModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale pour choisir un modèle de vision pour la lecture du barème.');
       if (!analysisModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale pour choisir un modèle d’analyse pour structurer le barème.');
       const prepared = await service.prepareFiles([file]);
+      if (abortController.signal.aborted) throw new Error('Import du barème interrompu par l’enseignant.');
       if (prepared.length === 0) throw new Error('Aucune page du barème n’a pu être préparée.');
       const preparedMessage = `${prepared.length} page(s) préparée(s) en images. Envoi au modèle de vision Ollama « ${visionModel} »…`;
       setRubricImportProgress({ stage: 'preparing', message: preparedMessage, page: 0, totalPages: prepared.length });
@@ -461,7 +465,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           setRubricImportAnalysisResponse(progress.rawResponse);
         }
         setRubricImportEvents((events) => events.at(-1) === progress.message ? events : [...events, progress.message]);
-      });
+      }, abortController.signal);
       const total = imported.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
       setRubric(imported.rubric);
       setProposal(null);
@@ -472,11 +476,13 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       setRubricImportEvents((events) => [...events, summary]);
       setRubricImportMessage(imported.warnings.join(' ') || summary);
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : 'Impossible d’extraire le barème avec le modèle de vision local.';
-      setError(message);
-      setRubricImportProgress({ stage: 'error', message });
-      setRubricImportEvents((events) => [...events, `Échec : ${message}`]);
+      const cancelled = abortController.signal.aborted;
+      const message = cancelled ? 'Import interrompu. La lecture et l’extraction ont été arrêtées ; aucun nouveau barème n’a été appliqué.' : cause instanceof Error ? cause.message : 'Impossible d’extraire le barème avec le modèle de vision local.';
+      if (cancelled) setRubricImportMessage(message); else setError(message);
+      setRubricImportProgress({ stage: cancelled ? 'cancelled' : 'error', message });
+      setRubricImportEvents((events) => [...events, cancelled ? message : `Échec : ${message}`]);
     } finally {
+      if (rubricImportAbortController.current === abortController) rubricImportAbortController.current = null;
       setRubricImageImporting(false);
     }
   }
@@ -1127,6 +1133,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           <p className="hint">{rubricImageImporting ? 'Lecture du barème par le modèle de vision local…' : 'Une seule requête au modèle de vision Ollama sélectionné, avec toutes les pages PDF dans l’ordre et une sortie JSON structurée. Les pages ne sont envoyées qu’à votre serveur Ollama configuré ; aucun service cloud n’est utilisé. Vérifiez toujours le résultat avant utilisation.'}</p>
           {rubricImportEvents.length > 0 && <section className={`rubric-import-progress ${rubricImportProgress?.stage === 'error' ? 'has-error' : ''}`} aria-label="Étapes de l’import du barème" aria-live="polite">
             <div className="rubric-import-progress-heading"><strong>Import du barème</strong><span>{rubricImportFileName}</span></div>
+            {rubricImageImporting && <button type="button" className="secondary-button" onClick={() => rubricImportAbortController.current?.abort()} aria-label="Arrêter l’import du barème">Arrêter l’import</button>}
             {(() => {
               const stage = rubricImportProgress?.stage;
               const failed = stage === 'error';
