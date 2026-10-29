@@ -11,6 +11,7 @@ import type { LocalCorrectionService } from '../application/localCorrectionServi
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewInsights, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
 import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../domain/copyQueue.ts';
+import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 
 const initialRubric: Rubric = {
   title: 'Barème de biologie — exemple',
@@ -47,6 +48,19 @@ type AssignmentDraft = {
   isFinalized: boolean;
   reviewMessage: string;
 };
+
+const aiModelConfigurationKey = 'companion-correcteur:ollama-configuration:v1';
+const aiModelProfilesKey = 'companion-correcteur:ollama-profiles:v1';
+
+function readAiModelConfiguration(): AiModelConfiguration {
+  try { return parseAiModelConfiguration(window.localStorage.getItem(aiModelConfigurationKey)); }
+  catch { return defaultAiModelConfiguration; }
+}
+
+function readAiModelProfiles(): AiModelProfile[] {
+  try { return parseAiModelProfiles(window.localStorage.getItem(aiModelProfilesKey)); }
+  catch { return []; }
+}
 
 const assignmentProfilesKey = 'companion-correcteur:assignments:v1';
 const activeAssignmentKey = 'companion-correcteur:active-assignment:v1';
@@ -170,14 +184,18 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [rubricImportMessage, setRubricImportMessage] = useState('');
   const [rubricImageImporting, setRubricImageImporting] = useState(false);
   const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
-  const [endpoint, setEndpoint] = useState('http://localhost:11434');
-  const [visionModel, setVisionModel] = useState('');
-  const [analysisModel, setAnalysisModel] = useState('');
-  const [secondAnalysisModel, setSecondAnalysisModel] = useState('');
-  const [arbitratorModel, setArbitratorModel] = useState('');
-  const [diagnosticStrategy, setDiagnosticStrategy] = useState<DiagnosticStrategy>('single');
+  const [endpoint, setEndpoint] = useState(() => readAiModelConfiguration().endpoint);
+  const [visionModel, setVisionModel] = useState(() => readAiModelConfiguration().visionModel);
+  const [analysisModel, setAnalysisModel] = useState(() => readAiModelConfiguration().analysisModel);
+  const [secondAnalysisModel, setSecondAnalysisModel] = useState(() => readAiModelConfiguration().secondAnalysisModel);
+  const [arbitratorModel, setArbitratorModel] = useState(() => readAiModelConfiguration().arbitratorModel);
+  const [diagnosticStrategy, setDiagnosticStrategy] = useState<DiagnosticStrategy>(() => readAiModelConfiguration().diagnosticStrategy);
+  const [analysisThinking, setAnalysisThinking] = useState(() => readAiModelConfiguration().analysisThinking);
+  const [aiModelProfiles, setAiModelProfiles] = useState<AiModelProfile[]>(readAiModelProfiles);
+  const [aiModelProfileName, setAiModelProfileName] = useState('');
+  const [selectedAiModelProfileId, setSelectedAiModelProfileId] = useState('');
+  const [aiModelProfileMessage, setAiModelProfileMessage] = useState('');
   const [diagnosticRuns, setDiagnosticRuns] = useState<DiagnosticModelResult[]>([]);
-  const [analysisThinking, setAnalysisThinking] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>(() => readActiveAssignmentProfile().correctionMode);
   const [subjectImages, setSubjectImages] = useState<ImageInput[]>([]);
@@ -220,6 +238,47 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     { label: 'Copie importée', detail: images.length ? `${images.length} page(s) · une seule copie à la fois` : 'Ajoutez les pages d’un étudiant', ready: images.length > 0 },
     { label: 'IA locale configurée', detail: visionModel.trim() && analysisModel.trim() ? `Lecture : ${visionModel} · analyse : ${analysisModel}` : 'Choisissez les modèles Ollama', ready: Boolean(visionModel.trim() && analysisModel.trim()) },
   ];
+
+  useEffect(() => {
+    const configuration: AiModelConfiguration = { endpoint, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking };
+    try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
+    catch { /* The current settings remain usable for this session if storage is unavailable. */ }
+  }, [endpoint, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking]);
+
+  function applyAiModelProfile(profile: AiModelProfile) {
+    setEndpoint(profile.configuration.endpoint);
+    setVisionModel(profile.configuration.visionModel);
+    setAnalysisModel(profile.configuration.analysisModel);
+    setSecondAnalysisModel(profile.configuration.secondAnalysisModel);
+    setArbitratorModel(profile.configuration.arbitratorModel);
+    setDiagnosticStrategy(profile.configuration.diagnosticStrategy);
+    setAnalysisThinking(profile.configuration.analysisThinking);
+    setSelectedAiModelProfileId(profile.id);
+    setAiModelProfileMessage('Profil « ' + profile.name + ' » chargé.');
+    setAvailableModels([]);
+    setConnectionMessage('');
+    setTranscription(null);
+  }
+
+  function saveAiModelProfile() {
+    const name = aiModelProfileName.trim();
+    if (!name) { setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
+    const configuration: AiModelConfiguration = { endpoint, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking };
+    const profile: AiModelProfile = {
+      id: selectedAiModelProfileId || 'ollama-profile-' + Date.now(),
+      name,
+      mode: diagnosticStrategy,
+      configuration,
+      updatedAt: new Date().toISOString(),
+    };
+    const next = upsertAiModelProfile(aiModelProfiles, profile);
+    setAiModelProfiles(next);
+    setSelectedAiModelProfileId(profile.id);
+    setAiModelProfileName(profile.name);
+    setAiModelProfileMessage('Profil « ' + profile.name + ' » enregistré sur cet appareil.');
+    try { window.localStorage.setItem(aiModelProfilesKey, JSON.stringify(next)); }
+    catch { setAiModelProfileMessage('Le navigateur n’a pas pu enregistrer ce profil. Vérifiez son espace de stockage.'); }
+  }
 
   useEffect(() => {
     const current: AssignmentProfile = { id: activeAssignmentId, title: assignmentTitle, rubric, question, correctionMode };
@@ -803,6 +862,19 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       {interfaceMode === 'teacher' && showAiSettings && <section className={`panel ollama-panel teacher-model-panel ai-settings-view ${visionModel.trim() && analysisModel.trim() ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
         <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DU POSTE</p><h2 id="teacher-model-title">Paramètres de l’IA locale</h2></div><span className="step-count">OLLAMA</span></div>
         <p className="settings-intro">Configurez les deux modèles utilisés par le parcours de correction. Les photos restent envoyées uniquement à votre serveur Ollama.</p>
+        <div className="ai-profile-controls" aria-label="Profils de configuration IA">
+          <label className="field-label" htmlFor="ai-model-profile">Configuration enregistrée</label>
+          <div className="ai-profile-row">
+            <select id="ai-model-profile" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else setSelectedAiModelProfileId(''); }}>
+              <option value="">Configuration actuelle</option>
+              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'}</option>)}
+            </select>
+            <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
+          </div>
+          <button type="button" className="secondary-button full-button" onClick={saveAiModelProfile}>Enregistrer cette configuration</button>
+          {aiModelProfileMessage && <p className="validation" role="status">{aiModelProfileMessage}</p>}
+          <p className="hint">Les derniers réglages sont restaurés automatiquement. Les profils conservent le serveur, les modèles et la stratégie de diagnostic sur cet appareil.</p>
+        </div>
         <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur Ollama</label>
         <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
         <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture des copies</label>
@@ -886,6 +958,19 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         </article>
         {interfaceMode === 'diagnostic' ? <article className="panel ollama-panel">
           <div className="panel-heading"><span className="number">03</span><div><h3>Modèle local Ollama</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
+        <div className="diagnostic-ai-profile-controls" aria-label="Profils de configuration IA">
+          <label className="field-label" htmlFor="diagnostic-ai-model-profile">Configuration enregistrée</label>
+          <div className="ai-profile-row">
+            <select id="diagnostic-ai-model-profile" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else setSelectedAiModelProfileId(''); }}>
+              <option value="">Configuration actuelle</option>
+              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'}</option>)}
+            </select>
+            <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
+          </div>
+          <button type="button" className="secondary-button full-button" onClick={saveAiModelProfile}>Enregistrer cette configuration</button>
+          {aiModelProfileMessage && <p className="validation" role="status">{aiModelProfileMessage}</p>}
+          <p className="hint">Les derniers réglages sont restaurés automatiquement. Les profils conservent le serveur, les modèles et la stratégie de diagnostic sur cet appareil.</p>
+        </div>
           <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur</label>
           <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
           <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture (vision)</label>

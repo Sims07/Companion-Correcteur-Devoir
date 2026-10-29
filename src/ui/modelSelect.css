@@ -56,3 +56,37 @@
     transition: none;
   }
 }
+
+
+.ai-profile-controls {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 22px;
+  padding: 16px;
+  border: 1px solid #dce8dd;
+  border-radius: 14px;
+  background: #f7faf7;
+}
+
+.ai-profile-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.ai-profile-controls input,
+.ai-profile-controls select {
+  min-width: 0;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #d4e1d5;
+  border-radius: 10px;
+  background-color: #fff;
+  color: #294235;
+  font: inherit;
+}
+
+@media (max-width: 560px) {
+  .ai-profile-row { grid-template-columns: minmax(0, 1fr); }
+}
