@@ -995,3 +995,20 @@
 }
 .evidence-location-button:hover { border-color: #80a985; background: #f0f7ed; }
 .evidence-location-button:focus-visible { outline: 3px solid #477f5452; outline-offset: 2px; }
+
+
+/* Step zero: assignment context before configuring its independent grading rubric. */
+.assignment-details-panel {
+  display: grid;
+  gap: 12px;
+}
+.assignment-details-panel > .panel-heading { margin-bottom: 4px; }
+.assignment-details-panel > input,
+.assignment-details-panel > textarea,
+.assignment-details-panel > select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.assignment-details-panel > textarea { resize: vertical; }
+.assignment-details-panel .teacher-step-footer { margin-top: 8px; }
