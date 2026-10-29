@@ -8,20 +8,24 @@ const validRubric = { title: 'Barème de biologie', criteria: [
 ]};
 const page = (base64: string, fileName: string) => ({ base64, mimeType: 'image/png', fileName });
 describe('importRubricImageWithOllama', () => {
-  it('sends every PDF page in order to the configured local vision model in one request', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: { content: JSON.stringify(validRubric) } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+  it('analyses each PDF page in an isolated local vision request and combines the results in page order', async () => {
+    const pageOneRubric = { ...validRubric, criteria: validRubric.criteria.slice(0, 2) };
+    const pageTwoRubric = { ...validRubric, criteria: validRubric.criteria.slice(2) };
+    const response = (rubric: unknown) => new Response(JSON.stringify({ message: { content: JSON.stringify(rubric) } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response(pageOneRubric))
+      .mockResolvedValueOnce(response(pageTwoRubric));
     const pages = [page('PAGE_ONE', 'bareme.pdf · page 1'), page('PAGE_TWO', 'bareme.pdf · page 2')];
     const result = await importRubricImageWithOllama(pages, { endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b' }, fetchMock);
-    expect(fetchMock).toHaveBeenCalledOnce();
-    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:11434/api/chat');
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
-    expect(body.model).toBe('qwen3.5:4b'); expect(body.stream).toBe(false); expect(body.think).toBe(false);
-    expect(body.messages[0].images).toEqual(['PAGE_ONE', 'PAGE_TWO']);
-    expect(body.messages[0].content).toContain('Pages reçues dans l’ordre du document : 2');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.map((call) => JSON.parse(call[1].body as string).messages[0].images)).toEqual([['PAGE_ONE'], ['PAGE_TWO']]);
+    const firstBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(firstBody.model).toBe('qwen3.5:4b'); expect(firstBody.stream).toBe(false); expect(firstBody.think).toBe(false);
+    expect(firstBody.messages[0].content).toContain('Cette requête contient une seule page');
     expect(result.rubric.criteria.map(({ title, maxPoints }) => [title, maxPoints])).toEqual([
       ['Question 1 — Photosynthèse', 5], ['Question 2 — Membrane plasmique', 5], ['Question 3 — Respiration cellulaire', 5], ['Question 4 — ADN et protéines', 5],
     ]);
-    expect(result.warnings.join(' ')).toContain('modèle de vision local');
+    expect(result.warnings.join(' ')).toContain('page par page');
   });
   it('accepts one image for a photo rubric', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: { content: JSON.stringify(validRubric) } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
