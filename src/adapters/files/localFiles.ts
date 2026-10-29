@@ -6,6 +6,30 @@ GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const MAX_PDF_PAGES = 10;
+const MAX_IMAGE_SIDE = 1300;
+const JPEG_QUALITY = 0.85;
+
+function canvasToJpeg(canvas: HTMLCanvasElement, fileName: string): ImageInput {
+  return dataUrlToImage(canvas.toDataURL('image/jpeg', JPEG_QUALITY), fileName);
+}
+
+async function prepareImage(file: File): Promise<ImageInput> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height));
+    const canvas = globalThis.document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Le navigateur ne permet pas de préparer les images localement.');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    return canvasToJpeg(canvas, file.name);
+  } finally {
+    bitmap.close();
+  }
+}
 
 function dataUrlToImage(dataUrl: string, fileName: string): ImageInput {
   const separator = dataUrl.indexOf(',');
@@ -40,14 +64,16 @@ async function renderPdf(file: File): Promise<ImageInput[]> {
   try {
     for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber += 1) {
       const page = await pdfDocument.getPage(pageNumber);
-      const viewport = page.getViewport({ scale: 1.6 });
+      const initialViewport = page.getViewport({ scale: 1 });
+      const scale = Math.min(1.6, MAX_IMAGE_SIDE / Math.max(initialViewport.width, initialViewport.height));
+      const viewport = page.getViewport({ scale });
       const canvas = globalThis.document.createElement('canvas');
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
       const context = canvas.getContext('2d');
       if (!context) throw new Error('Le navigateur ne permet pas de préparer les pages PDF localement.');
       await page.render({ canvas, canvasContext: context, viewport }).promise;
-      images.push(dataUrlToImage(canvas.toDataURL('image/png'), `${file.name} · page ${pageNumber}`));
+      images.push(canvasToJpeg(canvas, `${file.name} · page ${pageNumber}`));
       page.cleanup();
     }
   } finally {
@@ -66,7 +92,7 @@ export async function prepareLocalFiles(files: FileList | File[]): Promise<Image
     if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
       images.push(...await renderPdf(file));
     } else if (['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      images.push(await readImage(file));
+      images.push(await prepareImage(file));
     } else {
       throw new Error(`Format non pris en charge pour « ${file.name} ». Utilisez JPG, PNG, WebP ou PDF.`);
     }
