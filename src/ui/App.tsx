@@ -200,6 +200,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [archiveMessage, setArchiveMessage] = useState('');
   const [review, setReview] = useState<ReviewedCriterion[]>([]);
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
+  const [focusedEvidencePage, setFocusedEvidencePage] = useState<number | null>(null);
   const [teacherQuestions, setTeacherQuestions] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [isFinalized, setIsFinalized] = useState(false);
@@ -313,6 +314,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     try {
       const prepared = await service.prepareFiles(files);
       setImages((current) => [...current, ...prepared]);
+      setFocusedEvidencePage(null);
       setTranscription(null);
       setProposal(null);
       setReview([]);
@@ -536,6 +538,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
 
   function applyAssignment(profile: AssignmentProfile) {
     setShowOnlyFlagged(false);
+    setFocusedEvidencePage(null);
     setActiveAssignmentId(profile.id);
     setAssignmentTitle(profile.title);
     setRubric(profile.rubric);
@@ -1067,7 +1070,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
             <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de référence</h3><p>Gardez les pages originales sous les yeux pendant que vous vérifiez les points et les preuves.</p></div>
             <div className="review-source-pages" aria-label="Pages originales de la copie">
-              {images.length > 0 ? images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-review-' + index}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page originale ${index + 1} de la copie`} /><figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption></figure>) : <p className="review-source-empty">Aucune image originale disponible. Vérifiez les preuves avec prudence.</p>}
+              {images.length > 0 ? images.map((image, index) => <figure id={`review-copy-page-${index + 1}`} className={focusedEvidencePage === index + 1 ? 'live-copy-page evidence-page-focused' : 'live-copy-page'} key={image.fileName + '-review-' + index}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page originale ${index + 1} de la copie`} /><figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption></figure>) : <p className="review-source-empty">Aucune image originale disponible. Vérifiez les preuves avec prudence.</p>}
             </div>
             <details className="review-transcription">
               <summary><span><strong>Texte reconnu par l’IA</strong><small>{transcription ? 'Transcription locale à comparer à l’original' : 'Aucune transcription disponible'}</small></span></summary>
@@ -1081,7 +1084,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
           return <article className="panel review-card" key={item.criterionId}>
             <div className="review-card-heading"><div><h3>{criterion?.title ?? item.criterionId}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div><span className={`confidence confidence-${item.confidence}`}>Confiance {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</span></div>
-            <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p></div>
+            <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p>{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>
             <p className="rationale">{item.rationale}</p>
             {item.confidence === 'low' && <p className="teacher-question"><strong>Lecture à vérifier :</strong> {item.questionForTeacher || 'Le modèle est incertain sur ce critère. Vérifiez la preuve citée et la note proposée ; aucune question précise ne peut être formulée automatiquement.'}</p>}
             <div className="review-controls">
