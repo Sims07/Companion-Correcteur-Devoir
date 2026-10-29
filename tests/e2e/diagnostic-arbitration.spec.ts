@@ -117,6 +117,6 @@ test('diagnostic history compares two saved experiments with visual charts', asy
   await expect(page.getByRole('heading', { name: 'Tokens d’entrée' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Tokens générés' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Temps et tokens par modèle / étape' })).toBeVisible();
-  await expect(page.getByText('Essai A')).toBeVisible();
-  await expect(page.getByText('Essai B')).toBeVisible();
+  await expect(page.getByText('Essai A').first()).toBeVisible();
+  await expect(page.getByText('Essai B').first()).toBeVisible();
 });
