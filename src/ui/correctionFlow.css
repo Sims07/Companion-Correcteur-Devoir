@@ -1042,3 +1042,49 @@
 }
 .assignment-details-panel > textarea { resize: vertical; }
 .assignment-details-panel .teacher-step-footer { margin-top: 8px; }
+
+
+/* Diagnostic IA — indicators that help compare local LLM behaviour, not just grades. */
+.diagnostic-run-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+.diagnostic-run-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--flow-border, #dfe8de);
+  border-radius: 10px;
+  background: var(--flow-subtle, #f7faf6);
+}
+.diagnostic-run-metrics span {
+  color: var(--flow-muted, #647067);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+.diagnostic-run-metrics strong { font-size: 1rem; overflow-wrap: anywhere; }
+.diagnostic-run-metrics .metric-good { color: #28784b; }
+.diagnostic-run-metrics .metric-warning, .diagnostic-raw-warning { color: #9b4b16; }
+.diagnostic-run-summary { margin: 12px 0; line-height: 1.55; }
+.diagnostic-confidence { display: inline-block; margin-top: 4px; color: var(--flow-muted, #647067); }
+.diagnostic-confidence.low { color: #9b4b16; font-weight: 600; }
+.diagnostic-questions {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-left: 3px solid #d69a3a;
+  border-radius: 6px;
+  background: var(--flow-subtle, #f7faf6);
+}
+.diagnostic-questions ul { margin: 8px 0 0; padding-left: 20px; }
+.diagnostic-questions li { margin: 5px 0; }
+.diagnostic-raw-warning { font-weight: 600; }
+@media (max-width: 760px) {
+  .diagnostic-run-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 380px) {
+  .diagnostic-run-metrics { grid-template-columns: minmax(0, 1fr); }
+}
