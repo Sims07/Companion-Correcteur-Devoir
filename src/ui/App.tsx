@@ -281,9 +281,9 @@ export function App({ service, archiveService, evaluationService }: { service: C
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
   const [currentTimingRecordId, setCurrentTimingRecordId] = useState<string | null>(null);
-  const [selectedComparisonIds, setSelectedComparisonIds] = useState<string[]>([]);
   const [referenceScoreInputs, setReferenceScoreInputs] = useState<Record<string, string>>({});
   const [referenceMessage, setReferenceMessage] = useState('');
+  const [selectedComparisonIds, setSelectedComparisonIds] = useState<string[]>([]);
   const [streamedOutput, setStreamedOutput] = useState('');
   const [connectionMessage, setConnectionMessage] = useState('');
   const [error, setError] = useState('');
@@ -558,11 +558,9 @@ export function App({ service, archiveService, evaluationService }: { service: C
     const previousModelResults = strategyOverride === 'arbitrate-only' ? diagnosticRuns.filter((run) => run.kind === 'model') : [];
     const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
     setBusy(true);
-    if (interfaceMode === 'diagnostic' && strategyOverride !== 'arbitrate-only') {
-      setCurrentTimingRecordId(null);
-      setReferenceScoreInputs({});
-      setReferenceMessage('');
+    if ((interfaceMode === 'diagnostic' || interfaceMode === 'debug') && strategyOverride !== 'arbitrate-only') {
     }
+    if (interfaceMode === 'diagnostic' || interfaceMode === 'debug') { setCurrentTimingRecordId(null); setReferenceScoreInputs({}); setReferenceMessage(''); }
     if (interfaceMode === 'teacher') { setShowAiSettings(false); setTeacherStep('progress'); }
     setIsAnalyzing(true);
     setAnalysisStage('checking');
@@ -578,7 +576,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       if ((!transcription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, model: visionModel });
       await service.checkReady({ endpoint, model: analysisModel });
       setAnalysisStage('reading');
-      const provider = service.createProvider({ endpoint, visionModel, analysisModel, thinking: analysisThinking, ...(interfaceMode === 'diagnostic' ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
+      const provider = service.createProvider({ endpoint, visionModel, analysisModel, thinking: analysisThinking, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
       const raw = await provider.generate(
         { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
         (chunk) => setStreamedOutput((current) => current + chunk),
@@ -628,7 +626,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         assignmentId: activeAssignmentId,
         assignmentTitle: assignmentTitle.trim() || 'Devoir sans titre',
         rubricSnapshot: structuredClone(rubric),
-        diagnosticStrategy: interfaceMode === 'diagnostic' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
+        diagnosticStrategy: interfaceMode === 'diagnostic' || interfaceMode === 'debug' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
         diagnosticRuns: diagnosticResultsForHistory,
       };
       setCurrentTimingRecordId(record.id);
@@ -1143,32 +1141,11 @@ export function App({ service, archiveService, evaluationService }: { service: C
       </aside>}
 
       <div className={interfaceMode === 'teacher' ? 'teacher-content-column' : 'diagnostic-content-column'}>
-      {interfaceMode === 'diagnostic' && <section className="welcome">
-        <div className="welcome-copy">
-          <p className="eyebrow">ESPACE DE DIAGNOSTIC · IA LOCALE</p>
-          <h2>Quel modèle corrige le mieux vos copies&nbsp;?</h2>
-          <p className="intro">Construisez une expérience reproductible, comparez les corrections produites par vos modèles locaux et examinez leurs écarts avant de choisir celui qui convient à vos devoirs.</p>
-        </div>
-        <div className="illustration" aria-hidden="true"><div className="paper"><span /><span /><span /><b>✓</b></div><div className="leaf leaf-one" /><div className="leaf leaf-two" /></div>
-      </section>}
-
       {interfaceMode === 'diagnostic' && <section className="privacy-strip">
         <span className="privacy-icon">⌂</span>
         <div><strong>Traitement local, sans repli cloud</strong><p>Les fichiers sont lus et préparés dans votre navigateur, puis envoyés uniquement à l’adresse Ollama que vous configurez. Aucun stockage distant ni envoi vers un fournisseur cloud n’est prévu.</p></div>
         <span className="privacy-status">OLLAMA LOCAL</span>
       </section>}
-
-      {interfaceMode === 'diagnostic' && <nav className="diagnostic-journey" aria-label="Parcours d’évaluation des modèles">
-        <button type="button" className="diagnostic-journey-step" onClick={() => document.getElementById('diagnostic-experiment-setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-          <span className="diagnostic-journey-number">1</span><span><strong>Préparer l’expérience</strong><small>Barème, copie et modèles</small></span><span aria-hidden="true">↓</span>
-        </button>
-        <button type="button" className="diagnostic-journey-step" onClick={() => document.getElementById('diagnostic-results-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-          <span className="diagnostic-journey-number">2</span><span><strong>Analyser les résultats</strong><small>Notes, écarts et preuves</small></span><span aria-hidden="true">↓</span>
-        </button>
-        <button type="button" className="diagnostic-journey-step" disabled={timingHistory.length === 0} onClick={() => document.getElementById('timing-history-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-          <span className="diagnostic-journey-number">3</span><span><strong>Comparer dans le temps</strong><small>{timingHistory.length} expérience(s) locale(s)</small></span><span aria-hidden="true">↓</span>
-        </button>
-      </nav>}
 
       {interfaceMode === 'teacher' && showAiSettings && <section className={`panel ollama-panel teacher-model-panel ai-settings-view ${visionModel.trim() && analysisModel.trim() ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
         <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DU POSTE</p><h2 id="teacher-model-title">Paramètres de l’IA locale</h2></div><span className="step-count">OLLAMA</span></div>
@@ -1199,215 +1176,46 @@ export function App({ service, archiveService, evaluationService }: { service: C
         <p className="hint">En cas d’échec, aucune solution cloud n’est utilisée.</p>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}
-      {interfaceMode === 'diagnostic' && <section className="panel diagnostic-evaluation-setup" aria-labelledby="model-evaluation-setup-title">
-        <div className="workspace-heading"><div><p className="eyebrow">EXPÉRIENCE REPRODUCTIBLE · LOCAL</p><h2 id="model-evaluation-setup-title">Évaluation indépendante des configurations</h2><p className="workspace-description">Chaque configuration relit les images originales puis note avec le même barème. Les essais sont séquentiels pour limiter la mémoire utilisée par Ollama.</p></div></div>
-        {aiModelProfiles.length < 2 ? <p className="hint">Enregistrez au moins deux configurations dans les paramètres de l’IA locale avant de pouvoir les comparer.</p> : <fieldset className="evaluation-profile-list" aria-describedby="evaluation-profile-selection-help"><legend>Configurations à comparer (2 à 3)</legend><div className="evaluation-profile-selection-header"><p id="evaluation-profile-selection-help">Choisissez les configurations à tester sur les mêmes copies et le même barème.</p><span className={`evaluation-profile-count ${selectedEvaluationProfileIds.length >= 2 ? 'is-ready' : ''}`} aria-live="polite">{selectedEvaluationProfileIds.length} / 3 sélectionnée(s)</span></div><div className="evaluation-profile-options">{aiModelProfiles.map((profile) => { const selected = selectedEvaluationProfileIds.includes(profile.id); const disabled = busy || (!selected && selectedEvaluationProfileIds.length >= 3); return <label key={profile.id} className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}><input className="evaluation-profile-checkbox" type="checkbox" checked={selected} disabled={disabled} onChange={(event) => setSelectedEvaluationProfileIds((current) => event.target.checked ? [...current, profile.id].slice(-3) : current.filter((id) => id !== profile.id))} /><span className="evaluation-profile-card-content"><strong>{profile.name}</strong><span className="evaluation-profile-models"><span><small>VISION</small><b>{profile.configuration.visionModel || 'Non défini'}</b></span><span><small>ANALYSE</small><b>{profile.configuration.analysisModel || 'Non défini'}</b></span></span>{profile.configuration.analysisThinking && <span className="evaluation-profile-thinking">Raisonnement activé</span>}</span><span className="evaluation-profile-selection-mark" aria-hidden="true">{selected ? '✓' : '+'}</span></label>; })}</div></fieldset>}
-        <div className="settings-actions"><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 2 || !images.length} onClick={() => void startModelEvaluation()}>Lancer l’évaluation indépendante</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
-        {evaluationProgress && <section className="evaluation-progress" aria-labelledby="evaluation-progress-title" aria-live="polite">
-          <div className="evaluation-progress-heading"><div><p className="eyebrow">SUIVI DE L’EXPÉRIENCE</p><h3 id="evaluation-progress-title">{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation interrompue' : 'Évaluation en cours'}</h3><p>{evaluationProgress.status === 'completed' ? 'Toutes les configurations ont été traitées.' : evaluationProgress.status === 'cancelled' ? 'La séquence a été arrêtée après l’appel en cours.' : evaluationProgress.currentConfiguration ? 'La configuration active est indiquée ci-dessous.' : 'Préparation de la prochaine configuration…'}</p></div><strong className="evaluation-progress-counter">{evaluationProgress.completed} / {evaluationProgress.total} terminée(s)</strong></div>
-          <div className="evaluation-progress-track" role="progressbar" aria-label="Configurations terminées" aria-valuemin={0} aria-valuemax={evaluationProgress.total} aria-valuenow={evaluationProgress.completed}><span style={{ width: (evaluationProgress.completed / Math.max(1, evaluationProgress.total) * 100) + '%' }} /></div>
-          <ol className="evaluation-configuration-steps" aria-label="Progression par configuration">{selectedEvaluationProfiles.map((profile, index) => { const active = evaluationProgress.currentConfiguration?.id === profile.id; const complete = index < evaluationProgress.completed || (evaluationProgress.status === 'completed' && index < evaluationProgress.total); const result = modelEvaluationResults.find((item) => item.profileId === profile.id); const failed = complete && result?.status === 'failed'; return <li key={profile.id} className={`evaluation-configuration-step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''} ${failed ? 'has-failed' : ''}`}><span className="evaluation-configuration-step-index" aria-hidden="true">{complete ? (failed ? '!' : '✓') : index + 1}</span><div><strong>{profile.name}</strong><span>{active ? 'En cours maintenant' : complete ? (failed ? 'Échec — voir le détail' : 'Terminé') : 'En attente'}</span><small>{profile.configuration.visionModel || 'Vision non définie'} → {profile.configuration.analysisModel || 'Analyse non définie'}</small></div>{active && <span className="evaluation-active-pill">EN COURS</span>}</li>; })}</ol>
-          {evaluationProgress.status === 'running' && <div className="evaluation-phase-panel"><strong>{evaluationStage === 'preparing' ? '1. Préparation des modèles' : evaluationStage === 'reading' ? '2. Lecture des images et extraction du texte' : evaluationStage === 'grading' ? '3. Analyse de la copie et attribution des notes' : evaluationStage === 'parsing' ? '4. Structuration et vérification du résultat' : evaluationStage === 'saving' ? '5. Enregistrement de l’expérience locale' : 'Initialisation'}</strong><p>{evaluationStage === 'preparing' ? 'Vérification de la disponibilité des modèles Ollama avant de commencer cette configuration.' : evaluationStage === 'reading' ? 'Le modèle Vision traite les images originales de la copie.' : evaluationStage === 'grading' ? 'Le modèle d’analyse confronte la transcription au barème et prépare les notes.' : evaluationStage === 'parsing' ? 'La réponse est convertie en critères, notes et justifications exploitables.' : evaluationStage === 'saving' ? 'Les résultats, les images et le barème sont enregistrés dans l’historique local.' : 'Mise en place de la séquence de test.'}</p></div>}
-        </section>}
-        {busy && streamedOutput && <section className="transcription-review" aria-live="polite"><h3>Réponse du modèle en streaming</h3><pre>{streamedOutput}</pre></section>}
-        {savedModelEvaluations.length > 0 && <section className="evaluation-result-list" aria-labelledby="model-evaluation-history-title"><h3 id="model-evaluation-history-title">Historique local des expériences</h3><p className="hint">Les images originales, le barème, les configurations et les résultats sont conservés dans IndexedDB sur cet appareil.</p>{savedModelEvaluations.map((record) => <article key={record.id} className="transcription-review"><div className="workspace-heading"><div><h4>{record.assignmentTitle}</h4><p>{new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {record.images.length} page(s)</p></div><button type="button" className="text-button" onClick={() => { setModelEvaluationResults(record.results); setRubric(structuredClone(record.rubricSnapshot)); setImages(structuredClone(record.images)); setQuestion(record.question); setAssignmentTitle(record.assignmentTitle); setCorrectionMode(record.correctionMode); setSubjectImages(structuredClone(record.subjectImages)); setSubjectTranscription(record.subjectTranscription); }}>Consulter / recharger la référence</button></div><ul>{record.results.map((result) => <li key={result.profileId}><strong>{result.profileName}</strong> · {result.status} · {result.score === null ? 'note non exploitable' : result.score + ' / ' + record.rubricSnapshot.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)} · {formatElapsed(Math.round(result.elapsedMs / 1000))}</li>)}</ul><button type="button" className="text-button" onClick={() => { void evaluationService.delete(record.id).then(() => setSavedModelEvaluations((current) => current.filter((item) => item.id !== record.id))).catch(() => setError('Impossible de supprimer cette expérience locale.')); }}>Supprimer cette expérience</button></article>)}</section>}
-        {modelEvaluationResults.some((result) => result.proposal !== null) && (() => {
-          const comparableResults = modelEvaluationResults.filter((result) => result.proposal !== null && result.status === 'success');
-          const scores = comparableResults.flatMap((result) => result.score === null ? [] : [result.score]);
-          const scoreSpread = scores.length > 1 ? Math.max(...scores) - Math.min(...scores) : null;
-          const averageScore = scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : null;
-          const disagreements = rubric.criteria.map((criterion) => {
-            const values = comparableResults.flatMap((result) => {
-              const points = result.proposal?.criteria.find((item) => item.criterionId === criterion.id)?.points;
-              return points === undefined ? [] : [points];
-            });
-            return { criterion, values, spread: values.length > 1 ? Math.max(...values) - Math.min(...values) : 0 };
-          }).filter((item) => item.spread > 0).sort((left, right) => right.spread - left.spread);
-          const lowConfidence = (result: ModelEvaluationResultSnapshot) => result.proposal?.criteria.filter((item) => item.confidence === 'low').length ?? 0;
-          const teacherQuestionCount = comparableResults.reduce((sum, result) => sum + (result.proposal?.questionsForTeacher.length ?? 0), 0);
-          return <section className="evaluation-result-list evaluation-comparison-analysis" aria-labelledby="evaluation-comparison-analysis-title">
-            <div className="evaluation-analysis-heading"><div><p className="eyebrow">SYNTHÈSE AUTOMATIQUE · LOCALE</p><h3 id="evaluation-comparison-analysis-title">Analyse comparative des configurations</h3></div><span className="evaluation-analysis-count">{comparableResults.length} résultat(s) exploitable(s)</span></div>
-            <p className="hint">Cette synthèse décrit les accords et les écarts entre les modèles. Sans note de référence validée par l’enseignant, elle ne peut pas déterminer lequel est le plus juste.</p>
-            <div className="evaluation-analysis-metrics">
-              <article><span>Écart entre les notes</span><strong>{scoreSpread === null ? '—' : scoreSpread.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' pt'}</strong><small>entre la note la plus basse et la plus haute</small></article>
-              <article><span>Note moyenne</span><strong>{averageScore === null ? '—' : averageScore.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' / ' + validation.maximumPoints}</strong><small>repère descriptif, pas une référence</small></article>
-              <article><span>Critères en désaccord</span><strong>{disagreements.length} / {rubric.criteria.length}</strong><small>critères avec des notes différentes</small></article>
-              <article><span>Questions à vérifier</span><strong>{teacherQuestionCount}</strong><small>questions remontées par les modèles</small></article>
-            </div>
-            <div className="evaluation-analysis-columns">
-              <section className="evaluation-analysis-subsection"><h4>Lecture par configuration</h4>
-                {comparableResults.map((result) => <article className="evaluation-model-summary" key={result.profileId}>
-                  <div><strong>{result.profileName}</strong><span>{result.score === null ? 'Note inexploitable' : result.score + ' / ' + validation.maximumPoints}</span></div>
-                  <p>{formatElapsed(Math.round(result.elapsedMs / 1000))} au total · {lowConfidence(result)} critère(s) à faible confiance · {result.proposal?.questionsForTeacher.length ?? 0} question(s) à vérifier</p>
-                </article>)}
-                {modelEvaluationResults.some((result) => result.status !== 'success') && <p className="evaluation-analysis-warning">Au moins une configuration a échoué ou a été interrompue. Consultez les erreurs dans les résultats détaillés.</p>}
-              </section>
-              <section className="evaluation-analysis-subsection"><h4>Critères à examiner en priorité</h4>
-                {disagreements.length ? <ol className="evaluation-disagreement-list">{disagreements.map(({ criterion, spread }) => <li key={criterion.id}><div><strong>{criterion.title}</strong><span>Écart de {spread.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} / {criterion.maxPoints}</span></div><p>{comparableResults.map((result) => { const points = result.proposal?.criteria.find((item) => item.criterionId === criterion.id)?.points; return points === undefined ? null : result.profileName + ' : ' + points; }).filter(Boolean).join(' · ')}</p></li>)}</ol> : <p className="evaluation-analysis-empty">{comparableResults.length < 2 ? 'Au moins deux résultats réussis sont nécessaires pour repérer les désaccords.' : 'Les modèles attribuent la même note à chaque critère renseigné.'}</p>}
-              </section>
-            </div>
-            {comparableResults.length > 1 && <details className="evaluation-pairwise-details"><summary>Afficher les comparaisons détaillées deux à deux</summary>{comparableResults.slice(1).map((result) => { const baseline = comparableResults[0]; const comparison = baseline?.proposal && result.proposal ? compareDiagnosticProposals(baseline.proposal, result.proposal, rubric) : null; return <article className="transcription-review" key={result.profileId}><h4>{baseline.profileName} ↔ {result.profileName}</h4>{comparison && <><p>Écart de note totale : {comparison.totalDifference > 0 ? '+' : ''}{comparison.totalDifference} point(s)</p>{comparison.disagreements.length ? <ul>{comparison.disagreements.map((item) => <li key={item.criterionId}>{item.title} : {item.firstPoints} → {item.secondPoints} / {item.maxPoints} ({item.difference > 0 ? '+' : ''}{item.difference})</li>)}</ul> : <p>Les deux propositions attribuent la même note à chaque critère.</p>}</>}</article>; })}</details>}
-          </section>;
-        })()}
-        {modelEvaluationResults.length > 0 && <div className="evaluation-result-list"><h3>Résultats de cette expérience</h3>{modelEvaluationResults.map((result) => <article key={result.profileId} className="transcription-review"><h4>{result.profileName}</h4><p>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Annulé' : 'Échec'} · Total {formatElapsed(Math.round(result.elapsedMs / 1000))} · Lecture {result.readingMs ? formatElapsed(Math.round(result.readingMs / 1000)) : '—'} · Analyse {result.analysisMs ? formatElapsed(Math.round(result.analysisMs / 1000)) : '—'} · Tokens {result.tokens === null ? 'non mesurés' : formatTokenCount(result.tokens)} · {result.score === null ? 'Note non exploitable' : result.score + ' / ' + validation.maximumPoints}</p>{result.error && <p className="validation" role="alert">{result.error}</p>}{result.transcription && <details><summary>Transcription extraite indépendamment</summary><pre>{result.transcription}</pre></details>}{result.proposal && <details open><summary>Détail par critère et justifications</summary><ul>{result.proposal.criteria.map((criterion) => { const rubricCriterion = rubric.criteria.find((item) => item.id === criterion.criterionId); return <li key={criterion.criterionId}><strong>{rubricCriterion?.title ?? criterion.criterionId} : {criterion.points} / {rubricCriterion?.maxPoints ?? '—'}</strong><p>{criterion.rationale || 'Aucune justification fournie.'}</p><p><strong>Preuve :</strong> {criterion.evidence || 'Aucune preuve textuelle fournie.'}</p><small>Confiance déclarée : {criterion.confidence === 'high' ? 'élevée' : criterion.confidence === 'medium' ? 'moyenne' : 'faible'}</small></li>; })}</ul>{result.proposal.questionsForTeacher.length > 0 && <div className="diagnostic-questions"><strong>Questions à vérifier</strong><ul>{result.proposal.questionsForTeacher.map((question, index) => <li key={index}>{question}</li>)}</ul></div>}</details>}{result.raw && <details><summary>Réponse brute</summary><pre>{result.raw}</pre></details>}</article>)}</div>}
+      {interfaceMode === 'diagnostic' && <section className="evaluation-page-header" aria-labelledby="evaluation-page-title">
+        <div><p className="eyebrow">ESPACE EXPÉRIMENTAL · OLLAMA LOCAL</p><h1 id="evaluation-page-title">Évaluation des modèles</h1><p>Comparez plusieurs configurations sur la même copie et le même barème. Les essais, les images et les résultats restent sur cet appareil et votre serveur Ollama.</p><div className="evaluation-page-badges"><span>Traitement local</span><span>2 à 3 configurations</span><span>Validation humaine</span></div></div>
+      </section>}
+      {interfaceMode === 'diagnostic' && <nav className="evaluation-step-nav" aria-label="Étapes de l’évaluation">
+        <button type="button" onClick={() => document.getElementById('evaluation-configurations')?.scrollIntoView({behavior:'smooth',block:'start'})}><span>1</span><strong>Configurations</strong><small>Créer et sélectionner</small></button>
+        <button type="button" onClick={() => document.getElementById('evaluation-rubric')?.scrollIntoView({behavior:'smooth',block:'start'})}><span>2</span><strong>Jeu d’essai</strong><small>Barème et copie</small></button>
+        <button type="button" onClick={() => document.getElementById('evaluation-results')?.scrollIntoView({behavior:'smooth',block:'start'})}><span>3</span><strong>Résultats</strong><small>Comparer les sorties</small></button>
+      </nav>}
+      {interfaceMode === 'diagnostic' && <section id="evaluation-configurations" className="panel evaluation-config-workspace" aria-labelledby="evaluation-config-title">
+        <div className="evaluation-section-heading"><div><p className="eyebrow">ÉTAPE 1 · CONFIGURATIONS</p><h2 id="evaluation-config-title">Choisir les configurations à comparer</h2><p>Créez ou modifiez vos profils ici, sans passer par les réglages du parcours de correction. Les profils sont enregistrés localement sur cet appareil.</p></div><span className="evaluation-step-chip">{aiModelProfiles.length} profil(s)</span></div>
+        <div className="evaluation-config-editor">
+          <div className="evaluation-config-editor-heading"><div><h3>Configuration IA locale</h3><p>Un profil = un modèle de lecture, un modèle d’analyse et ses options.</p></div><button type="button" className="secondary-button" disabled={busy} onClick={() => { setSelectedAiModelProfileId(''); setAiModelProfileName(''); setAiModelProfileMessage('Nouvelle configuration : renseignez les modèles puis enregistrez.'); setEndpoint(defaultAiModelConfiguration.endpoint); setVisionModel(''); setAnalysisModel(''); setSecondAnalysisModel(''); setArbitratorModel(''); setDiagnosticStrategy('single'); setAnalysisThinking(false); setAvailableModels([]); setConnectionMessage(''); }}>＋ Nouvelle configuration</button></div>
+          <div className="evaluation-config-fields">
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</DesignSystemSelect></div>
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-name">Nom de la configuration</label><input id="evaluation-profile-name" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Ex. Gemma rapide, Qwen raisonnement…" /></div>
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-ollama-endpoint">Serveur Ollama local</label><input id="evaluation-ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder="http://localhost:11434" /></div>
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-vision-model">Modèle de lecture des images</label>{availableModels.length ? <DesignSystemSelect id="evaluation-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)}><option value="">Choisir un modèle vision</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="Ex. gemma3:4b" />}</div>
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-analysis-model">Modèle d’analyse et de notation</label>{availableModels.length ? <DesignSystemSelect id="evaluation-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}><option value="">Choisir un modèle d’analyse</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}</div>
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-strategy">Stratégie d’analyse</label><DesignSystemSelect id="evaluation-strategy" value={diagnosticStrategy} onChange={(event) => setDiagnosticStrategy(event.target.value as DiagnosticStrategy)}><option value="single">Un modèle d’analyse</option><option value="compare">Comparer deux avis</option><option value="arbitrate">Deux avis + arbitre</option></DesignSystemSelect></div>
+            {diagnosticStrategy !== 'single' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-second-model">Second modèle d’analyse</label>{availableModels.length ? <DesignSystemSelect id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}><option value="">Choisir un modèle</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle" />}</div>}
+            {diagnosticStrategy === 'arbitrate' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-arbitrator-model">Modèle arbitre</label>{availableModels.length ? <DesignSystemSelect id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)}><option value="">Choisir un arbitre</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)} placeholder="Nom du modèle arbitre" />}</div>}
+          </div>
+          <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-analysis-thinking"><input id="evaluation-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} /><span><strong>Activer le mode thinking</strong><small>Désactivé par défaut. Peut améliorer le raisonnement mais allonger fortement les essais.</small></span></label>
+          <div className="evaluation-config-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button><button type="button" className="primary-button" disabled={busy} onClick={saveAiModelProfile}>Enregistrer la configuration</button></div>
+          {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}{aiModelProfileMessage && <p className="evaluation-profile-message" role="status">{aiModelProfileMessage}</p>}
+        </div>
+        <div className="evaluation-selection-block"><div className="evaluation-section-heading compact"><div><h3>Sélection pour cette expérience</h3><p>Choisissez de 2 à 3 profils. Ils seront testés successivement sur les mêmes pages et le même barème.</p></div><span aria-live="polite" className={selectedEvaluationProfileIds.length >= 2 ? 'evaluation-step-chip ready' : 'evaluation-step-chip'}>{selectedEvaluationProfileIds.length} / 3 sélectionnée(s)</span></div>
+          {aiModelProfiles.length < 2 ? <div className="evaluation-empty-inline"><strong>Il faut au moins deux configurations.</strong><p>Créez un premier profil ci-dessus, puis un second avec un modèle différent pour commencer la comparaison.</p></div> : <fieldset className="evaluation-profile-list" aria-describedby="evaluation-profile-selection-help"><legend>Configurations à exécuter</legend><p id="evaluation-profile-selection-help" className="evaluation-selection-help">La même copie sera relue et notée par chaque configuration. L’ordre reste séquentiel pour limiter la mémoire utilisée par Ollama.</p><div className="evaluation-profile-options">{aiModelProfiles.map((profile) => { const selected = selectedEvaluationProfileIds.includes(profile.id); const disabled = busy || (!selected && selectedEvaluationProfileIds.length >= 3); return <label key={profile.id} className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}><input className="evaluation-profile-checkbox" type="checkbox" checked={selected} disabled={disabled} onChange={(event) => setSelectedEvaluationProfileIds((current) => event.target.checked ? [...current, profile.id].slice(-3) : current.filter((id) => id !== profile.id))} /><span className="evaluation-profile-card-content"><strong>{profile.name}</strong><span className="evaluation-profile-models"><span><small>LECTURE</small><b>{profile.configuration.visionModel || 'Modèle non défini'}</b></span><span><small>ANALYSE</small><b>{profile.configuration.analysisModel || 'Modèle non défini'}</b></span></span>{profile.configuration.analysisThinking && <span className="evaluation-profile-thinking">Thinking activé</span>}</span><span className="evaluation-profile-selection-mark" aria-hidden="true">{selected ? '✓' : '+'}</span></label>; })}</div></fieldset>}
+        </div>
       </section>}
       {interfaceMode === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
-        <div className="workspace-heading"><div><p className="eyebrow">OUTILS DE DIAGNOSTIC</p><h2 id="debug-workspace-title">Debug des appels IA locaux</h2><p className="workspace-description">Les réponses brutes et la transcription restent sur cet appareil. Lancez d’abord une évaluation pour afficher ses traces.</p></div></div>
-        <section className="transcription-review"><h3>Transcription actuellement chargée</h3>{transcription ? <pre>{transcription}</pre> : <p className="hint">Aucune transcription disponible.</p>}</section>
-        <section className="transcription-review"><h3>Dernière réponse reçue en streaming</h3>{streamedOutput ? <pre>{streamedOutput}</pre> : <p className="hint">Aucune réponse en streaming disponible.</p>}</section>
-        <section className="transcription-review"><h3>Sorties brutes des modèles ({diagnosticRuns.length})</h3>{diagnosticRuns.length ? diagnosticRuns.map((run, index) => <details key={run.kind + run.model + index} className="rubric-import-raw-response"><summary>{run.model} · {run.kind} · {formatElapsed(Math.round(run.elapsedMs / 1000))}</summary><pre>{run.raw}</pre></details>) : <p className="hint">Aucune sortie enregistrée. Passez dans « Évaluation des modèles » et lancez une analyse.</p>}</section>
-      </section> : (interfaceMode === 'diagnostic' || !showAiSettings) && <>      {interfaceMode === 'diagnostic' && <section className="diagnostic-workspace-hero" aria-labelledby="diagnostic-workspace-title">
-        <div className="diagnostic-workspace-hero-copy">
-          <p className="eyebrow">ENVIRONNEMENT EXPÉRIMENTAL · OLLAMA</p>
-          <h1 id="diagnostic-workspace-title">Laboratoire de correction IA</h1>
-          <p>Évaluez les modèles sur un même barème, confrontez leurs notes aux références du professeur et visualisez le compromis entre qualité, temps de calcul et tokens consommés.</p>
-          <div className="diagnostic-workspace-badges"><span><i></i> Exécution locale</span><span><i></i> Aucune copie envoyée au cloud</span><span><i></i> Référence facultative</span></div>
-        </div>
-        <div className="diagnostic-workspace-hero-aside">
-          <span className="diagnostic-hero-orbit" aria-hidden="true"><i></i><i></i><i></i></span>
-          <div><small>CONFIGURATION ACTUELLE</small><strong>{diagnosticStrategy === 'arbitrate' ? '2 modèles + arbitre' : diagnosticStrategy === 'compare' ? 'Comparaison de 2 modèles' : 'Modèle de référence'}</strong><span>{rubric.criteria.length} critères · {validation.maximumPoints} points</span></div>
-        </div>
-      </section>}
-      {interfaceMode === 'teacher' && teacherStep === 'archive' && <section className="correction-archive" aria-labelledby="correction-archive-title">
-        <div className="workspace-heading"><div><p className="eyebrow">HISTORIQUE LOCAL</p><h2 id="correction-archive-title">Corrections enregistrées</h2><p>Retrouvez les copies finalisées, leur note validée et les éléments de preuve. Tout reste stocké dans ce navigateur.</p></div><span className="step-count">{archivedCorrections.length} COPIE(S)</span></div>
-        {archiveMessage && <p className="validation" role="status">{archiveMessage}</p>}
-        {archivedCorrections.length === 0 ? <div className="panel archive-empty"><span className="archive-empty-icon" aria-hidden="true">▤</span><h3>Aucune correction enregistrée pour le moment</h3><p>Une fois une correction finalisée, elle apparaîtra ici avec sa copie, sa transcription et la note validée.</p><button type="button" className="primary-button" onClick={() => { setTeacherStep('copy'); setShowAiSettings(false); }}>Ajouter une copie</button></div> : <div className="archive-list">{archivedCorrections.map((item) => {
-          const snapshot = item.snapshot!;
-          const total = snapshot.review.reduce((sum, criterion) => sum + criterion.teacherPoints, 0);
-          return <article className="panel archive-card" key={item.id}><div className="archive-card-main"><div><span className="archive-status">✓ FINALISÉE</span><h3>{item.label}</h3><p>{item.assignmentTitle || snapshot.assignmentTitle} · {snapshot.images.length} page(s)</p><small>Finalisée le {new Date(item.updatedAt).toLocaleString('fr-FR')}</small></div><strong className="archive-score">{total} <span>/ {snapshot.maximumPoints}</span></strong></div><div className="archive-card-actions"><button type="button" className="secondary-button" onClick={() => openArchivedCorrection(item)}>Consulter la correction</button><button type="button" className="text-button" onClick={() => { if (window.confirm('Supprimer définitivement cette correction de cet appareil ?')) { void archiveService.deleteCorrection(item.id).then(() => archiveService.listCorrections()).then((items) => setArchivedCorrections(items.filter((entry) => Boolean(entry.snapshot)))).catch(() => setArchiveMessage('La suppression a échoué. Réessayez.')); } }}>Supprimer</button></div></article>;
-        })}</div>}
-        <div className="archive-footer"><button type="button" className="primary-button" onClick={startNextCopy}>+ Ajouter une autre copie</button><p>Les copies archivées ne sont pas envoyées dans le cloud. Elles occupent de l’espace dans le stockage local de ce navigateur.</p></div>
-      </section>}
-      {interfaceMode === 'teacher' && teacherStep === 'details' && <>
-        <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 0 · CONTEXTE</p><h2>Définir le devoir</h2><p className="workspace-description">Donnez un nom à l’évaluation et précisez le public visé. Ces informations guideront les modèles pendant la correction ; le barème pourra porter son propre nom.</p></div><span className="step-count">PRÉPARATION</span></div>
-        <section className="panel assignment-details-panel" aria-labelledby="assignment-details-title">
-          <div className="panel-heading"><div><h3 id="assignment-details-title">Informations générales</h3><p>Ces informations sont enregistrées avec le devoir sur cet appareil.</p></div></div>
-          <label className="field-label" htmlFor="assignment-title-main">Nom du devoir</label>
-          <input id="assignment-title-main" value={assignmentTitle} onChange={(event) => setAssignmentTitle(event.target.value)} placeholder="Ex. Contrôle de biologie cellulaire — chapitre 3" />
-          <label className="field-label" htmlFor="assignment-description">Description et objectifs pédagogiques</label>
-          <textarea id="assignment-description" rows={3} value={assignmentDescription} onChange={(event) => setAssignmentDescription(event.target.value)} placeholder="Ex. Vérifier la compréhension de la mitose, la capacité à interpréter un schéma et à utiliser le vocabulaire scientifique." />
-          <label className="field-label" htmlFor="assignment-education-level">Niveau scolaire / universitaire</label>
-          <DesignSystemSelect id="assignment-education-level" value={educationLevel} onChange={(event) => setEducationLevel(event.target.value)}>
-            <option value="">Choisir un niveau (facultatif)</option>
-            <option value="Lycée — Seconde">Lycée — Seconde</option><option value="Lycée — Première">Lycée — Première</option><option value="Lycée — Terminale">Lycée — Terminale</option>
-            <option value="Université — Licence 1">Université — Licence 1</option><option value="Université — Licence 2">Université — Licence 2</option><option value="Université — Licence 3">Université — Licence 3</option>
-            <option value="Université — Master 1">Université — Master 1</option><option value="Université — Master 2">Université — Master 2</option><option value="Université — Doctorat">Université — Doctorat</option>
-            <option value="Autre">Autre</option>
-          </DesignSystemSelect>
-          <p className="hint">Le niveau sert à calibrer les attentes : vocabulaire, profondeur du raisonnement et précision scientifique. Il ne remplace pas les critères explicites du barème.</p>
-          <div className="teacher-step-footer"><span>Vous pourrez modifier ces informations à tout moment.</span><button type="button" className="primary-button" onClick={() => setTeacherStep('rubric')}>Continuer vers le barème <span aria-hidden="true">→</span></button></div>
-        </section>
-      </>}
-
-      {(interfaceMode === 'diagnostic' || teacherStep === 'rubric') && <>
-      <div id={interfaceMode === 'diagnostic' ? 'diagnostic-experiment-setup' : undefined} className="workspace-heading diagnostic-setup-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 SUR 3' : 'EXPÉRIENCE · ÉTAPE 1'}</p><h2>Préparer le barème de correction</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
-      <section className="panel rubric-editor">
-        <div className="rubric-assignment-context"><span className="eyebrow">BARÈME ASSOCIÉ AU DEVOIR</span><strong>{assignmentTitle.trim() || 'Devoir sans titre'}</strong><p>Vous pouvez donner au barème un nom différent de celui du devoir.</p></div>
-        <label className="field-label" htmlFor="rubric-title">Nom du barème (distinct du devoir)</label>
-        <input id="rubric-title" value={rubric.title} placeholder="Ex. Barème du contrôle de biologie" onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
-        {rubric.criteria.length === 0 && <div className="rubric-empty-state" role="status"><strong>Le barème n’est pas encore défini</strong><p>Importez un barème existant ou ajoutez les critères et leurs points ci-dessous. La correction restera indisponible tant qu’un barème valide n’est pas prêt.</p></div>}
-        <div className="rubric-import">
-          <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Excel (.xlsx), CSV, TXT, Markdown ou JSON)</label>
-          <FilePicker id="rubric-file" accept=".pdf,.xlsx,.csv,.txt,.md,.json" disabled={rubricFileImporting} onFilesSelected={(files) => { void importRubricFileFromInput(files?.[0]); }} title="Importer un document de barème" description={rubricFileImporting ? "Lecture par l’IA de vision locale en cours…" : "PDF, Excel, CSV, TXT, Markdown ou JSON"} actionLabel={rubricFileImporting ? "Analyse en cours…" : "Parcourir les fichiers"} />
-          <p className="hint">Les PDF sont convertis en images dans le navigateur puis lus par votre modèle de vision Ollama local. Aucun service cloud n’est utilisé. Vérifiez les critères, les points et le total après import.</p>
-          <label className="field-label" htmlFor="rubric-image-file">Ou importer une photo / un scan du barème (JPEG, PNG, WebP)</label>
-          <FilePicker id="rubric-image-file" accept="image/jpeg,image/png,image/webp" disabled={rubricImageImporting} onFilesSelected={(files) => { void importRubricImageFromInput(files?.[0]); }} title="Importer une photo ou un scan" description="JPEG, PNG ou WebP · ou PDF multipage" actionLabel={rubricImageImporting ? 'Lecture en cours…' : 'Choisir une image'} compact />
-          <p className="hint">{rubricImageImporting ? 'Lecture du barème par le modèle de vision local…' : 'Une seule requête au modèle de vision Ollama sélectionné, avec toutes les pages PDF dans l’ordre et une sortie JSON structurée. Les pages ne sont envoyées qu’à votre serveur Ollama configuré ; aucun service cloud n’est utilisé. Vérifiez toujours le résultat avant utilisation.'}</p>
-          {rubricImportEvents.length > 0 && <section className={`rubric-import-progress ${rubricImportProgress?.stage === 'error' ? 'has-error' : ''}`} aria-label="Étapes de l’import du barème" aria-live="polite">
-            <div className="rubric-import-progress-heading"><strong>Import du barème</strong><span>{rubricImportFileName}</span></div>
-            {rubricImageImporting && <button type="button" className="secondary-button" onClick={() => rubricImportAbortController.current?.abort()} aria-label="Arrêter l’import du barème">Arrêter l’import</button>}
-            {(() => {
-              const stage = rubricImportProgress?.stage;
-              const failed = stage === 'error';
-              const readingDone = Boolean(rubricImportVisionResponse) && ['structuring', 'response', 'parsing', 'complete'].includes(stage ?? '');
-              const extractionStarted = ['structuring', 'response', 'parsing', 'complete'].includes(stage ?? '');
-              const extractionDone = stage === 'complete';
-              return <ol className="rubric-import-steps">
-                <li className={`rubric-import-step ${readingDone ? 'is-complete' : !extractionStarted && !failed ? 'is-active' : ''}`}>
-                  <span className="rubric-import-step-number" aria-hidden="true">{readingDone ? '✓' : '1'}</span>
-                  <div className="rubric-import-step-content">
-                    <strong>1. Lecture du document</strong>
-                    <p>{readingDone ? 'Lecture terminée : le texte reconnu est consultable ci-dessous.' : failed && !extractionStarted ? 'La lecture a rencontré une erreur.' : 'Le modèle de vision lit les pages dans leur ordre.'}</p>
-                    {rubricImportProgress && !readingDone && !extractionStarted && <p className="rubric-import-step-status" role="status">{rubricImportProgress.message}</p>}
-                    {rubricImportVisionResponse ? <details className="rubric-import-raw-response">
-                      <summary>Voir le texte lu par le modèle de vision</summary>
-                      <p>Transcription brute de « {visionModel} », avant structuration du barème.</p>
-                      <pre>{rubricImportVisionResponse}</pre>
-                      <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportVisionResponse); }}>Copier la transcription</button>
-                    </details> : <p className="rubric-import-step-hint">Le texte reconnu apparaîtra ici dès que la lecture sera disponible.</p>}
-                  </div>
-                </li>
-                <li className={`rubric-import-step ${extractionDone ? 'is-complete' : extractionStarted ? 'is-active' : ''}`}>
-                  <span className="rubric-import-step-number" aria-hidden="true">{extractionDone ? '✓' : '2'}</span>
-                  <div className="rubric-import-step-content">
-                    <strong>2. Extraction du barème</strong>
-                    <p>{extractionDone ? 'Extraction terminée : les critères et les points sont éditables ci-dessous.' : extractionStarted ? 'Le modèle d’analyse structure la transcription en critères, descriptions et points.' : 'Cette étape démarre après la lecture de toutes les pages.'}</p>
-                    {extractionStarted && !extractionDone && rubricImportProgress && <p className="rubric-import-step-status" role="status">{rubricImportProgress.message}</p>}
-                    {rubricImportAnalysisResponse ? <details className="rubric-import-raw-response">
-                      <summary>Voir le JSON brut extrait</summary>
-                      <p>Réponse de « {analysisModel} » avant validation, y compris si le JSON ou certains critères sont invalides.</p>
-                      <pre>{rubricImportAnalysisResponse}</pre>
-                      <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportAnalysisResponse); }}>Copier le JSON</button>
-                    </details> : <p className="rubric-import-step-hint">Le JSON extrait apparaîtra ici après l’analyse.</p>}
-                  </div>
-                </li>
-              </ol>;
-            })()}
-            <details className="rubric-import-event-log">
-              <summary>Afficher le journal détaillé de l’import</summary>
-              <ol className="rubric-import-progress-events">{rubricImportEvents.map((event, index) => <li key={`${index}-${event}`}>{event}</li>)}</ol>
-            </details>
-            {rubricImportProgress?.stage === 'complete' && <p className="rubric-import-progress-review">Vérifiez le résultat extrait dans les champs modifiables ci-dessous, puis comparez chaque critère et ses points avec le document original avant de valider le barème.</p>}
-          </section>}
-          {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
-        </div>
-        <div className="criteria-list">
-          {rubric.criteria.map((criterion) => <div className="criterion-editor" key={criterion.id}>
-            <div className="criterion-fields">
-              <label><span className="field-label">Critère</span><input value={criterion.title} onChange={(event) => updateCriterion(criterion.id, { title: event.target.value })} /></label>
-              <label><span className="field-label">Description / attendus</span><input value={criterion.description} onChange={(event) => updateCriterion(criterion.id, { description: event.target.value })} /></label>
-            </div>
-            <label className="points-field"><span className="field-label">Points max.</span><input type="number" min="0" step="0.5" value={criterion.maxPoints} onChange={(event) => updateCriterion(criterion.id, { maxPoints: Number(event.target.value) })} /></label>
-            <button className="icon-button" type="button" aria-label={`Supprimer ${criterion.title}`} onClick={() => setRubric((current) => ({ ...current, criteria: current.criteria.filter((item) => item.id !== criterion.id) }))}>×</button>
-          </div>)}
-        </div>
-        <div className="rubric-actions"><button className="secondary-button" onClick={addCriterion}>+ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
-      </section>
-
-      {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Barème vérifié ? Passez à l’ajout du sujet et d’une copie.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('copy')}>Continuer vers la copie <span aria-hidden="true">→</span></button></div>}
-      </>}
-
-      {(interfaceMode === 'diagnostic' || teacherStep === 'copy') && <>
-      <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 2 SUR 3' : 'ÉTAPE 2'}</p><h2>Ajouter une copie</h2></div><span className="step-count">{images.length} PAGE(S) · {transcription ? 'LECTURE DISPONIBLE' : 'À LIRE'}</span></div>
-      <section className="panel correction-mode-panel" aria-labelledby="correction-mode-title">
-        <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">02</span>}<div><h3 id="correction-mode-title">Où se trouvent les questions ?</h3><p>Choisissez le format utilisé pour ce devoir. Vous pourrez corriger les copies une par une.</p></div></div>
-        <div className="correction-mode-options" role="group" aria-label="Mode de correction">
-          <label className={correctionMode === 'integrated' ? 'correction-mode-option selected' : 'correction-mode-option'}><input type="radio" name="correction-mode" value="integrated" checked={correctionMode === 'integrated'} onChange={() => { setCorrectionMode('integrated'); setSubjectTranscription(null); }} /><span><strong>Questions intégrées à la copie</strong><small>Les questions et les réponses sont sur les mêmes feuilles.</small></span></label>
-          <label className={correctionMode === 'separate' ? 'correction-mode-option selected' : 'correction-mode-option'}><input type="radio" name="correction-mode" value="separate" checked={correctionMode === 'separate'} onChange={() => { setCorrectionMode('separate'); setProposal(null); setReview([]); }} /><span><strong>Sujet fourni séparément</strong><small>Le sujet de référence est distinct des pages de réponses manuscrites.</small></span></label>
-        </div>
-      </section>
-      {correctionMode === 'separate' && <section className={`panel subject-panel ${subjectReady ? 'setup-complete' : 'setup-needed'}`}>
-        <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">A</span>}<div><h3>Sujet de référence</h3><p>Importez les questions et leurs éventuels schémas une seule fois pour ce devoir.</p></div></div>
-        <label className="upload-placeholder" htmlFor="subject-files"><span className="upload-icon">↑</span><strong>Choisir les pages du sujet</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Importer le sujet</span><span className="upload-note">Les pages sont préparées dans le navigateur. Elles sont transmises uniquement au serveur Ollama configuré pour en extraire le contenu.</span></label>
-        <FilePicker id="subject-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importSubjectFiles(files); }} title="Déposer les pages du sujet ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Parcourir les fichiers" />
-        {subjectImages.length > 0 && <div className="file-list"><strong>{subjectImages.length} page(s) de sujet prête(s)</strong>{subjectImages.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName || `Page ${index + 1}`}</span><button type="button" className="text-button" onClick={() => { setSubjectImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setSubjectTranscription(null); }}>Retirer</button></div>)}<button type="button" className="text-button" onClick={() => { setSubjectImages([]); setSubjectTranscription(null); }}>Retirer toutes les pages du sujet</button></div>}
-        {subjectTranscription && <p className="validation valid" role="status">Sujet lu localement et prêt à être réutilisé pour les copies suivantes de ce devoir.</p>}
-      </section>}
-      <section className="setup-grid">
-        <article className={`panel copy-panel ${images.length ? 'setup-complete' : 'setup-needed'}`}>
-          <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">03</span>}<div><h3>Copie de l’étudiant</h3><p>Importez les pages d’un seul étudiant à la fois.</p></div></div>
-          {interfaceMode === 'teacher' && <div className="student-label-field"><label className="field-label" htmlFor="student-label">Nom ou identifiant de l’étudiant <span>(facultatif)</span></label><input id="student-label" value={studentLabel} onChange={(event) => setStudentLabel(event.target.value)} placeholder="Ex. Étudiant 014 ou groupe B" /></div>}
-          <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
-          <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
-          {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button type="button" className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie</button></div></div>}
-          {copyQueue.length > 0 && <section className="copy-queue" aria-label="File des copies à corriger"><div className="copy-queue-heading"><div><span className="eyebrow">FILE LOCALE</span><h4>{copyQueue.length} copie(s) à traiter</h4></div><button type="button" className="primary-button" onClick={loadNextQueuedCopy} disabled={isAnalyzing}>Charger la prochaine copie</button></div><p>Les copies en attente restent sur cet appareil et réutilisent le barème de ce devoir. La file est conservée en mémoire pendant cette session.</p><ol>{copyQueue.map((copy, index) => <li key={copy.id}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{copy.label}</strong><small>{copy.images.length} page(s) · À traiter</small></span><button type="button" className="text-button" onClick={() => setCopyQueue((current) => current.filter((item) => item.id !== copy.id))} disabled={isAnalyzing}>Retirer</button></li>)}</ol></section>}
-        </article>
-        {interfaceMode === 'diagnostic' ? <article className="panel ollama-panel">
+        <div className="workspace-heading"><div><p className="eyebrow">OUTILS DE DIAGNOSTIC</p><h2 id="debug-workspace-title">Debug des appels IA locaux</h2><p className="workspace-description">Espace technique séparé : consultez les traces brutes d’une exécution déjà réalisée. Pour créer une expérience ou comparer les résultats, utilisez Évaluation des modèles.</p></div></div>
+        <section id="debug-advanced-settings" className="debug-advanced-settings" aria-label="Configuration avancée du diagnostic">
+          <div className="workspace-heading"><div><p className="eyebrow">OUTILS AVANCÉS</p><h3>Configuration du diagnostic multi-modèles</h3><p>Ces réglages techniques servent aux essais de diagnostic et restent séparés de l’évaluation indépendante.</p></div></div>
+          <article className="panel ollama-panel">
           <div className="panel-heading"><span className="number">03</span><div><h3>Modèle local Ollama</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
         <div className="diagnostic-ai-profile-controls" aria-label="Profils de configuration IA">
-          <label className="field-label" htmlFor="diagnostic-ai-model-profile">Configuration enregistrée</label>
+          <label className="field-label" htmlFor="debug-ai-model-profile">Configuration enregistrée</label>
           <div className="ai-profile-row">
-            <DesignSystemSelect id="diagnostic-ai-model-profile" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else setSelectedAiModelProfileId(''); }}>
+            <DesignSystemSelect id="debug-ai-model-profile" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else setSelectedAiModelProfileId(''); }}>
               <option value="">Configuration actuelle</option>
               {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'}</option>)}
             </DesignSystemSelect>
@@ -1451,74 +1259,21 @@ export function App({ service, archiveService, evaluationService }: { service: C
           </label>
           <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
           {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
-          <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p>
-        </article> : null}
-      </section>
+          <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p></article>
+          <div className="debug-run-actions"><button type="button" className="primary-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? 'Diagnostic local en cours…' : 'Lancer le diagnostic avancé'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
+        </section>
+        <section className="transcription-review"><h3>Transcription actuellement chargée</h3>{transcription ? <pre>{transcription}</pre> : <p className="hint">Aucune transcription disponible.</p>}</section>
+        <section className="transcription-review"><h3>Dernière réponse reçue en streaming</h3>{streamedOutput ? <pre>{streamedOutput}</pre> : <p className="hint">Aucune réponse en streaming disponible.</p>}</section>
+        <section className="transcription-review"><h3>Sorties brutes des modèles ({diagnosticRuns.length})</h3>{diagnosticRuns.length ? diagnosticRuns.map((run, index) => <details key={run.kind + run.model + index} className="rubric-import-raw-response"><summary>{run.model} · {run.kind} · {formatElapsed(Math.round(run.elapsedMs / 1000))}</summary><pre>{run.raw}</pre></details>) : <p className="hint">Aucune trace technique enregistrée. Lancez une expérience dans « Évaluation des modèles » puis revenez ici pour examiner les réponses brutes.</p>}</section>
+        <section className="transcription-review debug-evaluation-traces"><h3>Traces des évaluations indépendantes ({modelEvaluationResults.length})</h3>{modelEvaluationResults.length ? modelEvaluationResults.map((result) => <details key={result.profileId} className="rubric-import-raw-response"><summary>{result.profileName} · {result.status} · {formatElapsed(Math.round(result.elapsedMs / 1000))}</summary><p>Lecture : {result.readingMs ? formatElapsed(Math.round(result.readingMs / 1000)) : '—'} · Analyse : {result.analysisMs ? formatElapsed(Math.round(result.analysisMs / 1000)) : '—'} · Tokens : {result.tokens === null ? 'non mesurés' : formatTokenCount(result.tokens)}</p>{result.error && <p className="validation" role="alert">{result.error}</p>}{result.transcription && <><h4>Transcription</h4><pre>{result.transcription}</pre></>}{result.raw && <><h4>Réponse brute</h4><pre>{result.raw}</pre></>}</details>) : <p className="hint">Les réponses brutes des expériences indépendantes apparaîtront ici après un lancement dans Évaluation des modèles.</p>}</section>
+            {interfaceMode === 'debug' && transcription && diagnosticRuns.filter((run) => run.kind === 'model').length === 2 && <button type="button" className="secondary-button full-button" disabled={busy || !arbitratorModel.trim()} onClick={() => void gradeCopies('arbitrate-only')}>Relancer uniquement l’arbitrage avec les deux avis enregistrés</button>}
 
-      <section className={interfaceMode === 'teacher' ? "panel question-panel teacher-launch-panel" : "panel question-panel"}>
-        {interfaceMode === 'teacher' && <div className="teacher-launch-heading"><div><p className="eyebrow">LANCER LA CORRECTION</p><h2>{assignmentTitle.trim() || 'Devoir de biologie'}</h2><p>La proposition sera détaillée critère par critère. Vous gardez la décision finale sur chaque note.</p></div><span className="launch-ready-count">{setupChecks.filter((item) => item.ready).length}/{setupChecks.length} prêts</span></div>}
-        <label className="field-label" htmlFor="grading-question">Consigne / question de l’exercice</label>
-        <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
-        <button className="primary-button grade-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? 'Correction locale en cours…' : 'Analyse locale en cours…') : transcription ? 'Relancer l’analyse sans relire les images' : interfaceMode === 'teacher' ? 'Lancer la lecture et la correction' : 'Lire puis analyser les copies'}</button>
-        {interfaceMode === 'teacher' && <p className="launch-footnote">Aucune note n’est validée automatiquement. Après l’analyse, vous pourrez vérifier les éléments de preuve, ajuster chaque critère et finaliser la correction.</p>}
-      </section>
-      {interfaceMode === 'teacher' && <div className="teacher-copy-footer"><button type="button" className="secondary-button" onClick={() => setTeacherStep('rubric')}>← Revoir le barème</button><span>Une seule copie à la fois · validation humaine avant finalisation</span></div>}
-      </>}
-
-      {interfaceMode === 'teacher' && teacherStep === 'progress' && isAnalyzing && <div className="workspace-heading processing-workspace-heading"><div><p className="eyebrow">ÉTAPE 3 SUR 3</p><h2>Suivi du traitement</h2></div><span className="step-count">{formatElapsed(elapsedSeconds)} ÉCOULÉES</span></div>}
-        {isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
-        <div className="analysis-spinner" aria-hidden="true" />
-        <div className="analysis-progress-copy">
-          <p className="eyebrow">TRAITEMENT LOCAL · 2 ÉTAPES</p>
-          <div className="analysis-steps" aria-label="Étapes de la correction">
-            <div className={'analysis-step ' + (analysisStage === 'reading' ? 'current' : analysisStage === 'grading' ? 'complete' : '')} aria-current={analysisStage === 'reading' ? 'step' : undefined}>
-              <span className="analysis-step-number">{analysisStage === 'grading' ? '✓' : '1'}</span>
-              <div><strong>Lire l’image</strong><small>{analysisStage === 'checking' ? 'En attente' : analysisStage === 'reading' ? 'Lecture en cours…' : 'Lecture terminée'}</small></div>
-            </div>
-            <div className={'analysis-step ' + (analysisStage === 'grading' ? 'current' : '')} aria-current={analysisStage === 'grading' ? 'step' : undefined}>
-              <span className="analysis-step-number">2</span>
-              <div><strong>Analyser et noter</strong><small>{analysisStage === 'checking' || analysisStage === 'reading' ? 'À venir' : 'Analyse en cours…'}</small></div>
-            </div>
-          </div>
-          <h3>{analysisStage === 'checking' ? 'Vérification des modèles Ollama…' : analysisStage === 'reading' ? 'Étape 1/2 — Lecture des images et transcription…' : 'Étape 2/2 — Analyse du contenu et attribution des points…'}</h3>
-          <p>{analysisStage === 'checking' ? 'Je vérifie que les deux modèles répondent, sans joindre de copie.' : analysisStage === 'reading' ? 'Le modèle de lecture transcrit chaque page localement. La transcription s’affiche au fil du streaming.' : 'Le modèle d’analyse applique le barème à la transcription. La proposition de correction arrive en streaming.'}</p>
-          {interfaceMode === 'diagnostic' && streamedOutput && <div className="streaming-preview" aria-live="polite"><strong>Réponse reçue en streaming</strong><pre>{streamedOutput}</pre></div>}
-          {elapsedSeconds >= 30 && <p className="analysis-long-wait">Cette analyse prend du temps : certains modèles locaux nécessitent plusieurs minutes, notamment avec plusieurs pages. Le temps affiché continue de mesurer l’attente.</p>}
-        </div>
-        <div className="analysis-timer" aria-label={`Temps écoulé : ${formatElapsed(elapsedSeconds)}`}>
-          <span>TEMPS ÉCOULÉ</span><strong>{formatElapsed(elapsedSeconds)}</strong>
-        </div>
-      </section>}
-
-      {isAnalyzing && interfaceMode === 'teacher' && analysisStage === 'reading' && <section className="live-copy-preview panel" aria-labelledby="live-copy-preview-title">
-        <div className="live-preview-heading"><div><p className="eyebrow">ÉTAPE 1 · LECTURE LOCALE</p><h3 id="live-copy-preview-title">La copie en cours de lecture</h3><p>Les pages restent visibles à côté du texte reconnu par le modèle local.</p></div><span className="live-preview-state">Lecture en cours</span></div>
-        <div className="live-copy-layout">
-          <div className="live-copy-pages" aria-label="Pages de la copie importée">
-            {images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-' + index}>
-              <img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page ${index + 1} de la copie en cours de lecture`} />
-              <figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption>
-            </figure>)}
-          </div>
-          <div className="live-transcription-panel"><div className="live-panel-heading"><span className="live-panel-icon" aria-hidden="true">Aa</span><div><strong>Transcription reconnue</strong><small>{transcription ? 'Texte extrait localement' : 'En attente de lecture'}</small></div></div>
-            {transcription ? <pre className="live-transcription-text">{transcription}</pre> : <div className="live-transcription-placeholder" role="status"><span className="live-text-skeleton" /><span className="live-text-skeleton short" /><span className="live-text-skeleton" /><p>Le texte apparaîtra dès que le modèle aura terminé la lecture.</p></div>}
-          </div>
-        </div>
-      </section>}
-      {isAnalyzing && interfaceMode === 'teacher' && analysisStage === 'grading' && <section className="live-analysis-preview panel" aria-labelledby="live-analysis-preview-title">
-        <div className="live-preview-heading"><div><p className="eyebrow">ÉTAPE 2 · ANALYSE DU BARÈME</p><h3 id="live-analysis-preview-title">Analyse de la réponse</h3><p>La transcription est confrontée aux critères du barème.</p></div><span className="live-preview-state analysis">Notation en cours</span></div>
-        <div className="live-analysis-context"><span className="live-panel-icon" aria-hidden="true">✓</span><div><strong>Transcription disponible</strong><p>{transcription ? transcription.trim().split(/\s+/).filter(Boolean).length + ' mots extraits de la copie' : 'La transcription est conservée pour cette analyse.'}</p></div></div>
-        <div className="live-analysis-criteria" aria-label="Critères en cours d’évaluation">{rubric.criteria.map((criterion) => <div className="live-analysis-criterion" key={criterion.id}><span>{criterion.title}</span><span className="live-score-placeholder" aria-hidden="true" /><small>Évaluation en cours</small></div>)}</div>
-        <div className="live-analysis-output" aria-live="polite"><div className="live-panel-heading"><span className="live-panel-icon" aria-hidden="true">✳</span><div><strong>Réponse du modèle</strong><small>{streamedOutput ? 'Réponse reçue en streaming' : 'Préparation de la proposition'}</small></div></div>{streamedOutput ? <pre>{streamedOutput}</pre> : <div className="live-transcription-placeholder"><span className="live-text-skeleton" /><span className="live-text-skeleton medium" /><span className="live-text-skeleton short" /></div>}</div>
-      </section>}
-
-      {interfaceMode === 'diagnostic' && transcription && diagnosticRuns.filter((run) => run.kind === 'model').length === 2 && <button type="button" className="secondary-button full-button" disabled={busy || !arbitratorModel.trim()} onClick={() => void gradeCopies('arbitrate-only')}>Relancer uniquement l’arbitrage avec les deux avis enregistrés</button>}
-
-      {interfaceMode === 'diagnostic' && <section className="panel diagnostic-results" aria-labelledby="diagnostic-results-title">
+      {interfaceMode === 'debug' && <section className="panel diagnostic-results" aria-labelledby="diagnostic-results-title">
         <div className="panel-heading"><span className="number">IA</span><div><h3 id="diagnostic-results-title">Résultats de l’expérience multi-modèles</h3><p>Notes et temps mesurés sur cette copie. Les sorties sont conservées dans cette vue locale.</p></div></div>
         {diagnosticRuns.length === 0 ? <div className="diagnostic-empty-state">
           <span className="diagnostic-empty-icon" aria-hidden="true">↗</span>
           <div><h4>Aucun résultat pour le moment</h4><p>Préparez le barème et importez une copie, puis lancez une analyse. Les résultats des modèles apparaîtront ici pour cette même copie et cette même consigne.</p><p className="diagnostic-reference-optional-note">Pas encore de correction de référence validée ? Aucun problème : comparez les modèles dès maintenant et ajoutez une référence plus tard si vous le souhaitez.</p></div>
-          <button type="button" className="secondary-button" onClick={() => document.getElementById('diagnostic-experiment-setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Préparer une expérience</button>
+          <button type="button" className="secondary-button" onClick={() => document.getElementById('debug-advanced-settings')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Préparer une expérience</button>
         </div> : <>
         {(() => {
           const independent = diagnosticRuns.filter((run) => run.kind === 'model');
@@ -1594,26 +1349,8 @@ export function App({ service, archiveService, evaluationService }: { service: C
         </>}
       </section>}
 
-      {(interfaceMode === 'diagnostic' || teacherStep === 'copy') && (transcription || (correctionMode === 'separate' && subjectTranscription)) && <section className="transcription-review" aria-labelledby="transcription-review-title">
-        <details>
-          <summary id="transcription-review-title">
-            <span><strong>Vérifier le texte lu par l’IA</strong><small>Relisez la transcription pour repérer les erreurs de lecture avant de vous fier à la correction.</small></span>
-            <span className="transcription-review-action">Afficher le texte</span>
-          </summary>
-          <div className="transcription-review-content">
-            {correctionMode === 'separate' && subjectTranscription && <section className="transcription-text-block">
-              <h3>Texte du sujet de référence</h3>
-              <pre>{subjectTranscription}</pre>
-            </section>}
-            {transcription && <section className="transcription-text-block">
-              <h3>Texte de la copie étudiante</h3>
-              <pre>{transcription}</pre>
-            </section>}
-          </div>
-        </details>
-      </section>}
-
-      {interfaceMode === 'diagnostic' && timingHistory.length > 0 && <section className="timing-history" aria-labelledby="timing-history-title">
+        <details className="debug-performance-history"><summary>Historique et comparaison des performances</summary>
+      {timingHistory.length > 0 && <section className="timing-history" aria-labelledby="timing-history-title">
         <div className="timing-history-heading diagnostic-dashboard-header">
           <div><p className="eyebrow">LABORATOIRE LOCAL · OLLAMA</p><h2 id="timing-history-title">Tableau de bord des expériences</h2><p>Comparez les compromis entre qualité, consommation et vitesse sur les mêmes devoirs et barèmes. Toutes les données restent dans ce navigateur.</p></div>
           <div className="diagnostic-dashboard-header-actions"><span className="diagnostic-local-pill"><span></span> Données locales</span><button type="button" className="text-button" onClick={() => { setTimingHistory([]); setSelectedComparisonIds([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button></div>
@@ -1784,9 +1521,275 @@ export function App({ service, archiveService, evaluationService }: { service: C
         <p className="hint">Les durées sont arrondies à la seconde. Une lecture déjà en mémoire n’est pas comptée comme une nouvelle lecture ; le temps de vérification d’Ollama est inclus dans le total, pas dans les durées des étapes.</p>
       </section>}
 
+
+        </details>
+</section> : (interfaceMode === 'diagnostic' || !showAiSettings) && <>      {interfaceMode === 'teacher' && teacherStep === 'archive' && <section className="correction-archive" aria-labelledby="correction-archive-title">
+        <div className="workspace-heading"><div><p className="eyebrow">HISTORIQUE LOCAL</p><h2 id="correction-archive-title">Corrections enregistrées</h2><p>Retrouvez les copies finalisées, leur note validée et les éléments de preuve. Tout reste stocké dans ce navigateur.</p></div><span className="step-count">{archivedCorrections.length} COPIE(S)</span></div>
+        {archiveMessage && <p className="validation" role="status">{archiveMessage}</p>}
+        {archivedCorrections.length === 0 ? <div className="panel archive-empty"><span className="archive-empty-icon" aria-hidden="true">▤</span><h3>Aucune correction enregistrée pour le moment</h3><p>Une fois une correction finalisée, elle apparaîtra ici avec sa copie, sa transcription et la note validée.</p><button type="button" className="primary-button" onClick={() => { setTeacherStep('copy'); setShowAiSettings(false); }}>Ajouter une copie</button></div> : <div className="archive-list">{archivedCorrections.map((item) => {
+          const snapshot = item.snapshot!;
+          const total = snapshot.review.reduce((sum, criterion) => sum + criterion.teacherPoints, 0);
+          return <article className="panel archive-card" key={item.id}><div className="archive-card-main"><div><span className="archive-status">✓ FINALISÉE</span><h3>{item.label}</h3><p>{item.assignmentTitle || snapshot.assignmentTitle} · {snapshot.images.length} page(s)</p><small>Finalisée le {new Date(item.updatedAt).toLocaleString('fr-FR')}</small></div><strong className="archive-score">{total} <span>/ {snapshot.maximumPoints}</span></strong></div><div className="archive-card-actions"><button type="button" className="secondary-button" onClick={() => openArchivedCorrection(item)}>Consulter la correction</button><button type="button" className="text-button" onClick={() => { if (window.confirm('Supprimer définitivement cette correction de cet appareil ?')) { void archiveService.deleteCorrection(item.id).then(() => archiveService.listCorrections()).then((items) => setArchivedCorrections(items.filter((entry) => Boolean(entry.snapshot)))).catch(() => setArchiveMessage('La suppression a échoué. Réessayez.')); } }}>Supprimer</button></div></article>;
+        })}</div>}
+        <div className="archive-footer"><button type="button" className="primary-button" onClick={startNextCopy}>+ Ajouter une autre copie</button><p>Les copies archivées ne sont pas envoyées dans le cloud. Elles occupent de l’espace dans le stockage local de ce navigateur.</p></div>
+      </section>}
+      {interfaceMode === 'teacher' && teacherStep === 'details' && <>
+        <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 0 · CONTEXTE</p><h2>Définir le devoir</h2><p className="workspace-description">Donnez un nom à l’évaluation et précisez le public visé. Ces informations guideront les modèles pendant la correction ; le barème pourra porter son propre nom.</p></div><span className="step-count">PRÉPARATION</span></div>
+        <section className="panel assignment-details-panel" aria-labelledby="assignment-details-title">
+          <div className="panel-heading"><div><h3 id="assignment-details-title">Informations générales</h3><p>Ces informations sont enregistrées avec le devoir sur cet appareil.</p></div></div>
+          <label className="field-label" htmlFor="assignment-title-main">Nom du devoir</label>
+          <input id="assignment-title-main" value={assignmentTitle} onChange={(event) => setAssignmentTitle(event.target.value)} placeholder="Ex. Contrôle de biologie cellulaire — chapitre 3" />
+          <label className="field-label" htmlFor="assignment-description">Description et objectifs pédagogiques</label>
+          <textarea id="assignment-description" rows={3} value={assignmentDescription} onChange={(event) => setAssignmentDescription(event.target.value)} placeholder="Ex. Vérifier la compréhension de la mitose, la capacité à interpréter un schéma et à utiliser le vocabulaire scientifique." />
+          <label className="field-label" htmlFor="assignment-education-level">Niveau scolaire / universitaire</label>
+          <DesignSystemSelect id="assignment-education-level" value={educationLevel} onChange={(event) => setEducationLevel(event.target.value)}>
+            <option value="">Choisir un niveau (facultatif)</option>
+            <option value="Lycée — Seconde">Lycée — Seconde</option><option value="Lycée — Première">Lycée — Première</option><option value="Lycée — Terminale">Lycée — Terminale</option>
+            <option value="Université — Licence 1">Université — Licence 1</option><option value="Université — Licence 2">Université — Licence 2</option><option value="Université — Licence 3">Université — Licence 3</option>
+            <option value="Université — Master 1">Université — Master 1</option><option value="Université — Master 2">Université — Master 2</option><option value="Université — Doctorat">Université — Doctorat</option>
+            <option value="Autre">Autre</option>
+          </DesignSystemSelect>
+          <p className="hint">Le niveau sert à calibrer les attentes : vocabulaire, profondeur du raisonnement et précision scientifique. Il ne remplace pas les critères explicites du barème.</p>
+          <div className="teacher-step-footer"><span>Vous pourrez modifier ces informations à tout moment.</span><button type="button" className="primary-button" onClick={() => setTeacherStep('rubric')}>Continuer vers le barème <span aria-hidden="true">→</span></button></div>
+        </section>
+      </>}
+
+      {(interfaceMode === 'diagnostic' || teacherStep === 'rubric') && <>
+      <div id={interfaceMode === 'diagnostic' ? 'evaluation-rubric' : undefined} className="workspace-heading diagnostic-setup-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 SUR 3' : 'EXPÉRIENCE · ÉTAPE 1'}</p><h2>Préparer le barème de correction</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
+      <section className="panel rubric-editor">
+        <div className="rubric-assignment-context"><span className="eyebrow">BARÈME ASSOCIÉ AU DEVOIR</span><strong>{assignmentTitle.trim() || 'Devoir sans titre'}</strong><p>Vous pouvez donner au barème un nom différent de celui du devoir.</p></div>
+        <label className="field-label" htmlFor="rubric-title">Nom du barème (distinct du devoir)</label>
+        <input id="rubric-title" value={rubric.title} placeholder="Ex. Barème du contrôle de biologie" onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
+        {rubric.criteria.length === 0 && <div className="rubric-empty-state" role="status"><strong>Le barème n’est pas encore défini</strong><p>Importez un barème existant ou ajoutez les critères et leurs points ci-dessous. La correction restera indisponible tant qu’un barème valide n’est pas prêt.</p></div>}
+        <div className="rubric-import">
+          <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Excel (.xlsx), CSV, TXT, Markdown ou JSON)</label>
+          <FilePicker id="rubric-file" accept=".pdf,.xlsx,.csv,.txt,.md,.json" disabled={rubricFileImporting} onFilesSelected={(files) => { void importRubricFileFromInput(files?.[0]); }} title="Importer un document de barème" description={rubricFileImporting ? "Lecture par l’IA de vision locale en cours…" : "PDF, Excel, CSV, TXT, Markdown ou JSON"} actionLabel={rubricFileImporting ? "Analyse en cours…" : "Parcourir les fichiers"} />
+          <p className="hint">Les PDF sont convertis en images dans le navigateur puis lus par votre modèle de vision Ollama local. Aucun service cloud n’est utilisé. Vérifiez les critères, les points et le total après import.</p>
+          <label className="field-label" htmlFor="rubric-image-file">Ou importer une photo / un scan du barème (JPEG, PNG, WebP)</label>
+          <FilePicker id="rubric-image-file" accept="image/jpeg,image/png,image/webp" disabled={rubricImageImporting} onFilesSelected={(files) => { void importRubricImageFromInput(files?.[0]); }} title="Importer une photo ou un scan" description="JPEG, PNG ou WebP · ou PDF multipage" actionLabel={rubricImageImporting ? 'Lecture en cours…' : 'Choisir une image'} compact />
+          <p className="hint">{rubricImageImporting ? 'Lecture du barème par le modèle de vision local…' : 'Une seule requête au modèle de vision Ollama sélectionné, avec toutes les pages PDF dans l’ordre et une sortie JSON structurée. Les pages ne sont envoyées qu’à votre serveur Ollama configuré ; aucun service cloud n’est utilisé. Vérifiez toujours le résultat avant utilisation.'}</p>
+          {rubricImportEvents.length > 0 && <section className={`rubric-import-progress ${rubricImportProgress?.stage === 'error' ? 'has-error' : ''}`} aria-label="Étapes de l’import du barème" aria-live="polite">
+            <div className="rubric-import-progress-heading"><strong>Import du barème</strong><span>{rubricImportFileName}</span></div>
+            {rubricImageImporting && <button type="button" className="secondary-button" onClick={() => rubricImportAbortController.current?.abort()} aria-label="Arrêter l’import du barème">Arrêter l’import</button>}
+            {(() => {
+              const stage = rubricImportProgress?.stage;
+              const failed = stage === 'error';
+              const readingDone = Boolean(rubricImportVisionResponse) && ['structuring', 'response', 'parsing', 'complete'].includes(stage ?? '');
+              const extractionStarted = ['structuring', 'response', 'parsing', 'complete'].includes(stage ?? '');
+              const extractionDone = stage === 'complete';
+              return <ol className="rubric-import-steps">
+                <li className={`rubric-import-step ${readingDone ? 'is-complete' : !extractionStarted && !failed ? 'is-active' : ''}`}>
+                  <span className="rubric-import-step-number" aria-hidden="true">{readingDone ? '✓' : '1'}</span>
+                  <div className="rubric-import-step-content">
+                    <strong>1. Lecture du document</strong>
+                    <p>{readingDone ? 'Lecture terminée : le texte reconnu est consultable ci-dessous.' : failed && !extractionStarted ? 'La lecture a rencontré une erreur.' : 'Le modèle de vision lit les pages dans leur ordre.'}</p>
+                    {rubricImportProgress && !readingDone && !extractionStarted && <p className="rubric-import-step-status" role="status">{rubricImportProgress.message}</p>}
+                    {rubricImportVisionResponse ? <details className="rubric-import-raw-response">
+                      <summary>Voir le texte lu par le modèle de vision</summary>
+                      <p>Transcription brute de « {visionModel} », avant structuration du barème.</p>
+                      <pre>{rubricImportVisionResponse}</pre>
+                      <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportVisionResponse); }}>Copier la transcription</button>
+                    </details> : <p className="rubric-import-step-hint">Le texte reconnu apparaîtra ici dès que la lecture sera disponible.</p>}
+                  </div>
+                </li>
+                <li className={`rubric-import-step ${extractionDone ? 'is-complete' : extractionStarted ? 'is-active' : ''}`}>
+                  <span className="rubric-import-step-number" aria-hidden="true">{extractionDone ? '✓' : '2'}</span>
+                  <div className="rubric-import-step-content">
+                    <strong>2. Extraction du barème</strong>
+                    <p>{extractionDone ? 'Extraction terminée : les critères et les points sont éditables ci-dessous.' : extractionStarted ? 'Le modèle d’analyse structure la transcription en critères, descriptions et points.' : 'Cette étape démarre après la lecture de toutes les pages.'}</p>
+                    {extractionStarted && !extractionDone && rubricImportProgress && <p className="rubric-import-step-status" role="status">{rubricImportProgress.message}</p>}
+                    {rubricImportAnalysisResponse ? <details className="rubric-import-raw-response">
+                      <summary>Voir le JSON brut extrait</summary>
+                      <p>Réponse de « {analysisModel} » avant validation, y compris si le JSON ou certains critères sont invalides.</p>
+                      <pre>{rubricImportAnalysisResponse}</pre>
+                      <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportAnalysisResponse); }}>Copier le JSON</button>
+                    </details> : <p className="rubric-import-step-hint">Le JSON extrait apparaîtra ici après l’analyse.</p>}
+                  </div>
+                </li>
+              </ol>;
+            })()}
+            <details className="rubric-import-event-log">
+              <summary>Afficher le journal détaillé de l’import</summary>
+              <ol className="rubric-import-progress-events">{rubricImportEvents.map((event, index) => <li key={`${index}-${event}`}>{event}</li>)}</ol>
+            </details>
+            {rubricImportProgress?.stage === 'complete' && <p className="rubric-import-progress-review">Vérifiez le résultat extrait dans les champs modifiables ci-dessous, puis comparez chaque critère et ses points avec le document original avant de valider le barème.</p>}
+          </section>}
+          {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
+        </div>
+        <div className="criteria-list">
+          {rubric.criteria.map((criterion) => <div className="criterion-editor" key={criterion.id}>
+            <div className="criterion-fields">
+              <label><span className="field-label">Critère</span><input value={criterion.title} onChange={(event) => updateCriterion(criterion.id, { title: event.target.value })} /></label>
+              <label><span className="field-label">Description / attendus</span><input value={criterion.description} onChange={(event) => updateCriterion(criterion.id, { description: event.target.value })} /></label>
+            </div>
+            <label className="points-field"><span className="field-label">Points max.</span><input type="number" min="0" step="0.5" value={criterion.maxPoints} onChange={(event) => updateCriterion(criterion.id, { maxPoints: Number(event.target.value) })} /></label>
+            <button className="icon-button" type="button" aria-label={`Supprimer ${criterion.title}`} onClick={() => setRubric((current) => ({ ...current, criteria: current.criteria.filter((item) => item.id !== criterion.id) }))}>×</button>
+          </div>)}
+        </div>
+        <div className="rubric-actions"><button className="secondary-button" onClick={addCriterion}>+ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
+      </section>
+
+      {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Barème vérifié ? Passez à l’ajout du sujet et d’une copie.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('copy')}>Continuer vers la copie <span aria-hidden="true">→</span></button></div>}
+      </>}
+
+      {(interfaceMode === 'diagnostic' || teacherStep === 'copy') && <>
+      <div id={interfaceMode === 'diagnostic' ? 'evaluation-copy' : undefined} className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 2 SUR 3' : 'ÉTAPE 2 · JEU D’ESSAI'}</p><h2>Ajouter une copie</h2></div><span className="step-count">{images.length} PAGE(S) · {transcription ? 'LECTURE DISPONIBLE' : 'À LIRE'}</span></div>
+      <section className="panel correction-mode-panel" aria-labelledby="correction-mode-title">
+        <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">02</span>}<div><h3 id="correction-mode-title">Où se trouvent les questions ?</h3><p>Choisissez le format utilisé pour ce devoir. Vous pourrez corriger les copies une par une.</p></div></div>
+        <div className="correction-mode-options" role="group" aria-label="Mode de correction">
+          <label className={correctionMode === 'integrated' ? 'correction-mode-option selected' : 'correction-mode-option'}><input type="radio" name="correction-mode" value="integrated" checked={correctionMode === 'integrated'} onChange={() => { setCorrectionMode('integrated'); setSubjectTranscription(null); }} /><span><strong>Questions intégrées à la copie</strong><small>Les questions et les réponses sont sur les mêmes feuilles.</small></span></label>
+          <label className={correctionMode === 'separate' ? 'correction-mode-option selected' : 'correction-mode-option'}><input type="radio" name="correction-mode" value="separate" checked={correctionMode === 'separate'} onChange={() => { setCorrectionMode('separate'); setProposal(null); setReview([]); }} /><span><strong>Sujet fourni séparément</strong><small>Le sujet de référence est distinct des pages de réponses manuscrites.</small></span></label>
+        </div>
+      </section>
+      {correctionMode === 'separate' && <section className={`panel subject-panel ${subjectReady ? 'setup-complete' : 'setup-needed'}`}>
+        <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">A</span>}<div><h3>Sujet de référence</h3><p>Importez les questions et leurs éventuels schémas une seule fois pour ce devoir.</p></div></div>
+        <label className="upload-placeholder" htmlFor="subject-files"><span className="upload-icon">↑</span><strong>Choisir les pages du sujet</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Importer le sujet</span><span className="upload-note">Les pages sont préparées dans le navigateur. Elles sont transmises uniquement au serveur Ollama configuré pour en extraire le contenu.</span></label>
+        <FilePicker id="subject-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importSubjectFiles(files); }} title="Déposer les pages du sujet ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Parcourir les fichiers" />
+        {subjectImages.length > 0 && <div className="file-list"><strong>{subjectImages.length} page(s) de sujet prête(s)</strong>{subjectImages.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName || `Page ${index + 1}`}</span><button type="button" className="text-button" onClick={() => { setSubjectImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setSubjectTranscription(null); }}>Retirer</button></div>)}<button type="button" className="text-button" onClick={() => { setSubjectImages([]); setSubjectTranscription(null); }}>Retirer toutes les pages du sujet</button></div>}
+        {subjectTranscription && <p className="validation valid" role="status">Sujet lu localement et prêt à être réutilisé pour les copies suivantes de ce devoir.</p>}
+      </section>}
+      <section className="setup-grid">
+        <article className={`panel copy-panel ${images.length ? 'setup-complete' : 'setup-needed'}`}>
+          <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">03</span>}<div><h3>Copie de l’étudiant</h3><p>Importez les pages d’un seul étudiant à la fois.</p></div></div>
+          {interfaceMode === 'teacher' && <div className="student-label-field"><label className="field-label" htmlFor="student-label">Nom ou identifiant de l’étudiant <span>(facultatif)</span></label><input id="student-label" value={studentLabel} onChange={(event) => setStudentLabel(event.target.value)} placeholder="Ex. Étudiant 014 ou groupe B" /></div>}
+          <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
+          <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
+          {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button type="button" className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie</button></div></div>}
+          {copyQueue.length > 0 && <section className="copy-queue" aria-label="File des copies à corriger"><div className="copy-queue-heading"><div><span className="eyebrow">FILE LOCALE</span><h4>{copyQueue.length} copie(s) à traiter</h4></div><button type="button" className="primary-button" onClick={loadNextQueuedCopy} disabled={isAnalyzing}>Charger la prochaine copie</button></div><p>Les copies en attente restent sur cet appareil et réutilisent le barème de ce devoir. La file est conservée en mémoire pendant cette session.</p><ol>{copyQueue.map((copy, index) => <li key={copy.id}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{copy.label}</strong><small>{copy.images.length} page(s) · À traiter</small></span><button type="button" className="text-button" onClick={() => setCopyQueue((current) => current.filter((item) => item.id !== copy.id))} disabled={isAnalyzing}>Retirer</button></li>)}</ol></section>}
+        </article>
+
+      </section>
+
+
+      {interfaceMode === 'diagnostic' && <section id="evaluation-results" className="panel evaluation-results-workspace" aria-labelledby="evaluation-results-title">
+        <div className="evaluation-section-heading"><div><p className="eyebrow">ÉTAPE 3 · EXÉCUTION ET ANALYSE</p><h2 id="evaluation-results-title">Lancer et comparer les résultats</h2><p>Chaque profil relit les images originales, applique le même barème et produit une proposition indépendante.</p></div><span className="evaluation-step-chip">{modelEvaluationResults.length} résultat(s)</span></div>
+        <div className="evaluation-run-actions"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>{!validation.valid ? 'Vérifiez le barème avant de lancer l’expérience.' : !images.length ? 'Importez les pages de la copie dans l’étape précédente.' : selectedEvaluationProfileIds.length < 2 ? 'Sélectionnez au moins deux configurations.' : 'Le jeu d’essai est prêt à être lancé.'}</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 2 || !images.length || !validation.valid} onClick={() => void startModelEvaluation()}>{busy ? 'Évaluation locale en cours…' : 'Lancer l’expérience'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
+                {evaluationProgress && <section className="evaluation-progress" aria-labelledby="evaluation-progress-title" aria-live="polite">
+          <div className="evaluation-progress-heading"><div><p className="eyebrow">SUIVI DE L’EXPÉRIENCE</p><h3 id="evaluation-progress-title">{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation interrompue' : 'Évaluation en cours'}</h3><p>{evaluationProgress.status === 'completed' ? 'Toutes les configurations ont été traitées.' : evaluationProgress.status === 'cancelled' ? 'La séquence a été arrêtée après l’appel en cours.' : evaluationProgress.currentConfiguration ? 'La configuration active est indiquée ci-dessous.' : 'Préparation de la prochaine configuration…'}</p></div><strong className="evaluation-progress-counter">{evaluationProgress.completed} / {evaluationProgress.total} terminée(s)</strong></div>
+          <div className="evaluation-progress-track" role="progressbar" aria-label="Configurations terminées" aria-valuemin={0} aria-valuemax={evaluationProgress.total} aria-valuenow={evaluationProgress.completed}><span style={{ width: (evaluationProgress.completed / Math.max(1, evaluationProgress.total) * 100) + '%' }} /></div>
+          <ol className="evaluation-configuration-steps" aria-label="Progression par configuration">{selectedEvaluationProfiles.map((profile, index) => { const active = evaluationProgress.currentConfiguration?.id === profile.id; const complete = index < evaluationProgress.completed || (evaluationProgress.status === 'completed' && index < evaluationProgress.total); const result = modelEvaluationResults.find((item) => item.profileId === profile.id); const failed = complete && result?.status === 'failed'; return <li key={profile.id} className={`evaluation-configuration-step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''} ${failed ? 'has-failed' : ''}`}><span className="evaluation-configuration-step-index" aria-hidden="true">{complete ? (failed ? '!' : '✓') : index + 1}</span><div><strong>{profile.name}</strong><span>{active ? 'En cours maintenant' : complete ? (failed ? 'Échec — voir le détail' : 'Terminé') : 'En attente'}</span><small>{profile.configuration.visionModel || 'Vision non définie'} → {profile.configuration.analysisModel || 'Analyse non définie'}</small></div>{active && <span className="evaluation-active-pill">EN COURS</span>}</li>; })}</ol>
+          {evaluationProgress.status === 'running' && <div className="evaluation-phase-panel"><strong>{evaluationStage === 'preparing' ? '1. Préparation des modèles' : evaluationStage === 'reading' ? '2. Lecture des images et extraction du texte' : evaluationStage === 'grading' ? '3. Analyse de la copie et attribution des notes' : evaluationStage === 'parsing' ? '4. Structuration et vérification du résultat' : evaluationStage === 'saving' ? '5. Enregistrement de l’expérience locale' : 'Initialisation'}</strong><p>{evaluationStage === 'preparing' ? 'Vérification de la disponibilité des modèles Ollama avant de commencer cette configuration.' : evaluationStage === 'reading' ? 'Le modèle Vision traite les images originales de la copie.' : evaluationStage === 'grading' ? 'Le modèle d’analyse confronte la transcription au barème et prépare les notes.' : evaluationStage === 'parsing' ? 'La réponse est convertie en critères, notes et justifications exploitables.' : evaluationStage === 'saving' ? 'Les résultats, les images et le barème sont enregistrés dans l’historique local.' : 'Mise en place de la séquence de test.'}</p></div>}
+        </section>}
+        {busy && streamedOutput && <section className="transcription-review" aria-live="polite"><h3>Réponse du modèle en streaming</h3><pre>{streamedOutput}</pre></section>}
+        {savedModelEvaluations.length > 0 && <section className="evaluation-result-list" aria-labelledby="model-evaluation-history-title"><h3 id="model-evaluation-history-title">Historique local des expériences</h3><p className="hint">Les images originales, le barème, les configurations et les résultats sont conservés dans IndexedDB sur cet appareil.</p>{savedModelEvaluations.map((record) => <article key={record.id} className="transcription-review"><div className="workspace-heading"><div><h4>{record.assignmentTitle}</h4><p>{new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {record.images.length} page(s)</p></div><button type="button" className="text-button" onClick={() => { setModelEvaluationResults(record.results); setRubric(structuredClone(record.rubricSnapshot)); setImages(structuredClone(record.images)); setQuestion(record.question); setAssignmentTitle(record.assignmentTitle); setCorrectionMode(record.correctionMode); setSubjectImages(structuredClone(record.subjectImages)); setSubjectTranscription(record.subjectTranscription); }}>Consulter / recharger la référence</button></div><ul>{record.results.map((result) => <li key={result.profileId}><strong>{result.profileName}</strong> · {result.status} · {result.score === null ? 'note non exploitable' : result.score + ' / ' + record.rubricSnapshot.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)} · {formatElapsed(Math.round(result.elapsedMs / 1000))}</li>)}</ul><button type="button" className="text-button" onClick={() => { void evaluationService.delete(record.id).then(() => setSavedModelEvaluations((current) => current.filter((item) => item.id !== record.id))).catch(() => setError('Impossible de supprimer cette expérience locale.')); }}>Supprimer cette expérience</button></article>)}</section>}
+        {modelEvaluationResults.some((result) => result.proposal !== null) && (() => {
+          const comparableResults = modelEvaluationResults.filter((result) => result.proposal !== null && result.status === 'success');
+          const scores = comparableResults.flatMap((result) => result.score === null ? [] : [result.score]);
+          const scoreSpread = scores.length > 1 ? Math.max(...scores) - Math.min(...scores) : null;
+          const averageScore = scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : null;
+          const disagreements = rubric.criteria.map((criterion) => {
+            const values = comparableResults.flatMap((result) => {
+              const points = result.proposal?.criteria.find((item) => item.criterionId === criterion.id)?.points;
+              return points === undefined ? [] : [points];
+            });
+            return { criterion, values, spread: values.length > 1 ? Math.max(...values) - Math.min(...values) : 0 };
+          }).filter((item) => item.spread > 0).sort((left, right) => right.spread - left.spread);
+          const lowConfidence = (result: ModelEvaluationResultSnapshot) => result.proposal?.criteria.filter((item) => item.confidence === 'low').length ?? 0;
+          const teacherQuestionCount = comparableResults.reduce((sum, result) => sum + (result.proposal?.questionsForTeacher.length ?? 0), 0);
+          return <section className="evaluation-result-list evaluation-comparison-analysis" aria-labelledby="evaluation-comparison-analysis-title">
+            <div className="evaluation-analysis-heading"><div><p className="eyebrow">SYNTHÈSE AUTOMATIQUE · LOCALE</p><h3 id="evaluation-comparison-analysis-title">Analyse comparative des configurations</h3></div><span className="evaluation-analysis-count">{comparableResults.length} résultat(s) exploitable(s)</span></div>
+            <p className="hint">Cette synthèse décrit les accords et les écarts entre les modèles. Sans note de référence validée par l’enseignant, elle ne peut pas déterminer lequel est le plus juste.</p>
+            <div className="evaluation-analysis-metrics">
+              <article><span>Écart entre les notes</span><strong>{scoreSpread === null ? '—' : scoreSpread.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' pt'}</strong><small>entre la note la plus basse et la plus haute</small></article>
+              <article><span>Note moyenne</span><strong>{averageScore === null ? '—' : averageScore.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' / ' + validation.maximumPoints}</strong><small>repère descriptif, pas une référence</small></article>
+              <article><span>Critères en désaccord</span><strong>{disagreements.length} / {rubric.criteria.length}</strong><small>critères avec des notes différentes</small></article>
+              <article><span>Questions à vérifier</span><strong>{teacherQuestionCount}</strong><small>questions remontées par les modèles</small></article>
+            </div>
+            <div className="evaluation-analysis-columns">
+              <section className="evaluation-analysis-subsection"><h4>Lecture par configuration</h4>
+                {comparableResults.map((result) => <article className="evaluation-model-summary" key={result.profileId}>
+                  <div><strong>{result.profileName}</strong><span>{result.score === null ? 'Note inexploitable' : result.score + ' / ' + validation.maximumPoints}</span></div>
+                  <p>{formatElapsed(Math.round(result.elapsedMs / 1000))} au total · {lowConfidence(result)} critère(s) à faible confiance · {result.proposal?.questionsForTeacher.length ?? 0} question(s) à vérifier</p>
+                </article>)}
+                {modelEvaluationResults.some((result) => result.status !== 'success') && <p className="evaluation-analysis-warning">Au moins une configuration a échoué ou a été interrompue. Consultez les erreurs dans les résultats détaillés.</p>}
+              </section>
+              <section className="evaluation-analysis-subsection"><h4>Critères à examiner en priorité</h4>
+                {disagreements.length ? <ol className="evaluation-disagreement-list">{disagreements.map(({ criterion, spread }) => <li key={criterion.id}><div><strong>{criterion.title}</strong><span>Écart de {spread.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} / {criterion.maxPoints}</span></div><p>{comparableResults.map((result) => { const points = result.proposal?.criteria.find((item) => item.criterionId === criterion.id)?.points; return points === undefined ? null : result.profileName + ' : ' + points; }).filter(Boolean).join(' · ')}</p></li>)}</ol> : <p className="evaluation-analysis-empty">{comparableResults.length < 2 ? 'Au moins deux résultats réussis sont nécessaires pour repérer les désaccords.' : 'Les modèles attribuent la même note à chaque critère renseigné.'}</p>}
+              </section>
+            </div>
+            {comparableResults.length > 1 && <details className="evaluation-pairwise-details"><summary>Afficher les comparaisons détaillées deux à deux</summary>{comparableResults.slice(1).map((result) => { const baseline = comparableResults[0]; const comparison = baseline?.proposal && result.proposal ? compareDiagnosticProposals(baseline.proposal, result.proposal, rubric) : null; return <article className="transcription-review" key={result.profileId}><h4>{baseline.profileName} ↔ {result.profileName}</h4>{comparison && <><p>Écart de note totale : {comparison.totalDifference > 0 ? '+' : ''}{comparison.totalDifference} point(s)</p>{comparison.disagreements.length ? <ul>{comparison.disagreements.map((item) => <li key={item.criterionId}>{item.title} : {item.firstPoints} → {item.secondPoints} / {item.maxPoints} ({item.difference > 0 ? '+' : ''}{item.difference})</li>)}</ul> : <p>Les deux propositions attribuent la même note à chaque critère.</p>}</>}</article>; })}</details>}
+          </section>;
+        })()}
+        {modelEvaluationResults.length > 0 && <div className="evaluation-result-list"><h3>Résultats de cette expérience</h3>{modelEvaluationResults.map((result) => <article key={result.profileId} className="transcription-review"><h4>{result.profileName}</h4><p>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Annulé' : 'Échec'} · Total {formatElapsed(Math.round(result.elapsedMs / 1000))} · Lecture {result.readingMs ? formatElapsed(Math.round(result.readingMs / 1000)) : '—'} · Analyse {result.analysisMs ? formatElapsed(Math.round(result.analysisMs / 1000)) : '—'} · Tokens {result.tokens === null ? 'non mesurés' : formatTokenCount(result.tokens)} · {result.score === null ? 'Note non exploitable' : result.score + ' / ' + validation.maximumPoints}</p>{result.error && <p className="validation" role="alert">{result.error}</p>}{result.transcription && <details><summary>Transcription extraite indépendamment</summary><pre>{result.transcription}</pre></details>}{result.proposal && <details open><summary>Détail par critère et justifications</summary><ul>{result.proposal.criteria.map((criterion) => { const rubricCriterion = rubric.criteria.find((item) => item.id === criterion.criterionId); return <li key={criterion.criterionId}><strong>{rubricCriterion?.title ?? criterion.criterionId} : {criterion.points} / {rubricCriterion?.maxPoints ?? '—'}</strong><p>{criterion.rationale || 'Aucune justification fournie.'}</p><p><strong>Preuve :</strong> {criterion.evidence || 'Aucune preuve textuelle fournie.'}</p><small>Confiance déclarée : {criterion.confidence === 'high' ? 'élevée' : criterion.confidence === 'medium' ? 'moyenne' : 'faible'}</small></li>; })}</ul>{result.proposal.questionsForTeacher.length > 0 && <div className="diagnostic-questions"><strong>Questions à vérifier</strong><ul>{result.proposal.questionsForTeacher.map((question, index) => <li key={index}>{question}</li>)}</ul></div>}</details>}{result.raw && <details><summary>Réponse brute</summary><pre>{result.raw}</pre></details>}</article>)}</div>}
+      </section>}
+      {interfaceMode === 'teacher' && <section className="panel question-panel teacher-launch-panel">
+        {interfaceMode === 'teacher' && <div className="teacher-launch-heading"><div><p className="eyebrow">LANCER LA CORRECTION</p><h2>{assignmentTitle.trim() || 'Devoir de biologie'}</h2><p>La proposition sera détaillée critère par critère. Vous gardez la décision finale sur chaque note.</p></div><span className="launch-ready-count">{setupChecks.filter((item) => item.ready).length}/{setupChecks.length} prêts</span></div>}
+        <label className="field-label" htmlFor="grading-question">Consigne / question de l’exercice</label>
+        <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
+        <button className="primary-button grade-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? 'Correction locale en cours…' : 'Analyse locale en cours…') : transcription ? 'Relancer l’analyse sans relire les images' : interfaceMode === 'teacher' ? 'Lancer la lecture et la correction' : 'Lire puis analyser les copies'}</button>
+        {interfaceMode === 'teacher' && <p className="launch-footnote">Aucune note n’est validée automatiquement. Après l’analyse, vous pourrez vérifier les éléments de preuve, ajuster chaque critère et finaliser la correction.</p>}
+      </section>}
+      {interfaceMode === 'teacher' && <div className="teacher-copy-footer"><button type="button" className="secondary-button" onClick={() => setTeacherStep('rubric')}>← Revoir le barème</button><span>Une seule copie à la fois · validation humaine avant finalisation</span></div>}
+      </>}
+
+      {interfaceMode === 'teacher' && teacherStep === 'progress' && isAnalyzing && <div className="workspace-heading processing-workspace-heading"><div><p className="eyebrow">ÉTAPE 3 SUR 3</p><h2>Suivi du traitement</h2></div><span className="step-count">{formatElapsed(elapsedSeconds)} ÉCOULÉES</span></div>}
+        {interfaceMode === 'teacher' && isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
+        <div className="analysis-spinner" aria-hidden="true" />
+        <div className="analysis-progress-copy">
+          <p className="eyebrow">TRAITEMENT LOCAL · 2 ÉTAPES</p>
+          <div className="analysis-steps" aria-label="Étapes de la correction">
+            <div className={'analysis-step ' + (analysisStage === 'reading' ? 'current' : analysisStage === 'grading' ? 'complete' : '')} aria-current={analysisStage === 'reading' ? 'step' : undefined}>
+              <span className="analysis-step-number">{analysisStage === 'grading' ? '✓' : '1'}</span>
+              <div><strong>Lire l’image</strong><small>{analysisStage === 'checking' ? 'En attente' : analysisStage === 'reading' ? 'Lecture en cours…' : 'Lecture terminée'}</small></div>
+            </div>
+            <div className={'analysis-step ' + (analysisStage === 'grading' ? 'current' : '')} aria-current={analysisStage === 'grading' ? 'step' : undefined}>
+              <span className="analysis-step-number">2</span>
+              <div><strong>Analyser et noter</strong><small>{analysisStage === 'checking' || analysisStage === 'reading' ? 'À venir' : 'Analyse en cours…'}</small></div>
+            </div>
+          </div>
+          <h3>{analysisStage === 'checking' ? 'Vérification des modèles Ollama…' : analysisStage === 'reading' ? 'Étape 1/2 — Lecture des images et transcription…' : 'Étape 2/2 — Analyse du contenu et attribution des points…'}</h3>
+          <p>{analysisStage === 'checking' ? 'Je vérifie que les deux modèles répondent, sans joindre de copie.' : analysisStage === 'reading' ? 'Le modèle de lecture transcrit chaque page localement. La transcription s’affiche au fil du streaming.' : 'Le modèle d’analyse applique le barème à la transcription. La proposition de correction arrive en streaming.'}</p>
+          {false && interfaceMode === 'diagnostic' && streamedOutput && <div className="streaming-preview" aria-live="polite"><strong>Réponse reçue en streaming</strong><pre>{streamedOutput}</pre></div>}
+          {elapsedSeconds >= 30 && <p className="analysis-long-wait">Cette analyse prend du temps : certains modèles locaux nécessitent plusieurs minutes, notamment avec plusieurs pages. Le temps affiché continue de mesurer l’attente.</p>}
+        </div>
+        <div className="analysis-timer" aria-label={`Temps écoulé : ${formatElapsed(elapsedSeconds)}`}>
+          <span>TEMPS ÉCOULÉ</span><strong>{formatElapsed(elapsedSeconds)}</strong>
+        </div>
+      </section>}
+
+      {isAnalyzing && interfaceMode === 'teacher' && analysisStage === 'reading' && <section className="live-copy-preview panel" aria-labelledby="live-copy-preview-title">
+        <div className="live-preview-heading"><div><p className="eyebrow">ÉTAPE 1 · LECTURE LOCALE</p><h3 id="live-copy-preview-title">La copie en cours de lecture</h3><p>Les pages restent visibles à côté du texte reconnu par le modèle local.</p></div><span className="live-preview-state">Lecture en cours</span></div>
+        <div className="live-copy-layout">
+          <div className="live-copy-pages" aria-label="Pages de la copie importée">
+            {images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-' + index}>
+              <img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page ${index + 1} de la copie en cours de lecture`} />
+              <figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption>
+            </figure>)}
+          </div>
+          <div className="live-transcription-panel"><div className="live-panel-heading"><span className="live-panel-icon" aria-hidden="true">Aa</span><div><strong>Transcription reconnue</strong><small>{transcription ? 'Texte extrait localement' : 'En attente de lecture'}</small></div></div>
+            {transcription ? <pre className="live-transcription-text">{transcription}</pre> : <div className="live-transcription-placeholder" role="status"><span className="live-text-skeleton" /><span className="live-text-skeleton short" /><span className="live-text-skeleton" /><p>Le texte apparaîtra dès que le modèle aura terminé la lecture.</p></div>}
+          </div>
+        </div>
+      </section>}
+      {isAnalyzing && interfaceMode === 'teacher' && analysisStage === 'grading' && <section className="live-analysis-preview panel" aria-labelledby="live-analysis-preview-title">
+        <div className="live-preview-heading"><div><p className="eyebrow">ÉTAPE 2 · ANALYSE DU BARÈME</p><h3 id="live-analysis-preview-title">Analyse de la réponse</h3><p>La transcription est confrontée aux critères du barème.</p></div><span className="live-preview-state analysis">Notation en cours</span></div>
+        <div className="live-analysis-context"><span className="live-panel-icon" aria-hidden="true">✓</span><div><strong>Transcription disponible</strong><p>{transcription ? transcription.trim().split(/\s+/).filter(Boolean).length + ' mots extraits de la copie' : 'La transcription est conservée pour cette analyse.'}</p></div></div>
+        <div className="live-analysis-criteria" aria-label="Critères en cours d’évaluation">{rubric.criteria.map((criterion) => <div className="live-analysis-criterion" key={criterion.id}><span>{criterion.title}</span><span className="live-score-placeholder" aria-hidden="true" /><small>Évaluation en cours</small></div>)}</div>
+        <div className="live-analysis-output" aria-live="polite"><div className="live-panel-heading"><span className="live-panel-icon" aria-hidden="true">✳</span><div><strong>Réponse du modèle</strong><small>{streamedOutput ? 'Réponse reçue en streaming' : 'Préparation de la proposition'}</small></div></div>{streamedOutput ? <pre>{streamedOutput}</pre> : <div className="live-transcription-placeholder"><span className="live-text-skeleton" /><span className="live-text-skeleton medium" /><span className="live-text-skeleton short" /></div>}</div>
+      </section>}
+
+      {interfaceMode === 'teacher' && teacherStep === 'copy' && (transcription || (correctionMode === 'separate' && subjectTranscription)) && <section className="transcription-review" aria-labelledby="transcription-review-title">
+        <details>
+          <summary id="transcription-review-title">
+            <span><strong>Vérifier le texte lu par l’IA</strong><small>Relisez la transcription pour repérer les erreurs de lecture avant de vous fier à la correction.</small></span>
+            <span className="transcription-review-action">Afficher le texte</span>
+          </summary>
+          <div className="transcription-review-content">
+            {correctionMode === 'separate' && subjectTranscription && <section className="transcription-text-block">
+              <h3>Texte du sujet de référence</h3>
+              <pre>{subjectTranscription}</pre>
+            </section>}
+            {transcription && <section className="transcription-text-block">
+              <h3>Texte de la copie étudiante</h3>
+              <pre>{transcription}</pre>
+            </section>}
+          </div>
+        </details>
+      </section>}
+
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 
-      {proposal && (interfaceMode === 'diagnostic' || teacherStep === 'review') && <section className="review-section">
+      {proposal && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section">
         <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{pendingCount} À VÉRIFIER</span></div>
         <section className="review-alerts" aria-label="Points nécessitant votre attention">
           <div className="review-alerts-heading"><div><span className="eyebrow">CONTRÔLE CIBLÉ</span><h3>Vérifications prioritaires</h3></div><span className="review-alert-count">{reviewInsights.flaggedCriteriaIds.length} critère(s)</span></div>
