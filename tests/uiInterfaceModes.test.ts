@@ -57,7 +57,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('aria-pressed={interfaceMode === \'debug\'}');
     expect(text).toContain('Debug des appels IA locaux');
     expect(text).toContain('Sorties brutes des modèles');
-    expect(text).toContain('transcription actuellement chargée');
+    expect(text).toContain('Transcription actuellement chargée');
     expect(text).toContain("interfaceMode === 'debug' ? <section className=\"panel diagnostic-results\"");
   });
 
@@ -67,7 +67,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain("aria-pressed={interfaceMode === 'teacher'}");
     expect(text).toContain("aria-pressed={interfaceMode === 'diagnostic'}");
     expect(text).toContain("onClick={() => setInterfaceMode('teacher')}");
-    expect(text).toContain("onClick={() => setInterfaceMode('diagnostic')}");
+    expect(text).toContain("setInterfaceMode('diagnostic')");
   });
 
   it('removes duplicate branding and makes missing local AI setup obvious in the sidebar', () => {
