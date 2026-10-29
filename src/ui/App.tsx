@@ -9,6 +9,7 @@ import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/diagnosticReference.ts';
 import { createDecisionMemoryEntries, fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT } from '../domain/localMemory.ts';
 import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/localCorrection.ts';
+import type { RubricImportProgress } from '../ports/correctionWorkspace.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewInsights, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
@@ -236,6 +237,9 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
+  const [rubricImportFileName, setRubricImportFileName] = useState('');
+  const [rubricImportProgress, setRubricImportProgress] = useState<RubricImportProgress | null>(null);
+  const [rubricImportEvents, setRubricImportEvents] = useState<string[]>([]);
   const [rubricImageImporting, setRubricImageImporting] = useState(false);
   const [rubricFileImporting, setRubricFileImporting] = useState(false);
   const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
@@ -397,16 +401,26 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     }
     setError('');
     setRubricImportMessage('');
+    setRubricImportFileName(file.name);
+    setRubricImportEvents([`Fichier sélectionné : ${file.name}`]);
+    setRubricImportProgress({ stage: 'preparing', message: 'Lecture du fichier local…' });
     setRubricFileImporting(true);
     try {
       const imported = await service.importRubric(file);
+      const total = imported.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
       setRubric(imported.rubric);
       setProposal(null);
       setReview([]);
       setTeacherQuestions('');
-      setRubricImportMessage(imported.warnings.length ? imported.warnings.join(' ') : `Barème « ${imported.rubric.title} » importé. Vérifiez les critères et le total avant de lancer la correction.`);
+      const summary = `Barème extrait : ${imported.rubric.criteria.length} critère(s), ${total} point(s) au total. Les critères sont affichés ci-dessous pour vérification et modification.`;
+      setRubricImportProgress({ stage: 'complete', message: summary });
+      setRubricImportEvents((events) => [...events, 'Lecture locale terminée.', summary]);
+      setRubricImportMessage(imported.warnings.length ? imported.warnings.join(' ') : summary);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible d’importer ce barème localement.');
+      const message = cause instanceof Error ? cause.message : 'Impossible d’importer ce barème localement.';
+      setError(message);
+      setRubricImportProgress({ stage: 'error', message });
+      setRubricImportEvents((events) => [...events, `Échec : ${message}`]);
     } finally {
       setRubricFileImporting(false);
     }
@@ -416,19 +430,35 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     if (!file) return;
     setError('');
     setRubricImportMessage('');
+    setRubricImportFileName(file.name);
+    setRubricImportEvents([`Fichier sélectionné : ${file.name}`]);
+    setRubricImportProgress({ stage: 'preparing', message: 'Préparation du fichier et conversion des pages en images dans le navigateur…' });
     setRubricImageImporting(true);
     try {
       if (!visionModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale dans le panneau latéral pour choisir un modèle de lecture.');
       const prepared = await service.prepareFiles([file]);
       if (prepared.length === 0) throw new Error('Aucune page du barème n’a pu être préparée.');
-      const imported = await service.importRubricImage(prepared, { endpoint, visionModel });
+      const preparedMessage = `${prepared.length} page(s) préparée(s) en images. Envoi au modèle de vision Ollama « ${visionModel} »…`;
+      setRubricImportProgress({ stage: 'preparing', message: preparedMessage, page: 0, totalPages: prepared.length });
+      setRubricImportEvents((events) => [...events, preparedMessage]);
+      const imported = await service.importRubricImage(prepared, { endpoint, visionModel }, (progress) => {
+        setRubricImportProgress(progress);
+        setRubricImportEvents((events) => events.at(-1) === progress.message ? events : [...events, progress.message]);
+      });
+      const total = imported.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
       setRubric(imported.rubric);
       setProposal(null);
       setReview([]);
       setTeacherQuestions('');
-      setRubricImportMessage(imported.warnings.join(' ') || `Barème « ${imported.rubric.title} » importé. Vérifiez les critères et le total.`);
+      const summary = `Barème extrait : ${imported.rubric.criteria.length} critère(s), ${total} point(s) au total. Les critères sont affichés ci-dessous pour vérification et modification.`;
+      setRubricImportProgress({ stage: 'complete', message: summary, page: prepared.length, totalPages: prepared.length });
+      setRubricImportEvents((events) => [...events, summary]);
+      setRubricImportMessage(imported.warnings.join(' ') || summary);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible d’extraire le barème avec le modèle de vision local.');
+      const message = cause instanceof Error ? cause.message : 'Impossible d’extraire le barème avec le modèle de vision local.';
+      setError(message);
+      setRubricImportProgress({ stage: 'error', message });
+      setRubricImportEvents((events) => [...events, `Échec : ${message}`]);
     } finally {
       setRubricImageImporting(false);
     }
@@ -1078,6 +1108,12 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           <label className="field-label" htmlFor="rubric-image-file">Ou importer une photo / un scan du barème (JPEG, PNG, WebP)</label>
           <FilePicker id="rubric-image-file" accept="image/jpeg,image/png,image/webp" disabled={rubricImageImporting} onFilesSelected={(files) => { void importRubricImageFromInput(files?.[0]); }} title="Importer une photo ou un scan" description="JPEG, PNG ou WebP · ou PDF multipage" actionLabel={rubricImageImporting ? 'Lecture en cours…' : 'Choisir une image'} compact />
           <p className="hint">{rubricImageImporting ? 'Lecture du barème par le modèle de vision local…' : 'Une seule requête au modèle de vision Ollama sélectionné, avec toutes les pages PDF dans l’ordre et une sortie JSON structurée. Les pages ne sont envoyées qu’à votre serveur Ollama configuré ; aucun service cloud n’est utilisé. Vérifiez toujours le résultat avant utilisation.'}</p>
+          {rubricImportEvents.length > 0 && <section className={`rubric-import-progress ${rubricImportProgress?.stage === 'error' ? 'has-error' : ''}`} aria-label="Suivi de l’import du barème" aria-live="polite">
+            <div className="rubric-import-progress-heading"><strong>Suivi de l’import</strong><span>{rubricImportFileName}</span></div>
+            <ol className="rubric-import-progress-events">{rubricImportEvents.map((event, index) => <li key={`${index}-${event}`}>{event}</li>)}</ol>
+            {rubricImportProgress && <p className="rubric-import-progress-current" role="status">{rubricImportProgress.message}</p>}
+            {rubricImportProgress?.stage === 'complete' && <p className="rubric-import-progress-review">Le résultat extrait est maintenant affiché dans les champs modifiables ci-dessous. Comparez chaque critère et ses points avec le document original avant de valider le barème.</p>}
+          </section>}
           {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
         </div>
         <div className="criteria-list">
