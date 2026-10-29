@@ -110,6 +110,16 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     const confidence: Confidence = item.confidence === 'low' || item.confidence === 'medium' || item.confidence === 'high'
       ? item.confidence
       : 'low';
+    const locationBox = isRecord(item.locationBox) ? item.locationBox : null;
+    const hasValidLocationBox = locationBox !== null &&
+      ['x', 'y', 'width', 'height'].every((key) =>
+        typeof locationBox[key] === 'number' && Number.isFinite(locationBox[key])) &&
+      Number(locationBox.x) >= 0 && Number(locationBox.y) >= 0 &&
+      Number(locationBox.x) <= 1000 && Number(locationBox.y) <= 1000 &&
+      Number(locationBox.width) > 0 && Number(locationBox.height) > 0 &&
+      Number(locationBox.x) + Number(locationBox.width) <= 1000 &&
+      Number(locationBox.y) + Number(locationBox.height) <= 1000;
+
     criteria.push({
       criterionId: item.criterionId,
       points,
@@ -118,14 +128,8 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
       ...(typeof item.pageNumber === 'number' && Number.isInteger(item.pageNumber) && item.pageNumber >= 1 ? { pageNumber: item.pageNumber } : {}),
       ...(text(item.annotationSuggestion) ? { annotationSuggestion: text(item.annotationSuggestion) } : {}),
       ...(text(item.locationHint) ? { locationHint: text(item.locationHint) } : {}),
-      ...(isRecord(item.locationBox) &&
-        ['x', 'y', 'width', 'height'].every((key) => typeof item.locationBox![key] === 'number' && Number.isFinite(item.locationBox![key])) &&
-        Number(item.locationBox.x) >= 0 && Number(item.locationBox.y) >= 0 &&
-        Number(item.locationBox.x) <= 1000 && Number(item.locationBox.y) <= 1000 &&
-        Number(item.locationBox.width) > 0 && Number(item.locationBox.height) > 0 &&
-        Number(item.locationBox.x) + Number(item.locationBox.width) <= 1000 &&
-        Number(item.locationBox.y) + Number(item.locationBox.height) <= 1000
-        ? { locationBox: { x: Number(item.locationBox.x), y: Number(item.locationBox.y), width: Number(item.locationBox.width), height: Number(item.locationBox.height) } }
+      ...(hasValidLocationBox
+        ? { locationBox: { x: Number(locationBox.x), y: Number(locationBox.y), width: Number(locationBox.width), height: Number(locationBox.height) } }
         : {}),
       confidence,
       ...(text(item.questionForTeacher) ? { questionForTeacher: text(item.questionForTeacher) } : {}),
