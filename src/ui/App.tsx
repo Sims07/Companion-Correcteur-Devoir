@@ -280,7 +280,6 @@ export function App({ service, archiveService, evaluationService }: { service: C
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
-  const [currentTimingRecordId, setCurrentTimingRecordId] = useState<string | null>(null);
   const [selectedComparisonIds, setSelectedComparisonIds] = useState<string[]>([]);
   const [streamedOutput, setStreamedOutput] = useState('');
   const [connectionMessage, setConnectionMessage] = useState('');
@@ -557,9 +556,6 @@ export function App({ service, archiveService, evaluationService }: { service: C
     const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
     setBusy(true);
     if (interfaceMode === 'diagnostic' && strategyOverride !== 'arbitrate-only') {
-      setCurrentTimingRecordId(null);
-      setReferenceScoreInputs({});
-      setReferenceMessage('');
     }
     if (interfaceMode === 'teacher') { setShowAiSettings(false); setTeacherStep('progress'); }
     setIsAnalyzing(true);
