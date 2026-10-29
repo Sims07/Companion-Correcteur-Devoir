@@ -25,3 +25,19 @@ describe('Diagnostic IA — indicateurs d’évaluation des LLM', () => {
     expect(styles).toContain('@media (max-width: 380px)');
   });
 });
+
+describe('Diagnostic IA — correction de référence facultative', () => {
+  it('keeps model experiments independent from a teacher reference', () => {
+    expect(appSource).toContain('Correction de référence');
+    expect(appSource).toContain('(facultative)');
+    expect(appSource).toContain('Aucune référence n’est nécessaire pour lancer ou comparer des essais.');
+  });
+
+  it('records teacher scores locally and displays model accuracy metrics', () => {
+    expect(appSource).toContain('saveDiagnosticReference');
+    expect(appSource).toContain('window.localStorage.setItem(timingHistoryKey, JSON.stringify(next))');
+    expect(appSource).toContain('Erreur moyenne :');
+    expect(appSource).toContain('Correspondances exactes :');
+    expect(appSource).toContain('Écart de note totale :');
+  });
+});
