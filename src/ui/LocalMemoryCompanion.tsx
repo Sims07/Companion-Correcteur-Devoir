@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
-import { fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, type LocalMemoryEntry } from '../domain/localMemory.ts';
+import { fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT, type LocalMemoryEntry } from '../domain/localMemory.ts';
 import type { LocalCorrection } from '../domain/localCorrection.ts';
 import { buildLocalMemoryContext, createTeacherMemoryEntry } from '../domain/localMemoryContext.ts';
 import './localMemory.css';
@@ -65,11 +65,17 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
     void refresh();
     void refreshCorrections();
     const updateRubric = () => setRubric(readRubricFingerprint());
+    const updateMemory = () => {
+      void refresh();
+      void refreshCorrections();
+    };
     document.addEventListener('input', updateRubric);
     window.addEventListener(LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, updateRubric);
+    window.addEventListener(LOCAL_MEMORY_UPDATED_EVENT, updateMemory);
     return () => {
       document.removeEventListener('input', updateRubric);
       window.removeEventListener(LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, updateRubric);
+      window.removeEventListener(LOCAL_MEMORY_UPDATED_EVENT, updateMemory);
     };
   }, [correctionId]);
 
