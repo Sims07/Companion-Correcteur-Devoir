@@ -3,7 +3,8 @@ import { FilePicker } from './components/FilePicker.tsx';
 import { DesignSystemSelect } from './components/DesignSystemSelect.tsx';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
 import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion } from '../domain/grading.ts';
-import { runModelEvaluation, type ModelEvaluationProgress } from '../domain/modelEvaluation.ts';
+import { runModelEvaluation, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot } from '../domain/modelEvaluation.ts';
+import { deleteModelEvaluation, listModelEvaluations, saveModelEvaluation } from '../adapters/storage/indexedDbMemory.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
@@ -260,9 +261,11 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [aiModelProfileMessage, setAiModelProfileMessage] = useState('');
   const [diagnosticRuns, setDiagnosticRuns] = useState<DiagnosticModelResult[]>([]);
   const [selectedEvaluationProfileIds, setSelectedEvaluationProfileIds] = useState<string[]>([]);
-  const [modelEvaluationResults, setModelEvaluationResults] = useState<Array<{ profileId: string; profileName: string; elapsedMs: number; readingMs: number; analysisMs: number; tokens: number | null; status: 'success' | 'failed' | 'cancelled'; transcription: string; raw: string; score: number | null; proposal: GradingProposal | null; error?: string }>>([]);
+  const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
+  const [savedModelEvaluations, setSavedModelEvaluations] = useState<ModelEvaluationRecord[]>([]);
   const [evaluationProgress, setEvaluationProgress] = useState<ModelEvaluationProgress | null>(null);
   const evaluationCancelledRef = useRef(false);
+  useEffect(() => { void listModelEvaluations().then(setSavedModelEvaluations).catch(() => setError('Impossible de lire l’historique local des évaluations.')); }, []);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>(() => readActiveAssignmentProfile().correctionMode);
   const [subjectImages, setSubjectImages] = useState<ImageInput[]>([]);
@@ -713,6 +716,30 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       ...(output.error ? { error: output.error } : {}),
     }));
     setModelEvaluationResults(results);
+    const savedRecord: ModelEvaluationRecord = {
+      id: 'evaluation-' + Date.now(),
+      completedAt: new Date().toISOString(),
+      assignmentId: activeAssignmentId,
+      assignmentTitle: assignmentTitle.trim() || 'Devoir sans titre',
+      question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+      rubricSnapshot: structuredClone(rubric),
+      correctionMode,
+      images: structuredClone(images),
+      subjectImages: structuredClone(subjectImages),
+      subjectTranscription,
+      configurations: selectedProfiles.map((profile) => ({
+        id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
+        visionModel: profile.configuration.visionModel, analysisModel: profile.configuration.analysisModel,
+        thinking: profile.configuration.analysisThinking,
+      })),
+      results,
+    };
+    try {
+      await saveModelEvaluation(savedRecord);
+      setSavedModelEvaluations((current) => [savedRecord, ...current.filter((item) => item.id !== savedRecord.id)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)));
+    } catch {
+      setError('Les résultats sont disponibles dans cette session, mais leur sauvegarde dans l’historique local a échoué.');
+    }
     setIsAnalyzing(false);
     setBusy(false);
   }
@@ -1169,6 +1196,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         <div className="settings-actions"><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 2 || !images.length} onClick={() => void startModelEvaluation()}>Lancer l’évaluation indépendante</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
         {busy && streamedOutput && <section className="transcription-review" aria-live="polite"><h3>Réponse du modèle en streaming</h3><pre>{streamedOutput}</pre></section>}
         {evaluationProgress && <div className="evaluation-progress" role="status"><strong>{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation annulée' : 'Évaluation en cours'}</strong><span>{evaluationProgress.completed} / {evaluationProgress.total} configuration(s)</span>{evaluationProgress.currentConfiguration && <p>Configuration active : {evaluationProgress.currentConfiguration.name} · lecture de l’image puis analyse</p>}<div className="evaluation-progress-track"><span style={{ width: (evaluationProgress.completed / Math.max(1, evaluationProgress.total) * 100) + '%' }} /></div></div>}
+        {savedModelEvaluations.length > 0 && <section className="evaluation-result-list" aria-labelledby="model-evaluation-history-title"><h3 id="model-evaluation-history-title">Historique local des expériences</h3><p className="hint">Les images originales, le barème, les configurations et les résultats sont conservés dans IndexedDB sur cet appareil.</p>{savedModelEvaluations.map((record) => <article key={record.id} className="transcription-review"><div className="workspace-heading"><div><h4>{record.assignmentTitle}</h4><p>{new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {record.images.length} page(s)</p></div><button type="button" className="text-button" onClick={() => { setModelEvaluationResults(record.results); setRubric(structuredClone(record.rubricSnapshot)); setImages(structuredClone(record.images)); setQuestion(record.question); setAssignmentTitle(record.assignmentTitle); setCorrectionMode(record.correctionMode); setSubjectImages(structuredClone(record.subjectImages)); setSubjectTranscription(record.subjectTranscription); }}>Consulter / recharger la référence</button></div><ul>{record.results.map((result) => <li key={result.profileId}><strong>{result.profileName}</strong> · {result.status} · {result.score === null ? 'note non exploitable' : result.score + ' / ' + record.rubricSnapshot.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)} · {formatElapsed(Math.round(result.elapsedMs / 1000))}</li>)}</ul><button type="button" className="text-button" onClick={() => { void deleteModelEvaluation(record.id).then(() => setSavedModelEvaluations((current) => current.filter((item) => item.id !== record.id))).catch(() => setError('Impossible de supprimer cette expérience locale.')); }}>Supprimer cette expérience</button></article>)}</section>}
         {modelEvaluationResults.length > 0 && <div className="evaluation-result-list"><h3>Résultats de cette expérience</h3>{modelEvaluationResults.map((result) => <article key={result.profileId} className="transcription-review"><h4>{result.profileName}</h4><p>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Annulé' : 'Échec'} · Total {formatElapsed(Math.round(result.elapsedMs / 1000))} · Lecture {result.readingMs ? formatElapsed(Math.round(result.readingMs / 1000)) : '—'} · Analyse {result.analysisMs ? formatElapsed(Math.round(result.analysisMs / 1000)) : '—'} · Tokens {result.tokens === null ? 'non mesurés' : formatTokenCount(result.tokens)} · {result.score === null ? 'Note non exploitable' : result.score + ' / ' + validation.maximumPoints}</p>{result.error && <p className="validation" role="alert">{result.error}</p>}{result.transcription && <details><summary>Transcription extraite indépendamment</summary><pre>{result.transcription}</pre></details>}{result.proposal && <details open><summary>Détail par critère et justifications</summary><ul>{result.proposal.criteria.map((criterion) => { const rubricCriterion = rubric.criteria.find((item) => item.id === criterion.criterionId); return <li key={criterion.criterionId}><strong>{rubricCriterion?.title ?? criterion.criterionId} : {criterion.points} / {rubricCriterion?.maxPoints ?? '—'}</strong><p>{criterion.rationale || 'Aucune justification fournie.'}</p><p><strong>Preuve :</strong> {criterion.evidence || 'Aucune preuve textuelle fournie.'}</p><small>Confiance déclarée : {criterion.confidence === 'high' ? 'élevée' : criterion.confidence === 'medium' ? 'moyenne' : 'faible'}</small></li>; })}</ul>{result.proposal.questionsForTeacher.length > 0 && <div className="diagnostic-questions"><strong>Questions à vérifier</strong><ul>{result.proposal.questionsForTeacher.map((question, index) => <li key={index}>{question}</li>)}</ul></div>}</details>}{result.raw && <details><summary>Réponse brute</summary><pre>{result.raw}</pre></details>}</article>)}</div>}
       </section>}
       {interfaceMode === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
