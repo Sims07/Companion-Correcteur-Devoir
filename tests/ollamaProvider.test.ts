@@ -136,7 +136,7 @@ describe('Ollama adapter', () => {
     await expect(provider.generate(request, undefined, (stage) => stages.push(stage))).resolves.toBe('{"criteria":[]}');
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    const visionBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { model: string; messages: Array<{ content: string; images?: string[] }>; format?: string; think?: boolean };
+    const visionBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { model: string; messages: Array<{ content: string; images?: string[] }>; format?: string; think?: boolean; keep_alive?: string | number };
     expect(visionBody.model).toBe('gemma3:4b');
     expect(visionBody.messages[0].images).toEqual(['aGVsbG8=']);
     expect(visionBody.messages[0].content).toContain('restitue tout le texte lisible');
@@ -146,7 +146,7 @@ describe('Ollama adapter', () => {
     expect(visionBody.think).toBe(false);
     expect(visionBody.keep_alive).toBe(0); // The only page: release vision before analysis.
 
-    const analysisBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { model: string; messages: Array<{ content: string; images?: string[] }>; format?: string; think?: boolean };
+    const analysisBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { model: string; messages: Array<{ content: string; images?: string[] }>; format?: string; think?: boolean; keep_alive?: string | number };
     expect(analysisBody.model).toBe('qwen3.5:4b');
     expect(analysisBody.messages[0].content).toContain('Transcription fidèle de la copie');
     expect(analysisBody.messages[0].content).toContain('BARÈME ACTUEL (JSON, référence de notation)');
