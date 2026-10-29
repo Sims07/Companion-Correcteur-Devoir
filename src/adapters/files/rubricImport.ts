@@ -124,7 +124,11 @@ async function extractPdfText(file: File): Promise<string> {
       pages.push(`[PAGE ${number} / ${pdf.numPages}]\n${[...lines.entries()].sort(([left], [right]) => right - left).map(([, words]) => words.join(' ')).join('\n')}`);
       page.cleanup();
     }
-    return pages.join('\n');
+    const extractedText = pages.join('\n');
+    if (!pages.some((page) => page.replace(/^\[PAGE \d+ \/ \d+\]\s*/m, '').trim())) {
+      throw new Error('Aucun texte n’a pu être extrait de ce document. S’il s’agit d’un scan, utilisez « importer une photo / un scan du barème » pour lancer la lecture visuelle locale.');
+    }
+    return extractedText;
   } finally {
     await task.destroy();
   }
