@@ -129,3 +129,20 @@ test('diagnostic history compares two saved experiments with visual charts', asy
   await expect(page.getByText('Essai A').first()).toBeVisible();
   await expect(page.getByText('Essai B').first()).toBeVisible();
 });
+
+
+test('model evaluation and raw debug are separate workspaces', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Évaluation indépendante des configurations' })).toBeVisible();
+  await expect(page.getByText(/Enregistrez au moins deux configurations/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Debug', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Debug des appels IA locaux' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Évaluation indépendante des configurations' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Sorties brutes des modèles (0)' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
+  await expect(page.getByRole('heading', { name: 'Évaluation indépendante des configurations' })).toBeVisible();
+});
