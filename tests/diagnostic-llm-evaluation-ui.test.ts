@@ -81,7 +81,7 @@ describe('Diagnostic IA — comparaison graphique des essais conservés', () => 
     expect(appSource).toContain('Proximité de la référence');
     expect(appSource).toContain('rubricSnapshot');
     expect(appSource).toContain('Erreur moyenne');
-    expect(appSource).toContain('buildDiagnosticScore(parsed, rubric).modelScore');
+    expect(appSource).toContain('buildDiagnosticScore(parsed, recordRubric)');
     expect(appSource).toContain('setSelectedComparisonIds');
   });
 
