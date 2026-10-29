@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const appSource = readFileSync(resolve(process.cwd(), 'src/ui/App.tsx'), 'utf8');
+const domainSource = readFileSync(resolve(process.cwd(), 'src/domain/modelEvaluation.ts'), 'utf8');
 const styles = readFileSync(resolve(process.cwd(), 'src/ui/correctionFlow.css'), 'utf8');
 const evaluationStyles = readFileSync(resolve(process.cwd(), 'src/ui/styles.css'), 'utf8');
 
@@ -120,5 +121,35 @@ describe('Évaluation des modèles — navigation par espace', () => {
     expect(evaluationStyles).toContain('.evaluation-results-workspace[data-evaluation-step="results"] .evaluation-result-list');
     expect(evaluationStyles).toContain('.evaluation-results-workspace[data-evaluation-step="history"] .evaluation-progress');
     expect(evaluationStyles).toContain('.evaluation-step-nav button.is-active');
+  });
+});
+
+
+describe('Évaluation des modèles — comparaison graphique de l’historique', () => {
+  it('stores token usage separately for reading and analysis while preserving legacy records', () => {
+    expect(appSource).toContain("sumReportedTokensForStage(measuredRuns, 'reading')");
+    expect(appSource).toContain('readingTokens: output.value?.readingTokens ?? null');
+    expect(appSource).toContain('analysisTokens: output.value?.analysisTokens ?? null');
+    expect(domainSource).toContain('readingTokens?: number | null');
+    expect(domainSource).toContain('analysisTokens?: number | null');
+  });
+
+  it('lets teachers select two saved experiments and compare four visual indicators', () => {
+    expect(appSource).toContain('selectedEvaluationHistoryIds');
+    expect(appSource).toContain('Sélectionnez deux expériences');
+    expect(appSource).toContain('Deux expériences, quatre indicateurs');
+    expect(appSource).toContain("title: 'Temps de lecture'");
+    expect(appSource).toContain("title: 'Temps d’analyse'");
+    expect(appSource).toContain("title: 'Tokens de lecture'");
+    expect(appSource).toContain("title: 'Tokens d’analyse'");
+    expect(appSource).toContain("aria-label={'Graphique ' + metric.title}");
+    expect(appSource).toContain('Non mesuré');
+  });
+
+  it('styles the comparison charts responsively and respects reduced-motion settings', () => {
+    expect(evaluationStyles).toContain('.evaluation-history-chart-grid');
+    expect(evaluationStyles).toContain('.evaluation-history-bar-fill.experiment-1');
+    expect(evaluationStyles).toContain('@media(max-width:760px){.evaluation-history-selection');
+    expect(evaluationStyles).toContain('prefers-reduced-motion:reduce){.evaluation-history-bar-fill');
   });
 });
