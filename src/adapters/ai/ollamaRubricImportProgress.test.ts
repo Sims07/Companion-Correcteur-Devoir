@@ -9,12 +9,12 @@ const image = (fileName: string): ImageInput => ({
   fileName,
 });
 
-function response() {
+function response(criterionTitle = 'Membrane cellulaire') {
   return new Response(JSON.stringify({
     message: {
       content: JSON.stringify({
         title: 'Barème de biologie',
-        criteria: [{ title: 'Membrane cellulaire', description: 'Décrire sa fonction', maxPoints: 2 }],
+        criteria: [{ title: criterionTitle, description: 'Décrire sa fonction', maxPoints: 2 }],
       }),
     },
   }), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -41,7 +41,8 @@ describe('rubric import progress', () => {
 
   it('reports progress for each page of a multi-page PDF', async () => {
     const progress: RubricImportProgress[] = [];
-    const fetchMock = vi.fn(async () => response()) as unknown as typeof fetch;
+    let requestNumber = 0;
+    const fetchMock = vi.fn(async () => response(`Critère ${++requestNumber}`)) as unknown as typeof fetch;
 
     const result = await importRubricImageWithOllama(
       [image('bareme.pdf · page 1'), image('bareme.pdf · page 2')],
