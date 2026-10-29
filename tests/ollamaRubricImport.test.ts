@@ -8,37 +8,63 @@ const validRubric = { title: 'Barème de biologie', criteria: [
 ]};
 const page = (base64: string, fileName: string) => ({ base64, mimeType: 'image/png', fileName });
 describe('importRubricImageWithOllama', () => {
-  it('analyses each PDF page in an isolated local vision request and combines the results in page order', async () => {
-    const pageOneRubric = { ...validRubric, criteria: validRubric.criteria.slice(0, 2) };
-    const pageTwoRubric = { ...validRubric, criteria: validRubric.criteria.slice(2) };
-    const response = (rubric: unknown) => new Response(JSON.stringify({ message: { content: JSON.stringify(rubric) } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  const visionResponse = (content: string) => new Response(JSON.stringify({ message: { content } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  const analysisResponse = (rubric: unknown) => new Response(JSON.stringify({ message: { content: JSON.stringify(rubric) } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  it('transcribes each PDF page with vision and structures all pages with analysis in page order', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(response(pageOneRubric))
-      .mockResolvedValueOnce(response(pageTwoRubric));
+      .mockResolvedValueOnce(visionResponse('Page 1 : Questions 1 et 2, 5 points chacune.'))
+      .mockResolvedValueOnce(visionResponse('Page 2 : Questions 3 et 4, 5 points chacune.'))
+      .mockResolvedValueOnce(analysisResponse(validRubric));
     const pages = [page('PAGE_ONE', 'bareme.pdf · page 1'), page('PAGE_TWO', 'bareme.pdf · page 2')];
-    const result = await importRubricImageWithOllama(pages, { endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b' }, fetchMock);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls.map((call) => JSON.parse(call[1].body as string).messages[0].images)).toEqual([['PAGE_ONE'], ['PAGE_TWO']]);
+    const result = await importRubricImageWithOllama(pages, {
+      endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b', analysisModel: 'text-model',
+    }, fetchMock);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.slice(0, 2).map((call) => JSON.parse(call[1].body as string).messages[0].images)).toEqual([['PAGE_ONE'], ['PAGE_TWO']]);
     const firstBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
-    expect(firstBody.model).toBe('qwen3.5:4b'); expect(firstBody.stream).toBe(false); expect(firstBody.think).toBe(false);
-    expect(firstBody.messages[0].content).toContain('Cette requête contient une seule page');
+    expect(firstBody.model).toBe('qwen3.5:4b');
+    expect(firstBody.stream).toBe(false);
+    expect(firstBody.think).toBe(false);
+    expect(firstBody.messages[0].content).toContain('Transcris ce qui est réellement visible');
+    const analysisBody = JSON.parse(fetchMock.mock.calls[2][1].body as string);
+    expect(analysisBody.model).toBe('text-model');
+    expect(analysisBody.messages[0].images).toBeUndefined();
+    expect(analysisBody.messages[0].content).toContain('<transcription_page_1>');
+    expect(analysisBody.messages[0].content).toContain('<transcription_page_2>');
     expect(result.rubric.criteria.map(({ title, maxPoints }) => [title, maxPoints])).toEqual([
       ['Question 1 — Photosynthèse', 5], ['Question 2 — Membrane plasmique', 5], ['Question 3 — Respiration cellulaire', 5], ['Question 4 — ADN et protéines', 5],
     ]);
-    expect(result.warnings.join(' ')).toContain('page par page');
+    expect(result.warnings.join(' ')).toContain('modèle de vision local');
+    expect(result.warnings.join(' ')).toContain('modèle d’analyse local');
   });
-  it('accepts one image for a photo rubric', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: { content: JSON.stringify(validRubric) } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-    await importRubricImageWithOllama(page('ONE_PAGE', 'bareme.png'), { endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b' }, fetchMock);
+
+  it('accepts one image for a photo rubric using both configured models', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(visionResponse('Question 1 : photosynthèse, 5 points.'))
+      .mockResolvedValueOnce(analysisResponse(validRubric));
+    await importRubricImageWithOllama(page('ONE_PAGE', 'bareme.png'), {
+      endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'text-model',
+    }, fetchMock);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).messages[0].images).toEqual(['ONE_PAGE']);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string).messages[0].images).toBeUndefined();
   });
+
   it('rejects an empty page list before making a network request', async () => {
     const fetchMock = vi.fn();
-    await expect(importRubricImageWithOllama([], { endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b' }, fetchMock)).rejects.toThrow('Aucune page');
+    await expect(importRubricImageWithOllama([], { endpoint: 'http://localhost:11434' }, fetchMock)).rejects.toThrow('Aucune page');
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
   it('rejects invalid model output instead of importing an empty rubric', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: { content: JSON.stringify({ title: 'Vide', criteria: [] }) } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-    await expect(importRubricImageWithOllama(page('ONE_PAGE', 'bareme.png'), { endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b' }, fetchMock)).rejects.toThrow();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(visionResponse('Question 1 : 2 points.'))
+      .mockResolvedValueOnce(analysisResponse({ title: 'Vide', criteria: [] }));
+    await expect(importRubricImageWithOllama(page('ONE_PAGE', 'bareme.png'), {
+      endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b', analysisModel: 'text-model',
+    }, fetchMock)).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
