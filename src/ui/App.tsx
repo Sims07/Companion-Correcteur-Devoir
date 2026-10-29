@@ -8,6 +8,7 @@ import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/diagnosticReference.ts';
 import { createDecisionMemoryEntries, fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT } from '../domain/localMemory.ts';
 import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/localCorrection.ts';
+import type { RubricImportProgress } from '../ports/correctionWorkspace.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewInsights, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
@@ -235,6 +236,9 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
+  const [rubricImportFileName, setRubricImportFileName] = useState('');
+  const [rubricImportProgress, setRubricImportProgress] = useState<RubricImportProgress | null>(null);
+  const [rubricImportEvents, setRubricImportEvents] = useState<string[]>([]);
   const [rubricImageImporting, setRubricImageImporting] = useState(false);
   const [rubricFileImporting, setRubricFileImporting] = useState(false);
   const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
@@ -1077,6 +1081,12 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           <label className="field-label" htmlFor="rubric-image-file">Ou importer une photo / un scan du barème (JPEG, PNG, WebP)</label>
           <FilePicker id="rubric-image-file" accept="image/jpeg,image/png,image/webp" disabled={rubricImageImporting} onFilesSelected={(files) => { void importRubricImageFromInput(files?.[0]); }} title="Importer une photo ou un scan" description="JPEG, PNG ou WebP · ou PDF multipage" actionLabel={rubricImageImporting ? 'Lecture en cours…' : 'Choisir une image'} compact />
           <p className="hint">{rubricImageImporting ? 'Lecture du barème par le modèle de vision local…' : 'Une seule requête au modèle de vision Ollama sélectionné, avec toutes les pages PDF dans l’ordre et une sortie JSON structurée. Les pages ne sont envoyées qu’à votre serveur Ollama configuré ; aucun service cloud n’est utilisé. Vérifiez toujours le résultat avant utilisation.'}</p>
+          {rubricImportEvents.length > 0 && <section className={`rubric-import-progress ${rubricImportProgress?.stage === 'error' ? 'has-error' : ''}`} aria-label="Suivi de l’import du barème" aria-live="polite">
+            <div className="rubric-import-progress-heading"><strong>Suivi de l’import</strong><span>{rubricImportFileName}</span></div>
+            <ol className="rubric-import-progress-events">{rubricImportEvents.map((event, index) => <li key={`${index}-${event}`}>{event}</li>)}</ol>
+            {rubricImportProgress && <p className="rubric-import-progress-current" role="status">{rubricImportProgress.message}</p>}
+            {rubricImportProgress?.stage === 'complete' && <p className="rubric-import-progress-review">Le résultat extrait est maintenant affiché dans les champs modifiables ci-dessous. Comparez chaque critère et ses points avec le document original avant de valider le barème.</p>}
+          </section>}
           {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
         </div>
         <div className="criteria-list">
