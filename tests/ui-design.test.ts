@@ -8,6 +8,7 @@ const memoryStylesheet = readFileSync(new URL('../src/ui/localMemory.css', impor
 const memoryComponent = readFileSync(new URL('../src/ui/LocalMemoryCompanion.tsx', import.meta.url), 'utf8');
 const mainEntry = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
 const appComponent = readFileSync(new URL('../src/ui/App.tsx', import.meta.url), 'utf8');
+const dropdownComponent = readFileSync(new URL('../src/ui/components/DesignSystemSelect.tsx', import.meta.url), 'utf8');
 
 describe('UI design system', () => {
   it('does not present a location hint as a handwritten comment', () => {
@@ -168,5 +169,16 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('.sidebar-assignment-item.active');
     expect(correctionFlowStylesheet).toContain('.sidebar-new-assignment');
     expect(correctionFlowStylesheet).toContain('@media (max-width: 720px)');
+  });
+
+  it('routes every application dropdown through the shared design-system control', () => {
+    expect(appComponent).not.toMatch(/<select\\b/);
+    expect(appComponent).toContain('<DesignSystemSelect id="assignment-education-level"');
+    expect(appComponent).toContain('<DesignSystemSelect id="diagnostic-strategy"');
+    expect(dropdownComponent).toContain("'design-system-select'");
+    expect(stylesheet).toContain('.design-system-select {');
+    expect(stylesheet).toContain('appearance: none;');
+    expect(stylesheet).toContain('.design-system-select:focus-visible');
+    expect(stylesheet).toContain('.design-system-select:disabled');
   });
 });
