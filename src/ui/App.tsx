@@ -5,7 +5,7 @@ import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type Re
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
-import { fingerprintRubric } from '../domain/localMemory.ts';
+import { createDecisionMemoryEntries, fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT } from '../domain/localMemory.ts';
 import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/localCorrection.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
@@ -147,6 +147,18 @@ function rubricAsJson(rubric: Rubric): string {
   return JSON.stringify(rubric, null, 2);
 }
 
+function getLocalMemoryCorrectionId(): string | null {
+  try {
+    const existing = window.localStorage.getItem(LOCAL_MEMORY_CORRECTION_ID_KEY);
+    if (existing) return existing;
+    const id = `correction-${crypto.randomUUID()}`;
+    window.localStorage.setItem(LOCAL_MEMORY_CORRECTION_ID_KEY, id);
+    return id;
+  } catch {
+    return null;
+  }
+}
+
 export function App({ service, archiveService }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService }) {
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
@@ -219,6 +231,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         window.localStorage.setItem(assignmentProfilesKey, JSON.stringify(next));
         window.localStorage.setItem(activeAssignmentKey, activeAssignmentId);
         window.localStorage.setItem(assignmentTitleKey, assignmentTitle);
+        window.localStorage.setItem(LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, fingerprintRubric(rubric.title, rubricAsJson(rubric)));
+        window.dispatchEvent(new Event(LOCAL_MEMORY_RUBRIC_UPDATED_EVENT));
       } catch { /* Keep the current assignment usable when browser storage is unavailable. */ }
       return next;
     });
@@ -472,14 +486,41 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     };
     try {
       await archiveService.saveCorrection(correction);
+      const memoryCorrectionId = getLocalMemoryCorrectionId();
+      const decisionEntries = createDecisionMemoryEntries({
+        correctionId: memoryCorrectionId ?? id,
+        rubricFingerprint: correction.rubricFingerprint,
+        sourceCorrectionId: id,
+        rubric,
+        proposal,
+        review,
+        createdAt: now,
+      });
+      let savedDecisionCount = 0;
+      let memorySaveFailed = decisionEntries.length > 0 && !memoryCorrectionId;
+      if (memoryCorrectionId) {
+        try {
+          for (const entry of decisionEntries) {
+            await archiveService.saveMemory(entry);
+            savedDecisionCount += 1;
+          }
+        } catch {
+          memorySaveFailed = decisionEntries.length > 0;
+        }
+      }
       const saved = await archiveService.listCorrections();
       setArchivedCorrections(saved.filter((item) => Boolean(item.snapshot)));
       setCurrentCorrectionId(id);
       setIsFinalized(true);
       setArchiveMessage('Correction enregistrée localement avec la copie et les éléments de révision.');
+      const memoryStatus = savedDecisionCount > 0
+        ? ` ${savedDecisionCount} décision(s) ajustée(s) ou commentée(s) ont été conservées dans la mémoire locale pour les prochaines analyses de ce contexte.`
+        : memorySaveFailed
+          ? ' La correction est archivée, mais la mémoire locale des décisions n’a pas pu être mise à jour.'
+          : '';
       setReviewMessage(teacherQuestions.trim()
-        ? 'Correction finalisée et archivée sur cet appareil. Vérifiez les questions ouvertes avant de communiquer la note.'
-        : 'Correction finalisée et archivée sur cet appareil. Vous pourrez la retrouver dans « Corrections enregistrées ».');
+        ? `Correction finalisée et archivée sur cet appareil.${memoryStatus} Vérifiez les questions ouvertes avant de communiquer la note.`
+        : `Correction finalisée et archivée sur cet appareil.${memoryStatus} Vous pourrez la retrouver dans « Corrections enregistrées ».`);
     } catch {
       setIsFinalized(false);
       setReviewMessage('La correction n’a pas pu être archivée dans le stockage local. Vérifiez l’espace disponible du navigateur puis réessayez.');
