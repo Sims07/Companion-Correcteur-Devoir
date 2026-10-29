@@ -45,7 +45,20 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
     if (event.error) throw new Error('Ollama signale une erreur pendant la génération.');
     const chunk = event.message?.content ?? '';
     if (chunk) { content += chunk; onChunk?.(chunk); }
-    if (event.done || event.prompt_eval_count !== undefined || event.eval_count !== undefined || event.usage !== undefined) finalEvent = event;
+    if (event.done || event.prompt_eval_count !== undefined || event.eval_count !== undefined || event.usage !== undefined) {
+      // Some compatible streaming endpoints emit usage in a separate final metadata event.
+      // Merge it with the done event instead of accidentally discarding the counters.
+      finalEvent = {
+        ...finalEvent,
+        ...event,
+        prompt_eval_count: event.prompt_eval_count ?? finalEvent?.prompt_eval_count,
+        eval_count: event.eval_count ?? finalEvent?.eval_count,
+        usage: event.usage ?? finalEvent?.usage,
+        eval_duration: event.eval_duration ?? finalEvent?.eval_duration,
+        prompt_eval_duration: event.prompt_eval_duration ?? finalEvent?.prompt_eval_duration,
+        load_duration: event.load_duration ?? finalEvent?.load_duration,
+      };
+    }
   };
   try {
     while (true) {
