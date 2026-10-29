@@ -99,6 +99,7 @@ test('teacher journey shows one task at a time and keeps Ollama settings tucked 
 
   await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
   await expect(page.getByRole('navigation', { name: 'Étapes du devoir' })).toHaveCount(0);
-  await expect(page.getByLabel('Stratégie de comparaison')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Lire puis analyser les copies' })).toBeDisabled();
+  await expect(page.getByLabel('Nom de la configuration')).toBeVisible();
+  await expect(page.getByLabel('Modèle de lecture des images')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Lancer l’expérience' })).toBeDisabled();
 });
