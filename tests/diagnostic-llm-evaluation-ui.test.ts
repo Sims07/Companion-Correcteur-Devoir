@@ -76,7 +76,11 @@ describe('Diagnostic IA — comparaison graphique des essais conservés', () => 
     expect(appSource).toContain('Tokens d’entrée');
     expect(appSource).toContain('Tokens générés');
     expect(appSource).toContain('Temps et tokens par modèle / étape');
-    expect(appSource).toContain('Note par modèle');
+    expect(appSource).toContain('Qualité, coût et vitesse par modèle');
+    expect(appSource).toContain('Compromis entre qualité et temps');
+    expect(appSource).toContain('Proximité de la référence');
+    expect(appSource).toContain('rubricSnapshot');
+    expect(appSource).toContain('Erreur moyenne');
     expect(appSource).toContain('buildDiagnosticScore(parsed, rubric).modelScore');
     expect(appSource).toContain('setSelectedComparisonIds');
   });
@@ -84,6 +88,9 @@ describe('Diagnostic IA — comparaison graphique des essais conservés', () => 
   it('styles comparison charts responsively and respects reduced-motion preferences', () => {
     expect(styles).toContain('.diagnostic-comparison-charts');
     expect(styles).toContain('.diagnostic-comparison-models');
+    expect(styles).toContain('.diagnostic-dashboard-kpis');
+    expect(styles).toContain('.diagnostic-scatter');
+    expect(styles).toContain('.diagnostic-model-score-grid');
     expect(styles).toContain('@media (max-width: 520px)');
     expect(styles).toContain('prefers-reduced-motion: reduce');
   });
