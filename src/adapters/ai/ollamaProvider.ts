@@ -584,7 +584,7 @@ export async function importRubricTextWithOllama(
 
   // Prevent a model from hallucinating numbered questions that do not exist in the extracted source.
   // PDF page markers are metadata; they must never be interpreted as question numbers.
-  const questionNumberPattern = /\\b(?:question|quest\\.?|exercice|probl[eè]me|q)\\s*(?:n[°o]\\s*)?(\\d{1,3})\\b/gi;
+  const questionNumberPattern = /\b(?:question|quest\.?|exercice|probl[eè]me|q)\s*(?:n[°o]\s*)?(\d{1,3})\b/gi;
   const sourceQuestionNumbers = new Set<number>();
   for (const match of text.matchAll(questionNumberPattern)) sourceQuestionNumbers.add(Number(match[1]));
   if (sourceQuestionNumbers.size > 0) {
@@ -592,7 +592,7 @@ export async function importRubricTextWithOllama(
       if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
       const title = (item as Record<string, unknown>).title;
       if (typeof title !== 'string') return [];
-      const match = title.match(/^\\s*(?:question|quest\\.?|exercice|probl[eè]me|q)\\s*(?:n[°o]\\s*)?(\\d{1,3})\\b/i);
+      const match = title.match(/^\s*(?:question|quest\.?|exercice|probl[eè]me|q)\s*(?:n[°o]\s*)?(\d{1,3})\b/i);
       return match && !sourceQuestionNumbers.has(Number(match[1])) ? [match[1]] : [];
     });
     if (unsupportedQuestions.length > 0) {
