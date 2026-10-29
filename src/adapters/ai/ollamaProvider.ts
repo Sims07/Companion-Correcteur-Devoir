@@ -437,7 +437,7 @@ export async function importRubricImageWithOllama(
   // Isolate each PDF page in its own request so the model cannot confuse page order with question numbering.
   if (images.length > 1) {
     const pageResults: ImportedRubric[] = [];
-    for (const image of images) {
+    for (const [index, image] of images.entries()) {
       onProgress?.({ stage: 'sending', page: index + 1, totalPages: images.length, message: `Envoi de la page ${index + 1} sur ${images.length} à Ollama…` });
       pageResults.push(await importRubricImageWithOllama(image, settings, fetchImpl, (event) => onProgress?.({ ...event, page: index + 1, totalPages: images.length })));
       onProgress?.({ stage: 'page-complete', page: index + 1, totalPages: images.length, message: `Page ${index + 1} sur ${images.length} analysée : ${pageResults[index].rubric.criteria.length} critère(s) détecté(s).` });
