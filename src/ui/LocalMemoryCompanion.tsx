@@ -109,7 +109,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
   function startNewCorrection() {
     const id = `correction-${crypto.randomUUID()}`;
     const newLabel = 'Nouvelle correction';
-    window.localStorage.setItem(CORRECTION_ID_KEY, id);
+    window.localStorage.setItem(LOCAL_MEMORY_CORRECTION_ID_KEY, id);
     window.localStorage.setItem(CORRECTION_LABEL_KEY, newLabel);
     setCorrectionId(id);
     setLabel(newLabel);
