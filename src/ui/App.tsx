@@ -1365,7 +1365,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           ];
           const allGroups = usage.flatMap((item, index) => item.groups.map((group) => ({ ...group, runIndex: index })));
           const rubricFor = (record: TimingRecord) => record.rubricSnapshot ?? rubric;
-          const rubricSignature = (record: TimingRecord) => JSON.stringify(rubricFor(record).criteria.map((criterion) => ({ id: criterion.id, maxPoints: criterion.maxPoints })));
+          const rubricSignature = (record: TimingRecord) => JSON.stringify(rubricFor(record).criteria.map((criterion) => ({ id: criterion.id, title: criterion.title, description: criterion.description, maxPoints: criterion.maxPoints })));
           const referenceSource = selectedComparisons.find((record) => {
             const reference = record.referenceScores;
             return Boolean(reference && validateDiagnosticReference(reference, rubricFor(record)).valid);
@@ -1446,7 +1446,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
               <div className="diagnostic-section-title"><div><p className="eyebrow">QUALITÉ × VITESSE × COÛT</p><h4>Compromis entre qualité et temps</h4><p>{hasReferenceQuality ? 'Plus un point est haut, plus sa note est proche de la référence du professeur. La taille du point représente les tokens consommés.' : 'En l’absence de référence, l’axe vertical affiche la note proposée en pourcentage du barème — pas une mesure de justesse. La taille du point représente les tokens consommés.'}</p></div><span className="diagnostic-chart-legend"><i className="comparison-swatch comparison-swatch-a"></i> Essai A <i className="comparison-swatch comparison-swatch-b"></i> Essai B</span></div>
               {scatterPoints.length === 0 ? <p className="diagnostic-comparison-empty">Aucune note structurée exploitable pour tracer ce graphique.</p> : <div className="diagnostic-scatter-wrap">
                 <svg className="diagnostic-scatter" viewBox="0 0 720 270" role="img" aria-label={`Graphique ${qualityMetricLabel} en fonction du temps de calcul ; taille des points proportionnelle aux tokens`}>
-                  {[0,25,50,75,100].map((tick) => <g key={tick}><line x1="76" x2="666" y1={224-tick/100*170} y2={224-tick/100*170} className="diagnostic-chart-gridline" /><text x="64" y={228-tick/100*170} textAnchor="end" className="diagnostic-chart-tick">{tick}%</text></g>)}
+                  {[0,25,50,75,100].map((tick) => <g key={tick}><line x1="76" x2="666" y1={224-tick/100*170} y2={224-tick/100*170} className="diagnostic-chart-gridline" /><text x="64" y={228-tick/100*170} textAnchor="end" className="diagnostic-chart-tick">{tick}%</text><line x1={76+590*tick/100} x2={76+590*tick/100} y1="54" y2="224" className="diagnostic-chart-gridline" /><text x={76+590*tick/100} y="240" textAnchor="middle" className="diagnostic-chart-tick">{(plotMaxSeconds*tick/100).toFixed(0)} s</text></g>)}
                   <line x1="76" x2="76" y1="54" y2="224" className="diagnostic-chart-axis" /><line x1="76" x2="666" y1="224" y2="224" className="diagnostic-chart-axis" />
                   <text x="370" y="258" textAnchor="middle" className="diagnostic-chart-axis-label">Temps d’analyse (secondes) · plus rapide à gauche</text>
                   {scatterPoints.map((point) => <g key={point.key}>
