@@ -316,3 +316,27 @@ footer { padding-top: 24px; line-height: 1.6; }
 .design-system-select option { color: #26352b; background: #fff; }
 @media (max-width: 560px) { .design-system-select { min-height: 48px; font-size: 16px; } }
 @media (prefers-reduced-motion: reduce) { .design-system-select { transition: none; } }
+
+
+/* Rubric import: make vision reading and rubric extraction distinct, inspectable steps. */
+.rubric-import-progress{margin-top:16px;padding:16px;background:var(--surface-subtle,#f7f9f7);border:1px solid var(--border,#dce5dc);border-radius:12px}
+.rubric-import-progress-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.rubric-import-progress-heading span{font-size:12px;color:var(--text-muted,#647166);overflow-wrap:anywhere}
+.rubric-import-steps{display:grid;gap:12px;list-style:none;margin:0;padding:0}
+.rubric-import-step{display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px;padding:14px;border:1px solid var(--border,#dce5dc);border-radius:10px;background:var(--surface,#fff);min-width:0}
+.rubric-import-step.is-active{border-color:var(--accent,#4c7c59);box-shadow:inset 3px 0 0 var(--accent,#4c7c59)}
+.rubric-import-step.is-complete{border-color:#b8d7bd}
+.rubric-import-step-number{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#edf1ed;color:#4d5c50;font-weight:700}
+.rubric-import-step.is-active .rubric-import-step-number{background:var(--accent,#4c7c59);color:#fff}
+.rubric-import-step.is-complete .rubric-import-step-number{background:#dcefe0;color:#246b35}
+.rubric-import-step-content{min-width:0}
+.rubric-import-step-content>strong{display:block;margin:4px 0 6px}
+.rubric-import-step-content>p{margin:0 0 8px;color:var(--text-muted,#647166);font-size:13px}
+.rubric-import-step-content .rubric-import-step-status{color:var(--text,#263329);font-weight:600}
+.rubric-import-step-content .rubric-import-step-hint{font-size:12px;font-style:italic}
+.rubric-import-raw-response{margin-top:10px;border-top:1px solid var(--border,#e0e6e0);padding-top:10px}
+.rubric-import-raw-response summary,.rubric-import-event-log summary{cursor:pointer;font-weight:600;font-size:13px}
+.rubric-import-raw-response pre{max-height:320px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;background:var(--surface-subtle,#f5f7f5);border-radius:8px;font-size:12px}
+.rubric-import-event-log{margin-top:12px;font-size:12px}
+.rubric-import-event-log .rubric-import-progress-events{max-height:180px;overflow:auto}
+@media(max-width:520px){.rubric-import-progress{padding:12px}.rubric-import-progress-heading{align-items:flex-start;flex-direction:column;gap:4px}.rubric-import-step{grid-template-columns:28px minmax(0,1fr);gap:9px;padding:11px}.rubric-import-step-number{width:27px;height:27px}}
