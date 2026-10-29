@@ -5,6 +5,7 @@ import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type Re
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
+import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/diagnosticReference.ts';
 import { createDecisionMemoryEntries, fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT } from '../domain/localMemory.ts';
 import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/localCorrection.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
@@ -119,6 +120,7 @@ type TimingRecord = {
   criterionScores: DiagnosticCriterionScore[];
   diagnosticStrategy?: DiagnosticStrategy;
   diagnosticRuns?: DiagnosticModelResult[];
+  referenceScores?: ReferenceCriterionScore[];
 };
 
 const timingHistoryKey = 'companion-correcteur:timing-history:v1';
@@ -213,6 +215,9 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
+  const [currentTimingRecordId, setCurrentTimingRecordId] = useState<string | null>(null);
+  const [referenceScoreInputs, setReferenceScoreInputs] = useState<Record<string, string>>({});
+  const [referenceMessage, setReferenceMessage] = useState('');
   const [streamedOutput, setStreamedOutput] = useState('');
   const [connectionMessage, setConnectionMessage] = useState('');
   const [error, setError] = useState('');
@@ -432,6 +437,11 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     const previousModelResults = strategyOverride === 'arbitrate-only' ? diagnosticRuns.filter((run) => run.kind === 'model') : [];
     const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
     setBusy(true);
+    if (interfaceMode === 'diagnostic' && strategyOverride !== 'arbitrate-only') {
+      setCurrentTimingRecordId(null);
+      setReferenceScoreInputs({});
+      setReferenceMessage('');
+    }
     if (interfaceMode === 'teacher') { setShowAiSettings(false); setTeacherStep('progress'); }
     setIsAnalyzing(true);
     setAnalysisStage('checking');
@@ -497,6 +507,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         diagnosticStrategy: interfaceMode === 'diagnostic' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
         diagnosticRuns: diagnosticResultsForHistory,
       };
+      setCurrentTimingRecordId(record.id);
       setTimingHistory((current) => {
         const next = [record, ...current].slice(0, timingHistoryLimit);
         try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); } catch { /* Keep timings visible for this session if local storage is unavailable. */ }
@@ -505,6 +516,44 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       setIsAnalyzing(false);
       setBusy(false);
     }
+  }
+
+  function saveDiagnosticReference() {
+    if (!currentTimingRecordId) {
+      setReferenceMessage('Lancez un essai de diagnostic avant d’associer une référence à ses résultats.');
+      return;
+    }
+    const scores: ReferenceCriterionScore[] = rubric.criteria.flatMap((criterion) => {
+      const raw = referenceScoreInputs[criterion.id];
+      return raw === undefined || raw.trim() === '' ? [] : [{ criterionId: criterion.id, points: Number(raw) }];
+    });
+    const validationResult = validateDiagnosticReference(scores, rubric);
+    if (!validationResult.valid) {
+      setReferenceMessage(validationResult.errors.join(' '));
+      return;
+    }
+    setTimingHistory((current) => {
+      const next = current.map((record) => record.id === currentTimingRecordId ? { ...record, referenceScores: scores } : record);
+      try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); }
+      catch { setReferenceMessage('La référence est utilisable dans cette session, mais le navigateur n’a pas pu la conserver localement.'); return next; }
+      setReferenceMessage('Correction de référence enregistrée sur cet appareil. Les écarts par modèle sont maintenant calculés.');
+      return next;
+    });
+  }
+
+  function clearDiagnosticReference() {
+    if (!currentTimingRecordId) return;
+    setTimingHistory((current) => {
+      const next = current.map((record) => {
+        if (record.id !== currentTimingRecordId) return record;
+        const { referenceScores: _referenceScores, ...withoutReference } = record;
+        return withoutReference;
+      });
+      try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); } catch { /* The reference is cleared in the current view. */ }
+      return next;
+    });
+    setReferenceScoreInputs({});
+    setReferenceMessage('Référence retirée de cet essai. Les résultats restent consultables sans référence.');
   }
 
   function updateReview(id: string, patch: Partial<ReviewedCriterion>) {
@@ -1128,6 +1177,33 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
             <p className="hint">Écart total : {comparison.totalDifference > 0 ? '+' : ''}{comparison.totalDifference} point(s) pour le second modèle. {comparison.disagreements.length} critère(s) avec des notes différentes.</p>
             {comparison.disagreements.length > 0 && <ul className="diagnostic-disagreements">{comparison.disagreements.map((item) => <li key={item.criterionId}><span>{item.title}</span><strong>{item.firstPoints} → {item.secondPoints} / {item.maxPoints}</strong></li>)}</ul>}
           </div>;
+        })()}
+        {(() => {
+          const savedReference = timingHistory.find((record) => record.id === currentTimingRecordId)?.referenceScores;
+          const reference = savedReference && validateDiagnosticReference(savedReference, rubric).valid ? savedReference : null;
+          const modelRuns = diagnosticRuns.filter((run) => run.kind === 'model' || run.kind === 'arbitrator');
+          const comparisons = reference ? modelRuns.map((run) => {
+            const parsed = safeDiagnosticProposal(run.raw, rubric);
+            if (!parsed) return { run, comparison: null };
+            return { run, comparison: compareWithDiagnosticReference(buildDiagnosticScore(parsed, rubric).criterionScores, reference, rubric) };
+          }) : [];
+          return <section className="diagnostic-reference" aria-labelledby="diagnostic-reference-title">
+            <div className="diagnostic-reference-heading">
+              <div><h4 id="diagnostic-reference-title">Correction de référence <span>(facultative)</span></h4><p>Tu peux évaluer les modèles tout de suite. Quand tu disposes d’une correction validée par le professeur, saisis les points attribués à chaque critère pour mesurer l’écart réel. Cette référence reste sur cet appareil.</p></div>
+            </div>
+            <div className="diagnostic-reference-fields">{rubric.criteria.map((criterion) => <label className="diagnostic-reference-field" key={criterion.id}>
+              <span>{criterion.title}<small>Sur {criterion.maxPoints} point(s)</small></span>
+              <input type="number" min="0" max={criterion.maxPoints} step="0.25" inputMode="decimal" aria-label={`Note de référence — ${criterion.title}`} value={referenceScoreInputs[criterion.id] ?? savedReference?.find((score) => score.criterionId === criterion.id)?.points.toString() ?? ''} onChange={(event) => setReferenceScoreInputs((current) => ({ ...current, [criterion.id]: event.target.value }))} />
+            </label>)}</div>
+            <div className="diagnostic-reference-actions"><button type="button" className="secondary-button" disabled={!currentTimingRecordId || !rubric.criteria.length} onClick={saveDiagnosticReference}>Enregistrer la référence</button>{savedReference && <button type="button" className="text-button" onClick={clearDiagnosticReference}>Retirer cette référence</button>}</div>
+            <p className={referenceMessage.startsWith('Correction de référence enregistrée') ? 'diagnostic-reference-message success' : 'diagnostic-reference-message'} role="status">{referenceMessage || 'Aucune référence n’est nécessaire pour lancer ou comparer des essais.'}</p>
+            {reference && <div className="diagnostic-reference-comparisons"><h5>Écart par rapport à la référence validée</h5><p className="hint">L’erreur absolue moyenne est calculée en points par critère ; plus elle est faible, plus les notes sont proches. Elle ne remplace pas la vérification pédagogique.</p>
+              {comparisons.map(({ run, comparison }) => <div className="diagnostic-reference-comparison" key={run.kind + run.model}>
+                <strong>{run.kind === 'arbitrator' ? 'Arbitre' : 'Modèle'} · {run.model}</strong>
+                {comparison ? <span>Erreur moyenne : <b>{comparison.meanAbsoluteError} pt</b> · Correspondances exactes : <b>{comparison.exactMatches}/{comparison.comparedCriteria}</b> · Écart de note totale : <b>{comparison.absoluteTotalError} pt</b></span> : <span>Non comparable : sortie structurée indisponible.</span>}
+              </div>)}
+            </div>}
+          </section>;
         })()}
         <div className="diagnostic-run-list">{diagnosticRuns.map((run, index) => {
           const parsed = safeDiagnosticProposal(run.raw, rubric);
