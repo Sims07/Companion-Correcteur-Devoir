@@ -98,6 +98,8 @@ export interface ModelEvaluationTokenUsage {
   promptTokens?: number;
   generatedTokens?: number;
   totalTokens?: number;
+  /** Ollama's generation duration in milliseconds, excluding prompt evaluation. */
+  generationMs?: number;
 }
 
 /** Sum only counters reported for one stage; missing metadata stays unknown, not zero. */
@@ -105,6 +107,27 @@ export function sumReportedTokensForStage(runs: readonly ModelEvaluationTokenUsa
   const stageRuns = runs.filter((run) => run.stage === stage);
   if (!stageRuns.some((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined || run.totalTokens !== undefined)) return null;
   return stageRuns.reduce((sum, run) => sum + (run.totalTokens ?? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0)), 0);
+}
+
+/**
+ * Computes weighted generation throughput reported by Ollama, not wall-clock throughput.
+ * Return unknown if any request in the stage lacks either counter.
+ */
+export function calculateReportedTokensPerSecondForStage(
+  runs: readonly ModelEvaluationTokenUsage[],
+  stage: 'reading' | 'analysis',
+): number | null {
+  const stageRuns = runs.filter((run) => run.stage === stage);
+  if (!stageRuns.length || stageRuns.some((run) =>
+    typeof run.generatedTokens !== 'number' ||
+    typeof run.generationMs !== 'number' ||
+    !Number.isFinite(run.generatedTokens) ||
+    !Number.isFinite(run.generationMs) ||
+    run.generationMs <= 0
+  )) return null;
+  const generatedTokens = stageRuns.reduce((sum, run) => sum + run.generatedTokens!, 0);
+  const generationMs = stageRuns.reduce((sum, run) => sum + run.generationMs!, 0);
+  return Math.round(generatedTokens / (generationMs / 1000) * 100) / 100;
 }
 
 export interface ModelEvaluationResultSnapshot {
@@ -117,6 +140,10 @@ export interface ModelEvaluationResultSnapshot {
   readingTokens?: number | null;
   /** Token counters reported by Ollama for the analysis stage; absent in legacy records. */
   analysisTokens?: number | null;
+  /** Weighted generation speed reported by Ollama, tokens per second; absent in legacy records. */
+  readingTokensPerSecond?: number | null;
+  /** Weighted generation speed reported by Ollama, tokens per second; absent in legacy records. */
+  analysisTokensPerSecond?: number | null;
   tokens: number | null;
   status: 'success' | 'failed' | 'cancelled';
   transcription: string;
