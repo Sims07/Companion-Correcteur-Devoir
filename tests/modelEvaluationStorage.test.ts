@@ -1,7 +1,6 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { deleteModelEvaluation, listModelEvaluations, saveModelEvaluation } from '../src/adapters/storage/indexedDbMemory.ts';
-import { defaultAiModelConfiguration } from '../src/domain/aiModelProfiles.ts';
 import type { ModelEvaluationRecord } from '../src/domain/modelEvaluation.ts';
 
 const record: ModelEvaluationRecord = {
