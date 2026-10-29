@@ -280,6 +280,9 @@ export function App({ service, archiveService, evaluationService }: { service: C
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
+  const [currentTimingRecordId, setCurrentTimingRecordId] = useState<string | null>(null);
+  const [referenceScoreInputs, setReferenceScoreInputs] = useState<Record<string, string>>({});
+  const [referenceMessage, setReferenceMessage] = useState('');
   const [selectedComparisonIds, setSelectedComparisonIds] = useState<string[]>([]);
   const [streamedOutput, setStreamedOutput] = useState('');
   const [connectionMessage, setConnectionMessage] = useState('');
@@ -557,6 +560,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
     setBusy(true);
     if (interfaceMode === 'diagnostic' && strategyOverride !== 'arbitrate-only') {
     }
+    if (interfaceMode === 'diagnostic' || interfaceMode === 'debug') { setCurrentTimingRecordId(null); setReferenceScoreInputs({}); setReferenceMessage(''); }
     if (interfaceMode === 'teacher') { setShowAiSettings(false); setTeacherStep('progress'); }
     setIsAnalyzing(true);
     setAnalysisStage('checking');
@@ -625,6 +629,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         diagnosticStrategy: interfaceMode === 'diagnostic' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
         diagnosticRuns: diagnosticResultsForHistory,
       };
+      setCurrentTimingRecordId(record.id);
       setTimingHistory((current) => {
         const next = [record, ...current].slice(0, timingHistoryLimit);
         try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); } catch { /* Keep timings visible for this session if local storage is unavailable. */ }
@@ -749,6 +754,46 @@ export function App({ service, archiveService, evaluationService }: { service: C
   function cancelModelEvaluation() {
     evaluationCancelledRef.current = true;
     setError('Annulation demandée : l’appel Ollama en cours sera laissé se terminer avant l’arrêt de la séquence.');
+  }
+
+  function saveDiagnosticReference() {
+    if (!currentTimingRecordId) {
+      setReferenceMessage('Lancez un essai de diagnostic avant d’associer une référence à ses résultats.');
+      return;
+    }
+    const existingReference = timingHistory.find((record) => record.id === currentTimingRecordId)?.referenceScores ?? [];
+    const scores: ReferenceCriterionScore[] = rubric.criteria.flatMap((criterion) => {
+      const raw = referenceScoreInputs[criterion.id] ?? existingReference.find((score) => score.criterionId === criterion.id)?.points.toString();
+      return raw === undefined || raw.trim() === '' ? [] : [{ criterionId: criterion.id, points: Number(raw) }];
+    });
+    const validationResult = validateDiagnosticReference(scores, rubric);
+    if (!validationResult.valid) {
+      setReferenceMessage(validationResult.errors.join(' '));
+      return;
+    }
+    const next = timingHistory.map((record) => record.id === currentTimingRecordId ? { ...record, referenceScores: scores } : record);
+    setTimingHistory(next);
+    try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); }
+    catch {
+      setReferenceMessage('La référence est utilisable dans cette session, mais le navigateur n’a pas pu la conserver localement.');
+      return;
+    }
+    setReferenceMessage('Correction de référence enregistrée sur cet appareil. Les écarts par modèle sont maintenant calculés.');
+  }
+
+  function clearDiagnosticReference() {
+    if (!currentTimingRecordId) return;
+    setTimingHistory((current) => {
+      const next = current.map((record) => {
+        if (record.id !== currentTimingRecordId) return record;
+        const { referenceScores: _referenceScores, ...withoutReference } = record;
+        return withoutReference;
+      });
+      try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); } catch { /* The reference is cleared in the current view. */ }
+      return next;
+    });
+    setReferenceScoreInputs({});
+    setReferenceMessage('Référence retirée de cet essai. Les résultats restent consultables sans référence.');
   }
 
   function updateReview(id: string, patch: Partial<ReviewedCriterion>) {
