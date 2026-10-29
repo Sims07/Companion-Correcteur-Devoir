@@ -674,6 +674,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setAssignmentProfiles((current) => [...current, profile]);
     setActiveAssignmentId(profile.id);
     setAssignmentTitle(profile.title);
+    setAssignmentDescription(profile.description ?? '');
+    setEducationLevel(profile.educationLevel ?? '');
     setRubric(profile.rubric);
     setQuestion(profile.question);
     setCorrectionMode(profile.correctionMode);
