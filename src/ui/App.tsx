@@ -653,6 +653,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       configurations: selectedProfiles.map((profile) => ({
         id: profile.id,
         name: profile.name,
+        endpoint: profile.configuration.endpoint,
         visionModel: profile.configuration.visionModel,
         analysisModel: profile.configuration.analysisModel,
         thinking: profile.configuration.analysisThinking,
@@ -661,13 +662,13 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       onProgress: setEvaluationProgress,
       execute: async (configuration) => {
         if (!configuration.visionModel.trim() || !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle de vision et un modèle d’analyse.');
-        await service.checkReady({ endpoint, model: configuration.visionModel });
-        await service.checkReady({ endpoint, model: configuration.analysisModel });
+        await service.checkReady({ endpoint: configuration.endpoint, model: configuration.visionModel });
+        await service.checkReady({ endpoint: configuration.endpoint, model: configuration.analysisModel });
         let extractedTranscription = '';
         let raw = '';
         const startedAt = Date.now();
         const provider = service.createProvider({
-          endpoint,
+          endpoint: configuration.endpoint,
           visionModel: configuration.visionModel,
           analysisModel: configuration.analysisModel,
           thinking: configuration.thinking,
