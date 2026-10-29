@@ -191,6 +191,7 @@ export function createOllamaProvider(
       };
 
       const diagnosticTracking = settings.diagnosticStrategy !== undefined;
+      let lastDiagnosticMetrics: Omit<DiagnosticModelResult, 'raw'> | null = null;
       async function sendStream(
         model: string,
         content: string,
@@ -198,7 +199,7 @@ export function createOllamaProvider(
         streamChunk?: (chunk: string) => void,
         json = false,
         think = false,
-        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage'>,
+        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage'> & { deferResult?: boolean },
       ): Promise<string> {
         const startedAt = Date.now();
         let response: Response;
@@ -222,11 +223,10 @@ export function createOllamaProvider(
         try {
           const result = await readOllamaStream(response, streamChunk);
           if (tracking && diagnosticTracking) {
-            onDiagnosticResult?.({
+            const metrics: Omit<DiagnosticModelResult, 'raw'> = {
               kind: tracking.kind,
               stage: tracking.stage,
               model,
-              raw: tracking.kind === 'vision' ? '' : result.content,
               elapsedMs: Date.now() - startedAt,
               ...(result.promptTokens !== undefined ? { promptTokens: result.promptTokens } : {}),
               ...(result.generatedTokens !== undefined ? { generatedTokens: result.generatedTokens } : {}),
@@ -235,7 +235,9 @@ export function createOllamaProvider(
               ...(result.generationMs !== undefined ? { generationMs: result.generationMs } : {}),
               ...(result.loadMs !== undefined ? { loadMs: result.loadMs } : {}),
               ...(result.tokensPerSecond !== undefined ? { tokensPerSecond: result.tokensPerSecond } : {}),
-            });
+            };
+            lastDiagnosticMetrics = metrics;
+            if (!tracking.deferResult) onDiagnosticResult?.({ ...metrics, raw: tracking.kind === 'vision' ? '' : result.content });
           }
           return result.content;
         } catch (cause) {
@@ -334,7 +336,7 @@ export function createOllamaProvider(
           `AVIS 1 (JSON) :\\n${JSON.stringify(selectCriteria(firstProposal))}`,
           `AVIS 2 (JSON) :\\n${JSON.stringify(selectCriteria(secondProposal))}`,
         ].join('\\n\\n');
-        const raw = await sendStream(arbitratorModel, arbitrationPrompt, undefined, onChunk, true, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration' });
+        const raw = await sendStream(arbitratorModel, arbitrationPrompt, undefined, onChunk, true, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration', deferResult: true });
         const decisions = parseArbitrationDecisions(raw, resolution.disputedCriterionIds, firstProposal.criteria, secondProposal.criteria);
         const judgedCriteria = resolution.disputedCriterionIds.map((criterionId) => {
           const decision = decisions.find((item) => item.criterionId === criterionId)!;
@@ -353,6 +355,9 @@ export function createOllamaProvider(
           finalScore: Math.round(mergedCriteria.reduce((sum, criterion) => sum + criterion.points, 0) * 100) / 100,
         };
         const mergedRaw = JSON.stringify(merged);
+        if (diagnosticTracking && lastDiagnosticMetrics?.stage === 'arbitration') {
+          onDiagnosticResult?.({ ...lastDiagnosticMetrics, kind: 'arbitrator', stage: 'arbitration', model: arbitratorModel, raw: mergedRaw });
+        }
         return mergedRaw;
       };
 
