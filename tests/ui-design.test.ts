@@ -120,6 +120,29 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('.live-analysis-criteria');
     expect(correctionFlowStylesheet).toContain('@media(prefers-reduced-motion:reduce)');
   });
+  it('provides an explicit local copy queue for serial grading', () => {
+    expect(appComponent).toContain('function queueCurrentCopy()');
+    expect(appComponent).toContain('function loadNextQueuedCopy()');
+    expect(appComponent).toContain('Mettre cette copie en file d’attente');
+    expect(appComponent).toContain('File des copies à corriger');
+    expect(appComponent).toContain('À traiter');
+    expect(appComponent).toContain('copyQueue: QueuedCopy[]');
+    expect(correctionFlowStylesheet).toContain('.copy-queue');
+    expect(correctionFlowStylesheet).toContain('.queue-position');
+  });
+
+  it('prioritizes actionable review alerts and keeps original copy evidence available during grading', () => {
+    expect(appComponent).toContain('review-alerts');
+    expect(appComponent).toContain('getReviewInsights(review)');
+    expect(appComponent).toContain('Afficher les ${reviewInsights.flaggedCriteriaIds.length} critères à vérifier');
+    expect(appComponent).toContain('review-source-evidence');
+    expect(appComponent).toContain('La transcription est absente');
+    expect(appComponent).toContain('correction-batch-progress');
+    expect(appComponent).toContain('Ajouter la copie suivante');
+    expect(correctionFlowStylesheet).toContain('.review-alerts');
+    expect(correctionFlowStylesheet).toContain('.correction-batch-progress');
+  });
+
   it('makes multiple local assignments discoverable and gives each assignment its own saved rubric and question', () => {
     expect(appComponent).toContain('assignmentProfilesKey');
     expect(appComponent).toContain('function createNewAssignment()');
