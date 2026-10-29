@@ -59,8 +59,8 @@ export async function runModelEvaluation<T>(options: ModelEvaluationOptions<T>):
         startedAt,
         finishedAt: new Date(finished).toISOString(),
         elapsedMs: Math.max(0, finished - started),
-        status: isCancelled() ? 'cancelled' : 'success',
-        ...(isCancelled() ? {} : { value }),
+        status: 'success',
+        value,
       });
       if (isCancelled()) break;
     } catch (cause) {
