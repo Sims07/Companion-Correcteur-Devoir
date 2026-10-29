@@ -38,6 +38,40 @@ describe('importRubricTextWithOllama', () => {
     expect(result.warnings.join(' ')).toContain('Ollama local');
   });
 
+  it('rejects question numbers invented by the model for a multipage PDF', async () => {
+    const invented = {
+      title: 'Barème de biologie',
+      criteria: [
+        ...validRubric.criteria,
+        { title: 'Question 26 — Question inventée', description: 'N’existe pas dans le PDF', maxPoints: 1 },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      message: { content: JSON.stringify(invented) },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    const source = '[PAGE 1 / 2]\\nQuestion 1 — Photosynthèse (/5)\\nQuestion 2 — Membrane plasmique (/5)\\n[PAGE 2 / 2]\\nQuestion 3 — Respiration (/5)\\nQuestion 4 — ADN et protéines (/5)';
+
+    await expect(importRubricTextWithOllama(source, 'bareme.pdf', {
+      endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:4b',
+    }, fetchMock)).rejects.toThrow('numéros de question absents du document (26)');
+  });
+
+  it('rejects pathological output containing more than 100 criteria', async () => {
+    const oversized = {
+      title: 'Barème de biologie',
+      criteria: Array.from({ length: 101 }, (_, index) => ({
+        title: `Critère ${index + 1}`, description: '', maxPoints: 1,
+      })),
+    };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      message: { content: JSON.stringify(oversized) },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    await expect(importRubricTextWithOllama('Critère source /5', 'bareme.pdf', {
+      endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:4b',
+    }, fetchMock)).rejects.toThrow('dépasse la limite de sécurité de 100');
+  });
+
   it('rejects an empty extraction before making a network request', async () => {
     const fetchMock = vi.fn();
     await expect(importRubricTextWithOllama('  ', 'bareme.pdf', {
