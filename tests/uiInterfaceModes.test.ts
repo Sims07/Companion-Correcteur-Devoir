@@ -50,6 +50,19 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(app()).toContain("interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'");
   });
 
+  it('offers a sequential independent evaluation for saved model configurations', () => {
+    const text = app();
+    expect(text).toContain('Évaluation indépendante des configurations');
+    expect(text).toContain('Configurations à comparer (2 à 3)');
+    expect(text).toContain('Lancer l’évaluation indépendante');
+    expect(text).toContain('Annuler après l’appel en cours');
+    expect(text).toContain('runModelEvaluation({');
+    expect(text).toContain('images: structuredClone(images)');
+    expect(text).not.toContain('transcription: transcription ??');
+    expect(text).toContain('Transcription extraite indépendamment');
+    expect(text).toContain('configuration.endpoint');
+  });
+
   it('separates model evaluation from raw local debug output', () => {
     const text = app();
     expect(text).toContain('>Évaluation des modèles</button>');
