@@ -51,10 +51,10 @@ describe('importRubricImageWithOllama', () => {
         error.name = 'AbortError';
         reject(error);
       }, { once: true });
-    })) as typeof fetch;
+    }));
     const pending = importRubricImageWithOllama(page('PAGE_ONE', 'bareme.png'), {
       endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b', analysisModel: 'text-model',
-    }, fetchMock, undefined, controller.signal);
+    }, fetchMock as typeof fetch, undefined, controller.signal);
     controller.abort();
     await expect(pending).rejects.toThrow('interrompu par l’enseignant');
     expect(fetchMock).toHaveBeenCalledTimes(1);
