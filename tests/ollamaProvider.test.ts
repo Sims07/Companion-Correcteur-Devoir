@@ -321,6 +321,27 @@ describe('Ollama adapter', () => {
     expect(imported.warnings.join(' ')).toContain('modèle d’analyse local');
   });
 
+
+  it('keeps vision loaded between rubric pages and unloads it before structuring', async () => {
+    const rubricJson = JSON.stringify({ title: 'Barème', criteria: [{ title: 'Connaissances', description: 'Notions exactes', maxPoints: 2 }] });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: 'Page 1 du barème.' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: 'Page 2 du barème.' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: rubricJson } }), { status: 200 }));
+
+    await importRubricImageWithOllama([
+      { base64: 'cGFnZTE=', mimeType: 'image/png', fileName: 'bareme-page-1.png' },
+      { base64: 'cGFnZTI=', mimeType: 'image/png', fileName: 'bareme-page-2.png' },
+    ], { endpoint: 'http://localhost:11434', visionModel: 'vision-model', analysisModel: 'analysis-model' }, fetchMock);
+
+    const firstPage = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { keep_alive?: string | number };
+    const lastPage = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { keep_alive?: string | number };
+    const analysis = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { keep_alive?: string | number };
+    expect(firstPage.keep_alive).toBe('30s');
+    expect(lastPage.keep_alive).toBe(0);
+    expect(analysis.keep_alive).toBe(0);
+  });
+
   it('rejects invalid structured rubric data and never retries against another service', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: 'Critère : 0 point.' } }), { status: 200 }))
