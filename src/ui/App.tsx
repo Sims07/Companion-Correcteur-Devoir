@@ -240,6 +240,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [rubricImportFileName, setRubricImportFileName] = useState('');
   const [rubricImportProgress, setRubricImportProgress] = useState<RubricImportProgress | null>(null);
   const [rubricImportEvents, setRubricImportEvents] = useState<string[]>([]);
+  const [rubricImportRawResponse, setRubricImportRawResponse] = useState('');
   const [rubricImageImporting, setRubricImageImporting] = useState(false);
   const [rubricFileImporting, setRubricFileImporting] = useState(false);
   const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
@@ -403,6 +404,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setRubricImportMessage('');
     setRubricImportFileName(file.name);
     setRubricImportEvents([`Fichier sélectionné : ${file.name}`]);
+    setRubricImportRawResponse('');
     setRubricImportProgress({ stage: 'preparing', message: 'Lecture du fichier local…' });
     setRubricFileImporting(true);
     try {
@@ -443,6 +445,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       setRubricImportEvents((events) => [...events, preparedMessage]);
       const imported = await service.importRubricImage(prepared, { endpoint, visionModel }, (progress) => {
         setRubricImportProgress(progress);
+        if (progress.rawResponse !== undefined) setRubricImportRawResponse(progress.rawResponse);
         setRubricImportEvents((events) => events.at(-1) === progress.message ? events : [...events, progress.message]);
       });
       const total = imported.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
@@ -1113,6 +1116,12 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
             <ol className="rubric-import-progress-events">{rubricImportEvents.map((event, index) => <li key={`${index}-${event}`}>{event}</li>)}</ol>
             {rubricImportProgress && <p className="rubric-import-progress-current" role="status">{rubricImportProgress.message}</p>}
             {rubricImportProgress?.stage === 'complete' && <p className="rubric-import-progress-review">Le résultat extrait est maintenant affiché dans les champs modifiables ci-dessous. Comparez chaque critère et ses points avec le document original avant de valider le barème.</p>}
+            {rubricImportRawResponse && <details className="rubric-import-raw-response">
+              <summary>Voir la réponse brute du modèle</summary>
+              <p>Contenu exact reçu d’Ollama avant validation. Il est conservé même si le barème est refusé.</p>
+              <pre>{rubricImportRawResponse}</pre>
+              <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportRawResponse); }}>Copier la réponse</button>
+            </details>}
           </section>}
           {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
         </div>
