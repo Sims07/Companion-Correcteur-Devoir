@@ -639,6 +639,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       setAssignmentProfiles((current) => [...current, matchingAssignment!]);
     }
     setActiveAssignmentId(matchingAssignment.id);
+    setCopyQueue(assignmentDrafts[matchingAssignment.id]?.copyQueue ?? []);
     setAssignmentTitle(archivedTitle);
     setStudentLabel(correction.label);
     setQuestion(snapshot.question);
