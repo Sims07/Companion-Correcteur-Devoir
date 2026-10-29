@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sumReportedTokensForStage } from '../src/domain/modelEvaluation.ts';
+import { calculateReportedTokensPerSecondForStage, sumReportedTokensForStage } from '../src/domain/modelEvaluation.ts';
 
 describe('model evaluation token usage by stage', () => {
   it('sums Ollama token counters independently for reading and analysis', () => {
@@ -24,5 +24,32 @@ describe('model evaluation token usage by stage', () => {
     ];
     expect(sumReportedTokensForStage(runs, 'reading')).toBe(100);
     expect(sumReportedTokensForStage(runs, 'analysis')).toBeNull();
+  });
+});
+
+describe('model evaluation generation throughput', () => {
+  it('calculates weighted tokens per second from Ollama generation durations', () => {
+    const runs = [
+      { stage: 'reading' as const, generatedTokens: 100, generationMs: 2_000 },
+      { stage: 'reading' as const, generatedTokens: 150, generationMs: 3_000 },
+      { stage: 'analysis' as const, generatedTokens: 120, generationMs: 4_000 },
+    ];
+    expect(calculateReportedTokensPerSecondForStage(runs, 'reading')).toBe(50);
+    expect(calculateReportedTokensPerSecondForStage(runs, 'analysis')).toBe(30);
+  });
+
+  it('keeps throughput unknown when Ollama omits generation metadata or reports invalid durations', () => {
+    expect(calculateReportedTokensPerSecondForStage([{ stage: 'reading', generatedTokens: 10 }], 'reading')).toBeNull();
+    expect(calculateReportedTokensPerSecondForStage([{ stage: 'reading', generatedTokens: 10, generationMs: 0 }], 'reading')).toBeNull();
+    expect(calculateReportedTokensPerSecondForStage([], 'analysis')).toBeNull();
+  });
+
+  it('does not mix analysis or arbitration calls into the reading throughput', () => {
+    const runs = [
+      { stage: 'reading' as const, generatedTokens: 60, generationMs: 2_000 },
+      { stage: 'arbitration' as const, generatedTokens: 100, generationMs: 1_000 },
+    ];
+    expect(calculateReportedTokensPerSecondForStage(runs, 'reading')).toBe(30);
+    expect(calculateReportedTokensPerSecondForStage(runs, 'analysis')).toBeNull();
   });
 });
