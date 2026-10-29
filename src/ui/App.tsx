@@ -1758,7 +1758,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         </div>
       </section>}
 
-      </>)}
+      </>}
       {(interfaceMode === 'diagnostic' || !showAiSettings) && <footer><span>Compagnon Correcteur de Devoirs</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>}
       </div>
     </main>
