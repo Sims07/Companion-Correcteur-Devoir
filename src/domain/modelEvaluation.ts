@@ -1,6 +1,7 @@
 export interface ModelEvaluationConfiguration {
   id: string;
   name: string;
+  endpoint: string;
   visionModel: string;
   analysisModel: string;
   thinking: boolean;
