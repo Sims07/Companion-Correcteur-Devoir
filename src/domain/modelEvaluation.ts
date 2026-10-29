@@ -93,12 +93,30 @@ export interface ModelEvaluationImage {
   fileName?: string;
 }
 
+export interface ModelEvaluationTokenUsage {
+  stage?: 'reading' | 'analysis' | 'arbitration';
+  promptTokens?: number;
+  generatedTokens?: number;
+  totalTokens?: number;
+}
+
+/** Sum only counters reported for one stage; missing metadata stays unknown, not zero. */
+export function sumReportedTokensForStage(runs: readonly ModelEvaluationTokenUsage[], stage: 'reading' | 'analysis'): number | null {
+  const stageRuns = runs.filter((run) => run.stage === stage);
+  if (!stageRuns.some((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined || run.totalTokens !== undefined)) return null;
+  return stageRuns.reduce((sum, run) => sum + (run.totalTokens ?? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0)), 0);
+}
+
 export interface ModelEvaluationResultSnapshot {
   profileId: string;
   profileName: string;
   elapsedMs: number;
   readingMs: number;
   analysisMs: number;
+  /** Token counters reported by Ollama for the vision stage; absent in legacy records. */
+  readingTokens?: number | null;
+  /** Token counters reported by Ollama for the analysis stage; absent in legacy records. */
+  analysisTokens?: number | null;
   tokens: number | null;
   status: 'success' | 'failed' | 'cancelled';
   transcription: string;
