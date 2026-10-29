@@ -289,7 +289,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [teacherQuestions, setTeacherQuestions] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [isFinalized, setIsFinalized] = useState(false);
-  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic'>('teacher');
+  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug'>('teacher');
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
   const reviewedTotal = review.reduce((sum, item) => sum + item.teacherPoints, 0);
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
@@ -964,7 +964,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => setInterfaceMode('diagnostic')}>Diagnostic IA</button></div></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => { setShowAiSettings(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button><button type="button" className={interfaceMode === 'debug' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'debug'} onClick={() => { setShowAiSettings(false); setInterfaceMode('debug'); }}>Debug</button></div></div>
       </header>
 
       {interfaceMode === 'teacher' && <aside className="teacher-sidebar" aria-label="Navigation de la correction">
@@ -1073,8 +1073,12 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         <p className="hint">En cas d’échec, aucune solution cloud n’est utilisée.</p>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}
-      {(interfaceMode === 'diagnostic' || !showAiSettings) && <>
-      {interfaceMode === 'diagnostic' && <section className="diagnostic-workspace-hero" aria-labelledby="diagnostic-workspace-title">
+      {interfaceMode === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
+        <div className="workspace-heading"><div><p className="eyebrow">OUTILS DE DIAGNOSTIC</p><h2 id="debug-workspace-title">Debug des appels IA locaux</h2><p className="workspace-description">Les réponses brutes et la transcription restent sur cet appareil. Lancez d’abord une évaluation pour afficher ses traces.</p></div></div>
+        <section className="transcription-review"><h3>Transcription actuellement chargée</h3>{transcription ? <pre>{transcription}</pre> : <p className="hint">Aucune transcription disponible.</p>}</section>
+        <section className="transcription-review"><h3>Dernière réponse reçue en streaming</h3>{streamedOutput ? <pre>{streamedOutput}</pre> : <p className="hint">Aucune réponse en streaming disponible.</p>}</section>
+        <section className="transcription-review"><h3>Sorties brutes des modèles ({diagnosticRuns.length})</h3>{diagnosticRuns.length ? diagnosticRuns.map((run, index) => <details key={run.kind + run.model + index} className="rubric-import-raw-response"><summary>{run.model} · {run.kind} · {formatElapsed(Math.round(run.elapsedMs / 1000))}</summary><pre>{run.raw}</pre></details>) : <p className="hint">Aucune sortie enregistrée. Passez dans « Évaluation des modèles » et lancez une analyse.</p>}</section>
+      </section> : (interfaceMode === 'diagnostic' || !showAiSettings) && <>      {interfaceMode === 'diagnostic' && <section className="diagnostic-workspace-hero" aria-labelledby="diagnostic-workspace-title">
         <div className="diagnostic-workspace-hero-copy">
           <p className="eyebrow">ENVIRONNEMENT EXPÉRIMENTAL · OLLAMA</p>
           <h1 id="diagnostic-workspace-title">Laboratoire de correction IA</h1>
@@ -1672,7 +1676,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         </div>
       </section>}
 
-      </>}
+      </>)}
       {(interfaceMode === 'diagnostic' || !showAiSettings) && <footer><span>Compagnon Correcteur de Devoirs</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>}
       </div>
     </main>
