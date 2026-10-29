@@ -27,7 +27,7 @@ describe('review insights', () => {
     expect(insights.lowConfidenceCount).toBe(2);
     expect(insights.missingEvidenceCount).toBe(2);
     expect(insights.unreadableEvidenceCount).toBe(1);
-    expect(insights.flaggedCriteriaIds).toEqual(['low', 'missing', 'unreadable', 'combined']);
+    expect(insights.flaggedCriteriaIds).toEqual(['low', 'combined', 'missing', 'unreadable']);
   });
 
   it('does not flag a clear, well-supported high-confidence criterion', () => {
