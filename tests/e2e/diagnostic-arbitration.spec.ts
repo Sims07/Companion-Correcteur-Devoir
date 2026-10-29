@@ -50,6 +50,9 @@ test('diagnostic history exposes per-model time and Ollama token usage', async (
       outcome: 'success',
       modelScore: 8,
       criterionScores: [{ criterionId: 'science', title: 'Exactitude', points: 8, maxPoints: 10 }],
+      assignmentId: 'biology-midterm',
+      assignmentTitle: 'Contrôle de biologie',
+      rubricSnapshot: { title: 'Barème de biologie', criteria: [{ id: 'science', title: 'Exactitude', description: 'Exactitude scientifique', maxPoints: 10 }] },
       diagnosticStrategy: 'compare',
       diagnosticRuns: [
         { kind: 'vision', stage: 'reading', model: 'qwen3.5:4b', raw: '', elapsedMs: 4000, promptTokens: 1000, generatedTokens: 250, totalTokens: 1250, generationMs: 2000, loadMs: 300, promptEvaluationMs: 100, tokensPerSecond: 125 },
@@ -60,7 +63,7 @@ test('diagnostic history exposes per-model time and Ollama token usage', async (
   await page.goto('/');
   await page.getByRole('button', { name: 'Diagnostic IA' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Historique des essais' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tableau de bord des expériences' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Tokens consommés' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Usage par modèle' })).toBeVisible();
   await expect(page.getByText('Modèles observés')).toBeVisible();
@@ -88,11 +91,11 @@ test('diagnostic history compares two saved experiments with visual charts', asy
     };
     localStorage.setItem('companion-correcteur:timing-history:v1', JSON.stringify([
       {
-        ...base, id: 'compare-a', completedAt: '2026-10-29T12:00:00.000Z',
+        ...base, id: 'compare-a', completedAt: '2026-10-29T12:00:00.000Z', referenceScores: [{ criterionId: 'science', points: 7 }],
         visionModel: 'qwen3.5:4b', analysisModel: 'gemma3:4b', totalSeconds: 10, modelScore: 8,
         diagnosticRuns: [
           { kind: 'vision', stage: 'reading', model: 'qwen3.5:4b', raw: '', elapsedMs: 3000, promptTokens: 1000, generatedTokens: 100, totalTokens: 1100 },
-          { kind: 'model', stage: 'analysis', model: 'gemma3:4b', raw: '', elapsedMs: 7000, promptTokens: 2000, generatedTokens: 400, totalTokens: 2400 },
+          { kind: 'model', stage: 'analysis', model: 'gemma3:4b', raw: JSON.stringify({ summary: 'Réponse pertinente', criteria: [{ criterionId: 'science', points: 8, rationale: 'Bonne réponse', evidence: 'Passage identifié', confidence: 'high' }], questionsForTeacher: [], finalScore: 8 }), elapsedMs: 7000, promptTokens: 2000, generatedTokens: 400, totalTokens: 2400 },
         ],
       },
       {
@@ -100,7 +103,7 @@ test('diagnostic history compares two saved experiments with visual charts', asy
         visionModel: 'phi-mini', analysisModel: 'qwen3.5:4b', totalSeconds: 18, modelScore: 6,
         diagnosticRuns: [
           { kind: 'vision', stage: 'reading', model: 'phi-mini', raw: '', elapsedMs: 6000, promptTokens: 1200, generatedTokens: 200, totalTokens: 1400 },
-          { kind: 'model', stage: 'analysis', model: 'qwen3.5:4b', raw: '', elapsedMs: 12000, promptTokens: 3000, generatedTokens: 700, totalTokens: 3700 },
+          { kind: 'model', stage: 'analysis', model: 'qwen3.5:4b', raw: JSON.stringify({ summary: 'Réponse partielle', criteria: [{ criterionId: 'science', points: 6, rationale: 'Partiellement juste', evidence: 'Passage identifié', confidence: 'medium' }], questionsForTeacher: [], finalScore: 6 }), elapsedMs: 12000, promptTokens: 3000, generatedTokens: 700, totalTokens: 3700 },
         ],
       },
     ]));
@@ -116,7 +119,10 @@ test('diagnostic history compares two saved experiments with visual charts', asy
   await expect(page.getByRole('heading', { name: 'Temps total' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Tokens d’entrée' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Tokens générés' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Temps et tokens par modèle / étape' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Compromis entre qualité et temps' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Qualité, coût et vitesse par modèle' })).toBeVisible();
+  await expect(page.getByRole('img', { name: /Graphique Proximité de la référence/ })).toBeVisible();
+  await expect(page.getByText('Erreur moyenne').first()).toBeVisible();
   await expect(page.getByText('Essai A').first()).toBeVisible();
   await expect(page.getByText('Essai B').first()).toBeVisible();
 });
