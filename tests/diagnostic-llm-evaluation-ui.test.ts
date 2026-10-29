@@ -173,3 +173,20 @@ describe('Évaluation des modèles — cohérence des étapes et historique', ()
     expect(evaluationStyles).toContain('@media(max-width:620px){.evaluation-history-record');
   });
 });
+
+describe('Évaluation des modèles — débit de génération', () => {
+  it('shows reading and analysis tokens per second in current results and saved history', () => {
+    expect(appSource).toContain('readingTokensPerSecond');
+    expect(appSource).toContain('analysisTokensPerSecond');
+    expect(appSource).toContain('evaluation-throughput');
+    expect(appSource).toContain("title: 'Débit de lecture'");
+    expect(appSource).toContain("title: 'Débit d’analyse'");
+    expect(appSource).toContain('tokens/s');
+  });
+
+  it('keeps missing throughput explicitly unknown for older records', () => {
+    expect(appSource).toContain("result.readingTokensPerSecond == null ? 'Débit non mesuré'");
+    expect(appSource).toContain("result.analysisTokensPerSecond == null ? 'Débit non mesuré'");
+    expect(appSource).toContain("result.readingTokensPerSecond == null ? '—'");
+  });
+});
