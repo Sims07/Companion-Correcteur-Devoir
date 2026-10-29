@@ -30,7 +30,7 @@ describe('importRubricImageWithOllama', () => {
     expect(firstBody.messages[0].content).toContain('Transcris ce qui est réellement visible');
     expect(firstBody.messages[0].content).toContain('Arrête-toi à la dernière ligne visible');
     expect(firstBody.messages[0].content).toContain('N’invente jamais la suite d’une question');
-    expect(firstBody.options.num_predict).toBe(1536);
+    expect(firstBody.options).toBeUndefined();
     const analysisBody = JSON.parse(fetchMock.mock.calls[2][1].body as string);
     expect(analysisBody.model).toBe('text-model');
     expect(analysisBody.messages[0].images).toBeUndefined();
