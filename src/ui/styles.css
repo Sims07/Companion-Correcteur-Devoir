@@ -791,7 +791,7 @@ footer { padding-top: 24px; line-height: 1.6; }
 
 
 /* Model evaluation is a focused workspace: one selected stage at a time. */
-.evaluation-step-nav{position:sticky;top:18px;z-index:2;display:flex;flex-direction:column;align-self:start;gap:8px;margin:0 0 22px;padding:18px;border:1px solid #dbe5da;border-radius:16px;background:#f8fbf7}
+.evaluation-step-nav{position:sticky;top:18px;z-index:1;display:flex;flex-direction:column;align-self:start;gap:8px;margin:0 0 22px;padding:18px;border:1px solid #dbe5da;border-radius:16px;background:#f8fbf7}
 .evaluation-sidebar-label{margin:0 0 7px;color:#738174;font-size:10px;font-weight:800;letter-spacing:.12em}
 .evaluation-step-nav button{grid-template-columns:32px minmax(0,1fr);width:100%;padding:13px 12px;border-color:transparent;background:transparent}
 .evaluation-step-nav button>span{width:29px;height:29px;grid-row:1/3;background:#e9f0e8}
@@ -877,6 +877,3 @@ footer { padding-top: 24px; line-height: 1.6; }
 /* Show measured Ollama generation throughput without implying wall-clock speed. */
 .evaluation-history-model-stats .evaluation-throughput{font-weight:750;color:#3f7549;font-variant-numeric:tabular-nums}
 @media(max-width:520px){.evaluation-history-chart-grid{grid-template-columns:1fr}}
-
-/* Keep the evaluation sidebar in normal flow so it cannot cover step content while scrolling. */
-.evaluation-step-nav{position:static}
