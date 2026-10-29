@@ -127,6 +127,49 @@ const timingHistoryKey = 'companion-correcteur:timing-history:v1';
 const assignmentTitleKey = 'companion-correcteur:assignment-title:v1';
 const timingHistoryLimit = 20;
 
+type DiagnosticUsageGroup = {
+  model: string;
+  stage: 'reading' | 'analysis' | 'arbitration';
+  calls: number;
+  measuredCalls: number;
+  elapsedMs: number;
+  promptTokens: number;
+  generatedTokens: number;
+  totalTokens: number;
+  generationMs: number;
+  loadMs: number;
+};
+
+function groupDiagnosticUsage(runs: DiagnosticModelResult[] = []): DiagnosticUsageGroup[] {
+  const groups = new Map<string, DiagnosticUsageGroup>();
+  for (const run of runs) {
+    const stage = run.stage ?? (run.kind === 'vision' ? 'reading' : run.kind === 'arbitrator' ? 'arbitration' : 'analysis');
+    const key = `${stage}::${run.model}`;
+    const group = groups.get(key) ?? {
+      model: run.model, stage, calls: 0, measuredCalls: 0, elapsedMs: 0,
+      promptTokens: 0, generatedTokens: 0, totalTokens: 0, generationMs: 0, loadMs: 0,
+    };
+    group.calls += 1;
+    group.elapsedMs += run.elapsedMs;
+    if (run.promptTokens !== undefined || run.generatedTokens !== undefined) group.measuredCalls += 1;
+    group.promptTokens += run.promptTokens ?? 0;
+    group.generatedTokens += run.generatedTokens ?? 0;
+    group.totalTokens += run.totalTokens ?? 0;
+    group.generationMs += run.generationMs ?? 0;
+    group.loadMs += run.loadMs ?? 0;
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
+function formatTokenCount(value: number | undefined): string {
+  return value === undefined ? 'Non fourni' : new Intl.NumberFormat('fr-FR').format(value);
+}
+
+function diagnosticStageLabel(stage: DiagnosticUsageGroup['stage']): string {
+  return stage === 'reading' ? 'Lecture / transcription' : stage === 'arbitration' ? 'Arbitrage' : 'Analyse';
+}
+
 function readAssignmentTitle(): string {
   try { return window.localStorage.getItem(assignmentTitleKey) || 'Devoir de biologie'; }
   catch { return 'Devoir de biologie'; }
