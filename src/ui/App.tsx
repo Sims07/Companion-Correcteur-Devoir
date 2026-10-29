@@ -1400,14 +1400,17 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           const maxGroupTokens = Math.max(1, ...allGroups.map((group) => group.promptTokens + group.generatedTokens));
           const plotMaxSeconds = Math.max(1, ...modelScores.map((item) => item.elapsedSeconds));
           const plotMaxTokens = Math.max(1, ...modelScores.map((item) => item.tokens ?? 0));
-          const hasReferenceQuality = modelScores.some((item) => item.referenceComparison !== null);
+          const hasReferenceQuality = modelScores.length > 0 && modelScores.every((item) => item.referenceComparison !== null);
           const qualityMetricLabel = hasReferenceQuality ? 'Proximité de la référence' : 'Note proposée (% du barème)';
-          const scatterPoints = modelScores.filter((item) => item.qualityPercent !== null).map((item, index) => ({
+          const scatterPoints = modelScores.map((item, index) => ({
             ...item,
+            qualityPercent: hasReferenceQuality ? item.qualityPercent : item.score !== null && item.maxPoints > 0 ? item.score / item.maxPoints * 100 : null,
             x: 76 + item.elapsedSeconds / plotMaxSeconds * 590,
-            y: 224 - (item.qualityPercent ?? 0) / 100 * 170,
             radius: 6 + Math.sqrt((item.tokens ?? 0) / plotMaxTokens) * 8,
             key: item.record.id + item.run.model + index,
+          })).filter((item) => item.qualityPercent !== null).map((item) => ({
+            ...item,
+            y: 224 - (item.qualityPercent ?? 0) / 100 * 170,
           }));
           return <section className="diagnostic-comparison-panel" aria-labelledby="diagnostic-comparison-title">
             <div className="diagnostic-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h3 id="diagnostic-comparison-title">Comparaison de deux essais</h3><p>Les barres partagent la même échelle au sein de chaque graphique. Les valeurs indisponibles restent distinctes de zéro.</p></div><button type="button" className="text-button" onClick={() => setSelectedComparisonIds([])}>Réinitialiser la sélection</button></div>
