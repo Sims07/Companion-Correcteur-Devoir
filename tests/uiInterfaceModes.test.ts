@@ -300,6 +300,9 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(styles).toContain('.evaluation-page-header');
     expect(styles).toContain('.evaluation-config-fields');
     expect(styles).toContain('.evaluation-run-actions');
+    expect(styles).toContain('.debug-advanced-settings');
+    expect(styles).toContain('.debug-performance-history');
+    expect(styles).toContain('.debug-evaluation-traces');
     expect(styles).toContain('@media(max-width:760px)');
   });
 
