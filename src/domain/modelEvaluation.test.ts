@@ -55,6 +55,36 @@ describe('runModelEvaluation', () => {
     expect(progress.at(-1)).toMatchObject({ completed: 1, total: 1, currentConfiguration: null, status: 'completed' });
   });
 
+  it('advances progress once for reading and once for analysis in each configuration', async () => {
+    const progress: Array<{ completedSteps: number; totalSteps: number; currentStage: 'reading' | 'analysis' | null }> = [];
+    await runModelEvaluation({
+      configurations: [config('a'), config('b')],
+      execute: async (_item, _isCancelled, onStage) => {
+        onStage('reading');
+        onStage('analysis');
+        return 'graded';
+      },
+      onProgress: (value) => progress.push(value),
+    });
+    expect(progress.some((item) => item.completedSteps === 0 && item.currentStage === 'reading')).toBe(true);
+    expect(progress.some((item) => item.completedSteps === 1 && item.currentStage === 'analysis')).toBe(true);
+    expect(progress.at(-1)).toMatchObject({ completedSteps: 4, totalSteps: 4, currentStage: null });
+  });
+
+  it('does not count a stage as complete when it fails while that stage is running', async () => {
+    const progress: Array<{ completedSteps: number; totalSteps: number }> = [];
+    await runModelEvaluation({
+      configurations: [config('a')],
+      execute: async (_item, _isCancelled, onStage) => {
+        onStage('reading');
+        onStage('analysis');
+        throw new Error('analysis failed');
+      },
+      onProgress: (value) => progress.push(value),
+    });
+    expect(progress.at(-1)).toMatchObject({ completedSteps: 1, totalSteps: 2 });
+  });
+
   it('returns no results when cancelled before the first configuration', async () => {
     const execute = vi.fn();
     const outputs = await runModelEvaluation({ configurations: [config('a')], execute: async () => execute(), isCancelled: () => true });
