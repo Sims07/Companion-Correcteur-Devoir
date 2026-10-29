@@ -44,7 +44,8 @@ describe('runModelEvaluation', () => {
     });
     expect(execute).toHaveBeenCalledTimes(1);
     expect(outputs).toHaveLength(1);
-    expect(outputs[0].status).toBe('cancelled');
+    expect(outputs[0].status).toBe('success');
+    expect(outputs[0].value).toBe('a');
   });
 
   it('emits current configuration and terminal progress', async () => {
