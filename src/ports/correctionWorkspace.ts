@@ -11,10 +11,12 @@ export interface OllamaGateway {
   checkReady(settings: OllamaSettings): Promise<void>;
   listModels(endpoint: string): Promise<OllamaModel[]>;
   createProvider(settings: OllamaSettings): GradingProvider;
-  importRubricImage(image: ImageInput, settings: OllamaSettings): Promise<ImportedRubric>;\n  importRubricText(text: string, fileName: string, settings: OllamaSettings): Promise<ImportedRubric>;
+  importRubricImage(image: ImageInput, settings: OllamaSettings): Promise<ImportedRubric>;
+  importRubricText(text: string, fileName: string, settings: OllamaSettings): Promise<ImportedRubric>;
 }
 
 export interface LocalFileGateway {
   prepareFiles(files: FileList | File[]): Promise<ImageInput[]>;
-  importRubric(file: File): Promise<ImportedRubric>;\n  extractRubricText(file: File): Promise<string>;
+  importRubric(file: File): Promise<ImportedRubric>;
+  extractRubricText(file: File): Promise<string>;
 }

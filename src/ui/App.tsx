@@ -235,7 +235,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
-  const [rubricImageImporting, setRubricImageImporting] = useState(false);\n  const [rubricFileImporting, setRubricFileImporting] = useState(false);
+  const [rubricImageImporting, setRubricImageImporting] = useState(false);
+  const [rubricFileImporting, setRubricFileImporting] = useState(false);
   const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
   const [endpoint, setEndpoint] = useState(() => readAiModelConfiguration().endpoint);
   const [visionModel, setVisionModel] = useState(() => readAiModelConfiguration().visionModel);
