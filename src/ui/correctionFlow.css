@@ -1550,3 +1550,6 @@
   overflow-wrap: anywhere;
 }
 .rubric-import-raw-response .button-secondary { justify-self: start; }
+
+.completed-stage-timings { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin: -0.35rem 0 1rem; color: var(--text-muted, #64748b); font-size: 0.875rem; }
+.completed-stage-timings span { display: inline-flex; align-items: center; }
