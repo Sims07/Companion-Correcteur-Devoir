@@ -1,3 +1,6 @@
+import type { GradingProposal, ReviewedCriterion } from './grading.ts';
+import type { Rubric } from './rubric.ts';
+
 export const LOCAL_MEMORY_CORRECTION_ID_KEY = 'companion-current-correction-id';
 export const LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY = 'companion-current-rubric-fingerprint';
 export const LOCAL_MEMORY_RUBRIC_UPDATED_EVENT = 'companion-rubric-fingerprint-updated';
