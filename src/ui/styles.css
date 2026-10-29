@@ -764,3 +764,27 @@ footer { padding-top: 24px; line-height: 1.6; }
 .evaluation-results-workspace .evaluation-progress{margin:18px 0 22px}
 @media(max-width:760px){.evaluation-page-header{padding:23px 20px}.evaluation-step-nav{grid-template-columns:1fr}.evaluation-config-workspace,.evaluation-results-workspace{padding:18px}.evaluation-config-editor{padding:16px}.evaluation-config-fields{grid-template-columns:1fr}.evaluation-config-editor-heading{flex-direction:column}.evaluation-section-heading{flex-direction:column}.evaluation-run-actions{align-items:stretch}.evaluation-run-actions>.primary-button{width:100%}.evaluation-analysis-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.evaluation-analysis-columns{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.evaluation-step-nav button{scroll-behavior:auto}}
+
+/* Technical Debug remains structured and readable without leaking into the teacher workflow. */
+.debug-advanced-settings{margin:0 0 20px;padding:22px;border:1px solid #dfe7df;border-radius:15px;background:#f8faf7}
+.debug-advanced-settings>.workspace-heading{margin-bottom:14px}
+.debug-advanced-settings>.workspace-heading h3{margin:4px 0 7px;font-size:19px;line-height:1.3;color:#293e30}
+.debug-advanced-settings>.workspace-heading p:not(.eyebrow){max-width:760px;color:#637367;font-size:13px;line-height:1.6}
+.debug-advanced-settings>.ollama-panel{margin:0;padding:20px;border:1px solid #e0e8df;border-radius:12px;background:#fff;box-shadow:none}
+.debug-advanced-settings .field-label{font-size:12px;color:#405646}
+.debug-advanced-settings .hint{font-size:12px;line-height:1.6}
+.debug-run-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px}
+.debug-run-actions .primary-button{min-height:42px}
+.debug-performance-history{margin:20px 0;padding:16px 18px;border:1px solid #dfe7df;border-radius:13px;background:#fff}
+.debug-performance-history>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style-position:inside;color:#2e4935;font-size:14px;font-weight:750}
+.debug-performance-history>summary::marker{color:#6d9070}
+.debug-performance-history[open]>summary{padding-bottom:14px;border-bottom:1px solid #e7ece6}
+.debug-performance-history .timing-history{margin-top:18px}
+.debug-evaluation-traces{margin-top:16px;padding:18px;border:1px solid #e0e8df;border-radius:12px;background:#fff}
+.debug-evaluation-traces h3{margin:0 0 12px;font-size:16px;color:#293e30}
+.debug-evaluation-traces h4{margin:15px 0 8px;font-size:13px;color:#405646}
+.debug-evaluation-traces details{padding:12px 0;border-top:1px solid #e7ece6}
+.debug-evaluation-traces details>summary{cursor:pointer;color:#344b39;font-size:13px;font-weight:700;line-height:1.5}
+.debug-evaluation-traces pre,.diagnostic-results pre{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.6;padding:14px;border:1px solid #e4eae3;border-radius:9px;background:#f7f9f6;color:#27372c}
+.debug-results .panel-heading h3{font-size:18px}
+@media(max-width:760px){.debug-advanced-settings{padding:15px}.debug-advanced-settings>.ollama-panel{padding:14px}.debug-run-actions{align-items:stretch}.debug-run-actions>.primary-button{width:100%}.debug-performance-history{padding:13px}.debug-evaluation-traces{padding:14px}}
