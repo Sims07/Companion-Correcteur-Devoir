@@ -1,3 +1,7 @@
+export const LOCAL_MEMORY_CORRECTION_ID_KEY = 'companion-current-correction-id';
+export const LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY = 'companion-current-rubric-fingerprint';
+export const LOCAL_MEMORY_RUBRIC_UPDATED_EVENT = 'companion-rubric-fingerprint-updated';
+
 export type LocalMemoryKind = 'teacher-feedback' | 'rubric-rule' | 'correction-example';
 
 export interface LocalMemoryEntry {
@@ -59,4 +63,46 @@ export function rankLocalMemories(entries: LocalMemoryEntry[], query: string, li
     .sort((left, right) => right.score - left.score || right.entry.createdAt.localeCompare(left.entry.createdAt))
     .slice(0, Math.max(0, limit))
     .map(({ entry }) => entry);
+}
+
+/**
+ * Captures only decisions that differ from the model's proposal or contain an
+ * explicit teacher comment. Accepting an unchanged suggestion does not create
+ * noisy memory. IDs are stable so re-finalizing a copy updates, rather than
+ * duplicates, its decisions.
+ */
+export function createDecisionMemoryEntries(input: {
+  correctionId: string;
+  rubricFingerprint: string;
+  sourceCorrectionId: string;
+  rubric: Rubric;
+  proposal: GradingProposal;
+  review: ReviewedCriterion[];
+  createdAt?: string;
+}): LocalMemoryEntry[] {
+  const proposedById = new Map(input.proposal.criteria.map((criterion) => [criterion.criterionId, criterion]));
+  const createdAt = input.createdAt ?? new Date().toISOString();
+
+  return input.review.flatMap((decision) => {
+    const proposed = proposedById.get(decision.criterionId);
+    const criterion = input.rubric.criteria.find((item) => item.id === decision.criterionId);
+    if (!proposed || !criterion) return [];
+    const comment = decision.teacherComment.trim();
+    if (decision.teacherPoints === proposed.points && !comment) return [];
+
+    const pointDecision = decision.teacherPoints === proposed.points
+      ? `L’enseignant conserve la note proposée : ${decision.teacherPoints}/${criterion.maxPoints}.`
+      : `Le modèle proposait ${proposed.points}/${criterion.maxPoints} ; l’enseignant a retenu ${decision.teacherPoints}/${criterion.maxPoints}.`;
+    const note = comment ? ` Commentaire de l’enseignant : ${comment}` : '';
+    return [{
+      id: `teacher-decision-${input.sourceCorrectionId}-${decision.criterionId}`,
+      correctionId: input.correctionId,
+      rubricFingerprint: input.rubricFingerprint,
+      kind: 'teacher-feedback' as const,
+      text: `Critère « ${criterion.title} ». ${pointDecision}${note}`,
+      source: 'teacher' as const,
+      promotedToRubric: false,
+      createdAt,
+    }];
+  });
 }
