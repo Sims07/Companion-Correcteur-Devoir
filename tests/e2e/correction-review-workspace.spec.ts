@@ -40,11 +40,11 @@ test('review workspace keeps original evidence beside grading criteria on deskto
         },
         proposal: {
           summary: 'La réponse mentionne la membrane mais manque de précision.',
-          criteria: [{ criterionId: 'membrane', points: 2, rationale: 'Le mécanisme est partiellement expliqué.', evidence: 'La réponse mentionne la membrane.', confidence: 'medium' }],
+          criteria: [{ criterionId: 'membrane', points: 2, rationale: 'Le mécanisme est partiellement expliqué.', evidence: 'La réponse mentionne la membrane.', pageNumber: 1, confidence: 'medium' }],
           questionsForTeacher: [],
           finalScore: 2,
         },
-        review: [{ criterionId: 'membrane', points: 2, rationale: 'Le mécanisme est partiellement expliqué.', evidence: 'La réponse mentionne la membrane.', confidence: 'medium', teacherPoints: 2, teacherComment: '', decision: 'pending' }],
+        review: [{ criterionId: 'membrane', points: 2, rationale: 'Le mécanisme est partiellement expliqué.', evidence: 'La réponse mentionne la membrane.', pageNumber: 1, confidence: 'medium', teacherPoints: 2, teacherComment: '', decision: 'pending' }],
         teacherQuestions: '',
         images: [{ base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/9ioAAAAASUVORK5CYII=', mimeType: 'image/png', fileName: 'page-1.png' }],
         transcription: 'La membrane plasmique constitue une barrière sélective.',
@@ -70,6 +70,10 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
   await expect(page.getByRole('img', { name: 'Page originale 1 de la copie' })).toBeVisible();
   await expect(page.getByText('Texte reconnu par l’IA')).toBeVisible();
+  const locateEvidence = page.getByRole('button', { name: 'Repérer la preuve du critère Rôle de la membrane sur la page 1' });
+  await expect(locateEvidence).toBeVisible();
+  await locateEvidence.click();
+  await expect(page.locator('#review-copy-page-1')).toHaveClass(/evidence-page-focused/);
 
   const sourcePane = page.locator('.review-source-pane');
   await expect(sourcePane).toHaveCSS('position', 'sticky');

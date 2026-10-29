@@ -200,6 +200,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [archiveMessage, setArchiveMessage] = useState('');
   const [review, setReview] = useState<ReviewedCriterion[]>([]);
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
+  const [focusedEvidencePage, setFocusedEvidencePage] = useState<number | null>(null);
   const [teacherQuestions, setTeacherQuestions] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [isFinalized, setIsFinalized] = useState(false);
@@ -313,6 +314,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     try {
       const prepared = await service.prepareFiles(files);
       setImages((current) => [...current, ...prepared]);
+      setFocusedEvidencePage(null);
       setTranscription(null);
       setProposal(null);
       setReview([]);
@@ -536,6 +538,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
 
   function applyAssignment(profile: AssignmentProfile) {
     setShowOnlyFlagged(false);
+    setFocusedEvidencePage(null);
     setActiveAssignmentId(profile.id);
     setAssignmentTitle(profile.title);
     setRubric(profile.rubric);
@@ -567,6 +570,28 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     applyAssignment(profile);
   }
 
+  function deleteAssignment(profile: AssignmentProfile) {
+    if (isAnalyzing || assignmentProfiles.length <= 1) return;
+    const confirmed = window.confirm(
+      `Supprimer le devoir « ${profile.title.trim() || 'Devoir sans titre'} » ? Les corrections déjà archivées seront conservées.`,
+    );
+    if (!confirmed) return;
+
+    const nextProfiles = assignmentProfiles.filter((item) => item.id !== profile.id);
+    setAssignmentProfiles(nextProfiles);
+    setAssignmentDrafts((current) => {
+      const next = { ...current };
+      delete next[profile.id];
+      return next;
+    });
+
+    if (profile.id === activeAssignmentId) {
+      const deletedIndex = assignmentProfiles.findIndex((item) => item.id === profile.id);
+      const nextActive = nextProfiles[Math.max(0, deletedIndex - 1)] ?? nextProfiles[0];
+      applyAssignment(nextActive);
+    }
+  }
+
   function createNewAssignment() {
     if (isAnalyzing) return;
     setShowOnlyFlagged(false);
@@ -574,7 +599,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     const profile: AssignmentProfile = {
       id: `assignment-${crypto.randomUUID()}`,
       title: assignmentProfiles.length === 1 ? 'Nouveau devoir' : `Nouveau devoir ${assignmentProfiles.length}`,
-      rubric: structuredClone(initialRubric),
+      rubric: { title: 'Barème à définir', criteria: [] },
       question: defaultQuestion,
       correctionMode: 'integrated',
     };
@@ -721,10 +746,13 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         <section className="sidebar-assignment-list" aria-label="Mes devoirs">
           <div className="sidebar-assignment-list-heading"><span className="eyebrow">MES DEVOIRS</span><span>{assignmentProfiles.length}</span></div>
           <div className="sidebar-assignment-items">
-            {assignmentProfiles.map((profile) => <button key={profile.id} type="button" className={profile.id === activeAssignmentId ? 'sidebar-assignment-item active' : 'sidebar-assignment-item'} aria-current={profile.id === activeAssignmentId ? 'page' : undefined} onClick={() => switchAssignment(profile)} disabled={isAnalyzing}>
-              <span className="sidebar-assignment-dot" aria-hidden="true" />
-              <span><strong>{profile.title.trim() || 'Devoir sans titre'}</strong><small>{profile.rubric.criteria.length} critères · {profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)} points</small></span>
-            </button>)}
+            {assignmentProfiles.map((profile) => <div key={profile.id} className="sidebar-assignment-row">
+              <button type="button" className={profile.id === activeAssignmentId ? 'sidebar-assignment-item active' : 'sidebar-assignment-item'} aria-current={profile.id === activeAssignmentId ? 'page' : undefined} onClick={() => switchAssignment(profile)} disabled={isAnalyzing}>
+                <span className="sidebar-assignment-dot" aria-hidden="true" />
+                <span><strong>{profile.title.trim() || 'Devoir sans titre'}</strong><small>{profile.rubric.criteria.length} critères · {profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)} points</small></span>
+              </button>
+              <button type="button" className="sidebar-assignment-delete" aria-label={`Supprimer le devoir ${profile.title.trim() || 'sans titre'}`} title="Supprimer ce devoir" onClick={() => deleteAssignment(profile)} disabled={isAnalyzing || assignmentProfiles.length <= 1}>×</button>
+            </div>)}
           </div>
           <button type="button" className="sidebar-new-assignment" onClick={createNewAssignment} disabled={isAnalyzing}><span aria-hidden="true">＋</span> Nouveau devoir</button>
         </section>
@@ -800,10 +828,12 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         <div className="archive-footer"><button type="button" className="primary-button" onClick={startNextCopy}>+ Ajouter une autre copie</button><p>Les copies archivées ne sont pas envoyées dans le cloud. Elles occupent de l’espace dans le stockage local de ce navigateur.</p></div>
       </section>}
       {(interfaceMode === 'diagnostic' || teacherStep === 'rubric') && <>
-      <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 SUR 3' : 'ÉTAPE 1'}</p><h2>Préparer le barème</h2></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
+      <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 SUR 3' : 'ÉTAPE 1'}</p><h2>Préparer le barème de correction</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
       <section className="panel rubric-editor">
-        <label className="field-label" htmlFor="rubric-title">Nom du barème</label>
-        <input id="rubric-title" value={rubric.title} onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
+        <div className="rubric-assignment-context"><span className="eyebrow">BARÈME ASSOCIÉ AU DEVOIR</span><strong>{assignmentTitle.trim() || 'Devoir sans titre'}</strong><p>Vous pouvez donner au barème un nom différent de celui du devoir.</p></div>
+        <label className="field-label" htmlFor="rubric-title">Nom du barème (distinct du devoir)</label>
+        <input id="rubric-title" value={rubric.title} placeholder="Ex. Barème du contrôle de biologie" onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
+        {rubric.criteria.length === 0 && <div className="rubric-empty-state" role="status"><strong>Le barème n’est pas encore défini</strong><p>Importez un barème existant ou ajoutez les critères et leurs points ci-dessous. La correction restera indisponible tant qu’un barème valide n’est pas prêt.</p></div>}
         <div className="rubric-import">
           <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Word (.docx), Excel (.xlsx), CSV, TXT ou JSON)</label>
           <FilePicker id="rubric-file" accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.json" onFilesSelected={(files) => { void importRubricFileFromInput(files?.[0]); }} title="Importer un document de barème" description="PDF, Word, Excel, CSV, TXT, Markdown ou JSON" actionLabel="Parcourir les fichiers" />
@@ -1040,7 +1070,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
             <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de référence</h3><p>Gardez les pages originales sous les yeux pendant que vous vérifiez les points et les preuves.</p></div>
             <div className="review-source-pages" aria-label="Pages originales de la copie">
-              {images.length > 0 ? images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-review-' + index}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page originale ${index + 1} de la copie`} /><figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption></figure>) : <p className="review-source-empty">Aucune image originale disponible. Vérifiez les preuves avec prudence.</p>}
+              {images.length > 0 ? images.map((image, index) => <figure id={`review-copy-page-${index + 1}`} className={focusedEvidencePage === index + 1 ? 'live-copy-page evidence-page-focused' : 'live-copy-page'} key={image.fileName + '-review-' + index}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page originale ${index + 1} de la copie`} /><figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption></figure>) : <p className="review-source-empty">Aucune image originale disponible. Vérifiez les preuves avec prudence.</p>}
             </div>
             <details className="review-transcription">
               <summary><span><strong>Texte reconnu par l’IA</strong><small>{transcription ? 'Transcription locale à comparer à l’original' : 'Aucune transcription disponible'}</small></span></summary>
@@ -1054,7 +1084,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
           return <article className="panel review-card" key={item.criterionId}>
             <div className="review-card-heading"><div><h3>{criterion?.title ?? item.criterionId}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div><span className={`confidence confidence-${item.confidence}`}>Confiance {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</span></div>
-            <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p></div>
+            <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p>{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>
             <p className="rationale">{item.rationale}</p>
             {item.confidence === 'low' && <p className="teacher-question"><strong>Lecture à vérifier :</strong> {item.questionForTeacher || 'Le modèle est incertain sur ce critère. Vérifiez la preuve citée et la note proposée ; aucune question précise ne peut être formulée automatiquement.'}</p>}
             <div className="review-controls">

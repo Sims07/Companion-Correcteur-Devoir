@@ -48,4 +48,18 @@ describe('parseGradingProposal final score', () => {
 
     expect(proposal.finalScore).toBe(7);
   });
+
+  it('preserves a valid one-based source page and ignores invalid page references', () => {
+    const proposal = parseGradingProposal(JSON.stringify({
+      summary: 'Preuves associées à leurs pages.',
+      criteria: [
+        { ...criterion('science', 4), pageNumber: 2 },
+        { ...criterion('reasoning', 3), pageNumber: 0 },
+      ],
+      questionsForTeacher: [],
+    }), rubric);
+
+    expect(proposal.criteria[0].pageNumber).toBe(2);
+    expect(proposal.criteria[1].pageNumber).toBeUndefined();
+  });
 });
