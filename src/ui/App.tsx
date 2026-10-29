@@ -491,6 +491,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   }
 
   function applyAssignment(profile: AssignmentProfile) {
+    setShowOnlyFlagged(false);
+    setShowSourceEvidence(false);
     setActiveAssignmentId(profile.id);
     setAssignmentTitle(profile.title);
     setRubric(profile.rubric);
@@ -523,6 +525,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
 
   function createNewAssignment() {
     if (isAnalyzing) return;
+    setShowOnlyFlagged(false);
+    setShowSourceEvidence(false);
     setAssignmentDrafts((current) => ({ ...current, [activeAssignmentId]: captureActiveDraft() }));
     const profile: AssignmentProfile = {
       id: `assignment-${crypto.randomUUID()}`,
