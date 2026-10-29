@@ -893,3 +893,23 @@
   .review-alert-actions > button, .correction-batch-actions > button { width: 100%; }
   .correction-batch-progress { align-items: stretch; flex-direction: column; }
 }
+
+
+/* Explicit per-assignment copy queue; queued image data stays in memory, not cloud storage. */
+.copy-queue { display: grid; gap: 10px; margin-top: 14px; padding: 14px; border: 1px solid var(--flow-border); border-radius: 12px; background: var(--flow-surface-soft); }
+.copy-queue-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.copy-queue-heading h4 { margin: 3px 0 0; font-size: 14px; }
+.copy-queue > p { margin: 0; color: var(--flow-muted); font-size: 12px; line-height: 1.5; }
+.copy-queue ol { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.copy-queue li { display: flex; align-items: center; gap: 10px; padding: 9px; border: 1px solid var(--flow-border); border-radius: 9px; background: #fff; }
+.queue-position { display: grid; flex: 0 0 26px; width: 26px; height: 26px; place-items: center; border-radius: 7px; background: #e8efe7; color: #345a3d; font-size: 11px; font-weight: 800; }
+.queue-copy-label { display: grid; flex: 1; min-width: 0; gap: 3px; }
+.queue-copy-label strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.queue-copy-label small { color: var(--flow-muted); font-size: 11px; }
+.copy-queue-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.copy-queue-actions .secondary-button { min-height: 38px; }
+@media (max-width: 720px) {
+  .copy-queue-heading { align-items: stretch; flex-direction: column; }
+  .copy-queue-heading > button, .copy-queue-actions > button { width: 100%; }
+  .copy-queue li { gap: 7px; }
+}
