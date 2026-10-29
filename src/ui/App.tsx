@@ -1349,6 +1349,180 @@ export function App({ service, archiveService, evaluationService }: { service: C
         </>}
       </section>}
 
+        <details className="debug-performance-history"><summary>Historique et comparaison des performances</summary>
+      {timingHistory.length > 0 && <section className="timing-history" aria-labelledby="timing-history-title">
+        <div className="timing-history-heading diagnostic-dashboard-header">
+          <div><p className="eyebrow">LABORATOIRE LOCAL · OLLAMA</p><h2 id="timing-history-title">Tableau de bord des expériences</h2><p>Comparez les compromis entre qualité, consommation et vitesse sur les mêmes devoirs et barèmes. Toutes les données restent dans ce navigateur.</p></div>
+          <div className="diagnostic-dashboard-header-actions"><span className="diagnostic-local-pill"><span></span> Données locales</span><button type="button" className="text-button" onClick={() => { setTimingHistory([]); setSelectedComparisonIds([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button></div>
+        </div>
+        {(() => {
+          const allRuns = timingHistory.flatMap((item) => item.diagnosticRuns ?? []);
+          const measuredRuns = allRuns.filter((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined);
+          const models = [...new Set([...timingHistory.flatMap((item) => [item.visionModel, item.analysisModel]), ...allRuns.map((run) => run.model)].filter(Boolean))];
+          const promptTokens = measuredRuns.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0);
+          const generatedTokens = measuredRuns.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0);
+          const elapsedMs = allRuns.reduce((sum, run) => sum + run.elapsedMs, 0);
+          const generationMs = measuredRuns.reduce((sum, run) => sum + (run.generationMs ?? 0), 0);
+          return <div className="diagnostic-usage-overview" aria-label="Synthèse de consommation des modèles">
+            <div><span>Modèles observés</span><strong>{models.length}</strong></div>
+            <div><span>Temps cumulé des appels</span><strong>{formatElapsed(Math.round(elapsedMs / 1000))}</strong></div>
+            <div><span>Tokens mesurés (entrée + sortie)</span><strong>{formatTokenCount(promptTokens + generatedTokens)}</strong><small>{measuredRuns.length}/{allRuns.length} appels mesurés</small></div>
+            <div><span>Vitesse de génération pondérée</span><strong>{generationMs > 0 ? (generatedTokens / (generationMs / 1000)).toFixed(2).replace('.', ',') + ' tokens/s' : '—'}</strong></div>
+          </div>;
+        })()}
+        {(() => {
+          const selectedComparisons = timingHistory.filter((item) => selectedComparisonIds.includes(item.id)).slice(0, 2);
+          if (selectedComparisons.length < 2) return <section className="diagnostic-comparison-panel" aria-labelledby="diagnostic-comparison-title">
+            <div className="diagnostic-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h3 id="diagnostic-comparison-title">Comparer deux essais</h3><p>Sélectionnez deux lignes de l’historique pour comparer les performances et les consommations côte à côte.</p></div><span className="diagnostic-comparison-count">{selectedComparisons.length}/2 sélectionné(s)</span></div>
+            <p className="diagnostic-comparison-empty">{selectedComparisons.length === 0 ? 'Cochez deux essais dans le tableau ci-dessous pour afficher les graphiques.' : 'Encore un essai à sélectionner pour afficher les graphiques.'}</p>
+          </section>;
+          const usageFor = (record: TimingRecord) => {
+            const runs = record.diagnosticRuns ?? [];
+            const measuredRuns = runs.filter((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined);
+            return {
+              prompt: measuredRuns.length ? measuredRuns.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0) : null,
+              generated: measuredRuns.length ? measuredRuns.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0) : null,
+              groups: groupDiagnosticUsage(runs),
+            };
+          };
+          const usage = selectedComparisons.map((record) => usageFor(record));
+          const metrics = [
+            { key: 'duration', label: 'Temps total', unit: 's', values: selectedComparisons.map((record) => record.totalSeconds), display: (value: number | null) => value === null ? '—' : formatElapsed(value) },
+            { key: 'prompt', label: 'Tokens d’entrée', unit: 'tokens', values: usage.map((item) => item.prompt), display: (value: number | null) => value === null ? '—' : formatTokenCount(value) },
+            { key: 'generated', label: 'Tokens générés', unit: 'tokens', values: usage.map((item) => item.generated), display: (value: number | null) => value === null ? '—' : formatTokenCount(value) },
+            { key: 'score', label: 'Note proposée', unit: 'points', values: selectedComparisons.map((record) => record.modelScore), display: (value: number | null) => value === null ? 'Non disponible' : String(value) },
+          ];
+          const allGroups = usage.flatMap((item, index) => item.groups.map((group) => ({ ...group, runIndex: index })));
+          const rubricFor = (record: TimingRecord) => record.rubricSnapshot ?? rubric;
+          const rubricSignature = (record: TimingRecord) => JSON.stringify(rubricFor(record).criteria.map((criterion) => ({ id: criterion.id, title: criterion.title, description: criterion.description, maxPoints: criterion.maxPoints })));
+          const referenceSource = selectedComparisons.find((record) => {
+            const reference = record.referenceScores;
+            return Boolean(reference && validateDiagnosticReference(reference, rubricFor(record)).valid);
+          });
+          const sharedReference = referenceSource?.referenceScores;
+          const modelScores = selectedComparisons.flatMap((record, runIndex) => {
+            const recordRubric = rubricFor(record);
+            const compatibleSharedReference = Boolean(record.assignmentId && sharedReference && selectedComparisons.every((candidate) => candidate.assignmentId === record.assignmentId && rubricSignature(candidate) === rubricSignature(record)));
+            const reference = compatibleSharedReference ? sharedReference : record.referenceScores;
+            const validReference = reference && validateDiagnosticReference(reference, recordRubric).valid ? reference : null;
+            return (record.diagnosticRuns ?? [])
+              .filter((run) => run.kind === 'model' || run.kind === 'arbitrator')
+              .map((run) => {
+                const parsed = safeDiagnosticProposal(run.raw, recordRubric);
+                const score = parsed ? buildDiagnosticScore(parsed, recordRubric) : null;
+                const referenceComparison = score && validReference ? compareWithDiagnosticReference(score.criterionScores, validReference, recordRubric) : null;
+                const maxPoints = recordRubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
+                const usageGroup = groupDiagnosticUsage([run])[0];
+                const tokens = run.promptTokens !== undefined || run.generatedTokens !== undefined ? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0) : null;
+                const qualityPercent = referenceComparison && maxPoints > 0
+                  ? Math.max(0, 100 - referenceComparison.absoluteTotalError / maxPoints * 100)
+                  : score && maxPoints > 0 ? score.modelScore / maxPoints * 100 : null;
+                const criterionErrors = score && validReference ? recordRubric.criteria.flatMap((criterion) => {
+                  const modelCriterion = score.criterionScores.find((item) => item.criterionId === criterion.id);
+                  const referenceCriterion = validReference.find((item) => item.criterionId === criterion.id);
+                  return modelCriterion && referenceCriterion ? [{ id: criterion.id, title: criterion.title, maxPoints: criterion.maxPoints, modelPoints: modelCriterion.points, referencePoints: referenceCriterion.points, error: Math.abs(modelCriterion.points - referenceCriterion.points) }] : [];
+                }) : [];
+                return { record, run, runIndex, score: score?.modelScore ?? null, maxPoints, elapsedSeconds: run.elapsedMs / 1000, tokens, usageGroup, referenceComparison, qualityPercent, criterionErrors, hasReference: Boolean(validReference), assignmentTitle: record.assignmentTitle ?? 'Devoir historique' };
+              });
+          });
+          const maxGroupElapsed = Math.max(1, ...allGroups.map((group) => group.elapsedMs));
+          const maxGroupTokens = Math.max(1, ...allGroups.map((group) => group.promptTokens + group.generatedTokens));
+          const plotMaxSeconds = Math.max(1, ...modelScores.map((item) => item.elapsedSeconds));
+          const plotMaxTokens = Math.max(1, ...modelScores.map((item) => item.tokens ?? 0));
+          const hasReferenceQuality = modelScores.length > 0 && modelScores.every((item) => item.referenceComparison !== null);
+          const qualityMetricLabel = hasReferenceQuality ? 'Proximité de la référence' : 'Note proposée (% du barème)';
+          const scatterPoints = modelScores.map((item, index) => ({
+            ...item,
+            qualityPercent: hasReferenceQuality ? item.qualityPercent : item.score !== null && item.maxPoints > 0 ? item.score / item.maxPoints * 100 : null,
+            x: 76 + item.elapsedSeconds / plotMaxSeconds * 590,
+            radius: 6 + Math.sqrt((item.tokens ?? 0) / plotMaxTokens) * 8,
+            key: item.record.id + item.run.model + index,
+          })).filter((item) => item.qualityPercent !== null).map((item) => ({
+            ...item,
+            y: 224 - (item.qualityPercent ?? 0) / 100 * 170,
+          }));
+          return <section className="diagnostic-comparison-panel" aria-labelledby="diagnostic-comparison-title">
+            <div className="diagnostic-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h3 id="diagnostic-comparison-title">Comparaison de deux essais</h3><p>Les barres partagent la même échelle au sein de chaque graphique. Les valeurs indisponibles restent distinctes de zéro.</p></div><button type="button" className="text-button" onClick={() => setSelectedComparisonIds([])}>Réinitialiser la sélection</button></div>
+            {selectedComparisons[0].assignmentId !== selectedComparisons[1].assignmentId || rubricSignature(selectedComparisons[0]) !== rubricSignature(selectedComparisons[1]) ? <p className="diagnostic-comparison-warning" role="note">Ces essais ne partagent pas le même devoir et le même barème. Les temps et tokens restent comparables ; les notes et écarts pédagogiques doivent être interprétés avec prudence.</p> : null}
+            <div className="diagnostic-comparison-legend">{selectedComparisons.map((record, index) => <div key={record.id}><span className={index === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><span><strong>Essai {index === 0 ? 'A' : 'B'}</strong><small>{record.visionModel} / {record.analysisModel} · {new Date(record.completedAt).toLocaleString()}</small></span></div>)}</div>
+            <div className="diagnostic-comparison-charts">{metrics.map((metric) => {
+              const values = metric.values.map((value) => typeof value === 'number' && Number.isFinite(value) ? value : null);
+              const max = Math.max(1, ...values.map((value) => value ?? 0));
+              return <article className="diagnostic-comparison-chart" key={metric.key}>
+                <h4>{metric.label}</h4>
+                {values.map((value, index) => <div className="diagnostic-comparison-bar-row" key={selectedComparisons[index].id}>
+                  <div className="diagnostic-comparison-bar-label"><span>Essai {index === 0 ? 'A' : 'B'}</span><strong>{metric.display(value)}</strong></div>
+                  <div className="diagnostic-comparison-track" role="img" aria-label={`Essai ${index === 0 ? 'A' : 'B'} : ${metric.display(value)}`}><span className={index === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: value === null ? '0%' : `${Math.max(value > 0 ? 2 : 0, value / max * 100)}%` }} /></div>
+                </div>)}
+              </article>;
+            })}</div>
+            <div className="diagnostic-comparison-stage">
+              <div><h4>Temps et tokens par modèle / étape</h4><p>Chaque barre de temps utilise la même échelle entre les deux essais. Les appels sans métriques Ollama restent signalés.</p></div>
+              {allGroups.length === 0 ? <p className="diagnostic-comparison-empty">Aucun détail par modèle enregistré dans ces essais.</p> : <div className="diagnostic-comparison-models">{allGroups.map((group, index) => <article key={selectedComparisons[group.runIndex].id + group.stage + group.model + index}>
+                <div className="diagnostic-comparison-model-heading"><span className={group.runIndex === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><strong>Essai {group.runIndex === 0 ? 'A' : 'B'} · {group.model}</strong><small>{diagnosticStageLabel(group.stage)} · {group.calls} appel(s)</small></div>
+                <div className="diagnostic-comparison-bar-label"><span>Temps cumulé</span><strong>{formatElapsed(Math.round(group.elapsedMs / 1000))}</strong></div>
+                <div className="diagnostic-comparison-track" role="img" aria-label={`Temps ${group.model} ${diagnosticStageLabel(group.stage)} : ${formatElapsed(Math.round(group.elapsedMs / 1000))}`}><span className={group.runIndex === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: `${group.elapsedMs / maxGroupElapsed * 100}%` }} /></div>
+                <div className="diagnostic-comparison-bar-label"><span>Tokens entrée + sortie</span><strong>{group.measuredCalls ? formatTokenCount(group.promptTokens + group.generatedTokens) : 'Non mesurés'}</strong></div>
+                <div className="diagnostic-comparison-track" role="img" aria-label={`Tokens ${group.model} ${diagnosticStageLabel(group.stage)} : ${group.measuredCalls ? formatTokenCount(group.promptTokens + group.generatedTokens) : 'non mesurés'}`}><span className={group.runIndex === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: group.measuredCalls ? `${(group.promptTokens + group.generatedTokens) / maxGroupTokens * 100}%` : '0%' }} /></div>
+              </article>)}</div>}
+            </div>
+            <div className="diagnostic-dashboard-kpis" aria-label="Indicateurs qualité, coût et vitesse">
+              <article className="diagnostic-kpi quality"><span className="diagnostic-kpi-icon" aria-hidden="true">◎</span><div><span>Qualité mesurée</span><strong>{hasReferenceQuality ? 'Référence active' : 'À confirmer'}</strong><small>{hasReferenceQuality ? 'Écart aux notes du professeur' : 'La note proposée n’est pas une mesure de justesse'}</small></div></article>
+              <article className="diagnostic-kpi cost"><span className="diagnostic-kpi-icon" aria-hidden="true">◈</span><div><span>Consommation comparée</span><strong>{modelScores.filter((item) => item.tokens !== null).length} modèle(s) mesuré(s)</strong><small>Tokens d’entrée + de sortie réellement remontés par Ollama</small></div></article>
+              <article className="diagnostic-kpi speed"><span className="diagnostic-kpi-icon" aria-hidden="true">◷</span><div><span>Temps de calcul</span><strong>{modelScores.length ? formatElapsed(Math.round(modelScores.reduce((sum, item) => sum + item.elapsedSeconds, 0))) : '—'}</strong><small>Somme des appels d’analyse comparés</small></div></article>
+            </div>
+            <div className="diagnostic-comparison-stage diagnostic-quality-speed-stage">
+              <div className="diagnostic-section-title"><div><p className="eyebrow">QUALITÉ × VITESSE × COÛT</p><h4>Compromis entre qualité et temps</h4><p>{hasReferenceQuality ? 'Plus un point est haut, plus sa note est proche de la référence du professeur. La taille du point représente les tokens consommés.' : 'En l’absence de référence, l’axe vertical affiche la note proposée en pourcentage du barème — pas une mesure de justesse. La taille du point représente les tokens consommés.'}</p></div><span className="diagnostic-chart-legend"><i className="comparison-swatch comparison-swatch-a"></i> Essai A <i className="comparison-swatch comparison-swatch-b"></i> Essai B</span></div>
+              {scatterPoints.length === 0 ? <p className="diagnostic-comparison-empty">Aucune note structurée exploitable pour tracer ce graphique.</p> : <div className="diagnostic-scatter-wrap">
+                <svg className="diagnostic-scatter" viewBox="0 0 720 270" role="img" aria-label={`Graphique ${qualityMetricLabel} en fonction du temps de calcul ; taille des points proportionnelle aux tokens`}>
+                  {[0,25,50,75,100].map((tick) => <g key={tick}><line x1="76" x2="666" y1={224-tick/100*170} y2={224-tick/100*170} className="diagnostic-chart-gridline" /><text x="64" y={228-tick/100*170} textAnchor="end" className="diagnostic-chart-tick">{tick}%</text><line x1={76+590*tick/100} x2={76+590*tick/100} y1="54" y2="224" className="diagnostic-chart-gridline" /><text x={76+590*tick/100} y="240" textAnchor="middle" className="diagnostic-chart-tick">{(plotMaxSeconds*tick/100).toFixed(0)} s</text></g>)}
+                  <line x1="76" x2="76" y1="54" y2="224" className="diagnostic-chart-axis" /><line x1="76" x2="666" y1="224" y2="224" className="diagnostic-chart-axis" />
+                  <text x="370" y="258" textAnchor="middle" className="diagnostic-chart-axis-label">Temps d’analyse (secondes) · plus rapide à gauche</text>
+                  {scatterPoints.map((point) => <g key={point.key}>
+                    <circle cx={point.x} cy={point.y} r={point.radius} className={point.runIndex === 0 ? 'diagnostic-scatter-point point-a' : 'diagnostic-scatter-point point-b'}><title>{point.run.model} — {point.qualityPercent?.toFixed(1)} %, {point.elapsedSeconds.toFixed(1)} s, {point.tokens === null ? 'tokens non mesurés' : formatTokenCount(point.tokens)}</title></circle>
+                    <text x={Math.min(645, point.x + point.radius + 5)} y={point.y - 8} className="diagnostic-chart-point-label">{point.run.model}</text>
+                  </g>)}
+                </svg>
+                <div className="diagnostic-scatter-caption"><span><i className="comparison-swatch comparison-swatch-a"></i> Essai A · {selectedComparisons[0].analysisModel}</span><span><i className="comparison-swatch comparison-swatch-b"></i> Essai B · {selectedComparisons[1].analysisModel}</span><span>Surface du point ∝ tokens mesurés</span></div>
+              </div>}
+            </div>
+            <div className="diagnostic-comparison-stage">
+              <div className="diagnostic-section-title"><div><p className="eyebrow">DÉTAIL DES MODÈLES</p><h4>Qualité, coût et vitesse par modèle</h4><p>Les métriques sont calculées séparément pour chaque avis et pour l’arbitre. Une référence compatible peut être réutilisée entre les deux essais.</p></div></div>
+              {modelScores.length === 0 ? <p className="diagnostic-comparison-empty">Aucune note par modèle exploitable n’a été conservée dans ces essais.</p> : <div className="diagnostic-model-score-grid">{modelScores.map((item) => <article className="diagnostic-model-score-card" key={item.record.id + item.run.kind + item.run.model}>
+                <div className="diagnostic-model-score-top"><span className={item.runIndex === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><div><strong>{item.run.kind === 'arbitrator' ? 'Arbitre' : 'Avis indépendant'} · {item.run.model}</strong><small>Essai {item.runIndex === 0 ? 'A' : 'B'} · {item.assignmentTitle}</small></div></div>
+                <div className="diagnostic-model-score-main"><strong>{item.score === null ? '—' : item.score}</strong><span>/ {item.maxPoints} points</span></div>
+                <div className="diagnostic-model-score-metrics">
+                  <div><span>{item.hasReference ? 'Erreur moyenne' : 'Note / barème'}</span><strong>{item.referenceComparison ? `${item.referenceComparison.meanAbsoluteError} pt` : item.score === null || item.maxPoints <= 0 ? '—' : `${(item.score/item.maxPoints*100).toFixed(1).replace('.', ',')} %`}</strong><small>{item.referenceComparison ? `${item.referenceComparison.exactMatches}/${item.referenceComparison.comparedCriteria} critères exacts` : 'Référence facultative'}</small></div>
+                  <div><span>Temps</span><strong>{formatElapsed(Math.round(item.elapsedSeconds))}</strong><small>{item.usageGroup?.generationMs ? `${(item.usageGroup.generationMs > 0 ? (item.usageGroup.generatedTokens/(item.usageGroup.generationMs/1000)).toFixed(1) : '—')} tokens/s` : 'Vitesse non mesurée'}</small></div>
+                  <div><span>Tokens</span><strong>{item.tokens === null ? 'Non mesurés' : formatTokenCount(item.tokens)}</strong><small>{item.run.promptTokens === undefined ? 'Entrée non mesurée' : `Entrée : ${formatTokenCount(item.run.promptTokens)}`}</small></div>
+                </div>
+                {item.criterionErrors.length > 0 && <details className="diagnostic-criterion-error-details"><summary>Écart par critère</summary><div className="diagnostic-criterion-error-list">{item.criterionErrors.map((criterion) => <div key={criterion.id}><span>{criterion.title}</span><strong>{criterion.modelPoints} / {criterion.maxPoints}</strong><div className="diagnostic-comparison-track"><span className="comparison-bar-b" style={{width: `${criterion.maxPoints > 0 ? criterion.error / criterion.maxPoints * 100 : 0}%`}} /></div><small>Écart à la référence : {criterion.error} pt</small></div>)}</div></details>}
+              </article>)}</div>}
+            </div>
+          </section>;
+        })()}
+        <p className="hint">Les tokens sont les compteurs remontés par Ollama : entrée (prompt), sortie (générés) et total lorsqu’ils sont disponibles. Le temps par modèle correspond à la durée murale des appels, tandis que le temps de génération et de chargement sont des métriques Ollama. Les anciennes expériences sans ces métadonnées restent consultables, mais ne peuvent pas être recalculées.</p>
+        <div className="timing-history-table-wrap">
+          <table className="timing-history-table">
+            <thead><tr><th scope="col">Comparer</th><th scope="col">Date</th><th scope="col">Modèles (lecture / analyse)</th><th scope="col">Lecture</th><th scope="col">Analyse</th><th scope="col">Total</th><th scope="col">Tokens consommés</th><th scope="col">Usage par modèle</th><th scope="col">Note du modèle</th><th scope="col">Résultat</th></tr></thead>
+            <tbody>{timingHistory.map((item) => { const runs = item.diagnosticRuns ?? []; const usage = groupDiagnosticUsage(runs); const measured = runs.filter((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined); const promptTokens = runs.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0); const generatedTokens = runs.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0); const totalTokens = runs.reduce((sum, run) => sum + (run.totalTokens ?? 0), 0); return <tr key={item.id}>
+              <td><input type="checkbox" className="diagnostic-comparison-checkbox" aria-label={`Sélectionner l’essai ${item.visionModel} / ${item.analysisModel} pour comparaison`} checked={selectedComparisonIds.includes(item.id)} disabled={!selectedComparisonIds.includes(item.id) && selectedComparisonIds.length >= 2} onChange={(event) => setSelectedComparisonIds((current) => event.target.checked ? (current.length < 2 ? [...current, item.id] : current) : current.filter((id) => id !== item.id))} /></td><td>{new Date(item.completedAt).toLocaleString()}</td>
+              <td><strong>{item.visionModel || '—'}</strong><small>{item.analysisModel || '—'}{item.thinking ? ' · thinking' : ''}</small><small>{item.pageCount} page(s) · {item.correctionMode === 'separate' ? 'sujet séparé' : 'questions intégrées'}</small></td>
+              <td>{item.readingSeconds === null ? 'Réutilisée / non mesurée' : formatElapsed(item.readingSeconds)}</td>
+              <td>{item.analysisSeconds === null ? 'Non mesurée' : formatElapsed(item.analysisSeconds)}</td>
+              <td><strong>{formatElapsed(item.totalSeconds)}</strong></td>
+              <td>{measured.length ? <><span>Entrée : {formatTokenCount(promptTokens)}</span><small>Générés : {formatTokenCount(generatedTokens)} · Total : {formatTokenCount(totalTokens)}</small><small>{measured.length}/{runs.length} appel(s) avec métriques</small></> : 'Non fournis par Ollama pour cet essai'}</td>
+              <td>{usage.length ? <details className="diagnostic-usage-details"><summary>{usage.length} groupe(s) modèle / étape</summary><div className="diagnostic-usage-groups">{usage.map((group) => <section key={group.stage + group.model}><strong>{group.model}</strong><span>{diagnosticStageLabel(group.stage)} · {group.calls} appel(s)</span><small>Temps cumulé : {formatElapsed(Math.round(group.elapsedMs / 1000))}</small><small>{group.measuredCalls ? `Tokens d’entrée : ${formatTokenCount(group.promptTokens)} · générés : ${formatTokenCount(group.generatedTokens)} · total : ${formatTokenCount(group.totalTokens)}` : 'Tokens : non fournis par Ollama pour ces appels'}</small><small>Mesures de tokens disponibles : {group.measuredCalls}/{group.calls} appel(s)</small><small>Vitesse de génération : {group.generationMs > 0 && group.generatedTokens > 0 ? (group.generatedTokens / (group.generationMs / 1000)).toFixed(2).replace('.', ',') + ' tokens/s' : 'Non mesurée'} · Chargement : {group.loadMs > 0 ? formatElapsed(Math.round(group.loadMs / 1000)) : 'Non mesuré'}</small></section>)}</div></details> : 'Aucun détail de consommation enregistré'}</td>
+              <td>{item.modelScore === null ? '—' : <details className="diagnostic-score-details"><summary><strong>{item.modelScore} / {item.criterionScores.reduce((sum, criterion) => sum + criterion.maxPoints, 0)}</strong><span>Détail par barème</span></summary>{item.criterionScores.length > 0 ? <ul>{item.criterionScores.map((criterion) => <li key={criterion.criterionId}><span>{criterion.title}</span><strong>{criterion.points} / {criterion.maxPoints}</strong></li>)}</ul> : <small>Aucun détail de critère enregistré.</small>}{(item.diagnosticRuns ?? []).some((run) => run.kind !== 'vision') && <div className="diagnostic-history-runs"><strong>Essai multi-modèles · {item.diagnosticStrategy === 'arbitrate' ? 'avec arbitre' : item.diagnosticStrategy === 'compare' ? 'comparaison' : 'modèle unique'}</strong>{(item.diagnosticRuns ?? []).filter((run) => run.kind !== 'vision').map((run, index) => { const parsed = safeDiagnosticProposal(run.raw, rubric); const total = parsed?.criteria.reduce((sum, criterion) => sum + criterion.points, 0); return <div key={run.kind + run.model + index}><span>{run.kind === 'arbitrator' ? 'Arbitre' : 'Avis'} · {run.model}</span><strong>{total === undefined ? 'Sortie non exploitable' : total + ' / ' + validation.maximumPoints}</strong><small>{formatElapsed(Math.round(run.elapsedMs / 1000))}</small>{parsed && <ul>{parsed.criteria.map((criterion) => <li key={criterion.criterionId}><span>{rubric.criteria.find((entry) => entry.id === criterion.criterionId)?.title ?? criterion.criterionId}</span><strong>{criterion.points} / {rubric.criteria.find((entry) => entry.id === criterion.criterionId)?.maxPoints ?? 0}</strong></li>)}</ul>}</div>; })}</div>}</details>}</td>
+              <td><span className={item.outcome === 'success' ? 'timing-outcome success' : 'timing-outcome error'}>{item.outcome === 'success' ? 'Terminée' : 'Échec'}</span></td>
+            </tr>; })}</tbody>
+          </table>
+        </div>
+        <p className="hint">Les durées sont arrondies à la seconde. Une lecture déjà en mémoire n’est pas comptée comme une nouvelle lecture ; le temps de vérification d’Ollama est inclus dans le total, pas dans les durées des étapes.</p>
+      </section>}
+
+
+        </details>
 </section> : (interfaceMode === 'diagnostic' || !showAiSettings) && <>      {interfaceMode === 'teacher' && teacherStep === 'archive' && <section className="correction-archive" aria-labelledby="correction-archive-title">
         <div className="workspace-heading"><div><p className="eyebrow">HISTORIQUE LOCAL</p><h2 id="correction-archive-title">Corrections enregistrées</h2><p>Retrouvez les copies finalisées, leur note validée et les éléments de preuve. Tout reste stocké dans ce navigateur.</p></div><span className="step-count">{archivedCorrections.length} COPIE(S)</span></div>
         {archiveMessage && <p className="validation" role="status">{archiveMessage}</p>}
@@ -1611,177 +1785,6 @@ export function App({ service, archiveService, evaluationService }: { service: C
             </section>}
           </div>
         </details>
-      </section>}
-
-      {false && timingHistory.length > 0 && <section className="timing-history" aria-labelledby="timing-history-title">
-        <div className="timing-history-heading diagnostic-dashboard-header">
-          <div><p className="eyebrow">LABORATOIRE LOCAL · OLLAMA</p><h2 id="timing-history-title">Tableau de bord des expériences</h2><p>Comparez les compromis entre qualité, consommation et vitesse sur les mêmes devoirs et barèmes. Toutes les données restent dans ce navigateur.</p></div>
-          <div className="diagnostic-dashboard-header-actions"><span className="diagnostic-local-pill"><span></span> Données locales</span><button type="button" className="text-button" onClick={() => { setTimingHistory([]); setSelectedComparisonIds([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button></div>
-        </div>
-        {(() => {
-          const allRuns = timingHistory.flatMap((item) => item.diagnosticRuns ?? []);
-          const measuredRuns = allRuns.filter((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined);
-          const models = [...new Set([...timingHistory.flatMap((item) => [item.visionModel, item.analysisModel]), ...allRuns.map((run) => run.model)].filter(Boolean))];
-          const promptTokens = measuredRuns.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0);
-          const generatedTokens = measuredRuns.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0);
-          const elapsedMs = allRuns.reduce((sum, run) => sum + run.elapsedMs, 0);
-          const generationMs = measuredRuns.reduce((sum, run) => sum + (run.generationMs ?? 0), 0);
-          return <div className="diagnostic-usage-overview" aria-label="Synthèse de consommation des modèles">
-            <div><span>Modèles observés</span><strong>{models.length}</strong></div>
-            <div><span>Temps cumulé des appels</span><strong>{formatElapsed(Math.round(elapsedMs / 1000))}</strong></div>
-            <div><span>Tokens mesurés (entrée + sortie)</span><strong>{formatTokenCount(promptTokens + generatedTokens)}</strong><small>{measuredRuns.length}/{allRuns.length} appels mesurés</small></div>
-            <div><span>Vitesse de génération pondérée</span><strong>{generationMs > 0 ? (generatedTokens / (generationMs / 1000)).toFixed(2).replace('.', ',') + ' tokens/s' : '—'}</strong></div>
-          </div>;
-        })()}
-        {(() => {
-          const selectedComparisons = timingHistory.filter((item) => selectedComparisonIds.includes(item.id)).slice(0, 2);
-          if (selectedComparisons.length < 2) return <section className="diagnostic-comparison-panel" aria-labelledby="diagnostic-comparison-title">
-            <div className="diagnostic-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h3 id="diagnostic-comparison-title">Comparer deux essais</h3><p>Sélectionnez deux lignes de l’historique pour comparer les performances et les consommations côte à côte.</p></div><span className="diagnostic-comparison-count">{selectedComparisons.length}/2 sélectionné(s)</span></div>
-            <p className="diagnostic-comparison-empty">{selectedComparisons.length === 0 ? 'Cochez deux essais dans le tableau ci-dessous pour afficher les graphiques.' : 'Encore un essai à sélectionner pour afficher les graphiques.'}</p>
-          </section>;
-          const usageFor = (record: TimingRecord) => {
-            const runs = record.diagnosticRuns ?? [];
-            const measuredRuns = runs.filter((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined);
-            return {
-              prompt: measuredRuns.length ? measuredRuns.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0) : null,
-              generated: measuredRuns.length ? measuredRuns.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0) : null,
-              groups: groupDiagnosticUsage(runs),
-            };
-          };
-          const usage = selectedComparisons.map((record) => usageFor(record));
-          const metrics = [
-            { key: 'duration', label: 'Temps total', unit: 's', values: selectedComparisons.map((record) => record.totalSeconds), display: (value: number | null) => value === null ? '—' : formatElapsed(value) },
-            { key: 'prompt', label: 'Tokens d’entrée', unit: 'tokens', values: usage.map((item) => item.prompt), display: (value: number | null) => value === null ? '—' : formatTokenCount(value) },
-            { key: 'generated', label: 'Tokens générés', unit: 'tokens', values: usage.map((item) => item.generated), display: (value: number | null) => value === null ? '—' : formatTokenCount(value) },
-            { key: 'score', label: 'Note proposée', unit: 'points', values: selectedComparisons.map((record) => record.modelScore), display: (value: number | null) => value === null ? 'Non disponible' : String(value) },
-          ];
-          const allGroups = usage.flatMap((item, index) => item.groups.map((group) => ({ ...group, runIndex: index })));
-          const rubricFor = (record: TimingRecord) => record.rubricSnapshot ?? rubric;
-          const rubricSignature = (record: TimingRecord) => JSON.stringify(rubricFor(record).criteria.map((criterion) => ({ id: criterion.id, title: criterion.title, description: criterion.description, maxPoints: criterion.maxPoints })));
-          const referenceSource = selectedComparisons.find((record) => {
-            const reference = record.referenceScores;
-            return Boolean(reference && validateDiagnosticReference(reference, rubricFor(record)).valid);
-          });
-          const sharedReference = referenceSource?.referenceScores;
-          const modelScores = selectedComparisons.flatMap((record, runIndex) => {
-            const recordRubric = rubricFor(record);
-            const compatibleSharedReference = Boolean(record.assignmentId && sharedReference && selectedComparisons.every((candidate) => candidate.assignmentId === record.assignmentId && rubricSignature(candidate) === rubricSignature(record)));
-            const reference = compatibleSharedReference ? sharedReference : record.referenceScores;
-            const validReference = reference && validateDiagnosticReference(reference, recordRubric).valid ? reference : null;
-            return (record.diagnosticRuns ?? [])
-              .filter((run) => run.kind === 'model' || run.kind === 'arbitrator')
-              .map((run) => {
-                const parsed = safeDiagnosticProposal(run.raw, recordRubric);
-                const score = parsed ? buildDiagnosticScore(parsed, recordRubric) : null;
-                const referenceComparison = score && validReference ? compareWithDiagnosticReference(score.criterionScores, validReference, recordRubric) : null;
-                const maxPoints = recordRubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
-                const usageGroup = groupDiagnosticUsage([run])[0];
-                const tokens = run.promptTokens !== undefined || run.generatedTokens !== undefined ? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0) : null;
-                const qualityPercent = referenceComparison && maxPoints > 0
-                  ? Math.max(0, 100 - referenceComparison.absoluteTotalError / maxPoints * 100)
-                  : score && maxPoints > 0 ? score.modelScore / maxPoints * 100 : null;
-                const criterionErrors = score && validReference ? recordRubric.criteria.flatMap((criterion) => {
-                  const modelCriterion = score.criterionScores.find((item) => item.criterionId === criterion.id);
-                  const referenceCriterion = validReference.find((item) => item.criterionId === criterion.id);
-                  return modelCriterion && referenceCriterion ? [{ id: criterion.id, title: criterion.title, maxPoints: criterion.maxPoints, modelPoints: modelCriterion.points, referencePoints: referenceCriterion.points, error: Math.abs(modelCriterion.points - referenceCriterion.points) }] : [];
-                }) : [];
-                return { record, run, runIndex, score: score?.modelScore ?? null, maxPoints, elapsedSeconds: run.elapsedMs / 1000, tokens, usageGroup, referenceComparison, qualityPercent, criterionErrors, hasReference: Boolean(validReference), assignmentTitle: record.assignmentTitle ?? 'Devoir historique' };
-              });
-          });
-          const maxGroupElapsed = Math.max(1, ...allGroups.map((group) => group.elapsedMs));
-          const maxGroupTokens = Math.max(1, ...allGroups.map((group) => group.promptTokens + group.generatedTokens));
-          const plotMaxSeconds = Math.max(1, ...modelScores.map((item) => item.elapsedSeconds));
-          const plotMaxTokens = Math.max(1, ...modelScores.map((item) => item.tokens ?? 0));
-          const hasReferenceQuality = modelScores.length > 0 && modelScores.every((item) => item.referenceComparison !== null);
-          const qualityMetricLabel = hasReferenceQuality ? 'Proximité de la référence' : 'Note proposée (% du barème)';
-          const scatterPoints = modelScores.map((item, index) => ({
-            ...item,
-            qualityPercent: hasReferenceQuality ? item.qualityPercent : item.score !== null && item.maxPoints > 0 ? item.score / item.maxPoints * 100 : null,
-            x: 76 + item.elapsedSeconds / plotMaxSeconds * 590,
-            radius: 6 + Math.sqrt((item.tokens ?? 0) / plotMaxTokens) * 8,
-            key: item.record.id + item.run.model + index,
-          })).filter((item) => item.qualityPercent !== null).map((item) => ({
-            ...item,
-            y: 224 - (item.qualityPercent ?? 0) / 100 * 170,
-          }));
-          return <section className="diagnostic-comparison-panel" aria-labelledby="diagnostic-comparison-title">
-            <div className="diagnostic-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h3 id="diagnostic-comparison-title">Comparaison de deux essais</h3><p>Les barres partagent la même échelle au sein de chaque graphique. Les valeurs indisponibles restent distinctes de zéro.</p></div><button type="button" className="text-button" onClick={() => setSelectedComparisonIds([])}>Réinitialiser la sélection</button></div>
-            {selectedComparisons[0].assignmentId !== selectedComparisons[1].assignmentId || rubricSignature(selectedComparisons[0]) !== rubricSignature(selectedComparisons[1]) ? <p className="diagnostic-comparison-warning" role="note">Ces essais ne partagent pas le même devoir et le même barème. Les temps et tokens restent comparables ; les notes et écarts pédagogiques doivent être interprétés avec prudence.</p> : null}
-            <div className="diagnostic-comparison-legend">{selectedComparisons.map((record, index) => <div key={record.id}><span className={index === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><span><strong>Essai {index === 0 ? 'A' : 'B'}</strong><small>{record.visionModel} / {record.analysisModel} · {new Date(record.completedAt).toLocaleString()}</small></span></div>)}</div>
-            <div className="diagnostic-comparison-charts">{metrics.map((metric) => {
-              const values = metric.values.map((value) => typeof value === 'number' && Number.isFinite(value) ? value : null);
-              const max = Math.max(1, ...values.map((value) => value ?? 0));
-              return <article className="diagnostic-comparison-chart" key={metric.key}>
-                <h4>{metric.label}</h4>
-                {values.map((value, index) => <div className="diagnostic-comparison-bar-row" key={selectedComparisons[index].id}>
-                  <div className="diagnostic-comparison-bar-label"><span>Essai {index === 0 ? 'A' : 'B'}</span><strong>{metric.display(value)}</strong></div>
-                  <div className="diagnostic-comparison-track" role="img" aria-label={`Essai ${index === 0 ? 'A' : 'B'} : ${metric.display(value)}`}><span className={index === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: value === null ? '0%' : `${Math.max(value > 0 ? 2 : 0, value / max * 100)}%` }} /></div>
-                </div>)}
-              </article>;
-            })}</div>
-            <div className="diagnostic-comparison-stage">
-              <div><h4>Temps et tokens par modèle / étape</h4><p>Chaque barre de temps utilise la même échelle entre les deux essais. Les appels sans métriques Ollama restent signalés.</p></div>
-              {allGroups.length === 0 ? <p className="diagnostic-comparison-empty">Aucun détail par modèle enregistré dans ces essais.</p> : <div className="diagnostic-comparison-models">{allGroups.map((group, index) => <article key={selectedComparisons[group.runIndex].id + group.stage + group.model + index}>
-                <div className="diagnostic-comparison-model-heading"><span className={group.runIndex === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><strong>Essai {group.runIndex === 0 ? 'A' : 'B'} · {group.model}</strong><small>{diagnosticStageLabel(group.stage)} · {group.calls} appel(s)</small></div>
-                <div className="diagnostic-comparison-bar-label"><span>Temps cumulé</span><strong>{formatElapsed(Math.round(group.elapsedMs / 1000))}</strong></div>
-                <div className="diagnostic-comparison-track" role="img" aria-label={`Temps ${group.model} ${diagnosticStageLabel(group.stage)} : ${formatElapsed(Math.round(group.elapsedMs / 1000))}`}><span className={group.runIndex === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: `${group.elapsedMs / maxGroupElapsed * 100}%` }} /></div>
-                <div className="diagnostic-comparison-bar-label"><span>Tokens entrée + sortie</span><strong>{group.measuredCalls ? formatTokenCount(group.promptTokens + group.generatedTokens) : 'Non mesurés'}</strong></div>
-                <div className="diagnostic-comparison-track" role="img" aria-label={`Tokens ${group.model} ${diagnosticStageLabel(group.stage)} : ${group.measuredCalls ? formatTokenCount(group.promptTokens + group.generatedTokens) : 'non mesurés'}`}><span className={group.runIndex === 0 ? 'comparison-bar-a' : 'comparison-bar-b'} style={{ width: group.measuredCalls ? `${(group.promptTokens + group.generatedTokens) / maxGroupTokens * 100}%` : '0%' }} /></div>
-              </article>)}</div>}
-            </div>
-            <div className="diagnostic-dashboard-kpis" aria-label="Indicateurs qualité, coût et vitesse">
-              <article className="diagnostic-kpi quality"><span className="diagnostic-kpi-icon" aria-hidden="true">◎</span><div><span>Qualité mesurée</span><strong>{hasReferenceQuality ? 'Référence active' : 'À confirmer'}</strong><small>{hasReferenceQuality ? 'Écart aux notes du professeur' : 'La note proposée n’est pas une mesure de justesse'}</small></div></article>
-              <article className="diagnostic-kpi cost"><span className="diagnostic-kpi-icon" aria-hidden="true">◈</span><div><span>Consommation comparée</span><strong>{modelScores.filter((item) => item.tokens !== null).length} modèle(s) mesuré(s)</strong><small>Tokens d’entrée + de sortie réellement remontés par Ollama</small></div></article>
-              <article className="diagnostic-kpi speed"><span className="diagnostic-kpi-icon" aria-hidden="true">◷</span><div><span>Temps de calcul</span><strong>{modelScores.length ? formatElapsed(Math.round(modelScores.reduce((sum, item) => sum + item.elapsedSeconds, 0))) : '—'}</strong><small>Somme des appels d’analyse comparés</small></div></article>
-            </div>
-            <div className="diagnostic-comparison-stage diagnostic-quality-speed-stage">
-              <div className="diagnostic-section-title"><div><p className="eyebrow">QUALITÉ × VITESSE × COÛT</p><h4>Compromis entre qualité et temps</h4><p>{hasReferenceQuality ? 'Plus un point est haut, plus sa note est proche de la référence du professeur. La taille du point représente les tokens consommés.' : 'En l’absence de référence, l’axe vertical affiche la note proposée en pourcentage du barème — pas une mesure de justesse. La taille du point représente les tokens consommés.'}</p></div><span className="diagnostic-chart-legend"><i className="comparison-swatch comparison-swatch-a"></i> Essai A <i className="comparison-swatch comparison-swatch-b"></i> Essai B</span></div>
-              {scatterPoints.length === 0 ? <p className="diagnostic-comparison-empty">Aucune note structurée exploitable pour tracer ce graphique.</p> : <div className="diagnostic-scatter-wrap">
-                <svg className="diagnostic-scatter" viewBox="0 0 720 270" role="img" aria-label={`Graphique ${qualityMetricLabel} en fonction du temps de calcul ; taille des points proportionnelle aux tokens`}>
-                  {[0,25,50,75,100].map((tick) => <g key={tick}><line x1="76" x2="666" y1={224-tick/100*170} y2={224-tick/100*170} className="diagnostic-chart-gridline" /><text x="64" y={228-tick/100*170} textAnchor="end" className="diagnostic-chart-tick">{tick}%</text><line x1={76+590*tick/100} x2={76+590*tick/100} y1="54" y2="224" className="diagnostic-chart-gridline" /><text x={76+590*tick/100} y="240" textAnchor="middle" className="diagnostic-chart-tick">{(plotMaxSeconds*tick/100).toFixed(0)} s</text></g>)}
-                  <line x1="76" x2="76" y1="54" y2="224" className="diagnostic-chart-axis" /><line x1="76" x2="666" y1="224" y2="224" className="diagnostic-chart-axis" />
-                  <text x="370" y="258" textAnchor="middle" className="diagnostic-chart-axis-label">Temps d’analyse (secondes) · plus rapide à gauche</text>
-                  {scatterPoints.map((point) => <g key={point.key}>
-                    <circle cx={point.x} cy={point.y} r={point.radius} className={point.runIndex === 0 ? 'diagnostic-scatter-point point-a' : 'diagnostic-scatter-point point-b'}><title>{point.run.model} — {point.qualityPercent?.toFixed(1)} %, {point.elapsedSeconds.toFixed(1)} s, {point.tokens === null ? 'tokens non mesurés' : formatTokenCount(point.tokens)}</title></circle>
-                    <text x={Math.min(645, point.x + point.radius + 5)} y={point.y - 8} className="diagnostic-chart-point-label">{point.run.model}</text>
-                  </g>)}
-                </svg>
-                <div className="diagnostic-scatter-caption"><span><i className="comparison-swatch comparison-swatch-a"></i> Essai A · {selectedComparisons[0].analysisModel}</span><span><i className="comparison-swatch comparison-swatch-b"></i> Essai B · {selectedComparisons[1].analysisModel}</span><span>Surface du point ∝ tokens mesurés</span></div>
-              </div>}
-            </div>
-            <div className="diagnostic-comparison-stage">
-              <div className="diagnostic-section-title"><div><p className="eyebrow">DÉTAIL DES MODÈLES</p><h4>Qualité, coût et vitesse par modèle</h4><p>Les métriques sont calculées séparément pour chaque avis et pour l’arbitre. Une référence compatible peut être réutilisée entre les deux essais.</p></div></div>
-              {modelScores.length === 0 ? <p className="diagnostic-comparison-empty">Aucune note par modèle exploitable n’a été conservée dans ces essais.</p> : <div className="diagnostic-model-score-grid">{modelScores.map((item) => <article className="diagnostic-model-score-card" key={item.record.id + item.run.kind + item.run.model}>
-                <div className="diagnostic-model-score-top"><span className={item.runIndex === 0 ? 'comparison-swatch comparison-swatch-a' : 'comparison-swatch comparison-swatch-b'}></span><div><strong>{item.run.kind === 'arbitrator' ? 'Arbitre' : 'Avis indépendant'} · {item.run.model}</strong><small>Essai {item.runIndex === 0 ? 'A' : 'B'} · {item.assignmentTitle}</small></div></div>
-                <div className="diagnostic-model-score-main"><strong>{item.score === null ? '—' : item.score}</strong><span>/ {item.maxPoints} points</span></div>
-                <div className="diagnostic-model-score-metrics">
-                  <div><span>{item.hasReference ? 'Erreur moyenne' : 'Note / barème'}</span><strong>{item.referenceComparison ? `${item.referenceComparison.meanAbsoluteError} pt` : item.score === null || item.maxPoints <= 0 ? '—' : `${(item.score/item.maxPoints*100).toFixed(1).replace('.', ',')} %`}</strong><small>{item.referenceComparison ? `${item.referenceComparison.exactMatches}/${item.referenceComparison.comparedCriteria} critères exacts` : 'Référence facultative'}</small></div>
-                  <div><span>Temps</span><strong>{formatElapsed(Math.round(item.elapsedSeconds))}</strong><small>{item.usageGroup?.generationMs ? `${(item.usageGroup.generationMs > 0 ? (item.usageGroup.generatedTokens/(item.usageGroup.generationMs/1000)).toFixed(1) : '—')} tokens/s` : 'Vitesse non mesurée'}</small></div>
-                  <div><span>Tokens</span><strong>{item.tokens === null ? 'Non mesurés' : formatTokenCount(item.tokens)}</strong><small>{item.run.promptTokens === undefined ? 'Entrée non mesurée' : `Entrée : ${formatTokenCount(item.run.promptTokens)}`}</small></div>
-                </div>
-                {item.criterionErrors.length > 0 && <details className="diagnostic-criterion-error-details"><summary>Écart par critère</summary><div className="diagnostic-criterion-error-list">{item.criterionErrors.map((criterion) => <div key={criterion.id}><span>{criterion.title}</span><strong>{criterion.modelPoints} / {criterion.maxPoints}</strong><div className="diagnostic-comparison-track"><span className="comparison-bar-b" style={{width: `${criterion.maxPoints > 0 ? criterion.error / criterion.maxPoints * 100 : 0}%`}} /></div><small>Écart à la référence : {criterion.error} pt</small></div>)}</div></details>}
-              </article>)}</div>}
-            </div>
-          </section>;
-        })()}
-        <p className="hint">Les tokens sont les compteurs remontés par Ollama : entrée (prompt), sortie (générés) et total lorsqu’ils sont disponibles. Le temps par modèle correspond à la durée murale des appels, tandis que le temps de génération et de chargement sont des métriques Ollama. Les anciennes expériences sans ces métadonnées restent consultables, mais ne peuvent pas être recalculées.</p>
-        <div className="timing-history-table-wrap">
-          <table className="timing-history-table">
-            <thead><tr><th scope="col">Comparer</th><th scope="col">Date</th><th scope="col">Modèles (lecture / analyse)</th><th scope="col">Lecture</th><th scope="col">Analyse</th><th scope="col">Total</th><th scope="col">Tokens consommés</th><th scope="col">Usage par modèle</th><th scope="col">Note du modèle</th><th scope="col">Résultat</th></tr></thead>
-            <tbody>{timingHistory.map((item) => { const runs = item.diagnosticRuns ?? []; const usage = groupDiagnosticUsage(runs); const measured = runs.filter((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined); const promptTokens = runs.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0); const generatedTokens = runs.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0); const totalTokens = runs.reduce((sum, run) => sum + (run.totalTokens ?? 0), 0); return <tr key={item.id}>
-              <td><input type="checkbox" className="diagnostic-comparison-checkbox" aria-label={`Sélectionner l’essai ${item.visionModel} / ${item.analysisModel} pour comparaison`} checked={selectedComparisonIds.includes(item.id)} disabled={!selectedComparisonIds.includes(item.id) && selectedComparisonIds.length >= 2} onChange={(event) => setSelectedComparisonIds((current) => event.target.checked ? (current.length < 2 ? [...current, item.id] : current) : current.filter((id) => id !== item.id))} /></td><td>{new Date(item.completedAt).toLocaleString()}</td>
-              <td><strong>{item.visionModel || '—'}</strong><small>{item.analysisModel || '—'}{item.thinking ? ' · thinking' : ''}</small><small>{item.pageCount} page(s) · {item.correctionMode === 'separate' ? 'sujet séparé' : 'questions intégrées'}</small></td>
-              <td>{item.readingSeconds === null ? 'Réutilisée / non mesurée' : formatElapsed(item.readingSeconds)}</td>
-              <td>{item.analysisSeconds === null ? 'Non mesurée' : formatElapsed(item.analysisSeconds)}</td>
-              <td><strong>{formatElapsed(item.totalSeconds)}</strong></td>
-              <td>{measured.length ? <><span>Entrée : {formatTokenCount(promptTokens)}</span><small>Générés : {formatTokenCount(generatedTokens)} · Total : {formatTokenCount(totalTokens)}</small><small>{measured.length}/{runs.length} appel(s) avec métriques</small></> : 'Non fournis par Ollama pour cet essai'}</td>
-              <td>{usage.length ? <details className="diagnostic-usage-details"><summary>{usage.length} groupe(s) modèle / étape</summary><div className="diagnostic-usage-groups">{usage.map((group) => <section key={group.stage + group.model}><strong>{group.model}</strong><span>{diagnosticStageLabel(group.stage)} · {group.calls} appel(s)</span><small>Temps cumulé : {formatElapsed(Math.round(group.elapsedMs / 1000))}</small><small>{group.measuredCalls ? `Tokens d’entrée : ${formatTokenCount(group.promptTokens)} · générés : ${formatTokenCount(group.generatedTokens)} · total : ${formatTokenCount(group.totalTokens)}` : 'Tokens : non fournis par Ollama pour ces appels'}</small><small>Mesures de tokens disponibles : {group.measuredCalls}/{group.calls} appel(s)</small><small>Vitesse de génération : {group.generationMs > 0 && group.generatedTokens > 0 ? (group.generatedTokens / (group.generationMs / 1000)).toFixed(2).replace('.', ',') + ' tokens/s' : 'Non mesurée'} · Chargement : {group.loadMs > 0 ? formatElapsed(Math.round(group.loadMs / 1000)) : 'Non mesuré'}</small></section>)}</div></details> : 'Aucun détail de consommation enregistré'}</td>
-              <td>{item.modelScore === null ? '—' : <details className="diagnostic-score-details"><summary><strong>{item.modelScore} / {item.criterionScores.reduce((sum, criterion) => sum + criterion.maxPoints, 0)}</strong><span>Détail par barème</span></summary>{item.criterionScores.length > 0 ? <ul>{item.criterionScores.map((criterion) => <li key={criterion.criterionId}><span>{criterion.title}</span><strong>{criterion.points} / {criterion.maxPoints}</strong></li>)}</ul> : <small>Aucun détail de critère enregistré.</small>}{(item.diagnosticRuns ?? []).some((run) => run.kind !== 'vision') && <div className="diagnostic-history-runs"><strong>Essai multi-modèles · {item.diagnosticStrategy === 'arbitrate' ? 'avec arbitre' : item.diagnosticStrategy === 'compare' ? 'comparaison' : 'modèle unique'}</strong>{(item.diagnosticRuns ?? []).filter((run) => run.kind !== 'vision').map((run, index) => { const parsed = safeDiagnosticProposal(run.raw, rubric); const total = parsed?.criteria.reduce((sum, criterion) => sum + criterion.points, 0); return <div key={run.kind + run.model + index}><span>{run.kind === 'arbitrator' ? 'Arbitre' : 'Avis'} · {run.model}</span><strong>{total === undefined ? 'Sortie non exploitable' : total + ' / ' + validation.maximumPoints}</strong><small>{formatElapsed(Math.round(run.elapsedMs / 1000))}</small>{parsed && <ul>{parsed.criteria.map((criterion) => <li key={criterion.criterionId}><span>{rubric.criteria.find((entry) => entry.id === criterion.criterionId)?.title ?? criterion.criterionId}</span><strong>{criterion.points} / {rubric.criteria.find((entry) => entry.id === criterion.criterionId)?.maxPoints ?? 0}</strong></li>)}</ul>}</div>; })}</div>}</details>}</td>
-              <td><span className={item.outcome === 'success' ? 'timing-outcome success' : 'timing-outcome error'}>{item.outcome === 'success' ? 'Terminée' : 'Échec'}</span></td>
-            </tr>; })}</tbody>
-          </table>
-        </div>
-        <p className="hint">Les durées sont arrondies à la seconde. Une lecture déjà en mémoire n’est pas comptée comme une nouvelle lecture ; le temps de vérification d’Ollama est inclus dans le total, pas dans les durées des étapes.</p>
       </section>}
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
