@@ -130,6 +130,7 @@ export async function deleteLocalCorrection(correctionId: string): Promise<void>
 
 // Concrete outbound adapter for the application persistence port.
 import type { LocalCorrectionRepository } from '../../ports/localCorrectionRepository.ts';
+import type { ModelEvaluationRepository } from '../../ports/modelEvaluationRepository.ts';
 
 export class IndexedDbLocalCorrectionRepository implements LocalCorrectionRepository {
   saveCorrection(correction: LocalCorrection): Promise<void> {
@@ -192,4 +193,18 @@ export async function deleteModelEvaluation(evaluationId: string): Promise<void>
     transaction.objectStore(MODEL_EVALUATION_STORE_NAME).delete(evaluationId);
     await completion;
   } finally { database.close(); }
+}
+
+export class IndexedDbModelEvaluationRepository implements ModelEvaluationRepository {
+  save(record: ModelEvaluationRecord): Promise<void> {
+    return saveModelEvaluation(record);
+  }
+
+  list(): Promise<ModelEvaluationRecord[]> {
+    return listModelEvaluations();
+  }
+
+  delete(id: string): Promise<void> {
+    return deleteModelEvaluation(id);
+  }
 }
