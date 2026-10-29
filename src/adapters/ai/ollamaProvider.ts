@@ -458,7 +458,6 @@ export async function importRubricImageWithOllama(
           model: visionModel,
           stream: false,
           think: false,
-          options: { num_predict: 1536 },
           messages: [{
             role: 'user',
             content: [
