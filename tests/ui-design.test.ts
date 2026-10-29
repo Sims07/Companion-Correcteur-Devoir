@@ -142,7 +142,8 @@ describe('UI design system', () => {
     expect(appComponent).not.toContain('showSourceEvidence');
     expect(appComponent).toContain('La transcription est absente');
     expect(appComponent).toContain('correction-batch-progress');
-    expect(appComponent).toContain('Ajouter la copie suivante');
+    expect(appComponent).toContain('Ajouter une autre copie');
+    expect(appComponent).toContain('Chaque copie enregistrée reste disponible dans « Corrections enregistrées ».');
     expect(correctionFlowStylesheet).toContain('.review-alerts');
     expect(correctionFlowStylesheet).toContain('.review-workspace { display: grid;');
     expect(correctionFlowStylesheet).toContain('.review-source-pane { position: sticky;');
