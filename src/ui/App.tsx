@@ -536,7 +536,6 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
 
   function applyAssignment(profile: AssignmentProfile) {
     setShowOnlyFlagged(false);
-    setShowSourceEvidence(false);
     setActiveAssignmentId(profile.id);
     setAssignmentTitle(profile.title);
     setRubric(profile.rubric);
@@ -571,7 +570,6 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   function createNewAssignment() {
     if (isAnalyzing) return;
     setShowOnlyFlagged(false);
-    setShowSourceEvidence(false);
     setAssignmentDrafts((current) => ({ ...current, [activeAssignmentId]: captureActiveDraft() }));
     const profile: AssignmentProfile = {
       id: `assignment-${crypto.randomUUID()}`,
@@ -635,7 +633,6 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setReview([]);
     setTeacherQuestions('');
     setShowOnlyFlagged(false);
-    setShowSourceEvidence(false);
     setReviewMessage('Copie chargée depuis la file locale. Lancez la lecture et la correction quand vous êtes prêt.');
     setError('');
     setCurrentCorrectionId(null);
@@ -651,7 +648,6 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setTranscription(null);
     setProposal(null);
     setShowOnlyFlagged(false);
-    setShowSourceEvidence(false);
     setReview([]);
     setTeacherQuestions('');
     setReviewMessage('');
@@ -688,7 +684,6 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setProposal(snapshot.proposal);
     setReview(snapshot.review);
     setShowOnlyFlagged(false);
-    setShowSourceEvidence(false);
     setTeacherQuestions(snapshot.teacherQuestions);
     setImages(snapshot.images);
     setTranscription(snapshot.transcription);
