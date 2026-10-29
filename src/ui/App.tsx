@@ -1665,6 +1665,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       </section>
 
 
+      </>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep !== 'configuration' && <section id="evaluation-results" data-evaluation-step={evaluationWorkspaceStep} className="panel evaluation-results-workspace" aria-labelledby="evaluation-results-title">
         <div className="evaluation-section-heading"><div><p className="eyebrow">ÉTAPE 3 · EXÉCUTION ET ANALYSE</p><h2 id="evaluation-results-title">Lancer et comparer les résultats</h2><p>Chaque profil relit les images originales, applique le même barème et produit une proposition indépendante.</p></div><span className="evaluation-step-chip">{modelEvaluationResults.length} résultat(s)</span></div>
         <div className="evaluation-run-actions"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>{!validation.valid ? 'Vérifiez le barème avant de lancer l’expérience.' : !images.length ? 'Importez les pages de la copie dans l’étape précédente.' : selectedEvaluationProfileIds.length < 2 ? 'Sélectionnez au moins deux configurations.' : 'Le jeu d’essai est prêt à être lancé.'}</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 2 || !images.length || !validation.valid} onClick={() => void startModelEvaluation()}>{busy ? 'Évaluation locale en cours…' : 'Lancer l’expérience'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
@@ -1724,7 +1725,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         {interfaceMode === 'teacher' && <p className="launch-footnote">Aucune note n’est validée automatiquement. Après l’analyse, vous pourrez vérifier les éléments de preuve, ajuster chaque critère et finaliser la correction.</p>}
       </section>}
       {interfaceMode === 'teacher' && <div className="teacher-copy-footer"><button type="button" className="secondary-button" onClick={() => setTeacherStep('rubric')}>← Revoir le barème</button><span>Une seule copie à la fois · validation humaine avant finalisation</span></div>}
-      </>}
+      
 
       {interfaceMode === 'teacher' && teacherStep === 'progress' && isAnalyzing && <div className="workspace-heading processing-workspace-heading"><div><p className="eyebrow">ÉTAPE 3 SUR 3</p><h2>Suivi du traitement</h2></div><span className="step-count">{formatElapsed(elapsedSeconds)} ÉCOULÉES</span></div>}
         {interfaceMode === 'teacher' && isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
