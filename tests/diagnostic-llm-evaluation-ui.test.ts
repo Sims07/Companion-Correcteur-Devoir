@@ -76,6 +76,8 @@ describe('Diagnostic IA — comparaison graphique des essais conservés', () => 
     expect(appSource).toContain('Tokens d’entrée');
     expect(appSource).toContain('Tokens générés');
     expect(appSource).toContain('Temps et tokens par modèle / étape');
+    expect(appSource).toContain('Note par modèle');
+    expect(appSource).toContain('buildDiagnosticScore(parsed, rubric).modelScore');
     expect(appSource).toContain('setSelectedComparisonIds');
   });
 
