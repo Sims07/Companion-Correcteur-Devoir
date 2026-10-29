@@ -4,7 +4,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.goto('/');
 
   await page.evaluate(async () => {
-    const request = indexedDB.open('companion-correcteur-devoir', 2);
+    const request = indexedDB.open('companion-correcteur-devoir', 3);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -19,6 +19,11 @@ test('review workspace keeps original evidence beside grading criteria on deskto
         if (!db.objectStoreNames.contains('local-corrections')) {
           const corrections = db.createObjectStore('local-corrections', { keyPath: 'id' });
           corrections.createIndex('updatedAt', 'updatedAt', { unique: false });
+        }
+        if (!db.objectStoreNames.contains('model-evaluations')) {
+          const evaluations = db.createObjectStore('model-evaluations', { keyPath: 'id' });
+          evaluations.createIndex('completedAt', 'completedAt', { unique: false });
+          evaluations.createIndex('assignmentId', 'assignmentId', { unique: false });
         }
       };
     });
