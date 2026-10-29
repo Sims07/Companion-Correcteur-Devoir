@@ -13,6 +13,8 @@ export interface CriterionProposal {
   annotationSuggestion?: string;
   /** Approximate textual landmark to help the teacher find the passage on the page. */
   locationHint?: string;
+  /** Optional approximate region in the source image, normalized to a 0–1000 coordinate space. */
+  locationBox?: { x: number; y: number; width: number; height: number };
   confidence: Confidence;
   questionForTeacher?: string;
 }
@@ -116,6 +118,15 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
       ...(typeof item.pageNumber === 'number' && Number.isInteger(item.pageNumber) && item.pageNumber >= 1 ? { pageNumber: item.pageNumber } : {}),
       ...(text(item.annotationSuggestion) ? { annotationSuggestion: text(item.annotationSuggestion) } : {}),
       ...(text(item.locationHint) ? { locationHint: text(item.locationHint) } : {}),
+      ...(isRecord(item.locationBox) &&
+        ['x', 'y', 'width', 'height'].every((key) => typeof item.locationBox![key] === 'number' && Number.isFinite(item.locationBox![key])) &&
+        Number(item.locationBox.x) >= 0 && Number(item.locationBox.y) >= 0 &&
+        Number(item.locationBox.x) <= 1000 && Number(item.locationBox.y) <= 1000 &&
+        Number(item.locationBox.width) > 0 && Number(item.locationBox.height) > 0 &&
+        Number(item.locationBox.x) + Number(item.locationBox.width) <= 1000 &&
+        Number(item.locationBox.y) + Number(item.locationBox.height) <= 1000
+        ? { locationBox: { x: Number(item.locationBox.x), y: Number(item.locationBox.y), width: Number(item.locationBox.width), height: Number(item.locationBox.height) } }
+        : {}),
       confidence,
       ...(text(item.questionForTeacher) ? { questionForTeacher: text(item.questionForTeacher) } : {}),
     });
