@@ -15,6 +15,7 @@ function streamResponse(content: string, usage: Partial<{
   load_duration: number;
   prompt_eval_duration: number;
   eval_duration: number;
+  usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 }> = {}): Response {
   return new Response(JSON.stringify({ message: { content }, done: true, ...usage }) + '\n', {
     status: 200,
@@ -120,6 +121,24 @@ describe('Ollama diagnostic multi-model strategy', () => {
       promptEvaluationMs: 500,
       tokensPerSecond: 22.5,
     });
+  });
+
+  it('captures usage metadata emitted separately from the final stream event', async () => {
+    const fetchMock = vi.fn(async () => new Response([
+      JSON.stringify({ message: { content: '{"summary":"ok"}' } }),
+      JSON.stringify({ usage: { prompt_tokens: 321, completion_tokens: 67, total_tokens: 388 } }),
+      JSON.stringify({ done: true }),
+    ].join('\n') + '\n', {
+      status: 200,
+      headers: { 'Content-Type': 'application/x-ndjson' },
+    }));
+    const events: Array<{ promptTokens?: number; generatedTokens?: number; totalTokens?: number }> = [];
+    const provider = createOllamaProvider({ ...settings, diagnosticStrategy: 'single' }, fetchMock as typeof fetch);
+
+    await provider.generate(request, undefined, undefined, undefined, (event) => events.push(event));
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ promptTokens: 321, generatedTokens: 67, totalTokens: 388 });
   });
 
   it('records each local vision request separately without persisting the transcription as raw output', async () => {
