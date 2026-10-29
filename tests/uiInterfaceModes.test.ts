@@ -198,13 +198,14 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).not.toContain('Un devoir, un espace de travail');
   });
 
-  it('keeps the diagnostic welcome isolated from the teacher workspace', () => {
+  it('keeps the dedicated evaluation workspace isolated from the teacher workspace', () => {
     const text = app();
-    expect(text).toContain("{interfaceMode === 'diagnostic' && <section className=\"welcome\">");
-    expect(text).toContain('ESPACE DE DIAGNOSTIC · IA LOCALE');
-    expect(text).toContain('Quel modèle corrige le mieux vos copies');
-    expect(text).toContain('Construisez une expérience reproductible');
-    expect(text).toContain('Parcours d’évaluation des modèles');
+    expect(text).toContain('className="evaluation-page-header"');
+    expect(text).toContain('Évaluation des modèles');
+    expect(text).toContain('ESPACE EXPÉRIMENTAL · OLLAMA LOCAL');
+    expect(text).toContain('className="evaluation-step-nav"');
+    expect(text).toContain('Créer et sélectionner');
+    expect(text).toContain('Comparer les sorties');
     expect(text).not.toContain('Un devoir, un espace de travail');
   });
 
