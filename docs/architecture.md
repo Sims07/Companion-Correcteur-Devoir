@@ -2,93 +2,118 @@
 
 ## Objectif et contraintes
 
-L'application aide les enseignants universitaires en biologie à analyser des copies manuscrites à partir d'un barème. La confidentialité est une contrainte d'architecture : les images et les données de correction restent dans le navigateur et sont envoyées uniquement au serveur Ollama explicitement configuré. Aucun basculement silencieux vers un fournisseur cloud n'est autorisé.
+L'application aide les enseignants universitaires en biologie à analyser des copies manuscrites à partir d'un barème. La confidentialité est une contrainte d'architecture : les images sont préparées dans le navigateur et les requêtes IA sont envoyées uniquement à l'endpoint Ollama configuré. Aucun basculement silencieux vers un fournisseur cloud n'est autorisé.
 
-L'application suit une **architecture hexagonale (ports et adaptateurs)**, avec dépendances orientées vers le domaine. React, IndexedDB, le navigateur et Ollama sont des détails externes remplaçables.
+L'application suit une **architecture hexagonale (ports et adaptateurs)** avec dépendances orientées vers le cœur métier. React, IndexedDB, les APIs du navigateur et Ollama sont des détails externes remplaçables.
 
 ## Règle de dépendances
 
 ```text
                  Adaptateur entrant
-                  React / UI
-                      |
-                      v
+                    React / UI
+                        |
+                        v
               Application / cas d'usage
-                      |
-                      v
-             Ports définis côté cœur
-                 ^            ^
-                 |            |
-       Adaptateur stockage  Adaptateur IA
-            IndexedDB         Ollama
-                 |            |
-                 +-----+------+
-                       |
-              APIs externes du navigateur
+                        |
+                        v
+                 Domaine + ports
+                  ^             ^
+                  |             |
+          Adaptateur stockage  Adaptateur IA
+               IndexedDB        Ollama
+                  |             |
+                  +------|------+
+                         |
+                 APIs du navigateur
 
-Composition root : src/main.tsx assemble les implémentations
+Composition root : src/main.tsx
 ```
 
-Les dépendances du code vont vers le cœur : le domaine ne dépend d'aucune autre couche ; l'application dépend du domaine et des ports ; les adaptateurs implémentent les ports et peuvent dépendre du domaine ; l'interface appelle les cas d'usage et ne connaît pas les adaptateurs concrets. `src/main.tsx` est le **composition root** : il assemble les implémentations concrètes et les injecte.
+Le domaine ne dépend d'aucune autre couche. L'application dépend du domaine et des ports. Les adaptateurs implémentent les ports et peuvent dépendre du domaine. L'UI appelle les services applicatifs et ne doit pas connaître les adaptateurs concrets. `src/main.tsx` est le **composition root** qui assemble les implémentations.
 
 ## Couches et responsabilités
 
 ### Domaine — `src/domain/`
 
-Contient les concepts et règles métier : barème, proposition de notation, mémoire locale, portée des retours, empreinte du barème et construction du contexte de mémoire. Il ne doit importer ni React, ni IndexedDB, ni `window`/`document`, ni Ollama, ni les adaptateurs. Les fonctions métier doivent rester déterministes et testables sans navigateur lorsque c'est possible.
+Contient les concepts et règles métier : barème, proposition de notation, critères révisés, archives locales, mémoire de décisions, empreinte du barème et classement des retours pertinents. Le domaine ne doit importer ni React, ni IndexedDB, ni `window`/`document`, ni Ollama, ni les adaptateurs. Les règles métier doivent rester déterministes et testables sans navigateur lorsque c'est possible.
 
 ### Ports — `src/ports/`
 
-Définit les contrats requis par le cœur, sans implémentation technique. `aiProvider.ts` décrit le port de génération IA ; `localCorrectionRepository.ts` décrit les opérations de persistance des corrections et de la mémoire. Les types exposés expriment les besoins métier et ne doivent pas exposer de types IndexedDB.
+Définit les contrats requis par le cœur, sans implémentation technique. `aiProvider.ts` décrit les capacités IA (lecture visuelle, analyse, diagnostic) ; `localCorrectionRepository.ts` décrit les opérations de persistance des corrections et de la mémoire. Les contrats ne doivent pas exposer de types IndexedDB.
 
 ### Application — `src/application/`
 
-Contient les cas d'usage et l'orchestration. `localCorrectionService.ts` valide les commandes de base et délègue au port de persistance. Les cas d'usage ne doivent pas importer de code de `src/adapters/`, React ou des APIs du navigateur. Les règles de notation et les invariants complexes appartiennent au domaine, pas aux composants UI.
+Contient les cas d'usage et l'orchestration. `localCorrectionService.ts` valide les commandes de persistance et délègue au port de stockage. `correctionWorkspaceService.ts` orchestre les opérations de préparation/import, l'accès au fournisseur IA et les fichiers. Les cas d'usage ne doivent pas importer de code de `src/adapters/`, React ou des APIs du navigateur. Les invariants métier appartiennent au domaine, pas aux composants UI.
 
 ### Adaptateurs — `src/adapters/`
 
-- `storage/indexedDbMemory.ts` implémente la persistance locale via IndexedDB et expose `IndexedDbLocalCorrectionRepository`, adaptateur du port `LocalCorrectionRepository`.
-- `ai/` contient l'adaptateur Ollama et l'intégration du contexte local à la frontière des requêtes. Le contexte n'est ajouté qu'aux prompts d'analyse de correction, pas à la transcription visuelle.
-- `files/` contient les adaptateurs de lecture et de préparation des fichiers.
+- `storage/indexedDbMemory.ts` implémente le port `LocalCorrectionRepository` au moyen d'IndexedDB. Il conserve les archives de correction et les entrées de mémoire locale.
+- `ai/` contient l'adaptateur Ollama et l'intégration du contexte de mémoire à la frontière des requêtes. Le contexte local est ajouté aux prompts d'analyse de correction, pas à la transcription visuelle.
+- `files/` prépare localement les photos et les PDF et importe les barèmes depuis les formats pris en charge.
 
-Les adaptateurs peuvent utiliser les APIs externes nécessaires mais ne doivent pas faire importer ces APIs dans le domaine ou l'application. La mémoire n'est pas un fine-tuning automatique : les retours sont locaux, limités à une correction et les règles ne sont réutilisées entre corrections que si l'enseignant les a explicitement promues au barème correspondant.
+La mémoire est un rappel local léger fondé sur le recouvrement de termes, pas un moteur vectoriel, un fine-tuning ou un entraînement automatique. Les retours sont associés à une correction et à l'empreinte du barème. Ils peuvent être recherchés dans le périmètre pertinent, mais ne modifient pas silencieusement le barème courant. Les règles ne doivent être réutilisées comme règles de barème que si l'enseignant les a explicitement promues.
 
 ### Interface — `src/ui/`
 
-Les composants React affichent l'état et traduisent les interactions en appels applicatifs. Ils ne doivent pas importer directement `src/adapters/`, construire des requêtes IndexedDB ou contenir des règles métier. Les dépendances concrètes sont fournies depuis `src/main.tsx`.
+Les composants React présentent l'état et traduisent les interactions en appels applicatifs. Ils ne doivent pas importer directement `src/adapters/`, construire de requêtes IndexedDB ou devenir le lieu des règles métier.
+
+L'espace de révision présente deux zones complémentaires :
+- **Copie de référence** : pages originales archivées et transcription reconnue, consultable dans une section repliable.
+- **Révision de la notation** : synthèse de la proposition, critères, points proposés puis retenus, justifications, preuves et confiance.
+
+Sur grand écran, le panneau source reste visible pendant la révision afin de comparer les affirmations avec le manuscrit. Sur petit écran, les zones s'empilent et le panneau cesse d'être sticky. La progression de la file de copies est séparée des alertes qui nécessitent une décision du professeur.
+
+Le mode Diagnostic IA est distinct du parcours normal de correction. Il sert à comparer les modèles et stratégies, consulter les notes globales et par critère, les sorties et les durées ; les stratégies expérimentales, dont l'arbitre, ne sont pas activées par défaut dans la correction enseignante.
 
 ### Composition root — `src/main.tsx`
 
-Seul point d'assemblage des adaptateurs concrets, services applicatifs et composants racine. Les imports transversaux y sont attendus : ce fichier connecte les ports à leurs adaptateurs.
+Seul point d'assemblage des adaptateurs concrets, services applicatifs et composants racine. Il instancie le dépôt IndexedDB, le service de persistance, le fournisseur Ollama et le service de préparation/correction, puis les injecte dans l'interface.
 
 ## Flux principaux
 
-1. L'enseignant configure un barème et choisit le mode : questions intégrées à la copie, ou sujet de référence fourni séparément.
-2. En mode sujet séparé, les pages du sujet sont préparées localement puis transcrites une seule fois par le modèle de vision Ollama. Cette transcription de référence est conservée en mémoire de la session et réutilisée pour les copies suivantes du même devoir ; chaque copie d'étudiant est importée et corrigée individuellement.
-3. L'adaptateur fichiers prépare localement les pages de la copie. Le port IA orchestre la transcription des pages étudiantes puis l'analyse selon le barème et, si présent, le sujet de référence. Les transcriptions peuvent être réutilisées pour relancer une analyse sans nouvel appel de vision. Pour importer un barème depuis une photo, un unique appel au modèle de vision Ollama demande une sortie JSON structurée, validée côté application avant affichage. Les imports de documents texte restent déterministes et locaux.
-4. La réponse est validée avant présentation. Une proposition n'est jamais automatiquement acceptée ; l'enseignant conserve la décision finale.
-5. Les corrections et retours choisis sont enregistrés par le cas d'usage via le port de persistance vers IndexedDB. Le navigateur n'envoie pas cette mémoire à un service cloud.
-6. Le contexte issu de la mémoire est consultatif et ne supplante jamais le barème courant.
+1. L'enseignant crée ou sélectionne un devoir, ajuste son barème et choisit entre questions intégrées à la copie ou sujet de référence séparé.
+2. Les fichiers sont préparés localement. Les PDF sont rendus en images dans le navigateur ; aucun téléversement de fichier n'est effectué par l'application.
+3. L'enseignant configure un modèle de lecture (vision) et un modèle d'analyse/notation. Pour un barème importé depuis une image, le modèle de vision demande une sortie structurée qui est validée et présentée à l'enseignant pour vérification.
+4. Le modèle de vision lit les images de la copie. Le texte extrait reste consultable et peut être réutilisé lors d'une nouvelle analyse sans rappeler le modèle de vision. En mode sujet séparé, la transcription du sujet est conservée en mémoire de la session et réutilisée pour les copies suivantes.
+5. Le modèle d'analyse propose une note globale et des notes par critère avec justifications, éléments de preuve et confiance. La validation du résultat n'accepte pas automatiquement la proposition : l'enseignant contrôle et ajuste les critères, puis finalise.
+6. Une correction finalisée peut être archivée dans IndexedDB avec son instantané de révision, ses images, ses transcriptions, le barème et la proposition. Elle peut ensuite être rouverte pour consultation. Les données restent dans le profil de navigateur ; elles ne sont pas synchronisées entre appareils.
+7. Les écarts entre les notes proposées et les décisions de l'enseignant, ainsi que les commentaires explicites, peuvent être mémorisés localement. Le contexte récupéré est consultatif et ne remplace jamais la décision enseignante.
+8. La file de copies facilite le passage à la copie suivante pendant une session. Elle ne doit pas être confondue avec un traitement serveur en lot ni avec un service cloud.
+9. Le Diagnostic IA permet d'évaluer séparément les modèles et stratégies expérimentales, sans changer le comportement par défaut du parcours de correction enseignant.
+
+## Confidentialité et limites
+
+- Les données sont transmises au seul endpoint Ollama configuré par l'utilisateur. Si cet endpoint est distant, les requêtes et images qu'il reçoit sortent de l'appareil : le caractère local dépend donc de la configuration choisie.
+- Les archives, images et retours sont stockés dans IndexedDB du navigateur et peuvent être supprimés avec les données du site. Ce stockage n'est ni chiffré par l'application ni synchronisé.
+- La transcription du sujet de référence est en mémoire de page et n'est pas un dossier persistant partagé entre appareils.
+- La confiance déclarée par un modèle n'est pas calibrée statistiquement. Les preuves et justifications générées doivent être comparées à la copie originale.
+- Les performances de lecture manuscrite varient selon le modèle et la qualité des images.
 
 ## Tests et garde-fous d'architecture
 
-Pyramide attendue :
-1. **Unitaires** : domaine et cas d'usage avec ports simulés, sans React ni navigateur.
-2. **Intégration** : adaptateurs avec APIs simulées (IndexedDB via `fake-indexeddb`, appels HTTP simulés).
-3. **Interface / parcours** : tests de composants ou Playwright lorsque le parcours navigateur complet est disponible.
+La pyramide de tests attendue est :
+
+1. **Unitaires** : domaine et cas d'usage avec ports simulés, sans React ni APIs navigateur lorsque possible.
+2. **Intégration** : adaptateurs avec APIs simulées, notamment IndexedDB via `fake-indexeddb` et appels HTTP simulés.
+3. **Interface et parcours** : tests de contrat de structure/styles UI et parcours Playwright dans Chromium pour les interactions réelles, dont la réouverture d'une correction et l'adaptation desktop/mobile.
 
 Les tests d'architecture vérifient les frontières d'import : le domaine n'importe aucune couche externe ; l'application ne dépend que du domaine et des ports ; l'UI n'importe pas les adaptateurs ; les adaptateurs ne dépendent pas de l'UI ou de l'application ; seul le composition root assemble les implémentations. Toute nouvelle dépendance inter-couche doit être justifiée et couverte par ces tests.
 
 Commandes de validation :
-- `npm test` — tests unitaires et d'intégration
-- `npm run typecheck` — vérification TypeScript
-- `npm run build` — typecheck et build de production
-- `npm run test:coverage` — couverture globale
+
+- `npm run typecheck` — vérification TypeScript.
+- `npm test` — tests unitaires, d'intégration et de contrat.
+- `npm run test:coverage` — rapport de couverture global.
+- `npm run test:coverage:core` — rapport ciblé sur domaine et application.
+- `npm run build` — compilation et build de production.
+- `npm run test:e2e` — parcours Playwright.
+
+La CI du dépôt exécute le typecheck, Vitest, les deux rapports de couverture, le build et les tests Playwright sur les pull requests.
 
 ## Limites connues
 
-- Ollama doit être accessible depuis le navigateur ; sa configuration CORS peut être nécessaire.
+- Ollama doit être accessible depuis le navigateur ; une configuration CORS peut être nécessaire.
 - Un modèle de vision est requis pour analyser des images.
-- Le niveau de confiance retourné par un modèle n'est pas une mesure statistique calibrée.
-- Les justifications générées doivent être vérifiées sur la copie originale.
-- IndexedDB conserve les données sur le profil de navigateur de l'appareil ; elles peuvent être perdues si les données du site sont effacées. Les photos et transcriptions ne sont pas encore toutes persistées comme un dossier de correction complet.
+- La qualité de transcription varie avec le modèle et la photo.
+- Les photos, transcriptions et corrections archivées ne forment pas encore un dossier de devoir synchronisé ou exportable entre appareils.
+- Le rappel local est lexical et limité au contexte de correction/barème ; il ne constitue pas un apprentissage automatique du modèle.
