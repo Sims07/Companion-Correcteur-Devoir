@@ -7,20 +7,43 @@ interface OllamaChatResponse {
   message?: { content?: string };
   error?: string;
   done?: boolean;
+  prompt_eval_count?: number;
+  eval_count?: number;
+  total_duration?: number;
+  load_duration?: number;
+  prompt_eval_duration?: number;
+  eval_duration?: number;
 }
 
-async function readOllamaStream(response: Response, onChunk?: (chunk: string) => void): Promise<string> {
+interface OllamaStreamResult {
+  content: string;
+  promptTokens?: number;
+  generatedTokens?: number;
+  totalTokens?: number;
+  promptEvaluationMs?: number;
+  generationMs?: number;
+  loadMs?: number;
+  tokensPerSecond?: number;
+}
+
+function nanosecondsToMilliseconds(value: number | undefined): number | undefined {
+  return value === undefined || !Number.isFinite(value) ? undefined : Math.round(value / 1_000_000 * 100) / 100;
+}
+
+async function readOllamaStream(response: Response, onChunk?: (chunk: string) => void): Promise<OllamaStreamResult> {
   if (!response.body) throw new Error('Ollama n’a pas fourni de flux de réponse lisible.');
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   let content = '';
+  let finalEvent: OllamaChatResponse | undefined;
   const consumeLine = (line: string) => {
     if (!line.trim()) return;
     const event = JSON.parse(line) as OllamaChatResponse;
     if (event.error) throw new Error('Ollama signale une erreur pendant la génération.');
     const chunk = event.message?.content ?? '';
     if (chunk) { content += chunk; onChunk?.(chunk); }
+    if (event.done || event.prompt_eval_count !== undefined || event.eval_count !== undefined) finalEvent = event;
   };
   try {
     while (true) {
@@ -35,7 +58,22 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
     consumeLine(buffer);
   } finally { reader.releaseLock(); }
   if (!content.trim()) throw new Error('Ollama a retourné une réponse vide.');
-  return content;
+  const promptTokens = typeof finalEvent?.prompt_eval_count === 'number' ? finalEvent.prompt_eval_count : undefined;
+  const generatedTokens = typeof finalEvent?.eval_count === 'number' ? finalEvent.eval_count : undefined;
+  const generationDurationNs = typeof finalEvent?.eval_duration === 'number' ? finalEvent.eval_duration : undefined;
+  const generationMs = nanosecondsToMilliseconds(generationDurationNs);
+  return {
+    content,
+    ...(promptTokens !== undefined ? { promptTokens } : {}),
+    ...(generatedTokens !== undefined ? { generatedTokens } : {}),
+    ...(promptTokens !== undefined && generatedTokens !== undefined ? { totalTokens: promptTokens + generatedTokens } : {}),
+    ...(typeof finalEvent?.prompt_eval_duration === 'number' ? { promptEvaluationMs: nanosecondsToMilliseconds(finalEvent.prompt_eval_duration) } : {}),
+    ...(generationMs !== undefined ? { generationMs } : {}),
+    ...(typeof finalEvent?.load_duration === 'number' ? { loadMs: nanosecondsToMilliseconds(finalEvent.load_duration) } : {}),
+    ...(generatedTokens !== undefined && generationDurationNs !== undefined && generationDurationNs > 0
+      ? { tokensPerSecond: Math.round(generatedTokens / (generationDurationNs / 1_000_000_000) * 100) / 100 }
+      : {}),
+  };
 }
 
 interface OllamaTagsResponse {
