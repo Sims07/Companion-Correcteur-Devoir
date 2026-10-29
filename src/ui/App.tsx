@@ -696,10 +696,10 @@ export function App({ service, archiveService, evaluationService }: { service: C
         }, (text, kind) => {
           if (kind !== 'subject') extractedTranscription = text;
         }, (result) => measuredRuns.push(result));
+        setEvaluationStage('parsing');
         let score: number | null = null;
         let parsedProposal: GradingProposal | null = null;
         try { parsedProposal = parseGradingProposal(raw, rubric); score = buildDiagnosticScore(parsedProposal, rubric).modelScore; } catch { /* Preserve raw output for inspection even when it cannot be scored. */ }
-        setEvaluationStage('parsing');
         const finishedAt = Date.now();
         const tokens = measuredRuns.some((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined) ? measuredRuns.reduce((sum, run) => sum + (run.totalTokens ?? run.promptTokens ?? 0) + (run.totalTokens === undefined && run.generatedTokens !== undefined ? run.generatedTokens : 0), 0) : null;
         return { transcription: extractedTranscription, raw, score, proposal: parsedProposal, readingMs, analysisMs: analysisStartedAt === null ? 0 : Math.max(0, finishedAt - analysisStartedAt), tokens, elapsedMs: finishedAt - startedAt };
