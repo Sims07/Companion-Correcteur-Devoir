@@ -25,11 +25,14 @@ export interface ModelEvaluationProgress {
   total: number;
   currentConfiguration: ModelEvaluationConfiguration | null;
   status: 'running' | 'completed' | 'cancelled';
+  completedSteps: number;
+  totalSteps: number;
+  currentStage: 'reading' | 'analysis' | null;
 }
 
 export interface ModelEvaluationOptions<T> {
   configurations: ModelEvaluationConfiguration[];
-  execute: (configuration: ModelEvaluationConfiguration, isCancelled: () => boolean) => Promise<T>;
+  execute: (configuration: ModelEvaluationConfiguration, isCancelled: () => boolean, onStage: (stage: 'reading' | 'analysis') => void) => Promise<T>;
   isCancelled?: () => boolean;
   onProgress?: (progress: ModelEvaluationProgress) => void;
   now?: () => number;
@@ -45,45 +48,42 @@ export async function runModelEvaluation<T>(options: ModelEvaluationOptions<T>):
   const isCancelled = options.isCancelled ?? (() => false);
   const now = options.now ?? Date.now;
   const outputs: ModelEvaluationOutput<T>[] = [];
+  const totalSteps = configurations.length * 2;
+  let completedSteps = 0;
+  const report = (currentConfiguration: ModelEvaluationConfiguration | null, status: ModelEvaluationProgress['status'], currentStage: ModelEvaluationProgress['currentStage'] = null) => {
+    onProgress?.({ completed: outputs.length, total: configurations.length, currentConfiguration, status, completedSteps, totalSteps, currentStage });
+  };
 
   for (const configuration of configurations) {
     if (isCancelled()) break;
-    onProgress?.({ completed: outputs.length, total: configurations.length, currentConfiguration: configuration, status: 'running' });
+    let currentStage: 'reading' | 'analysis' | null = null;
+    report(configuration, 'running');
     const started = now();
     const startedAt = new Date(started).toISOString();
     try {
-      const value = await execute(configuration, isCancelled);
-      const finished = now();
-      outputs.push({
-        configuration,
-        startedAt,
-        finishedAt: new Date(finished).toISOString(),
-        elapsedMs: Math.max(0, finished - started),
-        status: 'success',
-        value,
+      const value = await execute(configuration, isCancelled, (stage) => {
+        if (currentStage === 'reading' && stage === 'analysis') completedSteps += 1;
+        currentStage = stage;
+        report(configuration, 'running', currentStage);
       });
+      const finished = now();
+      completedSteps += currentStage === 'reading' ? 1 : currentStage === 'analysis' ? 1 : 0;
+      outputs.push({ configuration, startedAt, finishedAt: new Date(finished).toISOString(), elapsedMs: Math.max(0, finished - started), status: 'success', value });
       if (isCancelled()) break;
     } catch (cause) {
       const finished = now();
+      if (currentStage === 'analysis') completedSteps += 1;
       outputs.push({
-        configuration,
-        startedAt,
-        finishedAt: new Date(finished).toISOString(),
-        elapsedMs: Math.max(0, finished - started),
+        configuration, startedAt, finishedAt: new Date(finished).toISOString(), elapsedMs: Math.max(0, finished - started),
         status: isCancelled() ? 'cancelled' : 'failed',
         ...(isCancelled() ? {} : { error: cause instanceof Error ? cause.message : String(cause) }),
       });
       if (isCancelled()) break;
     }
-    onProgress?.({ completed: outputs.length, total: configurations.length, currentConfiguration: null, status: 'running' });
+    report(null, 'running');
   }
 
-  onProgress?.({
-    completed: outputs.length,
-    total: configurations.length,
-    currentConfiguration: null,
-    status: isCancelled() ? 'cancelled' : 'completed',
-  });
+  report(null, isCancelled() ? 'cancelled' : 'completed');
   return outputs;
 }
 
