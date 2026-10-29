@@ -1514,3 +1514,41 @@
 .rubric-import-progress-review { margin: 0; font-size: 12px; line-height: 1.55; }
 .rubric-import-progress-current { font-weight: 600; }
 .rubric-import-progress-review { padding-top: 10px; border-top: 1px solid var(--flow-border); }
+
+
+.rubric-import-raw-response {
+  display: grid;
+  gap: 9px;
+  padding-top: 10px;
+  border-top: 1px solid var(--flow-border);
+  min-width: 0;
+}
+.rubric-import-raw-response summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+}
+.rubric-import-raw-response p {
+  margin: 0;
+  color: var(--flow-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.rubric-import-raw-response pre {
+  box-sizing: border-box;
+  max-width: 100%;
+  max-height: 320px;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--flow-border);
+  border-radius: 8px;
+  background: var(--flow-panel, #f7f8fa);
+  color: var(--flow-text);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.rubric-import-raw-response .button-secondary {
+  justify-self: start;
+}
