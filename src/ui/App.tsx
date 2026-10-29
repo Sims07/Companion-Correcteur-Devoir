@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FilePicker } from './components/FilePicker.tsx';
 import { DesignSystemSelect } from './components/DesignSystemSelect.tsx';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
+import type { ModelEvaluationService } from '../application/modelEvaluationService.ts';
 import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion } from '../domain/grading.ts';
+import { runModelEvaluation, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot } from '../domain/modelEvaluation.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
@@ -226,7 +228,7 @@ function getLocalMemoryCorrectionId(): string | null {
   }
 }
 
-export function App({ service, archiveService }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService }) {
+export function App({ service, archiveService, evaluationService }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService }) {
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, AssignmentDraft>>({});
@@ -258,6 +260,12 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [selectedAiModelProfileId, setSelectedAiModelProfileId] = useState('');
   const [aiModelProfileMessage, setAiModelProfileMessage] = useState('');
   const [diagnosticRuns, setDiagnosticRuns] = useState<DiagnosticModelResult[]>([]);
+  const [selectedEvaluationProfileIds, setSelectedEvaluationProfileIds] = useState<string[]>([]);
+  const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
+  const [savedModelEvaluations, setSavedModelEvaluations] = useState<ModelEvaluationRecord[]>([]);
+  const [evaluationProgress, setEvaluationProgress] = useState<ModelEvaluationProgress | null>(null);
+  const evaluationCancelledRef = useRef(false);
+  useEffect(() => { void evaluationService.list().then(setSavedModelEvaluations).catch(() => setError('Impossible de lire l’historique local des évaluations.')); }, [evaluationService]);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>(() => readActiveAssignmentProfile().correctionMode);
   const [subjectImages, setSubjectImages] = useState<ImageInput[]>([]);
@@ -289,7 +297,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [teacherQuestions, setTeacherQuestions] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [isFinalized, setIsFinalized] = useState(false);
-  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic'>('teacher');
+  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug'>('teacher');
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
   const reviewedTotal = review.reduce((sum, item) => sum + item.teacherPoints, 0);
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
@@ -632,6 +640,115 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     }
   }
 
+  async function startModelEvaluation() {
+    const selectedProfiles = aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
+    if (selectedProfiles.length < 2) { setError('Sélectionnez au moins deux configurations enregistrées pour les comparer.'); return; }
+    if (!validation.valid) { setError(validation.errors.join(' ')); return; }
+    if (!images.length) { setError('Importez une copie avant de lancer une évaluation.'); return; }
+    if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
+    evaluationCancelledRef.current = false;
+    setModelEvaluationResults([]);
+    setEvaluationProgress({ completed: 0, total: selectedProfiles.length, currentConfiguration: null, status: 'running' });
+    setError('');
+    setBusy(true);
+    setIsAnalyzing(true);
+    const outputs = await runModelEvaluation({
+      configurations: selectedProfiles.map((profile) => ({
+        id: profile.id,
+        name: profile.name,
+        endpoint: profile.configuration.endpoint,
+        visionModel: profile.configuration.visionModel,
+        analysisModel: profile.configuration.analysisModel,
+        thinking: profile.configuration.analysisThinking,
+      })),
+      isCancelled: () => evaluationCancelledRef.current,
+      onProgress: setEvaluationProgress,
+      execute: async (configuration) => {
+        if (!configuration.visionModel.trim() || !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle de vision et un modèle d’analyse.');
+        await service.checkReady({ endpoint: configuration.endpoint, model: configuration.visionModel });
+        await service.checkReady({ endpoint: configuration.endpoint, model: configuration.analysisModel });
+        let extractedTranscription = '';
+        let raw = '';
+        const startedAt = Date.now();
+        let readingMs = 0;
+        let analysisStartedAt: number | null = null;
+        const measuredRuns: DiagnosticModelResult[] = [];
+        const provider = service.createProvider({
+          endpoint: configuration.endpoint,
+          visionModel: configuration.visionModel,
+          analysisModel: configuration.analysisModel,
+          thinking: configuration.thinking,
+          diagnosticStrategy: 'single',
+        });
+        setStreamedOutput('');
+        raw = await provider.generate({
+          question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+          rubric: rubricAsJson(rubric),
+          images: structuredClone(images),
+          ...(correctionMode === 'separate' ? { subjectImages: structuredClone(subjectImages), ...(subjectTranscription ? { subjectTranscription } : {}) } : {}),
+        }, (chunk) => setStreamedOutput((current) => current + chunk), (stage) => {
+          const now = Date.now();
+          if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = Math.max(0, now - startedAt); analysisStartedAt = now; } setAnalysisStage('grading'); setStreamedOutput(''); }
+          else setAnalysisStage('reading');
+        }, (text, kind) => {
+          if (kind !== 'subject') extractedTranscription = text;
+        }, (result) => measuredRuns.push(result));
+        let score: number | null = null;
+        let parsedProposal: GradingProposal | null = null;
+        try { parsedProposal = parseGradingProposal(raw, rubric); score = buildDiagnosticScore(parsedProposal, rubric).modelScore; } catch { /* Preserve raw output for inspection even when it cannot be scored. */ }
+        const finishedAt = Date.now();
+        const tokens = measuredRuns.some((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined) ? measuredRuns.reduce((sum, run) => sum + (run.totalTokens ?? run.promptTokens ?? 0) + (run.totalTokens === undefined && run.generatedTokens !== undefined ? run.generatedTokens : 0), 0) : null;
+        return { transcription: extractedTranscription, raw, score, proposal: parsedProposal, readingMs, analysisMs: analysisStartedAt === null ? 0 : Math.max(0, finishedAt - analysisStartedAt), tokens, elapsedMs: finishedAt - startedAt };
+      },
+    });
+    const results = outputs.map((output) => ({
+      profileId: output.configuration.id,
+      profileName: output.configuration.name,
+      elapsedMs: output.elapsedMs,
+      readingMs: output.value?.readingMs ?? 0,
+      analysisMs: output.value?.analysisMs ?? 0,
+      tokens: output.value?.tokens ?? null,
+      status: output.status,
+      transcription: output.value?.transcription ?? '',
+      raw: output.value?.raw ?? '',
+      score: output.value?.score ?? null,
+      proposal: output.value?.proposal ?? null,
+      ...(output.error ? { error: output.error } : {}),
+    }));
+    setModelEvaluationResults(results);
+    const savedRecord: ModelEvaluationRecord = {
+      id: 'evaluation-' + Date.now(),
+      completedAt: new Date().toISOString(),
+      assignmentId: activeAssignmentId,
+      assignmentTitle: assignmentTitle.trim() || 'Devoir sans titre',
+      question,
+      rubricSnapshot: structuredClone(rubric),
+      correctionMode,
+      images: structuredClone(images),
+      subjectImages: structuredClone(subjectImages),
+      subjectTranscription,
+      configurations: selectedProfiles.map((profile) => ({
+        id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
+        visionModel: profile.configuration.visionModel, analysisModel: profile.configuration.analysisModel,
+        thinking: profile.configuration.analysisThinking,
+      })),
+      results,
+    };
+    try {
+      await evaluationService.save(savedRecord);
+      setSavedModelEvaluations((current) => [savedRecord, ...current.filter((item) => item.id !== savedRecord.id)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)));
+    } catch {
+      setError('Les résultats sont disponibles dans cette session, mais leur sauvegarde dans l’historique local a échoué.');
+    }
+    setIsAnalyzing(false);
+    setBusy(false);
+  }
+
+  function cancelModelEvaluation() {
+    evaluationCancelledRef.current = true;
+    setError('Annulation demandée : l’appel Ollama en cours sera laissé se terminer avant l’arrêt de la séquence.');
+  }
+
   function saveDiagnosticReference() {
     if (!currentTimingRecordId) {
       setReferenceMessage('Lancez un essai de diagnostic avant d’associer une référence à ses résultats.');
@@ -964,7 +1081,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => setInterfaceMode('diagnostic')}>Diagnostic IA</button></div></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => { setShowAiSettings(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button><button type="button" className={interfaceMode === 'debug' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'debug'} onClick={() => { setShowAiSettings(false); setInterfaceMode('debug'); }}>Debug</button></div></div>
       </header>
 
       {interfaceMode === 'teacher' && <aside className="teacher-sidebar" aria-label="Navigation de la correction">
@@ -1073,8 +1190,22 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         <p className="hint">En cas d’échec, aucune solution cloud n’est utilisée.</p>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}
-      {(interfaceMode === 'diagnostic' || !showAiSettings) && <>
-      {interfaceMode === 'diagnostic' && <section className="diagnostic-workspace-hero" aria-labelledby="diagnostic-workspace-title">
+      {interfaceMode === 'diagnostic' && <section className="panel diagnostic-evaluation-setup" aria-labelledby="model-evaluation-setup-title">
+        <div className="workspace-heading"><div><p className="eyebrow">EXPÉRIENCE REPRODUCTIBLE · LOCAL</p><h2 id="model-evaluation-setup-title">Évaluation indépendante des configurations</h2><p className="workspace-description">Chaque configuration relit les images originales puis note avec le même barème. Les essais sont séquentiels pour limiter la mémoire utilisée par Ollama.</p></div></div>
+        {aiModelProfiles.length < 2 ? <p className="hint">Enregistrez au moins deux configurations dans les paramètres de l’IA locale avant de pouvoir les comparer.</p> : <fieldset className="evaluation-profile-list"><legend>Configurations à comparer (2 à 3)</legend>{aiModelProfiles.map((profile) => <label key={profile.id} className="evaluation-profile-option"><input type="checkbox" checked={selectedEvaluationProfileIds.includes(profile.id)} disabled={busy || (!selectedEvaluationProfileIds.includes(profile.id) && selectedEvaluationProfileIds.length >= 3)} onChange={(event) => setSelectedEvaluationProfileIds((current) => event.target.checked ? [...current, profile.id].slice(-3) : current.filter((id) => id !== profile.id))} /><span><strong>{profile.name}</strong><small>Vision : {profile.configuration.visionModel || 'non défini'} · Analyse : {profile.configuration.analysisModel || 'non défini'}{profile.configuration.analysisThinking ? ' · raisonnement activé' : ''}</small></span></label>)}</fieldset>}
+        <div className="settings-actions"><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 2 || !images.length} onClick={() => void startModelEvaluation()}>Lancer l’évaluation indépendante</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
+        {busy && streamedOutput && <section className="transcription-review" aria-live="polite"><h3>Réponse du modèle en streaming</h3><pre>{streamedOutput}</pre></section>}
+        {evaluationProgress && <div className="evaluation-progress" role="status"><strong>{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation annulée' : 'Évaluation en cours'}</strong><span>{evaluationProgress.completed} / {evaluationProgress.total} configuration(s)</span>{evaluationProgress.currentConfiguration && <p>Configuration active : {evaluationProgress.currentConfiguration.name} · {analysisStage === 'reading' ? 'Lecture des images' : analysisStage === 'grading' ? 'Analyse et notation' : 'Préparation'}</p>}<div className="evaluation-progress-track"><span style={{ width: (evaluationProgress.completed / Math.max(1, evaluationProgress.total) * 100) + '%' }} /></div></div>}
+        {savedModelEvaluations.length > 0 && <section className="evaluation-result-list" aria-labelledby="model-evaluation-history-title"><h3 id="model-evaluation-history-title">Historique local des expériences</h3><p className="hint">Les images originales, le barème, les configurations et les résultats sont conservés dans IndexedDB sur cet appareil.</p>{savedModelEvaluations.map((record) => <article key={record.id} className="transcription-review"><div className="workspace-heading"><div><h4>{record.assignmentTitle}</h4><p>{new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {record.images.length} page(s)</p></div><button type="button" className="text-button" onClick={() => { setModelEvaluationResults(record.results); setRubric(structuredClone(record.rubricSnapshot)); setImages(structuredClone(record.images)); setQuestion(record.question); setAssignmentTitle(record.assignmentTitle); setCorrectionMode(record.correctionMode); setSubjectImages(structuredClone(record.subjectImages)); setSubjectTranscription(record.subjectTranscription); }}>Consulter / recharger la référence</button></div><ul>{record.results.map((result) => <li key={result.profileId}><strong>{result.profileName}</strong> · {result.status} · {result.score === null ? 'note non exploitable' : result.score + ' / ' + record.rubricSnapshot.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)} · {formatElapsed(Math.round(result.elapsedMs / 1000))}</li>)}</ul><button type="button" className="text-button" onClick={() => { void evaluationService.delete(record.id).then(() => setSavedModelEvaluations((current) => current.filter((item) => item.id !== record.id))).catch(() => setError('Impossible de supprimer cette expérience locale.')); }}>Supprimer cette expérience</button></article>)}</section>}
+        {modelEvaluationResults.filter((result) => result.proposal !== null).length > 1 && <section className="evaluation-result-list" aria-label="Comparaison relative des modèles"><h3>Comparaison relative des notes</h3><p className="hint">Écart par rapport au premier résultat exploitable. Sans note de référence du professeur, ces écarts ne mesurent pas l’exactitude.</p>{modelEvaluationResults.filter((result) => result.proposal !== null).slice(1).map((result) => { const baseline = modelEvaluationResults.find((item) => item.proposal !== null); const comparison = baseline?.proposal && result.proposal ? compareDiagnosticProposals(baseline.proposal, result.proposal, rubric) : null; return <article key={result.profileId} className="transcription-review"><h4>{baseline?.profileName} → {result.profileName}</h4>{comparison && <><p>Écart de note totale : {comparison.totalDifference > 0 ? '+' : ''}{comparison.totalDifference} point(s)</p>{comparison.disagreements.length ? <ul>{comparison.disagreements.map((item) => <li key={item.criterionId}>{item.title} : {item.firstPoints} → {item.secondPoints} / {item.maxPoints} ({item.difference > 0 ? '+' : ''}{item.difference})</li>)}</ul> : <p>Les deux propositions attribuent la même note à chaque critère.</p>}</>}</article>; })}</section>}
+        {modelEvaluationResults.length > 0 && <div className="evaluation-result-list"><h3>Résultats de cette expérience</h3>{modelEvaluationResults.map((result) => <article key={result.profileId} className="transcription-review"><h4>{result.profileName}</h4><p>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Annulé' : 'Échec'} · Total {formatElapsed(Math.round(result.elapsedMs / 1000))} · Lecture {result.readingMs ? formatElapsed(Math.round(result.readingMs / 1000)) : '—'} · Analyse {result.analysisMs ? formatElapsed(Math.round(result.analysisMs / 1000)) : '—'} · Tokens {result.tokens === null ? 'non mesurés' : formatTokenCount(result.tokens)} · {result.score === null ? 'Note non exploitable' : result.score + ' / ' + validation.maximumPoints}</p>{result.error && <p className="validation" role="alert">{result.error}</p>}{result.transcription && <details><summary>Transcription extraite indépendamment</summary><pre>{result.transcription}</pre></details>}{result.proposal && <details open><summary>Détail par critère et justifications</summary><ul>{result.proposal.criteria.map((criterion) => { const rubricCriterion = rubric.criteria.find((item) => item.id === criterion.criterionId); return <li key={criterion.criterionId}><strong>{rubricCriterion?.title ?? criterion.criterionId} : {criterion.points} / {rubricCriterion?.maxPoints ?? '—'}</strong><p>{criterion.rationale || 'Aucune justification fournie.'}</p><p><strong>Preuve :</strong> {criterion.evidence || 'Aucune preuve textuelle fournie.'}</p><small>Confiance déclarée : {criterion.confidence === 'high' ? 'élevée' : criterion.confidence === 'medium' ? 'moyenne' : 'faible'}</small></li>; })}</ul>{result.proposal.questionsForTeacher.length > 0 && <div className="diagnostic-questions"><strong>Questions à vérifier</strong><ul>{result.proposal.questionsForTeacher.map((question, index) => <li key={index}>{question}</li>)}</ul></div>}</details>}{result.raw && <details><summary>Réponse brute</summary><pre>{result.raw}</pre></details>}</article>)}</div>}
+      </section>}
+      {interfaceMode === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
+        <div className="workspace-heading"><div><p className="eyebrow">OUTILS DE DIAGNOSTIC</p><h2 id="debug-workspace-title">Debug des appels IA locaux</h2><p className="workspace-description">Les réponses brutes et la transcription restent sur cet appareil. Lancez d’abord une évaluation pour afficher ses traces.</p></div></div>
+        <section className="transcription-review"><h3>Transcription actuellement chargée</h3>{transcription ? <pre>{transcription}</pre> : <p className="hint">Aucune transcription disponible.</p>}</section>
+        <section className="transcription-review"><h3>Dernière réponse reçue en streaming</h3>{streamedOutput ? <pre>{streamedOutput}</pre> : <p className="hint">Aucune réponse en streaming disponible.</p>}</section>
+        <section className="transcription-review"><h3>Sorties brutes des modèles ({diagnosticRuns.length})</h3>{diagnosticRuns.length ? diagnosticRuns.map((run, index) => <details key={run.kind + run.model + index} className="rubric-import-raw-response"><summary>{run.model} · {run.kind} · {formatElapsed(Math.round(run.elapsedMs / 1000))}</summary><pre>{run.raw}</pre></details>) : <p className="hint">Aucune sortie enregistrée. Passez dans « Évaluation des modèles » et lancez une analyse.</p>}</section>
+      </section> : (interfaceMode === 'diagnostic' || !showAiSettings) && <>      {interfaceMode === 'diagnostic' && <section className="diagnostic-workspace-hero" aria-labelledby="diagnostic-workspace-title">
         <div className="diagnostic-workspace-hero-copy">
           <p className="eyebrow">ENVIRONNEMENT EXPÉRIMENTAL · OLLAMA</p>
           <h1 id="diagnostic-workspace-title">Laboratoire de correction IA</h1>

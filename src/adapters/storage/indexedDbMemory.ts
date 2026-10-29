@@ -1,11 +1,13 @@
 import type { LocalCorrection } from '../../domain/localCorrection.ts';
+import type { ModelEvaluationRecord } from '../../domain/modelEvaluation.ts';
 import type { LocalMemoryEntry, LocalMemoryQuery } from '../../domain/localMemory.ts';
 import { rankLocalMemories } from '../../domain/localMemory.ts';
 
 const DATABASE_NAME = 'companion-correcteur-devoir';
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 3;
 const STORE_NAME = 'local-memory';
 const CORRECTION_STORE_NAME = 'local-corrections';
+const MODEL_EVALUATION_STORE_NAME = 'model-evaluations';
 
 interface StoredMemoryEntry extends LocalMemoryEntry {
   searchText: string;
@@ -27,6 +29,11 @@ function openDatabase(): Promise<IDBDatabase> {
       if (!database.objectStoreNames.contains(CORRECTION_STORE_NAME)) {
         const store = database.createObjectStore(CORRECTION_STORE_NAME, { keyPath: 'id' });
         store.createIndex('updatedAt', 'updatedAt', { unique: false });
+      }
+      if (!database.objectStoreNames.contains(MODEL_EVALUATION_STORE_NAME)) {
+        const store = database.createObjectStore(MODEL_EVALUATION_STORE_NAME, { keyPath: 'id' });
+        store.createIndex('completedAt', 'completedAt', { unique: false });
+        store.createIndex('assignmentId', 'assignmentId', { unique: false });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -123,6 +130,7 @@ export async function deleteLocalCorrection(correctionId: string): Promise<void>
 
 // Concrete outbound adapter for the application persistence port.
 import type { LocalCorrectionRepository } from '../../ports/localCorrectionRepository.ts';
+import type { ModelEvaluationRepository } from '../../ports/modelEvaluationRepository.ts';
 
 export class IndexedDbLocalCorrectionRepository implements LocalCorrectionRepository {
   saveCorrection(correction: LocalCorrection): Promise<void> {
@@ -155,5 +163,48 @@ export class IndexedDbLocalCorrectionRepository implements LocalCorrectionReposi
 
   deleteMemoryForCorrection(correctionId: string): Promise<void> {
     return deleteLocalMemoryForCorrection(correctionId);
+  }
+}
+
+export async function saveModelEvaluation(record: ModelEvaluationRecord): Promise<void> {
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(MODEL_EVALUATION_STORE_NAME, 'readwrite');
+    const completion = transactionToPromise(transaction);
+    transaction.objectStore(MODEL_EVALUATION_STORE_NAME).put(record);
+    await completion;
+  } finally { database.close(); }
+}
+
+export async function listModelEvaluations(): Promise<ModelEvaluationRecord[]> {
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(MODEL_EVALUATION_STORE_NAME, 'readonly');
+    const records = await requestToPromise(transaction.objectStore(MODEL_EVALUATION_STORE_NAME).getAll()) as ModelEvaluationRecord[];
+    return records.sort((left, right) => right.completedAt.localeCompare(left.completedAt));
+  } finally { database.close(); }
+}
+
+export async function deleteModelEvaluation(evaluationId: string): Promise<void> {
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(MODEL_EVALUATION_STORE_NAME, 'readwrite');
+    const completion = transactionToPromise(transaction);
+    transaction.objectStore(MODEL_EVALUATION_STORE_NAME).delete(evaluationId);
+    await completion;
+  } finally { database.close(); }
+}
+
+export class IndexedDbModelEvaluationRepository implements ModelEvaluationRepository {
+  save(record: ModelEvaluationRecord): Promise<void> {
+    return saveModelEvaluation(record);
+  }
+
+  list(): Promise<ModelEvaluationRecord[]> {
+    return listModelEvaluations();
+  }
+
+  delete(id: string): Promise<void> {
+    return deleteModelEvaluation(id);
   }
 }

@@ -21,7 +21,7 @@ describe('hexagonal architecture boundaries', () => {
   });
 
   it('keeps application use cases dependent only on domain and ports', () => {
-    for (const file of ['../src/application/localCorrectionService.ts', '../src/application/correctionWorkspaceService.ts']) {
+    for (const file of ['../src/application/localCorrectionService.ts', '../src/application/correctionWorkspaceService.ts', '../src/application/modelEvaluationService.ts']) {
       const text = source(file);
       expect(imports(text).every((path) => path.startsWith('../domain/') || path.startsWith('../ports/')), file).toBe(true);
       expect(text, file).not.toMatch(/\\b(window|document|indexedDB|React)\\b/);
@@ -55,6 +55,8 @@ describe('hexagonal architecture boundaries', () => {
   it('uses main as the composition root for concrete dependencies', () => {
     const text = source('../src/main.tsx');
     expect(text).toContain('new IndexedDbLocalCorrectionRepository()');
+    expect(text).toContain('new IndexedDbModelEvaluationRepository()');
+    expect(text).toContain('createModelEvaluationService');
     expect(text).toContain('createLocalCorrectionService(localCorrectionRepository)');
     expect(text).toContain('service={localCorrectionService}');
     expect(text).toContain('service={correctionWorkspaceService}');

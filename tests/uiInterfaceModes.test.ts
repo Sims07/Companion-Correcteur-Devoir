@@ -46,8 +46,41 @@ describe('teacher and AI diagnostic interface modes', () => {
   });
 
   it('defaults to the teacher correction view', () => {
-    expect(app()).toContain("useState<'teacher' | 'diagnostic'>('teacher')");
+    expect(app()).toContain("useState<'teacher' | 'diagnostic' | 'debug'>('teacher')");
     expect(app()).toContain("interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'");
+  });
+
+  it('offers a sequential independent evaluation for saved model configurations', () => {
+    const text = app();
+    expect(text).toContain('Évaluation indépendante des configurations');
+    expect(text).toContain('Configurations à comparer (2 à 3)');
+    expect(text).toContain('Lancer l’évaluation indépendante');
+    expect(text).toContain('Annuler après l’appel en cours');
+    expect(text).toContain('runModelEvaluation({');
+    expect(text).toContain('images: structuredClone(images)');
+    expect(text).not.toContain('transcription: transcription ??');
+    expect(text).toContain('Transcription extraite indépendamment');
+    expect(text).toContain('configuration.endpoint');
+    expect(text).toContain('evaluationService.save(savedRecord)');
+    expect(text).toContain('Historique local des expériences');
+    expect(text).toContain('Consulter / recharger la référence');
+    expect(text).toContain('IndexedDB sur cet appareil');
+    expect(text).toContain('Réponse du modèle en streaming');
+    expect(text).toContain('Lecture des images');
+    expect(text).toContain('Analyse et notation');
+    expect(text).toContain('Comparaison relative des notes');
+    expect(text).toContain('ces écarts ne mesurent pas l’exactitude');
+  });
+
+  it('separates model evaluation from raw local debug output', () => {
+    const text = app();
+    expect(text).toContain('>Évaluation des modèles</button>');
+    expect(text).toContain('>Debug</button>');
+    expect(text).toContain('aria-pressed={interfaceMode === \'debug\'}');
+    expect(text).toContain('Debug des appels IA locaux');
+    expect(text).toContain('Sorties brutes des modèles');
+    expect(text).toContain('Transcription actuellement chargée');
+    expect(text).toContain("interfaceMode === 'debug' ? <section className=\"panel diagnostic-results\"");
   });
 
   it('exposes an accessible switch whose buttons reflect the selected mode', () => {
@@ -56,7 +89,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain("aria-pressed={interfaceMode === 'teacher'}");
     expect(text).toContain("aria-pressed={interfaceMode === 'diagnostic'}");
     expect(text).toContain("onClick={() => setInterfaceMode('teacher')}");
-    expect(text).toContain("onClick={() => setInterfaceMode('diagnostic')}");
+    expect(text).toContain("setInterfaceMode('diagnostic')");
   });
 
   it('removes duplicate branding and makes missing local AI setup obvious in the sidebar', () => {

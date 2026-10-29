@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('multi-model experiment is available in Diagnostic IA only', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Diagnostic IA' }).click();
+  await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
 
   const strategy = page.getByLabel('Stratégie de comparaison');
   await expect(strategy).toBeVisible();
@@ -18,7 +18,7 @@ test('multi-model experiment is available in Diagnostic IA only', async ({ page 
 
 test('diagnostic presents a guided journey and a useful empty results state', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Diagnostic IA' }).click();
+  await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
 
   await expect(page.getByRole('navigation', { name: 'Parcours d’évaluation des modèles' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Préparer l’expérience/ })).toBeVisible();
@@ -61,7 +61,7 @@ test('diagnostic history exposes per-model time and Ollama token usage', async (
     }]));
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Diagnostic IA' }).click();
+  await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
 
   await expect(page.getByRole('heading', { name: 'Tableau de bord des expériences' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Tokens consommés' })).toBeVisible();
@@ -112,7 +112,7 @@ test('diagnostic history compares two saved experiments with visual charts', asy
     ]));
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Diagnostic IA' }).click();
+  await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
 
   await expect(page.getByRole('heading', { name: 'Comparer deux essais' })).toBeVisible();
   await page.getByRole('checkbox', { name: /Sélectionner l’essai phi-mini/ }).check();
@@ -128,4 +128,21 @@ test('diagnostic history compares two saved experiments with visual charts', asy
   await expect(page.getByText('Erreur moyenne').first()).toBeVisible();
   await expect(page.getByText('Essai A').first()).toBeVisible();
   await expect(page.getByText('Essai B').first()).toBeVisible();
+});
+
+
+test('model evaluation and raw debug are separate workspaces', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Évaluation indépendante des configurations' })).toBeVisible();
+  await expect(page.getByText(/Enregistrez au moins deux configurations/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Debug', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Debug des appels IA locaux' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Évaluation indépendante des configurations' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Sorties brutes des modèles (0)' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
+  await expect(page.getByRole('heading', { name: 'Évaluation indépendante des configurations' })).toBeVisible();
 });
