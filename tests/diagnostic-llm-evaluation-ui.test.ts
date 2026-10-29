@@ -66,3 +66,23 @@ describe('Diagnostic IA — consommation réelle des modèles Ollama', () => {
     expect(styles).toContain('@media (max-width: 420px)');
   });
 });
+
+
+describe('Diagnostic IA — comparaison graphique des essais conservés', () => {
+  it('offers selection of two past experiments and charts for time, tokens and score', () => {
+    expect(appSource).toContain('Sélectionner l’essai');
+    expect(appSource).toContain('Comparer deux essais');
+    expect(appSource).toContain('Comparaison de deux essais');
+    expect(appSource).toContain('Tokens d’entrée');
+    expect(appSource).toContain('Tokens générés');
+    expect(appSource).toContain('Temps et tokens par modèle / étape');
+    expect(appSource).toContain('setSelectedComparisonIds');
+  });
+
+  it('styles comparison charts responsively and respects reduced-motion preferences', () => {
+    expect(styles).toContain('.diagnostic-comparison-charts');
+    expect(styles).toContain('.diagnostic-comparison-models');
+    expect(styles).toContain('@media (max-width: 520px)');
+    expect(styles).toContain('prefers-reduced-motion: reduce');
+  });
+});
