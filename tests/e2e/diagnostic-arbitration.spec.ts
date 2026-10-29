@@ -33,3 +33,42 @@ test('diagnostic presents a guided journey and a useful empty results state', as
   await page.getByRole('button', { name: /Préparer l’expérience/ }).click();
   await expect(page.getByRole('heading', { name: 'Préparer le barème' })).toBeInViewport();
 });
+
+test('diagnostic history exposes per-model time and Ollama token usage', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('companion-correcteur:timing-history:v1', JSON.stringify([{
+      id: 'usage-fixture',
+      completedAt: '2026-10-29T13:00:00.000Z',
+      visionModel: 'qwen3.5:4b',
+      analysisModel: 'gemma3:4b',
+      thinking: false,
+      correctionMode: 'integrated',
+      pageCount: 1,
+      readingSeconds: 4,
+      analysisSeconds: 8,
+      totalSeconds: 13,
+      outcome: 'success',
+      modelScore: 8,
+      criterionScores: [{ criterionId: 'science', title: 'Exactitude', points: 8, maxPoints: 10 }],
+      diagnosticStrategy: 'compare',
+      diagnosticRuns: [
+        { kind: 'vision', stage: 'reading', model: 'qwen3.5:4b', raw: '', elapsedMs: 4000, promptTokens: 1000, generatedTokens: 250, totalTokens: 1250, generationMs: 2000, loadMs: 300, promptEvaluationMs: 100, tokensPerSecond: 125 },
+        { kind: 'model', stage: 'analysis', model: 'gemma3:4b', raw: '{"summary":"ok","criteria":[],"questionsForTeacher":[]}', elapsedMs: 8000, promptTokens: 3000, generatedTokens: 500, totalTokens: 3500, generationMs: 5000, loadMs: 500, promptEvaluationMs: 200, tokensPerSecond: 100 }
+      ]
+    }]));
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Diagnostic IA' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Historique des essais' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Tokens consommés' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Usage par modèle' })).toBeVisible();
+  await expect(page.getByText('Modèles observés')).toBeVisible();
+  await expect(page.getByText('Temps cumulé des appels')).toBeVisible();
+  await expect(page.getByText('Tokens mesurés (entrée + sortie)')).toBeVisible();
+
+  await page.getByText('2 groupe(s) modèle / étape').click();
+  await expect(page.getByText('qwen3.5:4b')).toBeVisible();
+  await expect(page.getByText('gemma3:4b')).toBeVisible();
+  await expect(page.getByText(/Tokens d’entrée : 1\s?000/)).toBeVisible();
+});
