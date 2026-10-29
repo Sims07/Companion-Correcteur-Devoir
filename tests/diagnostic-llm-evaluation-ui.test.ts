@@ -76,6 +76,7 @@ describe('Diagnostic IA — comparaison graphique des essais conservés', () => 
     expect(appSource).toContain('Tokens d’entrée');
     expect(appSource).toContain('Tokens générés');
     expect(appSource).toContain('Temps et tokens par modèle / étape');
+    expect(appSource).toContain('Laboratoire de correction IA');
     expect(appSource).toContain('Qualité, coût et vitesse par modèle');
     expect(appSource).toContain('Compromis entre qualité et temps');
     expect(appSource).toContain('Proximité de la référence');
@@ -88,6 +89,7 @@ describe('Diagnostic IA — comparaison graphique des essais conservés', () => 
   it('styles comparison charts responsively and respects reduced-motion preferences', () => {
     expect(styles).toContain('.diagnostic-comparison-charts');
     expect(styles).toContain('.diagnostic-comparison-models');
+    expect(styles).toContain('.diagnostic-workspace-hero');
     expect(styles).toContain('.diagnostic-dashboard-kpis');
     expect(styles).toContain('.diagnostic-scatter');
     expect(styles).toContain('.diagnostic-model-score-grid');
