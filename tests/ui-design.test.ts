@@ -11,6 +11,20 @@ const appComponent = readFileSync(new URL('../src/ui/App.tsx', import.meta.url),
 const dropdownComponent = readFileSync(new URL('../src/ui/components/DesignSystemSelect.tsx', import.meta.url), 'utf8');
 
 describe('UI design system', () => {
+  it('presents rubric import as separate reading and extraction steps with inspectable raw outputs', () => {
+    expect(appComponent).toContain('aria-label="Étapes de l’import du barème"');
+    expect(appComponent).toContain('1. Lecture du document');
+    expect(appComponent).toContain('2. Extraction du barème');
+    expect(appComponent).toContain('Voir le texte lu par le modèle de vision');
+    expect(appComponent).toContain('Voir le JSON brut extrait');
+    expect(appComponent).toContain('Afficher le journal détaillé de l’import');
+    expect(stylesheet).toContain('.rubric-import-steps');
+    expect(stylesheet).toContain('.rubric-import-step.is-active');
+    expect(stylesheet).toContain('.rubric-import-step.is-complete');
+    expect(stylesheet).toContain('@media(max-width:520px)');
+  });
+
+
   it('does not present a location hint as a handwritten comment', () => {
     expect(appComponent).toContain('{item.annotationSuggestion && <section className="annotation-suggestion"');
     expect(appComponent).not.toContain('{(item.annotationSuggestion || item.locationHint) && <section className="annotation-suggestion"');
