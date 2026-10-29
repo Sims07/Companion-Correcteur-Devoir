@@ -523,8 +523,9 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       setReferenceMessage('Lancez un essai de diagnostic avant d’associer une référence à ses résultats.');
       return;
     }
+    const existingReference = timingHistory.find((record) => record.id === currentTimingRecordId)?.referenceScores ?? [];
     const scores: ReferenceCriterionScore[] = rubric.criteria.flatMap((criterion) => {
-      const raw = referenceScoreInputs[criterion.id];
+      const raw = referenceScoreInputs[criterion.id] ?? existingReference.find((score) => score.criterionId === criterion.id)?.points.toString();
       return raw === undefined || raw.trim() === '' ? [] : [{ criterionId: criterion.id, points: Number(raw) }];
     });
     const validationResult = validateDiagnosticReference(scores, rubric);
@@ -532,13 +533,14 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       setReferenceMessage(validationResult.errors.join(' '));
       return;
     }
-    setTimingHistory((current) => {
-      const next = current.map((record) => record.id === currentTimingRecordId ? { ...record, referenceScores: scores } : record);
-      try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); }
-      catch { setReferenceMessage('La référence est utilisable dans cette session, mais le navigateur n’a pas pu la conserver localement.'); return next; }
-      setReferenceMessage('Correction de référence enregistrée sur cet appareil. Les écarts par modèle sont maintenant calculés.');
-      return next;
-    });
+    const next = timingHistory.map((record) => record.id === currentTimingRecordId ? { ...record, referenceScores: scores } : record);
+    setTimingHistory(next);
+    try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); }
+    catch {
+      setReferenceMessage('La référence est utilisable dans cette session, mais le navigateur n’a pas pu la conserver localement.');
+      return;
+    }
+    setReferenceMessage('Correction de référence enregistrée sur cet appareil. Les écarts par modèle sont maintenant calculés.');
   }
 
   function clearDiagnosticReference() {
