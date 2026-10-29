@@ -2,10 +2,12 @@ import type { ImageInput, GradingProvider, OllamaModel, OllamaSettings } from '.
 import type { Rubric } from '../domain/rubric.ts';
 
 export type RubricImportProgress = {
-  stage: 'preparing' | 'sending' | 'response' | 'parsing' | 'page-complete' | 'complete' | 'error';
+  stage: 'preparing' | 'sending' | 'vision-reading' | 'structuring' | 'response' | 'parsing' | 'page-complete' | 'complete' | 'error';
   message: string;
   /** Exact model content, retained even when JSON or rubric validation fails. */
   rawResponse?: string;
+  /** Identifies which local model produced rawResponse. */
+  rawResponseStage?: 'vision' | 'analysis';
   page?: number;
   totalPages?: number;
 };
