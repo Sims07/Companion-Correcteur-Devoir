@@ -76,6 +76,44 @@ describe('rubric import progress', () => {
     expect(progress.find((event) => event.stage === 'parsing')?.rawResponse).toBe(rawResponse);
   });
 
+  it('sends hierarchy-aware instructions for extracting scoring criteria', async () => {
+    let requestBody: { messages?: Array<{ content?: string }> } | undefined;
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestBody = JSON.parse(String(init?.body)) as { messages?: Array<{ content?: string }> };
+      return response();
+    }) as unknown as typeof fetch;
+
+    await importRubricImageWithOllama(
+      image('bareme.png'),
+      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b' },
+      fetchMock,
+    );
+
+    const prompt = requestBody?.messages?.[0]?.content ?? '';
+    expect(prompt).toContain('STRUCTURE ET HIÉRARCHIE');
+    expect(prompt).toContain('exercices, parties, questions, sous-questions, compétences ou types d’exercice');
+    expect(prompt).toContain('DÉCOUPAGE INTELLIGENT');
+    expect(prompt).toContain('ne répartis jamais toi-même les points');
+    expect(prompt).toContain('Distingue les points d’un critère du total');
+    expect(prompt).toContain('AUCUNE INVENTION');
+  });
+
+  it('rejects a criterion whose description is empty', async () => {
+    const rawResponse = JSON.stringify({
+      title: 'Barème de biologie',
+      criteria: [{ title: 'Membrane cellulaire', description: '   ', maxPoints: 2 }],
+    });
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      message: { content: rawResponse },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })) as unknown as typeof fetch;
+
+    await expect(importRubricImageWithOllama(
+      image('bareme.png'),
+      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b' },
+      fetchMock,
+    )).rejects.toThrow('Le critère 1 doit avoir un titre, une description textuelle et un maximum de points positif ou nul');
+  });
+
   it('reports progress for each page of a multi-page PDF', async () => {
     const progress: RubricImportProgress[] = [];
     let requestNumber = 0;
