@@ -229,6 +229,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [review, setReview] = useState<ReviewedCriterion[]>([]);
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
   const [focusedEvidencePage, setFocusedEvidencePage] = useState<number | null>(null);
+  const [focusedEvidenceCriterionId, setFocusedEvidenceCriterionId] = useState<string | null>(null);
   const [teacherQuestions, setTeacherQuestions] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [isFinalized, setIsFinalized] = useState(false);
@@ -1287,7 +1288,23 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
             <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de référence</h3><p>Gardez les pages originales sous les yeux pendant que vous vérifiez les points et les preuves.</p></div>
             <div className="review-source-pages" aria-label="Pages originales de la copie">
-              {images.length > 0 ? images.map((image, index) => <figure id={`review-copy-page-${index + 1}`} className={focusedEvidencePage === index + 1 ? 'live-copy-page evidence-page-focused' : 'live-copy-page'} key={image.fileName + '-review-' + index}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page originale ${index + 1} de la copie`} /><figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption></figure>) : <p className="review-source-empty">Aucune image originale disponible. Vérifiez les preuves avec prudence.</p>}
+              {images.length > 0 ? images.map((image, index) => {
+                const pageNumber = index + 1;
+                const pageAnchors = review.filter((item) => item.pageNumber === pageNumber && item.locationBox);
+                return <figure id={`review-copy-page-${pageNumber}`} className={focusedEvidencePage === pageNumber ? 'live-copy-page evidence-page-focused' : 'live-copy-page'} key={image.fileName + '-review-' + index}>
+                  <div className="evidence-image-stage">
+                    <img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page originale ${pageNumber} de la copie`} />
+                    {pageAnchors.length > 0 && <svg className="evidence-region-overlay" viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label={`Repères de localisation des commentaires sur la page ${pageNumber}`}>
+                      {pageAnchors.map((anchor, anchorIndex) => <g key={anchor.criterionId} className={focusedEvidenceCriterionId === anchor.criterionId ? 'evidence-region evidence-region-active' : 'evidence-region'}>
+                        <rect x={anchor.locationBox!.x} y={anchor.locationBox!.y} width={anchor.locationBox!.width} height={anchor.locationBox!.height} rx="8" />
+                        <circle cx={Math.min(anchor.locationBox!.x + 22, 978)} cy={Math.max(anchor.locationBox!.y + 22, 22)} r="18" />
+                        <text x={Math.min(anchor.locationBox!.x + 22, 978)} y={Math.max(anchor.locationBox!.y + 22, 22) + 6} textAnchor="middle">{anchorIndex + 1}</text>
+                      </g>)}
+                    </svg>}
+                  </div>
+                  <figcaption><span>PAGE {pageNumber}</span><span>{image.fileName || `Page ${pageNumber}`}</span>{pageAnchors.length > 0 && <span className="evidence-anchor-count">{pageAnchors.length} zone(s) repérée(s)</span>}</figcaption>
+                </figure>;
+              }) : <p className="review-source-empty">Aucune image originale disponible. Vérifiez les preuves avec prudence.</p>}
             </div>
             <details className="review-transcription">
               <summary><span><strong>Texte reconnu par l’IA</strong><small>{transcription ? 'Transcription locale à comparer à l’original' : 'Aucune transcription disponible'}</small></span></summary>
@@ -1301,7 +1318,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
           return <article className="panel review-card" key={item.criterionId}>
             <div className="review-card-heading"><div><h3>{criterion?.title ?? item.criterionId}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div><span className={`confidence confidence-${item.confidence}`}>Confiance {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</span></div>
-            <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p>{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>
+            <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p>{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); setFocusedEvidenceCriterionId(item.criterionId); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>
             {(item.annotationSuggestion || item.locationHint) && <section className="annotation-suggestion" aria-label={`Suggestion d’annotation pour le critère ${criterion?.title ?? item.criterionId}`}>
               <div className="annotation-suggestion-heading"><span className="eyebrow">COMMENTAIRE ÉVENTUEL À REPORTER AU STYLO</span><span className="annotation-suggestion-status">Suggestion IA</span></div>
               {item.annotationSuggestion && <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>}
