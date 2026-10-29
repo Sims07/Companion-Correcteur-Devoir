@@ -389,25 +389,21 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
 
   async function importRubricFileFromInput(file: File | undefined) {
     if (!file) return;
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    if (extension === 'pdf') {
+      await importRubricImageFromInput(file);
+      return;
+    }
     setError('');
     setRubricImportMessage('');
     setRubricFileImporting(true);
     try {
-      const extension = file.name.split('.').pop()?.toLowerCase();
-      const requiresAiExtraction = ['pdf', 'docx', 'txt', 'md'].includes(extension ?? '');
-      const imported = requiresAiExtraction
-        ? await (async () => {
-            if (!analysisModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale dans le panneau latéral pour choisir un modèle d’analyse avant d’importer un barème PDF, Word, TXT ou Markdown.');
-            const text = await service.extractRubricText(file);
-            return service.importRubricText(text, file.name, { endpoint, analysisModel });
-          })()
-        : service.importRubric(file);
-      const resolved = await imported;
-      setRubric(resolved.rubric);
+      const imported = await service.importRubric(file);
+      setRubric(imported.rubric);
       setProposal(null);
       setReview([]);
       setTeacherQuestions('');
-      setRubricImportMessage(resolved.warnings.length ? resolved.warnings.join(' ') : `Barème « ${resolved.rubric.title} » importé. Vérifiez les critères et le total avant de lancer la correction.`);
+      setRubricImportMessage(imported.warnings.length ? imported.warnings.join(' ') : `Barème « ${imported.rubric.title} » importé. Vérifiez les critères et le total avant de lancer la correction.`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible d’importer ce barème localement.');
     } finally {
@@ -423,8 +419,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     try {
       if (!visionModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale dans le panneau latéral pour choisir un modèle de lecture.');
       const prepared = await service.prepareFiles([file]);
-      if (prepared.length !== 1) throw new Error('Choisissez une seule image de barème à la fois.');
-      const imported = await service.importRubricImage(prepared[0], { endpoint, visionModel });
+      if (prepared.length === 0) throw new Error('Aucune page du barème n’a pu être préparée.');
+      const imported = await service.importRubricImage(prepared, { endpoint, visionModel });
       setRubric(imported.rubric);
       setProposal(null);
       setReview([]);
@@ -1075,12 +1071,12 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         <input id="rubric-title" value={rubric.title} placeholder="Ex. Barème du contrôle de biologie" onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
         {rubric.criteria.length === 0 && <div className="rubric-empty-state" role="status"><strong>Le barème n’est pas encore défini</strong><p>Importez un barème existant ou ajoutez les critères et leurs points ci-dessous. La correction restera indisponible tant qu’un barème valide n’est pas prêt.</p></div>}
         <div className="rubric-import">
-          <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Word (.docx), Excel (.xlsx), CSV, TXT ou JSON)</label>
-          <FilePicker id="rubric-file" accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.json" disabled={rubricFileImporting} onFilesSelected={(files) => { void importRubricFileFromInput(files?.[0]); }} title="Importer un document de barème" description={rubricFileImporting ? "Extraction par l’IA locale en cours…" : "PDF, Word, Excel, CSV, TXT, Markdown ou JSON"} actionLabel={rubricFileImporting ? "Analyse en cours…" : "Parcourir les fichiers"} />
-          <p className="hint">Les documents texte sont extraits localement dans le navigateur, sans IA. Vérifiez les critères, les points et le total après import.</p>
+          <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Excel (.xlsx), CSV, TXT, Markdown ou JSON)</label>
+          <FilePicker id="rubric-file" accept=".pdf,.xlsx,.csv,.txt,.md,.json" disabled={rubricFileImporting} onFilesSelected={(files) => { void importRubricFileFromInput(files?.[0]); }} title="Importer un document de barème" description={rubricFileImporting ? "Lecture par l’IA de vision locale en cours…" : "PDF, Excel, CSV, TXT, Markdown ou JSON"} actionLabel={rubricFileImporting ? "Analyse en cours…" : "Parcourir les fichiers"} />
+          <p className="hint">Les PDF sont convertis en images dans le navigateur puis lus par votre modèle de vision Ollama local. Aucun service cloud n’est utilisé. Vérifiez les critères, les points et le total après import.</p>
           <label className="field-label" htmlFor="rubric-image-file">Ou importer une photo / un scan du barème (JPEG, PNG, WebP)</label>
-          <FilePicker id="rubric-image-file" accept="image/jpeg,image/png,image/webp" disabled={rubricImageImporting} onFilesSelected={(files) => { void importRubricImageFromInput(files?.[0]); }} title="Importer une photo ou un scan" description="JPEG, PNG ou WebP · une image à la fois" actionLabel={rubricImageImporting ? 'Lecture en cours…' : 'Choisir une image'} compact />
-          <p className="hint">{rubricImageImporting ? 'Lecture du barème par le modèle de vision local…' : 'Une seule requête au modèle de vision Ollama sélectionné, avec sortie JSON structurée. L’image n’est envoyée qu’à votre serveur Ollama configuré ; aucun service cloud n’est utilisé. Vérifiez toujours le résultat avant utilisation.'}</p>
+          <FilePicker id="rubric-image-file" accept="image/jpeg,image/png,image/webp" disabled={rubricImageImporting} onFilesSelected={(files) => { void importRubricImageFromInput(files?.[0]); }} title="Importer une photo ou un scan" description="JPEG, PNG ou WebP · ou PDF multipage" actionLabel={rubricImageImporting ? 'Lecture en cours…' : 'Choisir une image'} compact />
+          <p className="hint">{rubricImageImporting ? 'Lecture du barème par le modèle de vision local…' : 'Une seule requête au modèle de vision Ollama sélectionné, avec toutes les pages PDF dans l’ordre et une sortie JSON structurée. Les pages ne sont envoyées qu’à votre serveur Ollama configuré ; aucun service cloud n’est utilisé. Vérifiez toujours le résultat avant utilisation.'}</p>
           {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
         </div>
         <div className="criteria-list">
