@@ -254,4 +254,20 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Effacer l’historique');
     expect(text).toContain('pageCount: images.length');
   });
+  it('shows a comparative analysis summary beyond raw model responses', () => {
+    const text = app();
+    const styles = source('../src/ui/styles.css');
+    expect(text).toContain('Analyse comparative des configurations');
+    expect(text).toContain('Écart entre les notes');
+    expect(text).toContain('Note moyenne');
+    expect(text).toContain('Critères en désaccord');
+    expect(text).toContain('Questions à vérifier');
+    expect(text).toContain('Critères à examiner en priorité');
+    expect(text).toContain('faible confiance');
+    expect(text).toContain('Afficher les comparaisons détaillées deux à deux');
+    expect(text).toContain('Sans note de référence validée par l’enseignant');
+    expect(styles).toContain('.evaluation-analysis-metrics');
+    expect(styles).toContain('.evaluation-disagreement-list');
+  });
+
 });
