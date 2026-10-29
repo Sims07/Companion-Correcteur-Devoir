@@ -61,7 +61,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).not.toContain('transcription: transcription ??');
     expect(text).toContain('Transcription extraite indépendamment');
     expect(text).toContain('configuration.endpoint');
-    expect(text).toContain('saveModelEvaluation(savedRecord)');
+    expect(text).toContain('evaluationService.save(savedRecord)');
     expect(text).toContain('Historique local des expériences');
     expect(text).toContain('Consulter / recharger la référence');
     expect(text).toContain('IndexedDB sur cet appareil');
