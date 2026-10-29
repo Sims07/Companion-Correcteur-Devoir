@@ -9,6 +9,7 @@ import { fingerprintRubric } from '../domain/localMemory.ts';
 import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/localCorrection.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
+import { getReviewInsights, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
 
 const initialRubric: Rubric = {
   title: 'Barème de biologie — exemple',
@@ -183,6 +184,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [archivedCorrections, setArchivedCorrections] = useState<LocalCorrection[]>([]);
   const [archiveMessage, setArchiveMessage] = useState('');
   const [review, setReview] = useState<ReviewedCriterion[]>([]);
+  const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
+  const [showSourceEvidence, setShowSourceEvidence] = useState(false);
   const [teacherQuestions, setTeacherQuestions] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [isFinalized, setIsFinalized] = useState(false);
@@ -190,6 +193,11 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
   const reviewedTotal = review.reduce((sum, item) => sum + item.teacherPoints, 0);
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
+  const reviewInsights = useMemo(() => getReviewInsights(review), [review]);
+  const flaggedCriteriaIds = useMemo(() => new Set(reviewInsights.flaggedCriteriaIds), [reviewInsights]);
+  const displayedReview = showOnlyFlagged ? review.filter((item) => flaggedCriteriaIds.has(item.criterionId)) : review;
+  const unreadableCopySignal = hasUnreadableCopySignal(transcription, images.length > 0);
+  const completedForAssignment = archivedCorrections.filter((item) => item.assignmentTitle === (assignmentTitle.trim() || 'Devoir de biologie')).length;
   const subjectReady = correctionMode === 'integrated' || subjectImages.length > 0 || Boolean(subjectTranscription);
   const setupChecks = [
     { label: 'Barème vérifié', detail: validation.valid ? `${validation.maximumPoints} points répartis sur ${rubric.criteria.length} critères` : 'Corrigez les points ou les critères signalés', ready: validation.valid },
@@ -552,6 +560,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setImages([]);
     setTranscription(null);
     setProposal(null);
+    setShowOnlyFlagged(false);
+    setShowSourceEvidence(false);
     setReview([]);
     setTeacherQuestions('');
     setReviewMessage('');
@@ -586,6 +596,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setRubric(snapshot.rubric);
     setProposal(snapshot.proposal);
     setReview(snapshot.review);
+    setShowOnlyFlagged(false);
+    setShowSourceEvidence(false);
     setTeacherQuestions(snapshot.teacherQuestions);
     setImages(snapshot.images);
     setTranscription(snapshot.transcription);
@@ -928,7 +940,19 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
       {proposal && (interfaceMode === 'diagnostic' || teacherStep === 'review') && <section className="review-section">
         <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{pendingCount} À VÉRIFIER</span></div>
         <div className="summary-panel"><strong>Synthèse de l’assistant</strong><p>{proposal.summary}</p><span>Note proposée : {proposal.criteria.reduce((sum, item) => sum + item.points, 0)} / {validation.maximumPoints} points</span></div>
-        {review.map((item) => {
+        <section className="review-alerts" aria-label="Points nécessitant votre attention">
+          <div className="review-alerts-heading"><div><span className="eyebrow">CONTRÔLE CIBLÉ</span><h3>Vérifications prioritaires</h3></div><span className="review-alert-count">{reviewInsights.flaggedCriteriaIds.length} critère(s)</span></div>
+          {unreadableCopySignal && <div className="review-alert review-alert-warning" role="alert"><strong>Lecture de la copie à contrôler</strong><p>La transcription est absente ou contient un signal d’illisibilité. Vérifiez les images originales avant de vous fier à la note proposée.</p><button type="button" className="text-action" onClick={() => setShowSourceEvidence((value) => !value)}>{showSourceEvidence ? 'Masquer la copie' : 'Consulter la copie et le texte lu'}</button></div>}
+          {reviewInsights.lowConfidenceCount > 0 && <div className="review-alert"><strong>{reviewInsights.lowConfidenceCount} critère(s) avec une confiance faible</strong><p>Examinez la preuve et le raisonnement associés avant d’accepter ces points.</p></div>}
+          {reviewInsights.missingEvidenceCount > 0 && <div className="review-alert review-alert-warning"><strong>{reviewInsights.missingEvidenceCount} critère(s) sans preuve exploitable</strong><p>Une justification sans élément précis de la copie ne suffit pas à valider une attribution de points.</p></div>}
+          {reviewInsights.unreadableEvidenceCount > 0 && <div className="review-alert review-alert-warning"><strong>{reviewInsights.unreadableEvidenceCount} critère(s) signalant une lecture difficile</strong><p>Vérifiez la lisibilité du passage ou du schéma concerné.</p></div>}
+          {reviewInsights.flaggedCriteriaIds.length === 0 && !unreadableCopySignal && <p className="review-all-clear">Aucun signal automatique prioritaire. La vérification humaine reste nécessaire.</p>}
+          <div className="review-alert-actions"><button type="button" className="secondary-button" onClick={() => setShowOnlyFlagged((value) => !value)} disabled={reviewInsights.flaggedCriteriaIds.length === 0}>{showOnlyFlagged ? 'Afficher tous les critères' : `Afficher les ${reviewInsights.flaggedCriteriaIds.length} critères à vérifier`}</button><button type="button" className="text-action" onClick={() => setShowSourceEvidence((value) => !value)}>{showSourceEvidence ? 'Masquer la copie' : 'Consulter la copie originale'}</button></div>
+          {showSourceEvidence && <div className="review-source-evidence" id="review-source-evidence"><div className="review-source-heading"><h4>Copie originale et transcription</h4><p>Comparez vous-même le texte reconnu aux pages photographiées ou numérisées.</p></div><div className="live-copy-layout"><div className="live-copy-pages" aria-label="Pages originales de la copie">{images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-review-' + index}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page originale ${index + 1} de la copie`} /><figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption></figure>)}</div><div className="live-transcription-panel"><div className="live-panel-heading"><span className="live-panel-icon" aria-hidden="true">Aa</span><div><strong>Texte reconnu par l’IA</strong><small>{transcription ? 'Transcription locale' : 'Aucun texte reconnu'}</small></div></div>{transcription ? <pre className="live-transcription-text">{transcription}</pre> : <p role="status">Aucune transcription disponible : la note doit être vérifiée directement sur les images.</p>}</div></div></div>}
+          <div className="correction-batch-progress" aria-label="Progression des corrections pour ce devoir"><div><span className="eyebrow">CORRECTION EN SÉRIE</span><strong>{completedForAssignment} copie(s) finalisée(s) pour ce devoir</strong><p>Après validation, passez directement à la copie suivante sans changer de barème.</p></div><div className="correction-batch-actions"><button type="button" className="secondary-button" onClick={() => { setTeacherStep('archive'); setShowAiSettings(false); }}>Voir les corrections enregistrées</button>{isFinalized && <button type="button" className="primary-button" onClick={startNextCopy}>Ajouter la copie suivante</button>}</div></div>
+        </section>
+        <div className="review-criteria-toolbar"><span>{showOnlyFlagged ? `Affichage ciblé : ${displayedReview.length} critère(s)` : `${review.length} critère(s) dans le barème`}</span>{showOnlyFlagged && <button type="button" className="text-action" onClick={() => setShowOnlyFlagged(false)}>Réafficher tous les critères</button>}</div>
+        {displayedReview.map((item) => {
           const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
           return <article className="panel review-card" key={item.criterionId}>
             <div className="review-card-heading"><div><h3>{criterion?.title ?? item.criterionId}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div><span className={`confidence confidence-${item.confidence}`}>Confiance {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</span></div>
