@@ -527,7 +527,7 @@ export async function importRubricImageWithOllama(
     if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error(`Le critère ${index + 1} retourné par le modèle est invalide.`);
     const criterion = item as Record<string, unknown>;
     if (typeof criterion.title !== 'string' || !criterion.title.trim() ||
-        typeof criterion.description !== 'string' ||
+        typeof criterion.description !== 'string' || !criterion.description.trim() ||
         typeof criterion.maxPoints !== 'number' || !Number.isFinite(criterion.maxPoints) || criterion.maxPoints < 0) {
       throw new Error(`Le critère ${index + 1} doit avoir un titre, une description textuelle et un maximum de points positif ou nul.`);
     }
