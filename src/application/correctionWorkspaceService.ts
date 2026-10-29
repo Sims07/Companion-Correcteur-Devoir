@@ -17,9 +17,7 @@ export function createCorrectionWorkspaceService(
     listModels: (endpoint) => ollama.listModels(endpoint),
     createProvider: (settings) => ollama.createProvider(settings),
     importRubricImage: (image, settings) => ollama.importRubricImage(image, settings),
-    importRubricText: (text, fileName, settings) => ollama.importRubricText(text, fileName, settings),
     prepareFiles: (selected) => files.prepareFiles(selected),
     importRubric: (file) => files.importRubric(file),
-    extractRubricText: (file) => files.extractRubricText(file),
   };
 }
