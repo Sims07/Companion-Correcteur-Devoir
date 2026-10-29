@@ -11,7 +11,7 @@ export interface OllamaGateway {
   checkReady(settings: OllamaSettings): Promise<void>;
   listModels(endpoint: string): Promise<OllamaModel[]>;
   createProvider(settings: OllamaSettings): GradingProvider;
-  importRubricImage(image: ImageInput, settings: OllamaSettings): Promise<ImportedRubric>;
+  importRubricImage(images: ImageInput[], settings: OllamaSettings): Promise<ImportedRubric>;
 }
 
 export interface LocalFileGateway {
