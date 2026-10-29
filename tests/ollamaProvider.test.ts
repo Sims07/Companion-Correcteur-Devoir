@@ -259,7 +259,8 @@ describe('Ollama adapter', () => {
     expect(body.format.type).toBe('object');
     expect(body.format.properties).toHaveProperty('criteria');
     expect(body.messages[0].images).toEqual(['aGVsbG8=']);
-    expect(body.messages[0].content).toContain('Ne transforme pas le barème');
+    expect(body.messages[0].content).toContain('AUCUNE INVENTION');
+    expect(body.messages[0].content).toContain('DÉCOUPAGE INTELLIGENT');
     expect(imported.rubric).toEqual({
       title: 'Barème de biologie',
       criteria: [
