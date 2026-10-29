@@ -25,6 +25,6 @@ describe('local decision memory integration contract', () => {
     expect(memoryBridge).toContain('repository.listMemory(scope)');
     expect(memoryBridge).toContain('rankLocalMemories');
     expect(memoryBridge).toContain('appendLocalMemoryContext(content, selected)');
-    expect(memoryBridge).toContain('if (!shouldAugmentAnalysisPrompt(message.content)) return originalFetch(input, init)');
+    expect(memoryBridge).toContain('if (!message?.content || !shouldAugmentAnalysisPrompt(message.content)) return originalFetch(input, init)');
   });
 });
