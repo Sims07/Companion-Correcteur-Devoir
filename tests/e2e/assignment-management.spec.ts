@@ -23,7 +23,7 @@ test('new assignments start with an explicitly separate, empty rubric and can be
     expect(dialog.message()).toContain('Les corrections déjà archivées seront conservées');
     await dialog.accept();
   });
-  await page.getByRole('button', { name: 'Supprimer le devoir Nouveau devoir' }).click();
+  await page.getByRole('button', { name: 'Supprimer le devoir Contrôle de biologie' }).click();
 
   await expect(page.getByLabel('DEVOIR EN COURS')).toHaveValue('Devoir de biologie');
   await expect(page.getByRole('button', { name: 'Supprimer le devoir Devoir de biologie' })).toBeDisabled();
