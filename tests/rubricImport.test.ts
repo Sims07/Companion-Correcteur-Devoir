@@ -86,6 +86,30 @@ describe('importRubricFile', () => {
     expect(destroy).toHaveBeenCalledOnce();
   });
 
+  it('preserves explicit boundaries and page numbers for a multipage PDF', async () => {
+    const destroy = vi.fn().mockResolvedValue(undefined);
+    const firstPage = { getTextContent: vi.fn().mockResolvedValue({ items: [
+      { str: 'Question 1 — Photosynthèse (/5)', transform: [1, 0, 0, 1, 0, 700] },
+      { str: 'Question 2 — Membrane (/5)', transform: [1, 0, 0, 1, 0, 680] },
+    ] }), cleanup: vi.fn() };
+    const secondPage = { getTextContent: vi.fn().mockResolvedValue({ items: [
+      { str: 'Question 3 — Respiration (/5)', transform: [1, 0, 0, 1, 0, 700] },
+      { str: 'Question 4 — ADN (/5)', transform: [1, 0, 0, 1, 0, 680] },
+    ] }), cleanup: vi.fn() };
+    getDocumentMock.mockReturnValueOnce({
+      promise: Promise.resolve({ numPages: 2, getPage: vi.fn()
+        .mockResolvedValueOnce(firstPage).mockResolvedValueOnce(secondPage) }),
+      destroy,
+    });
+
+    const text = await extractRubricText(new File(['pdf'], 'bareme.pdf', { type: 'application/pdf' }));
+    expect(text).toContain('[PAGE 1 / 2]');
+    expect(text).toContain('[PAGE 2 / 2]');
+    expect(text.indexOf('[PAGE 1 / 2]')).toBeLessThan(text.indexOf('[PAGE 2 / 2]'));
+    expect(text.match(/Question [1-4]/g)).toHaveLength(4);
+    expect(destroy).toHaveBeenCalledOnce();
+  });
+
   it('rejects scanned PDFs without a text layer and directs the teacher to visual import', async () => {
     const destroy = vi.fn().mockResolvedValue(undefined);
     getDocumentMock.mockReturnValueOnce({
