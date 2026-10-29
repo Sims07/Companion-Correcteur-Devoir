@@ -1010,6 +1010,18 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}
       {(interfaceMode === 'diagnostic' || !showAiSettings) && <>
+      {interfaceMode === 'diagnostic' && <section className="diagnostic-workspace-hero" aria-labelledby="diagnostic-workspace-title">
+        <div className="diagnostic-workspace-hero-copy">
+          <p className="eyebrow">ENVIRONNEMENT EXPÉRIMENTAL · OLLAMA</p>
+          <h1 id="diagnostic-workspace-title">Laboratoire de correction IA</h1>
+          <p>Évaluez les modèles sur un même barème, confrontez leurs notes aux références du professeur et visualisez le compromis entre qualité, temps de calcul et tokens consommés.</p>
+          <div className="diagnostic-workspace-badges"><span><i></i> Exécution locale</span><span><i></i> Aucune copie envoyée au cloud</span><span><i></i> Référence facultative</span></div>
+        </div>
+        <div className="diagnostic-workspace-hero-aside">
+          <span className="diagnostic-hero-orbit" aria-hidden="true"><i></i><i></i><i></i></span>
+          <div><small>CONFIGURATION ACTUELLE</small><strong>{diagnosticStrategy === 'arbitrate' ? '2 modèles + arbitre' : diagnosticStrategy === 'compare' ? 'Comparaison de 2 modèles' : 'Modèle de référence'}</strong><span>{rubric.criteria.length} critères · {validation.maximumPoints} points</span></div>
+        </div>
+      </section>}
       {interfaceMode === 'teacher' && teacherStep === 'archive' && <section className="correction-archive" aria-labelledby="correction-archive-title">
         <div className="workspace-heading"><div><p className="eyebrow">HISTORIQUE LOCAL</p><h2 id="correction-archive-title">Corrections enregistrées</h2><p>Retrouvez les copies finalisées, leur note validée et les éléments de preuve. Tout reste stocké dans ce navigateur.</p></div><span className="step-count">{archivedCorrections.length} COPIE(S)</span></div>
         {archiveMessage && <p className="validation" role="status">{archiveMessage}</p>}
