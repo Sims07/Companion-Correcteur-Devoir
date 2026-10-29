@@ -1,3 +1,6 @@
+import type { GradingProposal } from './grading.ts';
+import type { Rubric } from './rubric.ts';
+
 export interface ModelEvaluationConfiguration {
   id: string;
   name: string;
@@ -82,4 +85,40 @@ export async function runModelEvaluation<T>(options: ModelEvaluationOptions<T>):
     status: isCancelled() ? 'cancelled' : 'completed',
   });
   return outputs;
+}
+
+export interface ModelEvaluationImage {
+  base64: string;
+  mimeType: string;
+  fileName?: string;
+}
+
+export interface ModelEvaluationResultSnapshot {
+  profileId: string;
+  profileName: string;
+  elapsedMs: number;
+  readingMs: number;
+  analysisMs: number;
+  tokens: number | null;
+  status: 'success' | 'failed' | 'cancelled';
+  transcription: string;
+  raw: string;
+  score: number | null;
+  proposal: GradingProposal | null;
+  error?: string;
+}
+
+export interface ModelEvaluationRecord {
+  id: string;
+  completedAt: string;
+  assignmentId: string;
+  assignmentTitle: string;
+  question: string;
+  rubricSnapshot: Rubric;
+  correctionMode: 'integrated' | 'separate';
+  images: ModelEvaluationImage[];
+  subjectImages: ModelEvaluationImage[];
+  subjectTranscription: string | null;
+  configurations: ModelEvaluationConfiguration[];
+  results: ModelEvaluationResultSnapshot[];
 }
