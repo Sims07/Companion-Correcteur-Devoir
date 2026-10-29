@@ -7,6 +7,8 @@ export interface CriterionProposal {
   points: number;
   rationale: string;
   evidence: string;
+  /** One-based source page when the model can identify it reliably. */
+  pageNumber?: number;
   confidence: Confidence;
   questionForTeacher?: string;
 }
@@ -107,6 +109,7 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
       points,
       rationale: text(item.rationale, 'Justification non fournie.'),
       evidence: text(item.evidence, 'Aucun élément précis de la copie cité.'),
+      ...(typeof item.pageNumber === 'number' && Number.isInteger(item.pageNumber) && item.pageNumber >= 1 ? { pageNumber: item.pageNumber } : {}),
       confidence,
       ...(text(item.questionForTeacher) ? { questionForTeacher: text(item.questionForTeacher) } : {}),
     });

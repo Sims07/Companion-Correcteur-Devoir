@@ -1,18 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
-import { fingerprintRubric, type LocalMemoryEntry } from '../domain/localMemory.ts';
+import { fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT, type LocalMemoryEntry } from '../domain/localMemory.ts';
 import type { LocalCorrection } from '../domain/localCorrection.ts';
 import { buildLocalMemoryContext, createTeacherMemoryEntry } from '../domain/localMemoryContext.ts';
 import './localMemory.css';
 
-const CORRECTION_ID_KEY = 'companion-current-correction-id';
 const CORRECTION_LABEL_KEY = 'companion-current-correction-label';
 
 function getOrCreateCorrectionId(): string {
-  const existing = window.localStorage.getItem(CORRECTION_ID_KEY);
+  const existing = window.localStorage.getItem(LOCAL_MEMORY_CORRECTION_ID_KEY);
   if (existing) return existing;
   const id = `correction-${crypto.randomUUID()}`;
-  window.localStorage.setItem(CORRECTION_ID_KEY, id);
+  window.localStorage.setItem(LOCAL_MEMORY_CORRECTION_ID_KEY, id);
   return id;
 }
 
@@ -22,7 +21,8 @@ function readRubricFingerprint(): { title: string; fingerprint: string } {
   const rubricEditor = document.querySelector('.rubric-editor');
   const inputs = rubricEditor ? Array.from(rubricEditor.querySelectorAll('input')) : [];
   const rubricJson = JSON.stringify(inputs.map((input) => input.value));
-  return { title, fingerprint: fingerprintRubric(title, rubricJson) };
+  const storedFingerprint = window.localStorage.getItem(LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY);
+  return { title, fingerprint: storedFingerprint || fingerprintRubric(title, rubricJson) };
 }
 
 export function LocalMemoryCompanion({ service }: { service: LocalCorrectionService }) {
@@ -65,8 +65,18 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
     void refresh();
     void refreshCorrections();
     const updateRubric = () => setRubric(readRubricFingerprint());
+    const updateMemory = () => {
+      void refresh();
+      void refreshCorrections();
+    };
     document.addEventListener('input', updateRubric);
-    return () => document.removeEventListener('input', updateRubric);
+    window.addEventListener(LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, updateRubric);
+    window.addEventListener(LOCAL_MEMORY_UPDATED_EVENT, updateMemory);
+    return () => {
+      document.removeEventListener('input', updateRubric);
+      window.removeEventListener(LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, updateRubric);
+      window.removeEventListener(LOCAL_MEMORY_UPDATED_EVENT, updateMemory);
+    };
   }, [correctionId]);
 
   useEffect(() => {
@@ -74,7 +84,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
     void service.saveCorrection({ id: correctionId, label, rubricTitle: rubric.title, rubricFingerprint: rubric.fingerprint, createdAt: now, updatedAt: now })
       .then(refreshCorrections)
       .catch(() => undefined);
-  }, [correctionId]);
+  }, [correctionId, rubric.fingerprint]);
 
   useEffect(() => {
     const current = corrections.find((item) => item.id === correctionId);
@@ -93,7 +103,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
   function selectCorrection(id: string) {
     const selected = corrections.find((item) => item.id === id);
     if (!selected) return;
-    window.localStorage.setItem(CORRECTION_ID_KEY, selected.id);
+    window.localStorage.setItem(LOCAL_MEMORY_CORRECTION_ID_KEY, selected.id);
     window.localStorage.setItem(CORRECTION_LABEL_KEY, selected.label);
     setCorrectionId(selected.id);
     setLabel(selected.label);
@@ -105,7 +115,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
   function startNewCorrection() {
     const id = `correction-${crypto.randomUUID()}`;
     const newLabel = 'Nouvelle correction';
-    window.localStorage.setItem(CORRECTION_ID_KEY, id);
+    window.localStorage.setItem(LOCAL_MEMORY_CORRECTION_ID_KEY, id);
     window.localStorage.setItem(CORRECTION_LABEL_KEY, newLabel);
     setCorrectionId(id);
     setLabel(newLabel);

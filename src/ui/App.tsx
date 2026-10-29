@@ -5,7 +5,7 @@ import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type Re
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
-import { fingerprintRubric } from '../domain/localMemory.ts';
+import { createDecisionMemoryEntries, fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT } from '../domain/localMemory.ts';
 import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/localCorrection.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
@@ -147,6 +147,18 @@ function rubricAsJson(rubric: Rubric): string {
   return JSON.stringify(rubric, null, 2);
 }
 
+function getLocalMemoryCorrectionId(): string | null {
+  try {
+    const existing = window.localStorage.getItem(LOCAL_MEMORY_CORRECTION_ID_KEY);
+    if (existing) return existing;
+    const id = `correction-${crypto.randomUUID()}`;
+    window.localStorage.setItem(LOCAL_MEMORY_CORRECTION_ID_KEY, id);
+    return id;
+  } catch {
+    return null;
+  }
+}
+
 export function App({ service, archiveService }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService }) {
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
@@ -188,7 +200,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
   const [archiveMessage, setArchiveMessage] = useState('');
   const [review, setReview] = useState<ReviewedCriterion[]>([]);
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
-  const [showSourceEvidence, setShowSourceEvidence] = useState(false);
+  const [focusedEvidencePage, setFocusedEvidencePage] = useState<number | null>(null);
   const [teacherQuestions, setTeacherQuestions] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [isFinalized, setIsFinalized] = useState(false);
@@ -219,6 +231,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         window.localStorage.setItem(assignmentProfilesKey, JSON.stringify(next));
         window.localStorage.setItem(activeAssignmentKey, activeAssignmentId);
         window.localStorage.setItem(assignmentTitleKey, assignmentTitle);
+        window.localStorage.setItem(LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, fingerprintRubric(rubric.title, rubricAsJson(rubric)));
+        window.dispatchEvent(new Event(LOCAL_MEMORY_RUBRIC_UPDATED_EVENT));
       } catch { /* Keep the current assignment usable when browser storage is unavailable. */ }
       return next;
     });
@@ -300,6 +314,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     try {
       const prepared = await service.prepareFiles(files);
       setImages((current) => [...current, ...prepared]);
+      setFocusedEvidencePage(null);
       setTranscription(null);
       setProposal(null);
       setReview([]);
@@ -472,14 +487,42 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     };
     try {
       await archiveService.saveCorrection(correction);
+      const memoryCorrectionId = getLocalMemoryCorrectionId();
+      const decisionEntries = createDecisionMemoryEntries({
+        correctionId: memoryCorrectionId ?? id,
+        rubricFingerprint: correction.rubricFingerprint,
+        sourceCorrectionId: id,
+        rubric,
+        proposal,
+        review,
+        createdAt: now,
+      });
+      let savedDecisionCount = 0;
+      let memorySaveFailed = decisionEntries.length > 0 && !memoryCorrectionId;
+      if (memoryCorrectionId) {
+        try {
+          for (const entry of decisionEntries) {
+            await archiveService.saveMemory(entry);
+            savedDecisionCount += 1;
+          }
+        } catch {
+          memorySaveFailed = decisionEntries.length > 0;
+        }
+      }
+      if (savedDecisionCount > 0) window.dispatchEvent(new Event(LOCAL_MEMORY_UPDATED_EVENT));
       const saved = await archiveService.listCorrections();
       setArchivedCorrections(saved.filter((item) => Boolean(item.snapshot)));
       setCurrentCorrectionId(id);
       setIsFinalized(true);
       setArchiveMessage('Correction enregistrée localement avec la copie et les éléments de révision.');
+      const memoryStatus = memorySaveFailed
+        ? ` ${savedDecisionCount} décision(s) ont été conservées, mais la mémoire locale n’a pas pu être entièrement mise à jour.`
+        : savedDecisionCount > 0
+          ? ` ${savedDecisionCount} décision(s) ajustée(s) ou commentée(s) ont été conservées dans la mémoire locale pour les prochaines analyses de ce contexte.`
+          : '';
       setReviewMessage(teacherQuestions.trim()
-        ? 'Correction finalisée et archivée sur cet appareil. Vérifiez les questions ouvertes avant de communiquer la note.'
-        : 'Correction finalisée et archivée sur cet appareil. Vous pourrez la retrouver dans « Corrections enregistrées ».');
+        ? `Correction finalisée et archivée sur cet appareil.${memoryStatus} Vérifiez les questions ouvertes avant de communiquer la note.`
+        : `Correction finalisée et archivée sur cet appareil.${memoryStatus} Vous pourrez la retrouver dans « Corrections enregistrées ».`);
     } catch {
       setIsFinalized(false);
       setReviewMessage('La correction n’a pas pu être archivée dans le stockage local. Vérifiez l’espace disponible du navigateur puis réessayez.');
@@ -495,7 +538,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
 
   function applyAssignment(profile: AssignmentProfile) {
     setShowOnlyFlagged(false);
-    setShowSourceEvidence(false);
+    setFocusedEvidencePage(null);
     setActiveAssignmentId(profile.id);
     setAssignmentTitle(profile.title);
     setRubric(profile.rubric);
@@ -527,15 +570,36 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     applyAssignment(profile);
   }
 
+  function deleteAssignment(profile: AssignmentProfile) {
+    if (isAnalyzing || assignmentProfiles.length <= 1) return;
+    const confirmed = window.confirm(
+      `Supprimer le devoir « ${profile.title.trim() || 'Devoir sans titre'} » ? Les corrections déjà archivées seront conservées.`,
+    );
+    if (!confirmed) return;
+
+    const nextProfiles = assignmentProfiles.filter((item) => item.id !== profile.id);
+    setAssignmentProfiles(nextProfiles);
+    setAssignmentDrafts((current) => {
+      const next = { ...current };
+      delete next[profile.id];
+      return next;
+    });
+
+    if (profile.id === activeAssignmentId) {
+      const deletedIndex = assignmentProfiles.findIndex((item) => item.id === profile.id);
+      const nextActive = nextProfiles[Math.max(0, deletedIndex - 1)] ?? nextProfiles[0];
+      applyAssignment(nextActive);
+    }
+  }
+
   function createNewAssignment() {
     if (isAnalyzing) return;
     setShowOnlyFlagged(false);
-    setShowSourceEvidence(false);
     setAssignmentDrafts((current) => ({ ...current, [activeAssignmentId]: captureActiveDraft() }));
     const profile: AssignmentProfile = {
       id: `assignment-${crypto.randomUUID()}`,
       title: assignmentProfiles.length === 1 ? 'Nouveau devoir' : `Nouveau devoir ${assignmentProfiles.length}`,
-      rubric: structuredClone(initialRubric),
+      rubric: { title: 'Barème à définir', criteria: [] },
       question: defaultQuestion,
       correctionMode: 'integrated',
     };
@@ -594,7 +658,6 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setReview([]);
     setTeacherQuestions('');
     setShowOnlyFlagged(false);
-    setShowSourceEvidence(false);
     setReviewMessage('Copie chargée depuis la file locale. Lancez la lecture et la correction quand vous êtes prêt.');
     setError('');
     setCurrentCorrectionId(null);
@@ -610,7 +673,6 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setTranscription(null);
     setProposal(null);
     setShowOnlyFlagged(false);
-    setShowSourceEvidence(false);
     setReview([]);
     setTeacherQuestions('');
     setReviewMessage('');
@@ -647,7 +709,6 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setProposal(snapshot.proposal);
     setReview(snapshot.review);
     setShowOnlyFlagged(false);
-    setShowSourceEvidence(false);
     setTeacherQuestions(snapshot.teacherQuestions);
     setImages(snapshot.images);
     setTranscription(snapshot.transcription);
@@ -685,10 +746,13 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         <section className="sidebar-assignment-list" aria-label="Mes devoirs">
           <div className="sidebar-assignment-list-heading"><span className="eyebrow">MES DEVOIRS</span><span>{assignmentProfiles.length}</span></div>
           <div className="sidebar-assignment-items">
-            {assignmentProfiles.map((profile) => <button key={profile.id} type="button" className={profile.id === activeAssignmentId ? 'sidebar-assignment-item active' : 'sidebar-assignment-item'} aria-current={profile.id === activeAssignmentId ? 'page' : undefined} onClick={() => switchAssignment(profile)} disabled={isAnalyzing}>
-              <span className="sidebar-assignment-dot" aria-hidden="true" />
-              <span><strong>{profile.title.trim() || 'Devoir sans titre'}</strong><small>{profile.rubric.criteria.length} critères · {profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)} points</small></span>
-            </button>)}
+            {assignmentProfiles.map((profile) => <div key={profile.id} className="sidebar-assignment-row">
+              <button type="button" className={profile.id === activeAssignmentId ? 'sidebar-assignment-item active' : 'sidebar-assignment-item'} aria-current={profile.id === activeAssignmentId ? 'page' : undefined} onClick={() => switchAssignment(profile)} disabled={isAnalyzing}>
+                <span className="sidebar-assignment-dot" aria-hidden="true" />
+                <span><strong>{profile.title.trim() || 'Devoir sans titre'}</strong><small>{profile.rubric.criteria.length} critères · {profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)} points</small></span>
+              </button>
+              <button type="button" className="sidebar-assignment-delete" aria-label={`Supprimer le devoir ${profile.title.trim() || 'sans titre'}`} title="Supprimer ce devoir" onClick={() => deleteAssignment(profile)} disabled={isAnalyzing || assignmentProfiles.length <= 1}>×</button>
+            </div>)}
           </div>
           <button type="button" className="sidebar-new-assignment" onClick={createNewAssignment} disabled={isAnalyzing}><span aria-hidden="true">＋</span> Nouveau devoir</button>
         </section>
@@ -764,10 +828,12 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         <div className="archive-footer"><button type="button" className="primary-button" onClick={startNextCopy}>+ Ajouter une autre copie</button><p>Les copies archivées ne sont pas envoyées dans le cloud. Elles occupent de l’espace dans le stockage local de ce navigateur.</p></div>
       </section>}
       {(interfaceMode === 'diagnostic' || teacherStep === 'rubric') && <>
-      <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 SUR 3' : 'ÉTAPE 1'}</p><h2>Préparer le barème</h2></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
+      <div className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 SUR 3' : 'ÉTAPE 1'}</p><h2>Préparer le barème de correction</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
       <section className="panel rubric-editor">
-        <label className="field-label" htmlFor="rubric-title">Nom du barème</label>
-        <input id="rubric-title" value={rubric.title} onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
+        <div className="rubric-assignment-context"><span className="eyebrow">BARÈME ASSOCIÉ AU DEVOIR</span><strong>{assignmentTitle.trim() || 'Devoir sans titre'}</strong><p>Vous pouvez donner au barème un nom différent de celui du devoir.</p></div>
+        <label className="field-label" htmlFor="rubric-title">Nom du barème (distinct du devoir)</label>
+        <input id="rubric-title" value={rubric.title} placeholder="Ex. Barème du contrôle de biologie" onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
+        {rubric.criteria.length === 0 && <div className="rubric-empty-state" role="status"><strong>Le barème n’est pas encore défini</strong><p>Importez un barème existant ou ajoutez les critères et leurs points ci-dessous. La correction restera indisponible tant qu’un barème valide n’est pas prêt.</p></div>}
         <div className="rubric-import">
           <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Word (.docx), Excel (.xlsx), CSV, TXT ou JSON)</label>
           <FilePicker id="rubric-file" accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.json" onFilesSelected={(files) => { void importRubricFileFromInput(files?.[0]); }} title="Importer un document de barème" description="PDF, Word, Excel, CSV, TXT, Markdown ou JSON" actionLabel="Parcourir les fichiers" />
@@ -990,24 +1056,35 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
 
       {proposal && (interfaceMode === 'diagnostic' || teacherStep === 'review') && <section className="review-section">
         <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{pendingCount} À VÉRIFIER</span></div>
-        <div className="summary-panel"><strong>Synthèse de l’assistant</strong><p>{proposal.summary}</p><span>Note proposée : {proposal.criteria.reduce((sum, item) => sum + item.points, 0)} / {validation.maximumPoints} points</span></div>
         <section className="review-alerts" aria-label="Points nécessitant votre attention">
           <div className="review-alerts-heading"><div><span className="eyebrow">CONTRÔLE CIBLÉ</span><h3>Vérifications prioritaires</h3></div><span className="review-alert-count">{reviewInsights.flaggedCriteriaIds.length} critère(s)</span></div>
-          {unreadableCopySignal && <div className="review-alert review-alert-warning" role="alert"><strong>Lecture de la copie à contrôler</strong><p>La transcription est absente ou contient un signal d’illisibilité. Vérifiez les images originales avant de vous fier à la note proposée.</p><button type="button" className="text-action" onClick={() => setShowSourceEvidence((value) => !value)}>{showSourceEvidence ? 'Masquer la copie' : 'Consulter la copie et le texte lu'}</button></div>}
+          {unreadableCopySignal && <div className="review-alert review-alert-warning" role="alert"><strong>Lecture de la copie à contrôler</strong><p>La transcription est absente ou contient un signal d’illisibilité. Vérifiez les images originales avant de vous fier à la note proposée.</p></div>}
           {reviewInsights.lowConfidenceCount > 0 && <div className="review-alert"><strong>{reviewInsights.lowConfidenceCount} critère(s) avec une confiance faible</strong><p>Examinez la preuve et le raisonnement associés avant d’accepter ces points.</p></div>}
           {reviewInsights.missingEvidenceCount > 0 && <div className="review-alert review-alert-warning"><strong>{reviewInsights.missingEvidenceCount} critère(s) sans preuve exploitable</strong><p>Une justification sans élément précis de la copie ne suffit pas à valider une attribution de points.</p></div>}
           {reviewInsights.unreadableEvidenceCount > 0 && <div className="review-alert review-alert-warning"><strong>{reviewInsights.unreadableEvidenceCount} critère(s) signalant une lecture difficile</strong><p>Vérifiez la lisibilité du passage ou du schéma concerné.</p></div>}
           {reviewInsights.flaggedCriteriaIds.length === 0 && !unreadableCopySignal && <p className="review-all-clear">Aucun signal automatique prioritaire. La vérification humaine reste nécessaire.</p>}
-          <div className="review-alert-actions"><button type="button" className="secondary-button" onClick={() => setShowOnlyFlagged((value) => !value)} disabled={reviewInsights.flaggedCriteriaIds.length === 0}>{showOnlyFlagged ? 'Afficher tous les critères' : `Afficher les ${reviewInsights.flaggedCriteriaIds.length} critères à vérifier`}</button><button type="button" className="text-action" onClick={() => setShowSourceEvidence((value) => !value)}>{showSourceEvidence ? 'Masquer la copie' : 'Consulter la copie originale'}</button></div>
-          {showSourceEvidence && <div className="review-source-evidence" id="review-source-evidence"><div className="review-source-heading"><h4>Copie originale et transcription</h4><p>Comparez vous-même le texte reconnu aux pages photographiées ou numérisées.</p></div><div className="live-copy-layout"><div className="live-copy-pages" aria-label="Pages originales de la copie">{images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-review-' + index}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page originale ${index + 1} de la copie`} /><figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption></figure>)}</div><div className="live-transcription-panel"><div className="live-panel-heading"><span className="live-panel-icon" aria-hidden="true">Aa</span><div><strong>Texte reconnu par l’IA</strong><small>{transcription ? 'Transcription locale' : 'Aucun texte reconnu'}</small></div></div>{transcription ? <pre className="live-transcription-text">{transcription}</pre> : <p role="status">Aucune transcription disponible : la note doit être vérifiée directement sur les images.</p>}</div></div></div>}
-          <div className="correction-batch-progress" aria-label="Progression des corrections pour ce devoir"><div><span className="eyebrow">CORRECTION EN SÉRIE</span><strong>{completedForAssignment} copie(s) finalisée(s) pour ce devoir</strong><p>Après validation, passez directement à la copie suivante sans changer de barème.</p></div><div className="correction-batch-actions"><button type="button" className="secondary-button" onClick={() => { setTeacherStep('archive'); setShowAiSettings(false); }}>Voir les corrections enregistrées</button>{isFinalized && <button type="button" className="primary-button" onClick={startNextCopy}>Ajouter la copie suivante</button>}</div></div>
+          <div className="review-alert-actions"><button type="button" className="secondary-button" onClick={() => setShowOnlyFlagged((value) => !value)} disabled={reviewInsights.flaggedCriteriaIds.length === 0}>{showOnlyFlagged ? 'Afficher tous les critères' : `Afficher les ${reviewInsights.flaggedCriteriaIds.length} critères à vérifier`}</button></div>
         </section>
+        <div className="correction-batch-progress" aria-label="Progression des corrections pour ce devoir"><div><span className="eyebrow">CORRECTION EN SÉRIE</span><strong>{completedForAssignment} copie(s) finalisée(s) pour ce devoir</strong><p>Après validation, passez directement à la copie suivante sans changer de barème.</p></div><div className="correction-batch-actions"><button type="button" className="secondary-button" onClick={() => { setTeacherStep('archive'); setShowAiSettings(false); }}>Voir les corrections enregistrées</button>{isFinalized && <button type="button" className="primary-button" onClick={startNextCopy}>Ajouter la copie suivante</button>}</div></div>
+        <div className="review-workspace">
+          <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
+            <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de référence</h3><p>Gardez les pages originales sous les yeux pendant que vous vérifiez les points et les preuves.</p></div>
+            <div className="review-source-pages" aria-label="Pages originales de la copie">
+              {images.length > 0 ? images.map((image, index) => <figure id={`review-copy-page-${index + 1}`} className={focusedEvidencePage === index + 1 ? 'live-copy-page evidence-page-focused' : 'live-copy-page'} key={image.fileName + '-review-' + index}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page originale ${index + 1} de la copie`} /><figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption></figure>) : <p className="review-source-empty">Aucune image originale disponible. Vérifiez les preuves avec prudence.</p>}
+            </div>
+            <details className="review-transcription">
+              <summary><span><strong>Texte reconnu par l’IA</strong><small>{transcription ? 'Transcription locale à comparer à l’original' : 'Aucune transcription disponible'}</small></span></summary>
+              {transcription ? <pre className="live-transcription-text">{transcription}</pre> : <p role="status">La note doit être vérifiée directement sur les images.</p>}
+            </details>
+          </aside>
+          <div className="review-main-column">
+            <div className="summary-panel review-score-summary"><strong>Synthèse de l’assistant</strong><p>{proposal.summary}</p><span>Note proposée : {proposal.criteria.reduce((sum, item) => sum + item.points, 0)} / {validation.maximumPoints} points</span></div>
         <div className="review-criteria-toolbar"><span>{showOnlyFlagged ? `Affichage ciblé : ${displayedReview.length} critère(s)` : `${review.length} critère(s) dans le barème`}</span>{showOnlyFlagged && <button type="button" className="text-action" onClick={() => setShowOnlyFlagged(false)}>Réafficher tous les critères</button>}</div>
         {displayedReview.map((item) => {
           const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
           return <article className="panel review-card" key={item.criterionId}>
             <div className="review-card-heading"><div><h3>{criterion?.title ?? item.criterionId}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div><span className={`confidence confidence-${item.confidence}`}>Confiance {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</span></div>
-            <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p></div>
+            <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p>{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>
             <p className="rationale">{item.rationale}</p>
             {item.confidence === 'low' && <p className="teacher-question"><strong>Lecture à vérifier :</strong> {item.questionForTeacher || 'Le modèle est incertain sur ce critère. Vérifiez la preuve citée et la note proposée ; aucune question précise ne peut être formulée automatiquement.'}</p>}
             <div className="review-controls">
@@ -1019,6 +1096,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
         })}
         {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Cette correction est enregistrée sur cet appareil</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" onClick={startNextCopy}>Ajouter une autre copie</button><button type="button" className="secondary-button" onClick={() => { setTeacherStep('archive'); setShowAiSettings(false); }}>Voir les corrections enregistrées</button></div></div>}
         <div className="panel final-review"><div><span className="eyebrow">RÉCAPITULATIF ENSEIGNANT</span><h3>{reviewedTotal} / {validation.maximumPoints} points</h3><p>{pendingCount} critère(s) encore en attente de validation.</p>{isFinalized && <p className="finalized-status" role="status">✓ Correction finalisée localement</p>}</div><div className="questions-field"><span className="field-label">Points précis à clarifier</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question précise à vous soumettre. Vérifiez les éléments signalés comme incertains ci-dessus avant validation.</p>}</div><button className="primary-button" onClick={decideAll}>Accepter les propositions non modifiées</button><button className="primary-button" disabled={pendingCount > 0} onClick={finalizeReview}>Finaliser la correction</button><button className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal.summary, criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil. Vérifiez les questions ouvertes avant toute utilisation de la note.'); }}>{isFinalized ? 'Télécharger la correction finale (JSON)' : 'Exporter le récapitulatif provisoire (JSON)'}</button>{reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}</div>
+          </div>
+        </div>
       </section>}
 
       </>}

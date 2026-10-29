@@ -135,11 +135,19 @@ describe('UI design system', () => {
     expect(appComponent).toContain('review-alerts');
     expect(appComponent).toContain('getReviewInsights(review)');
     expect(appComponent).toContain('Afficher les ${reviewInsights.flaggedCriteriaIds.length} critères à vérifier');
-    expect(appComponent).toContain('review-source-evidence');
+    expect(appComponent).toContain('className="review-workspace"');
+    expect(appComponent).toContain('className="review-source-pane"');
+    expect(appComponent).toContain('Copie de référence');
+    expect(appComponent).toContain('className="review-transcription"');
+    expect(appComponent).not.toContain('showSourceEvidence');
     expect(appComponent).toContain('La transcription est absente');
     expect(appComponent).toContain('correction-batch-progress');
     expect(appComponent).toContain('Ajouter la copie suivante');
     expect(correctionFlowStylesheet).toContain('.review-alerts');
+    expect(correctionFlowStylesheet).toContain('.review-workspace { display: grid;');
+    expect(correctionFlowStylesheet).toContain('.review-source-pane { position: sticky;');
+    expect(correctionFlowStylesheet).toContain('.review-score-summary { position: sticky;');
+    expect(correctionFlowStylesheet).toContain('@media (max-width: 720px)');
     expect(correctionFlowStylesheet).toContain('.correction-batch-progress');
   });
 
