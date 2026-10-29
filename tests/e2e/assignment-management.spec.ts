@@ -26,7 +26,7 @@ test('the assignment list scrolls instead of growing without bound', async ({ pa
   await page.goto('/');
 
   for (let index = 0; index < 6; index += 1) {
-    await page.getByRole('button', { name: /Nouveau devoir/ }).click();
+    await page.locator('.sidebar-new-assignment').click();
   }
 
   const list = page.locator('.sidebar-assignment-items');
