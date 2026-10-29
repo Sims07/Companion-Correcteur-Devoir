@@ -1331,10 +1331,10 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           </section>;
           const usageFor = (record: TimingRecord) => {
             const runs = record.diagnosticRuns ?? [];
+            const measuredRuns = runs.filter((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined);
             return {
-              prompt: runs.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0),
-              generated: runs.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0),
-              total: runs.reduce((sum, run) => sum + (run.totalTokens ?? 0), 0),
+              prompt: measuredRuns.length ? measuredRuns.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0) : null,
+              generated: measuredRuns.length ? measuredRuns.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0) : null,
               groups: groupDiagnosticUsage(runs),
             };
           };
