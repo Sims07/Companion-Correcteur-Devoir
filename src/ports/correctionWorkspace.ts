@@ -2,7 +2,7 @@ import type { ImageInput, GradingProvider, OllamaModel, OllamaSettings } from '.
 import type { Rubric } from '../domain/rubric.ts';
 
 export type RubricImportProgress = {
-  stage: 'preparing' | 'sending' | 'response' | 'parsing' | 'page-complete' | 'complete';
+  stage: 'preparing' | 'sending' | 'response' | 'parsing' | 'page-complete' | 'complete' | 'error';
   message: string;
   page?: number;
   totalPages?: number;
