@@ -515,7 +515,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
 
   async function finalizeReview() {
     if (pendingCount > 0) {
-      setReviewMessage(`Impossible de finaliser : ${pendingCount} critère(s) attendent encore votre décision.`);
+      setReviewMessage(`Il reste ${pendingCount} critère(s) à examiner avant l’enregistrement.`);
       return;
     }
     if (!proposal) {
@@ -585,8 +585,8 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           ? ` ${savedDecisionCount} décision(s) ajustée(s) ou commentée(s) ont été conservées dans la mémoire locale pour les prochaines analyses de ce contexte.`
           : '';
       setReviewMessage(teacherQuestions.trim()
-        ? `Correction finalisée et archivée sur cet appareil.${memoryStatus} Vérifiez les questions ouvertes avant de communiquer la note.`
-        : `Correction finalisée et archivée sur cet appareil.${memoryStatus} Vous pourrez la retrouver dans « Corrections enregistrées ».`);
+        ? `Correction enregistrée sur cet appareil.${memoryStatus} Relisez les questions ouvertes avant de communiquer la note.`
+        : `Correction enregistrée sur cet appareil.${memoryStatus} Vous pourrez la retrouver dans « Corrections enregistrées ».`);
     } catch {
       setIsFinalized(false);
       setReviewMessage('La correction n’a pas pu être archivée dans le stockage local. Vérifiez l’espace disponible du navigateur puis réessayez.');
@@ -793,12 +793,6 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
     setTeacherStep('review');
   }
 
-  function decideAll() {
-    setIsFinalized(false);
-    setReviewMessage('');
-    setReview((current) => current.map((item) => ({ ...item, decision: item.decision === 'adjusted' ? 'adjusted' : 'accepted' })));
-    setReviewMessage('Les propositions non modifiées sont marquées comme acceptées par l’enseignant. Pensez à traiter les questions ouvertes.');
-  }
 
   return (
     <main className={interfaceMode === 'teacher' ? "app-shell teacher-flow-shell" : "app-shell"}>
@@ -1185,7 +1179,7 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
           {reviewInsights.flaggedCriteriaIds.length === 0 && !unreadableCopySignal && <p className="review-all-clear">Aucun signal automatique prioritaire. La vérification humaine reste nécessaire.</p>}
           <div className="review-alert-actions"><button type="button" className="secondary-button" onClick={() => setShowOnlyFlagged((value) => !value)} disabled={reviewInsights.flaggedCriteriaIds.length === 0}>{showOnlyFlagged ? 'Afficher tous les critères' : `Afficher les ${reviewInsights.flaggedCriteriaIds.length} critères à vérifier`}</button></div>
         </section>
-        <div className="correction-batch-progress" aria-label="Progression des corrections pour ce devoir"><div><span className="eyebrow">CORRECTION EN SÉRIE</span><strong>{completedForAssignment} copie(s) finalisée(s) pour ce devoir</strong><p>Après validation, passez directement à la copie suivante sans changer de barème.</p></div><div className="correction-batch-actions"><button type="button" className="secondary-button" onClick={() => { setTeacherStep('archive'); setShowAiSettings(false); }}>Voir les corrections enregistrées</button>{isFinalized && <button type="button" className="primary-button" onClick={startNextCopy}>Ajouter la copie suivante</button>}</div></div>
+        <div className="correction-batch-progress" aria-label="Progression des corrections pour ce devoir"><div><span className="eyebrow">CORRECTION EN SÉRIE</span><strong>{completedForAssignment} copie(s) enregistrée(s) pour ce devoir</strong><p>Chaque copie enregistrée reste disponible dans « Corrections enregistrées ».</p></div></div>
         <div className="review-workspace">
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
             <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de référence</h3><p>Gardez les pages originales sous les yeux pendant que vous vérifiez les points et les preuves.</p></div>
@@ -1210,12 +1204,12 @@ export function App({ service, archiveService }: { service: CorrectionWorkspaceS
             <div className="review-controls">
               <label><span className="field-label">Votre note</span><input type="number" min="0" max={criterion?.maxPoints ?? 0} step="0.5" value={item.teacherPoints} onChange={(event) => updateReview(item.criterionId, { teacherPoints: Number(event.target.value), decision: 'adjusted' })} /></label>
               <label className="comment-field"><span className="field-label">Commentaire enseignant</span><input value={item.teacherComment} onChange={(event) => updateReview(item.criterionId, { teacherComment: event.target.value })} placeholder="Précision ou correction éventuelle" /></label>
-              <button className={item.decision === 'accepted' ? 'decision-button accepted' : 'decision-button'} onClick={() => updateReview(item.criterionId, { decision: item.decision === 'accepted' ? 'pending' : 'accepted' })}>{item.decision === 'accepted' ? '✓ Accepté' : item.decision === 'adjusted' ? 'Note ajustée' : 'Accepter'}</button>
+              <button type="button" className={item.decision !== 'pending' ? 'decision-button accepted' : 'decision-button'} aria-pressed={item.decision !== 'pending'} onClick={() => updateReview(item.criterionId, { decision: item.decision === 'pending' ? 'accepted' : 'pending' })}>{item.decision === 'accepted' ? '✓ Critère confirmé' : item.decision === 'adjusted' ? '✓ Note ajustée' : 'Confirmer ce critère'}</button>
             </div>
           </article>;
         })}
         {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Cette correction est enregistrée sur cet appareil</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" onClick={startNextCopy}>Ajouter une autre copie</button><button type="button" className="secondary-button" onClick={() => { setTeacherStep('archive'); setShowAiSettings(false); }}>Voir les corrections enregistrées</button></div></div>}
-        <div className="panel final-review"><div><span className="eyebrow">RÉCAPITULATIF ENSEIGNANT</span><h3>{reviewedTotal} / {validation.maximumPoints} points</h3><p>{pendingCount} critère(s) encore en attente de validation.</p>{isFinalized && <p className="finalized-status" role="status">✓ Correction finalisée localement</p>}</div><div className="questions-field"><span className="field-label">Points précis à clarifier</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question précise à vous soumettre. Vérifiez les éléments signalés comme incertains ci-dessus avant validation.</p>}</div><button className="primary-button" onClick={decideAll}>Accepter les propositions non modifiées</button><button className="primary-button" disabled={pendingCount > 0} onClick={finalizeReview}>Finaliser la correction</button><button className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal.summary, criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil. Vérifiez les questions ouvertes avant toute utilisation de la note.'); }}>{isFinalized ? 'Télécharger la correction finale (JSON)' : 'Exporter le récapitulatif provisoire (JSON)'}</button>{reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}</div>
+         <div className="panel final-review"><div><span className="eyebrow">RÉCAPITULATIF ENSEIGNANT</span><h3>{reviewedTotal} / {validation.maximumPoints} points</h3><p>{pendingCount === 0 ? 'Tous les critères ont une décision.' : `${pendingCount} critère(s) à examiner avant l’enregistrement.`}</p></div><div className="questions-field"><span className="field-label">Points à vérifier avant de communiquer la note</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question précise n’a été formulée. Vérifiez tout de même les alertes et les preuves ci-dessus.</p>}</div>{!isFinalized && <button type="button" className="primary-button" disabled={pendingCount > 0} onClick={finalizeReview}>{currentCorrectionId ? 'Enregistrer les modifications' : 'Enregistrer la correction'}</button>}<details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Export local pour conserver ou réutiliser les résultats de cette correction.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal.summary, criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil.'); }}>{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>{reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}</div>
           </div>
         </div>
       </section>}
