@@ -753,7 +753,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       analysisTokensPerSecond: output.value?.analysisTokensPerSecond ?? null,
       tokens: output.value?.tokens ?? null,
       status: output.status,
-      transcription: output.value?.transcription ?? '',
+      transcription: output.value?.transcription ?? (evaluationStageMode === 'analysis' ? transcription ?? '' : ''),
       raw: output.value?.raw ?? '',
       score: output.value?.score ?? null,
       proposal: output.value?.proposal ?? null,
@@ -771,6 +771,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       images: structuredClone(images),
       subjectImages: structuredClone(subjectImages),
       subjectTranscription,
+      referenceTranscription: evaluationStageMode === 'analysis' ? transcription : null,
       configurations: selectedProfiles.map((profile) => ({
         id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
         visionModel: profile.configuration.visionModel, analysisModel: profile.configuration.analysisModel,
@@ -1809,7 +1810,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
           })() : <p className="evaluation-history-empty">{selectedEvaluationHistoryIds.length === 0 ? 'Sélectionnez un essai pour comparer les modèles qui le composent.' : selectedEvaluationHistoryRecords.length === 1 ? (selectedEvaluationHistoryRecords[0].results.length < 2 ? 'Cet essai ne contient qu’une configuration. Sélectionnez un autre essai du même type pour comparer.' : 'La comparaison de cet essai est en préparation.') : 'Sélectionnez un essai du même type pour activer la comparaison.'}</p>}
           {visibleEvaluationHistoryRecords.map((record) => <article key={record.id} className="evaluation-history-record">
             <div className="evaluation-history-record-heading"><div><p className="eyebrow">EXPÉRIENCE ENREGISTRÉE</p><h4>{record.assignmentTitle}</h4><p>{getModelEvaluationStage(record) === 'vision' ? 'Vision seule' : getModelEvaluationStage(record) === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {record.images.length} page(s)</p></div>
-              <button type="button" className="secondary-button evaluation-history-load" onClick={() => { setModelEvaluationResults(record.results); setRubric(structuredClone(record.rubricSnapshot)); setImages(structuredClone(record.images)); setQuestion(record.question); setAssignmentTitle(record.assignmentTitle); setCorrectionMode(record.correctionMode); setSubjectImages(structuredClone(record.subjectImages)); setSubjectTranscription(record.subjectTranscription); }}>Consulter / recharger la référence</button>
+              <button type="button" className="secondary-button evaluation-history-load" onClick={() => { setModelEvaluationResults(record.results); setRubric(structuredClone(record.rubricSnapshot)); setImages(structuredClone(record.images)); setTranscription(record.referenceTranscription ?? record.results.find((result) => result.transcription)?.transcription ?? null); setQuestion(record.question); setAssignmentTitle(record.assignmentTitle); setCorrectionMode(record.correctionMode); setSubjectImages(structuredClone(record.subjectImages)); setSubjectTranscription(record.subjectTranscription); }}>Consulter / recharger la référence</button>
             </div>
             <div className="evaluation-history-record-metrics">{record.results.map((result) => <article className="evaluation-history-model-metric" key={result.profileId}>
               <div className="evaluation-history-model-heading"><strong>{result.profileName}</strong><span className={result.status === 'success' ? 'evaluation-history-status is-success' : 'evaluation-history-status'}>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Interrompu' : 'Échec'}</span></div>
