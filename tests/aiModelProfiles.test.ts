@@ -1,11 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { defaultAiModelConfiguration, parseAiModelConfiguration } from '../src/domain/aiModelProfiles.ts';
+import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles } from '../src/domain/aiModelProfiles.ts';
 
 describe('AI model configuration defaults', () => {
   it('does not expose per-copy annotation detection in AI model configuration', () => {
     expect(defaultAiModelConfiguration).not.toHaveProperty('detectTeacherAnnotations');
     expect(parseAiModelConfiguration(null)).not.toHaveProperty('detectTeacherAnnotations');
     expect(parseAiModelConfiguration(JSON.stringify({ detectTeacherAnnotations: true }))).not.toHaveProperty('detectTeacherAnnotations');
+  });
+
+
+  it('removes the obsolete global annotation option when loading a saved AI profile', () => {
+    const profiles = parseAiModelProfiles(JSON.stringify([{
+      id: 'legacy-profile',
+      name: 'Ancienne configuration',
+      mode: 'single',
+      updatedAt: '2026-10-30T00:00:00.000Z',
+      configuration: {
+        ...defaultAiModelConfiguration,
+        detectTeacherAnnotations: true,
+      },
+    }]));
+    expect(profiles).toHaveLength(1);
+    expect(profiles[0].configuration).not.toHaveProperty('detectTeacherAnnotations');
   });
 
   it('keeps compatible transcription penalties disabled by default', () => {
