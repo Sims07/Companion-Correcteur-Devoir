@@ -13,9 +13,17 @@ describe('rubric structuring chunks', () => {
 
     expect(chunks.length).toBeGreaterThan(2);
     expect(chunks.every((chunk) => chunk.text.length <= 900)).toBe(true);
-    expect(chunks.filter((chunk) => chunk.page === 1) .map((chunk) => chunk.text).join('')).toBe(firstPage);
-    expect(chunks.filter((chunk) => chunk.page === 2) .map((chunk) => chunk.text).join('')).toBe(secondPage);
+    const pages = chunks.flatMap((chunk) => chunk.pages ?? [{ page: chunk.page, text: chunk.text }]);
+    expect(pages.filter((page) => page.page === 1).map((page) => page.text).join('')).toBe(firstPage);
+    expect(pages.filter((page) => page.page === 2).map((page) => page.text).join('')).toBe(secondPage);
     expect(chunks.at(-1)?.page).toBe(2);
+  });
+
+  it('groups short consecutive pages to minimize sequential model calls', () => {
+    const chunks = splitRubricTranscriptions(Array.from({ length: 10 }, (_, index) => `Page ${index + 1} : ${'attendu '.repeat(30)}`));
+    expect(chunks).toHaveLength(1);
+    const prompt = formatRubricTranscriptionChunk(chunks[0]);
+    for (let page = 1; page <= 10; page += 1) expect(prompt).toContain(`<transcription_page_${page}>`);
   });
 
   it('keeps the source page visible in the prompt wrapper', () => {
