@@ -48,7 +48,7 @@ describe('OpenAI-compatible chat transport', () => {
       stop: ['\n\n\n\n'],
       messages: [{ role: 'user', content: [
         { type: 'text', text: 'Text Recognition:' },
-        { type: 'image_url', image_url: { url: 'data:image/png;base64,abc' } },
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,abc', detail: 'high' } },
       ] }],
     });
     expect(body.frequency_penalty).toBe(0.65);
@@ -135,8 +135,24 @@ describe('OpenAI-compatible chat transport', () => {
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(body.messages[0].content).toEqual([
       { type: 'text', text: 'Lis cette page' },
-      { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,abc123' } },
+      { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,abc123', detail: 'high' } },
     ]);
+  });
+
+  it('retries without image detail when the compatible server rejects high-resolution image input', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('unsupported image detail', { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: 'lu' } }] }), { status: 200 }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({ model: 'vision', stream: false, messages: [{ role: 'user', content: 'Lis', images: ['abc123'] }] }),
+    });
+    const firstBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    const fallbackBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(firstBody.messages[0].content[1].image_url.detail).toBe('high');
+    expect(fallbackBody.messages[0].content[1].image_url).toEqual({ url: 'data:image/jpeg;base64,abc123' });
+    expect(response.ok).toBe(true);
   });
 
   it('exposes a sanitized preview of the exact outgoing request without image bytes', async () => {
