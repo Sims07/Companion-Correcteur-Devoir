@@ -156,9 +156,11 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
       ...(source.options?.frequency_penalty !== undefined
         ? { frequency_penalty: source.options.frequency_penalty }
         : source.options?.repeat_penalty !== undefined
-          ? settings.repetitionPenaltyParameter === 'repeat_penalty'
-            ? { repeat_penalty: source.options.repeat_penalty }
-            : { frequency_penalty: settings.frequencyPenalty ?? 0.5 }
+          ? settings.repetitionPenaltyParameter === 'none'
+            ? {}
+            : settings.repetitionPenaltyParameter === 'repeat_penalty'
+              ? { repeat_penalty: source.options.repeat_penalty }
+              : { frequency_penalty: settings.frequencyPenalty ?? 0 }
           : {}),
       ...(source.format === 'json'
         ? { response_format: { type: 'json_object' } }
