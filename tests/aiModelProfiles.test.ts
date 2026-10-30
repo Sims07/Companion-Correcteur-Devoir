@@ -8,6 +8,12 @@ describe('AI model configuration defaults', () => {
     expect(parseAiModelConfiguration(null).transcriptionPenaltyParameter).toBe('none');
   });
 
+  it('migrates the former implicit 0.5 default to no penalty', () => {
+    const parsed = parseAiModelConfiguration(JSON.stringify({ transcriptionPenaltyParameter: 'frequency_penalty', transcriptionFrequencyPenalty: 0.5 }));
+    expect(parsed.transcriptionPenaltyParameter).toBe('none');
+    expect(parsed.transcriptionFrequencyPenalty).toBe(0);
+  });
+
   it('preserves an explicitly selected compatible penalty', () => {
     const parsed = parseAiModelConfiguration(JSON.stringify({
       transcriptionPenaltyParameter: 'frequency_penalty',
