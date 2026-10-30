@@ -14,12 +14,29 @@ export interface FieldProps {
 export function Field({ label, htmlFor, hint, error, required = false, children }: FieldProps) {
   const descriptionId = hint ? `${htmlFor}-hint` : undefined;
   const errorId = error ? `${htmlFor}-error` : undefined;
-  const describedBy = [descriptionId, errorId].filter(Boolean).join(' ') || undefined;
   const control = isValidElement(children)
-    ? cloneElement(children as ReactElement<{ 'aria-describedby'?: string; 'aria-invalid'?: boolean }>, {
-        'aria-describedby': describedBy,
-        'aria-invalid': error ? true : undefined,
-      })
+    ? (() => {
+        const childProps = children.props as {
+          'aria-describedby'?: string;
+          'aria-invalid'?: boolean;
+          required?: boolean;
+        };
+        const describedBy = [...new Set([
+          childProps['aria-describedby'],
+          descriptionId,
+          errorId,
+        ].filter(Boolean))].join(' ') || undefined;
+
+        return cloneElement(children as ReactElement<{
+          'aria-describedby'?: string;
+          'aria-invalid'?: boolean;
+          required?: boolean;
+        }>, {
+          'aria-describedby': describedBy,
+          'aria-invalid': error ? true : childProps['aria-invalid'],
+          required: required || childProps.required || undefined,
+        });
+      })()
     : children;
 
   return (
