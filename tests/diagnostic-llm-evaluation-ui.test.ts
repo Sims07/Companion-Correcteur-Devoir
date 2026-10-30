@@ -137,7 +137,9 @@ describe('Évaluation des modèles — comparaison graphique de l’historique',
   it('lets teachers select two saved experiments and compare four visual indicators', () => {
     expect(appSource).toContain('selectedEvaluationHistoryIds');
     expect(appSource).toContain('Sélectionnez deux expériences');
-    expect(appSource).toContain('Deux expériences, quatre indicateurs');
+    expect(appSource).toContain('Comparaison des modèles Vision');
+    expect(appSource).toContain('Comparaison des modèles d’analyse');
+    expect(appSource).toContain('Comparaison du parcours complet');
     expect(appSource).toContain("title: 'Temps de lecture'");
     expect(appSource).toContain("title: 'Temps d’analyse'");
     expect(appSource).toContain("title: 'Tokens de lecture'");

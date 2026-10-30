@@ -19,6 +19,8 @@ import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../domain
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 
+type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
+
 const initialRubric: Rubric = {
   title: 'Barème de biologie — exemple',
   criteria: [
@@ -264,6 +266,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
   const [selectedEvaluationProfileIds, setSelectedEvaluationProfileIds] = useState<string[]>([]);
   const [selectedEvaluationHistoryIds, setSelectedEvaluationHistoryIds] = useState<string[]>([]);
   const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history'>('configuration');
+  const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
   const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
   const [savedModelEvaluations, setSavedModelEvaluations] = useState<ModelEvaluationRecord[]>([]);
   const [evaluationProgress, setEvaluationProgress] = useState<ModelEvaluationProgress | null>(null);
@@ -656,16 +659,19 @@ export function App({ service, archiveService, evaluationService }: { service: C
     const selectedProfiles = aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
     if (selectedProfiles.length < 2) { setError('Sélectionnez au moins deux configurations enregistrées pour les comparer.'); return; }
     if (!validation.valid) { setError(validation.errors.join(' ')); return; }
-    if (!images.length) { setError('Importez une copie avant de lancer une évaluation.'); return; }
-    if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
+    if (evaluationStageMode === 'analysis' && !transcription?.trim()) { setError('Pour évaluer l’analyse seule, lancez d’abord une lecture Vision et vérifiez sa transcription.'); return; }
+    if (evaluationStageMode !== 'analysis' && !images.length) { setError('Importez une copie avant de lancer une évaluation Vision.'); return; }
+    if (evaluationStageMode === 'integrated' && correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
     evaluationCancelledRef.current = false;
     setModelEvaluationResults([]);
-    setEvaluationProgress({ completed: 0, total: selectedProfiles.length, currentConfiguration: null, status: 'running', completedSteps: 0, totalSteps: selectedProfiles.length * 2, currentStage: null });
+    const measuredStages = evaluationStageMode === 'vision' ? ['reading'] as const : evaluationStageMode === 'analysis' ? ['analysis'] as const : ['reading', 'analysis'] as const;
+    setEvaluationProgress({ completed: 0, total: selectedProfiles.length, currentConfiguration: null, status: 'running', completedSteps: 0, totalSteps: selectedProfiles.length * measuredStages.length, currentStage: null });
     setEvaluationStage('preparing');
     setError('');
     setBusy(true);
     setIsAnalyzing(true);
     const outputs = await runModelEvaluation({
+      stages: [...measuredStages],
       configurations: selectedProfiles.map((profile) => ({
         id: profile.id,
         name: profile.name,
@@ -678,9 +684,10 @@ export function App({ service, archiveService, evaluationService }: { service: C
       onProgress: setEvaluationProgress,
       execute: async (configuration, _isCancelled, onStage) => {
         setEvaluationStage('preparing');
-        if (!configuration.visionModel.trim() || !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle de vision et un modèle d’analyse.');
-        await service.checkReady({ endpoint: configuration.endpoint, model: configuration.visionModel });
-        await service.checkReady({ endpoint: configuration.endpoint, model: configuration.analysisModel });
+        if (evaluationStageMode !== 'analysis' && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un modèle de vision pour cette expérience.');
+        if (evaluationStageMode !== 'vision' && !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle d’analyse pour cette expérience.');
+        if (evaluationStageMode !== 'analysis') await service.checkReady({ endpoint: configuration.endpoint, model: configuration.visionModel });
+        if (evaluationStageMode !== 'vision') await service.checkReady({ endpoint: configuration.endpoint, model: configuration.analysisModel });
         let extractedTranscription = '';
         let raw = '';
         const startedAt = Date.now();
@@ -698,8 +705,10 @@ export function App({ service, archiveService, evaluationService }: { service: C
         raw = await provider.generate({
           question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
           rubric: rubricAsJson(rubric),
-          images: structuredClone(images),
-          ...(correctionMode === 'separate' ? { subjectImages: structuredClone(subjectImages), ...(subjectTranscription ? { subjectTranscription } : {}) } : {}),
+          ...(evaluationStageMode === 'analysis' ? { transcription: transcription ?? '' } : {}),
+          ...(evaluationStageMode === 'vision' ? { visionOnly: true } : {}),
+          images: evaluationStageMode === 'analysis' ? [] : structuredClone(images),
+          ...(evaluationStageMode !== 'vision' && correctionMode === 'separate' ? { subjectImages: structuredClone(subjectImages), ...(subjectTranscription ? { subjectTranscription } : {}) } : {}),
         }, (chunk) => setStreamedOutput((current) => current + chunk), (stage) => {
           const now = Date.now();
           if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = Math.max(0, now - startedAt); analysisStartedAt = now; } onStage('analysis'); setEvaluationStage('grading'); setAnalysisStage('grading'); setStreamedOutput(''); }
@@ -708,6 +717,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
           if (kind !== 'subject') extractedTranscription = text;
         }, (result) => measuredRuns.push(result));
         const analysisFinishedAt = Date.now();
+        if (evaluationStageMode === 'vision' && analysisStartedAt === null) readingMs = Math.max(0, analysisFinishedAt - startedAt);
         const analysisMs = analysisStartedAt === null ? 0 : Math.max(0, analysisFinishedAt - analysisStartedAt);
         setEvaluationStage('parsing');
         let score: number | null = null;
@@ -724,6 +734,10 @@ export function App({ service, archiveService, evaluationService }: { service: C
     });
     setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: 'running' } : current);
     setEvaluationStage('saving');
+    if (evaluationStageMode === 'vision') {
+      const firstReadableResult = outputs.find((output) => output.status === 'success' && output.value?.transcription.trim());
+      if (firstReadableResult?.value?.transcription) setTranscription(firstReadableResult.value.transcription);
+    }
     const results = outputs.map((output) => ({
       profileId: output.configuration.id,
       profileName: output.configuration.name,
@@ -760,6 +774,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         thinking: profile.configuration.analysisThinking,
       })),
       results,
+      stage: evaluationStageMode,
     };
     try {
       await evaluationService.save(savedRecord);
@@ -1228,6 +1243,12 @@ export function App({ service, archiveService, evaluationService }: { service: C
       </nav>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && <section id="evaluation-configurations" className="panel evaluation-config-workspace" aria-labelledby="evaluation-config-title">
         <div className="evaluation-section-heading"><div><p className="eyebrow">ÉTAPE 1 · CONFIGURATIONS</p><h2 id="evaluation-config-title">Choisir les configurations à comparer</h2><p>Créez ou modifiez vos profils ici, sans passer par les réglages du parcours de correction. Les profils sont enregistrés localement sur cet appareil.</p></div><span className="evaluation-step-chip">{aiModelProfiles.length} profil(s)</span></div>
+        <div className="evaluation-stage-picker" role="group" aria-label="Type d’évaluation">
+          <button type="button" className={evaluationStageMode === 'vision' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'vision'} onClick={() => setEvaluationStageMode('vision')}><span className="evaluation-stage-number">01</span><strong>Vision seule</strong><small>Comparer la transcription des images, sans lancer la notation.</small></button>
+          <button type="button" className={evaluationStageMode === 'analysis' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'analysis'} onClick={() => setEvaluationStageMode('analysis')}><span className="evaluation-stage-number">02</span><strong>Analyse seule</strong><small>Comparer la notation sur une transcription déjà relue et validée.</small></button>
+          <button type="button" className={evaluationStageMode === 'integrated' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'integrated'} onClick={() => setEvaluationStageMode('integrated')}><span className="evaluation-stage-number">03</span><strong>Parcours complet</strong><small>Mesurer le pipeline Vision puis Analyse de bout en bout.</small></button>
+        </div>
+        <p className="evaluation-stage-guidance" role="status">{evaluationStageMode === 'vision' ? 'Seul le modèle Vision est sollicité. Les transcriptions obtenues sont comparables entre profils et restent disponibles pour une validation humaine.' : evaluationStageMode === 'analysis' ? 'La transcription courante est réutilisée à l’identique pour chaque profil : aucune image n’est renvoyée au modèle Vision.' : 'Chaque profil exécute les deux étapes successivement. Ce mode mesure aussi le temps total du parcours.'}</p>
         <div className="evaluation-config-editor">
           <div className="evaluation-config-editor-heading"><div><h3>Configuration IA locale</h3><p>Un profil = un modèle de lecture, un modèle d’analyse et ses options.</p></div><button type="button" className="secondary-button" disabled={busy} onClick={() => { setSelectedAiModelProfileId(''); setAiModelProfileName(''); setAiModelProfileMessage('Nouvelle configuration : renseignez les modèles puis enregistrez.'); setEndpoint(defaultAiModelConfiguration.endpoint); setVisionModel(''); setAnalysisModel(''); setSecondAnalysisModel(''); setArbitratorModel(''); setDiagnosticStrategy('single'); setAnalysisThinking(false); setAvailableModels([]); setConnectionMessage(''); }}>＋ Nouvelle configuration</button></div>
           <div className="evaluation-config-fields">
@@ -1244,9 +1265,14 @@ export function App({ service, archiveService, evaluationService }: { service: C
           <div className="evaluation-config-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button><button type="button" className="primary-button" disabled={busy} onClick={saveAiModelProfile}>Enregistrer la configuration</button></div>
           {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}{aiModelProfileMessage && <p className="evaluation-profile-message" role="status">{aiModelProfileMessage}</p>}
         </div>
+        {evaluationStageMode === 'analysis' && <section className="evaluation-analysis-reference" aria-labelledby="evaluation-analysis-reference-title">
+          <div><p className="eyebrow">SOURCE DE RÉFÉRENCE</p><h3 id="evaluation-analysis-reference-title">Transcription à noter</h3><p>Vérifiez et corrigez le texte une fois pour toutes : chaque modèle d’analyse recevra exactement cette même transcription, sans nouvelle lecture d’image.</p></div>
+          <textarea aria-label="Transcription de référence pour l’évaluation de l’analyse" rows={8} value={transcription ?? ''} onChange={(event) => setTranscription(event.target.value)} placeholder="Lancez d’abord une évaluation Vision, ou collez ici une transcription déjà vérifiée…" />
+          <p className="evaluation-reference-meta">{transcription?.trim() ? `${transcription.trim().split(/\\s+/).filter(Boolean).length} mots dans la transcription de référence` : 'Aucune transcription de référence pour le moment'}</p>
+        </section>}
         <div className="evaluation-selection-block"><div className="evaluation-section-heading compact"><div><h3>Sélection pour cette expérience</h3><p>Choisissez de 2 à 3 profils. Ils seront testés successivement sur les mêmes pages et le même barème.</p></div><span aria-live="polite" className={selectedEvaluationProfileIds.length >= 2 ? 'evaluation-step-chip ready' : 'evaluation-step-chip'}>{selectedEvaluationProfileIds.length} / 3 sélectionnée(s)</span></div>
           {aiModelProfiles.length < 2 ? <div className="evaluation-empty-inline"><strong>Il faut au moins deux configurations.</strong><p>Créez un premier profil ci-dessus, puis un second avec un modèle différent pour commencer la comparaison.</p></div> : <fieldset className="evaluation-profile-list" aria-describedby="evaluation-profile-selection-help"><legend>Configurations à exécuter</legend><p id="evaluation-profile-selection-help" className="evaluation-selection-help">La même copie sera relue et notée par chaque configuration. L’ordre reste séquentiel pour limiter la mémoire utilisée par Ollama.</p><div className="evaluation-profile-options">{aiModelProfiles.map((profile) => { const selected = selectedEvaluationProfileIds.includes(profile.id); const disabled = busy || (!selected && selectedEvaluationProfileIds.length >= 3); return <label key={profile.id} className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}><input className="evaluation-profile-checkbox" type="checkbox" checked={selected} disabled={disabled} onChange={(event) => setSelectedEvaluationProfileIds((current) => event.target.checked ? [...current, profile.id].slice(-3) : current.filter((id) => id !== profile.id))} /><span className="evaluation-profile-card-content"><strong>{profile.name}</strong><span className="evaluation-profile-models"><span><small>LECTURE</small><b>{profile.configuration.visionModel || 'Modèle non défini'}</b></span><span><small>ANALYSE</small><b>{profile.configuration.analysisModel || 'Modèle non défini'}</b></span></span>{profile.configuration.analysisThinking && <span className="evaluation-profile-thinking">Thinking activé</span>}</span><span className="evaluation-profile-selection-mark" aria-hidden="true">{selected ? '✓' : '+'}</span></label>; })}</div></fieldset>}
-        <div className="evaluation-run-actions evaluation-config-launch"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>Le lancement passera à l’espace Exécution pour afficher la progression en direct.</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 2 || !images.length || !validation.valid} onClick={() => { setEvaluationWorkspaceStep('execution'); void startModelEvaluation(); }}>{busy ? 'Évaluation locale en cours…' : 'Lancer l’expérience'}</button></div>
+        <div className="evaluation-run-actions evaluation-config-launch"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>Le lancement passera à l’espace Exécution pour afficher la progression en direct.</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 2 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => { setEvaluationWorkspaceStep('execution'); void startModelEvaluation(); }}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? 'Comparer les modèles Vision' : evaluationStageMode === 'analysis' ? 'Comparer les modèles d’analyse' : 'Lancer le parcours complet'}</button></div>
         </div>
       </section>}
       {interfaceMode === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
@@ -1707,7 +1733,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       </>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep !== 'configuration' && <section id="evaluation-results" data-evaluation-step={evaluationWorkspaceStep} className="panel evaluation-results-workspace" aria-labelledby="evaluation-results-title">
         <div className="evaluation-section-heading"><div><p className="eyebrow">{evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION' : evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS' : 'ÉTAPE 4 · ANALYSE & HISTORIQUE'}</p><h2 id="evaluation-results-title">{evaluationWorkspaceStep === 'execution' ? 'Exécution de l’expérience' : evaluationWorkspaceStep === 'results' ? 'Résultats de l’évaluation' : 'Analyser et comparer les expériences'}</h2><p>{evaluationWorkspaceStep === 'execution' ? 'Suivez la progression des modèles locaux et le détail de chaque étape de traitement.' : evaluationWorkspaceStep === 'results' ? 'Comparez les notes, les temps de traitement et les écarts entre configurations.' : 'Retrouvez les essais précédents et comparez leurs performances grâce aux indicateurs graphiques.'}</p></div><span className="evaluation-step-chip">{evaluationWorkspaceStep === 'history' ? savedModelEvaluations.length + ' essai(s)' : modelEvaluationResults.length + ' résultat(s)'}</span></div>
-        {evaluationWorkspaceStep === 'execution' && <div className="evaluation-run-actions"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>{!validation.valid ? 'Vérifiez le barème avant de lancer l’expérience.' : !images.length ? 'Importez les pages de la copie dans l’étape précédente.' : selectedEvaluationProfileIds.length < 2 ? 'Sélectionnez au moins deux configurations.' : 'Le jeu d’essai est prêt à être lancé.'}</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 2 || !images.length || !validation.valid} onClick={() => void startModelEvaluation()}>{busy ? 'Évaluation locale en cours…' : 'Lancer l’expérience'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>}
+        {evaluationWorkspaceStep === 'execution' && <div className="evaluation-run-actions"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>{!validation.valid ? 'Vérifiez le barème avant de lancer l’expérience.' : evaluationStageMode !== 'analysis' && !images.length ? 'Importez les pages de la copie dans l’étape précédente.' : evaluationStageMode === 'analysis' && !transcription?.trim() ? 'Ajoutez ou vérifiez la transcription de référence dans la configuration.' : selectedEvaluationProfileIds.length < 2 ? 'Sélectionnez au moins deux configurations.' : 'Le jeu d’essai est prêt à être lancé.'}</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 2 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => void startModelEvaluation()}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? 'Comparer les modèles Vision' : evaluationStageMode === 'analysis' ? 'Comparer les modèles d’analyse' : 'Lancer le parcours complet'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>}
                 {evaluationWorkspaceStep === 'execution' && evaluationProgress && <section className="evaluation-progress" aria-labelledby="evaluation-progress-title" aria-live="polite">
           <div className="evaluation-progress-heading"><div><p className="eyebrow">SUIVI DE L’EXPÉRIENCE</p><h3 id="evaluation-progress-title">{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation interrompue' : 'Évaluation en cours'}</h3><p>{evaluationProgress.status === 'completed' ? 'Toutes les configurations ont été traitées.' : evaluationProgress.status === 'cancelled' ? 'La séquence a été arrêtée après l’appel en cours.' : evaluationProgress.currentConfiguration ? 'La configuration active est indiquée ci-dessous.' : 'Préparation de la prochaine configuration…'}</p></div><strong className="evaluation-progress-counter">{evaluationProgress.completedSteps} / {evaluationProgress.totalSteps} étapes terminées</strong></div>
           <div className="evaluation-progress-track" role="progressbar" aria-label="Étapes de traitement terminées" aria-valuemin={0} aria-valuemax={evaluationProgress.totalSteps} aria-valuenow={evaluationProgress.completedSteps}><span style={{ width: (evaluationProgress.completedSteps / Math.max(1, evaluationProgress.totalSteps) * 100) + '%' }} /></div>
@@ -1719,11 +1745,12 @@ export function App({ service, archiveService, evaluationService }: { service: C
           <div className="evaluation-section-heading"><div><p className="eyebrow">MESURES CONSERVÉES LOCALEMENT</p><h3 id="model-evaluation-history-title">Historique & comparaison graphique</h3><p>Sélectionnez deux expériences pour comparer, configuration par configuration, la durée de lecture, la durée d’analyse et les tokens rapportés par Ollama. Les images originales, le barème, les configurations et les résultats restent conservés dans IndexedDB sur cet appareil.</p></div><span className="evaluation-step-chip">{savedModelEvaluations.length} essai(s)</span></div>
           <div className="evaluation-history-selection" role="group" aria-label="Expériences à comparer">
             {savedModelEvaluations.map((record) => <label className={selectedEvaluationHistoryIds.includes(record.id) ? 'evaluation-history-option is-selected' : 'evaluation-history-option'} key={record.id}>
-              <input type="checkbox" checked={selectedEvaluationHistoryIds.includes(record.id)} disabled={!selectedEvaluationHistoryIds.includes(record.id) && selectedEvaluationHistoryIds.length >= 2} onChange={(event) => setSelectedEvaluationHistoryIds((current) => event.target.checked ? [...current, record.id].slice(-2) : current.filter((id) => id !== record.id))} />
-              <span><strong>{record.assignmentTitle}</strong><small>{new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {record.images.length} page(s)</small></span>
+              <input type="checkbox" checked={selectedEvaluationHistoryIds.includes(record.id)} disabled={!selectedEvaluationHistoryIds.includes(record.id) && (selectedEvaluationHistoryIds.length >= 2 || (selectedEvaluationHistoryRecords.length === 1 && (selectedEvaluationHistoryRecords[0].stage ?? 'integrated') !== (record.stage ?? 'integrated')))} onChange={(event) => setSelectedEvaluationHistoryIds((current) => event.target.checked ? [...current, record.id].slice(-2) : current.filter((id) => id !== record.id))} />
+              <span><strong>{record.assignmentTitle}</strong><small>{record.stage === 'vision' ? 'Vision seule' : record.stage === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {record.images.length} page(s)</small></span>
             </label>)}
           </div>
           {selectedEvaluationHistoryRecords.length === 2 ? (() => {
+            const comparisonStage = selectedEvaluationHistoryRecords[0]?.stage ?? 'integrated';
             const metrics = [
               { key: 'readingMs' as const, title: 'Temps de lecture', unit: 'durée', format: (value: number) => formatElapsed(Math.round(value / 1000)), model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.visionModel },
               { key: 'analysisMs' as const, title: 'Temps d’analyse', unit: 'durée', format: (value: number) => formatElapsed(Math.round(value / 1000)), model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.analysisModel },
@@ -1731,9 +1758,9 @@ export function App({ service, archiveService, evaluationService }: { service: C
               { key: 'analysisTokens' as const, title: 'Tokens d’analyse', unit: 'tokens', format: (value: number) => formatTokenCount(value), model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.analysisModel },
               { key: 'readingTokensPerSecond' as const, title: 'Débit de lecture', unit: 'tokens/s', format: (value: number) => value.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s', model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.visionModel },
               { key: 'analysisTokensPerSecond' as const, title: 'Débit d’analyse', unit: 'tokens/s', format: (value: number) => value.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s', model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.analysisModel },
-            ];
+            ].filter((metric) => comparisonStage === 'vision' ? metric.key.startsWith('reading') : comparisonStage === 'analysis' ? metric.key.startsWith('analysis') : true);
             return <section className="evaluation-history-comparison" aria-labelledby="evaluation-history-comparison-title">
-              <div className="evaluation-history-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h4 id="evaluation-history-comparison-title">Deux expériences, quatre indicateurs</h4></div><span>{selectedEvaluationHistoryRecords.map((record) => record.assignmentTitle).join(' ↔ ')}</span></div>
+              <div className="evaluation-history-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h4 id="evaluation-history-comparison-title">{comparisonStage === 'vision' ? 'Comparaison des modèles Vision' : comparisonStage === 'analysis' ? 'Comparaison des modèles d’analyse' : 'Comparaison du parcours complet'}</h4></div><span>{selectedEvaluationHistoryRecords.map((record) => record.assignmentTitle).join(' ↔ ')}</span></div>
               <div className="evaluation-history-chart-grid">
                 {metrics.map((metric) => {
                   const points = selectedEvaluationHistoryRecords.flatMap((record, experimentIndex) => record.results.map((result) => {

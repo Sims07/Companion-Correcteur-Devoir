@@ -15,6 +15,8 @@ export interface GradingRequest {
   subjectTranscription?: string;
   /** Reuse a previously extracted local transcription to rerun grading without vision inference. */
   transcription?: string;
+  /** Stop after local image transcription for an independent Vision benchmark. */
+  visionOnly?: boolean;
 }
 
 export interface DiagnosticModelResult {

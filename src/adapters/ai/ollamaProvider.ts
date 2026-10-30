@@ -146,11 +146,16 @@ export function createOllamaProvider(
     id: 'ollama',
     async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
-      if (!(settings.visionModel?.trim() || settings.model?.trim()) || !(settings.analysisModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de lecture et un modèle d’analyse.');
+      const visionOnly = request.visionOnly === true;
+      const hasTranscription = Boolean(request.transcription?.trim());
+      if (!visionOnly && !hasTranscription && !(settings.visionModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
+      if (!visionOnly && !(settings.analysisModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle d’analyse pour noter la transcription.');
+      if (visionOnly && !(settings.visionModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de vision pour évaluer la lecture des images.');
       const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
       const analysisModel = settings.analysisModel?.trim() || settings.model?.trim() || '';
       const useTwoModels = Boolean(settings.visionModel?.trim() && settings.analysisModel?.trim());
-      if (!visionModel || !analysisModel) throw new Error('Choisissez un modèle de lecture et un modèle d’analyse.');
+      if (!visionModel && !request.transcription) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
+      if (!analysisModel && !request.visionOnly) throw new Error('Choisissez un modèle d’analyse pour noter la transcription.');
 
       if (!request.question.trim()) throw new Error('La consigne de correction est vide.');
       if (!request.transcription && !request.images?.length) throw new Error('Ajoutez au moins une photo ou un PDF avant de lancer la correction.');
@@ -271,7 +276,7 @@ export function createOllamaProvider(
         }
       }
 
-      if (!useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription) {
+      if (!request.visionOnly && !useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription) {
         // Compatibility mode for existing callers configured with one model.
         return sendStream(analysisModel, buildPrompt(), (request.images ?? []).map((image) => image.base64), onChunk, true, settings.thinking ?? false, { kind: 'model', stage: 'analysis' });
       }
@@ -325,6 +330,10 @@ export function createOllamaProvider(
         transcription = transcriptions.join('\n\n');
         onTranscription?.(transcription, 'copy');
       }
+
+      // A vision benchmark stops after transcription: it must not call the analysis model.
+      // This keeps the two model roles independently measurable.
+      if (request.visionOnly) return transcription ?? '';
 
       onStage?.('grading');
       const gradingPrompt = buildPrompt(transcription, subjectTranscription);

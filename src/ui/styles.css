@@ -877,3 +877,23 @@ footer { padding-top: 24px; line-height: 1.6; }
 /* Show measured Ollama generation throughput without implying wall-clock speed. */
 .evaluation-history-model-stats .evaluation-throughput{font-weight:750;color:#3f7549;font-variant-numeric:tabular-nums}
 @media(max-width:520px){.evaluation-history-chart-grid{grid-template-columns:1fr}}
+
+
+/* Independent model-stage experiments: make the measured scope explicit before running. */
+.evaluation-stage-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0 10px}
+.evaluation-stage-picker button{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;padding:17px;border:1px solid #dce6db;border-radius:12px;background:#fff;text-align:left;cursor:pointer;transition:border-color .15s ease,background .15s ease,box-shadow .15s ease}
+.evaluation-stage-picker button:hover{border-color:#9bb99b}
+.evaluation-stage-picker button.is-active{border-color:#6f9b73;background:#edf5eb;box-shadow:inset 0 0 0 1px #6f9b73}
+.evaluation-stage-picker button strong{font-size:14px;color:#2d4432}
+.evaluation-stage-picker button small{font-size:11px;line-height:1.55;color:#6e7e70}
+.evaluation-stage-number{font-size:9px;font-weight:800;letter-spacing:.12em;color:#77917a}
+.evaluation-stage-guidance{margin:0 0 18px;padding:12px 14px;border-left:3px solid #83a886;border-radius:0 8px 8px 0;background:#f5f8f3;color:#536857;font-size:12px;line-height:1.6}
+@media(max-width:760px){.evaluation-stage-picker{grid-template-columns:1fr}.evaluation-stage-picker button{padding:13px}}
+@media(prefers-reduced-motion:reduce){.evaluation-stage-picker button{transition:none}}
+
+.evaluation-analysis-reference{display:grid;gap:11px;margin:18px 0 22px;padding:18px;border:1px solid #dce6db;border-radius:12px;background:#f8fbf7}
+.evaluation-analysis-reference h3{margin:3px 0 6px;font-size:16px;color:#2d4432}
+.evaluation-analysis-reference>div>p:not(.eyebrow){margin:0;color:#6e7e70;font-size:11px;line-height:1.6}
+.evaluation-analysis-reference textarea{width:100%;min-height:150px;resize:vertical;padding:12px;border:1px solid #d7e1d5;border-radius:9px;background:#fff;color:#293d2e;font:inherit;font-size:12px;line-height:1.6}
+.evaluation-analysis-reference textarea:focus{outline:2px solid #83a886;outline-offset:2px}
+.evaluation-reference-meta{margin:0;color:#718071;font-size:10px;font-variant-numeric:tabular-nums}

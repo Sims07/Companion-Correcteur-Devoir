@@ -32,6 +32,8 @@ export interface ModelEvaluationProgress {
 
 export interface ModelEvaluationOptions<T> {
   configurations: ModelEvaluationConfiguration[];
+  /** Restrict progress accounting to the independently evaluated stage(s). */
+  stages?: Array<'reading' | 'analysis'>;
   execute: (configuration: ModelEvaluationConfiguration, isCancelled: () => boolean, onStage: (stage: 'reading' | 'analysis') => void) => Promise<T>;
   isCancelled?: () => boolean;
   onProgress?: (progress: ModelEvaluationProgress) => void;
@@ -48,7 +50,8 @@ export async function runModelEvaluation<T>(options: ModelEvaluationOptions<T>):
   const isCancelled = options.isCancelled ?? (() => false);
   const now = options.now ?? Date.now;
   const outputs: ModelEvaluationOutput<T>[] = [];
-  const totalSteps = configurations.length * 2;
+  const stages = options.stages?.length ? options.stages : ['reading', 'analysis'];
+  const totalSteps = configurations.length * stages.length;
   let completedSteps = 0;
   const report = (currentConfiguration: ModelEvaluationConfiguration | null, status: ModelEvaluationProgress['status'], currentStage: ModelEvaluationProgress['currentStage'] = null) => {
     onProgress?.({ completed: outputs.length, total: configurations.length, currentConfiguration, status, completedSteps, totalSteps, currentStage });
@@ -62,12 +65,12 @@ export async function runModelEvaluation<T>(options: ModelEvaluationOptions<T>):
     const startedAt = new Date(started).toISOString();
     try {
       const value = await execute(configuration, isCancelled, (stage) => {
-        if (currentStage === 'reading' && stage === 'analysis') completedSteps += 1;
+        if (currentStage === 'reading' && stage === 'analysis' && stages.includes('reading')) completedSteps += 1;
         currentStage = stage;
         report(configuration, 'running', currentStage);
       });
       const finished = now();
-      completedSteps += currentStage === 'reading' ? 1 : currentStage === 'analysis' ? 1 : 0;
+      if (currentStage && stages.includes(currentStage)) completedSteps += 1;
       outputs.push({ configuration, startedAt, finishedAt: new Date(finished).toISOString(), elapsedMs: Math.max(0, finished - started), status: 'success', value });
       if (isCancelled()) break;
     } catch (cause) {
@@ -165,4 +168,6 @@ export interface ModelEvaluationRecord {
   subjectTranscription: string | null;
   configurations: ModelEvaluationConfiguration[];
   results: ModelEvaluationResultSnapshot[];
+  /** Stage measured by this experiment; absent means a legacy full-pipeline run. */
+  stage?: 'vision' | 'analysis' | 'integrated';
 }
