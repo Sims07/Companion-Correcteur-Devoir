@@ -452,7 +452,7 @@ export function createOllamaProvider(
           });
           const subjectStopReached = /(?:\r?\n){4}$/.test(pageText);
           const cleanedSubjectText = cleanTranscription(pageText);
-          subjectPages.push(`[ ${pageLabel} ]\n${cleanedSubjectText}${subjectTruncated || subjectStopReached ? ' [LECTURE DOUTEUSE : transcription interrompue par la limite de génération]' : ''}`);
+          subjectPages.push(`[ ${pageLabel} ]\n${cleanedSubjectText}${subjectTruncated || subjectStopReached ? ' [LECTURE DOUTEUSE : transcription possiblement interrompue par une longue zone blanche ou la limite de génération]' : ''}`);
         }
         subjectTranscription = subjectPages.join('\n\n');
         onTranscription?.(subjectTranscription, 'subject');
@@ -509,7 +509,7 @@ export function createOllamaProvider(
             ).catch(() => '');
             regionAnchors = normalizeRegions(regionResult, index + 1, pageText);
           }
-          const doubtfulMarker = transcriptionTruncated ? ' [LECTURE DOUTEUSE : transcription interrompue par la limite de génération]' : '';
+          const doubtfulMarker = transcriptionTruncated ? ' [LECTURE DOUTEUSE : transcription possiblement interrompue par une longue zone blanche ou la limite de génération]' : '';
           transcriptions.push([`[ ${pageLabel} ]`, pageText + doubtfulMarker, ...regionAnchors].join('\n'));
         }
         transcription = transcriptions.join('\n\n');
@@ -818,7 +818,7 @@ export async function importRubricImageWithOllama(
     const transcription = cleanTranscription(rawTranscription);
     if (!transcription) throw new Error(`Le modèle de vision n’a retourné aucune transcription pour la page ${page}.`);
     const doubtful = payload.done_reason === 'length' || /(?:\r?\n){4}$/.test(rawTranscription);
-    transcriptions.push(` ${transcription}${doubtful ? ' [LECTURE DOUTEUSE : transcription interrompue par la limite de génération]' : ''}`.trim());
+    transcriptions.push(` ${transcription}${doubtful ? ' [LECTURE DOUTEUSE : transcription possiblement interrompue par une longue zone blanche ou la limite de génération]' : ''}`.trim());
     onProgress?.({
       stage: 'vision-reading',
       page,
