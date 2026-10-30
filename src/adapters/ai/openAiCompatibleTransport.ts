@@ -30,7 +30,7 @@ function streamAsOllama(response: Response): Response {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let buffer = '';
-  let dataLines: string[] = '';
+  let dataLines: string[] = [];
 
   const body = new ReadableStream<Uint8Array>({
     async pull(controller) {
