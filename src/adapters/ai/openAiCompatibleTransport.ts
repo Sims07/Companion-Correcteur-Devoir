@@ -118,7 +118,7 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     if (!requestUrl.endsWith('/api/chat')) return fetchImpl(input, init);
-    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[] }>; options?: { temperature?: number; num_predict?: number }; format?: unknown } =
+    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[] }>; options?: { temperature?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number }; format?: unknown } =
       typeof init?.body === 'string' ? JSON.parse(init.body) : {};
     const body = {
       model: source.model ?? '',
@@ -126,8 +126,8 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
       messages: openAiMessages(source.messages ?? []),
       ...(source.options?.temperature !== undefined ? { temperature: source.options.temperature } : {}),
       ...(source.options?.num_predict !== undefined ? { max_tokens: source.options.num_predict } : {}),
-      ...(source.format ? { response_format: { type: 'json_object' } } : {}),
-      ...(source.stream ? { stream_options: { include_usage: true } } : {}),
+      ...(source.options?.stop?.length ? { stop: source.options.stop } : {}),
+      ...(source.format === 'json' ? { response_format: { type: 'json_object' } } : {}),
     };
     const response = await fetchImpl(url, {
       ...init,
