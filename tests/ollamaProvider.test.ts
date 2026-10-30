@@ -221,7 +221,7 @@ describe('Ollama adapter', () => {
       .mockResolvedValueOnce(streamingResponse(JSON.stringify({ annotations: [{ text: '2/3', kind: 'score', points: 2, color: 'rouge', location: 'marge droite', confidence: 'high' }] })))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const annotations: string[] = [];
-    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b', detectTeacherAnnotations: true }, fetchMock);
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
     await provider.generate({ ...request, detectTeacherAnnotations: true }, undefined, undefined, (value, kind) => { if (kind === 'annotations') annotations.push(value); });
     expect(fetchMock).toHaveBeenCalledTimes(3);
     const detectionRequest = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
@@ -239,8 +239,8 @@ describe('Ollama adapter', () => {
       .mockResolvedValueOnce(streamingResponse('Réponse de l’étudiant'))
       .mockResolvedValueOnce(streamingResponse(JSON.stringify({ annotations: [{ text: '1/2', kind: 'score', points: 1, color: 'rouge', location: 'marge', confidence: 'medium' }] })))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
-    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava', detectTeacherAnnotations: true }, fetchMock);
-    await provider.generate(request);
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock);
+    await provider.generate({ ...request, detectTeacherAnnotations: true });
     expect(fetchMock).toHaveBeenCalledTimes(3);
     const gradingRequest = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
     expect(gradingRequest.messages[0].content).toContain('<annotations_professeur>');
