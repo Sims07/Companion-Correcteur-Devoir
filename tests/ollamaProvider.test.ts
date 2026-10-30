@@ -239,7 +239,7 @@ describe('Ollama adapter', () => {
     const regionsBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
     expect(regionsBody.model).toBe('locator');
     expect(regionsBody.format).toBe('json');
-    expect(regionsBody.messages[0].content).toContain('"regions": []');
+    expect(regionsBody.messages[0].content).toContain('{"regions":[]}');
     const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
     expect(gradingBody.model).toBe('grader');
     expect(gradingBody.messages[0].content).toContain('Question 1\nRéponse manuscrite.');
@@ -285,7 +285,7 @@ describe('Ollama adapter', () => {
     const regionsBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
     expect(regionsBody.model).toBe('regions-model');
     expect(regionsBody.response_format).toEqual({ type: 'json_object' });
-    expect(regionsBody.messages[0].content[0].text).toContain('"regions": []');
+    expect(regionsBody.messages[0].content[0].text).toContain('{"regions":[]}');
     expect(regionsBody.messages[0].content[1].image_url.url).toBe('data:image/png;base64,aGVsbG8=');
 
     const analysisBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
@@ -508,7 +508,7 @@ describe('Ollama adapter', () => {
     expect(firstPage.keep_alive).toBe('30s');
     expect(firstPage.messages[0].images).toEqual(['cGFnZTE=']);
     expect(firstPage.options?.temperature).toBe(0);
-    expect(firstPage.messages[0].content).toContain('locate visible answer regions');
+    expect(firstPage.messages[0].content).toBe('Text Recognition:');
     expect(lastPage.model).toBe('gemma3:4b');
     expect(lastPage.keep_alive).toBe(0);
     expect(lastPage.messages[0].images).toEqual(['cGFnZTI=']);
@@ -534,7 +534,7 @@ describe('Ollama adapter', () => {
     expect(subjectBody.messages[0].images).toEqual(['c3ViamV0']);
     expect(subjectBody.keep_alive).toBe('30s'); // Keep vision warm for the following copy page.
     const copyBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { keep_alive?: string | number; messages: Array<{ content: string; images?: string[] }> };
-    expect(copyBody.messages[0].content).toContain('locate visible answer regions');
+    expect(copyBody.messages[0].content).toBe('Text Recognition:');
     expect(copyBody.keep_alive).toBe(0); // Final vision page: release RAM before grading.
     const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
     expect(gradingBody.messages[0].content).toContain('<sujet_reference>');
