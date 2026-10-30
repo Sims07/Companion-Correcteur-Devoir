@@ -1245,6 +1245,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setShowOnlyFlagged(false);
     setTeacherQuestions(snapshot.teacherQuestions);
     setImages(snapshot.images);
+    setDetectTeacherAnnotations(snapshot.detectTeacherAnnotations ?? false);
     setTranscription(snapshot.transcription);
     setSubjectImages(snapshot.subjectImages);
     setSubjectTranscription(snapshot.subjectTranscription);
