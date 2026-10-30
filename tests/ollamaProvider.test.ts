@@ -219,7 +219,7 @@ describe('Ollama adapter', () => {
     expect(visionBody.messages[0].content).toContain('Transcris fidèlement');
     expect(visionBody.messages[0].images).toEqual(['aGVsbG8=']);
     expect(visionBody.format).toBeUndefined();
-    expect(visionBody.options).toMatchObject({ temperature: 0, num_predict: 2048, repeat_penalty: 1.05, stop: ['\n\n\n'] });
+    expect(visionBody.options).toMatchObject({ temperature: 0, num_predict: 2048, repeat_penalty: 1.05, stop: ['\n\n\n\n'] });
     expect(transcriptions[0]).toContain('Transcription fidèle de la copie');
     expect(transcriptions[0]).not.toMatch(/\\n{3,}$/);
 
@@ -238,7 +238,7 @@ describe('Ollama adapter', () => {
     const transcriptions: string[] = [];
     const provider = createOllamaProvider({
       endpoint: 'http://localhost:11434',
-      visionModel: 'transcriber',
+      visionModel: 'glm-ocr:latest',
       regionsEnabled: true,
       regionsModel: 'locator',
       analysisModel: 'grader',
@@ -543,13 +543,13 @@ describe('Ollama adapter', () => {
     const analysis = JSON.parse(String(fetchMock.mock.calls[4][1]?.body));
     expect(firstPage.model).toBe('gemma3:4b');
     expect(firstPage.keep_alive).toBe('30s');
-    expect(firstPage.messages[0].content).toBe('Text Recognition:');
+    expect(firstPage.messages[0].content).toContain('Transcris fidèlement');
     expect(firstPage.messages[0].images).toEqual(['cGFnZTE=']);
     expect(firstRegions.keep_alive).toBe('30s');
     expect(firstRegions.format).toBe('json');
     expect(lastPage.model).toBe('gemma3:4b');
     expect(lastPage.keep_alive).toBe('30s');
-    expect(lastPage.messages[0].content).toBe('Text Recognition:');
+    expect(lastPage.messages[0].content).toContain('Transcris fidèlement');
     expect(lastPage.messages[0].images).toEqual(['cGFnZTI=']);
     expect(lastRegions.keep_alive).toBe(0);
     expect(lastRegions.format).toBe('json');
@@ -574,7 +574,7 @@ describe('Ollama adapter', () => {
     expect(subjectBody.messages[0].images).toEqual(['c3ViamV0']);
     expect(subjectBody.keep_alive).toBe('30s'); // Keep vision warm for the following copy page.
     const copyBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { keep_alive?: string | number; messages: Array<{ content: string; images?: string[] }> };
-    expect(copyBody.messages[0].content).toBe('Text Recognition:');
+    expect(copyBody.messages[0].content).toContain('Transcris fidèlement');
     expect(copyBody.keep_alive).toBe(0); // Final vision page: release RAM before grading.
     const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
     expect(gradingBody.messages[0].content).toContain('<sujet_reference>');
