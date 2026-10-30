@@ -54,7 +54,9 @@ describe('teacher and AI diagnostic interface modes', () => {
     const text = app();
     expect(text).toContain('Choisir les configurations à comparer');
     expect(text).toContain('Configurations à exécuter');
-    expect(text).toContain('Lancer l’expérience');
+    expect(text).toContain('Comparer les modèles Vision');
+    expect(text).toContain('Comparer les modèles d’analyse');
+    expect(text).toContain('Lancer le parcours complet');
     expect(text).toContain('Annuler après l’appel en cours');
     expect(text).toContain('runModelEvaluation({');
     expect(text).toContain('images: structuredClone(images)');
@@ -294,7 +296,9 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('id="evaluation-vision-model"');
     expect(text).toContain('id="evaluation-analysis-model"');
     expect(text).toContain('id="evaluation-results"');
-    expect(text).toContain('Lancer l’expérience');
+    expect(text).toContain('Comparer les modèles Vision');
+    expect(text).toContain('Comparer les modèles d’analyse');
+    expect(text).toContain('Lancer le parcours complet');
     expect(text).toContain('Debug des appels IA locaux');
     expect(evaluation).toContain('Sélection pour cette expérience');
     expect(evaluation).not.toContain('Lancer la correction');
