@@ -36,7 +36,6 @@ test('assignment management stays collapsed until requested and supports create,
   await page.getByRole('button', { name: 'Supprimer', exact: true }).click();
 
   await expect(currentAssignment).toContainText('Devoir de biologie');
-  await currentAssignment.click();
   await page.locator('.sidebar-assignment-actions summary[aria-label="Actions pour Devoir de biologie"]').click();
   await expect(page.getByRole('button', { name: 'Supprimer', exact: true })).toBeDisabled();
 });
