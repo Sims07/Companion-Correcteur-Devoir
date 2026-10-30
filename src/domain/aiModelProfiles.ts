@@ -49,7 +49,7 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
 function isConfiguration(value: unknown): value is AiModelConfiguration {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<AiModelConfiguration>;
-  return typeof candidate.endpoint === 'string' && typeof candidate.apiCompatible === 'boolean' && typeof candidate.apiKey === 'string' && typeof candidate.visionModel === 'string' && typeof candidate.analysisModel === 'string' &&
+  return typeof candidate.endpoint === 'string' && (candidate.apiCompatible === undefined || typeof candidate.apiCompatible === 'boolean') && (candidate.apiKey === undefined || typeof candidate.apiKey === 'string') && typeof candidate.visionModel === 'string' && typeof candidate.analysisModel === 'string' &&
     typeof candidate.secondAnalysisModel === 'string' && typeof candidate.arbitratorModel === 'string' && isStrategy(candidate.diagnosticStrategy) && typeof candidate.analysisThinking === 'boolean';
 }
 
@@ -59,7 +59,8 @@ export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {
     const value: unknown = JSON.parse(raw);
     if (!Array.isArray(value)) return [];
     return value.filter((item): item is AiModelProfile => Boolean(item) && typeof item === 'object' && typeof item.id === 'string' &&
-      typeof item.name === 'string' && item.name.trim().length > 0 && isStrategy(item.mode) && isConfiguration(item.configuration) && typeof item.updatedAt === 'string');
+      typeof item.name === 'string' && item.name.trim().length > 0 && isStrategy(item.mode) && isConfiguration(item.configuration) && typeof item.updatedAt === 'string')
+      .map((item) => ({ ...item, configuration: { ...defaultAiModelConfiguration, ...item.configuration } }));
   } catch { return []; }
 }
 
