@@ -1233,7 +1233,6 @@ export function App({ service, archiveService, evaluationService }: { service: C
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}
       {interfaceMode === 'observability' && <ObservabilityDashboard records={timingHistory} />}
-      {interfaceMode === 'observability' && <ObservabilityDashboard records={timingHistory} />}
       {interfaceMode === 'diagnostic' && <section className="evaluation-page-header" aria-labelledby="evaluation-page-title">
         <div><p className="eyebrow">ESPACE EXPÉRIMENTAL · OLLAMA LOCAL</p><h1 id="evaluation-page-title">Évaluation des modèles</h1><p>Comparez plusieurs configurations sur la même copie et le même barème. Les essais, les images et les résultats restent sur cet appareil et votre serveur Ollama.</p><div className="evaluation-page-badges"><span>Traitement local</span><span>2 à 3 configurations</span><span>Validation humaine</span></div></div>
       </section>}
