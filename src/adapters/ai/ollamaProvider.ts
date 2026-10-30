@@ -1041,7 +1041,7 @@ export async function importRubricImageWithOllama(
   } catch (cause) {
     if (signal?.aborted) throw new Error('Import du barème interrompu par l’enseignant.');
     const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';
-    const safeDetail = detail.replace(/(?:Bearer\\s+)[^\\s"']+/gi, 'Bearer [masqué]').slice(0, 500);
+    const safeDetail = detail.replace(/(?:Bearer\s+)[^\s"']+/gi, 'Bearer [masqué]').slice(0, 500);
     onProgress?.({
       stage: 'error',
       page: images.length,

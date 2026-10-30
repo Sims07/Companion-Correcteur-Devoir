@@ -126,6 +126,7 @@ type TimingRecord = {
   analysisSeconds: number | null;
   totalSeconds: number;
   outcome: 'success' | 'error';
+  source?: 'rubric-import';
   modelScore: number | null;
   criterionScores: DiagnosticCriterionScore[];
   assignmentId?: string;
@@ -562,6 +563,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
           analysisSeconds: analysisMs / 1000,
           totalSeconds: Math.max(0, Date.now() - importStartedAt) / 1000,
           outcome: rubricImportSucceeded ? 'success' : 'error',
+          source: 'rubric-import',
           modelScore: null,
           criterionScores: [],
           assignmentId: activeAssignmentId,
