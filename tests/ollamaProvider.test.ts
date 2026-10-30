@@ -907,6 +907,8 @@ describe('Ollama adapter', () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: 'Page 1 du barème.' } }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: 'Page 2 du barème.' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: rubricJson } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: rubricJson } }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: rubricJson } }), { status: 200 }));
 
     await importRubricImageWithOllama([
