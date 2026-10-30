@@ -241,3 +241,22 @@ describe('Durées réelles des étapes de traitement', () => {
     expect(appSource).toContain("onStage('analysis')");
   });
 });
+
+
+describe('Évaluation des modèles — résultats adaptés au type d’expérience', () => {
+  it('changes the results heading and explanation for Vision, Analysis and the full pipeline', () => {
+    expect(appSource).toContain("evaluationStageMode === 'vision' ? 'Résultats de la lecture Vision'");
+    expect(appSource).toContain("evaluationStageMode === 'analysis' ? 'Résultats de l’analyse'");
+    expect(appSource).toContain("'Résultats du parcours complet'");
+    expect(appSource).toContain('Examinez les transcriptions produites et les performances des modèles de lecture.');
+    expect(appSource).toContain('Examinez les notes proposées, les justifications et les écarts entre modèles');
+  });
+
+  it('shows only Vision metrics for Vision-only runs, only analysis metrics for Analysis-only runs, and both for full runs', () => {
+    expect(appSource).toContain("evaluationStageMode !== 'analysis' && <p className=\"evaluation-result-stage-metrics\">Lecture Vision");
+    expect(appSource).toContain("evaluationStageMode !== 'vision' && <p className=\"evaluation-result-stage-metrics\">Analyse");
+    expect(appSource).toContain("evaluationStageMode !== 'vision' && <p className=\"evaluation-result-score\">");
+    expect(appSource).toContain("details open={evaluationStageMode === 'vision'}");
+    expect(appSource).toContain("details open={evaluationStageMode !== 'vision'}");
+  });
+});
