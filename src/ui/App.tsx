@@ -732,7 +732,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         const readingTokensPerSecond = calculateReportedTokensPerSecondForStage(measuredRuns, 'reading');
         const analysisTokensPerSecond = calculateReportedTokensPerSecondForStage(measuredRuns, 'analysis');
         const tokens = measuredRuns.some((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined || run.totalTokens !== undefined) ? measuredRuns.reduce((sum, run) => sum + (run.totalTokens ?? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0)), 0) : null;
-        return { transcription: extractedTranscription, raw, score, proposal: parsedProposal, readingMs, analysisMs, readingTokens, analysisTokens, readingTokensPerSecond, analysisTokensPerSecond, tokens, elapsedMs: finishedAt - startedAt };
+        return { transcription: extractedTranscription, raw, score, proposal: parsedProposal, readingMs, analysisMs, readingTokens, analysisTokens, readingTokensPerSecond, analysisTokensPerSecond, tokens, diagnosticRuns: measuredRuns, elapsedMs: finishedAt - startedAt };
       },
     });
     setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: 'running' } : current);
@@ -757,6 +757,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       raw: output.value?.raw ?? '',
       score: output.value?.score ?? null,
       proposal: output.value?.proposal ?? null,
+      diagnosticRuns: output.value?.diagnosticRuns ?? [],
       ...(output.error ? { error: output.error } : {}),
     }));
     setModelEvaluationResults(results);
