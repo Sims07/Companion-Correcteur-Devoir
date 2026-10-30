@@ -1165,6 +1165,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       id: `queued-copy-${crypto.randomUUID()}`,
       label: studentLabel.trim() || images[0]?.fileName || `Copie ${copyQueue.length + 1}`,
       images: structuredClone(images),
+      detectTeacherAnnotations,
     };
     setCopyQueue((current) => appendQueuedCopy(current, queued));
     setStudentLabel('');
