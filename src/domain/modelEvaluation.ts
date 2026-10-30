@@ -132,6 +132,27 @@ export function calculateReportedTokensPerSecondForStage(
   return Math.round(generatedTokens / (generationMs / 1000) * 100) / 100;
 }
 
+export interface ModelEvaluationCallTrace {
+  kind: 'vision' | 'model' | 'arbitrator';
+  stage?: 'reading' | 'analysis' | 'arbitration';
+  model: string;
+  requestPrompt?: string;
+  requestMetadata?: { stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number } };
+  raw: string;
+  elapsedMs: number;
+  promptTokens?: number;
+  generatedTokens?: number;
+  totalTokens?: number;
+  promptEvaluationMs?: number;
+  generationMs?: number;
+  loadMs?: number;
+  tokensPerSecond?: number;
+  doneReason?: string;
+  thinkingPresent?: boolean;
+  contextTokens?: number;
+  generationTokenLimit?: number;
+}
+
 export interface ModelEvaluationResultSnapshot {
   profileId: string;
   profileName: string;
@@ -153,6 +174,8 @@ export interface ModelEvaluationResultSnapshot {
   score: number | null;
   proposal: GradingProposal | null;
   error?: string;
+  /** Per-call local LLM traces, including prompt and raw response (never image bytes). */
+  diagnosticRuns?: ModelEvaluationCallTrace[];
 }
 
 export interface ModelEvaluationRecord {
