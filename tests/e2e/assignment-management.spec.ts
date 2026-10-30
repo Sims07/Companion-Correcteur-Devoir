@@ -28,7 +28,7 @@ test('assignment management stays collapsed until requested and supports create,
   await expect(page.getByRole('button', { name: 'Continuer vers la copie' })).toBeDisabled();
 
   await currentAssignment.click();
-  await page.getByRole('button', { name: 'Actions pour Contrôle de biologie' }).click();
+  await page.locator('.sidebar-assignment-actions summary[aria-label="Actions pour Contrôle de biologie"]').click();
   page.on('dialog', async (dialog) => {
     expect(dialog.message()).toContain('Les corrections déjà archivées seront conservées');
     await dialog.accept();
@@ -37,7 +37,7 @@ test('assignment management stays collapsed until requested and supports create,
 
   await expect(currentAssignment).toContainText('Devoir de biologie');
   await currentAssignment.click();
-  await page.getByRole('button', { name: 'Actions pour Devoir de biologie' }).click();
+  await page.locator('.sidebar-assignment-actions summary[aria-label="Actions pour Devoir de biologie"]').click();
   await expect(page.getByRole('button', { name: 'Supprimer', exact: true })).toBeDisabled();
 });
 
