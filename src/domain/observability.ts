@@ -10,6 +10,9 @@ export type ObservabilitySpan = {
   totalTokens?: number;
   generationMs?: number;
   loadMs?: number;
+  requestPrompt?: string;
+  requestMetadata?: { stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; temperature?: number };
+  raw?: string;
 };
 
 export type ObservabilityTrace = {
@@ -30,15 +33,15 @@ export type ObservabilityTrace = {
 
 };
 
-/** Convert each saved model/profile result into a privacy-safe trace for the shared dashboard. */
+/** Convert each saved model/profile result into a local trace without retaining image payloads. */
 export function toModelEvaluationObservabilityTraces(records: import('./modelEvaluation.ts').ModelEvaluationRecord[]): ObservabilityTrace[] {
   return records.flatMap((record) => record.results.map((result) => {
     const configuration = record.configurations.find((item) => item.id === result.profileId);
     const stage = record.stage ?? 'integrated';
     const readingSeconds = stage === 'analysis' ? null : result.readingMs / 1000;
     const analysisSeconds = stage === 'vision' ? null : result.analysisMs / 1000;
-    const diagnosticRuns: ObservabilitySpan[] = [];
-    if (stage !== 'analysis' && configuration?.visionModel) {
+    const diagnosticRuns: ObservabilitySpan[] = result.diagnosticRuns?.length ? result.diagnosticRuns.map((run) => ({ ...run })) : [];
+    if (!result.diagnosticRuns?.length && stage !== 'analysis' && configuration?.visionModel) {
       diagnosticRuns.push({
         model: configuration.visionModel,
         kind: 'vision',
@@ -47,7 +50,7 @@ export function toModelEvaluationObservabilityTraces(records: import('./modelEva
         ...(result.readingTokens === null || result.readingTokens === undefined ? {} : { totalTokens: result.readingTokens }),
       });
     }
-    if (stage !== 'vision' && configuration?.analysisModel) {
+    if (!result.diagnosticRuns?.length && stage !== 'vision' && configuration?.analysisModel) {
       diagnosticRuns.push({
         model: configuration.analysisModel,
         kind: 'model',
