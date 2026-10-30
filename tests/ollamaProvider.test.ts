@@ -201,7 +201,7 @@ describe('Ollama adapter', () => {
     ] });
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'knowledge', points: 4, confidence: 'high', rationale: '', evidence: '' })))
-      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'reasoning', points: 3, confidence: 'medium', rationale: 'Le lien causal est incomplet.', evidence: 'La conséquence est absente.' })));
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'reasoning', points: 3, confidence: 'medium', rationale: 'Le lien causal est incomplet.', evidence: 'La conséquence est absente.', annotationSuggestion: 'Précise la conséquence de la division.' })));
     const updates: Array<{ status: string; criterionId: string }> = [];
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision-model', analysisModel: 'analysis-model' }, fetchMock);
     const raw = await provider.generate({ question: request.question, rubric, images: [], transcription: 'La cellule se divise. Cela produit deux cellules.' }, undefined, undefined, undefined, undefined, (update) => updates.push({ status: update.status, criterionId: update.criterionId }));
@@ -211,15 +211,17 @@ describe('Ollama adapter', () => {
     const second = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { messages: Array<{ content: string }>; options: { num_predict: number } };
     const firstPrompt = first.messages[0].content;
     const secondPrompt = second.messages[0].content;
-    const firstSuffix = firstPrompt.slice(firstPrompt.indexOf('ÉVALUATION INCRÉMENTALE'));
-    const secondSuffix = secondPrompt.slice(secondPrompt.indexOf('ÉVALUATION INCRÉMENTALE'));
-    expect(firstPrompt.slice(0, firstPrompt.indexOf('ÉVALUATION INCRÉMENTALE'))).toBe(secondPrompt.slice(0, secondPrompt.indexOf('ÉVALUATION INCRÉMENTALE')));
+    const firstSuffix = firstPrompt.slice(firstPrompt.indexOf('MODE INCRÉMENTAL'));
+    const secondSuffix = secondPrompt.slice(secondPrompt.indexOf('MODE INCRÉMENTAL'));
+    expect(firstPrompt.slice(0, firstPrompt.indexOf('MODE INCRÉMENTAL'))).toBe(secondPrompt.slice(0, secondPrompt.indexOf('MODE INCRÉMENTAL')));
     expect(firstSuffix).toContain('"id":"knowledge"');
+    expect(firstSuffix).toContain('annotationSuggestion');
+    expect(firstSuffix).toContain('N’évalue aucun autre critère');
     expect(secondSuffix).toContain('"id":"reasoning"');
     expect(first.options.num_predict).toBe(512);
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).keep_alive).toBe('30s');
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).keep_alive).toBe(0);
-    expect(JSON.parse(raw)).toMatchObject({ finalScore: 7, criteria: [{ criterionId: 'knowledge', points: 4 }, { criterionId: 'reasoning', points: 3 }] });
+    expect(JSON.parse(raw)).toMatchObject({ finalScore: 7, criteria: [{ criterionId: 'knowledge', points: 4 }, { criterionId: 'reasoning', points: 3, annotationSuggestion: 'Précise la conséquence de la division.' }] });
     expect(updates.filter((item) => item.status === 'completed').map((item) => item.criterionId)).toEqual(['knowledge', 'reasoning']);
   });
 
