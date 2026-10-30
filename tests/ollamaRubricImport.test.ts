@@ -15,13 +15,15 @@ describe('importRubricImageWithOllama', () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(visionResponse('Page 1 : Questions 1 et 2, 5 points chacune.'))
       .mockResolvedValueOnce(visionResponse('Page 2 : Questions 3 et 4, 5 points chacune.'))
+      .mockResolvedValueOnce(analysisResponse(validRubric))
+      .mockResolvedValueOnce(analysisResponse(validRubric))
       .mockResolvedValueOnce(analysisResponse(validRubric));
     const pages = [page('PAGE_ONE', 'bareme.pdf · page 1'), page('PAGE_TWO', 'bareme.pdf · page 2')];
     const result = await importRubricImageWithOllama(pages, {
       endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b', analysisModel: 'text-model',
     }, fetchMock);
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(fetchMock.mock.calls.slice(0, 2).map((call) => JSON.parse(call[1].body as string).messages[0].images)).toEqual([['PAGE_ONE'], ['PAGE_TWO']]);
     const firstBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(firstBody.model).toBe('qwen3.5:4b');
@@ -31,11 +33,14 @@ describe('importRubricImageWithOllama', () => {
     expect(firstBody.messages[0].content).toContain('Arrête-toi à la dernière ligne visible');
     expect(firstBody.messages[0].content).toContain('N’invente jamais la suite d’une question');
     expect(firstBody.options).toMatchObject({ temperature: 0, num_predict: 2048, stop: ['\n\n\n\n'], repeat_penalty: 1.05 });
-    const analysisBody = JSON.parse(fetchMock.mock.calls[2][1].body as string);
-    expect(analysisBody.model).toBe('text-model');
-    expect(analysisBody.messages[0].images).toBeUndefined();
-    expect(analysisBody.messages[0].content).toContain('<transcription_page_1>');
-    expect(analysisBody.messages[0].content).toContain('<transcription_page_2>');
+    const firstAnalysisBody = JSON.parse(fetchMock.mock.calls[2][1].body as string);
+    const secondAnalysisBody = JSON.parse(fetchMock.mock.calls[3][1].body as string);
+    const finalMergeBody = JSON.parse(fetchMock.mock.calls[4][1].body as string);
+    expect(firstAnalysisBody.model).toBe('text-model');
+    expect(firstAnalysisBody.messages[0].images).toBeUndefined();
+    expect(firstAnalysisBody.messages[0].content).toContain('<transcription_page_1>');
+    expect(secondAnalysisBody.messages[0].content).toContain('<transcription_page_2>');
+    expect(finalMergeBody.messages[0].content).toContain('<partial_rubric_1>');
     expect(result.rubric.criteria.map(({ title, maxPoints }) => [title, maxPoints])).toEqual([
       ['Question 1 — Photosynthèse', 5], ['Question 2 — Membrane plasmique', 5], ['Question 3 — Respiration cellulaire', 5], ['Question 4 — ADN et protéines', 5],
     ]);
