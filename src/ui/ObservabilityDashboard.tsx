@@ -100,7 +100,7 @@ export function ObservabilityDashboard({ records }: Props) {
 
   return <section className="observability-workspace" aria-labelledby="observability-title">
     <header className="observability-page-heading">
-      <div><p className="observability-eyebrow">PILOTAGE LOCAL · OLLAMA</p><h1 id="observability-title">Observabilité</h1><p>Comprenez les performances et la fiabilité de votre chaîne de correction, sans exposer les copies.</p></div>
+      <div><p className="observability-eyebrow">PILOTAGE IA · TRAÇABILITÉ</p><h1 id="observability-title">Observabilité</h1><p>Comprenez les performances et la fiabilité de votre chaîne de correction, sans exposer les copies.</p></div>
       <div className="observability-local-badge"><span></span>Données conservées sur cet appareil</div>
     </header>
 
@@ -166,6 +166,6 @@ export function ObservabilityDashboard({ records }: Props) {
       </div>
       {filteredRecords.length ? <div className="observability-trace-list">{filteredRecords.map((trace) => <TraceDetails key={trace.id} trace={trace} />)}</div> : <div className="observability-empty-state"><span>⌕</span><strong>Aucune trace ne correspond à votre recherche</strong><p>Modifiez le filtre ou lancez une nouvelle correction / évaluation.</p></div>}
     </section>
-    <p className="observability-footnote">Les indicateurs reflètent uniquement les données effectivement remontées par Ollama et conservées localement. Une note proposée n’est pas une mesure de qualité pédagogique sans référence validée par l’enseignant.</p>
+    <p className="observability-footnote">Les indicateurs reflètent uniquement les données effectivement remontées par le fournisseur configuré et conservées localement. Une note proposée n’est pas une mesure de qualité pédagogique sans référence validée par l’enseignant.</p>
   </section>;
 }
