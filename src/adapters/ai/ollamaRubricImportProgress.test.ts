@@ -194,6 +194,8 @@ describe('rubric import progress', () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(visionResponse('Page 1 : Exercice 1, critère 1, 2 points.'))
       .mockResolvedValueOnce(visionResponse('Page 2 : Exercice 2, critère 2, 3 points.'))
+      .mockResolvedValueOnce(analysisResult)
+      .mockResolvedValueOnce(analysisResult)
       .mockResolvedValueOnce(analysisResult) as unknown as typeof fetch;
 
     const result = await importRubricImageWithOllama(
@@ -264,18 +266,12 @@ describe('rubric import progress', () => {
       message: { content: JSON.stringify({ title: 'TP5 — Mitose', criteria }) },
       done_reason: 'stop',
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    const fetchMock = vi.fn()
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[0])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[1])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[2])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[3])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[4])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[5])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[6])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[7])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[8])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[9])))
-      .mockResolvedValueOnce(analysisResponse) as unknown as typeof fetch;
+    let visionIndex = 0;
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { stream?: boolean };
+      if (body.stream) return visionResponse(pages[visionIndex++]);
+      return analysisResponse;
+    }) as unknown as typeof fetch;
 
     const result = await importRubricImageWithOllama(
       pages.map((_, index) => image(`mitose.pdf · page ${index + 1}`)),
@@ -290,8 +286,14 @@ describe('rubric import progress', () => {
     expect(result.rubric.criteria[2].description).toContain('pas à pas');
     expect(result.rubric.criteria[3].description).toContain('titré et numéroté');
     expect(result.rubric.criteria[4].description).toContain('biais de comptage');
-    const analysisBody = JSON.parse(String((fetchMock as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }).mock.calls[10][1]?.body)) as { messages: Array<{ content: string }> };
-    for (let page = 1; page <= 10; page += 1) expect(analysisBody.messages[0].content).toContain(`<transcription_page_${page}>`);
+    const calls = (fetchMock as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }).mock.calls;
+    const analysisBodies = calls.slice(10).map((call) => JSON.parse(String(call[1]?.body)) as { options?: { num_predict?: number }; messages: Array<{ content: string }> });
+    expect(calls).toHaveLength(29);
+    expect(analysisBodies.slice(0, 10).every((body) => body.options?.num_predict === 768)).toBe(true);
+    expect(analysisBodies.at(-1)?.options?.num_predict).toBe(2048);
+    for (let page = 1; page <= 10; page += 1) {
+      expect(analysisBodies.some((body) => body.messages[0].content.includes(`<transcription_page_${page}>`))).toBe(true);
+    }
     expect(progress.at(-1)?.stage).toBe('complete');
   });
 
