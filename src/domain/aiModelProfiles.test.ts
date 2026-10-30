@@ -12,6 +12,12 @@ describe('AI model configuration persistence', () => {
     const configuration = { ...defaultAiModelConfiguration, visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b', analysisThinking: true };
     expect(parseAiModelConfiguration(JSON.stringify(configuration))).toEqual(configuration);
   });
+  it('enables criterion-by-criterion analysis by default and preserves an explicit whole-rubric choice', () => {
+    expect(defaultAiModelConfiguration.criterionByCriterion).toBe(true);
+    expect(parseAiModelConfiguration(JSON.stringify({ ...defaultAiModelConfiguration, criterionByCriterion: false })).criterionByCriterion).toBe(false);
+    const legacy = parseAiModelConfiguration(JSON.stringify({ endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'analysis' }));
+    expect(legacy.criterionByCriterion).toBe(true);
+  });
   it('uses safe defaults for missing or malformed saved configuration', () => {
     expect(parseAiModelConfiguration(null)).toEqual(defaultAiModelConfiguration);
     expect(parseAiModelConfiguration('{invalid')).toEqual(defaultAiModelConfiguration);
