@@ -203,11 +203,15 @@ describe('UI design system', () => {
   });
 
   it('gives the observability workspace charts, trace details and responsive privacy-first styling', () => {
-    expect(observabilityComponent).toContain('Durée des dernières corrections');
+    expect(observabilityComponent).toContain('Durée des dernières exécutions');
     expect(observabilityComponent).toContain('Vision vs Analyse');
     expect(observabilityComponent).toContain('EXPLORATEUR DE TRACES');
     expect(observabilityComponent).toContain('sortie brute des modèles');
     expect(observabilityStyles).toContain('.observability-kpis');
+    expect(appComponent).toContain('toModelEvaluationObservabilityTraces(savedModelEvaluations)');
+    expect(appComponent).toContain('records={observabilityRecords}');
+    expect(observabilityComponent).toContain('Évaluation des modèles');
+    expect(observabilityComponent).toContain('Historique des corrections et évaluations');
     expect(observabilityStyles).toContain('.observability-activity-chart');
     expect(observabilityStyles).toContain('@media (max-width: 700px)');
     expect(observabilityStyles).toContain('@media (prefers-reduced-motion: reduce)');
