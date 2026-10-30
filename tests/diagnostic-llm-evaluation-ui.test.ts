@@ -180,7 +180,8 @@ describe('Évaluation des modèles — cohérence des étapes et historique', ()
     expect(appSource).toContain("evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS'");
     expect(appSource).toContain("'ÉTAPE 4 · ANALYSE & HISTORIQUE'");
     expect(appSource).toContain("evaluationWorkspaceStep === 'history' && <section className=\"evaluation-result-list evaluation-history-workspace\"");
-    expect(appSource).toContain("evaluationWorkspaceStep === 'results' && modelEvaluationResults.some");
+    expect(appSource).toContain("evaluationWorkspaceStep === 'results' && modelEvaluationResults.length > 0");
+    expect(appSource).toContain("evaluationWorkspaceStep === 'results' && evaluationStageMode !== 'vision' && modelEvaluationResults.some");
   });
 
   it('presents each saved experiment as a structured card with model and stage metrics', () => {
@@ -206,7 +207,7 @@ describe('Évaluation des modèles — débit de génération', () => {
   it('keeps missing throughput explicitly unknown for older records', () => {
     expect(appSource).toContain("result.readingTokensPerSecond == null ? 'Débit non mesuré'");
     expect(appSource).toContain("result.analysisTokensPerSecond == null ? 'Débit non mesuré'");
-    expect(appSource).toContain("result.readingTokensPerSecond == null ? '—'");
+    expect(appSource).toContain("result.readingTokensPerSecond == null ? 'Débit non mesuré'");
   });
 });
 
