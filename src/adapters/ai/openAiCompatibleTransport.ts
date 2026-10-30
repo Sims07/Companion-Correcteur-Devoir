@@ -7,8 +7,8 @@ export interface OpenAiCompatibleSettings {
 }
 
 function completionUrl(endpoint: string): string {
-  const value = endpoint.trim().replace(/\\/+$/, '');
-  if (!/^https?:\\/\\//i.test(value)) throw new Error('L’adresse de l’API doit commencer par http:// ou https://.');
+  const value = endpoint.trim().replace(/\/+$/, '');
+  if (!/^https?:\/\//i.test(value)) throw new Error('L’adresse de l’API doit commencer par http:// ou https://.');
   return value.endsWith('/chat/completions') ? value : `${value}/v1/chat/completions`;
 }
 
