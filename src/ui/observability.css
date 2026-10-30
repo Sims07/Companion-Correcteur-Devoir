@@ -115,6 +115,17 @@
 .observability-span-measure { display:grid;gap:3px;text-align:right; }
 .observability-span-measure strong { font-size:10px;font-variant-numeric:tabular-nums; }
 .observability-span-measure small { color:#829084;font-size:9px; }
+.observability-call-details { flex-basis:100%; margin:2px 0 4px 40px; min-width:0; }
+.observability-call-details > summary { width:max-content; max-width:100%; cursor:pointer; color:#496d50; font-size:10px; font-weight:750; padding:5px 0; }
+.observability-call-section { margin-top:9px; }
+.observability-call-section > strong { display:block; margin-bottom:6px; color:#405246; font-size:10px; }
+.observability-call-section pre { max-height:320px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; margin:0; padding:12px; border:1px solid #e6ece5; border-radius:9px; background:#f8faf7; color:#35463a; font:10px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.observability-request-metadata { display:flex; flex-wrap:wrap; gap:6px 14px; margin:0 0 8px; }
+.observability-request-metadata div { display:flex; gap:4px; font-size:9px; }
+.observability-request-metadata dt { color:#829084; }
+.observability-request-metadata dd { margin:0; color:#45594a; font-weight:700; }
+.observability-call-warning { margin:8px 0 0; color:#8a744a; font-size:9px; line-height:1.5; }
+.observability-call-reason { margin:0 0 7px; color:#8a5a42; font-size:9px; }
 .observability-privacy-note { display:flex;align-items:center;gap:7px;margin:12px 0 0;color:#6d806f;font-size:9px; }
 .observability-footnote { margin:0;color:#859187;font-size:10px;line-height:1.6; }
 @media (max-width: 1000px) {
@@ -151,6 +162,7 @@
   .observability-filter-buttons { width:100%; }
   .observability-filter-buttons button { flex:1;padding:7px 5px; }
   .observability-span-list li { gap:8px;padding:9px; }
+  .observability-call-details { margin-left:0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .observability-workspace *, .observability-workspace *::before, .observability-workspace *::after { animation-duration:.01ms !important;transition-duration:.01ms !important; }
