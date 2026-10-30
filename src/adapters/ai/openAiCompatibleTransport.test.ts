@@ -55,6 +55,24 @@ describe('OpenAI-compatible chat transport', () => {
     expect(body.stream_options).toEqual({ include_usage: true });
   });
 
+  it('uses the configured repeat_penalty dialect when an OpenAI-compatible server supports it', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('data: [DONE]\\n\\n', {
+      status: 200, headers: { 'Content-Type': 'text/event-stream' },
+    }));
+    const request = createOpenAiCompatibleFetch({
+      endpoint: 'https://ai.example', apiKey: '', repetitionPenaltyParameter: 'repeat_penalty',
+    }, fetchMock);
+    await request('http://localhost:11434/api/chat', {
+      method: 'POST', body: JSON.stringify({
+        model: 'vision', stream: true, messages: [{ role: 'user', content: 'read' }],
+        options: { repeat_penalty: 1.1 },
+      }),
+    });
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.repeat_penalty).toBe(1.1);
+    expect(body.frequency_penalty).toBeUndefined();
+  });
+
   it('maps structured schema output to json_schema and falls back to json_object when rejected', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response('unsupported response_format', { status: 400 }))
