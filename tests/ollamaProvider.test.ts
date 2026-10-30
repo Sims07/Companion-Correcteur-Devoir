@@ -190,7 +190,7 @@ describe('Ollama adapter', () => {
 
   it('transcribes each page as plain text with bounded generation before grading', async () => {
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamingResponse('Transcription fidèle de la copie\\n\\n\\n'))
+      .mockResolvedValueOnce(streamingResponse('Transcription fidèle de la copie\n\n\n'))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const transcriptions: string[] = [];
     const provider = createOllamaProvider({
@@ -207,7 +207,7 @@ describe('Ollama adapter', () => {
     expect(visionBody.messages[0].content).toBe('Text Recognition:');
     expect(visionBody.messages[0].images).toEqual(['aGVsbG8=']);
     expect(visionBody.format).toBeUndefined();
-    expect(visionBody.options).toMatchObject({ temperature: 0, num_predict: 2048, repeat_penalty: 1.05, stop: ['\\n\\n\\n'] });
+    expect(visionBody.options).toMatchObject({ temperature: 0, num_predict: 2048, repeat_penalty: 1.05, stop: ['\n\n\n'] });
     expect(transcriptions[0]).toContain('Transcription fidèle de la copie');
     expect(transcriptions[0]).not.toMatch(/\\n{3,}$/);
 
