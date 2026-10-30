@@ -504,7 +504,7 @@ export function createOllamaProvider(
         }
       }
 
-      if (!request.visionOnly && !useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription) {
+      if (!request.visionOnly && !useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription && !(request.detectTeacherAnnotations || settings.detectTeacherAnnotations)) {
         // Compatibility mode for existing callers configured with one model.
         return sendStream(analysisModel, buildPrompt(), (request.images ?? []).map(providerImage), onChunk, true, settings.thinking ?? false, { kind: 'model', stage: 'analysis' });
       }
