@@ -456,7 +456,7 @@ export function createOllamaProvider(
             {
               kind: 'vision', stage: 'reading', temperature: 0,
               generationTokenLimit: transcriptionLimit,
-              stop: ['\\n\\n\\n'],
+              stop: ['\n\n\n'],
               repeatPenalty: 1.05,
               allowTruncated: true,
               onDoneReason: (reason) => { transcriptionTruncated = reason === 'length'; },
