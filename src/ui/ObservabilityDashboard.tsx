@@ -94,7 +94,7 @@ export function ObservabilityDashboard({ records }: Props) {
 
     <section className="observability-intro" aria-label="Périmètre des données">
       <div className="observability-intro-icon" aria-hidden="true">⌂</div>
-      <div><strong>Vos données pédagogiques restent locales</strong><p>Cette vue exploite l’historique technique déjà enregistré dans le navigateur. Elle n’affiche jamais les photos, les transcriptions ou les réponses brutes des étudiants.</p></div>
+      <div><strong>Vos données pédagogiques restent locales</strong><p>Cette vue exploite l’historique technique conservé dans le navigateur. Les prompts et réponses sont consultables à la demande dans chaque appel ; les octets des images ne sont jamais affichés.</p></div>
       <span>LOCAL</span>
     </section>
 
