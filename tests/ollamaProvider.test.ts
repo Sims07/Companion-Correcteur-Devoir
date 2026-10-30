@@ -417,11 +417,11 @@ describe('Ollama adapter', () => {
   it('cancels an OCR loop when identical lines are separated by blank lines', async () => {
     let cancelled = false;
     const encoder = new TextEncoder();
-    const repeatedOcr = 'C2 (60) (100)\\n\\nC2 (60) (100)\\n\\nC2 (60) (100)\\n\\n';
+    const repeatedOcr = 'C2 (60) (100)\n\nC2 (60) (100)\n\nC2 (60) (100)\n\n';
     const response = new Response(new ReadableStream<Uint8Array>({
       start(controller) {
         for (const character of repeatedOcr) {
-          controller.enqueue(encoder.encode(JSON.stringify({ message: { content: character }, done: false }) + '\\n'));
+          controller.enqueue(encoder.encode(JSON.stringify({ message: { content: character }, done: false }) + '\n'));
         }
       },
       cancel() { cancelled = true; },
@@ -439,7 +439,7 @@ describe('Ollama adapter', () => {
     expect(cancelled).toBe(true);
     expect(transcriptions[0]).toContain('C2 (60) (100)');
     expect(transcriptions[0]).toContain('LECTURE DOUTEUSE');
-    expect(transcriptions[0]).not.toContain('C2 (60) (100)\\n\\nC2 (60) (100)\\n\\nC2 (60) (100)');
+    expect(transcriptions[0]).not.toContain('C2 (60) (100)\n\nC2 (60) (100)\n\nC2 (60) (100)');
   });
 
   it('marks a transcription as doubtful when one line loops repeatedly at the end', async () => {
