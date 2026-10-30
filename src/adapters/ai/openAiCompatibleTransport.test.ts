@@ -31,7 +31,7 @@ describe('OpenAI-compatible chat transport', () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('data: [DONE]\n\n', {
       status: 200, headers: { 'Content-Type': 'text/event-stream' },
     }));
-    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example/v1/chat/completions', apiKey: '' }, fetchMock);
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example/v1/chat/completions', apiKey: '', frequencyPenalty: 0.65 }, fetchMock);
     await request('http://localhost:11434/api/chat', {
       method: 'POST',
       body: JSON.stringify({
@@ -51,7 +51,7 @@ describe('OpenAI-compatible chat transport', () => {
         { type: 'image_url', image_url: { url: 'data:image/png;base64,abc' } },
       ] }],
     });
-    expect(body.frequency_penalty).toBe(0.05);
+    expect(body.frequency_penalty).toBe(0.5);
     expect(body.stream_options).toEqual({ include_usage: true });
   });
 
@@ -96,6 +96,19 @@ describe('OpenAI-compatible chat transport', () => {
     await request('http://localhost:11434/api/chat', { method: 'POST', body: JSON.stringify({ model: 'vision', stream: true, messages: [{ role: 'user', content: 'read' }] }) });
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).stream_options).toEqual({ include_usage: true });
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).stream_options).toBeUndefined();
+  });
+
+  it('does not retry compatible requests for authentication, rate-limit or server errors', async () => {
+    for (const status of [401, 429, 500, 503]) {
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('failure', { status }));
+      const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+      const response = await request('http://localhost:11434/api/chat', {
+        method: 'POST',
+        body: JSON.stringify({ model: 'vision', stream: true, format: { type: 'object' }, messages: [{ role: 'user', content: 'read' }] }),
+      });
+      expect(response.status).toBe(status);
+      expect(fetchMock).toHaveBeenCalledOnce();
+    }
   });
 
   it('translates image payloads to OpenAI image_url content blocks', async () => {
