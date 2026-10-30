@@ -171,3 +171,21 @@ export interface ModelEvaluationRecord {
   /** Stage measured by this experiment; absent means a legacy full-pipeline run. */
   stage?: 'vision' | 'analysis' | 'integrated';
 }
+
+
+/** Legacy experiments without an explicit stage are full-pipeline runs. */
+export function getModelEvaluationStage(record: ModelEvaluationRecord): 'vision' | 'analysis' | 'integrated' {
+  return record.stage ?? 'integrated';
+}
+
+/**
+ * A single saved experiment is comparable when it contains multiple model
+ * configurations. Two experiments can be compared only when they measure
+ * the same stage; mixing Vision, Analysis and full-pipeline metrics is invalid.
+ */
+export function canCompareModelEvaluationRecords(records: readonly ModelEvaluationRecord[]): boolean {
+  if (records.length === 1) return records[0].results.length > 1;
+  if (records.length !== 2) return false;
+  return getModelEvaluationStage(records[0]) === getModelEvaluationStage(records[1]) &&
+    records.every((record) => record.results.length > 0);
+}
