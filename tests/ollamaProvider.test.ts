@@ -216,6 +216,7 @@ describe('Ollama adapter', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const visionBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(visionBody.model).toBe('gemma3:4b');
+    expect(visionBody.keep_alive).toBe(0);
     expect(visionBody.messages[0].content).toContain('Transcris fidèlement');
     expect(visionBody.messages[0].images).toEqual(['aGVsbG8=']);
     expect(visionBody.format).toBeUndefined();
@@ -248,6 +249,30 @@ describe('Ollama adapter', () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).keep_alive).toBe(0);
     expect(transcriptions[0]).toContain('LECTURE DOUTEUSE');
     expect(transcriptions[0]).toContain('Réponse partielle');
+  });
+
+  it('cancels a transcription stream as soon as four trailing newlines arrive and marks the page doubtful', async () => {
+    let cancelled = false;
+    const encoder = new TextEncoder();
+    const driftingResponse = new Response(new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const character of ['Réponse', '\\n', '\\n', '\\n', '\\n']) {
+          controller.enqueue(encoder.encode(JSON.stringify({ message: { content: character }, done: false }) + '\\n'));
+        }
+      },
+      cancel() { cancelled = true; },
+    }), { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(driftingResponse)
+      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const transcriptions: string[] = [];
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'grader',
+    }, fetchMock);
+    await expect(provider.generate(request, undefined, undefined, (value) => transcriptions.push(value))).resolves.toBe('{"criteria":[]}');
+    expect(cancelled).toBe(true);
+    expect(transcriptions[0]).toContain('LECTURE DOUTEUSE');
+    expect(transcriptions[0]).toContain('Réponse');
   });
 
   it('marks a page doubtful when the four-newline stop is reached without a length finish reason', async () => {
@@ -589,7 +614,7 @@ describe('Ollama adapter', () => {
     expect(firstRegions.keep_alive).toBe('30s');
     expect(firstRegions.format).toBe('json');
     expect(lastPage.model).toBe('gemma3:4b');
-    expect(lastPage.keep_alive).toBe(0);
+    expect(lastPage.keep_alive).toBe('30s');
     expect(lastPage.messages[0].content).toContain('Transcris fidèlement');
     expect(lastPage.messages[0].images).toEqual(['cGFnZTI=']);
     expect(lastRegions.keep_alive).toBe(0);
@@ -599,6 +624,28 @@ describe('Ollama adapter', () => {
     const analysisPrompt = analysis.messages[0].content as string;
     expect(analysisPrompt).toContain('[ANCRE_VISUELLE page=1 id=r1 x=100 y=200 width=300 height=80] Transcription page 1');
     expect(analysisPrompt).toContain('[ANCRE_VISUELLE page=2 id=r1 x=120 y=240 width=280 height=90] Transcription page 2');
+  });
+
+  it('unloads the transcription model on every page when localization uses another model', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse('Texte page 1'))
+      .mockResolvedValueOnce(streamingResponse('{"regions":[]}'))
+      .mockResolvedValueOnce(streamingResponse('Texte page 2'))
+      .mockResolvedValueOnce(streamingResponse('{"regions":[]}'))
+      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'vision', regionsEnabled: true,
+      regionsModel: 'locator', analysisModel: 'grader',
+    }, fetchMock);
+    await expect(provider.generate({
+      ...request,
+      images: [
+        { base64: 'cGFnZTE=', mimeType: 'image/png', fileName: 'page-1.png' },
+        { base64: 'cGFnZTI=', mimeType: 'image/png', fileName: 'page-2.png' },
+      ],
+    })).resolves.toBe('{"criteria":[]}');
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).keep_alive).toBe(0);
+    expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body)).keep_alive).toBe(0);
   });
 
   it('transcribes a separate reference subject before the student copy and includes it in grading context', async () => {
@@ -705,7 +752,7 @@ describe('Ollama adapter', () => {
       messages: Array<{ content: string; images: string[] }>;
     };
     expect(visionBody.model).toBe('qwen3.5:4b');
-    expect(visionBody.stream).toBe(false);
+    expect(visionBody.stream).toBe(true);
     expect(visionBody.think).toBe(false);
     expect(visionBody.keep_alive).toBe(0); // Single-page import: do not keep vision loaded for structuring.
     expect(visionBody.format).toBeUndefined();
