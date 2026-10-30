@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { defaultAiModelConfiguration, parseAiModelConfiguration } from '../src/domain/aiModelProfiles.ts';
 
 describe('AI model configuration defaults', () => {
+  it('disables teacher annotation detection by default and preserves the opt-in setting', () => {
+    expect(defaultAiModelConfiguration.detectTeacherAnnotations).toBe(false);
+    expect(parseAiModelConfiguration(null).detectTeacherAnnotations).toBe(false);
+    expect(parseAiModelConfiguration(JSON.stringify({ detectTeacherAnnotations: true })).detectTeacherAnnotations).toBe(true);
+    expect(parseAiModelConfiguration(JSON.stringify({ regionsEnabled: true })).detectTeacherAnnotations).toBe(false);
+  });
+
   it('keeps compatible transcription penalties disabled by default', () => {
     expect(defaultAiModelConfiguration.transcriptionPenaltyParameter).toBe('none');
     expect(defaultAiModelConfiguration.transcriptionFrequencyPenalty).toBe(0);
