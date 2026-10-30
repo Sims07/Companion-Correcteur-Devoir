@@ -17,7 +17,6 @@ export interface GradingRequest {
   transcription?: string;
   /** Stop after local image transcription for an independent Vision benchmark. */
   visionOnly?: boolean;
-  detectTeacherAnnotations?: boolean;
 }
 
 export interface DiagnosticModelResult {
