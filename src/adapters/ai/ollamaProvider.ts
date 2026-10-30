@@ -224,7 +224,7 @@ export function createOllamaProvider(
       ].join('\n\n');
       };
 
-      const diagnosticTracking = settings.diagnosticStrategy !== undefined;
+      const diagnosticTracking = settings.diagnosticStrategy !== undefined || Boolean(onDiagnosticResult);
       let lastDiagnosticMetrics: Omit<DiagnosticModelResult, 'raw'> | null = null;
       async function sendStream(
         model: string,
@@ -270,6 +270,15 @@ export function createOllamaProvider(
               kind: tracking.kind,
               stage: tracking.stage,
               model,
+              requestPrompt: content,
+              requestMetadata: {
+                stream: true,
+                think,
+                ...(json ? { format: 'json' as const } : {}),
+                imageCount: images?.length ?? 0,
+                keepAlive: tracking?.keepAlive ?? 0,
+                ...(tracking?.temperature !== undefined ? { temperature: tracking.temperature } : {}),
+              },
               elapsedMs: Date.now() - startedAt,
               ...(result.promptTokens !== undefined ? { promptTokens: result.promptTokens } : {}),
               ...(result.generatedTokens !== undefined ? { generatedTokens: result.generatedTokens } : {}),
@@ -284,7 +293,7 @@ export function createOllamaProvider(
               generationTokenLimit: 2048,
             };
             lastDiagnosticMetrics = metrics;
-            if (!tracking.deferResult) onDiagnosticResult?.({ ...metrics, raw: tracking.kind === 'vision' ? '' : result.content });
+            if (!tracking.deferResult) onDiagnosticResult?.({ ...metrics, raw: result.content });
           }
           if (result.doneReason === 'length') {
             throw new Error('Analyse incomplète : Ollama a atteint la limite de génération (done_reason=length, num_predict=2048). La réponse partielle n’est pas exploitable comme correction. Réduisez la longueur des données ou relancez avec un budget adapté.');
@@ -419,7 +428,7 @@ export function createOllamaProvider(
         };
         const mergedRaw = JSON.stringify(merged);
         if (diagnosticTracking && lastDiagnosticMetrics?.stage === 'arbitration') {
-          onDiagnosticResult?.({ ...lastDiagnosticMetrics, kind: 'arbitrator', stage: 'arbitration', model: arbitratorModel, raw: mergedRaw });
+          onDiagnosticResult?.({ ...lastDiagnosticMetrics, kind: 'arbitrator', stage: 'arbitration', model: arbitratorModel, raw });
         }
         return mergedRaw;
       };
