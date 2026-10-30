@@ -157,7 +157,7 @@ describe('Évaluation des modèles — comparaison graphique de l’historique',
     expect(domainSource).toContain('sameAnalysisInput');
     expect(domainSource).toContain('sameImages(first.images, second.images)');
     expect(appSource).toContain("referenceTranscription: evaluationStageMode === 'analysis' ? transcription : null");
-    expect(appSource).toContain("transcription: output.value?.transcription ?? (evaluationStageMode === 'analysis' ? transcription ?? '' : '')");
+    expect(appSource).toContain("transcription: evaluationStageMode === 'analysis' ? transcription ?? '' : output.value?.transcription ?? ''");
     expect(appSource).toContain('Transcription commune notée');
     expect(appSource).toContain('Comparer les notes par critère');
     expect(appSource).toContain('Justifications et preuves');
