@@ -972,34 +972,7 @@ export async function importRubricImageWithOllama(
 
   if (signal?.aborted) throw new Error('Import du barème interrompu par l’enseignant.');
 
-  // Phase 2: only the analysis model sees the transcription and builds the final rubric.
-  onProgress?.({
-    stage: 'structuring',
-    page: images.length,
-    totalPages: images.length,
-    message: `Transcription terminée. Structuration du barème avec le modèle d’analyse « ${analysisModel} »…`,
-  });
-  const schema = {
-    type: 'object',
-    properties: {
-      title: { type: 'string' },
-      criteria: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            title: { type: 'string' },
-            description: { type: 'string' },
-            maxPoints: { type: 'number' },
-          },
-          required: ['title', 'description', 'maxPoints'],
-          additionalProperties: false,
-        },
-      },
-    },
-    required: ['title', 'criteria'],
-    additionalProperties: false,
-  };
+  // Phase 2: structure bounded transcription chunks sequentially, then consolidate them.
   const chunks = splitRubricTranscriptions(transcriptions);
   if (chunks.length === 0) throw new Error('Aucun texte exploitable n’a été transcrit depuis le barème.');
   const fileName = images[0]?.fileName?.replace(/ · page \\d+$/, '') ?? 'barème';
@@ -1111,6 +1084,7 @@ export async function importRubricImageWithOllama(
       onProgress?.({ stage: 'response', page: images.length, totalPages: images.length, message: 'Réponse du modèle d’analyse interrompue par la limite de génération.', rawResponse: result, rawResponseStage: 'analysis', diagnosticRun: trace });
       throw new Error(`La structuration du barème a été interrompue : la limite de génération (${outputTokens} tokens) a été atteinte. Le bloc concerné doit être réduit ou le modèle doit disposer d’une sortie plus longue.`);
     }
+    onProgress?.({ stage: 'response', page: images.length, totalPages: images.length, message: 'Réponse reçue du modèle d’analyse. Vérification du JSON et des critères…' });
     onProgress?.({
       stage: 'parsing',
       page: images.length,
@@ -1158,28 +1132,6 @@ export async function importRubricImageWithOllama(
     currentLevel = nextLevel;
   }
   const content = currentLevel[0];
-  const analysisPayload: OllamaChatResponse = { message: { content }, done_reason: 'stop' };
-  if (analysisPayload.done_reason === 'length') {
-    onProgress?.({
-      stage: 'response',
-      page: images.length,
-      totalPages: images.length,
-      message: 'Réponse du modèle d’analyse interrompue par la limite de génération.',
-      rawResponse: content,
-      rawResponseStage: 'analysis',
-      diagnosticRun: analysisTrace,
-    });
-    throw new Error(`La structuration du barème a été interrompue : la limite de génération (${RUBRIC_STRUCTURING_TOKEN_LIMIT} tokens) a été atteinte. Augmentez la capacité de sortie du modèle ou utilisez un modèle adapté aux longs barèmes.`);
-  }
-  onProgress?.({
-    stage: 'parsing',
-    page: images.length,
-    totalPages: images.length,
-    message: 'Réponse structurée reçue : validation du JSON et des critères…',
-    rawResponse: content,
-    rawResponseStage: 'analysis',
-    diagnosticRun: analysisTrace,
-  });
   let parsed: unknown;
   try { parsed = JSON.parse(content); }
   catch { throw new Error('La sortie du modèle d’analyse n’est pas un JSON valide. Vérifiez la transcription ou essayez un autre modèle d’analyse.'); }
