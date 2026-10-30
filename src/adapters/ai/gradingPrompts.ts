@@ -38,5 +38,5 @@ export function buildIncrementalCriterionPrompt(
     'LOCALISATION : pageNumber est facultatif et doit être un entier à partir de 1 uniquement si la page est identifiable dans les repères de transcription. locationHint est facultatif et décrit un repère textuel approximatif. Tu ne disposes pas des images originales dans cette étape : ne fournis jamais locationBox et ne prétends pas localiser visuellement une zone.',
     'N’ajoute aucun autre champ. N’invente aucun sous-critère, attendu, pénalité ou point. Le code vérifiera l’identifiant, le maximum, la structure et la cohérence des résultats.',
     `EXEMPLE DE STRUCTURE JSON (valeurs illustratives, à remplacer par ton évaluation) : ${JSON.stringify(outputExample)}`,
-  ].join('\\n\\n');
+  ].join('\n\n');
 }
