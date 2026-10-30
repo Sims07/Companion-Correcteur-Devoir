@@ -60,9 +60,10 @@ const savedRecord = (id: string, stage: ModelEvaluationRecord['stage'], profileI
   question: 'Question',
   rubricSnapshot: { title: 'Barème', criteria: [] },
   correctionMode: 'integrated',
-  images: [],
+  images: [{ base64: 'same-copy-image', mimeType: 'image/jpeg' }],
   subjectImages: [],
   subjectTranscription: null,
+  referenceTranscription: stage === 'analysis' ? 'Transcription de référence' : null,
   configurations: profileIds.map((profileId) => ({ ...config(profileId), name: profileId })),
   results: profileIds.map((profileId) => ({
     profileId,
@@ -87,14 +88,32 @@ describe('model evaluation history comparison scope', () => {
     expect(getModelEvaluationStage(record)).toBe('vision');
   });
 
-  it('compares two saved experiments only when they measure the same stage', () => {
+  it('compares two saved experiments only when stage and source inputs match', () => {
     expect(canCompareModelEvaluationRecords([
       savedRecord('analysis-a', 'analysis', ['model-a', 'model-b']),
       savedRecord('analysis-b', 'analysis', ['model-a', 'model-c']),
     ])).toBe(true);
     expect(canCompareModelEvaluationRecords([
+      savedRecord('vision-a', 'vision', ['model-a', 'model-b']),
+      savedRecord('vision-b', 'vision', ['model-a', 'model-c']),
+    ])).toBe(true);
+    expect(canCompareModelEvaluationRecords([
       savedRecord('vision', 'vision', ['model-a', 'model-b']),
       savedRecord('analysis', 'analysis', ['model-a', 'model-b']),
+    ])).toBe(false);
+
+    const differentAnalysisInput = savedRecord('analysis-c', 'analysis', ['model-a', 'model-b']);
+    differentAnalysisInput.referenceTranscription = 'Une autre copie';
+    expect(canCompareModelEvaluationRecords([
+      savedRecord('analysis-a', 'analysis', ['model-a', 'model-b']),
+      differentAnalysisInput,
+    ])).toBe(false);
+
+    const differentVisionCopy = savedRecord('vision-c', 'vision', ['model-a', 'model-b']);
+    differentVisionCopy.images[0].base64 = 'different-copy-image';
+    expect(canCompareModelEvaluationRecords([
+      savedRecord('vision-a', 'vision', ['model-a', 'model-b']),
+      differentVisionCopy,
     ])).toBe(false);
   });
 
