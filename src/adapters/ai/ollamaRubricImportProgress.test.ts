@@ -77,6 +77,16 @@ describe('rubric import progress', () => {
       fetchMock,
       (event) => progress.push(event),
     )).rejects.toThrow("HTTP 422 : Unsupported parameter: 'max_tokens'");
+
+    const failedAnalysis = progress.find((event) => event.stage === 'error' && event.diagnosticRun?.kind === 'model');
+    expect(failedAnalysis?.rawResponseStage).toBe('analysis');
+    expect(failedAnalysis?.diagnosticRun).toMatchObject({
+      kind: 'model',
+      model: 'qwen3.5:4b',
+      doneReason: 'http_422',
+      error: "HTTP 422 : Unsupported parameter: 'max_tokens'",
+    });
+    expect(failedAnalysis?.diagnosticRun?.elapsedMs).toEqual(expect.any(Number));
   });
 
   it('keeps the exact model response visible when rubric validation fails', async () => {

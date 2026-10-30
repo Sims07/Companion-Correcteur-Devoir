@@ -1041,7 +1041,24 @@ export async function importRubricImageWithOllama(
   } catch (cause) {
     if (signal?.aborted) throw new Error('Import du barème interrompu par l’enseignant.');
     const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';
-    throw new Error(`Impossible de joindre le modèle d’analyse Ollama pour structurer le barème. Détail : ${detail}`);
+    const safeDetail = detail.replace(/(?:Bearer\\s+)[^\\s"']+/gi, 'Bearer [masqué]').slice(0, 500);
+    onProgress?.({
+      stage: 'error',
+      page: images.length,
+      totalPages: images.length,
+      message: `Échec de l’appel au modèle d’analyse : ${safeDetail}`,
+      rawResponse: safeDetail,
+      rawResponseStage: 'analysis',
+      diagnosticRun: {
+        kind: 'model',
+        model: analysisModel,
+        elapsedMs: Math.max(0, Date.now() - analysisStartedAt),
+        raw: safeDetail,
+        error: safeDetail,
+        doneReason: 'network_error',
+      },
+    });
+    throw new Error(`Impossible de joindre le modèle d’analyse Ollama pour structurer le barème. Détail : ${safeDetail}`);
   }
   onProgress?.({ stage: 'response', page: images.length, totalPages: images.length, message: 'Réponse reçue du modèle d’analyse. Vérification du JSON et des critères…' });
   if (!analysisResponse.ok) {
@@ -1055,6 +1072,23 @@ export async function importRubricImageWithOllama(
       try { detail = (await analysisResponse.clone().text()).slice(0, 500); } catch { /* The provider supplied no readable error body. */ }
     }
     const safeDetail = detail.replace(/(?:Bearer\s+)[^\s"']+/gi, 'Bearer [masqué]').trim().slice(0, 500);
+    const failureMessage = `HTTP ${analysisResponse.status}${safeDetail ? ` : ${safeDetail}` : ' : réponse d’erreur sans détail fourni par le serveur'}`;
+    onProgress?.({
+      stage: 'error',
+      page: images.length,
+      totalPages: images.length,
+      message: `Échec de l’appel au modèle d’analyse : ${failureMessage}`,
+      rawResponse: safeDetail || failureMessage,
+      rawResponseStage: 'analysis',
+      diagnosticRun: {
+        kind: 'model',
+        model: analysisModel,
+        elapsedMs: Math.max(0, Date.now() - analysisStartedAt),
+        raw: safeDetail || failureMessage,
+        error: failureMessage,
+        doneReason: `http_${analysisResponse.status}`,
+      },
+    });
     throw new Error(`Le modèle d’analyse a refusé de structurer le barème (HTTP ${analysisResponse.status})${safeDetail ? ` : ${safeDetail}` : '. Vérifiez les paramètres de l’API compatible OpenAI.'}`);
   }
   const analysisPayload = await analysisResponse.json() as OllamaChatResponse;
