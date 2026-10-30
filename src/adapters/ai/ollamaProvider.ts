@@ -356,7 +356,7 @@ export function createOllamaProvider(
             }
           }
           if (result.doneReason === 'length') {
-            throw new Error('Analyse incomplète : Ollama a atteint la limite de génération (done_reason=length, num_predict=${tracking?.generationTokenLimit ?? 2048}). La réponse partielle n’est pas exploitable comme correction. Réduisez la longueur des données ou relancez avec un budget adapté.');
+            throw new Error(`Analyse incomplète : Ollama a atteint la limite de génération (done_reason=length, num_predict=${tracking?.generationTokenLimit ?? 2048}). La réponse partielle n’est pas exploitable comme correction. Réduisez la longueur des données ou relancez avec un budget adapté.`);
           }
           if (!result.content.trim()) {
             throw new Error(result.thinkingPresent
