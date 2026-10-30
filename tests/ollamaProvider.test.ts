@@ -114,7 +114,7 @@ describe('Ollama adapter', () => {
     const trace = onDiagnosticResult.mock.calls[0][0];
     expect(trace).toMatchObject({
       model: 'llava',
-      requestPayload: expect.stringMatching(/Expliquez la mitose[\\s\\S]*IMAGE REDACTED/),
+      requestPayload: expect.stringMatching(/Expliquez la mitose[\s\S]*IMAGE REDACTED/),
       requestMetadata: { provider: 'ollama', endpoint: 'http://localhost:11434', stream: true, think: false, format: 'json', imageCount: 1, keepAlive: 0, options: { contextTokens: 8192, generationTokenLimit: 2048 } },
       raw: 'Réponse brute du modèle',
     });
