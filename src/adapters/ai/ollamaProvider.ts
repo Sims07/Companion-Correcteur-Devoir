@@ -248,6 +248,40 @@ export function createOllamaProvider(
       ): Promise<string> {
         const startedAt = Date.now();
         let response: Response;
+        let partialContent = '';
+        let diagnosticResultEmitted = false;
+        const buildRequestMetrics = (): Omit<DiagnosticModelResult, 'raw'> | null => {
+          if (!tracking || !diagnosticTracking) return null;
+          return {
+            kind: tracking.kind,
+            stage: tracking.stage,
+            model,
+            requestPrompt: content,
+            requestMetadata: {
+              stream: true,
+              think,
+              ...(json ? { format: 'json' as const } : {}),
+              imageCount: images?.length ?? 0,
+              keepAlive: tracking.keepAlive ?? 0,
+              options: {
+                contextTokens: tracking.contextTokenLimit ?? (tracking.kind === 'vision' ? 4096 : 8192),
+                generationTokenLimit: tracking.generationTokenLimit ?? 2048,
+                ...(tracking.temperature !== undefined ? { temperature: tracking.temperature } : {}),
+              },
+            },
+            elapsedMs: Date.now() - startedAt,
+            contextTokens: tracking.contextTokenLimit ?? (tracking.kind === 'vision' ? 4096 : 8192),
+            generationTokenLimit: tracking.generationTokenLimit ?? 2048,
+          };
+        };
+        const publishFailedCall = (cause: unknown) => {
+          const metrics = buildRequestMetrics();
+          if (!metrics) return;
+          const error = cause instanceof Error ? cause.message : String(cause);
+          lastDiagnosticMetrics = metrics;
+          onDiagnosticResult?.({ ...metrics, raw: partialContent, error });
+          diagnosticResultEmitted = true;
+        };
         try {
           response = await providerFetch(`${endpoint}/api/chat`, {
             method: 'POST',
@@ -270,12 +304,20 @@ export function createOllamaProvider(
             }),
           });
         } catch (cause) {
+          publishFailedCall(cause);
           const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';
           throw new Error(`Connexion à Ollama interrompue pendant le traitement (modèle « ${model} », ${request.images?.length ?? 0} image(s)). Vérifiez que le serveur Ollama fonctionne et que la mémoire disponible suffit. Détail réseau : ${detail}`);
         }
-        if (!response.ok) throw new Error(`Ollama a répondu avec le statut HTTP ${response.status} pour le modèle « ${model} ».`);
+        if (!response.ok) {
+          const error = new Error(`Ollama a répondu avec le statut HTTP ${response.status} pour le modèle « ${model} ».`);
+          publishFailedCall(error);
+          throw error;
+        }
         try {
-          const result = await readOllamaStream(response, streamChunk);
+          const result = await readOllamaStream(response, (chunk) => {
+            partialContent += chunk;
+            streamChunk?.(chunk);
+          });
           if (tracking && diagnosticTracking) {
             const metrics: Omit<DiagnosticModelResult, 'raw'> = {
               kind: tracking.kind,
@@ -308,7 +350,10 @@ export function createOllamaProvider(
               generationTokenLimit: tracking.generationTokenLimit ?? 2048,
             };
             lastDiagnosticMetrics = metrics;
-            if (!tracking.deferResult) onDiagnosticResult?.({ ...metrics, raw: result.content });
+            if (!tracking.deferResult) {
+              onDiagnosticResult?.({ ...metrics, raw: result.content });
+              diagnosticResultEmitted = true;
+            }
           }
           if (result.doneReason === 'length') {
             throw new Error('Analyse incomplète : Ollama a atteint la limite de génération (done_reason=length, num_predict=2048). La réponse partielle n’est pas exploitable comme correction. Réduisez la longueur des données ou relancez avec un budget adapté.');
@@ -320,7 +365,14 @@ export function createOllamaProvider(
           }
           return result.content;
         } catch (cause) {
-          if (cause instanceof SyntaxError) throw new Error('Le flux envoyé par Ollama est mal formé. Vérifiez la version du serveur.');
+          if (cause instanceof SyntaxError) {
+            const error = new Error('Le flux envoyé par Ollama est mal formé. Vérifiez la version du serveur.');
+            publishFailedCall(error);
+            throw error;
+          }
+          // A completed trace is already emitted above; this also records interrupted reads
+          // with the exact prompt and every text chunk received before the interruption.
+          if (!diagnosticResultEmitted) publishFailedCall(cause);
           throw cause;
         }
       }

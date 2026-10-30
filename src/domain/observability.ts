@@ -13,6 +13,7 @@ export type ObservabilitySpan = {
   requestPrompt?: string;
   requestMetadata?: { stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number } };
   raw?: string;
+  error?: string;
   doneReason?: string;
   thinkingPresent?: boolean;
 };

@@ -24,4 +24,33 @@ describe('model evaluation partial results', () => {
       value: partialValue,
     });
   });
+
+  it('retains an incomplete streamed response when evaluation fails before a diagnostic call completes', async () => {
+    const partialValue = {
+      raw: '{"criterionId":"q1","points":',
+      diagnosticRuns: [],
+      transcription: 'Transcription conservée',
+    };
+    const failure = Object.assign(new Error('Réponse JSON invalide ou tronquée pour ce critère.'), { partialValue });
+    const [result] = await runModelEvaluation({
+      configurations: [{
+        id: 'profile-api',
+        name: 'API compatible',
+        endpoint: 'https://api.example/v1/chat/completions',
+        apiCompatible: true,
+        visionModel: 'vision',
+        analysisModel: 'analysis',
+        thinking: false,
+      }],
+      execute: async () => { throw failure; },
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.error).toContain('JSON invalide');
+    expect(result.value).toMatchObject({
+      raw: '{"criterionId":"q1","points":',
+      diagnosticRuns: [],
+      transcription: 'Transcription conservée',
+    });
+  });
 });

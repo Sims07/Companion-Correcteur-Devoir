@@ -741,6 +741,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         let readingMs = 0;
         let analysisStartedAt: number | null = null;
         const measuredRuns: DiagnosticModelResult[] = [];
+        let streamedOutput = '';
         const provider = service.createProvider({
           endpoint: configuration.endpoint,
           apiCompatible: configuration.apiCompatible,
@@ -760,7 +761,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
             ...(evaluationStageMode === 'vision' ? { visionOnly: true } : {}),
             images: evaluationStageMode === 'analysis' ? [] : structuredClone(images),
             ...(evaluationStageMode !== 'vision' && correctionMode === 'separate' ? { subjectImages: structuredClone(subjectImages), ...(subjectTranscription ? { subjectTranscription } : {}) } : {}),
-          }, (chunk) => setStreamedOutput((current) => current + chunk), (stage) => {
+          }, (chunk) => { streamedOutput += chunk; setStreamedOutput((current) => current + chunk); }, (stage) => {
             const now = Date.now();
             if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = Math.max(0, now - startedAt); analysisStartedAt = now; } onStage('analysis'); setEvaluationStage('grading'); setAnalysisStage('grading'); setStreamedOutput(''); }
             else { onStage('reading'); setEvaluationStage('reading'); setAnalysisStage('reading'); }
@@ -780,7 +781,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
             : null;
           const partialValue = {
             transcription: extractedTranscription,
-            raw: measuredRuns[measuredRuns.length - 1]?.raw ?? '',
+            raw: streamedOutput || measuredRuns[measuredRuns.length - 1]?.raw || '',
             score: null,
             proposal: null,
             readingMs,
@@ -1427,7 +1428,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         <section className="transcription-review"><h3>Transcription actuellement chargée</h3>{transcription ? <pre>{transcription}</pre> : <p className="hint">Aucune transcription disponible.</p>}</section>
         <section className="transcription-review"><h3>Dernière réponse reçue en streaming</h3>{streamedOutput ? <pre>{streamedOutput}</pre> : <p className="hint">Aucune réponse en streaming disponible.</p>}</section>
         <section className="transcription-review"><h3>Sorties brutes des modèles ({diagnosticRuns.length})</h3>{diagnosticRuns.length ? diagnosticRuns.map((run, index) => <details key={run.kind + run.model + index} className="rubric-import-raw-response"><summary>{run.model} · {run.kind} · {formatElapsed(Math.round(run.elapsedMs / 1000))}</summary><pre>{run.raw}</pre></details>) : <p className="hint">Aucune trace technique enregistrée. Lancez une expérience dans « Évaluation des modèles » puis revenez ici pour examiner les réponses brutes.</p>}</section>
-        <section className="transcription-review debug-evaluation-traces"><h3>Traces des évaluations indépendantes ({modelEvaluationResults.length})</h3>{modelEvaluationResults.length ? modelEvaluationResults.map((result) => <details key={result.profileId} className="rubric-import-raw-response"><summary>{result.profileName} · {result.status} · {formatElapsed(Math.round(result.elapsedMs / 1000))}</summary><p>Lecture : {result.readingMs ? formatElapsed(Math.round(result.readingMs / 1000)) : '—'} · Analyse : {result.analysisMs ? formatElapsed(Math.round(result.analysisMs / 1000)) : '—'} · Tokens : {result.tokens === null ? 'non mesurés' : formatTokenCount(result.tokens)}</p>{result.error && <p className="validation" role="alert">{result.error}</p>}{result.transcription && <><h4>Transcription</h4><pre>{result.transcription}</pre></>}{result.raw && <><h4>Réponse brute</h4><pre>{result.raw}</pre></>}</details>) : <p className="hint">Les réponses brutes des expériences indépendantes apparaîtront ici après un lancement dans Évaluation des modèles.</p>}</section>
+        <section className="transcription-review debug-evaluation-traces"><h3>Traces des évaluations indépendantes ({modelEvaluationResults.length})</h3>{modelEvaluationResults.length ? modelEvaluationResults.map((result) => <details key={result.profileId} className="rubric-import-raw-response"><summary>{result.profileName} · {result.status} · {formatElapsed(Math.round(result.elapsedMs / 1000))}</summary><p>Lecture : {result.readingMs ? formatElapsed(Math.round(result.readingMs / 1000)) : '—'} · Analyse : {result.analysisMs ? formatElapsed(Math.round(result.analysisMs / 1000)) : '—'} · Tokens : {result.tokens === null ? 'non mesurés' : formatTokenCount(result.tokens)}</p>{result.error && <div className="evaluation-error-panel"><p className="validation" role="alert">{result.error}</p><details className="evaluation-error-details"><summary>Voir les détails de l’erreur</summary><div><p><strong>Configuration :</strong> {result.profileName}</p><p><strong>Étape :</strong> {evaluationStageMode === 'vision' ? 'Vision' : evaluationStageMode === 'analysis' ? 'Analyse' : 'Parcours complet'}</p>{result.diagnosticRuns?.length ? <><h5>Appels terminés avant l’échec</h5><ol>{result.diagnosticRuns.map((run, index) => <li key={index}><strong>{run.model}</strong> · {run.stage === 'reading' ? 'Vision' : run.stage === 'arbitration' ? 'Arbitrage' : 'Analyse'} · {formatElapsed(Math.round(run.elapsedMs / 1000))}{run.doneReason ? ' · fin : ' + run.doneReason : ''}{run.generatedTokens !== undefined ? ' · ' + run.generatedTokens + ' tokens générés' : ''}{run.generationTokenLimit !== undefined ? ' · limite demandée : ' + run.generationTokenLimit : ''}{run.raw && <pre>{run.raw}</pre>}</li>)}</ol></> : <p>Aucun appel n’a pu être enregistré comme terminé avant l’échec.</p>}{result.raw ? <><h5>Dernière réponse brute conservée</h5><pre>{result.raw}</pre></> : <p>Aucune réponse brute complète n’a été conservée pour cet échec.</p>}</div></details></div>}{result.transcription && <><h4>Transcription</h4><pre>{result.transcription}</pre></>}{result.raw && <><h4>Réponse brute</h4><pre>{result.raw}</pre></>}</details>) : <p className="hint">Les réponses brutes des expériences indépendantes apparaîtront ici après un lancement dans Évaluation des modèles.</p>}</section>
             {interfaceMode === 'debug' && transcription && diagnosticRuns.filter((run) => run.kind === 'model').length === 2 && <button type="button" className="secondary-button full-button" disabled={busy || !arbitratorModel.trim()} onClick={() => void gradeCopies('arbitrate-only')}>Relancer uniquement l’arbitrage avec les deux avis enregistrés</button>}
 
       {interfaceMode === 'debug' && <section className="panel diagnostic-results" aria-labelledby="diagnostic-results-title">

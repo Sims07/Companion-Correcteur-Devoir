@@ -123,6 +123,39 @@ describe('Ollama adapter', () => {
     expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ raw: partial, doneReason: 'length' });
   });
 
+  it('records the exact prompt and partial response when a streaming request is interrupted', async () => {
+    const partial = '{"criteria":[{"criterionId":"knowledge","points":';
+    let deliveredPartial = false;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (!deliveredPartial) {
+          deliveredPartial = true;
+          controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content: partial }, done: false }) + '\n'));
+          return;
+        }
+        controller.error(new TypeError('connection reset'));
+      },
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(stream, { status: 200 }));
+    const onDiagnosticResult = vi.fn();
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434',
+      model: 'llava',
+      diagnosticStrategy: 'single',
+    }, fetchMock);
+
+    await expect(provider.generate(request, undefined, undefined, undefined, onDiagnosticResult)).rejects.toThrow(/connection reset/);
+    expect(onDiagnosticResult).toHaveBeenCalledOnce();
+    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({
+      model: 'llava',
+      requestPrompt: expect.stringContaining('Expliquez la mitose'),
+      requestMetadata: { stream: true, format: 'json', imageCount: 1 },
+      raw: partial,
+      error: expect.stringContaining('connection reset'),
+    });
+    expect(JSON.stringify(onDiagnosticResult.mock.calls[0][0])).not.toContain('aGVsbG8=');
+  });
+
   it('emits response chunks as they arrive', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('hello'));
     const onChunk = vi.fn<(chunk: string) => void>();

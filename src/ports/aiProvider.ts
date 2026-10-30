@@ -30,6 +30,8 @@ export interface DiagnosticModelResult {
   requestMetadata?: { stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number } };
   /** Raw response content returned by the model, including partial output when available. */
   raw: string;
+  /** Provider/network failure associated with this exact request, when the call did not complete. */
+  error?: string;
   /** Wall-clock duration for this specific Ollama request. */
   elapsedMs: number;
   /** Usage reported by Ollama's final streaming event; absent when unsupported. */
