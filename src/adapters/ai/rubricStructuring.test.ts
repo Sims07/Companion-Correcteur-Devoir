@@ -13,8 +13,8 @@ describe('rubric structuring chunks', () => {
 
     expect(chunks.length).toBeGreaterThan(2);
     expect(chunks.every((chunk) => chunk.text.length <= 900)).toBe(true);
-    expect(chunks.filter((chunk) => chunk.page === 1).map((chunk) => chunk.text).join(' ')).toBe(firstPage);
-    expect(chunks.filter((chunk) => chunk.page === 2).map((chunk) => chunk.text).join(' ')).toBe(secondPage);
+    expect(chunks.filter((chunk) => chunk.page === 1) .map((chunk) => chunk.text).join('')).toBe(firstPage);
+    expect(chunks.filter((chunk) => chunk.page === 2) .map((chunk) => chunk.text).join('')).toBe(secondPage);
     expect(chunks.at(-1)?.page).toBe(2);
   });
 
