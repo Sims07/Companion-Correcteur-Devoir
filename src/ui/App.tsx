@@ -707,20 +707,51 @@ export function App({ service, archiveService, evaluationService }: { service: C
           diagnosticStrategy: 'single',
         });
         setStreamedOutput('');
-        raw = await provider.generate({
-          question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
-          rubric: rubricAsJson(rubric),
-          ...(evaluationStageMode === 'analysis' ? { transcription: transcription ?? '' } : {}),
-          ...(evaluationStageMode === 'vision' ? { visionOnly: true } : {}),
-          images: evaluationStageMode === 'analysis' ? [] : structuredClone(images),
-          ...(evaluationStageMode !== 'vision' && correctionMode === 'separate' ? { subjectImages: structuredClone(subjectImages), ...(subjectTranscription ? { subjectTranscription } : {}) } : {}),
-        }, (chunk) => setStreamedOutput((current) => current + chunk), (stage) => {
-          const now = Date.now();
-          if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = Math.max(0, now - startedAt); analysisStartedAt = now; } onStage('analysis'); setEvaluationStage('grading'); setAnalysisStage('grading'); setStreamedOutput(''); }
-          else { onStage('reading'); setEvaluationStage('reading'); setAnalysisStage('reading'); }
-        }, (text, kind) => {
-          if (kind !== 'subject') extractedTranscription = text;
-        }, (result) => measuredRuns.push(result));
+        try {
+          raw = await provider.generate({
+            question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+            rubric: rubricAsJson(rubric),
+            ...(evaluationStageMode === 'analysis' ? { transcription: transcription ?? '' } : {}),
+            ...(evaluationStageMode === 'vision' ? { visionOnly: true } : {}),
+            images: evaluationStageMode === 'analysis' ? [] : structuredClone(images),
+            ...(evaluationStageMode !== 'vision' && correctionMode === 'separate' ? { subjectImages: structuredClone(subjectImages), ...(subjectTranscription ? { subjectTranscription } : {}) } : {}),
+          }, (chunk) => setStreamedOutput((current) => current + chunk), (stage) => {
+            const now = Date.now();
+            if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = Math.max(0, now - startedAt); analysisStartedAt = now; } onStage('analysis'); setEvaluationStage('grading'); setAnalysisStage('grading'); setStreamedOutput(''); }
+            else { onStage('reading'); setEvaluationStage('reading'); setAnalysisStage('reading'); }
+          }, (text, kind) => {
+            if (kind !== 'subject') extractedTranscription = text;
+          }, (result) => measuredRuns.push(result));
+        } catch (cause) {
+          const failedAt = Date.now();
+          if (evaluationStageMode === 'vision' && analysisStartedAt === null) readingMs = Math.max(0, failedAt - startedAt);
+          const analysisMs = analysisStartedAt === null ? 0 : Math.max(0, failedAt - analysisStartedAt);
+          const readingTokens = sumReportedTokensForStage(measuredRuns, 'reading');
+          const analysisTokens = sumReportedTokensForStage(measuredRuns, 'analysis');
+          const readingTokensPerSecond = calculateReportedTokensPerSecondForStage(measuredRuns, 'reading');
+          const analysisTokensPerSecond = calculateReportedTokensPerSecondForStage(measuredRuns, 'analysis');
+          const tokens = measuredRuns.some((run) => run.promptTokens !== undefined || run.generatedTokens !== undefined || run.totalTokens !== undefined)
+            ? measuredRuns.reduce((sum, run) => sum + (run.totalTokens ?? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0)), 0)
+            : null;
+          const partialValue = {
+            transcription: extractedTranscription,
+            raw: measuredRuns.at(-1)?.raw ?? '',
+            score: null,
+            proposal: null,
+            readingMs,
+            analysisMs,
+            readingTokens,
+            analysisTokens,
+            readingTokensPerSecond,
+            analysisTokensPerSecond,
+            tokens,
+            diagnosticRuns: measuredRuns,
+            elapsedMs: failedAt - startedAt,
+          };
+          const error = new Error(cause instanceof Error ? cause.message : String(cause));
+          Object.assign(error, { partialValue });
+          throw error;
+        }
         const analysisFinishedAt = Date.now();
         if (evaluationStageMode === 'vision' && analysisStartedAt === null) readingMs = Math.max(0, analysisFinishedAt - startedAt);
         const analysisMs = analysisStartedAt === null ? 0 : Math.max(0, analysisFinishedAt - analysisStartedAt);
