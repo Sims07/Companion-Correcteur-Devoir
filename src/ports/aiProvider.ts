@@ -85,6 +85,10 @@ export interface OllamaSettings {
   regionsEnabled?: boolean;
   /** Optional vision model dedicated to region localization; falls back to visionModel. */
   regionsModel?: string;
+  /** Optional prompt override; auto selects OCR-specialized or general vision instructions. */
+  transcriptionPromptMode?: 'auto' | 'ocr' | 'general';
+  /** Repetition penalty used for all local document transcription requests. */
+  transcriptionRepeatPenalty?: number;
   /** Maximum transcription tokens, capped at 2048. */
   transcriptionTokenLimit?: number;
   /** Text model used to grade the transcription against the rubric. */
