@@ -62,7 +62,7 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
                 <div><dt>Budget génération</dt><dd>{span.requestMetadata.options.generationTokenLimit} tokens</dd></div>
                 <div><dt>Keep alive</dt><dd>{String(span.requestMetadata.keepAlive)}</dd></div>
                 {span.requestMetadata.options.temperature !== undefined && <div><dt>Température</dt><dd>{span.requestMetadata.options.temperature}</dd></div>}
-                {span.requestMetadata.options.repeatPenalty !== undefined && <div><dt>repeat_penalty (interne)</dt><dd>{span.requestMetadata.options.repeatPenalty}</dd></div>}
+                {span.requestMetadata.options.repeatPenalty !== undefined && <div><dt>repeat_penalty (valeur source Ollama)</dt><dd>{span.requestMetadata.options.repeatPenalty}</dd></div>}
                 {span.requestMetadata.options.frequencyPenalty !== undefined && <div><dt>frequency_penalty (effectif)</dt><dd>{span.requestMetadata.options.frequencyPenalty}</dd></div>}
                 {span.requestMetadata.options.stop && <div><dt>Séquences stop</dt><dd><code>{JSON.stringify(span.requestMetadata.options.stop)}</code></dd></div>}
               </dl>}
@@ -100,13 +100,13 @@ export function ObservabilityDashboard({ records }: Props) {
 
   return <section className="observability-workspace" aria-labelledby="observability-title">
     <header className="observability-page-heading">
-      <div><p className="observability-eyebrow">PILOTAGE IA · TRAÇABILITÉ</p><h1 id="observability-title">Observabilité</h1><p>Comprenez les performances et la fiabilité de votre chaîne de correction, sans exposer les copies.</p></div>
+      <div><p className="observability-eyebrow">PILOTAGE IA · TRAÇABILITÉ</p><h1 id="observability-title">Observabilité</h1><p>Comprenez les performances et la fiabilité de votre chaîne de correction, sans afficher les données binaires des copies.</p></div>
       <div className="observability-local-badge"><span></span>Données conservées sur cet appareil</div>
     </header>
 
     <section className="observability-intro" aria-label="Périmètre des données">
       <div className="observability-intro-icon" aria-hidden="true">⌂</div>
-      <div><strong>Vos données pédagogiques restent locales</strong><p>Cette vue exploite l’historique technique conservé dans le navigateur. Les requêtes JSON, paramètres effectifs, prompts et réponses sont consultables à la demande ; les clés API et octets des images sont masqués.</p></div>
+      <div><strong>Les traces techniques restent sur cet appareil</strong><p>Les requêtes sont envoyées uniquement à l’endpoint configuré (Ollama local ou API compatible). Leur historique de diagnostic est conservé dans ce navigateur ; les clés API et octets des images sont masqués dans cette vue.</p></div>
       <span>LOCAL</span>
     </section>
 
