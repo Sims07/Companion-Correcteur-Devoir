@@ -243,7 +243,7 @@ describe('Ollama adapter', () => {
     const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
     expect(gradingBody.model).toBe('grader');
     expect(gradingBody.messages[0].content).toContain('Question 1\nRéponse manuscrite.');
-    expect(transcriptions[0]).toContain('Question 1\\nRéponse manuscrite.');
+    expect(transcriptions[0]).toContain('Question 1\nRéponse manuscrite.');
     expect(transcriptions[0]).not.toContain('[ANCRE_VISUELLE');
   });
 
