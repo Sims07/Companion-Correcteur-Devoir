@@ -261,6 +261,9 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   const [salukiLoaded, setSalukiLoaded] = useState(false);
   const [salukiMessage, setSalukiMessage] = useState('');
   const [visionModel, setVisionModel] = useState(() => readAiModelConfiguration().visionModel);
+  const [regionsEnabled, setRegionsEnabled] = useState(() => readAiModelConfiguration().regionsEnabled);
+  const [regionsModel, setRegionsModel] = useState(() => readAiModelConfiguration().regionsModel);
+  const [transcriptionTokenLimit, setTranscriptionTokenLimit] = useState(() => readAiModelConfiguration().transcriptionTokenLimit);
   const [analysisModel, setAnalysisModel] = useState(() => readAiModelConfiguration().analysisModel);
   const [secondAnalysisModel, setSecondAnalysisModel] = useState(() => readAiModelConfiguration().secondAnalysisModel);
   const [arbitratorModel, setArbitratorModel] = useState(() => readAiModelConfiguration().arbitratorModel);
@@ -342,16 +345,19 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   ];
 
   useEffect(() => {
-    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
+    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
-  }, [endpoint, apiCompatible, apiKey, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion]);
+  }, [endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion]);
 
   function applyAiModelProfile(profile: AiModelProfile) {
     setEndpoint(profile.configuration.endpoint);
     setApiCompatible(profile.configuration.apiCompatible);
     setApiKey(profile.configuration.apiKey);
     setVisionModel(profile.configuration.visionModel);
+    setRegionsEnabled(profile.configuration.regionsEnabled);
+    setRegionsModel(profile.configuration.regionsModel);
+    setTranscriptionTokenLimit(profile.configuration.transcriptionTokenLimit);
     setAnalysisModel(profile.configuration.analysisModel);
     setSecondAnalysisModel(profile.configuration.secondAnalysisModel);
     setArbitratorModel(profile.configuration.arbitratorModel);
@@ -633,7 +639,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       if ((!transcription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
       await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
       setAnalysisStage('reading');
-      const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
+      const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
       const raw = await provider.generate(
         { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
         (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
@@ -1340,7 +1346,16 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
         {apiCompatible && <><label className="field-label" htmlFor="ai-api-key">Token API (Bearer)</label><input id="ai-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><p className="hint">Conservé dans le stockage local du navigateur et transmis uniquement au serveur configuré. Il n’apparaît pas dans les traces de diagnostic.</p></>}
         <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture des copies</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }} placeholder="Ex. gemma3:4b ou qwen2.5vl" />}
-        <p className="hint">Choisissez un modèle compatible avec les images. La lecture est réutilisée lors d’une nouvelle analyse si la copie n’a pas changé.</p>
+        <p className="hint">Modèle de vision utilisé pour transcrire chaque page. La transcription est réutilisée lors d’une nouvelle analyse si la copie n’a pas changé.</p>
+        <label className="analysis-thinking-option" htmlFor="ai-regions-enabled"><input id="ai-regions-enabled" type="checkbox" checked={regionsEnabled} onChange={(event) => { setRegionsEnabled(event.target.checked); setTranscription(null); }} /><span><strong>Localiser les zones de réponse (optionnel)</strong><small>Ajoute un second appel de vision après la transcription pour repérer les réponses sur la page. Désactivé par défaut ; une erreur de localisation ne bloque jamais la correction.</small></span></label>
+        {regionsEnabled && <>
+          <label className="field-label" htmlFor="ollama-regions-model">Modèle de localisation des zones</label>
+          {availableModels.length > 0 ? <DesignSystemSelect id="ollama-regions-model" value={regionsModel} onChange={(event) => { setRegionsModel(event.target.value); setTranscription(null); }}><option value="">Même modèle que la lecture</option>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-regions-model" value={regionsModel} onChange={(event) => { setRegionsModel(event.target.value); setTranscription(null); }} placeholder="Vide = modèle de lecture" />}
+          <p className="hint">Modèle vision distinct facultatif. Si vide, le modèle de lecture est réutilisé.</p>
+        </>}
+        <label className="field-label" htmlFor="ai-transcription-token-limit">Limite de tokens de transcription (maximum 2048)</label>
+        <input id="ai-transcription-token-limit" type="number" min="128" max="2048" step="128" value={transcriptionTokenLimit} onChange={(event) => { setTranscriptionTokenLimit(Math.min(2048, Math.max(128, Number(event.target.value) || 2048))); setTranscription(null); }} />
+        <p className="hint">La transcription utilise du texte brut, sans sortie JSON. La limite est plafonnée à 2048 tokens.</p>
         <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}
         <p className="hint">Ce modèle applique le barème au texte lu. Le mode thinking reste désactivé pour privilégier une correction plus rapide et compatible.</p>
