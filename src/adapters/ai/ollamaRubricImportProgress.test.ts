@@ -20,8 +20,8 @@ function response(criterionTitle = 'Membrane cellulaire') {
   }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }
 
-function visionResponse(content = 'Exercice 1 — Membrane cellulaire — 2 points. Attendu : décrire sa fonction.') {
-  return new Response(JSON.stringify({ message: { content } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+function visionResponse(content = 'Exercice 1 — Membrane cellulaire — 2 points. Attendu : décrire sa fonction.', done_reason?: string) {
+  return new Response(JSON.stringify({ message: { content }, done_reason }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }
 
 describe('rubric import progress', () => {
@@ -43,6 +43,23 @@ describe('rubric import progress', () => {
     expect(progress.find((event) => event.rawResponseStage === 'analysis')?.rawResponse).toContain('criteria');
     expect(result.rubric.criteria).toHaveLength(1);
     expect(progress.at(-1)?.message).toContain('1 critère');
+  });
+
+  it('applies bounded transcription options and marks a truncated rubric page as doubtful', async () => {
+    const requestBodies: Array<{ options?: { temperature?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number }; messages?: Array<{ content?: string }> }> = [];
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestBodies.push(JSON.parse(String(init?.body)) as typeof requestBodies[number]);
+      return requestBodies.length === 1 ? visionResponse('Exercice 1 — Membrane cellulaire.\\n\\n\\n\\n', 'length') : response();
+    }) as unknown as typeof fetch;
+    await importRubricImageWithOllama(
+      image('bareme.png'),
+      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b', transcriptionTokenLimit: 4096, transcriptionRepeatPenalty: 1.1 },
+      fetchMock,
+    );
+    expect(requestBodies[0].options).toMatchObject({ temperature: 0, num_predict: 2048, stop: ['\\n\\n\\n\\n'], repeat_penalty: 1.1 });
+    expect(requestBodies[1].messages?.[0].content).toContain('LECTURE DOUTEUSE');
+    expect(requestBodies[1].messages?.[0].content).toContain('Exercice 1 — Membrane cellulaire.');
+    expect(requestBodies[1].messages?.[0].content).not.toMatch(/\\n{3,}/);
   });
 
   it('keeps the exact model response visible when rubric validation fails', async () => {
