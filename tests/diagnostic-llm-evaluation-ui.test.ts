@@ -253,9 +253,9 @@ describe('Évaluation des modèles — résultats adaptés au type d’expérien
   });
 
   it('shows only the metrics and analysis summary relevant to the selected stage', () => {
-    expect(appSource).toContain("evaluationStageMode !== 'analysis' && <p className=\\"evaluation-result-stage-metrics\\">Lecture Vision");
-    expect(appSource).toContain("evaluationStageMode !== 'vision' && <p className=\\"evaluation-result-stage-metrics\\">Analyse");
-    expect(appSource).toContain("evaluationStageMode !== 'vision' && <p className=\\"evaluation-result-score\\">");
+    expect(appSource).toContain(`evaluationStageMode !== 'analysis' && <p className="evaluation-result-stage-metrics">Lecture Vision`);
+    expect(appSource).toContain(`evaluationStageMode !== 'vision' && <p className="evaluation-result-stage-metrics">Analyse`);
+    expect(appSource).toContain(`evaluationStageMode !== 'vision' && <p className="evaluation-result-score">`);
     expect(appSource).toContain("evaluationStageMode !== 'vision' && modelEvaluationResults.some((result) => result.proposal !== null)");
     expect(appSource).toContain("details open={evaluationStageMode === 'vision'}");
     expect(appSource).toContain("details open={evaluationStageMode !== 'vision'}");
