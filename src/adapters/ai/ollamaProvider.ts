@@ -331,8 +331,8 @@ export function createOllamaProvider(
                 imageCount: images?.length ?? 0,
                 keepAlive: tracking?.keepAlive ?? 0,
                 options: {
-                  contextTokens: tracking.kind === 'vision' ? 4096 : 8192,
-                  generationTokenLimit: 2048,
+                  contextTokens: tracking.contextTokenLimit ?? (tracking.kind === 'vision' ? 4096 : 8192),
+                  generationTokenLimit: tracking.generationTokenLimit ?? 2048,
                   ...(tracking?.temperature !== undefined ? { temperature: tracking.temperature } : {}),
                 },
               },
@@ -356,7 +356,7 @@ export function createOllamaProvider(
             }
           }
           if (result.doneReason === 'length') {
-            throw new Error('Analyse incomplète : Ollama a atteint la limite de génération (done_reason=length, num_predict=2048). La réponse partielle n’est pas exploitable comme correction. Réduisez la longueur des données ou relancez avec un budget adapté.');
+            throw new Error(`Analyse incomplète : Ollama a atteint la limite de génération (done_reason=length, num_predict=${tracking?.generationTokenLimit ?? 2048}). La réponse partielle n’est pas exploitable comme correction. Réduisez la longueur des données ou relancez avec un budget adapté.`);
           }
           if (!result.content.trim()) {
             throw new Error(result.thinkingPresent
