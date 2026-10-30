@@ -1323,7 +1323,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
 
       {interfaceMode === 'teacher' && showAiSettings && <section className={`panel ollama-panel teacher-model-panel ai-settings-view ${visionModel.trim() && analysisModel.trim() ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
         <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DU POSTE</p><h2 id="teacher-model-title">Paramètres de l’IA locale</h2></div><span className="step-count">OLLAMA</span></div>
-        <p className="settings-intro">Configurez les deux modèles utilisés par le parcours de correction. Avec Ollama, les traitements restent sur votre serveur local. Une API compatible OpenAI transmet les contenus au serveur distant configuré.</p>
+        <p className="settings-intro">Configurez les modèles utilisés par le parcours de correction, dont la localisation visuelle facultative. Avec Ollama, les traitements restent sur votre serveur local. Une API compatible OpenAI transmet les contenus au serveur distant configuré.</p>
         <div className="ai-profile-controls" aria-label="Profils de configuration IA">
           <label className="field-label" htmlFor="ai-model-profile">Configuration enregistrée</label>
           <div className="ai-profile-row">
