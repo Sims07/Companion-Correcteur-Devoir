@@ -192,7 +192,7 @@ function sameImages(first: readonly ModelEvaluationImage[], second: readonly Mod
 }
 
 function sameRubric(first: Rubric, second: Rubric): boolean {
-  return JSON.stringify(first.criteria.map(({ id, title, maxPoints }) => ({ id, title, maxPoints }))) ===
+  return JSON.stringify(first.criteria.map(({ id, title, description, maxPoints }) => ({ id, title, description, maxPoints }))) ===
     JSON.stringify(second.criteria.map(({ id, title, maxPoints }) => ({ id, title, maxPoints })));
 }
 
@@ -217,7 +217,7 @@ export function canCompareModelEvaluationRecords(records: readonly ModelEvaluati
   const stage = getModelEvaluationStage(first);
   if (stage === 'analysis') return sameAnalysisInput(first, second);
   if (!sameImages(first.images, second.images)) return false;
-  if (stage === 'vision') return true;
+  if (stage === 'vision') return first.question === second.question && sameRubric(first.rubricSnapshot, second.rubricSnapshot);
   return first.question === second.question &&
     first.correctionMode === second.correctionMode &&
     first.subjectTranscription === second.subjectTranscription &&
