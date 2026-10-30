@@ -187,6 +187,19 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('@media (max-width: 720px)');
   });
 
+  it('keeps assignment management compact and reveals its actions on demand', () => {
+    expect(appComponent).toContain('className="sidebar-assignment-current"');
+    expect(appComponent).toContain('aria-expanded={showAssignmentPicker}');
+    expect(appComponent).toContain('aria-controls="assignment-picker-options"');
+    expect(appComponent).toContain('CHANGER DE DEVOIR');
+    expect(appComponent).toContain('className="sidebar-assignment-actions"');
+    expect(appComponent).not.toContain('htmlFor="assignment-title"');
+    expect(correctionFlowStylesheet).toContain('.sidebar-assignment-current {');
+    expect(correctionFlowStylesheet).toContain('.sidebar-assignment-menu {');
+    expect(correctionFlowStylesheet).toContain('.sidebar-assignment-actions-menu {');
+    expect(correctionFlowStylesheet).toContain('@media (prefers-reduced-motion: reduce)');
+  });
+
   it('routes every application dropdown through the shared design-system control', () => {
     expect(appComponent).not.toMatch(/<select\b/);
     expect(appComponent).toContain('<DesignSystemSelect id="assignment-education-level"');
