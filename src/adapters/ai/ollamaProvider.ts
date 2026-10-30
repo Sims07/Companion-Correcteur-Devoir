@@ -112,28 +112,6 @@ function isValidLocationBox(value: unknown): value is { x: number; y: number; wi
     Number(box.x) + Number(box.width) <= 1000 && Number(box.y) + Number(box.height) <= 1000;
 }
 
-interface VisionPageResult {
-  transcription: string;
-  regions: Array<{ id: string; text: string; x: number; y: number; width: number; height: number }>;
-}
-
-function normalizeVisionPageResult(raw: string, pageNumber: number): string {
-  try {
-    const parsed: unknown = JSON.parse(raw.trim().replace(/^\u0060\u0060\u0060(?:json)?\\s*/i, '').replace(/\\s*\u0060\u0060\u0060$/, ''));
-    if (typeof parsed !== 'object' || parsed === null || !('transcription' in parsed) || typeof parsed.transcription !== 'string' || !('regions' in parsed) || !Array.isArray(parsed.regions)) return raw;
-    const regions = (parsed as VisionPageResult).regions.filter((region) =>
-      typeof region.id === 'string' && typeof region.text === 'string' &&
-      [region.x, region.y, region.width, region.height].every((value) => Number.isInteger(value)) &&
-      region.x >= 0 && region.y >= 0 && region.width > 0 && region.height > 0 &&
-      region.x + region.width <= 1000 && region.y + region.height <= 1000);
-    const anchors = regions.map((region) =>
-      `[ANCRE_VISUELLE page=${pageNumber} id=${region.id} x=${region.x} y=${region.y} width=${region.width} height=${region.height}] ${region.text}`);
-    return [parsed.transcription.trim(), ...anchors].filter(Boolean).join('\\n');
-  } catch {
-    return raw;
-  }
-}
-
 function isValidLocationBox(value: unknown): value is { x: number; y: number; width: number; height: number } {
   if (typeof value !== 'object' || value === null) return false;
   const box = value as Record<string, unknown>;
