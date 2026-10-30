@@ -211,7 +211,8 @@ describe('UI design system', () => {
     expect(observabilityComponent).toContain('Durée des dernières exécutions');
     expect(observabilityComponent).toContain('Vision vs Analyse');
     expect(observabilityComponent).toContain('EXPLORATEUR DE TRACES');
-    expect(observabilityComponent).toContain('sortie brute des modèles');
+    expect(observabilityComponent).toContain('Requête & réponse');
+    expect(observabilityComponent).toContain('Réponse brute du modèle');
     expect(observabilityStyles).toContain('.observability-kpis');
     expect(appComponent).toContain('toModelEvaluationObservabilityTraces(savedModelEvaluations)');
     expect(appComponent).toContain('records={observabilityRecords}');
