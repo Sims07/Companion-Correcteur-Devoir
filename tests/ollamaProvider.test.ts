@@ -250,6 +250,22 @@ describe('Ollama adapter', () => {
     expect(transcriptions[0]).toContain('Réponse partielle');
   });
 
+  it('marks a page doubtful when the four-newline stop is reached without a length finish reason', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse('Réponse avant le grand blanc.\\n\\n\\n\\n'))
+      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const transcriptions: string[] = [];
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b',
+      regionsEnabled: true, analysisModel: 'qwen3.5:4b',
+    }, fetchMock);
+    await expect(provider.generate(request, undefined, undefined, (value) => transcriptions.push(value))).resolves.toBe('{"criteria":[]}');
+    expect(fetchMock).toHaveBeenCalledTimes(2); // Localization is skipped for a potentially cut page.
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).keep_alive).toBe(0);
+    expect(transcriptions[0]).toContain('LECTURE DOUTEUSE');
+    expect(transcriptions[0]).toContain('Réponse avant le grand blanc.');
+  });
+
   it('runs optional region localization with its configured vision model and tolerates failures', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse('Question 1\nRéponse manuscrite.'))
@@ -571,7 +587,7 @@ describe('Ollama adapter', () => {
     expect(firstRegions.keep_alive).toBe('30s');
     expect(firstRegions.format).toBe('json');
     expect(lastPage.model).toBe('gemma3:4b');
-    expect(lastPage.keep_alive).toBe('30s');
+    expect(lastPage.keep_alive).toBe(0);
     expect(lastPage.messages[0].content).toContain('Transcris fidèlement');
     expect(lastPage.messages[0].images).toEqual(['cGFnZTI=']);
     expect(lastRegions.keep_alive).toBe(0);
