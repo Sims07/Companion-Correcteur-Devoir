@@ -994,3 +994,14 @@ footer { padding-top: 24px; line-height: 1.6; }
 .evaluation-error-details h5 {
   margin: 0.5rem 0 0;
 }
+
+/* On-demand Saluki model loading in compatible API settings. */
+.saluki-load-card{display:grid;gap:12px;margin:20px 0;padding:18px;border:1px solid #c9d5ff;border-radius:14px;background:linear-gradient(135deg,#f8f9ff,#f0f4ff)}
+.saluki-load-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.saluki-load-heading h3{margin:0;color:#24356b;font-size:16px}
+.saluki-beta{margin-left:6px;padding:3px 7px;border:1px solid #c8d0ff;border-radius:999px;color:#5558d9;font-size:10px}
+.saluki-status{padding:5px 9px;border-radius:999px;background:#e9edf8;color:#4b5678;font-size:11px;font-weight:700;white-space:nowrap}.saluki-status.is-loaded{background:#dcf7ed;color:#087c5b}
+.saluki-load-card>p{margin:0;color:#53617f;font-size:12px;line-height:1.6}.saluki-load-details{display:flex;flex-wrap:wrap;gap:8px}
+.saluki-load-details span{padding:6px 9px;border-radius:8px;background:#fff;color:#455477;font-size:10px}
+.saluki-feedback{padding:10px 12px;border:1px solid #f2d5a2;border-radius:9px;background:#fff9ed;color:#895b12;font-size:11px;line-height:1.5}.saluki-feedback.is-loaded{border-color:#a7e4cc;background:#effcf6;color:#087c5b}
+.saluki-load-card details{padding-top:9px;border-top:1px solid #dce3fa;color:#53617f;font-size:11px}.saluki-load-card summary{cursor:pointer;font-weight:700}.saluki-load-card details p{margin:8px 0}
+@media(max-width:560px){.saluki-load-heading{align-items:flex-start;flex-direction:column}}
