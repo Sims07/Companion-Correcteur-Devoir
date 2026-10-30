@@ -23,7 +23,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Ajouter une autre copie');
     expect(text).toContain('Consulter la correction');
     expect(text).toContain('archiveService.saveCorrection(correction)');
-    expect(text).toContain('images: structuredClone(images)');
+    expect(text).toContain("images: evaluationStageMode === 'analysis' ? [] : structuredClone(images)");
     expect(text).toContain('snapshot.review');
     expect(text).toContain('stocké dans ce navigateur');
   });
