@@ -42,8 +42,11 @@ export function buildIncrementalCriterionPrompt(
 }
 
 function extractTaggedSection(context: string, tag: string, label: string): string | undefined {
-  const match = context.match(new RegExp('<' + tag + '>([\\s\\S]*?)</' + tag + '>'));
-  const value = match?.[1]?.trim();
+  const openingTag = '<' + tag + '>';
+  const closingTag = '</' + tag + '>';
+  const start = context.indexOf(openingTag);
+  const end = start < 0 ? -1 : context.indexOf(closingTag, start + openingTag.length);
+  const value = start >= 0 && end >= 0 ? context.slice(start + openingTag.length, end).trim() : '';
   return value ? label + ' :\n<' + tag + '>\n' + value + '\n</' + tag + '>' : undefined;
 }
 
