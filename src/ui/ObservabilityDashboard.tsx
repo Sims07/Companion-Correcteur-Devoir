@@ -24,16 +24,17 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
   return <details className="observability-trace-details">
     <summary>
       <span className="observability-trace-date">{new Date(trace.completedAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</span>
-      <span className="observability-trace-models"><strong>{trace.visionModel || 'Vision non renseigné'}</strong><small>{trace.analysisModel || 'Analyse non renseignée'}</small></span>
+      <span className="observability-trace-models"><strong>{trace.source === 'model-evaluation' ? `Évaluation · ${trace.evaluationProfileName ?? 'Profil'}` : trace.visionModel || 'Vision non renseigné'}</strong><small>{trace.source === 'model-evaluation' ? `${trace.visionModel || 'Sans Vision'} · ${trace.analysisModel || 'Sans Analyse'}` : trace.analysisModel || 'Analyse non renseignée'}</small></span>
       <span className="observability-trace-duration">{duration(trace.totalSeconds)}</span>
       <span className={trace.outcome === 'success' ? 'observability-status success' : 'observability-status error'}>{trace.outcome === 'success' ? 'Terminée' : 'Échec'}</span>
       <span className="observability-expand" aria-hidden="true">⌄</span>
     </summary>
     <div className="observability-trace-body">
       <div className="observability-trace-meta">
+        <span><small>Type d’exécution</small><strong>{trace.source === 'model-evaluation' ? `Évaluation de modèles · ${trace.evaluationProfileName ?? 'Profil'}` : 'Correction'}</strong></span>
         <span><small>Devoir</small><strong>{trace.assignmentTitle || 'Devoir sans titre'}</strong></span>
         <span><small>Pages traitées</small><strong>{trace.pageCount}</strong></span>
-        <span><small>Lecture</small><strong>{duration(trace.readingSeconds)}</strong></span>
+        <span><small>Lecture / Vision</small><strong>{duration(trace.readingSeconds)}</strong></span>
         <span><small>Analyse</small><strong>{duration(trace.analysisSeconds)}</strong></span>
         <span><small>Note proposée</small><strong>{trace.modelScore === null ? 'Non disponible' : `${number(trace.modelScore)} pts`}</strong></span>
       </div>
@@ -84,7 +85,7 @@ export function ObservabilityDashboard({ records }: Props) {
     <div className="observability-section-heading"><div><p className="observability-eyebrow">VUE D’ENSEMBLE</p><h2>La santé de votre pipeline IA</h2></div><span className="observability-period">Historique disponible · {summary.traceCount} trace(s)</span></div>
 
     <div className="observability-kpis">
-      <article className="observability-kpi"><span className="observability-kpi-icon">↗</span><div><small>Corrections analysées</small><strong>{summary.traceCount}</strong><span>{summary.successCount} terminée(s) · {summary.errorCount} échec(s)</span></div></article>
+      <article className="observability-kpi"><span className="observability-kpi-icon">↗</span><div><small>Exécutions observées</small><strong>{summary.traceCount}</strong><span>{records.filter((record) => record.source === 'model-evaluation').length} évaluation(s) · {records.filter((record) => record.source !== 'model-evaluation').length} correction(s)</span></div></article>
       <article className="observability-kpi"><span className="observability-kpi-icon">◷</span><div><small>Durée moyenne</small><strong>{duration(summary.averageDurationSeconds)}</strong><span>Lecture + analyse, temps mural</span></div></article>
       <article className="observability-kpi"><span className="observability-kpi-icon">◎</span><div><small>Taux de réussite</small><strong>{summary.successRatePercent === null ? '—' : `${summary.successRatePercent} %`}</strong><span>Sur les traces conservées</span></div></article>
       <article className="observability-kpi"><span className="observability-kpi-icon">◈</span><div><small>Tokens mesurés</small><strong>{summary.totalTokens === null ? '—' : number(summary.totalTokens)}</strong><span>{summary.measuredCalls}/{summary.totalCalls} appels mesurés par Ollama</span></div></article>
@@ -92,13 +93,13 @@ export function ObservabilityDashboard({ records }: Props) {
 
     <div className="observability-chart-grid">
       <article className="observability-panel observability-activity-panel">
-        <div className="observability-panel-heading"><div><p className="observability-eyebrow">PERFORMANCE DANS LE TEMPS</p><h3>Durée des dernières corrections</h3><p>Chaque barre représente une trace, de la plus ancienne à la plus récente.</p></div><span className="observability-chart-legend"><i></i> Durée totale</span></div>
+        <div className="observability-panel-heading"><div><p className="observability-eyebrow">PERFORMANCE DANS LE TEMPS</p><h3>Durée des dernières exécutions</h3><p>Corrections et évaluations de modèles, de la plus ancienne à la plus récente.</p></div><span className="observability-chart-legend"><i></i> Durée totale</span></div>
         {recent.length ? <div className="observability-activity-chart" role="img" aria-label="Graphique des durées des dix dernières corrections">
           <div className="observability-chart-y-axis"><span>{duration(maxDuration)}</span><span>0 s</span></div>
           <div className="observability-chart-bars">{recent.map((record, index) => <div className="observability-chart-column" key={record.id} title={`${new Date(record.completedAt).toLocaleString('fr-FR')} · ${duration(record.totalSeconds)}`}>
             <span className={record.outcome === 'success' ? 'observability-chart-bar' : 'observability-chart-bar failed'} style={{ height: `${Math.max(3, record.totalSeconds / maxDuration * 100)}%` }}></span><small>{index + 1}</small>
           </div>)}</div>
-        </div> : <div className="observability-chart-empty"><span>◷</span><strong>Les premières traces apparaîtront ici</strong><p>Lancez une correction pour commencer à observer votre pipeline.</p></div>}
+        </div> : <div className="observability-chart-empty"><span>◷</span><strong>Les premières traces apparaîtront ici</strong><p>Lancez une correction ou une évaluation de modèles pour alimenter cet historique.</p></div>}
         <div className="observability-chart-footnote"><span>Plus rapide</span><span>Plus récent →</span></div>
       </article>
 
@@ -126,7 +127,7 @@ export function ObservabilityDashboard({ records }: Props) {
     </section>
 
     <section className="observability-panel observability-history-panel">
-      <div className="observability-panel-heading"><div><p className="observability-eyebrow">EXPLORATEUR DE TRACES</p><h3>Historique des corrections</h3><p>Ouvrez une trace pour examiner son déroulé, ses modèles et ses mesures.</p></div><span className="observability-model-count">{filteredRecords.length} résultat(s)</span></div>
+      <div className="observability-panel-heading"><div><p className="observability-eyebrow">EXPLORATEUR DE TRACES</p><h3>Historique des corrections et évaluations</h3><p>Ouvrez une exécution pour examiner son déroulé, ses modèles et ses mesures.</p></div><span className="observability-model-count">{filteredRecords.length} résultat(s)</span></div>
       <div className="observability-filters">
         <label className="observability-search"><span aria-hidden="true">⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher un modèle ou un devoir" aria-label="Rechercher un modèle ou un devoir" /></label>
         <div className="observability-filter-buttons" role="group" aria-label="Filtrer les traces par statut">
@@ -135,7 +136,7 @@ export function ObservabilityDashboard({ records }: Props) {
           <button type="button" className={status === 'error' ? 'active' : ''} aria-pressed={status === 'error'} onClick={() => setStatus('error')}>Échecs</button>
         </div>
       </div>
-      {filteredRecords.length ? <div className="observability-trace-list">{filteredRecords.map((trace) => <TraceDetails key={trace.id} trace={trace} />)}</div> : <div className="observability-empty-state"><span>⌕</span><strong>Aucune trace ne correspond à votre recherche</strong><p>Modifiez le filtre ou lancez une nouvelle correction.</p></div>}
+      {filteredRecords.length ? <div className="observability-trace-list">{filteredRecords.map((trace) => <TraceDetails key={trace.id} trace={trace} />)}</div> : <div className="observability-empty-state"><span>⌕</span><strong>Aucune trace ne correspond à votre recherche</strong><p>Modifiez le filtre ou lancez une nouvelle correction / évaluation.</p></div>}
     </section>
     <p className="observability-footnote">Les indicateurs reflètent uniquement les données effectivement remontées par Ollama et conservées localement. Une note proposée n’est pas une mesure de qualité pédagogique sans référence validée par l’enseignant.</p>
   </section>;
