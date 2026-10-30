@@ -117,7 +117,20 @@ function cleanTranscription(raw: string): string {
   return raw.replace(/(?:\r?\n){2,}\s*$/g, '').trimEnd();
 }
 
-function normalizeRegions(raw: string, pageNumber: number): string[] {
+export function buildTranscriptionPrompt(model: string, configuredPrompt = ''): string {
+  if (configuredPrompt.trim()) return configuredPrompt.trim();
+  if (/(?:glm[-_]?ocr|ocr[-_]?model|paddleocr|dots[-_]?ocr)/i.test(model)) return 'Text Recognition:';
+  return [
+    'Transcris fidèlement tout le contenu visible de cette page, dans son ordre de lecture.',
+    'Conserve les numéros, titres, paragraphes, listes, tableaux, unités, symboles et retours à la ligne utiles.',
+    'Ne résous pas les questions, ne corrige pas les réponses et ne reformule pas le texte.',
+    'Si un passage est réellement illisible, écris [illisible]. Ne devine, ne complète et n’invente aucun mot.',
+    'Ne répète aucun passage. N’ajoute aucun préambule, commentaire ni conclusion.',
+    'Réduis les zones blanches à au plus deux lignes vides consécutives afin de ne pas interrompre la transcription.',
+  ].join('\\n');
+}
+
+function normalizeRegions(raw: string, pageNumber: number, transcription: string): string[] {
   try {
     const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
     const parsed: unknown = JSON.parse(cleaned);
@@ -125,7 +138,7 @@ function normalizeRegions(raw: string, pageNumber: number): string[] {
     return parsed.regions.filter((item): item is { id: string; text: string; x: number; y: number; width: number; height: number } => {
       if (typeof item !== 'object' || item === null) return false;
       const region = item as Record<string, unknown>;
-      return typeof region.id === 'string' && typeof region.text === 'string' && isValidLocationBox(region);
+      return typeof region.id === 'string' && typeof region.text === 'string' && region.text.length > 0 && transcription.includes(region.text) && isValidLocationBox(region);
     }).map((region) =>
       `[ANCRE_VISUELLE page=${pageNumber} id=${region.id} x=${region.x} y=${region.y} width=${region.width} height=${region.height}] ${region.text}`);
   } catch {
@@ -430,10 +443,14 @@ export function createOllamaProvider(
             'Renvoie uniquement une transcription structurée, sans préambule ni réponse aux exercices.',
             `ÉTIQUETTE DE PAGE (métadonnée) : ${JSON.stringify(pageLabel)}`,
           ].join('\n\n'), [providerImage(image)], onChunk, false, false, {
-            kind: 'vision', stage: 'reading',
+            kind: 'vision', stage: 'reading', temperature: 0,
+            generationTokenLimit: Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048))),
+            stop: ['\n\n\n\n'], repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
+            allowTruncated: true,
             keepAlive: index < subjectImages.length - 1 || (!request.transcription && (request.images?.length ?? 0) > 0) ? '30s' : 0,
           });
-          subjectPages.push(`[ ${pageLabel} ]\n${pageText}`);
+          const cleanedSubjectText = cleanTranscription(pageText);
+          subjectPages.push(`[ ${pageLabel} ]\n${cleanedSubjectText}`);
         }
         subjectTranscription = subjectPages.join('\n\n');
         onTranscription?.(subjectTranscription, 'subject');
@@ -449,7 +466,7 @@ export function createOllamaProvider(
           const transcriptionLimit = Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048)));
           const pageTranscription = await sendStream(
             visionModel,
-            'Text Recognition:',
+            buildTranscriptionPrompt(visionModel, settings.transcriptionPrompt),
             [providerImage(image)],
             undefined,
             false,
@@ -457,11 +474,11 @@ export function createOllamaProvider(
             {
               kind: 'vision', stage: 'reading', temperature: 0,
               generationTokenLimit: transcriptionLimit,
-              stop: ['\n\n\n'],
-              repeatPenalty: 1.05,
+              stop: ['\n\n\n\n'],
+              repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
               allowTruncated: true,
               onDoneReason: (reason) => { transcriptionTruncated = reason === 'length'; },
-              keepAlive: settings.regionsEnabled || index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
+              keepAlive: index < (request.images?.length ?? 0) - 1 || (settings.regionsEnabled && !transcriptionTruncated && (settings.regionsModel?.trim() || visionModel) === visionModel) ? '30s' : 0,
             },
           );
           const pageText = cleanTranscription(pageTranscription);
@@ -484,10 +501,10 @@ export function createOllamaProvider(
               {
                 kind: 'vision', stage: 'reading', temperature: 0,
                 generationTokenLimit: 1024,
-                keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
+                keepAlive: regionModel === visionModel && index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
               },
             ).catch(() => '');
-            regionAnchors = normalizeRegions(regionResult, index + 1);
+            regionAnchors = normalizeRegions(regionResult, index + 1, pageText);
           }
           const doubtfulMarker = transcriptionTruncated ? ' [LECTURE DOUTEUSE : transcription interrompue par la limite de génération]' : '';
           transcriptions.push([`[ ${pageLabel} ]`, pageText + doubtfulMarker, ...regionAnchors].join('\n'));
