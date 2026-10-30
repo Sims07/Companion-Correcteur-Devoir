@@ -1401,6 +1401,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
               <option value="compare">Deux modèles — comparer les avis</option>
               <option value="arbitrate">Deux modèles + un arbitre</option>
             </DesignSystemSelect>
+            <p className="hint">L’option « Analyser critère par critère » s’applique à la stratégie « Un modèle ». Les stratégies multi-modèles conservent un appel par modèle sur le barème complet.</p>
             {diagnosticStrategy !== 'single' && <>
               <label className="field-label" htmlFor="diagnostic-second-model">Second modèle d’analyse</label>
               {availableModels.length > 0 ? <DesignSystemSelect id="diagnostic-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="diagnostic-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle Ollama" />}
