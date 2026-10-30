@@ -75,9 +75,13 @@ export async function runModelEvaluation<T>(options: ModelEvaluationOptions<T>):
       if (isCancelled()) break;
     } catch (cause) {
       const finished = now();
+      const partialValue = typeof cause === 'object' && cause !== null && 'partialValue' in cause
+        ? (cause as { partialValue?: T }).partialValue
+        : undefined;
       outputs.push({
         configuration, startedAt, finishedAt: new Date(finished).toISOString(), elapsedMs: Math.max(0, finished - started),
         status: isCancelled() ? 'cancelled' : 'failed',
+        ...(partialValue !== undefined ? { value: partialValue } : {}),
         ...(isCancelled() ? {} : { error: cause instanceof Error ? cause.message : String(cause) }),
       });
       if (isCancelled()) break;
