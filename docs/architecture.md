@@ -53,6 +53,10 @@ Contient les cas d'usage et l'orchestration. `localCorrectionService.ts` valide 
 
 La mémoire est un rappel local léger fondé sur le recouvrement de termes, pas un moteur vectoriel, un fine-tuning ou un entraînement automatique. Les retours sont associés à une correction et à l'empreinte du barème. Ils peuvent être recherchés dans le périmètre pertinent, mais ne modifient pas silencieusement le barème courant. Les règles ne doivent être réutilisées comme règles de barème que si l'enseignant les a explicitement promues.
 
+### Observabilité locale — `src/domain/observability.ts` et `src/ui/ObservabilityDashboard.tsx`
+
+Les métriques sont dérivées des traces techniques déjà produites par le parcours de correction et conservées dans l'historique local du navigateur. Le domaine agrège les durées, statuts, appels par modèle et compteurs de tokens effectivement fournis par Ollama. Les valeurs absentes restent distinctes de zéro. L'interface présente une vue d'ensemble, des graphiques de durée et de répartition Vision/Analyse, les modèles les plus sollicités et un explorateur de traces. Elle n'affiche jamais les images, transcriptions ou sorties brutes. L'historique est limité aux 100 dernières traces. Cette première version observe les données existantes ; l'instrumentation fine de chaque opération et l'export OpenTelemetry restent des évolutions séparées.
+
 ### Interface — `src/ui/`
 
 Les composants React présentent l'état et traduisent les interactions en appels applicatifs. Ils ne doivent pas importer directement `src/adapters/`, construire de requêtes IndexedDB ou devenir le lieu des règles métier.
