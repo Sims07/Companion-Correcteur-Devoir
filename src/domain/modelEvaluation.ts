@@ -5,6 +5,8 @@ export interface ModelEvaluationConfiguration {
   id: string;
   name: string;
   endpoint: string;
+  apiCompatible?: boolean;
+  apiKey?: string;
   visionModel: string;
   analysisModel: string;
   thinking: boolean;

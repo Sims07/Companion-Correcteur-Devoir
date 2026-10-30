@@ -254,6 +254,8 @@ export function App({ service, archiveService, evaluationService }: { service: C
   const [rubricFileImporting, setRubricFileImporting] = useState(false);
   const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
   const [endpoint, setEndpoint] = useState(() => readAiModelConfiguration().endpoint);
+  const [apiCompatible, setApiCompatible] = useState(() => readAiModelConfiguration().apiCompatible);
+  const [apiKey, setApiKey] = useState(() => readAiModelConfiguration().apiKey);
   const [visionModel, setVisionModel] = useState(() => readAiModelConfiguration().visionModel);
   const [analysisModel, setAnalysisModel] = useState(() => readAiModelConfiguration().analysisModel);
   const [secondAnalysisModel, setSecondAnalysisModel] = useState(() => readAiModelConfiguration().secondAnalysisModel);
@@ -333,13 +335,15 @@ export function App({ service, archiveService, evaluationService }: { service: C
   ];
 
   useEffect(() => {
-    const configuration: AiModelConfiguration = { endpoint, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking };
+    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
-  }, [endpoint, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking]);
+  }, [endpoint, apiCompatible, apiKey, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking]);
 
   function applyAiModelProfile(profile: AiModelProfile) {
     setEndpoint(profile.configuration.endpoint);
+    setApiCompatible(profile.configuration.apiCompatible);
+    setApiKey(profile.configuration.apiKey);
     setVisionModel(profile.configuration.visionModel);
     setAnalysisModel(profile.configuration.analysisModel);
     setSecondAnalysisModel(profile.configuration.secondAnalysisModel);
@@ -356,9 +360,9 @@ export function App({ service, archiveService, evaluationService }: { service: C
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
-    const configuration: AiModelConfiguration = { endpoint, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking };
+    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking };
     const profile: AiModelProfile = {
-      id: selectedAiModelProfileId || 'ollama-profile-' + Date.now(),
+      id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
       name,
       mode: diagnosticStrategy,
       configuration,
@@ -478,7 +482,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       const preparedMessage = `${prepared.length} page(s) préparée(s) en images. Envoi au modèle de vision Ollama « ${visionModel} »…`;
       setRubricImportProgress({ stage: 'preparing', message: preparedMessage, page: 0, totalPages: prepared.length });
       setRubricImportEvents((events) => [...events, preparedMessage]);
-      const imported = await service.importRubricImage(prepared, { endpoint, visionModel, analysisModel, thinking: analysisThinking }, (progress) => {
+      const imported = await service.importRubricImage(prepared, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking }, (progress) => {
         setRubricImportProgress(progress);
         if (progress.rawResponse !== undefined && progress.rawResponseStage === 'vision') {
           setRubricImportVisionResponse((current) => {
@@ -550,6 +554,12 @@ export function App({ service, archiveService, evaluationService }: { service: C
     setError('');
     setConnectionMessage('');
     try {
+      if (apiCompatible) {
+        await service.checkReady({ endpoint, apiCompatible, apiKey, visionModel, analysisModel });
+        setAvailableModels([]);
+        setConnectionMessage('Connexion réussie · modèle compatible OpenAI vérifié. Les identifiants des modèles sont renseignés manuellement.');
+        return;
+      }
       const models = await service.listModels(endpoint);
       setAvailableModels(models.map((item) => item.name));
       if (!visionModel && models[0]) setVisionModel(models[0].name);
@@ -597,10 +607,10 @@ export function App({ service, archiveService, evaluationService }: { service: C
       if (!validation.valid) throw new Error(validation.errors.join(' '));
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF de la copie.');
       if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) throw new Error('Importez le sujet de référence pour ce mode de correction.');
-      if ((!transcription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, model: visionModel });
-      await service.checkReady({ endpoint, model: analysisModel });
+      if ((!transcription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
+      await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
       setAnalysisStage('reading');
-      const provider = service.createProvider({ endpoint, visionModel, analysisModel, thinking: analysisThinking, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
+      const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
       const raw = await provider.generate(
         { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
         (chunk) => setStreamedOutput((current) => current + chunk),
@@ -708,6 +718,8 @@ export function App({ service, archiveService, evaluationService }: { service: C
         id: profile.id,
         name: profile.name,
         endpoint: profile.configuration.endpoint,
+        apiCompatible: profile.configuration.apiCompatible,
+        apiKey: profile.configuration.apiKey,
         visionModel: profile.configuration.visionModel,
         analysisModel: profile.configuration.analysisModel,
         thinking: profile.configuration.analysisThinking,
@@ -718,8 +730,8 @@ export function App({ service, archiveService, evaluationService }: { service: C
         setEvaluationStage('preparing');
         if (evaluationStageMode !== 'analysis' && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un modèle de vision pour cette expérience.');
         if (evaluationStageMode !== 'vision' && !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle d’analyse pour cette expérience.');
-        if (evaluationStageMode !== 'analysis') await service.checkReady({ endpoint: configuration.endpoint, model: configuration.visionModel });
-        if (evaluationStageMode !== 'vision') await service.checkReady({ endpoint: configuration.endpoint, model: configuration.analysisModel });
+        if (evaluationStageMode !== 'analysis') await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.visionModel });
+        if (evaluationStageMode !== 'vision') await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.analysisModel });
         let extractedTranscription = '';
         let raw = '';
         const startedAt = Date.now();
@@ -728,6 +740,8 @@ export function App({ service, archiveService, evaluationService }: { service: C
         const measuredRuns: DiagnosticModelResult[] = [];
         const provider = service.createProvider({
           endpoint: configuration.endpoint,
+          apiCompatible: configuration.apiCompatible,
+          apiKey: configuration.apiKey,
           visionModel: configuration.visionModel,
           analysisModel: configuration.analysisModel,
           thinking: configuration.thinking,
@@ -1269,7 +1283,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
 
       {interfaceMode === 'teacher' && showAiSettings && <section className={`panel ollama-panel teacher-model-panel ai-settings-view ${visionModel.trim() && analysisModel.trim() ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
         <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DU POSTE</p><h2 id="teacher-model-title">Paramètres de l’IA locale</h2></div><span className="step-count">OLLAMA</span></div>
-        <p className="settings-intro">Configurez les deux modèles utilisés par le parcours de correction. Les photos restent envoyées uniquement à votre serveur Ollama.</p>
+        <p className="settings-intro">Configurez les deux modèles utilisés par le parcours de correction. Avec Ollama, les traitements restent sur votre serveur local. Une API compatible OpenAI transmet les contenus au serveur distant configuré.</p>
         <div className="ai-profile-controls" aria-label="Profils de configuration IA">
           <label className="field-label" htmlFor="ai-model-profile">Configuration enregistrée</label>
           <div className="ai-profile-row">
@@ -1283,17 +1297,22 @@ export function App({ service, archiveService, evaluationService }: { service: C
           {aiModelProfileMessage && <p className="validation" role="status">{aiModelProfileMessage}</p>}
           <p className="hint">Les derniers réglages sont restaurés automatiquement. Les profils conservent le serveur, les modèles et la stratégie de diagnostic sur cet appareil.</p>
         </div>
-        <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur Ollama</label>
-        <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
+        <label className="field-label" htmlFor="ai-provider-type">Fournisseur IA</label>
+        <DesignSystemSelect id="ai-provider-type" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://ai.zaup.org/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}>
+          <option value="ollama">Ollama local</option><option value="openai">API compatible OpenAI</option>
+        </DesignSystemSelect>
+        <label className="field-label" htmlFor="ollama-endpoint">{apiCompatible ? 'URL Chat Completions' : 'Adresse du serveur Ollama'}</label>
+        <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} />
+        {apiCompatible && <><label className="field-label" htmlFor="ai-api-key">Token API (Bearer)</label><input id="ai-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><p className="hint">Conservé dans le stockage local du navigateur et transmis uniquement au serveur configuré. Il n’apparaît pas dans les traces de diagnostic.</p></>}
         <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture des copies</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }} placeholder="Ex. gemma3:4b ou qwen2.5vl" />}
         <p className="hint">Choisissez un modèle compatible avec les images. La lecture est réutilisée lors d’une nouvelle analyse si la copie n’a pas changé.</p>
         <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}
         <p className="hint">Ce modèle applique le barème au texte lu. Le mode thinking reste désactivé pour privilégier une correction plus rapide et compatible.</p>
-        <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button>
+        <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : apiCompatible ? 'Tester la connexion' : 'Tester la connexion et détecter les modèles'}</button>
         {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
-        <p className="hint">En cas d’échec, aucune solution cloud n’est utilisée.</p>
+        <p className="hint">Aucun basculement automatique vers un autre fournisseur n’est effectué.</p>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}
       {interfaceMode === 'observability' && <ObservabilityDashboard records={observabilityRecords} />}
