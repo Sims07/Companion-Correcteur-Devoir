@@ -92,6 +92,22 @@ describe('Ollama adapter', () => {
     expect(prompt).toContain('"criterionId":"replication-adn"');
   });
 
+  it('captures the exact textual request and raw response without retaining image bytes', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('Réponse brute du modèle'));
+    const onDiagnosticResult = vi.fn();
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock);
+    await provider.generate(request, undefined, undefined, undefined, onDiagnosticResult);
+    expect(onDiagnosticResult).toHaveBeenCalledOnce();
+    const trace = onDiagnosticResult.mock.calls[0][0];
+    expect(trace).toMatchObject({
+      model: 'llava',
+      requestPrompt: expect.stringContaining('Expliquez la mitose'),
+      requestMetadata: { stream: true, think: false, format: 'json', imageCount: 1, keepAlive: 0 },
+      raw: 'Réponse brute du modèle',
+    });
+    expect(JSON.stringify(trace)).not.toContain('aGVsbG8=');
+  });
+
   it('emits response chunks as they arrive', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('hello'));
     const onChunk = vi.fn<(chunk: string) => void>();
