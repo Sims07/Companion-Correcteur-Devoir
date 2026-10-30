@@ -112,13 +112,6 @@ function isValidLocationBox(value: unknown): value is { x: number; y: number; wi
     Number(box.x) + Number(box.width) <= 1000 && Number(box.y) + Number(box.height) <= 1000;
 }
 
-function isValidLocationBox(value: unknown): value is { x: number; y: number; width: number; height: number } {
-  if (typeof value !== 'object' || value === null) return false;
-  const box = value as Record<string, unknown>;
-  return ['x', 'y', 'width', 'height'].every((key) => typeof box[key] === 'number' && Number.isInteger(box[key])) &&
-    Number(box.x) >= 0 && Number(box.y) >= 0 && Number(box.width) > 0 && Number(box.height) > 0 &&
-    Number(box.x) + Number(box.width) <= 1000 && Number(box.y) + Number(box.height) <= 1000;
-}
 
 function normalizeVisionPageResult(raw: string, pageNumber: number): string {
   try {
