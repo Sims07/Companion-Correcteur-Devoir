@@ -360,7 +360,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
-    const configuration: AiModelConfiguration = { endpoint, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking };
+    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking };
     const profile: AiModelProfile = {
       id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
       name,
