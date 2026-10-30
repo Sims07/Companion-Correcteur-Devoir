@@ -220,7 +220,7 @@ describe('Ollama adapter', () => {
 
   it('runs optional region localization with its configured vision model and tolerates failures', async () => {
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamingResponse('Question 1\\nRéponse manuscrite.'))
+      .mockResolvedValueOnce(streamingResponse('Question 1\nRéponse manuscrite.'))
       .mockResolvedValueOnce(new Response('provider error', { status: 400 }))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const transcriptions: string[] = [];
@@ -242,7 +242,7 @@ describe('Ollama adapter', () => {
     expect(regionsBody.messages[0].content).toContain('"regions": []');
     const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
     expect(gradingBody.model).toBe('grader');
-    expect(gradingBody.messages[0].content).toContain('Question 1\\nRéponse manuscrite.');
+    expect(gradingBody.messages[0].content).toContain('Question 1\nRéponse manuscrite.');
     expect(transcriptions[0]).toContain('Question 1\\nRéponse manuscrite.');
     expect(transcriptions[0]).not.toContain('[ANCRE_VISUELLE');
   });
