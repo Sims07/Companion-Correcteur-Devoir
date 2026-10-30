@@ -8,6 +8,8 @@ const memoryStylesheet = readFileSync(new URL('../src/ui/localMemory.css', impor
 const memoryComponent = readFileSync(new URL('../src/ui/LocalMemoryCompanion.tsx', import.meta.url), 'utf8');
 const mainEntry = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
 const appComponent = readFileSync(new URL('../src/ui/App.tsx', import.meta.url), 'utf8');
+const observabilityComponent = readFileSync(new URL('../src/ui/ObservabilityDashboard.tsx', import.meta.url), 'utf8');
+const observabilityStyles = readFileSync(new URL('../src/ui/observability.css', import.meta.url), 'utf8');
 const dropdownComponent = readFileSync(new URL('../src/ui/components/DesignSystemSelect.tsx', import.meta.url), 'utf8');
 
 describe('UI design system', () => {
@@ -198,6 +200,17 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('.sidebar-assignment-menu {');
     expect(correctionFlowStylesheet).toContain('.sidebar-assignment-actions-menu {');
     expect(correctionFlowStylesheet).toContain('@media (prefers-reduced-motion: reduce)');
+  });
+
+  it('gives the observability workspace charts, trace details and responsive privacy-first styling', () => {
+    expect(observabilityComponent).toContain('Durée des dernières corrections');
+    expect(observabilityComponent).toContain('Vision vs Analyse');
+    expect(observabilityComponent).toContain('EXPLORATEUR DE TRACES');
+    expect(observabilityComponent).toContain('sortie brute des modèles');
+    expect(observabilityStyles).toContain('.observability-kpis');
+    expect(observabilityStyles).toContain('.observability-activity-chart');
+    expect(observabilityStyles).toContain('@media (max-width: 700px)');
+    expect(observabilityStyles).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
   it('routes every application dropdown through the shared design-system control', () => {

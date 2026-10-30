@@ -46,8 +46,16 @@ describe('teacher and AI diagnostic interface modes', () => {
   });
 
   it('defaults to the teacher correction view', () => {
-    expect(app()).toContain("useState<'teacher' | 'diagnostic' | 'debug'>('teacher')");
+    expect(app()).toContain("useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher')");
     expect(app()).toContain("interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'");
+  });
+
+  it('exposes an independent local observability workspace with privacy-safe trace exploration', () => {
+    const text = app();
+    expect(text).toContain('>Observabilité</button>');
+    expect(text).toContain("aria-pressed={interfaceMode === 'observability'}");
+    expect(text).toContain('<ObservabilityDashboard records={timingHistory} />');
+    expect(text).toContain('const timingHistoryLimit = 100;');
   });
 
   it('offers a sequential independent evaluation for saved model configurations', () => {
