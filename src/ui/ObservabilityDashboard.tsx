@@ -73,12 +73,12 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
                 {span.requestMetadata.provider && <div><dt>Transport</dt><dd>{span.requestMetadata.provider === 'openai-compatible' ? 'API compatible OpenAI' : 'Ollama natif'}</dd></div>}
                 {span.requestMetadata.endpoint && <div><dt>Endpoint</dt><dd>{span.requestMetadata.endpoint}</dd></div>}
                 <div><dt>Mode</dt><dd>{span.requestMetadata.stream ? 'Streaming' : 'Sans streaming'}</dd></div>
-                <div><dt>Thinking</dt><dd>{span.requestMetadata.think ? 'Activé' : 'Désactivé'}</dd></div>
+                <div><dt>Thinking</dt><dd>{span.requestMetadata.provider === 'openai-compatible' ? 'Non transmis par ce transport' : span.requestMetadata.think ? 'Activé' : 'Désactivé'}</dd></div>
                 <div><dt>Format</dt><dd>{span.requestMetadata.format ?? 'Texte libre'}</dd></div>
                 <div><dt>Images jointes</dt><dd>{span.requestMetadata.imageCount}</dd></div>
-                <div><dt>Contexte</dt><dd>{span.requestMetadata.options.contextTokens} tokens</dd></div>
+                {span.requestMetadata.provider !== 'openai-compatible' && <div><dt>Contexte Ollama</dt><dd>{span.requestMetadata.options.contextTokens} tokens</dd></div>}
                 <div><dt>Budget génération</dt><dd>{span.requestMetadata.options.generationTokenLimit} tokens</dd></div>
-                <div><dt>Keep alive</dt><dd>{String(span.requestMetadata.keepAlive)}</dd></div>
+                {span.requestMetadata.provider !== 'openai-compatible' && <div><dt>Keep alive Ollama</dt><dd>{String(span.requestMetadata.keepAlive)}</dd></div>}
                 {span.requestMetadata.options.temperature !== undefined && <div><dt>Température</dt><dd>{span.requestMetadata.options.temperature}</dd></div>}
                 {span.requestMetadata.options.repeatPenalty !== undefined && <div><dt>repeat_penalty (valeur source Ollama)</dt><dd>{span.requestMetadata.options.repeatPenalty}</dd></div>}
                 {span.requestMetadata.options.frequencyPenalty !== undefined && <div><dt>frequency_penalty (effectif)</dt><dd>{span.requestMetadata.options.frequencyPenalty}</dd></div>}
