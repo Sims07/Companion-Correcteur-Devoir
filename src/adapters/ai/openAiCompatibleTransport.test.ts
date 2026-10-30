@@ -51,7 +51,7 @@ describe('OpenAI-compatible chat transport', () => {
         { type: 'image_url', image_url: { url: 'data:image/png;base64,abc' } },
       ] }],
     });
-    expect(body.frequency_penalty).toBe(0.5);
+    expect(body.frequency_penalty).toBe(0.65);
     expect(body.stream_options).toEqual({ include_usage: true });
   });
 
