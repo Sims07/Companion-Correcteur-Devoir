@@ -65,7 +65,7 @@ export async function runModelEvaluation<T>(options: ModelEvaluationOptions<T>):
     const startedAt = new Date(started).toISOString();
     try {
       const value = await execute(configuration, isCancelled, (stage) => {
-        if (currentStage === 'reading' && stage === 'analysis') completedSteps += 1;
+        if (currentStage === 'reading' && stage === 'analysis' && stages.includes('reading')) completedSteps += 1;
         currentStage = stage;
         report(configuration, 'running', currentStage);
       });
