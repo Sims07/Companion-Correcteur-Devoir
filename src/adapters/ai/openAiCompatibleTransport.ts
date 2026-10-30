@@ -30,41 +30,81 @@ function streamAsOllama(response: Response): Response {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let buffer = '';
+  let dataLines: string[] = '';
+
   const body = new ReadableStream<Uint8Array>({
     async pull(controller) {
+      const dispatchEvent = () => {
+        if (dataLines.length === 0) return false;
+        const payload = dataLines.join('\n').trim();
+        dataLines = [];
+        if (!payload) return false;
+        if (payload === '[DONE]') {
+          controller.enqueue(encoder.encode(JSON.stringify({ done: true }) + '\n'));
+          return true;
+        }
+        try {
+          const event = JSON.parse(payload) as {
+            choices?: Array<{ delta?: { content?: string | Array<{ type?: string; text?: string }> }; finish_reason?: string | null }>;
+            usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+            error?: { message?: string };
+          };
+          if (event.error) {
+            controller.enqueue(encoder.encode(JSON.stringify({ error: event.error.message ?? 'Erreur du fournisseur.' }) + '\n'));
+            return true;
+          }
+          const choice = event.choices?.[0];
+          const deltaContent = choice?.delta?.content;
+          const chunk = typeof deltaContent === 'string'
+            ? deltaContent
+            : Array.isArray(deltaContent)
+              ? deltaContent.filter((part) => part.type === 'text' && typeof part.text === 'string').map((part) => part.text).join('')
+              : '';
+          const converted = {
+            ...(chunk ? { message: { content: chunk } } : {}),
+            ...(choice?.finish_reason ? { done_reason: choice.finish_reason, done: true } : {}),
+            ...(event.usage ? { usage: event.usage } : {}),
+          };
+          if (Object.keys(converted).length) {
+            controller.enqueue(encoder.encode(JSON.stringify(converted) + '\n'));
+            return true;
+          }
+        } catch {
+          // Ignore malformed SSE frames and provider-specific metadata events.
+        }
+        return false;
+      };
+
+      const consumeLine = (rawLine: string) => {
+        const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
+        if (line === '') {
+          dispatchEvent();
+          return;
+        }
+        if (line.startsWith(':')) return;
+        if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
+      };
+
       while (true) {
         const { value, done } = await reader.read();
-        if (done) { controller.close(); return; }
+        if (done) {
+          buffer += decoder.decode();
+          if (buffer) consumeLine(buffer);
+          dispatchEvent();
+          controller.close();
+          return;
+        }
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop() ?? '';
+        let emitted = false;
         for (const line of lines) {
-          if (!line.startsWith('data:')) continue;
-          const payload = line.slice(5).trim();
-          if (!payload || payload === '[DONE]') continue;
-          try {
-            const event = JSON.parse(payload) as {
-              choices?: Array<{ delta?: { content?: string }; finish_reason?: string | null }>;
-              usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
-              error?: { message?: string };
-            };
-            if (event.error) {
-              controller.enqueue(encoder.encode(JSON.stringify({ error: event.error.message ?? 'Erreur du fournisseur.' }) + '\n'));
-              continue;
-            }
-            const choice = event.choices?.[0];
-            const chunk = choice?.delta?.content ?? '';
-            const converted = {
-              ...(chunk ? { message: { content: chunk } } : {}),
-              ...(choice?.finish_reason ? { done_reason: choice.finish_reason, done: true } : {}),
-              ...(event.usage ? { usage: event.usage } : {}),
-            };
-            if (Object.keys(converted).length) controller.enqueue(encoder.encode(JSON.stringify(converted) + '\n'));
-          } catch {
-            // Ignore malformed SSE frames; the provider may emit comments or metadata.
-          }
+          const before = dataLines.length;
+          consumeLine(line);
+          if (before > 0 && line.endsWith('\r')) emitted = true;
+          else if (line === '' || line === '\r') emitted = true;
         }
-        if (lines.length) return;
+        if (emitted) return;
       }
     },
     cancel(reason) { return reader.cancel(reason); },
