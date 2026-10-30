@@ -152,6 +152,17 @@ describe('Évaluation des modèles — comparaison graphique de l’historique',
     expect(appSource).toContain('Non mesuré');
   });
 
+  it('preserves the common Analysis input and explains the limits of cross-run comparisons', () => {
+    expect(domainSource).toContain('referenceTranscription?: string | null');
+    expect(domainSource).toContain('sameAnalysisInput');
+    expect(domainSource).toContain('sameImages(first.images, second.images)');
+    expect(appSource).toContain("referenceTranscription: evaluationStageMode === 'analysis' ? transcription : null");
+    expect(appSource).toContain("transcription: output.value?.transcription ?? (evaluationStageMode === 'analysis' ? transcription ?? '' : '')");
+    expect(appSource).toContain('Transcription commune notée');
+    expect(appSource).toContain('Comparer les notes par critère');
+    expect(appSource).toContain('Justifications et preuves');
+  });
+
   it('styles the comparison charts responsively and respects reduced-motion settings', () => {
     expect(evaluationStyles).toContain('.evaluation-history-chart-grid');
     expect(evaluationStyles).toContain('.evaluation-history-stage-filter');
