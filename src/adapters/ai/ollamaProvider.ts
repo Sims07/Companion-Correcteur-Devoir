@@ -519,6 +519,24 @@ export function createOllamaProvider(
           if (/(?:\r?\n){4}$/.test(pageTranscription)) transcriptionTruncated = true;
           const pageText = cleanTranscription(pageTranscription);
           if (!pageText) throw new Error(`Aucun texte n’a pu être lu sur ${pageLabel}.`);
+          const regionModelForPage = settings.regionsModel?.trim() || visionModel;
+          const isLastPage = index === (request.images?.length ?? 0) - 1;
+          if (isLastPage && settings.regionsEnabled && regionModelForPage === visionModel && transcriptionTruncated) {
+            // Localization was planned with the same resident model, but the page is doubtful:
+            // explicitly release it because the localization call will be skipped.
+            await providerFetch(`${endpoint}/api/chat`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: visionModel,
+                stream: false,
+                think: false,
+                keep_alive: 0,
+                options: { num_predict: 1, temperature: 0 },
+                messages: [{ role: 'user', content: ' ' }],
+              }),
+            }).catch(() => undefined);
+          }
           let regionAnchors: string[] = [];
           if (settings.regionsEnabled && !transcriptionTruncated) {
             const regionModel = settings.regionsModel?.trim() || visionModel;
