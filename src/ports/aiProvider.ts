@@ -27,7 +27,7 @@ export interface DiagnosticModelResult {
   /** Exact textual content sent in messages[0].content. Image bytes are deliberately excluded. */
   requestPrompt?: string;
   /** Non-sensitive request metadata; never contains image payloads or endpoint credentials. */
-  requestMetadata?: { stream: boolean; think: boolean; format?: 'json'; imageCount: number; imageMimeTypes: string[]; keepAlive: string | number; temperature?: number };
+  requestMetadata?: { stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; temperature?: number };
   /** Raw response content returned by the model, including partial output when available. */
   raw: string;
   /** Wall-clock duration for this specific Ollama request. */
