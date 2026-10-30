@@ -4,7 +4,7 @@ import { DesignSystemSelect } from './components/DesignSystemSelect.tsx';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
 import type { ModelEvaluationService } from '../application/modelEvaluationService.ts';
 import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion } from '../domain/grading.ts';
-import { calculateReportedTokensPerSecondForStage, runModelEvaluation, sumReportedTokensForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot } from '../domain/modelEvaluation.ts';
+import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationRecords, getModelEvaluationStage, runModelEvaluation, sumReportedTokensForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot } from '../domain/modelEvaluation.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
@@ -266,6 +266,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
   const [diagnosticRuns, setDiagnosticRuns] = useState<DiagnosticModelResult[]>([]);
   const [selectedEvaluationProfileIds, setSelectedEvaluationProfileIds] = useState<string[]>([]);
   const [selectedEvaluationHistoryIds, setSelectedEvaluationHistoryIds] = useState<string[]>([]);
+  const [evaluationHistoryStageFilter, setEvaluationHistoryStageFilter] = useState<EvaluationStageMode | 'all'>('all');
   const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history'>('configuration');
   const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
   const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
@@ -273,7 +274,8 @@ export function App({ service, archiveService, evaluationService }: { service: C
   const [evaluationProgress, setEvaluationProgress] = useState<ModelEvaluationProgress | null>(null);
   const [evaluationStage, setEvaluationStage] = useState<'idle' | 'preparing' | 'reading' | 'grading' | 'parsing' | 'saving' | 'completed'>('idle');
   const selectedEvaluationProfiles = aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
-  const selectedEvaluationHistoryRecords = savedModelEvaluations.filter((record) => selectedEvaluationHistoryIds.includes(record.id));
+  const visibleEvaluationHistoryRecords = savedModelEvaluations.filter((record) => evaluationHistoryStageFilter === 'all' || getModelEvaluationStage(record) === evaluationHistoryStageFilter);
+  const selectedEvaluationHistoryRecords = visibleEvaluationHistoryRecords.filter((record) => selectedEvaluationHistoryIds.includes(record.id));
   const evaluationCancelledRef = useRef(false);
   useEffect(() => { void evaluationService.list().then(setSavedModelEvaluations).catch(() => setError('Impossible de lire l’historique local des évaluations.')); }, [evaluationService]);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
@@ -751,7 +753,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       analysisTokensPerSecond: output.value?.analysisTokensPerSecond ?? null,
       tokens: output.value?.tokens ?? null,
       status: output.status,
-      transcription: output.value?.transcription ?? '',
+      transcription: evaluationStageMode === 'analysis' ? transcription ?? '' : output.value?.transcription ?? '',
       raw: output.value?.raw ?? '',
       score: output.value?.score ?? null,
       proposal: output.value?.proposal ?? null,
@@ -766,9 +768,10 @@ export function App({ service, archiveService, evaluationService }: { service: C
       question,
       rubricSnapshot: structuredClone(rubric),
       correctionMode,
-      images: structuredClone(images),
+      images: evaluationStageMode === 'analysis' ? [] : structuredClone(images),
       subjectImages: structuredClone(subjectImages),
       subjectTranscription,
+      referenceTranscription: evaluationStageMode === 'analysis' ? transcription : null,
       configurations: selectedProfiles.map((profile) => ({
         id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
         visionModel: profile.configuration.visionModel, analysisModel: profile.configuration.analysisModel,
@@ -1743,16 +1746,26 @@ export function App({ service, archiveService, evaluationService }: { service: C
           {evaluationProgress.status === 'running' && <div className="evaluation-phase-panel"><strong>{evaluationStage === 'preparing' ? '1. Préparation des modèles' : evaluationStage === 'reading' ? '2. Lecture des images et extraction du texte' : evaluationStage === 'grading' ? '3. Analyse de la copie et attribution des notes' : evaluationStage === 'parsing' ? '4. Structuration et vérification du résultat' : evaluationStage === 'saving' ? '5. Enregistrement de l’expérience locale' : 'Initialisation'}</strong><p>{evaluationStage === 'preparing' ? 'Vérification de la disponibilité des modèles Ollama avant de commencer cette configuration.' : evaluationStage === 'reading' ? 'Le modèle Vision traite les images originales de la copie.' : evaluationStage === 'grading' ? 'Le modèle d’analyse confronte la transcription au barème et prépare les notes.' : evaluationStage === 'parsing' ? 'La réponse est convertie en critères, notes et justifications exploitables.' : evaluationStage === 'saving' ? 'Les résultats, les images et le barème sont enregistrés dans l’historique local.' : 'Mise en place de la séquence de test.'}</p></div>}
         </section>}
         {evaluationWorkspaceStep === 'execution' && busy && streamedOutput && <section className="transcription-review" aria-live="polite"><h3>Réponse du modèle en streaming</h3><pre>{streamedOutput}</pre></section>}
-        {evaluationWorkspaceStep === 'history' && savedModelEvaluations.length > 0 && <section className="evaluation-result-list evaluation-history-workspace" aria-labelledby="model-evaluation-history-title">
-          <div className="evaluation-section-heading"><div><p className="eyebrow">MESURES CONSERVÉES LOCALEMENT</p><h3 id="model-evaluation-history-title">Historique & comparaison graphique</h3><p>Sélectionnez deux expériences pour comparer, configuration par configuration, la durée de lecture, la durée d’analyse et les tokens rapportés par Ollama. Les images originales, le barème, les configurations et les résultats restent conservés dans IndexedDB sur cet appareil.</p></div><span className="evaluation-step-chip">{savedModelEvaluations.length} essai(s)</span></div>
+        {evaluationWorkspaceStep === 'history' && <section className="evaluation-result-list evaluation-history-workspace" aria-labelledby="model-evaluation-history-title">
+          <div className="evaluation-section-heading"><div><p className="eyebrow">MESURES CONSERVÉES LOCALEMENT</p><h3 id="model-evaluation-history-title">Historique & comparaison graphique</h3><p>Choisissez Vision, Analyse ou le parcours complet. Vous pouvez comparer les configurations d’un seul essai dès qu’il contient plusieurs modèles, ou comparer deux essais du même type. Les données restent dans IndexedDB sur cet appareil.</p></div><span className="evaluation-step-chip">{savedModelEvaluations.length} essai(s)</span></div>
+          <div className="evaluation-history-stage-filter" role="group" aria-label="Filtrer les expériences par type">
+            {([
+              { value: 'all', label: 'Toutes', count: savedModelEvaluations.length },
+              { value: 'vision', label: 'Vision seule', count: savedModelEvaluations.filter((record) => getModelEvaluationStage(record) === 'vision').length },
+              { value: 'analysis', label: 'Analyse seule', count: savedModelEvaluations.filter((record) => getModelEvaluationStage(record) === 'analysis').length },
+              { value: 'integrated', label: 'Parcours complet', count: savedModelEvaluations.filter((record) => getModelEvaluationStage(record) === 'integrated').length },
+            ] as const).map((filter) => <button type="button" key={filter.value} aria-pressed={evaluationHistoryStageFilter === filter.value} className={evaluationHistoryStageFilter === filter.value ? 'is-active' : ''} onClick={() => { setEvaluationHistoryStageFilter(filter.value); setSelectedEvaluationHistoryIds([]); }}>{filter.label}<span>{filter.count}</span></button>)}
+          </div>
+          <p className="evaluation-history-selection-help">Sélectionnez un essai pour comparer ses modèles, ou deux essais du même devoir et du même jeu d’entrée. Une comparaison n’associe jamais des copies ou des transcriptions différentes.</p>
           <div className="evaluation-history-selection" role="group" aria-label="Expériences à comparer">
-            {savedModelEvaluations.map((record) => <label className={selectedEvaluationHistoryIds.includes(record.id) ? 'evaluation-history-option is-selected' : 'evaluation-history-option'} key={record.id}>
-              <input type="checkbox" checked={selectedEvaluationHistoryIds.includes(record.id)} disabled={!selectedEvaluationHistoryIds.includes(record.id) && (selectedEvaluationHistoryIds.length >= 2 || (selectedEvaluationHistoryRecords.length === 1 && (selectedEvaluationHistoryRecords[0].stage ?? 'integrated') !== (record.stage ?? 'integrated')))} onChange={(event) => setSelectedEvaluationHistoryIds((current) => event.target.checked ? [...current, record.id].slice(-2) : current.filter((id) => id !== record.id))} />
-              <span><strong>{record.assignmentTitle}</strong><small>{record.stage === 'vision' ? 'Vision seule' : record.stage === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {record.images.length} page(s)</small></span>
+            {visibleEvaluationHistoryRecords.map((record) => <label className={selectedEvaluationHistoryIds.includes(record.id) ? 'evaluation-history-option is-selected' : 'evaluation-history-option'} key={record.id}>
+              <input type="checkbox" checked={selectedEvaluationHistoryIds.includes(record.id)} disabled={!selectedEvaluationHistoryIds.includes(record.id) && (selectedEvaluationHistoryIds.length >= 2 || (selectedEvaluationHistoryRecords.length === 1 && !canCompareModelEvaluationRecords([selectedEvaluationHistoryRecords[0]!, record])))} onChange={(event) => setSelectedEvaluationHistoryIds((current) => event.target.checked ? [...current, record.id].slice(-2) : current.filter((id) => id !== record.id))} />
+              <span><strong>{record.assignmentTitle}</strong><small>{getModelEvaluationStage(record) === 'vision' ? 'Vision seule' : getModelEvaluationStage(record) === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {getModelEvaluationStage(record) === 'analysis' ? 'transcription commune' : record.images.length + ' page(s)'}</small></span>
             </label>)}
           </div>
-          {selectedEvaluationHistoryRecords.length === 2 ? (() => {
-            const comparisonStage = selectedEvaluationHistoryRecords[0]?.stage ?? 'integrated';
+          {canCompareModelEvaluationRecords(selectedEvaluationHistoryRecords) ? (() => {
+            const firstRecord = selectedEvaluationHistoryRecords[0]!;
+            const comparisonStage = getModelEvaluationStage(firstRecord);
             const metrics = [
               { key: 'readingMs' as const, title: 'Temps de lecture', unit: 'durée', format: (value: number) => formatElapsed(Math.round(value / 1000)), model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.visionModel },
               { key: 'analysisMs' as const, title: 'Temps d’analyse', unit: 'durée', format: (value: number) => formatElapsed(Math.round(value / 1000)), model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.analysisModel },
@@ -1760,20 +1773,31 @@ export function App({ service, archiveService, evaluationService }: { service: C
               { key: 'analysisTokens' as const, title: 'Tokens d’analyse', unit: 'tokens', format: (value: number) => formatTokenCount(value), model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.analysisModel },
               { key: 'readingTokensPerSecond' as const, title: 'Débit de lecture', unit: 'tokens/s', format: (value: number) => value.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s', model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.visionModel },
               { key: 'analysisTokensPerSecond' as const, title: 'Débit d’analyse', unit: 'tokens/s', format: (value: number) => value.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s', model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.analysisModel },
-            ].filter((metric) => comparisonStage === 'vision' ? metric.key.startsWith('reading') : comparisonStage === 'analysis' ? metric.key.startsWith('analysis') : true);
+              { key: 'score' as const, title: 'Note proposée', unit: 'score', format: (value: number) => value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100', model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.analysisModel },
+            ].filter((metric) => comparisonStage === 'vision' ? metric.key.startsWith('reading') : comparisonStage === 'analysis' ? metric.key.startsWith('analysis') || metric.key === 'score' : true);
+            const rubricSignature = (record: ModelEvaluationRecord) => JSON.stringify(record.rubricSnapshot.criteria.map((criterion) => ({ id: criterion.id, title: criterion.title, description: criterion.description, maxPoints: criterion.maxPoints })));
+            const sameRubric = selectedEvaluationHistoryRecords.every((record) => rubricSignature(record) === rubricSignature(firstRecord));
+            const comparisonColumns = selectedEvaluationHistoryRecords.flatMap((record, recordIndex) => record.results.map((result) => ({
+              key: record.id + '-' + result.profileId,
+              label: selectedEvaluationHistoryRecords.length === 1 ? result.profileName : (recordIndex === 0 ? 'Essai A · ' : 'Essai B · ') + result.profileName,
+              record,
+              result,
+            })));
             return <section className="evaluation-history-comparison" aria-labelledby="evaluation-history-comparison-title">
-              <div className="evaluation-history-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h4 id="evaluation-history-comparison-title">{comparisonStage === 'vision' ? 'Comparaison des modèles Vision' : comparisonStage === 'analysis' ? 'Comparaison des modèles d’analyse' : 'Comparaison du parcours complet'}</h4></div><span>{selectedEvaluationHistoryRecords.map((record) => record.assignmentTitle).join(' ↔ ')}</span></div>
+              <div className="evaluation-history-comparison-heading"><div><p className="eyebrow">COMPARAISON VISUELLE</p><h4 id="evaluation-history-comparison-title">{comparisonStage === 'vision' ? 'Comparaison des modèles Vision' : comparisonStage === 'analysis' ? 'Comparaison des modèles d’analyse' : 'Comparaison du parcours complet'}</h4></div><span>{selectedEvaluationHistoryRecords.length === 1 ? selectedEvaluationHistoryRecords[0].assignmentTitle + ' · ' + selectedEvaluationHistoryRecords[0].results.length + ' modèles' : selectedEvaluationHistoryRecords.map((record) => record.assignmentTitle).join(' ↔ ')}</span></div>
               <div className="evaluation-history-chart-grid">
                 {metrics.map((metric) => {
                   const points = selectedEvaluationHistoryRecords.flatMap((record, experimentIndex) => record.results.map((result) => {
                     const configuration = record.configurations.find((item) => item.id === result.profileId);
-                    const rawValue = result[metric.key];
-                    return { key: record.id + '-' + result.profileId + '-' + metric.key, experimentIndex, experiment: experimentIndex === 0 ? 'Essai A' : 'Essai B', profileName: result.profileName, modelName: configuration ? metric.model(configuration) : 'Modèle non renseigné', value: typeof rawValue === 'number' ? rawValue : null, status: result.status };
+                    const rawValue = metric.key === 'score'
+                      ? result.score === null ? null : result.score / Math.max(1, record.rubricSnapshot.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)) * 100
+                      : result[metric.key];
+                    return { key: record.id + '-' + result.profileId + '-' + metric.key, experimentIndex, experiment: selectedEvaluationHistoryRecords.length === 1 ? result.profileName : (experimentIndex === 0 ? 'Essai A · ' : 'Essai B · ') + result.profileName, profileName: result.profileName, modelName: configuration ? metric.model(configuration) : 'Modèle non renseigné', value: typeof rawValue === 'number' ? rawValue : null, status: result.status };
                   }));
                   const maxValue = Math.max(1, ...points.flatMap((point) => point.value === null ? [] : [point.value]));
                   return <section className="evaluation-history-chart" key={metric.key} aria-labelledby={'evaluation-history-chart-' + metric.key}>
                     <h5 id={'evaluation-history-chart-' + metric.key}>{metric.title}</h5>
-                    <p>{metric.unit === 'durée' ? 'Comparaison des temps mesurés' : 'Compteurs remontés par Ollama, si disponibles'}</p>
+                    <p>{metric.unit === 'durée' ? 'Comparaison des temps mesurés' : metric.unit === 'score' ? 'Note normalisée sur 100' : 'Compteurs remontés par Ollama, si disponibles'}</p>
                     <div className="evaluation-history-bars" role="img" aria-label={'Graphique ' + metric.title}>
                       {points.map((point) => <div className="evaluation-history-bar-row" key={point.key}>
                         <div className="evaluation-history-bar-label"><strong>{point.experiment} · {point.profileName}</strong><span>{point.modelName} · {point.status === 'success' ? 'Terminé' : point.status === 'cancelled' ? 'Annulé' : 'Échec'}</span></div>
@@ -1784,12 +1808,28 @@ export function App({ service, archiveService, evaluationService }: { service: C
                   </section>;
                 })}
               </div>
+              {comparisonStage === 'analysis' && <section className="evaluation-history-transcriptions" aria-labelledby="evaluation-history-input-title">
+                <h5 id="evaluation-history-input-title">Transcription commune notée</h5>
+                <p>Tous les modèles de cet essai ont reçu le même texte en entrée. Cette référence est conservée pour pouvoir comprendre et reproduire la comparaison.</p>
+                <pre>{firstRecord.referenceTranscription ?? firstRecord.results.find((result) => result.transcription)?.transcription ?? 'Transcription de référence non disponible dans cette ancienne expérience.'}</pre>
+              </section>}
+              {comparisonStage !== 'vision' && <section className="evaluation-history-criteria-comparison" aria-labelledby="evaluation-history-criteria-title">
+                <h5 id="evaluation-history-criteria-title">Comparer les notes par critère</h5>
+                {sameRubric ? <div className="evaluation-history-table-scroll"><table className="evaluation-history-criteria-table"><thead><tr><th scope="col">Critère</th>{comparisonColumns.map((column) => <th scope="col" key={column.key}>{column.label}</th>)}</tr></thead><tbody>{firstRecord.rubricSnapshot.criteria.map((criterion) => <tr key={criterion.id}><th scope="row">{criterion.title}<small>sur {criterion.maxPoints}</small></th>{comparisonColumns.map((column) => { const criterionResult = column.result.proposal?.criteria.find((item) => item.criterionId === criterion.id); return <td key={column.key}>{criterionResult ? criterionResult.points + ' / ' + criterion.maxPoints : '—'}</td>; })}</tr>)}</tbody></table></div> : <p className="evaluation-history-empty">Les barèmes de ces deux essais sont différents. Les notes globales restent comparables sur 100, mais les critères ne sont pas alignés.</p>}
+                <div className="evaluation-history-rationales">{comparisonColumns.map((column) => <details key={column.key}><summary>{column.label} · Justifications et preuves</summary>{column.result.proposal ? <ul>{column.result.proposal.criteria.map((criterion) => <li key={criterion.criterionId}><strong>{column.record.rubricSnapshot.criteria.find((item) => item.id === criterion.criterionId)?.title ?? criterion.criterionId} · {criterion.points} point(s)</strong><p>{criterion.rationale || 'Aucune justification fournie.'}</p><p><strong>Preuve :</strong> {criterion.evidence || 'Aucune preuve textuelle fournie.'}</p><small>Confiance déclarée : {criterion.confidence === 'high' ? 'élevée' : criterion.confidence === 'medium' ? 'moyenne' : 'faible'}</small></li>)}</ul> : <p>Aucune proposition structurée exploitable pour ce modèle.</p>}{(column.result.proposal?.questionsForTeacher.length ?? 0) > 0 && <p><strong>Questions au professeur :</strong> {column.result.proposal?.questionsForTeacher.join(' · ')}</p>}</details>)}</div>
+              </section>}
+              {comparisonStage === 'vision' && <section className="evaluation-history-transcriptions" aria-labelledby="evaluation-history-transcriptions-title">
+                <h5 id="evaluation-history-transcriptions-title">Comparer les transcriptions</h5>
+                <p>Sans transcription de référence validée par l’enseignant, ces différences ne constituent pas une mesure de précision OCR. Elles permettent de repérer rapidement les divergences entre modèles.</p>
+                <div>{selectedEvaluationHistoryRecords.flatMap((record) => record.results.map((result) => ({ record, result }))).map(({ record, result }) => <details key={record.id + result.profileId}><summary>{selectedEvaluationHistoryRecords.length === 1 ? result.profileName : record.assignmentTitle + ' · ' + result.profileName}</summary><pre>{result.transcription || 'Aucune transcription exploitable retournée.'}</pre></details>)}</div>
+              </section>}
+              {comparisonStage !== 'vision' && <p className="hint">La note est normalisée sur 100 pour permettre la comparaison. Les écarts entre modèles ne remplacent pas une correction de référence validée par l’enseignant.</p>}
               <p className="hint">« Non mesuré » signifie que les anciennes données ne contiennent pas ce compteur. Les anciennes expériences restent consultables, sans inventer de répartition des tokens.</p>
             </section>;
-          })() : <p className="evaluation-history-empty">{selectedEvaluationHistoryIds.length === 0 ? 'Sélectionnez deux expériences ci-dessous pour afficher les graphiques comparatifs.' : 'Sélectionnez une deuxième expérience pour activer la comparaison graphique.'}</p>}
-          {savedModelEvaluations.map((record) => <article key={record.id} className="evaluation-history-record">
-            <div className="evaluation-history-record-heading"><div><p className="eyebrow">EXPÉRIENCE ENREGISTRÉE</p><h4>{record.assignmentTitle}</h4><p>{new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {record.images.length} page(s)</p></div>
-              <button type="button" className="secondary-button evaluation-history-load" onClick={() => { setModelEvaluationResults(record.results); setRubric(structuredClone(record.rubricSnapshot)); setImages(structuredClone(record.images)); setQuestion(record.question); setAssignmentTitle(record.assignmentTitle); setCorrectionMode(record.correctionMode); setSubjectImages(structuredClone(record.subjectImages)); setSubjectTranscription(record.subjectTranscription); }}>Consulter / recharger la référence</button>
+          })() : <p className="evaluation-history-empty">{visibleEvaluationHistoryRecords.length === 0 ? 'Aucun essai enregistré pour ce type. Lancez une évaluation pour alimenter cette vue.' : selectedEvaluationHistoryIds.length === 0 ? 'Sélectionnez un essai pour comparer les modèles qui le composent.' : selectedEvaluationHistoryRecords.length === 1 ? (selectedEvaluationHistoryRecords[0].results.length < 2 ? 'Cet essai ne contient qu’une configuration. Sélectionnez un autre essai du même type pour comparer.' : 'La comparaison de cet essai est en préparation.') : 'Sélectionnez un essai compatible : même type, même devoir et même copie ou transcription.'}</p>}
+          {visibleEvaluationHistoryRecords.map((record) => <article key={record.id} className="evaluation-history-record">
+            <div className="evaluation-history-record-heading"><div><p className="eyebrow">EXPÉRIENCE ENREGISTRÉE</p><h4>{record.assignmentTitle}</h4><p>{getModelEvaluationStage(record) === 'vision' ? 'Vision seule' : getModelEvaluationStage(record) === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {record.images.length} page(s)</p></div>
+              <button type="button" className="secondary-button evaluation-history-load" onClick={() => { setModelEvaluationResults(record.results); setRubric(structuredClone(record.rubricSnapshot)); setImages(structuredClone(record.images)); setTranscription(record.referenceTranscription ?? record.results.find((result) => result.transcription)?.transcription ?? null); setQuestion(record.question); setAssignmentTitle(record.assignmentTitle); setCorrectionMode(record.correctionMode); setSubjectImages(structuredClone(record.subjectImages)); setSubjectTranscription(record.subjectTranscription); }}>Consulter / recharger la référence</button>
             </div>
             <div className="evaluation-history-record-metrics">{record.results.map((result) => <article className="evaluation-history-model-metric" key={result.profileId}>
               <div className="evaluation-history-model-heading"><strong>{result.profileName}</strong><span className={result.status === 'success' ? 'evaluation-history-status is-success' : 'evaluation-history-status'}>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Interrompu' : 'Échec'}</span></div>

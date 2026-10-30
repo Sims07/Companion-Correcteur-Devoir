@@ -134,9 +134,11 @@ describe('Évaluation des modèles — comparaison graphique de l’historique',
     expect(domainSource).toContain('analysisTokens?: number | null');
   });
 
-  it('lets teachers select two saved experiments and compare four visual indicators', () => {
+  it('filters history by evaluation stage and compares models from one run or two runs of the same stage', () => {
+    expect(appSource).toContain('evaluationHistoryStageFilter');
+    expect(appSource).toContain('evaluation-history-stage-filter');
     expect(appSource).toContain('selectedEvaluationHistoryIds');
-    expect(appSource).toContain('Sélectionnez deux expériences');
+    expect(appSource).toContain('canCompareModelEvaluationRecords(selectedEvaluationHistoryRecords)');
     expect(appSource).toContain('Comparaison des modèles Vision');
     expect(appSource).toContain('Comparaison des modèles d’analyse');
     expect(appSource).toContain('Comparaison du parcours complet');
@@ -144,12 +146,27 @@ describe('Évaluation des modèles — comparaison graphique de l’historique',
     expect(appSource).toContain("title: 'Temps d’analyse'");
     expect(appSource).toContain("title: 'Tokens de lecture'");
     expect(appSource).toContain("title: 'Tokens d’analyse'");
+    expect(appSource).toContain("title: 'Note proposée'");
+    expect(appSource).toContain('Comparer les transcriptions');
     expect(appSource).toContain("aria-label={'Graphique ' + metric.title}");
     expect(appSource).toContain('Non mesuré');
   });
 
+  it('preserves the common Analysis input and explains the limits of cross-run comparisons', () => {
+    expect(domainSource).toContain('referenceTranscription?: string | null');
+    expect(domainSource).toContain('sameAnalysisInput');
+    expect(domainSource).toContain('sameImages(first.images, second.images)');
+    expect(appSource).toContain("referenceTranscription: evaluationStageMode === 'analysis' ? transcription : null");
+    expect(appSource).toContain("transcription: evaluationStageMode === 'analysis' ? transcription ?? '' : output.value?.transcription ?? ''");
+    expect(appSource).toContain('Transcription commune notée');
+    expect(appSource).toContain('Comparer les notes par critère');
+    expect(appSource).toContain('Justifications et preuves');
+  });
+
   it('styles the comparison charts responsively and respects reduced-motion settings', () => {
     expect(evaluationStyles).toContain('.evaluation-history-chart-grid');
+    expect(evaluationStyles).toContain('.evaluation-history-stage-filter');
+    expect(evaluationStyles).toContain('.evaluation-history-transcriptions');
     expect(evaluationStyles).toContain('.evaluation-history-bar-fill.experiment-1');
     expect(evaluationStyles).toContain('@media(max-width:760px){.evaluation-history-selection');
     expect(evaluationStyles).toContain('prefers-reduced-motion:reduce){.evaluation-history-bar-fill');
@@ -162,7 +179,7 @@ describe('Évaluation des modèles — cohérence des étapes et historique', ()
     expect(appSource).toContain("evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION'");
     expect(appSource).toContain("evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS'");
     expect(appSource).toContain("'ÉTAPE 4 · ANALYSE & HISTORIQUE'");
-    expect(appSource).toContain("evaluationWorkspaceStep === 'history' && savedModelEvaluations.length > 0");
+    expect(appSource).toContain("evaluationWorkspaceStep === 'history' && <section className=\"evaluation-result-list evaluation-history-workspace\"");
     expect(appSource).toContain("evaluationWorkspaceStep === 'results' && modelEvaluationResults.some");
   });
 
