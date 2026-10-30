@@ -19,7 +19,7 @@ test('opens the local observability workspace and explores a trace without expos
       assignmentId: 'assignment-e2e',
       assignmentTitle: 'Biologie cellulaire',
       diagnosticRuns: [
-        { model: 'qwen3.5:4b', kind: 'vision', stage: 'reading', elapsedMs: 48000, promptTokens: 80, generatedTokens: 120, requestPrompt: 'PROMPT VISION ENVOYÉ', requestMetadata: { stream: true, think: false, imageCount: 1, keepAlive: 0, options: { contextTokens: 4096, generationTokenLimit: 2048 } }, raw: 'RÉPONSE VISION BRUTE' },
+        { model: 'qwen3.5:4b', kind: 'vision', stage: 'reading', elapsedMs: 48000, promptTokens: 80, generatedTokens: 120, requestPrompt: 'PROMPT VISION ENVOYÉ', requestPayload: 'SAFE REQUEST PAYLOAD [IMAGE REDACTED]', requestMetadata: { stream: true, think: false, imageCount: 1, keepAlive: 0, options: { contextTokens: 4096, generationTokenLimit: 2048 } }, raw: 'RÉPONSE VISION BRUTE' },
         { model: 'gemma3:4b', kind: 'model', stage: 'analysis', elapsedMs: 92000, promptTokens: 220, generatedTokens: 180, requestPrompt: 'PROMPT ANALYSE ENVOYÉ', requestMetadata: { stream: true, think: false, format: 'json', imageCount: 0, keepAlive: 0, options: { contextTokens: 8192, generationTokenLimit: 2048 } }, raw: 'RÉPONSE ANALYSE BRUTE' },
       ],
     }]));
@@ -97,10 +97,13 @@ test('opens the local observability workspace and explores a trace without expos
   await expect(page.getByRole('heading', { name: 'Étapes de cette trace' })).toBeVisible();
   await expect(page.getByText('Tokens non remontés')).toHaveCount(0);
   await page.locator('.observability-call-details summary').first().click();
+  await expect(page.getByText('SAFE REQUEST PAYLOAD [IMAGE REDACTED]')).toBeVisible();
+  await page.locator('.observability-prompt-details summary').first().click();
   await expect(page.getByText('PROMPT VISION ENVOYÉ')).toBeVisible();
   await expect(page.getByText('RÉPONSE VISION BRUTE')).toBeVisible();
   await expect(page.getByText('PROMPT ANALYSE ENVOYÉ')).toBeHidden();
   await page.locator('.observability-call-details summary').nth(1).click();
+  await page.locator('.observability-prompt-details summary').nth(1).click();
   await expect(page.getByText('PROMPT ANALYSE ENVOYÉ')).toBeVisible();
   await expect(page.getByText('RÉPONSE ANALYSE BRUTE')).toBeVisible();
   await expect(page.locator('.observability-call-warning').first()).toContainText('stockage local');
