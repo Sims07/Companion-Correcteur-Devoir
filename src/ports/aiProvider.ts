@@ -24,9 +24,9 @@ export interface DiagnosticModelResult {
   kind: 'vision' | 'model' | 'arbitrator';
   stage?: 'reading' | 'analysis' | 'arbitration';
   model: string;
-  /** Exact textual content sent in messages[0].content. Image bytes are deliberately excluded. */
+  /** Legacy standalone prompt preview. New traces keep the full sanitized request in requestPayload. */
   requestPrompt?: string;
-  /** Actual non-sensitive Ollama request settings; never contains image payloads or endpoint credentials. */
+  /** Effective non-sensitive provider settings; never contains image bytes or endpoint credentials. */
   requestMetadata?: { provider?: 'ollama' | 'openai-compatible'; endpoint?: string; stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number; stop?: string[]; repeatPenalty?: number; frequencyPenalty?: number } };
   /** Sanitized JSON preview of the exact provider request; image bytes and credentials are always redacted. */
   requestPayload?: string;
