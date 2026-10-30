@@ -896,6 +896,7 @@ export async function importRubricImageWithOllama(
       totalPages: images.length,
       message: `Envoi de la page ${page} sur ${images.length} au modèle de vision « ${visionModel} »…`,
     });
+    const visionStartedAt = Date.now();
     let response: Response;
     try {
       response = await requestFetch(`${endpoint}/api/chat`, {
@@ -954,6 +955,16 @@ export async function importRubricImageWithOllama(
       message: `Transcription visuelle reçue pour la page ${page} sur ${images.length}.`,
       rawResponse: transcription,
       rawResponseStage: 'vision',
+      diagnosticRun: {
+        kind: 'vision',
+        model: visionModel,
+        elapsedMs: Math.max(0, Date.now() - visionStartedAt),
+        raw: transcription,
+        ...(streamed.promptTokens !== undefined ? { promptTokens: streamed.promptTokens } : {}),
+        ...(streamed.generatedTokens !== undefined ? { generatedTokens: streamed.generatedTokens } : {}),
+        ...(streamed.totalTokens !== undefined ? { totalTokens: streamed.totalTokens } : {}),
+        ...(streamed.doneReason ? { doneReason: streamed.doneReason } : {}),
+      },
     });
     onProgress?.({ stage: 'page-complete', page, totalPages: images.length, message: `Lecture de la page ${page} sur ${images.length} terminée.` });
   }
@@ -991,6 +1002,7 @@ export async function importRubricImageWithOllama(
   const transcriptionContext = transcriptions.map((text, index) =>
     `<transcription_page_${index + 1}>\n${text}\n</transcription_page_${index + 1}>`,
   ).join('\n\n');
+  const analysisStartedAt = Date.now();
   let analysisResponse: Response;
   try {
     analysisResponse = await requestFetch(`${endpoint}/api/chat`, {
@@ -1036,6 +1048,25 @@ export async function importRubricImageWithOllama(
   if (analysisPayload.error) throw new Error('Ollama signale une erreur pendant la structuration du barème.');
   const content = analysisPayload.message?.content;
   if (!content?.trim()) throw new Error('Le modèle d’analyse n’a retourné aucun barème structuré.');
+  const analysisTrace = {
+    kind: 'model' as const,
+    model: analysisModel,
+    elapsedMs: Math.max(0, Date.now() - analysisStartedAt),
+    raw: content,
+    ...(analysisPayload.usage?.prompt_tokens !== undefined ? { promptTokens: analysisPayload.usage.prompt_tokens } : {}),
+    ...(analysisPayload.usage?.completion_tokens !== undefined ? { generatedTokens: analysisPayload.usage.completion_tokens } : {}),
+    ...(analysisPayload.usage?.total_tokens !== undefined ? { totalTokens: analysisPayload.usage.total_tokens } : {}),
+    ...(analysisPayload.done_reason ? { doneReason: analysisPayload.done_reason } : {}),
+  };
+  onProgress?.({
+    stage: 'response',
+    page: images.length,
+    totalPages: images.length,
+    message: 'Réponse du modèle d’analyse reçue.',
+    rawResponse: content,
+    rawResponseStage: 'analysis',
+    diagnosticRun: analysisTrace,
+  });
   if (analysisPayload.done_reason === 'length') {
     throw new Error(`La structuration du barème a été interrompue : la limite de génération (${RUBRIC_STRUCTURING_TOKEN_LIMIT} tokens) a été atteinte. Augmentez la capacité de sortie du modèle ou utilisez un modèle adapté aux longs barèmes.`);
   }

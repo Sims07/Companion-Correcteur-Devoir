@@ -529,6 +529,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       setTeacherQuestions('');
       const summary = `Barème extrait : ${imported.rubric.criteria.length} critère(s), ${total} point(s) au total. Les critères sont affichés ci-dessous pour vérification et modification.`;
       setRubricImportProgress({ stage: 'complete', message: summary, page: prepared.length, totalPages: prepared.length });
+      rubricImportSucceeded = true;
       setRubricImportEvents((events) => [...events, summary]);
       setRubricImportMessage(imported.warnings.join(' ') || summary);
     } catch (cause) {

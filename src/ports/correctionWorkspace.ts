@@ -10,6 +10,17 @@ export type RubricImportProgress = {
   rawResponseStage?: 'vision' | 'analysis';
   page?: number;
   totalPages?: number;
+  /** Local trace for one model request; excludes images, credentials and full prompts. */
+  diagnosticRun?: {
+    kind: 'vision' | 'model';
+    model: string;
+    elapsedMs: number;
+    raw: string;
+    promptTokens?: number;
+    generatedTokens?: number;
+    totalTokens?: number;
+    doneReason?: string;
+  };
 };
 
 export interface ImportedRubric {

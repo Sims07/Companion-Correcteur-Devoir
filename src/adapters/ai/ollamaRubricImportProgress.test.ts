@@ -43,6 +43,8 @@ describe('rubric import progress', () => {
     expect(progress.find((event) => event.rawResponseStage === 'analysis')?.rawResponse).toContain('criteria');
     expect(result.rubric.criteria).toHaveLength(1);
     expect(progress.at(-1)?.message).toContain('1 critère');
+    expect(progress.find((event) => event.diagnosticRun?.kind === 'vision')?.diagnosticRun).toMatchObject({ kind: 'vision', model: 'qwen3-vl:4b' });
+    expect(progress.find((event) => event.diagnosticRun?.kind === 'model')?.diagnosticRun).toMatchObject({ kind: 'model', model: 'qwen3.5:4b' });
   });
 
   it('applies bounded transcription options and marks a truncated rubric page as doubtful', async () => {
