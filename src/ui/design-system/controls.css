@@ -22,8 +22,9 @@
 .ds-field__hint { color: var(--ds-color-text-muted); }
 .ds-field__error { color: var(--ds-color-danger); }
 
-.ds-input,
-.design-system-select {
+input.ds-input,
+textarea.ds-input,
+select.design-system-select {
   display: block;
   box-sizing: border-box;
   width: 100%;
@@ -41,9 +42,10 @@
   transition: border-color var(--ds-transition-fast), box-shadow var(--ds-transition-fast), background-color var(--ds-transition-fast);
 }
 
-.ds-input::placeholder { color: var(--ds-color-text-disabled); opacity: 1; }
+input.ds-input::placeholder,
+textarea.ds-input::placeholder { color: var(--ds-color-text-disabled); opacity: 1; }
 
-.design-system-select {
+select.design-system-select {
   appearance: none;
   padding-right: 42px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%23587960' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -53,33 +55,37 @@
   cursor: pointer;
 }
 
-.ds-input:hover:not(:disabled),
-.design-system-select:hover:not(:disabled) {
+input.ds-input:hover:not(:disabled),
+textarea.ds-input:hover:not(:disabled),
+select.design-system-select:hover:not(:disabled) {
   border-color: #afc6b2;
 }
 
-.ds-input:focus-visible,
-.design-system-select:focus-visible {
+input.ds-input:focus-visible,
+textarea.ds-input:focus-visible,
+select.design-system-select:focus-visible {
   border-color: var(--ds-color-brand-600);
   outline: none;
   box-shadow: var(--ds-focus-ring);
 }
 
-.ds-input[aria-invalid="true"],
-.design-system-select[aria-invalid="true"] {
+input.ds-input[aria-invalid="true"],
+textarea.ds-input[aria-invalid="true"],
+select.design-system-select[aria-invalid="true"] {
   border-color: var(--ds-color-danger);
   background-color: var(--ds-color-danger-surface);
 }
 
-.ds-input:disabled,
-.design-system-select:disabled {
+input.ds-input:disabled,
+textarea.ds-input:disabled,
+select.design-system-select:disabled {
   color: var(--ds-color-text-disabled);
   background-color: var(--ds-color-surface-subtle);
   cursor: not-allowed;
   opacity: .75;
 }
 
-.ds-textarea {
+textarea.ds-textarea {
   min-height: 112px;
   resize: vertical;
 }
@@ -150,12 +156,14 @@
 }
 
 @media (max-width: 560px) {
-  .ds-input,
-  .design-system-select { min-height: 46px; }
+  input.ds-input,
+  textarea.ds-input,
+  select.design-system-select { min-height: 46px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ds-input,
-  .design-system-select,
+  input.ds-input,
+  textarea.ds-input,
+  select.design-system-select,
   .ds-button { transition: none; }
 }
