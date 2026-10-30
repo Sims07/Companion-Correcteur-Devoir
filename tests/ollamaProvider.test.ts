@@ -326,6 +326,26 @@ describe('Ollama adapter', () => {
     expect(JSON.parse(raw).criteria).toHaveLength(2);
   });
 
+  it('preserves validated visual coordinates returned from extracted page anchors in criterion mode', async () => {
+    const rubric = JSON.stringify({ title: 'Barème', criteria: [
+      { id: 'first', title: 'Premier critère', description: 'Attendu 1', maxPoints: 2 },
+    ] });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(streamingResponse(JSON.stringify({
+      criterionId: 'first', points: 1, confidence: 'high', evidence: 'Élément observable',
+      locationBox: { x: 120, y: 240, width: 280, height: 90 },
+    })));
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'vision-model', analysisModel: 'analysis-model', criterionByCriterion: true,
+    }, fetchMock);
+    const raw = await provider.generate({
+      question: request.question, rubric, images: [],
+      transcription: '[ copie.png ]\\n[ANCRE_VISUELLE page=1 id=r1 x=120 y=240 width=280 height=90] Élément observable',
+    });
+    expect(JSON.parse(raw).criteria[0].locationBox).toEqual({ x: 120, y: 240, width: 280, height: 90 });
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { messages: Array<{ content: string }> };
+    expect(body.messages[0].content).toContain('recopie exactement ses coordonnées dans locationBox');
+  });
+
   it('continues after a criterion still fails its targeted retry and retains the other results', async () => {
     const rubric = JSON.stringify({ title: 'Barème', criteria: [
       { id: 'first', title: 'Premier critère', description: 'Attendu 1', maxPoints: 2 },
