@@ -6,7 +6,7 @@ import type { ModelEvaluationService } from '../application/modelEvaluationServi
 import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion, type CriterionProposal } from '../domain/grading.ts';
 import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationRecords, getModelEvaluationStage, runModelEvaluation, sumReportedTokensForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot } from '../domain/modelEvaluation.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
-import type { DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
+import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/diagnosticReference.ts';
 import { createDecisionMemoryEntries, fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT } from '../domain/localMemory.ts';
@@ -20,6 +20,7 @@ import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelPro
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
+import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
 
 type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
 
@@ -295,8 +296,9 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   const [busy, setBusy] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
-  const [completedCriterionCount, setCompletedCriterionCount] = useState(0);
   const [criterionProgressMessage, setCriterionProgressMessage] = useState('');
+  const [criterionStatuses, setCriterionStatuses] = useState<Record<string, CriterionAnalysisUpdate['status']>>({});
+  const [activeCriterionId, setActiveCriterionId] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [readingElapsedMs, setReadingElapsedMs] = useState<number | null>(null);
   const [analysisElapsedMs, setAnalysisElapsedMs] = useState<number | null>(null);
@@ -323,7 +325,8 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   const [isFinalized, setIsFinalized] = useState(false);
   const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher');
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
-  const reviewedTotal = review.reduce((sum, item) => sum + item.teacherPoints, 0);
+  const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
+  const reviewedTotal = criterionProgress.provisionalPoints;
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
   const reviewInsights = useMemo(() => getReviewInsights(review), [review]);
   const flaggedCriteriaIds = useMemo(() => new Set(reviewInsights.flaggedCriteriaIds), [reviewInsights]);
@@ -613,8 +616,9 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setReadingElapsedMs(null);
     setAnalysisElapsedMs(null);
     setAnalysisStage('checking');
-    setCompletedCriterionCount(0);
     setCriterionProgressMessage('');
+    setCriterionStatuses({});
+    setActiveCriterionId(null);
     setProposal(null);
     setReview([]);
     setStreamedOutput('');
@@ -632,7 +636,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
       const raw = await provider.generate(
         { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
-        (chunk) => setStreamedOutput((current) => current + chunk),
+        (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
         (stage) => {
           const now = Date.now();
           if (stage === 'reading' && readingStartedAt === null) readingStartedAt = now;
@@ -640,6 +644,10 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
             if (readingStartedAt !== null && readingDurationMs === null) { readingDurationMs = now - readingStartedAt; setReadingElapsedMs(readingDurationMs); }
             analysisStartedAt = now;
             setStreamedOutput('');
+            if (interfaceMode === 'teacher') {
+              setTeacherStep('review');
+              if (criterionByCriterion && rubric.criteria[0]) setActiveCriterionId(rubric.criteria[0].id);
+            }
           }
           setAnalysisStage(stage);
         },
@@ -649,6 +657,9 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
         },
         (result) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); },
         (update) => {
+          setCriterionStatuses((current) => ({ ...current, [update.criterionId]: update.status }));
+          if (update.status === 'completed') setActiveCriterionId(criterionByCriterion ? rubric.criteria[update.index]?.id ?? null : null);
+          else setActiveCriterionId(update.criterionId);
           setCriterionProgressMessage(`Critère ${update.index}/${update.total} · ${update.status === 'retrying' ? 'nouvel essai' : update.status === 'failed' ? 'à vérifier' : update.status === 'completed' ? 'proposition reçue' : 'analyse en cours'}`);
           if (update.status === 'completed' && update.proposal) {
             const existingIndex = partialCriteria.findIndex((item) => item.criterionId === update.criterionId);
@@ -664,7 +675,6 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
             setProposal(partialProposal);
             setReview((current) => toReviewedCriteria(partialProposal).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item));
             setTeacherQuestions(partialProposal.questionsForTeacher.join('\n'));
-            setCompletedCriterionCount(orderedCriteria.length);
             if (interfaceMode === 'teacher') setTeacherStep('review');
           }
         },
@@ -675,10 +685,12 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       setProposal(parsed);
       setReview((current) => toReviewedCriteria(parsed).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item));
       setTeacherQuestions(parsed.questionsForTeacher.join('\n'));
+      setActiveCriterionId(null);
+      setCriterionStatuses(Object.fromEntries(rubric.criteria.map((criterion) => [criterion.id, 'completed' as const])));
       if (interfaceMode === 'teacher') setTeacherStep('review');
       outcome = 'success';
     } catch (cause) {
-      if (interfaceMode === 'teacher') setTeacherStep(partialCriteria.length > 0 ? 'review' : 'copy');
+      if (interfaceMode === 'teacher') setTeacherStep(partialCriteria.length > 0 || analysisStartedAt !== null ? 'review' : 'copy');
       setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
     } finally {
       const finishedAt = Date.now();
@@ -2054,12 +2066,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
           </div>
         </div>
       </section>}
-      {isAnalyzing && interfaceMode === 'teacher' && analysisStage === 'grading' && <section className="live-analysis-preview panel" aria-labelledby="live-analysis-preview-title">
-        <div className="live-preview-heading"><div><p className="eyebrow">ÉTAPE 2 · ANALYSE DU BARÈME</p><h3 id="live-analysis-preview-title">Analyse de la réponse</h3><p>La transcription est confrontée aux critères du barème.</p></div><span className="live-preview-state analysis">Notation en cours</span></div>
-        <div className="live-analysis-context"><span className="live-panel-icon" aria-hidden="true">✓</span><div><strong>Transcription disponible</strong><p>{transcription ? transcription.trim().split(/\s+/).filter(Boolean).length + ' mots extraits de la copie' : 'La transcription est conservée pour cette analyse.'}</p></div></div>
-        <div className="live-analysis-criteria" aria-label="Critères en cours d’évaluation">{rubric.criteria.map((criterion) => <div className="live-analysis-criterion" key={criterion.id}><span>{criterion.title}</span><span className="live-score-placeholder" aria-hidden="true" /><small>Évaluation en cours</small></div>)}</div>
-        <div className="live-analysis-output" aria-live="polite"><div className="live-panel-heading"><span className="live-panel-icon" aria-hidden="true">✳</span><div><strong>Réponse du modèle</strong><small>{streamedOutput ? 'Réponse reçue en streaming' : 'Préparation de la proposition'}</small></div></div>{streamedOutput ? <pre>{streamedOutput}</pre> : <div className="live-transcription-placeholder"><span className="live-text-skeleton" /><span className="live-text-skeleton medium" /><span className="live-text-skeleton short" /></div>}</div>
-      </section>}
+
 
       {interfaceMode === 'teacher' && teacherStep === 'copy' && (transcription || (correctionMode === 'separate' && subjectTranscription)) && <section className="transcription-review" aria-labelledby="transcription-review-title">
         <details>
@@ -2082,8 +2089,8 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 
-      {proposal && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section">
-        <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{pendingCount} À VÉRIFIER</span></div>{isAnalyzing && <p className="criterion-live-progress" role="status" aria-live="polite">{completedCriterionCount} / {rubric.criteria.length} critère(s) noté(s) · {criterionProgressMessage || 'Analyse progressive en cours'}. Les propositions restent provisoires jusqu’à validation.</p>}{(readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
+      {(proposal || isAnalyzing || review.length > 0 || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section">
+        <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{isAnalyzing && criterionProgress.completedCount < criterionProgress.totalCount ? `${criterionProgress.totalCount - criterionProgress.completedCount} EN ATTENTE` : `${pendingCount} À VÉRIFIER`}</span></div>{isAnalyzing && <p className="criterion-live-progress" role="status" aria-live="polite">{criterionProgress.completedCount} / {criterionProgress.totalCount} critère(s) évalué(s) · {criterionProgressMessage || 'Analyse progressive en cours'}. La note affichée est provisoire et évoluera à mesure des résultats.</p>}{(readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
         <section className="review-alerts" aria-label="Points nécessitant votre attention">
           <div className="review-alerts-heading"><div><span className="eyebrow">CONTRÔLE CIBLÉ</span><h3>Vérifications prioritaires</h3></div><span className="review-alert-count">{reviewInsights.flaggedCriteriaIds.length} critère(s)</span></div>
           {unreadableCopySignal && <div className="review-alert review-alert-warning" role="alert"><strong>Lecture de la copie à contrôler</strong><p>La transcription est absente ou contient un signal d’illisibilité. Vérifiez les images originales avant de vous fier à la note proposée.</p></div>}
@@ -2122,12 +2129,21 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
             </details>
           </aside>
           <div className="review-main-column">
-            <div className="summary-panel review-score-summary"><strong>Synthèse de l’assistant</strong><p>{proposal.summary}</p><span>Note proposée : {proposal.criteria.reduce((sum, item) => sum + item.points, 0)} / {validation.maximumPoints} points</span></div>
+            <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite"><strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : criterionProgress.isComplete ? 'Note proposée · à valider' : 'Note partielle · analyse incomplète'}</strong><p>{proposal?.summary ?? 'Analyse du barème en cours. Les résultats apparaîtront ici, critère par critère.'}</p><span>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente de la première note'} · {criterionProgress.completedCount} / {criterionProgress.totalCount} critères évalués</span></div>
         <div className="review-criteria-toolbar"><span>{showOnlyFlagged ? `Affichage ciblé : ${displayedReview.length} critère(s)` : `${review.length} critère(s) dans le barème`}</span>{showOnlyFlagged && <button type="button" className="text-action" onClick={() => setShowOnlyFlagged(false)}>Réafficher tous les critères</button>}</div>
-        {displayedReview.map((item) => {
-          const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
+        {(isAnalyzing ? rubric.criteria : rubric.criteria.filter((criterion) => !showOnlyFlagged || flaggedCriteriaIds.has(criterion.id))).map((criterion, criterionIndex) => {
+          const item = review.find((entry) => entry.criterionId === criterion.id);
+          if (!item) {
+            const status = criterionStatuses[criterion.id];
+            const active = isAnalyzing && activeCriterionId === criterion.id;
+            const statusLabel = status === 'failed' ? 'À vérifier' : status === 'retrying' ? 'Nouvel essai en cours' : active ? `Analyse du critère ${criterionIndex + 1} en cours…` : criterionByCriterion ? 'En attente de son analyse' : 'En attente du résultat global';
+            return <article className={`panel review-card review-card-pending ${active ? 'is-active' : ''}`} key={criterion.id} aria-label={`Critère ${criterion.title} : ${statusLabel}`}>
+              <div className="review-card-heading"><div><h3>{criterion.title}</h3><p>Maximum : {criterion.maxPoints} points</p></div><span className="review-pending-status">{statusLabel}</span></div>
+              <div className="review-pending-content"><span className="live-score-placeholder" aria-hidden="true" /><div className="review-pending-skeleton" aria-hidden="true"><span /><span /><span /></div></div>
+            </article>;
+          }
           return <article className="panel review-card" key={item.criterionId}>
-            <div className="review-card-heading"><div><h3>{criterion?.title ?? item.criterionId}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div><span className={`confidence confidence-${item.confidence}`}>Confiance {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</span></div>
+            <div className="review-card-heading"><div><h3>{criterion.title}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div><span className={`confidence confidence-${item.confidence}`}>Confiance {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</span></div>
             <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p>{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); setFocusedEvidenceCriterionId(item.criterionId); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>
             {item.annotationSuggestion && <section className="annotation-suggestion" aria-label={`Suggestion d’annotation pour le critère ${criterion?.title ?? item.criterionId}`}>
               <div className="annotation-suggestion-heading"><span className="eyebrow">COMMENTAIRE ÉVENTUEL À REPORTER AU STYLO</span><span className="annotation-suggestion-status">Suggestion IA</span></div>
@@ -2145,7 +2161,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
           </article>;
         })}
         {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Cette correction est enregistrée sur cet appareil</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" onClick={startNextCopy}>Ajouter une autre copie</button><button type="button" className="secondary-button" onClick={() => { setTeacherStep('archive'); setShowAiSettings(false); }}>Voir les corrections enregistrées</button></div></div>}
-         <div className="panel final-review"><div><span className="eyebrow">RÉCAPITULATIF ENSEIGNANT</span><h3>{reviewedTotal} / {validation.maximumPoints} points</h3><p>{review.length < rubric.criteria.length ? `${rubric.criteria.length - review.length} critère(s) sans proposition exploitable : l’enregistrement reste bloqué.` : pendingCount === 0 ? 'Tous les critères ont une décision.' : `${pendingCount} critère(s) à examiner avant l’enregistrement.`}</p></div><div className="questions-field"><span className="field-label">Points à vérifier avant de communiquer la note</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question précise n’a été formulée. Vérifiez tout de même les alertes et les preuves ci-dessus.</p>}</div>{!isFinalized && <button type="button" className="primary-button" disabled={pendingCount > 0 || isAnalyzing || review.length !== rubric.criteria.length} onClick={finalizeReview}>{currentCorrectionId ? 'Enregistrer les modifications' : 'Enregistrer la correction'}</button>}<details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Export local pour conserver ou réutiliser les résultats de cette correction.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal.summary, criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil.'); }}>{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>{reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}</div>
+         <div className="panel final-review"><div><span className="eyebrow">{isAnalyzing ? 'NOTE PROVISOIRE · ANALYSE EN COURS' : criterionProgress.isComplete ? 'NOTE PROPOSÉE · À VALIDER' : 'NOTE PARTIELLE · ANALYSE INCOMPLÈTE'}</span><h3>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente des premiers résultats'}</h3><p>{isAnalyzing ? `${criterionProgress.completedCount} / ${criterionProgress.totalCount} critères évalués. Cette note n’est pas définitive et évoluera avec les prochains critères.` : review.length < rubric.criteria.length ? `${rubric.criteria.length - review.length} critère(s) sans proposition exploitable : l’enregistrement reste bloqué.` : pendingCount === 0 ? 'Tous les critères ont une décision.' : `${pendingCount} critère(s) à examiner avant l’enregistrement.`}</p></div><div className="questions-field"><span className="field-label">Points à vérifier avant de communiquer la note</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question précise n’a été formulée. Vérifiez tout de même les alertes et les preuves ci-dessus.</p>}</div>{!isFinalized && <button type="button" className="primary-button" disabled={pendingCount > 0 || isAnalyzing || review.length !== rubric.criteria.length} onClick={finalizeReview}>{currentCorrectionId ? 'Enregistrer les modifications' : 'Enregistrer la correction'}</button>}<details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Export local pour conserver ou réutiliser les résultats de cette correction.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal?.summary ?? '', criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil.'); }}>{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>{reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}</div>
           </div>
         </div>
       </section>}

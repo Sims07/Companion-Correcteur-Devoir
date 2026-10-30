@@ -14,13 +14,17 @@ const observabilityStyles = readFileSync(new URL('../src/ui/observability.css', 
 const dropdownComponent = readFileSync(new URL('../src/ui/components/DesignSystemSelect.tsx', import.meta.url), 'utf8');
 
 describe('UI design system', () => {
-  it('exposes progressive criterion results while analysis is still running and blocks incomplete finalization', () => {
-    expect(appComponent).toContain('setCompletedCriterionCount');
-    expect(appComponent).toContain('completedCriterionCount');
-    expect(appComponent).toContain('criterion-live-progress');
+  it('shows every criterion beside the original copy and labels the evolving score as provisional', () => {
+    expect(appComponent).toContain('criterionStatuses');
+    expect(appComponent).toContain('review-card-pending');
+    expect(appComponent).toContain('Analyse du critère ${criterionIndex + 1} en cours…');
+    expect(appComponent).toContain('Note provisoire · calcul en cours');
+    expect(appComponent).toContain('Cette note n’est pas définitive');
     expect(appComponent).toContain('review.length !== rubric.criteria.length');
-    expect(appComponent).toContain('Les propositions restent provisoires jusqu’à validation.');
-    expect(correctionFlowStylesheet).toContain('.criterion-live-progress');
+    expect(appComponent).not.toContain('Réponse du modèle</strong>');
+    expect(appComponent).not.toContain('live-analysis-output');
+    expect(correctionFlowStylesheet).toContain('.review-card-pending.is-active');
+    expect(correctionFlowStylesheet).toContain('.review-score-summary.is-provisional');
   });
 
   it('presents rubric import as separate reading and extraction steps with inspectable raw outputs', () => {
@@ -146,16 +150,17 @@ describe('UI design system', () => {
     expect(designSystemControls).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
-  it('renders a live transcription preview while reading and a visual rubric analysis while grading', () => {
+  it('keeps the original copy beside progressive criterion results during teacher analysis', () => {
     expect(appComponent).toContain('className="live-copy-preview panel"');
     expect(appComponent).toContain('className="live-copy-layout"');
     expect(appComponent).toContain('Page ${index + 1} de la copie en cours de lecture');
     expect(appComponent).toContain('className="live-transcription-panel"');
-    expect(appComponent).toContain('className="live-analysis-preview panel"');
-    expect(appComponent).toContain('className="live-analysis-criteria"');
+    expect(appComponent).toContain('review-card-pending');
+    expect(appComponent).toContain('activeCriterionId === criterion.id');
+    expect(appComponent).toContain('review-score-summary');
     expect(correctionFlowStylesheet).toContain('.live-copy-page img');
     expect(correctionFlowStylesheet).toContain('.live-transcription-text');
-    expect(correctionFlowStylesheet).toContain('.live-analysis-criteria');
+    expect(correctionFlowStylesheet).toContain('.review-card-pending.is-active');
     expect(correctionFlowStylesheet).toContain('@media(prefers-reduced-motion:reduce)');
   });
   it('provides an explicit local copy queue for serial grading', () => {
