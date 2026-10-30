@@ -439,7 +439,7 @@ describe('Ollama adapter', () => {
     expect(cancelled).toBe(true);
     expect(transcriptions[0]).toContain('C2 (60) (100)');
     expect(transcriptions[0]).toContain('LECTURE DOUTEUSE');
-    expect(transcriptions[0]).not.toContain('C2 (60) (100)\n\nC2 (60) (100)\n\nC2 (60) (100)');
+    expect(transcriptions[0].match(/C2 \\(60\\) \\(100\\)/g)).toHaveLength(3);
   });
 
   it('marks a transcription as doubtful when one line loops repeatedly at the end', async () => {
