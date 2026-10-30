@@ -1759,12 +1759,13 @@ export function App({ service, archiveService, evaluationService }: { service: C
           <p className="evaluation-history-selection-help">Sélectionnez un essai pour comparer ses modèles, ou deux essais du même devoir et du même jeu d’entrée. Une comparaison n’associe jamais des copies ou des transcriptions différentes.</p>
           <div className="evaluation-history-selection" role="group" aria-label="Expériences à comparer">
             {visibleEvaluationHistoryRecords.map((record) => <label className={selectedEvaluationHistoryIds.includes(record.id) ? 'evaluation-history-option is-selected' : 'evaluation-history-option'} key={record.id}>
-              <input type="checkbox" checked={selectedEvaluationHistoryIds.includes(record.id)} disabled={!selectedEvaluationHistoryIds.includes(record.id) && (selectedEvaluationHistoryIds.length >= 2 || (selectedEvaluationHistoryRecords.length === 1 && !canCompareModelEvaluationRecords([selectedEvaluationHistoryRecords[0], record])))} onChange={(event) => setSelectedEvaluationHistoryIds((current) => event.target.checked ? [...current, record.id].slice(-2) : current.filter((id) => id !== record.id))} />
+              <input type="checkbox" checked={selectedEvaluationHistoryIds.includes(record.id)} disabled={!selectedEvaluationHistoryIds.includes(record.id) && (selectedEvaluationHistoryIds.length >= 2 || (selectedEvaluationHistoryRecords.length === 1 && !canCompareModelEvaluationRecords([selectedEvaluationHistoryRecords[0]!, record])))} onChange={(event) => setSelectedEvaluationHistoryIds((current) => event.target.checked ? [...current, record.id].slice(-2) : current.filter((id) => id !== record.id))} />
               <span><strong>{record.assignmentTitle}</strong><small>{getModelEvaluationStage(record) === 'vision' ? 'Vision seule' : getModelEvaluationStage(record) === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {record.images.length} page(s)</small></span>
             </label>)}
           </div>
           {canCompareModelEvaluationRecords(selectedEvaluationHistoryRecords) ? (() => {
-            const comparisonStage = getModelEvaluationStage(selectedEvaluationHistoryRecords[0]);
+            const firstRecord = selectedEvaluationHistoryRecords[0]!;
+            const comparisonStage = getModelEvaluationStage(firstRecord);
             const metrics = [
               { key: 'readingMs' as const, title: 'Temps de lecture', unit: 'durée', format: (value: number) => formatElapsed(Math.round(value / 1000)), model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.visionModel },
               { key: 'analysisMs' as const, title: 'Temps d’analyse', unit: 'durée', format: (value: number) => formatElapsed(Math.round(value / 1000)), model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.analysisModel },
@@ -1774,7 +1775,6 @@ export function App({ service, archiveService, evaluationService }: { service: C
               { key: 'analysisTokensPerSecond' as const, title: 'Débit d’analyse', unit: 'tokens/s', format: (value: number) => value.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s', model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.analysisModel },
               { key: 'score' as const, title: 'Note proposée', unit: 'score', format: (value: number) => value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100', model: (configuration: ModelEvaluationRecord['configurations'][number]) => configuration.analysisModel },
             ].filter((metric) => comparisonStage === 'vision' ? metric.key.startsWith('reading') : comparisonStage === 'analysis' ? metric.key.startsWith('analysis') || metric.key === 'score' : true);
-            const firstRecord = selectedEvaluationHistoryRecords[0];
             const rubricSignature = (record: ModelEvaluationRecord) => JSON.stringify(record.rubricSnapshot.criteria.map((criterion) => ({ id: criterion.id, title: criterion.title, maxPoints: criterion.maxPoints })));
             const sameRubric = selectedEvaluationHistoryRecords.every((record) => rubricSignature(record) === rubricSignature(firstRecord));
             const comparisonColumns = selectedEvaluationHistoryRecords.flatMap((record, recordIndex) => record.results.map((result) => ({
