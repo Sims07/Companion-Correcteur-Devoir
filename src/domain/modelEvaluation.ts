@@ -146,6 +146,8 @@ export interface ModelEvaluationCallTrace {
   requestPrompt?: string;
   requestMetadata?: { stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number } };
   raw: string;
+  /** Network/provider failure for this exact call, when the stream did not complete. */
+  error?: string;
   elapsedMs: number;
   promptTokens?: number;
   generatedTokens?: number;
