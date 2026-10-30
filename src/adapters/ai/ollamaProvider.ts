@@ -620,7 +620,7 @@ export function createOllamaProvider(
         onTranscription?.(transcription, 'copy');
       }
 
-      if ((request.detectTeacherAnnotations || settings.detectTeacherAnnotations) && !request.visionOnly) {
+      if (request.detectTeacherAnnotations && !request.visionOnly) {
         for (const [index, image] of (request.images ?? []).entries()) {
           const annotationResponse = await sendStream(visionModel, [
             'Repère uniquement les marques possiblement ajoutées par le professeur : commentaires en marge, corrections, coches, croix, cercles et notes déjà attribuées.',
