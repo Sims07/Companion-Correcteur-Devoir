@@ -114,6 +114,21 @@ describe('local observability metrics', () => {
     expect(JSON.stringify(evaluations)).not.toContain('PRIVATE_MODEL_OUTPUT');
   });
 
+  it('preserves the actual request and raw response for each saved evaluation call', () => {
+    const prompt = 'PROMPT LOCAL AVEC CONSIGNE';
+    const response = '{"criteria":[]}';
+    const [trace] = toModelEvaluationObservabilityTraces([{
+      id: 'evaluation-detail', completedAt: '2026-10-30T10:00:00.000Z', assignmentId: 'a', assignmentTitle: 'Biologie',
+      question: '', rubricSnapshot: { title: 'Barème', criteria: [] }, correctionMode: 'integrated', images: [], subjectImages: [], subjectTranscription: null,
+      configurations: [{ id: 'p', name: 'Profil', endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'analysis', thinking: false }],
+      results: [{
+        profileId: 'p', profileName: 'Profil', elapsedMs: 1000, readingMs: 400, analysisMs: 600, tokens: null, status: 'success', transcription: '', raw: response, score: 12, proposal: null,
+        diagnosticRuns: [{ kind: 'model', stage: 'analysis', model: 'analysis', elapsedMs: 600, requestPrompt: prompt, requestMetadata: { stream: true, think: false, format: 'json', imageCount: 0, keepAlive: 0, options: { contextTokens: 8192, generationTokenLimit: 2048 } }, raw: response }],
+      }],
+    }]);
+    expect(trace.diagnosticRuns?.[0]).toMatchObject({ requestPrompt: prompt, raw: response, requestMetadata: { imageCount: 0, format: 'json', options: { contextTokens: 8192 } } });
+  });
+
   it('keeps stage-only model evaluations scoped to the stage that was actually measured', () => {
     const [vision] = toModelEvaluationObservabilityTraces([{
       id: 'evaluation-vision',
