@@ -3,7 +3,7 @@ import { FilePicker } from './components/FilePicker.tsx';
 import { DesignSystemSelect } from './components/DesignSystemSelect.tsx';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
 import type { ModelEvaluationService } from '../application/modelEvaluationService.ts';
-import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion } from '../domain/grading.ts';
+import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion, type CriterionProposal } from '../domain/grading.ts';
 import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationRecords, getModelEvaluationStage, runModelEvaluation, sumReportedTokensForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot } from '../domain/modelEvaluation.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
@@ -289,6 +289,8 @@ export function App({ service, archiveService, evaluationService }: { service: C
   const [busy, setBusy] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
+  const [completedCriterionCount, setCompletedCriterionCount] = useState(0);
+  const [criterionProgressMessage, setCriterionProgressMessage] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [readingElapsedMs, setReadingElapsedMs] = useState<number | null>(null);
   const [analysisElapsedMs, setAnalysisElapsedMs] = useState<number | null>(null);
@@ -570,6 +572,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
     let analysisDurationMs: number | null = null;
     let outcome: TimingRecord['outcome'] = 'error';
     let diagnosticProposal: GradingProposal | null = null;
+    const partialCriteria: CriterionProposal[] = [];
     const previousModelResults = strategyOverride === 'arbitrate-only' ? diagnosticRuns.filter((run) => run.kind === 'model') : [];
     const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
     setBusy(true);
@@ -581,6 +584,10 @@ export function App({ service, archiveService, evaluationService }: { service: C
     setReadingElapsedMs(null);
     setAnalysisElapsedMs(null);
     setAnalysisStage('checking');
+    setCompletedCriterionCount(0);
+    setCriterionProgressMessage('');
+    setProposal(null);
+    setReview([]);
     setStreamedOutput('');
     setDiagnosticRuns(previousModelResults);
     setError('');
@@ -612,6 +619,26 @@ export function App({ service, archiveService, evaluationService }: { service: C
           else setTranscription(extracted);
         },
         (result) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); },
+        (update) => {
+          setCriterionProgressMessage(`Critère ${update.index}/${update.total} · ${update.status === 'retrying' ? 'nouvel essai' : update.status === 'failed' ? 'à vérifier' : update.status === 'completed' ? 'proposition reçue' : 'analyse en cours'}`);
+          if (update.status === 'completed' && update.proposal) {
+            const existingIndex = partialCriteria.findIndex((item) => item.criterionId === update.criterionId);
+            if (existingIndex >= 0) partialCriteria.splice(existingIndex, 1);
+            partialCriteria.push(update.proposal);
+            const orderedCriteria = [...partialCriteria].sort((left, right) => rubric.criteria.findIndex((item) => item.id === left.criterionId) - rubric.criteria.findIndex((item) => item.id === right.criterionId));
+            const partialProposal: GradingProposal = {
+              summary: 'Analyse en cours : les propositions sont affichées au fur et à mesure et restent à vérifier.',
+              criteria: orderedCriteria,
+              questionsForTeacher: orderedCriteria.flatMap((item) => item.questionForTeacher ? [item.questionForTeacher] : []),
+              finalScore: orderedCriteria.reduce((sum, item) => sum + item.points, 0),
+            };
+            setProposal(partialProposal);
+            setReview(toReviewedCriteria(partialProposal));
+            setTeacherQuestions(partialProposal.questionsForTeacher.join('\\n'));
+            setCompletedCriterionCount(orderedCriteria.length);
+            if (interfaceMode === 'teacher') setTeacherStep('review');
+          }
+        },
       );
       if (analysisStartedAt !== null) { analysisDurationMs = Math.max(0, Date.now() - analysisStartedAt); setAnalysisElapsedMs(analysisDurationMs); }
       const parsed = parseGradingProposal(raw, rubric);
@@ -622,7 +649,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       if (interfaceMode === 'teacher') setTeacherStep('review');
       outcome = 'success';
     } catch (cause) {
-      if (interfaceMode === 'teacher') setTeacherStep('copy');
+      if (interfaceMode === 'teacher') setTeacherStep(partialCriteria.length > 0 ? 'review' : 'copy');
       setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
     } finally {
       const finishedAt = Date.now();
@@ -1970,7 +1997,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 
       {proposal && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section">
-        <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{pendingCount} À VÉRIFIER</span></div>{(readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
+        <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{pendingCount} À VÉRIFIER</span></div>{isAnalyzing && <p className="criterion-live-progress" role="status" aria-live="polite">{completedCriterionCount} / {rubric.criteria.length} critère(s) noté(s) · {criterionProgressMessage || 'Analyse progressive en cours'}. Les propositions restent provisoires jusqu’à validation.</p>}{(readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
         <section className="review-alerts" aria-label="Points nécessitant votre attention">
           <div className="review-alerts-heading"><div><span className="eyebrow">CONTRÔLE CIBLÉ</span><h3>Vérifications prioritaires</h3></div><span className="review-alert-count">{reviewInsights.flaggedCriteriaIds.length} critère(s)</span></div>
           {unreadableCopySignal && <div className="review-alert review-alert-warning" role="alert"><strong>Lecture de la copie à contrôler</strong><p>La transcription est absente ou contient un signal d’illisibilité. Vérifiez les images originales avant de vous fier à la note proposée.</p></div>}

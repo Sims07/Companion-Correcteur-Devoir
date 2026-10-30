@@ -48,9 +48,19 @@ export interface DiagnosticModelResult {
 
 export type DiagnosticStrategy = 'single' | 'compare' | 'arbitrate';
 
+export interface CriterionAnalysisUpdate {
+  criterionId: string;
+  index: number;
+  total: number;
+  attempt: number;
+  status: 'started' | 'retrying' | 'completed' | 'failed';
+  proposal?: import('../domain/grading.ts').CriterionProposal;
+  error?: string;
+}
+
 export interface GradingProvider {
   readonly id: string;
-  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void): Promise<string>;
+  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void): Promise<string>;
 }
 
 export interface OllamaSettings {

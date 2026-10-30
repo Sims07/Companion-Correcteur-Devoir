@@ -1,4 +1,4 @@
-import type { DiagnosticModelResult, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
+import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
 import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
@@ -151,7 +151,7 @@ export function createOllamaProvider(
 ): GradingProvider {
   return {
     id: 'ollama',
-    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void): Promise<string> {
+    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
       const visionOnly = request.visionOnly === true;
       const hasTranscription = Boolean(request.transcription?.trim());
@@ -233,7 +233,7 @@ export function createOllamaProvider(
         streamChunk?: (chunk: string) => void,
         json = false,
         think = false,
-        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage'> & { deferResult?: boolean; keepAlive?: string | number; temperature?: number },
+        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage'> & { deferResult?: boolean; keepAlive?: string | number; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number },
       ): Promise<string> {
         const startedAt = Date.now();
         let response: Response;
@@ -250,8 +250,8 @@ export function createOllamaProvider(
               keep_alive: tracking?.keepAlive ?? 0,
               options: {
                 // Keep the analysis budget generous while limiting vision memory on Intel Macs.
-                num_ctx: tracking?.kind === 'vision' ? 4096 : 8192,
-                num_predict: 2048,
+                num_ctx: tracking?.contextTokenLimit ?? (tracking?.kind === 'vision' ? 4096 : 8192),
+                num_predict: tracking?.generationTokenLimit ?? 2048,
                 ...(tracking?.temperature !== undefined ? { temperature: tracking.temperature } : {}),
               },
               ...(json ? { format: 'json' } : {}),
@@ -280,8 +280,8 @@ export function createOllamaProvider(
               ...(result.tokensPerSecond !== undefined ? { tokensPerSecond: result.tokensPerSecond } : {}),
               ...(result.doneReason ? { doneReason: result.doneReason } : {}),
               thinkingPresent: result.thinkingPresent,
-              contextTokens: tracking.kind === 'vision' ? 4096 : 8192,
-              generationTokenLimit: 2048,
+              contextTokens: tracking.contextTokenLimit ?? (tracking.kind === 'vision' ? 4096 : 8192),
+              generationTokenLimit: tracking.generationTokenLimit ?? 2048,
             };
             lastDiagnosticMetrics = metrics;
             if (!tracking.deferResult) onDiagnosticResult?.({ ...metrics, raw: tracking.kind === 'vision' ? '' : result.content });
@@ -425,7 +425,91 @@ export function createOllamaProvider(
       };
 
       if (strategy === 'single') {
-        return sendStream(analysisModel, gradingPrompt, undefined, onChunk, true, settings.thinking ?? false, { kind: 'model', stage: 'analysis' });
+        const parsedRubric = JSON.parse(request.rubric) as { title?: string; criteria?: Array<{ id: string; title: string; description: string; maxPoints: number }> };
+        const criteria = parsedRubric.criteria ?? [];
+        // Legacy callers without structured criteria keep the original whole-rubric contract.
+        if (criteria.length === 0) {
+          return sendStream(analysisModel, gradingPrompt, undefined, onChunk, true, settings.thinking ?? false, { kind: 'model', stage: 'analysis' });
+        }
+
+        const completed: Array<Record<string, unknown>> = [];
+        const failed: string[] = [];
+        for (const [index, criterion] of criteria.entries()) {
+          const baseUpdate: Omit<CriterionAnalysisUpdate, 'status' | 'attempt' | 'proposal' | 'error'> = {
+            criterionId: criterion.id,
+            index: index + 1,
+            total: criteria.length,
+          };
+          const criterionPrompt = [
+            gradingPrompt,
+            'ÉVALUATION INCRÉMENTALE — INSTRUCTION PRIORITAIRE POUR CET APPEL : le barème complet ci-dessus sert de contexte, mais tu dois noter UNIQUEMENT le critère explicitement désigné ci-dessous. N’évalue aucun autre critère et ne retourne aucun résultat pour les autres.',
+            `CRITÈRE À NOTER : ${JSON.stringify(criterion)}`,
+            'SORTIE MINIMALE OBLIGATOIRE : retourne un seul objet JSON, sans tableau, sans résumé global ni note finale. Champs obligatoires : criterionId (identifiant exact), points (nombre dans le maximum), confidence ("low", "medium" ou "high"). Si points est inférieur au maximum, ajoute rationale (une justification courte liée au barème et à la copie) et evidence (preuve très courte ou limite de lecture). Si le maximum est attribué, rationale et evidence peuvent être des chaînes vides. Ajoute questionForTeacher uniquement si une ambiguïté concrète peut changer la note. N’ajoute aucun autre champ.',
+            `SCHÉMA : ${JSON.stringify({ criterionId: criterion.id, points: 0, confidence: 'medium', rationale: '', evidence: '', questionForTeacher: '' })}`,
+          ].join('\\n\\n');
+
+          let lastError = 'Échec inconnu.';
+          let succeeded = false;
+          for (let attempt = 1; attempt <= 2; attempt += 1) {
+            onCriterionUpdate?.({ ...baseUpdate, status: attempt === 1 ? 'started' : 'retrying', attempt });
+            try {
+              const raw = await sendStream(
+                analysisModel,
+                criterionPrompt,
+                undefined,
+                onChunk,
+                true,
+                settings.thinking ?? false,
+                { kind: 'model', stage: 'analysis', generationTokenLimit: 512 },
+              );
+              let parsed: unknown;
+              try { parsed = JSON.parse(raw.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '')); }
+              catch { throw new Error('Réponse JSON invalide ou tronquée pour ce critère.'); }
+              const candidate = typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
+              if (!candidate || candidate.criterionId !== criterion.id || typeof candidate.points !== 'number') {
+                throw new Error('La réponse JSON ne contient pas une proposition valide pour le critère demandé.');
+              }
+              const points = candidate.points;
+              if (!Number.isFinite(points) || points < 0 || points > criterion.maxPoints) {
+                throw new Error('La note proposée est en dehors du barème de ce critère.');
+              }
+              const confidence = candidate.confidence === 'high' || candidate.confidence === 'medium' || candidate.confidence === 'low'
+                ? candidate.confidence : 'low';
+              const proposal = {
+                criterionId: criterion.id,
+                points,
+                confidence,
+                rationale: typeof candidate.rationale === 'string' ? candidate.rationale.trim() : '',
+                evidence: typeof candidate.evidence === 'string' ? candidate.evidence.trim() : '',
+                ...(typeof candidate.questionForTeacher === 'string' && candidate.questionForTeacher.trim() ? { questionForTeacher: candidate.questionForTeacher.trim() } : {}),
+              };
+              completed.push(proposal);
+              onCriterionUpdate?.({ ...baseUpdate, status: 'completed', attempt, proposal });
+              succeeded = true;
+              break;
+            } catch (cause) {
+              lastError = cause instanceof Error ? cause.message : 'Échec de l’analyse du critère.';
+              const retryable = /JSON invalide|JSON tronquée|réponse JSON|limite de génération|done_reason=length|réponse vide/i.test(lastError);
+              if (attempt === 1 && retryable) continue;
+              break;
+            }
+          }
+          if (!succeeded) {
+            failed.push(criterion.title);
+            onCriterionUpdate?.({ ...baseUpdate, status: 'failed', attempt: 2, error: lastError });
+          }
+        }
+
+        if (failed.length > 0) {
+          throw new Error(`Analyse incomplète : ${failed.length} critère(s) restent à vérifier (${failed.join(', ')}). Les autres propositions ont été conservées.`);
+        }
+        const fullProposal = {
+          summary: 'Proposition de correction progressive ; vérification enseignante requise.',
+          criteria: completed,
+          questionsForTeacher: completed.flatMap((item) => typeof item.questionForTeacher === 'string' ? [item.questionForTeacher] : []),
+          finalScore: completed.reduce((sum, item) => sum + Number(item.points), 0),
+        };
+        return JSON.stringify(fullProposal);
       }
       if (strategy === 'arbitrate-only') {
         const firstResult = settings.diagnosticFirstResult?.trim() || '';
