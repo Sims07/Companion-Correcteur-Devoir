@@ -31,19 +31,31 @@ interface OllamaStreamResult {
   tokensPerSecond?: number;
   doneReason?: string;
   thinkingPresent: boolean;
+  suspiciousStop: boolean;
 }
 
 function nanosecondsToMilliseconds(value: number | undefined): number | undefined {
   return value === undefined || !Number.isFinite(value) ? undefined : Math.round(value / 1_000_000 * 100) / 100;
 }
 
-async function readOllamaStream(response: Response, onChunk?: (chunk: string) => void): Promise<OllamaStreamResult> {
+function hasTranscriptionDrift(content: string): boolean {
+  if (/(?:\r?\n){4}$/.test(content)) return true;
+  const lines = content.replace(/\r/g, '').split('\n');
+  const last = lines.at(-1)?.trim();
+  if (!last) return false;
+  let repeats = 0;
+  for (let index = lines.length - 2; index >= 0 && lines[index]?.trim() === last; index -= 1) repeats += 1;
+  return repeats >= 2;
+}
+
+async function readOllamaStream(response: Response, onChunk?: (chunk: string) => boolean | void): Promise<OllamaStreamResult> {
   if (!response.body) throw new Error('Ollama n’a pas fourni de flux de réponse lisible.');
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   let content = '';
   let thinkingPresent = false;
+  let suspiciousStop = false;
   let finalEvent: OllamaChatResponse | undefined;
   const consumeLine = (line: string) => {
     if (!line.trim()) return;
@@ -51,7 +63,10 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
     if (event.error) throw new Error('Ollama signale une erreur pendant la génération.');
     const chunk = event.message?.content ?? '';
     if (event.message?.thinking?.trim()) thinkingPresent = true;
-    if (chunk) { content += chunk; onChunk?.(chunk); }
+    if (chunk) {
+      content += chunk;
+      if (onChunk?.(chunk) === true) suspiciousStop = true;
+    }
     if (event.done || event.done_reason !== undefined || event.prompt_eval_count !== undefined || event.eval_count !== undefined || event.usage !== undefined) {
       // Keep usage if a compatible endpoint emits it separately from the final done event.
       finalEvent = {
@@ -74,10 +89,19 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop() ?? '';
-      for (const line of lines) consumeLine(line);
+      for (const line of lines) {
+        consumeLine(line);
+        if (suspiciousStop) {
+          await reader.cancel('Dérive de transcription détectée côté client.');
+          break;
+        }
+      }
+      if (suspiciousStop) break;
     }
-    buffer += decoder.decode();
-    consumeLine(buffer);
+    if (!suspiciousStop) {
+      buffer += decoder.decode();
+      consumeLine(buffer);
+    }
   } finally { reader.releaseLock(); }
   const promptTokens = typeof finalEvent?.prompt_eval_count === 'number'
     ? finalEvent.prompt_eval_count
@@ -91,6 +115,7 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
   return {
     content,
     thinkingPresent,
+    suspiciousStop,
     ...(finalEvent?.done_reason ? { doneReason: finalEvent.done_reason } : {}),
     ...(promptTokens !== undefined ? { promptTokens } : {}),
     ...(generatedTokens !== undefined ? { generatedTokens } : {}),
@@ -164,7 +189,7 @@ export async function checkOllamaReady(
   const model = settings.model?.trim() || settings.visionModel?.trim() || settings.analysisModel?.trim() || '';
   if (!model) throw new Error(settings.apiCompatible ? 'Renseignez un identifiant de modèle compatible OpenAI.' : 'Choisissez un modèle Ollama.');
   const requestFetch = settings.apiCompatible
-    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter }, fetchImpl)
+    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter, frequencyPenalty: settings.transcriptionFrequencyPenalty }, fetchImpl)
     : fetchImpl;
   const response = await requestFetch(`${endpoint}/api/chat`, {
     method: 'POST',
@@ -287,7 +312,7 @@ export function createOllamaProvider(
         streamChunk?: (chunk: string) => void,
         json = false,
         think = false,
-        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage'> & { deferResult?: boolean; keepAlive?: string | number; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; onDoneReason?: (reason: string) => void },
+        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage'> & { deferResult?: boolean; keepAlive?: string | number; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void },
       ): Promise<string> {
         const startedAt = Date.now();
         let response: Response;
@@ -362,7 +387,9 @@ export function createOllamaProvider(
           const result = await readOllamaStream(response, (chunk) => {
             partialContent += chunk;
             streamChunk?.(chunk);
+            return tracking?.stage === 'reading' && hasTranscriptionDrift(partialContent);
           });
+          if (result.suspiciousStop) tracking?.onSuspiciousStop?.();
           if (tracking && diagnosticTracking) {
             const metrics: Omit<DiagnosticModelResult, 'raw'> = {
               kind: tracking.kind,
@@ -480,7 +507,10 @@ export function createOllamaProvider(
               repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
               allowTruncated: true,
               onDoneReason: (reason) => { transcriptionTruncated = reason === 'length'; },
-              keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
+              keepAlive: settings.regionsEnabled && (settings.regionsModel?.trim() || visionModel) === visionModel
+                ? '30s'
+                : index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
+              onSuspiciousStop: () => { transcriptionTruncated = true; },
             },
           );
           if (/(?:\r?\n){4}$/.test(pageTranscription)) transcriptionTruncated = true;
@@ -504,7 +534,7 @@ export function createOllamaProvider(
               {
                 kind: 'vision', stage: 'reading', temperature: 0,
                 generationTokenLimit: 1024,
-                keepAlive: regionModel === visionModel && index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
+                keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
               },
             ).catch(() => '');
             regionAnchors = normalizeRegions(regionResult, index + 1, pageText);
