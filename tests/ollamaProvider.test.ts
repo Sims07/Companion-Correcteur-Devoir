@@ -275,6 +275,26 @@ describe('Ollama adapter', () => {
     expect(transcriptions[0]).toContain('Réponse');
   });
 
+  it('releases the same vision model when a truncated final page skips localization', async () => {
+    const truncated = new Response([
+      JSON.stringify({ message: { content: 'Réponse partielle' }, done: false }),
+      JSON.stringify({ message: {}, done: true, done_reason: 'length' }),
+    ].join('\n') + '\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(truncated)
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'vision',
+      regionsEnabled: true, regionsModel: 'vision', analysisModel: 'grader',
+    }, fetchMock);
+    await expect(provider.generate(request)).resolves.toBe('{"criteria":[]}');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).keep_alive).toBe('30s');
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({ model: 'vision', keep_alive: 0, stream: false });
+    expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body)).model).toBe('grader');
+  });
+
   it('marks a page doubtful when the four-newline stop is reached without a length finish reason', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse('Réponse avant le grand blanc.\n\n\n\n'))
