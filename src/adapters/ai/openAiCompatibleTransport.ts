@@ -5,6 +5,7 @@ export interface OpenAiCompatibleSettings {
   endpoint: string;
   apiKey: string;
   repetitionPenaltyParameter?: 'frequency_penalty' | 'repeat_penalty';
+  frequencyPenalty?: number;
 }
 
 function completionUrl(endpoint: string): string {
@@ -133,7 +134,7 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
         : source.options?.repeat_penalty !== undefined
           ? settings.repetitionPenaltyParameter === 'repeat_penalty'
             ? { repeat_penalty: source.options.repeat_penalty }
-            : { frequency_penalty: Math.max(0, Math.min(2, source.options.repeat_penalty - 1)) }
+            : { frequency_penalty: settings.frequencyPenalty ?? 0.5 }
           : {}),
       ...(source.format === 'json'
         ? { response_format: { type: 'json_object' } }
@@ -144,11 +145,11 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
     };
     const headers = { 'Content-Type': 'application/json', ...(settings.apiKey.trim() ? { Authorization: `Bearer ${settings.apiKey.trim()}` } : {}) };
     let response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(body) });
-    if (!response.ok && 'stream_options' in body) {
+    if (!response.ok && [400, 422].includes(response.status) && 'stream_options' in body) {
       const { stream_options: _streamOptions, ...withoutStreamOptions } = body;
       response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(withoutStreamOptions) });
     }
-    if (!response.ok && 'response_format' in body && body.response_format?.type === 'json_schema') {
+    if (!response.ok && [400, 422].includes(response.status) && 'response_format' in body && body.response_format?.type === 'json_schema') {
       const fallbackBody = { ...body, response_format: { type: 'json_object' } };
       if ('stream_options' in fallbackBody) {
         const { stream_options: _streamOptions, ...withoutStreamOptions } = fallbackBody;
