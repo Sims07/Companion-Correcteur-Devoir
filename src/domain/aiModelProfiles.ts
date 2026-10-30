@@ -40,6 +40,8 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
     const value: unknown = JSON.parse(raw);
     if (!value || typeof value !== 'object') return { ...defaultAiModelConfiguration };
     const candidate = value as Partial<AiModelConfiguration>;
+    // Migrate the former application default (frequency_penalty=0.5) to a neutral setting.
+    const migrateLegacyPenaltyDefault = candidate.transcriptionPenaltyParameter === 'frequency_penalty' && candidate.transcriptionFrequencyPenalty === 0.5;
     return {
       endpoint: typeof candidate.endpoint === 'string' && candidate.endpoint.trim() ? candidate.endpoint : defaultAiModelConfiguration.endpoint,
       apiCompatible: candidate.apiCompatible === true,
@@ -50,8 +52,8 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
       transcriptionTokenLimit: typeof candidate.transcriptionTokenLimit === 'number' && Number.isFinite(candidate.transcriptionTokenLimit) ? Math.min(2048, Math.max(128, Math.floor(candidate.transcriptionTokenLimit))) : 2048,
       transcriptionPromptMode: candidate.transcriptionPromptMode === 'ocr' || candidate.transcriptionPromptMode === 'general' ? candidate.transcriptionPromptMode : 'auto',
       transcriptionRepeatPenalty: typeof candidate.transcriptionRepeatPenalty === 'number' && Number.isFinite(candidate.transcriptionRepeatPenalty) ? Math.min(2, Math.max(1, candidate.transcriptionRepeatPenalty)) : 1.05,
-      transcriptionPenaltyParameter: candidate.transcriptionPenaltyParameter === 'repeat_penalty' || candidate.transcriptionPenaltyParameter === 'frequency_penalty' ? candidate.transcriptionPenaltyParameter : 'none',
-      transcriptionFrequencyPenalty: typeof candidate.transcriptionFrequencyPenalty === 'number' && Number.isFinite(candidate.transcriptionFrequencyPenalty) ? Math.min(2, Math.max(0, candidate.transcriptionFrequencyPenalty)) : defaultAiModelConfiguration.transcriptionFrequencyPenalty,
+      transcriptionPenaltyParameter: migrateLegacyPenaltyDefault ? 'none' : candidate.transcriptionPenaltyParameter === 'repeat_penalty' || candidate.transcriptionPenaltyParameter === 'frequency_penalty' ? candidate.transcriptionPenaltyParameter : 'none',
+      transcriptionFrequencyPenalty: migrateLegacyPenaltyDefault ? 0 : typeof candidate.transcriptionFrequencyPenalty === 'number' && Number.isFinite(candidate.transcriptionFrequencyPenalty) ? Math.min(2, Math.max(0, candidate.transcriptionFrequencyPenalty)) : defaultAiModelConfiguration.transcriptionFrequencyPenalty,
       analysisModel: typeof candidate.analysisModel === 'string' ? candidate.analysisModel : '',
       secondAnalysisModel: typeof candidate.secondAnalysisModel === 'string' ? candidate.secondAnalysisModel : '',
       arbitratorModel: typeof candidate.arbitratorModel === 'string' ? candidate.arbitratorModel : '',
@@ -76,7 +78,14 @@ export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {
     if (!Array.isArray(value)) return [];
     return value.filter((item): item is AiModelProfile => Boolean(item) && typeof item === 'object' && typeof item.id === 'string' &&
       typeof item.name === 'string' && item.name.trim().length > 0 && isStrategy(item.mode) && isConfiguration(item.configuration) && typeof item.updatedAt === 'string')
-      .map((item) => ({ ...item, configuration: { ...defaultAiModelConfiguration, ...item.configuration } }));
+      .map((item) => {
+        const configuration = { ...defaultAiModelConfiguration, ...item.configuration };
+        if (configuration.transcriptionPenaltyParameter === 'frequency_penalty' && configuration.transcriptionFrequencyPenalty === 0.5) {
+          configuration.transcriptionPenaltyParameter = 'none';
+          configuration.transcriptionFrequencyPenalty = 0;
+        }
+        return { ...item, configuration };
+      });
   } catch { return []; }
 }
 
