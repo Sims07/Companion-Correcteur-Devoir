@@ -41,9 +41,12 @@ describe('teacher annotation separation in the grading pipeline', () => {
     const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
     expect(gradingBody.messages[0].content).toContain('<transcription_etudiant>');
     expect(gradingBody.messages[0].content).toContain('La mitose produit deux cellules filles.');
-    expect(gradingBody.messages[0].content).not.toContain('Bien vu');
-    expect(gradingBody.messages[0].content).not.toContain('2/3');
+    const studentSection = gradingBody.messages[0].content.split('<transcription_etudiant>')[1]?.split('</transcription_etudiant>')[0] ?? '';
+    expect(studentSection).not.toContain('Bien vu');
+    expect(studentSection).not.toContain('2/3');
     expect(gradingBody.messages[0].content).toContain('<annotations_professeur>');
+    expect(gradingBody.messages[0].content).toContain('Bien vu');
+    expect(gradingBody.messages[0].content).toContain('2/3');
   });
 
   it('keeps the original transcription when no high-confidence annotation is detected', async () => {
