@@ -435,6 +435,7 @@ export function createOllamaProvider(
         const subjectPages: string[] = [];
         for (const [index, image] of subjectImages.entries()) {
           const pageLabel = image.fileName || `sujet page ${index + 1}`;
+          let subjectTruncated = false;
           const pageText = await sendStream(visionModel, [
             'RÔLE : extrais fidèlement le contenu d’une page de sujet d’examen universitaire, sans corriger ni résoudre les questions.',
             'Conserve les numéros, consignes, sous-questions, unités, tableaux, légendes, données expérimentales et intitulés de figures. Décris brièvement les schémas uniquement si leurs éléments sont clairement visibles ; marque toute partie incertaine par [illisible] ou [schéma non décrit].',
@@ -446,10 +447,11 @@ export function createOllamaProvider(
             generationTokenLimit: Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048))),
             stop: ['\n\n\n\n'], repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
             allowTruncated: true,
+            onDoneReason: (reason) => { subjectTruncated = reason === 'length'; },
             keepAlive: index < subjectImages.length - 1 || (!request.transcription && (request.images?.length ?? 0) > 0) ? '30s' : 0,
           });
           const cleanedSubjectText = cleanTranscription(pageText);
-          subjectPages.push(`[ ${pageLabel} ]\n${cleanedSubjectText}`);
+          subjectPages.push(`[ ${pageLabel} ]\n${cleanedSubjectText}${subjectTruncated ? ' [LECTURE DOUTEUSE : transcription interrompue par la limite de génération]' : ''}`);
         }
         subjectTranscription = subjectPages.join('\n\n');
         onTranscription?.(subjectTranscription, 'subject');
