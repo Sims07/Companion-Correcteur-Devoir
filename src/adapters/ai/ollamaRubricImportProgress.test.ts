@@ -205,14 +205,15 @@ describe('rubric import progress', () => {
       (event) => progress.push(event),
     );
 
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(result.rubric.criteria).toHaveLength(2);
     expect(progress.some((event) => event.stage === 'page-complete' && event.page === 1 && event.totalPages === 2)).toBe(true);
     expect(progress.some((event) => event.stage === 'page-complete' && event.page === 2 && event.totalPages === 2)).toBe(true);
     const analysisCalls = (fetchMock as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }).mock.calls.slice(2);
     const analysisBodies = analysisCalls.map((call) => JSON.parse(String(call[1]?.body)) as { messages: Array<{ content: string; images?: string[] }> });
+    expect(analysisBodies).toHaveLength(1);
     expect(analysisBodies[0].messages[0].content).toContain('<transcription_page_1>');
-    expect(analysisBodies[1].messages[0].content).toContain('<transcription_page_2>');
+    expect(analysisBodies[0].messages[0].content).toContain('<transcription_page_2>');
     expect(analysisBodies.every((body) => body.messages[0].images === undefined)).toBe(true);
     expect(progress.at(-1)?.stage).toBe('complete');
   });
