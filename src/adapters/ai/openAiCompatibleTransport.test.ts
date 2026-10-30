@@ -27,6 +27,90 @@ describe('OpenAI-compatible chat transport', () => {
     expect(await response.json()).toEqual({ message: { content: 'PRÊT' }, usage: undefined });
   });
 
+  it('maps transcription stop sequences, token limits, repetition penalties and usage metadata', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('data: [DONE]\n\n', {
+      status: 200, headers: { 'Content-Type': 'text/event-stream' },
+    }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example/v1/chat/completions', apiKey: '', frequencyPenalty: 0.65 }, fetchMock);
+    await request('http://localhost:11434/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        model: 'vision', stream: true, messages: [{ role: 'user', content: 'Text Recognition:', images: ['data:image/png;base64,abc'] }],
+        options: { temperature: 0, num_predict: 2048, stop: ['\n\n\n\n'], repeat_penalty: 1.05 },
+      }),
+    });
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body).toMatchObject({
+      model: 'vision',
+      stream: true,
+      temperature: 0,
+      max_tokens: 2048,
+      stop: ['\n\n\n\n'],
+      messages: [{ role: 'user', content: [
+        { type: 'text', text: 'Text Recognition:' },
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,abc' } },
+      ] }],
+    });
+    expect(body.frequency_penalty).toBe(0.65);
+    expect(body.stream_options).toEqual({ include_usage: true });
+  });
+
+  it('uses the configured repeat_penalty dialect when an OpenAI-compatible server supports it', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('data: [DONE]\\n\\n', {
+      status: 200, headers: { 'Content-Type': 'text/event-stream' },
+    }));
+    const request = createOpenAiCompatibleFetch({
+      endpoint: 'https://ai.example', apiKey: '', repetitionPenaltyParameter: 'repeat_penalty',
+    }, fetchMock);
+    await request('http://localhost:11434/api/chat', {
+      method: 'POST', body: JSON.stringify({
+        model: 'vision', stream: true, messages: [{ role: 'user', content: 'read' }],
+        options: { repeat_penalty: 1.1 },
+      }),
+    });
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.repeat_penalty).toBe(1.1);
+    expect(body.frequency_penalty).toBeUndefined();
+  });
+
+  it('maps structured schema output to json_schema and falls back to json_object when rejected', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('unsupported response_format', { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: '{"ok":true}' } }] }), { status: 200 }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+    const schema = { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'], additionalProperties: false };
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST', body: JSON.stringify({ model: 'vision', stream: false, format: schema, messages: [{ role: 'user', content: 'schema' }] }),
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).response_format.type).toBe('json_schema');
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).response_format).toEqual({ type: 'json_object' });
+    expect(response.ok).toBe(true);
+  });
+
+  it('retries streaming requests without stream_options when the server rejects usage metadata', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('unsupported stream_options', { status: 400 }))
+      .mockResolvedValueOnce(new Response('data: [DONE]\\n\\n', { status: 200, headers: { 'Content-Type': 'text/event-stream' } }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+    await request('http://localhost:11434/api/chat', { method: 'POST', body: JSON.stringify({ model: 'vision', stream: true, messages: [{ role: 'user', content: 'read' }] }) });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).stream_options).toEqual({ include_usage: true });
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).stream_options).toBeUndefined();
+  });
+
+  it('does not retry compatible requests for authentication, rate-limit or server errors', async () => {
+    for (const status of [401, 429, 500, 503]) {
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('failure', { status }));
+      const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+      const response = await request('http://localhost:11434/api/chat', {
+        method: 'POST',
+        body: JSON.stringify({ model: 'vision', stream: true, format: { type: 'object' }, messages: [{ role: 'user', content: 'read' }] }),
+      });
+      expect(response.status).toBe(status);
+      expect(fetchMock).toHaveBeenCalledOnce();
+    }
+  });
+
   it('translates image payloads to OpenAI image_url content blocks', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
       choices: [{ message: { content: 'lu' } }],

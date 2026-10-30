@@ -4,6 +4,8 @@
 export interface OpenAiCompatibleSettings {
   endpoint: string;
   apiKey: string;
+  repetitionPenaltyParameter?: 'frequency_penalty' | 'repeat_penalty';
+  frequencyPenalty?: number;
 }
 
 function completionUrl(endpoint: string): string {
@@ -118,7 +120,7 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     if (!requestUrl.endsWith('/api/chat')) return fetchImpl(input, init);
-    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[] }>; options?: { temperature?: number; num_predict?: number }; format?: unknown } =
+    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[] }>; options?: { temperature?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number; frequency_penalty?: number }; format?: unknown } =
       typeof init?.body === 'string' ? JSON.parse(init.body) : {};
     const body = {
       model: source.model ?? '',
@@ -126,23 +128,45 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
       messages: openAiMessages(source.messages ?? []),
       ...(source.options?.temperature !== undefined ? { temperature: source.options.temperature } : {}),
       ...(source.options?.num_predict !== undefined ? { max_tokens: source.options.num_predict } : {}),
-      ...(source.format ? { response_format: { type: 'json_object' } } : {}),
+      ...(source.options?.stop?.length ? { stop: source.options.stop } : {}),
+      ...(source.options?.frequency_penalty !== undefined
+        ? { frequency_penalty: source.options.frequency_penalty }
+        : source.options?.repeat_penalty !== undefined
+          ? settings.repetitionPenaltyParameter === 'repeat_penalty'
+            ? { repeat_penalty: source.options.repeat_penalty }
+            : { frequency_penalty: settings.frequencyPenalty ?? 0.5 }
+          : {}),
+      ...(source.format === 'json'
+        ? { response_format: { type: 'json_object' } }
+        : typeof source.format === 'object' && source.format !== null
+          ? { response_format: { type: 'json_schema', json_schema: { name: 'structured_response', strict: true, schema: source.format } } }
+          : {}),
       ...(source.stream ? { stream_options: { include_usage: true } } : {}),
     };
-    const response = await fetchImpl(url, {
-      ...init,
-      headers: { 'Content-Type': 'application/json', ...(settings.apiKey.trim() ? { Authorization: `Bearer ${settings.apiKey.trim()}` } : {}) },
-      body: JSON.stringify(body),
-    });
+    const headers = { 'Content-Type': 'application/json', ...(settings.apiKey.trim() ? { Authorization: `Bearer ${settings.apiKey.trim()}` } : {}) };
+    let response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(body) });
+    if (!response.ok && [400, 422].includes(response.status) && 'stream_options' in body) {
+      const { stream_options: _streamOptions, ...withoutStreamOptions } = body;
+      response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(withoutStreamOptions) });
+    }
+    if (!response.ok && [400, 422].includes(response.status) && 'response_format' in body && body.response_format?.type === 'json_schema') {
+      const fallbackBody = { ...body, response_format: { type: 'json_object' } };
+      if ('stream_options' in fallbackBody) {
+        const { stream_options: _streamOptions, ...withoutStreamOptions } = fallbackBody;
+        response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(withoutStreamOptions) });
+      } else {
+        response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(fallbackBody) });
+      }
+    }
     if (!response.ok) return response;
     if (source.stream) return streamAsOllama(response);
     const payload = await response.json() as {
-      choices?: Array<{ message?: { content?: string } }>;
+      choices?: Array<{ message?: { content?: string }; finish_reason?: string | null }>;
       usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
       error?: { message?: string };
     };
     if (payload.error) return new Response(JSON.stringify({ error: payload.error.message }), { status: 200 });
-    return new Response(JSON.stringify({ message: { content: payload.choices?.[0]?.message?.content ?? '' }, usage: payload.usage }), {
+    return new Response(JSON.stringify({ message: { content: payload.choices?.[0]?.message?.content ?? '' }, done_reason: payload.choices?.[0]?.finish_reason ?? undefined, usage: payload.usage }), {
       status: 200, headers: { 'Content-Type': 'application/json' },
     });
   };

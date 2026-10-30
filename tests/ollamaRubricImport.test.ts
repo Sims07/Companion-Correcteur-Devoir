@@ -25,12 +25,12 @@ describe('importRubricImageWithOllama', () => {
     expect(fetchMock.mock.calls.slice(0, 2).map((call) => JSON.parse(call[1].body as string).messages[0].images)).toEqual([['PAGE_ONE'], ['PAGE_TWO']]);
     const firstBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(firstBody.model).toBe('qwen3.5:4b');
-    expect(firstBody.stream).toBe(false);
+    expect(firstBody.stream).toBe(true);
     expect(firstBody.think).toBe(false);
     expect(firstBody.messages[0].content).toContain('Transcris ce qui est réellement visible');
     expect(firstBody.messages[0].content).toContain('Arrête-toi à la dernière ligne visible');
     expect(firstBody.messages[0].content).toContain('N’invente jamais la suite d’une question');
-    expect(firstBody.options).toBeUndefined();
+    expect(firstBody.options).toMatchObject({ temperature: 0, num_predict: 2048, stop: ['\n\n\n\n'], repeat_penalty: 1.05 });
     const analysisBody = JSON.parse(fetchMock.mock.calls[2][1].body as string);
     expect(analysisBody.model).toBe('text-model');
     expect(analysisBody.messages[0].images).toBeUndefined();
