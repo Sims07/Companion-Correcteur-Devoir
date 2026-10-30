@@ -249,6 +249,7 @@ export function createOllamaProvider(
         const startedAt = Date.now();
         let response: Response;
         let partialContent = '';
+        let diagnosticResultEmitted = false;
         const buildRequestMetrics = (): Omit<DiagnosticModelResult, 'raw'> | null => {
           if (!tracking || !diagnosticTracking) return null;
           return {
@@ -279,6 +280,7 @@ export function createOllamaProvider(
           const error = cause instanceof Error ? cause.message : String(cause);
           lastDiagnosticMetrics = metrics;
           onDiagnosticResult?.({ ...metrics, raw: partialContent, error });
+          diagnosticResultEmitted = true;
         };
         try {
           response = await providerFetch(`${endpoint}/api/chat`, {
@@ -348,7 +350,10 @@ export function createOllamaProvider(
               generationTokenLimit: tracking.generationTokenLimit ?? 2048,
             };
             lastDiagnosticMetrics = metrics;
-            if (!tracking.deferResult) onDiagnosticResult?.({ ...metrics, raw: result.content });
+            if (!tracking.deferResult) {
+              onDiagnosticResult?.({ ...metrics, raw: result.content });
+              diagnosticResultEmitted = true;
+            }
           }
           if (result.doneReason === 'length') {
             throw new Error('Analyse incomplète : Ollama a atteint la limite de génération (done_reason=length, num_predict=2048). La réponse partielle n’est pas exploitable comme correction. Réduisez la longueur des données ou relancez avec un budget adapté.');
@@ -367,7 +372,7 @@ export function createOllamaProvider(
           }
           // A completed trace is already emitted above; this also records interrupted reads
           // with the exact prompt and every text chunk received before the interruption.
-          if (partialContent || !lastDiagnosticMetrics || lastDiagnosticMetrics.model !== model) publishFailedCall(cause);
+          if (!diagnosticResultEmitted) publishFailedCall(cause);
           throw cause;
         }
       }
