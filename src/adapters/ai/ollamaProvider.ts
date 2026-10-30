@@ -223,7 +223,7 @@ export function createOllamaProvider(
   fetchImpl: typeof fetch = fetch,
 ): GradingProvider {
   const providerFetch = settings.apiCompatible
-    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter }, fetchImpl)
+    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter, frequencyPenalty: settings.transcriptionFrequencyPenalty }, fetchImpl)
     : fetchImpl;
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
@@ -780,7 +780,7 @@ export async function importRubricImageWithOllama(
 ): Promise<ImportedRubric> {
   const endpoint = normalizedEndpoint(settings.endpoint);
   const requestFetch = settings.apiCompatible
-    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter }, fetchImpl)
+    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter, frequencyPenalty: settings.transcriptionFrequencyPenalty }, fetchImpl)
     : fetchImpl;
   const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
   const analysisModel = settings.analysisModel?.trim();
