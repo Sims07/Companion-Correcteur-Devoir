@@ -403,7 +403,7 @@ export function createOllamaProvider(
         };
         const mergedRaw = JSON.stringify(merged);
         if (diagnosticTracking && lastDiagnosticMetrics?.stage === 'arbitration') {
-          onDiagnosticResult?.({ ...lastDiagnosticMetrics, kind: 'arbitrator', stage: 'arbitration', model: arbitratorModel, raw: mergedRaw });
+          onDiagnosticResult?.({ ...lastDiagnosticMetrics, kind: 'arbitrator', stage: 'arbitration', model: arbitratorModel, raw });
         }
         return mergedRaw;
       };
