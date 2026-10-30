@@ -204,7 +204,7 @@ describe('Ollama adapter', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const visionBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(visionBody.model).toBe('gemma3:4b');
-    expect(visionBody.messages[0].content).toBe('Text Recognition:');
+    expect(visionBody.messages[0].content).toContain('Transcris fidèlement');
     expect(visionBody.messages[0].images).toEqual(['aGVsbG8=']);
     expect(visionBody.format).toBeUndefined();
     expect(visionBody.options).toMatchObject({ temperature: 0, num_predict: 2048, repeat_penalty: 1.05, stop: ['\n\n\n'] });
@@ -294,7 +294,7 @@ describe('Ollama adapter', () => {
     const transcriptionBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(transcriptionBody.model).toBe('vision-model');
     expect(transcriptionBody.messages[0].content).toEqual([
-      { type: 'text', text: 'Text Recognition:' },
+      { type: 'text', text: expect.stringContaining('Transcris fidèlement') },
       { type: 'image_url', image_url: { url: 'data:image/png;base64,aGVsbG8=' } },
     ]);
     expect(transcriptionBody).toMatchObject({ temperature: 0, max_tokens: 2048, stop: ['\n\n\n'] });
