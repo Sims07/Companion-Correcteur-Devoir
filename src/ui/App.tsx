@@ -19,7 +19,6 @@ import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../domain
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
-import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 
 type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
 
