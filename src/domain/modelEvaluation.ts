@@ -185,9 +185,41 @@ export function getModelEvaluationStage(record: ModelEvaluationRecord): 'vision'
  * configurations. Two experiments can be compared only when they measure
  * the same stage; mixing Vision, Analysis and full-pipeline metrics is invalid.
  */
+function sameImages(first: readonly ModelEvaluationImage[], second: readonly ModelEvaluationImage[]): boolean {
+  return first.length === second.length && first.every((image, index) =>
+    image.mimeType === second[index].mimeType && image.base64 === second[index].base64
+  );
+}
+
+function sameRubric(first: Rubric, second: Rubric): boolean {
+  return JSON.stringify(first.criteria.map(({ id, title, maxPoints }) => ({ id, title, maxPoints }))) ===
+    JSON.stringify(second.criteria.map(({ id, title, maxPoints }) => ({ id, title, maxPoints })));
+}
+
+function sameAnalysisInput(first: ModelEvaluationRecord, second: ModelEvaluationRecord): boolean {
+  const firstTranscription = first.referenceTranscription ?? first.results.find((result) => result.transcription)?.transcription;
+  const secondTranscription = second.referenceTranscription ?? second.results.find((result) => result.transcription)?.transcription;
+  return Boolean(firstTranscription?.trim()) && firstTranscription === secondTranscription &&
+    first.question === second.question &&
+    first.correctionMode === second.correctionMode &&
+    first.subjectTranscription === second.subjectTranscription &&
+    sameImages(first.subjectImages, second.subjectImages) &&
+    sameRubric(first.rubricSnapshot, second.rubricSnapshot);
+}
+
+/** Compare only experiments that share the same measured stage and the same input. */
 export function canCompareModelEvaluationRecords(records: readonly ModelEvaluationRecord[]): boolean {
   if (records.length === 1) return records[0].results.length > 1;
-  if (records.length !== 2) return false;
-  return getModelEvaluationStage(records[0]) === getModelEvaluationStage(records[1]) &&
-    records.every((record) => record.results.length > 0);
+  if (records.length !== 2 || records.some((record) => record.results.length === 0)) return false;
+  const [first, second] = records;
+  if (getModelEvaluationStage(first) !== getModelEvaluationStage(second) || first.assignmentId !== second.assignmentId) return false;
+  const stage = getModelEvaluationStage(first);
+  if (stage === 'analysis') return sameAnalysisInput(first, second);
+  if (!sameImages(first.images, second.images)) return false;
+  if (stage === 'vision') return true;
+  return first.question === second.question &&
+    first.correctionMode === second.correctionMode &&
+    first.subjectTranscription === second.subjectTranscription &&
+    sameImages(first.subjectImages, second.subjectImages) &&
+    sameRubric(first.rubricSnapshot, second.rubricSnapshot);
 }
