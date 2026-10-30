@@ -120,8 +120,11 @@ export async function checkOllamaReady(
 ): Promise<void> {
   const endpoint = normalizedEndpoint(settings.endpoint);
   const model = settings.model?.trim() || settings.visionModel?.trim() || settings.analysisModel?.trim() || '';
-  if (!model) throw new Error('Choisissez un modèle Ollama.');
-  const response = await fetchImpl(`${endpoint}/api/chat`, {
+  if (!model) throw new Error(settings.apiCompatible ? 'Renseignez un identifiant de modèle compatible OpenAI.' : 'Choisissez un modèle Ollama.');
+  const requestFetch = settings.apiCompatible
+    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '' }, fetchImpl)
+    : fetchImpl;
+  const response = await requestFetch(`${endpoint}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -132,10 +135,10 @@ export async function checkOllamaReady(
       messages: [{ role: 'user', content: 'Ceci est un test de disponibilité, aucune copie à analyser. Réponds uniquement par le mot PRÊT.' }],
     }),
   });
-  if (!response.ok) throw new Error(`Le test de disponibilité Ollama a échoué (HTTP ${response.status}).`);
+  if (!response.ok) throw new Error(`Le test de disponibilité ${settings.apiCompatible ? 'de l’API compatible OpenAI' : 'Ollama'} a échoué (HTTP ${response.status}). Vérifiez l’URL, le token et le modèle.`);
   const data = await response.json() as OllamaChatResponse;
   if (data.error) throw new Error('Ollama signale une erreur pendant le test de disponibilité.');
-  if (!data.message?.content?.trim()) throw new Error('Le modèle Ollama n’a pas répondu au test de disponibilité.');
+  if (!data.message?.content?.trim()) throw new Error('Le modèle n’a pas répondu au test de disponibilité.');
 }
 
 export async function listOllamaModels(endpoint: string, fetchImpl: typeof fetch = fetch): Promise<OllamaModel[]> {
