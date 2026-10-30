@@ -184,6 +184,19 @@ interface OllamaTagsResponse {
   models?: Array<{ name?: string }>;
 }
 
+function diagnosticEndpoint(endpoint: string): string {
+  try {
+    const parsed = new URL(endpoint);
+    parsed.username = '';
+    parsed.password = '';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return '[endpoint non disponible]';
+  }
+}
+
 function normalizedEndpoint(endpoint: string): string {
   const value = endpoint.trim().replace(/\/+$/, '');
   if (!/^https?:\/\//i.test(value)) throw new Error('L’adresse Ollama doit commencer par http:// ou https://.');
@@ -346,7 +359,7 @@ export function createOllamaProvider(
             requestPayload: activeRequestPayloads?.length ? JSON.stringify({ attempts: activeRequestPayloads }, null, 2) : undefined,
             requestMetadata: {
               provider: settings.apiCompatible ? 'openai-compatible' : 'ollama',
-              endpoint: settings.endpoint,
+              endpoint: diagnosticEndpoint(settings.endpoint),
               stream: true,
               think,
               ...(json ? { format: 'json' as const } : {}),
@@ -430,7 +443,7 @@ export function createOllamaProvider(
               requestPayload: activeRequestPayloads?.length ? JSON.stringify({ attempts: activeRequestPayloads }, null, 2) : undefined,
               requestMetadata: {
                 provider: settings.apiCompatible ? 'openai-compatible' : 'ollama',
-                endpoint: settings.endpoint,
+                endpoint: diagnosticEndpoint(settings.endpoint),
                 stream: true,
                 think,
                 ...(json ? { format: 'json' as const } : {}),
