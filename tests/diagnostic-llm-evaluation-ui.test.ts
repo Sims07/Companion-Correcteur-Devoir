@@ -52,6 +52,10 @@ describe('Diagnostic IA — consommation réelle des modèles Ollama', () => {
     expect(appSource).toContain('Tokens générés');
     expect(appSource).toContain('Vitesse de génération pondérée');
     expect(appSource).toContain('Chargement :');
+    expect(appSource).toContain('Fin de génération');
+    expect(appSource).toContain('Limite atteinte (length)');
+    expect(appSource).toContain('Contexte demandé');
+    expect(appSource).toContain('Raisonnement séparé');
     expect(appSource).toContain('Les tokens sont les compteurs remontés par Ollama');
   });
 

@@ -4,9 +4,10 @@ import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolutio
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 
 interface OllamaChatResponse {
-  message?: { content?: string };
+  message?: { content?: string; thinking?: string };
   error?: string;
   done?: boolean;
+  done_reason?: string;
   prompt_eval_count?: number;
   eval_count?: number;
   total_duration?: number;
@@ -26,6 +27,8 @@ interface OllamaStreamResult {
   generationMs?: number;
   loadMs?: number;
   tokensPerSecond?: number;
+  doneReason?: string;
+  thinkingPresent: boolean;
 }
 
 function nanosecondsToMilliseconds(value: number | undefined): number | undefined {
@@ -38,14 +41,16 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
   const decoder = new TextDecoder();
   let buffer = '';
   let content = '';
+  let thinkingPresent = false;
   let finalEvent: OllamaChatResponse | undefined;
   const consumeLine = (line: string) => {
     if (!line.trim()) return;
     const event = JSON.parse(line) as OllamaChatResponse;
     if (event.error) throw new Error('Ollama signale une erreur pendant la génération.');
     const chunk = event.message?.content ?? '';
+    if (event.message?.thinking?.trim()) thinkingPresent = true;
     if (chunk) { content += chunk; onChunk?.(chunk); }
-    if (event.done || event.prompt_eval_count !== undefined || event.eval_count !== undefined || event.usage !== undefined) {
+    if (event.done || event.done_reason !== undefined || event.prompt_eval_count !== undefined || event.eval_count !== undefined || event.usage !== undefined) {
       // Keep usage if a compatible endpoint emits it separately from the final done event.
       finalEvent = {
         ...finalEvent,
@@ -54,6 +59,7 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
         eval_count: event.eval_count ?? finalEvent?.eval_count,
         usage: event.usage ?? finalEvent?.usage,
         eval_duration: event.eval_duration ?? finalEvent?.eval_duration,
+        done_reason: event.done_reason ?? finalEvent?.done_reason,
         prompt_eval_duration: event.prompt_eval_duration ?? finalEvent?.prompt_eval_duration,
         load_duration: event.load_duration ?? finalEvent?.load_duration,
       };
@@ -71,7 +77,6 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
     buffer += decoder.decode();
     consumeLine(buffer);
   } finally { reader.releaseLock(); }
-  if (!content.trim()) throw new Error('Ollama a retourné une réponse vide.');
   const promptTokens = typeof finalEvent?.prompt_eval_count === 'number'
     ? finalEvent.prompt_eval_count
     : typeof finalEvent?.usage?.prompt_tokens === 'number' ? finalEvent.usage.prompt_tokens : undefined;
@@ -83,6 +88,8 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
   const generationMs = nanosecondsToMilliseconds(generationDurationNs);
   return {
     content,
+    thinkingPresent,
+    ...(finalEvent?.done_reason ? { doneReason: finalEvent.done_reason } : {}),
     ...(promptTokens !== undefined ? { promptTokens } : {}),
     ...(generatedTokens !== undefined ? { generatedTokens } : {}),
     ...(reportedTotalTokens !== undefined ? { totalTokens: reportedTotalTokens } : promptTokens !== undefined && generatedTokens !== undefined ? { totalTokens: promptTokens + generatedTokens } : {}),
@@ -186,6 +193,7 @@ export function createOllamaProvider(
         'CONTRAT DE SORTIE : retourne uniquement un objet JSON valide conforme au schéma fourni. Aucun Markdown ni texte hors JSON. Respecte les noms de champs et les valeurs autorisées.',
         `IDENTIFIANTS DE CRITÈRES AUTORISÉS : ${JSON.stringify(allowedCriterionIds)}. Recopie chaque identifiant exactement dans criterionId, sans traduction, ajout ni modification ; n’utilise aucun autre identifiant.`,
         'MÉTHODE : évalue chaque critère indépendamment, à partir de sa description et de son maximum. Accepte les formulations scientifiquement équivalentes si elles expriment correctement la notion attendue. N’ajoute pas d’attendus, sous-critères, pénalités ou exigences absents du barème. Ne pénalise la langue ou l’orthographe que si le barème le prévoit. Ne compte pas deux fois le même élément, sauf si le barème le demande.',
+        'LONGUEUR DES CHAMPS : summary en 30 mots maximum ; rationale en 40 mots maximum (une ou deux phrases) ; evidence en 20 mots maximum ; annotationSuggestion en 15 mots maximum. Privilégie les formulations directes et n’ajoute aucune répétition. Ces limites servent à terminer une correction complète, pas à supprimer une information nécessaire à la justification.',
         'PREUVES : pour chaque critère, fournis une rationale concise reliant les éléments corrects, partiels, manquants ou erronés aux attendus du barème, ainsi qu’une evidence courte et fidèle, repérable dans la réponse. Ne fabrique jamais de citation. Si aucune preuve fiable n’est disponible, indique-le explicitement dans evidence.',
         'REPÉRAGE DE PAGE : si tu peux associer evidence à une page de la copie de façon fiable, ajoute pageNumber avec son numéro à partir de 1, selon l’ordre des pages importées. Les transcriptions marquent chaque page par [ nom de page ]. Si la page n’est pas identifiable avec suffisamment de confiance, omets pageNumber. Ce champ identifie une page, pas une zone exacte.',
 'COMMENTAIRE À REPORTER SUR LA COPIE : lorsque le critère n’obtient pas tous ses points, tu DOIS proposer annotationSuggestion, sauf si aucune remarque manuscrite ne peut être formulée sans inventer un fait. C’est une phrase courte, concrète, directement réutilisable par l’enseignant au stylo et adressée à l’étudiant (par exemple « Précise le rôle de la membrane plasmique » ou « Attention : la mitose ne produit pas quatre cellules »). Elle doit nommer l’erreur, l’élément manquant ou la précision attendue à partir de la preuve et du barème ; ne donne ni une consigne vague (« à revoir »), ni la note, ni une explication générale destinée au professeur. Si le critère est pleinement satisfait, ne propose un commentaire que s’il apporte une vraie valeur pédagogique. N’utilise jamais locationHint à la place du commentaire : locationHint indique seulement où écrire, annotationSuggestion indique quoi écrire.',
@@ -240,7 +248,12 @@ export function createOllamaProvider(
               // Keep vision resident between pages, but unload it after the last page.
               // All analysis/comparison/arbitration requests release their model immediately.
               keep_alive: tracking?.keepAlive ?? 0,
-              ...(tracking?.temperature !== undefined ? { options: { temperature: tracking.temperature } } : {}),
+              options: {
+                // Keep the analysis budget generous while limiting vision memory on Intel Macs.
+                num_ctx: tracking?.kind === 'vision' ? 4096 : 8192,
+                num_predict: 2048,
+                ...(tracking?.temperature !== undefined ? { temperature: tracking.temperature } : {}),
+              },
               ...(json ? { format: 'json' } : {}),
               messages: [{ role: 'user', content, ...(images?.length ? { images } : {}) }],
             }),
@@ -265,9 +278,21 @@ export function createOllamaProvider(
               ...(result.generationMs !== undefined ? { generationMs: result.generationMs } : {}),
               ...(result.loadMs !== undefined ? { loadMs: result.loadMs } : {}),
               ...(result.tokensPerSecond !== undefined ? { tokensPerSecond: result.tokensPerSecond } : {}),
+              ...(result.doneReason ? { doneReason: result.doneReason } : {}),
+              thinkingPresent: result.thinkingPresent,
+              contextTokens: tracking.kind === 'vision' ? 4096 : 8192,
+              generationTokenLimit: 2048,
             };
             lastDiagnosticMetrics = metrics;
             if (!tracking.deferResult) onDiagnosticResult?.({ ...metrics, raw: tracking.kind === 'vision' ? '' : result.content });
+          }
+          if (result.doneReason === 'length') {
+            throw new Error('Analyse incomplète : Ollama a atteint la limite de génération (done_reason=length, num_predict=2048). La réponse partielle n’est pas exploitable comme correction. Réduisez la longueur des données ou relancez avec un budget adapté.');
+          }
+          if (!result.content.trim()) {
+            throw new Error(result.thinkingPresent
+              ? 'Ollama a produit un raisonnement interne mais aucune réponse finale exploitable (message.content vide). Désactivez le mode thinking ou essayez un autre modèle.'
+              : 'Ollama a retourné une réponse vide.');
           }
           return result.content;
         } catch (cause) {

@@ -1393,7 +1393,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
           </section>;
         })()}
         <div className="diagnostic-run-list">{diagnosticRuns.map((run, index) => {
-          const parsed = run.kind === 'vision' ? null : safeDiagnosticProposal(run.raw, rubric);
+          const parsed = run.kind === 'vision' || run.doneReason === 'length' ? null : safeDiagnosticProposal(run.raw, rubric);
           const total = parsed?.criteria.reduce((sum, item) => sum + item.points, 0);
           return <details className="diagnostic-run" key={run.kind + run.model + index}>
             <summary><span><strong>{run.kind === 'vision' ? 'Lecture / transcription' : run.kind === 'arbitrator' ? 'Arbitre' : 'Avis indépendant'} · {run.model}</strong><small>{run.kind === 'vision' ? 'Lecture locale de la page' : run.kind === 'arbitrator' ? 'Synthèse finale' : 'Correction indépendante'}{total === undefined ? '' : ' · Note : ' + total + ' / ' + validation.maximumPoints}</small></span><strong>{formatElapsed(Math.round(run.elapsedMs / 1000))}</strong></summary>
@@ -1415,6 +1415,13 @@ export function App({ service, archiveService, evaluationService }: { service: C
               <div><span>Vitesse de génération</span><strong>{run.tokensPerSecond === undefined ? '—' : run.tokensPerSecond.toFixed(2).replace('.', ',') + ' tokens/s'}</strong></div>
               <div><span>Chargement du modèle</span><strong>{run.loadMs === undefined ? '—' : formatElapsed(Math.round(run.loadMs / 1000))}</strong></div>
             </div>}
+            <div className="diagnostic-run-metrics diagnostic-termination-metrics" aria-label={`Terminaison Ollama pour ${run.model}`}>
+              <div><span>Fin de génération</span><strong className={run.doneReason === 'length' ? 'metric-warning' : ''}>{run.doneReason === 'length' ? 'Limite atteinte (length)' : run.doneReason ?? 'Non fournie par Ollama'}</strong></div>
+              <div><span>Contexte demandé</span><strong>{run.contextTokens === undefined ? '—' : formatTokenCount(run.contextTokens) + ' tokens'}</strong></div>
+              <div><span>Limite de génération</span><strong>{run.generationTokenLimit === undefined ? '—' : formatTokenCount(run.generationTokenLimit) + ' tokens'}</strong></div>
+              <div><span>Raisonnement séparé</span><strong>{run.thinkingPresent === undefined ? 'Non mesuré' : run.thinkingPresent ? 'Présent' : 'Absent'}</strong></div>
+            </div>
+            {run.doneReason === 'length' && <p className="diagnostic-raw-warning">Ollama a interrompu cette génération à la limite de tokens. La sortie partielle est conservée pour le diagnostic, mais ne constitue pas une correction exploitable.</p>}
             {run.kind === 'vision' ? <p className="hint">La transcription est conservée dans le panneau « Vérifier le texte lu par l’IA » ; cette entrée affiche uniquement les métriques de la requête de lecture.</p> : parsed ? <><p className="diagnostic-run-summary">{parsed.summary}</p><ul className="diagnostic-disagreements">{parsed.criteria.map((item) => {
               const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
               return <li key={item.criterionId}><span><strong>{criterion?.title ?? item.criterionId}</strong><small>{item.rationale}</small><small>Preuve : {item.evidence || 'Aucune preuve textuelle fournie'}</small><small className={item.confidence === 'low' ? 'diagnostic-confidence low' : 'diagnostic-confidence'}>Confiance déclarée : {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</small></span><strong>{item.points} / {criterion?.maxPoints ?? 0}</strong></li>;
