@@ -128,3 +128,17 @@ describe('model evaluation history comparison scope', () => {
     expect(canCompareModelEvaluationRecords([])).toBe(false);
   });
 });
+
+
+describe('model evaluation history rubric compatibility', () => {
+  it('compares the complete criterion signature and rejects different descriptions', () => {
+    const first = savedRecord('vision-a', 'vision', ['model-a', 'model-b']);
+    const second = savedRecord('vision-b', 'vision', ['model-a', 'model-c']);
+    first.rubricSnapshot.criteria = [{ id: 'c1', title: 'Cellule', description: 'Structure cellulaire', maxPoints: 4 }];
+    second.rubricSnapshot.criteria = [{ id: 'c1', title: 'Cellule', description: 'Structure cellulaire', maxPoints: 4 }];
+    expect(canCompareModelEvaluationRecords([first, second])).toBe(true);
+
+    second.rubricSnapshot.criteria[0]!.description = 'Description différente';
+    expect(canCompareModelEvaluationRecords([first, second])).toBe(false);
+  });
+});

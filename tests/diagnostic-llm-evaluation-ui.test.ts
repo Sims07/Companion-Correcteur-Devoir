@@ -180,7 +180,8 @@ describe('Évaluation des modèles — cohérence des étapes et historique', ()
     expect(appSource).toContain("evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS'");
     expect(appSource).toContain("'ÉTAPE 4 · ANALYSE & HISTORIQUE'");
     expect(appSource).toContain("evaluationWorkspaceStep === 'history' && <section className=\"evaluation-result-list evaluation-history-workspace\"");
-    expect(appSource).toContain("evaluationWorkspaceStep === 'results' && modelEvaluationResults.some");
+    expect(appSource).toContain("evaluationWorkspaceStep === 'results' && modelEvaluationResults.length > 0");
+    expect(appSource).toContain("evaluationWorkspaceStep === 'results' && evaluationStageMode !== 'vision' && modelEvaluationResults.some");
   });
 
   it('presents each saved experiment as a structured card with model and stage metrics', () => {
@@ -206,7 +207,7 @@ describe('Évaluation des modèles — débit de génération', () => {
   it('keeps missing throughput explicitly unknown for older records', () => {
     expect(appSource).toContain("result.readingTokensPerSecond == null ? 'Débit non mesuré'");
     expect(appSource).toContain("result.analysisTokensPerSecond == null ? 'Débit non mesuré'");
-    expect(appSource).toContain("result.readingTokensPerSecond == null ? '—'");
+    expect(appSource).toContain("result.readingTokensPerSecond == null ? 'Débit non mesuré'");
   });
 });
 
@@ -239,5 +240,25 @@ describe('Durées réelles des étapes de traitement', () => {
     expect(appSource).toContain('evaluationProgress.completedSteps');
     expect(appSource).toContain("onStage('reading')");
     expect(appSource).toContain("onStage('analysis')");
+  });
+});
+
+
+describe('Évaluation des modèles — résultats adaptés au type d’expérience', () => {
+  it('uses a stage-specific title and explanation for each evaluation mode', () => {
+    expect(appSource).toContain("evaluationStageMode === 'vision' ? 'Résultats de la lecture Vision'");
+    expect(appSource).toContain("evaluationStageMode === 'analysis' ? 'Résultats de l’analyse'");
+    expect(appSource).toContain("'Résultats du parcours complet'");
+    expect(appSource).toContain('Examinez les transcriptions produites et les performances des modèles de lecture.');
+    expect(appSource).toContain('Examinez les notes proposées, les justifications et les écarts entre modèles');
+  });
+
+  it('shows only the metrics and analysis summary relevant to the selected stage', () => {
+    expect(appSource).toContain(`evaluationStageMode !== 'analysis' && <p className="evaluation-result-stage-metrics">Lecture Vision`);
+    expect(appSource).toContain(`evaluationStageMode !== 'vision' && <p className="evaluation-result-stage-metrics">Analyse`);
+    expect(appSource).toContain(`evaluationStageMode !== 'vision' && <p className="evaluation-result-score">`);
+    expect(appSource).toContain("evaluationStageMode !== 'vision' && modelEvaluationResults.some((result) => result.proposal !== null)");
+    expect(appSource).toContain("details open={evaluationStageMode === 'vision'}");
+    expect(appSource).toContain("details open={evaluationStageMode !== 'vision'}");
   });
 });

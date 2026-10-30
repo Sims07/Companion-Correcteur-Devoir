@@ -73,7 +73,10 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Vision seule');
     expect(text).toContain('Analyse seule');
     expect(text).toContain('Transcription à noter');
-    expect(text).toContain('Transcription extraite indépendamment');
+    expect(text).toContain('Transcription produite');
+    expect(text).toContain('Résultats de lecture par modèle');
+    expect(text).toContain('Résultats de notation par modèle');
+    expect(text).toContain('Résultats des deux étapes par configuration');
     expect(text).toContain('configuration.endpoint');
     expect(text).toContain('evaluationService.save(savedRecord)');
     expect(text).toContain('Historique & comparaison graphique');
