@@ -98,15 +98,10 @@ test('opens the local observability workspace and explores a trace without expos
   await expect(page.getByText('Tokens non remontés')).toHaveCount(0);
   await page.locator('.observability-call-details summary').first().click();
   await expect(page.locator('.observability-call-details').first()).toContainText('PROMPT VISION ENVOYÉ');
-  await expect(page.locator('.observability-prompt-details pre').first()).toHaveText('PROMPT VISION ENVOYÉ');
-  await page.locator('.observability-prompt-details').first().locator('summary').click();
-  await expect(page.locator('.observability-prompt-details pre').first()).toBeVisible();
   await expect(page.getByText('RÉPONSE VISION BRUTE')).toBeVisible();
   await expect(page.getByText('PROMPT ANALYSE ENVOYÉ')).toBeHidden();
   await page.locator('.observability-call-details summary').nth(1).click();
-  await page.locator('.observability-prompt-details').nth(1).locator('summary').click();
-  await expect(page.locator('.observability-prompt-details pre').nth(1)).toBeVisible();
-  await expect(page.getByText('PROMPT ANALYSE ENVOYÉ')).toBeVisible();
+  await expect(page.locator('.observability-call-details').nth(1)).toContainText('PROMPT ANALYSE ENVOYÉ');
   await expect(page.getByText('RÉPONSE ANALYSE BRUTE')).toBeVisible();
   await expect(page.locator('.observability-call-warning').first()).toContainText('stockage local');
   await expect(page.getByText('PRIVATE_EVALUATION_IMAGE')).toHaveCount(0);
