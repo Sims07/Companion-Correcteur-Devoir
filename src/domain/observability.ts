@@ -13,6 +13,8 @@ export type ObservabilitySpan = {
 };
 
 export type ObservabilityTrace = {
+  source?: 'correction' | 'model-evaluation';
+  evaluationProfileName?: string;
   id: string;
   completedAt: string;
   visionModel: string;
@@ -26,6 +28,51 @@ export type ObservabilityTrace = {
   assignmentTitle?: string;
   diagnosticRuns?: ObservabilitySpan[];
 };
+
+/** Convert each saved model/profile result into a privacy-safe trace for the shared dashboard. */
+export function toModelEvaluationObservabilityTraces(records: import('./modelEvaluation.ts').ModelEvaluationRecord[]): ObservabilityTrace[] {
+  return records.flatMap((record) => record.results.map((result) => {
+    const configuration = record.configurations.find((item) => item.id === result.profileId);
+    const stage = record.stage ?? 'integrated';
+    const readingSeconds = stage === 'analysis' ? null : result.readingMs / 1000;
+    const analysisSeconds = stage === 'vision' ? null : result.analysisMs / 1000;
+    const diagnosticRuns: ObservabilitySpan[] = [];
+    if (stage !== 'analysis' && configuration?.visionModel) {
+      diagnosticRuns.push({
+        model: configuration.visionModel,
+        kind: 'vision',
+        stage: 'reading',
+        elapsedMs: result.readingMs,
+        ...(result.readingTokens === null || result.readingTokens === undefined ? {} : { totalTokens: result.readingTokens }),
+      });
+    }
+    if (stage !== 'vision' && configuration?.analysisModel) {
+      diagnosticRuns.push({
+        model: configuration.analysisModel,
+        kind: 'model',
+        stage: 'analysis',
+        elapsedMs: result.analysisMs,
+        ...(result.analysisTokens === null || result.analysisTokens === undefined ? {} : { totalTokens: result.analysisTokens }),
+      });
+    }
+    return {
+      id: `${record.id}::${result.profileId}`,
+      source: 'model-evaluation' as const,
+      evaluationProfileName: result.profileName,
+      completedAt: record.completedAt,
+      visionModel: stage === 'analysis' ? '' : configuration?.visionModel ?? '',
+      analysisModel: stage === 'vision' ? '' : configuration?.analysisModel ?? '',
+      totalSeconds: result.elapsedMs / 1000,
+      readingSeconds,
+      analysisSeconds,
+      outcome: result.status === 'success' ? 'success' as const : 'error' as const,
+      modelScore: result.score,
+      pageCount: record.images.length,
+      assignmentTitle: record.assignmentTitle,
+      diagnosticRuns,
+    };
+  }));
+}
 
 export type ObservabilityModelMetric = {
   model: string;
