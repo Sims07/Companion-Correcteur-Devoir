@@ -9,16 +9,16 @@ export interface RubricTranscriptionChunk {
 
 function splitText(text: string, maxCharacters: number): string[] {
   const chunks: string[] = [];
-  let remaining = text.trim();
+  let remaining = text;
   while (remaining.length > maxCharacters) {
     let splitAt = remaining.lastIndexOf('\n', maxCharacters);
     if (splitAt < maxCharacters * 0.55) splitAt = remaining.lastIndexOf(' ', maxCharacters);
     if (splitAt < maxCharacters * 0.55) splitAt = maxCharacters;
-    const chunk = remaining.slice(0, splitAt).trim();
+    const chunk = remaining.slice(0, splitAt);
     if (chunk) chunks.push(chunk);
-    remaining = remaining.slice(splitAt).trim();
+    remaining = remaining.slice(splitAt);
   }
-  if (remaining) chunks.push(remaining);
+  if (remaining.trim()) chunks.push(remaining);
   return chunks;
 }
 
