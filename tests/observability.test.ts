@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildObservabilityModelMetrics, buildObservabilitySummary, getObservabilityStage, type ObservabilityTrace } from '../src/domain/observability.ts';
+import { buildObservabilityModelMetrics, buildObservabilitySummary, getObservabilityStage, toModelEvaluationObservabilityTraces, type ObservabilityTrace } from '../src/domain/observability.ts';
 
 const traces: ObservabilityTrace[] = [
   {
@@ -68,4 +68,71 @@ describe('local observability metrics', () => {
     expect(buildObservabilitySummary([]).totalTokens).toBeNull();
     expect(buildObservabilitySummary([]).successRatePercent).toBeNull();
   });
+  it('converts saved model evaluation results into one privacy-safe trace per profile', () => {
+    const evaluations = toModelEvaluationObservabilityTraces([{
+      id: 'evaluation-1',
+      completedAt: '2026-10-30T10:00:00.000Z',
+      assignmentId: 'assignment-1',
+      assignmentTitle: 'Biologie cellulaire',
+      question: 'Question privée',
+      rubricSnapshot: { title: 'Barème', criteria: [] },
+      correctionMode: 'integrated',
+      images: [{ base64: 'PRIVATE_IMAGE', mimeType: 'image/jpeg' }],
+      subjectImages: [],
+      subjectTranscription: null,
+      configurations: [
+        { id: 'profile-qwen', name: 'Profil Qwen', endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b', analysisModel: 'qwen3.5:4b', thinking: false },
+        { id: 'profile-gemma', name: 'Profil Gemma', endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'gemma3:4b', thinking: false },
+      ],
+      results: [
+        { profileId: 'profile-qwen', profileName: 'Qwen local', elapsedMs: 90000, readingMs: 30000, analysisMs: 60000, readingTokens: 120, analysisTokens: 340, tokens: 460, status: 'success', transcription: 'PRIVATE_TRANSCRIPTION', raw: 'PRIVATE_MODEL_OUTPUT', score: 15, proposal: null },
+        { profileId: 'profile-gemma', profileName: 'Gemma local', elapsedMs: 110000, readingMs: 40000, analysisMs: 70000, readingTokens: null, analysisTokens: null, tokens: null, status: 'failed', transcription: '', raw: '', score: null, proposal: null },
+      ],
+      stage: 'integrated',
+    }]);
+
+    expect(evaluations).toHaveLength(2);
+    expect(evaluations[0]).toMatchObject({
+      id: 'evaluation-1::profile-qwen',
+      source: 'model-evaluation',
+      evaluationProfileName: 'Qwen local',
+      visionModel: 'qwen3.5:4b',
+      analysisModel: 'qwen3.5:4b',
+      totalSeconds: 90,
+      readingSeconds: 30,
+      analysisSeconds: 60,
+      outcome: 'success',
+      modelScore: 15,
+      diagnosticRuns: [
+        { model: 'qwen3.5:4b', stage: 'reading', elapsedMs: 30000, totalTokens: 120 },
+        { model: 'qwen3.5:4b', stage: 'analysis', elapsedMs: 60000, totalTokens: 340 },
+      ],
+    });
+    expect(evaluations[1]).toMatchObject({ outcome: 'error', evaluationProfileName: 'Gemma local' });
+    expect(JSON.stringify(evaluations)).not.toContain('PRIVATE_IMAGE');
+    expect(JSON.stringify(evaluations)).not.toContain('PRIVATE_TRANSCRIPTION');
+    expect(JSON.stringify(evaluations)).not.toContain('PRIVATE_MODEL_OUTPUT');
+  });
+
+  it('keeps stage-only model evaluations scoped to the stage that was actually measured', () => {
+    const [vision] = toModelEvaluationObservabilityTraces([{
+      id: 'evaluation-vision',
+      completedAt: '2026-10-30T10:00:00.000Z',
+      assignmentId: 'assignment-1',
+      assignmentTitle: 'Biologie',
+      question: '',
+      rubricSnapshot: { title: 'Barème', criteria: [] },
+      correctionMode: 'integrated',
+      images: [],
+      subjectImages: [],
+      subjectTranscription: null,
+      configurations: [{ id: 'vision-profile', name: 'Vision', endpoint: 'http://localhost:11434', visionModel: 'qwen-vl', analysisModel: '', thinking: false }],
+      results: [{ profileId: 'vision-profile', profileName: 'Vision seule', elapsedMs: 12000, readingMs: 12000, analysisMs: 0, tokens: null, status: 'success', transcription: '', raw: '', score: null, proposal: null }],
+      stage: 'vision',
+    }]);
+    expect(vision).toMatchObject({ visionModel: 'qwen-vl', analysisModel: '', readingSeconds: 12, analysisSeconds: null });
+    expect(vision.diagnosticRuns).toHaveLength(1);
+    expect(vision.diagnosticRuns?.[0]).toMatchObject({ model: 'qwen-vl', stage: 'reading' });
+  });
+
 });
