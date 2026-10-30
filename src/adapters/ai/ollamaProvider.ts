@@ -856,8 +856,6 @@ import { validateRubric, type Rubric, type RubricCriterion } from '../../domain/
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import type { ImportedRubric, RubricImportProgress } from '../../ports/correctionWorkspace.ts';
 
-const RUBRIC_STRUCTURING_TOKEN_LIMIT = RUBRIC_STRUCTURING_MAX_OUTPUT_TOKENS;
-
 function rubricSlug(value: string, index: number): string {
   const slug = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return slug || `critere-${index + 1}`;
