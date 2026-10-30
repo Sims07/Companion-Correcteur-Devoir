@@ -92,6 +92,36 @@ describe('Ollama adapter', () => {
     expect(prompt).toContain('"criterionId":"replication-adn"');
   });
 
+  it('captures the exact textual request and raw response without retaining image bytes', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('Réponse brute du modèle'));
+    const onDiagnosticResult = vi.fn();
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock);
+    await provider.generate(request, undefined, undefined, undefined, onDiagnosticResult);
+    expect(onDiagnosticResult).toHaveBeenCalledOnce();
+    const trace = onDiagnosticResult.mock.calls[0][0];
+    expect(trace).toMatchObject({
+      model: 'llava',
+      requestPrompt: expect.stringContaining('Expliquez la mitose'),
+      requestMetadata: { stream: true, think: false, format: 'json', imageCount: 1, keepAlive: 0, options: { contextTokens: 8192, generationTokenLimit: 2048 } },
+      raw: 'Réponse brute du modèle',
+    });
+    expect(JSON.stringify(trace)).not.toContain('aGVsbG8=');
+  });
+
+  it('keeps a truncated LLM response available in the trace when Ollama stops at its token limit', async () => {
+    const partial = '{"criteria":[{"criterionId":"knowledge"';
+    const body = [
+      JSON.stringify({ message: { content: partial }, done: false }),
+      JSON.stringify({ message: {}, done: true, done_reason: 'length' }),
+    ].join('\n') + '\n';
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(body, { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } }));
+    const onDiagnosticResult = vi.fn();
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava', diagnosticStrategy: 'single' }, fetchMock);
+    await expect(provider.generate(request, undefined, undefined, undefined, onDiagnosticResult)).rejects.toThrow(/done_reason=length/);
+    expect(onDiagnosticResult).toHaveBeenCalledOnce();
+    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ raw: partial, doneReason: 'length' });
+  });
+
   it('emits response chunks as they arrive', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('hello'));
     const onChunk = vi.fn<(chunk: string) => void>();
