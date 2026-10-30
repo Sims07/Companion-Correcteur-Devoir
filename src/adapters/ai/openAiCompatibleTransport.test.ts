@@ -219,4 +219,25 @@ describe('OpenAI-compatible chat transport', () => {
     await request('https://assets.example/file');
     expect(fetchMock).toHaveBeenCalledWith('https://assets.example/file', undefined);
   });
+  it('uses max_completion_tokens for OpenAI-compatible generation and falls back to max_tokens for older endpoints', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('unsupported parameter', { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: '{"ok":true}' }, finish_reason: 'stop' }] }), { status: 200 }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        model: 'analysis',
+        stream: false,
+        options: { num_predict: 8192 },
+        messages: [{ role: 'user', content: 'structure this rubric as JSON' }],
+      }),
+    });
+
+    expect(response.ok).toBe(true);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ max_completion_tokens: 8192 });
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({ max_tokens: 8192 });
+    expect(JSON.parse(await response.text()).done_reason).toBe('stop');
+  });
+
 });

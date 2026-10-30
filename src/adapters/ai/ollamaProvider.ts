@@ -855,6 +855,8 @@ import { validateRubric, type Rubric, type RubricCriterion } from '../../domain/
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import type { ImportedRubric, RubricImportProgress } from '../../ports/correctionWorkspace.ts';
 
+const RUBRIC_STRUCTURING_TOKEN_LIMIT = 8192;
+
 function rubricSlug(value: string, index: number): string {
   const slug = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return slug || `critere-${index + 1}`;
@@ -1000,6 +1002,9 @@ export async function importRubricImageWithOllama(
         stream: false,
         think: settings.thinking ?? false,
         keep_alive: 0,
+        // A multi-page rubric can contain long pedagogical descriptions. Do not rely on
+        // the model/provider default (often much smaller than the transcription input).
+        options: { temperature: 0, num_predict: RUBRIC_STRUCTURING_TOKEN_LIMIT },
         format: schema,
         messages: [{
           role: 'user',
@@ -1031,6 +1036,9 @@ export async function importRubricImageWithOllama(
   if (analysisPayload.error) throw new Error('Ollama signale une erreur pendant la structuration du barème.');
   const content = analysisPayload.message?.content;
   if (!content?.trim()) throw new Error('Le modèle d’analyse n’a retourné aucun barème structuré.');
+  if (analysisPayload.done_reason === 'length') {
+    throw new Error(`La structuration du barème a été interrompue : la limite de génération (${RUBRIC_STRUCTURING_TOKEN_LIMIT} tokens) a été atteinte. Augmentez la capacité de sortie du modèle ou utilisez un modèle adapté aux longs barèmes.`);
+  }
   onProgress?.({
     stage: 'parsing',
     page: images.length,

@@ -151,7 +151,7 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
       stream: source.stream ?? false,
       messages: openAiMessages(source.messages ?? []),
       ...(source.options?.temperature !== undefined ? { temperature: source.options.temperature } : {}),
-      ...(source.options?.num_predict !== undefined ? { max_tokens: source.options.num_predict } : {}),
+      ...(source.options?.num_predict !== undefined ? { max_completion_tokens: source.options.num_predict } : {}),
       ...(source.options?.stop?.length ? { stop: source.options.stop } : {}),
       ...(source.options?.frequency_penalty !== undefined
         ? { frequency_penalty: source.options.frequency_penalty }
@@ -176,6 +176,13 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
     };
     let requestBody: Record<string, unknown> = body;
     let response = await send(requestBody);
+    // Newer OpenAI models use max_completion_tokens. Some older compatible
+    // endpoints still expose only max_tokens, so retry that parameter on 4xx.
+    if (!response.ok && [400, 422].includes(response.status) && 'max_completion_tokens' in requestBody) {
+      const { max_completion_tokens, ...legacyBody } = requestBody;
+      requestBody = { ...legacyBody, max_tokens: max_completion_tokens };
+      response = await send(requestBody);
+    }
     if (!response.ok && [400, 422].includes(response.status) && 'stream_options' in requestBody) {
       const { stream_options: _streamOptions, ...withoutStreamOptions } = requestBody;
       requestBody = withoutStreamOptions;
