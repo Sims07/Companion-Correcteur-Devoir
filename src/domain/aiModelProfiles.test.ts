@@ -29,7 +29,7 @@ describe('AI model configuration persistence', () => {
     expect(defaultAiModelConfiguration.transcriptionPromptMode).toBe('auto');
     expect(defaultAiModelConfiguration.transcriptionRepeatPenalty).toBe(1.05);
     expect(parseAiModelConfiguration(JSON.stringify({
-      ...defaultAiModelConfiguration, transcriptionPromptMode: 'ocr', transcriptionRepeatPenalty: 2.5,
+      ...defaultAiModelConfiguration, transcriptionPromptMode: 'ocr', transcriptionRepeatPenalty: 2.5, transcriptionPenaltyParameter: 'repeat_penalty',
     }))).toMatchObject({ transcriptionPromptMode: 'ocr', transcriptionRepeatPenalty: 2 });
     expect(parseAiModelConfiguration(JSON.stringify({
       ...defaultAiModelConfiguration, transcriptionPromptMode: 'unknown', transcriptionRepeatPenalty: 0,
