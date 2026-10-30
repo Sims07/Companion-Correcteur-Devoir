@@ -414,6 +414,34 @@ describe('Ollama adapter', () => {
     expect(analysisBody.messages[0].content).not.toContain('image_url');
   });
 
+  it('cancels an OCR loop when identical lines are separated by blank lines', async () => {
+    let cancelled = false;
+    const encoder = new TextEncoder();
+    const repeatedOcr = 'C2 (60) (100)\n\nC2 (60) (100)\n\nC2 (60) (100)\n\n';
+    const response = new Response(new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const character of repeatedOcr) {
+          controller.enqueue(encoder.encode(JSON.stringify({ message: { content: character }, done: false }) + '\n'));
+        }
+      },
+      cancel() { cancelled = true; },
+    }), { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response)
+      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const transcriptions: string[] = [];
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'grader',
+    }, fetchMock);
+
+    await expect(provider.generate(request, undefined, undefined, (value) => transcriptions.push(value))).resolves.toBe('{"criteria":[]}');
+
+    expect(cancelled).toBe(true);
+    expect(transcriptions[0]).toContain('C2 (60) (100)');
+    expect(transcriptions[0]).toContain('LECTURE DOUTEUSE');
+    expect(transcriptions[0].match(/C2 \(60\) \(100\)/g)).toHaveLength(3);
+  });
+
   it('marks a transcription as doubtful when one line loops repeatedly at the end', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse('Repeated line\nRepeated line\nRepeated line\n'))
