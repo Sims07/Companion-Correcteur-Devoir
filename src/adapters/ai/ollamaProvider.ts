@@ -134,6 +134,33 @@ function normalizeVisionPageResult(raw: string, pageNumber: number): string {
   }
 }
 
+function isValidLocationBox(value: unknown): value is { x: number; y: number; width: number; height: number } {
+  if (typeof value !== 'object' || value === null) return false;
+  const box = value as Record<string, unknown>;
+  return ['x', 'y', 'width', 'height'].every((key) => typeof box[key] === 'number' && Number.isInteger(box[key])) &&
+    Number(box.x) >= 0 && Number(box.y) >= 0 && Number(box.width) > 0 && Number(box.height) > 0 &&
+    Number(box.x) + Number(box.width) <= 1000 && Number(box.y) + Number(box.height) <= 1000;
+}
+
+function normalizeVisionPageResult(raw: string, pageNumber: number): string {
+  try {
+    const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    const parsed: unknown = JSON.parse(cleaned);
+    if (typeof parsed !== 'object' || parsed === null || !('transcription' in parsed) || typeof parsed.transcription !== 'string' || !('regions' in parsed) || !Array.isArray(parsed.regions)) return raw;
+    const regions = parsed.regions.filter((item): item is { id: string; text: string; x: number; y: number; width: number; height: number } => {
+      if (typeof item !== 'object' || item === null) return false;
+      const region = item as Record<string, unknown>;
+      return typeof region.id === 'string' && typeof region.text === 'string' && isValidLocationBox(region);
+    });
+    const anchors = regions.map((region) =>
+      `[ANCRE_VISUELLE page=${pageNumber} id=${region.id} x=${region.x} y=${region.y} width=${region.width} height=${region.height}] ${region.text}`);
+    return [parsed.transcription.trim(), ...anchors].filter(Boolean).join('\\n');
+  } catch {
+    // Older vision models may still return plain text; preserve that transcription.
+    return raw;
+  }
+}
+
 interface OllamaTagsResponse {
   models?: Array<{ name?: string }>;
 }
@@ -456,7 +483,7 @@ export function createOllamaProvider(
               keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
             },
           );
-          transcriptions.push(`[ ${pageLabel} ]\n${pageTranscription}`);
+          transcriptions.push(`[ ${pageLabel} ]\n${normalizeVisionPageResult(pageTranscription, index + 1)}`);
         }
         transcription = transcriptions.join('\n\n');
         onTranscription?.(transcription, 'copy');
@@ -591,6 +618,7 @@ export function createOllamaProvider(
                 ...(typeof candidate.annotationSuggestion === 'string' && candidate.annotationSuggestion.trim() ? { annotationSuggestion: candidate.annotationSuggestion.trim() } : {}),
                 ...(typeof candidate.pageNumber === 'number' && Number.isInteger(candidate.pageNumber) && candidate.pageNumber >= 1 ? { pageNumber: candidate.pageNumber } : {}),
                 ...(typeof candidate.locationHint === 'string' && candidate.locationHint.trim() ? { locationHint: candidate.locationHint.trim() } : {}),
+                ...(isValidLocationBox(candidate.locationBox) ? { locationBox: candidate.locationBox } : {}),
                 ...(isValidLocationBox(candidate.locationBox) ? { locationBox: candidate.locationBox } : {}),
                 ...(typeof candidate.questionForTeacher === 'string' && candidate.questionForTeacher.trim() ? { questionForTeacher: candidate.questionForTeacher.trim() } : {}),
               };
