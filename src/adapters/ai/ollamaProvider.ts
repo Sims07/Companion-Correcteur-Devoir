@@ -117,9 +117,8 @@ function cleanTranscription(raw: string): string {
   return raw.replace(/(?:\r?\n){2,}\s*$/g, '').trimEnd();
 }
 
-export function buildTranscriptionPrompt(model: string, configuredPrompt = ''): string {
-  if (configuredPrompt.trim()) return configuredPrompt.trim();
-  if (/(?:glm[-_]?ocr|ocr[-_]?model|paddleocr|dots[-_]?ocr)/i.test(model)) return 'Text Recognition:';
+export function buildTranscriptionPrompt(model: string, mode: 'auto' | 'ocr' | 'general' = 'auto'): string {
+  if (mode === 'ocr' || (mode === 'auto' && /(?:glm[-_]?ocr|ocr[-_]?model|paddleocr|dots[-_]?ocr)/i.test(model))) return 'Text Recognition:';
   return [
     'Transcris fidèlement tout le contenu visible de cette page, dans son ordre de lecture.',
     'Conserve les numéros, titres, paragraphes, listes, tableaux, unités, symboles et retours à la ligne utiles.',
@@ -466,7 +465,7 @@ export function createOllamaProvider(
           const transcriptionLimit = Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048)));
           const pageTranscription = await sendStream(
             visionModel,
-            buildTranscriptionPrompt(visionModel, settings.transcriptionPrompt),
+            buildTranscriptionPrompt(visionModel, settings.transcriptionPromptMode),
             [providerImage(image)],
             undefined,
             false,
