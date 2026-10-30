@@ -100,10 +100,14 @@ describe('OpenAI-compatible chat transport', () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response('unsupported stream_options', { status: 400 }))
       .mockResolvedValueOnce(new Response('data: [DONE]\\n\\n', { status: 200, headers: { 'Content-Type': 'text/event-stream' } }));
-    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+    const previews: string[] = [];
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '', onRequest: (payload) => previews.push(payload) }, fetchMock);
     await request('http://localhost:11434/api/chat', { method: 'POST', body: JSON.stringify({ model: 'vision', stream: true, messages: [{ role: 'user', content: 'read' }] }) });
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).stream_options).toEqual({ include_usage: true });
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).stream_options).toBeUndefined();
+    expect(previews).toHaveLength(2);
+    expect(previews[0]).toContain('stream_options');
+    expect(previews[1]).not.toContain('stream_options');
   });
 
   it('does not retry compatible requests for authentication, rate-limit or server errors', async () => {
