@@ -355,8 +355,7 @@ export function createOllamaProvider(
             kind: tracking.kind,
             stage: tracking.stage,
             model,
-            requestPrompt: content,
-            requestPayload: activeRequestPayloads?.length ? JSON.stringify({ attempts: activeRequestPayloads }, null, 2) : undefined,
+            ...(activeRequestPayloads?.length ? { requestPayload: JSON.stringify({ attempts: activeRequestPayloads }, null, 2) } : { requestPrompt: content }),
             requestMetadata: {
               provider: settings.apiCompatible ? 'openai-compatible' : 'ollama',
               endpoint: diagnosticEndpoint(settings.endpoint),
@@ -439,8 +438,7 @@ export function createOllamaProvider(
               kind: tracking.kind,
               stage: tracking.stage,
               model,
-              requestPrompt: content,
-              requestPayload: activeRequestPayloads?.length ? JSON.stringify({ attempts: activeRequestPayloads }, null, 2) : undefined,
+              ...(activeRequestPayloads?.length ? { requestPayload: JSON.stringify({ attempts: activeRequestPayloads }, null, 2) } : { requestPrompt: content }),
               requestMetadata: {
                 provider: settings.apiCompatible ? 'openai-compatible' : 'ollama',
                 endpoint: diagnosticEndpoint(settings.endpoint),
