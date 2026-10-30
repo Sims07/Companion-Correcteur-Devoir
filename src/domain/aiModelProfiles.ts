@@ -2,6 +2,8 @@ export type AiModelStrategy = 'single' | 'compare' | 'arbitrate';
 
 export interface AiModelConfiguration {
   endpoint: string;
+  apiCompatible: boolean;
+  apiKey: string;
   visionModel: string;
   analysisModel: string;
   secondAnalysisModel: string;
@@ -19,7 +21,7 @@ export interface AiModelProfile {
 }
 
 export const defaultAiModelConfiguration: AiModelConfiguration = {
-  endpoint: 'http://localhost:11434', visionModel: '', analysisModel: '', secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single', analysisThinking: false,
+  endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '', visionModel: '', analysisModel: '', secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single', analysisThinking: false,
 };
 
 function isStrategy(value: unknown): value is AiModelStrategy { return value === 'single' || value === 'compare' || value === 'arbitrate'; }
@@ -32,6 +34,8 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
     const candidate = value as Partial<AiModelConfiguration>;
     return {
       endpoint: typeof candidate.endpoint === 'string' && candidate.endpoint.trim() ? candidate.endpoint : defaultAiModelConfiguration.endpoint,
+      apiCompatible: candidate.apiCompatible === true,
+      apiKey: typeof candidate.apiKey === 'string' ? candidate.apiKey : '',
       visionModel: typeof candidate.visionModel === 'string' ? candidate.visionModel : '',
       analysisModel: typeof candidate.analysisModel === 'string' ? candidate.analysisModel : '',
       secondAnalysisModel: typeof candidate.secondAnalysisModel === 'string' ? candidate.secondAnalysisModel : '',
@@ -45,7 +49,7 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
 function isConfiguration(value: unknown): value is AiModelConfiguration {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<AiModelConfiguration>;
-  return typeof candidate.endpoint === 'string' && typeof candidate.visionModel === 'string' && typeof candidate.analysisModel === 'string' &&
+  return typeof candidate.endpoint === 'string' && typeof candidate.apiCompatible === 'boolean' && typeof candidate.apiKey === 'string' && typeof candidate.visionModel === 'string' && typeof candidate.analysisModel === 'string' &&
     typeof candidate.secondAnalysisModel === 'string' && typeof candidate.arbitratorModel === 'string' && isStrategy(candidate.diagnosticStrategy) && typeof candidate.analysisThinking === 'boolean';
 }
 
