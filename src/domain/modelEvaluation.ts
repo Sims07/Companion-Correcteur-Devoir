@@ -187,7 +187,7 @@ export function getModelEvaluationStage(record: ModelEvaluationRecord): 'vision'
  */
 function sameImages(first: readonly ModelEvaluationImage[], second: readonly ModelEvaluationImage[]): boolean {
   return first.length === second.length && first.every((image, index) =>
-    image.mimeType === second[index].mimeType && image.base64 === second[index].base64
+    image.mimeType === second[index]!.mimeType && image.base64 === second[index]!.base64
   );
 }
 
@@ -209,9 +209,10 @@ function sameAnalysisInput(first: ModelEvaluationRecord, second: ModelEvaluation
 
 /** Compare only experiments that share the same measured stage and the same input. */
 export function canCompareModelEvaluationRecords(records: readonly ModelEvaluationRecord[]): boolean {
-  if (records.length === 1) return records[0].results.length > 1;
+  if (records.length === 1) return records[0]!.results.length > 1;
   if (records.length !== 2 || records.some((record) => record.results.length === 0)) return false;
-  const [first, second] = records;
+  const first = records[0]!;
+  const second = records[1]!;
   if (getModelEvaluationStage(first) !== getModelEvaluationStage(second) || first.assignmentId !== second.assignmentId) return false;
   const stage = getModelEvaluationStage(first);
   if (stage === 'analysis') return sameAnalysisInput(first, second);
