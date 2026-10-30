@@ -266,6 +266,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   const [transcriptionTokenLimit, setTranscriptionTokenLimit] = useState(() => readAiModelConfiguration().transcriptionTokenLimit);
   const [transcriptionPromptMode, setTranscriptionPromptMode] = useState<'auto' | 'ocr' | 'general'>(() => readAiModelConfiguration().transcriptionPromptMode);
   const [transcriptionRepeatPenalty, setTranscriptionRepeatPenalty] = useState(() => readAiModelConfiguration().transcriptionRepeatPenalty);
+  const [transcriptionPenaltyParameter, setTranscriptionPenaltyParameter] = useState<'frequency_penalty' | 'repeat_penalty'>(() => readAiModelConfiguration().transcriptionPenaltyParameter);
   const [analysisModel, setAnalysisModel] = useState(() => readAiModelConfiguration().analysisModel);
   const [secondAnalysisModel, setSecondAnalysisModel] = useState(() => readAiModelConfiguration().secondAnalysisModel);
   const [arbitratorModel, setArbitratorModel] = useState(() => readAiModelConfiguration().arbitratorModel);
@@ -347,7 +348,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   ];
 
   useEffect(() => {
-    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
+    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
   }, [endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion]);
@@ -362,6 +363,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setTranscriptionTokenLimit(profile.configuration.transcriptionTokenLimit);
     setTranscriptionPromptMode(profile.configuration.transcriptionPromptMode);
     setTranscriptionRepeatPenalty(profile.configuration.transcriptionRepeatPenalty);
+    setTranscriptionPenaltyParameter(profile.configuration.transcriptionPenaltyParameter);
     setAnalysisModel(profile.configuration.analysisModel);
     setSecondAnalysisModel(profile.configuration.secondAnalysisModel);
     setArbitratorModel(profile.configuration.arbitratorModel);
@@ -643,7 +645,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       if ((!transcription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
       await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
       setAnalysisStage('reading');
-      const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
+      const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
       const raw = await provider.generate(
         { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
         (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
@@ -1367,6 +1369,10 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
         <p className="hint">En automatique, GLM-OCR et les modèles OCR dédiés utilisent « Text Recognition: » ; Qwen et Gemma reçoivent des consignes complètes avec [illisible] et conservation de l’ordre.</p>
         <label className="field-label" htmlFor="ai-transcription-repeat-penalty">Pénalité de répétition</label>
         <input id="ai-transcription-repeat-penalty" type="number" min="1" max="2" step="0.01" value={transcriptionRepeatPenalty} onChange={(event) => { setTranscriptionRepeatPenalty(Math.min(2, Math.max(1, Number(event.target.value) || 1.05))); setTranscription(null); }} />
+        <label className="field-label" htmlFor="ai-transcription-penalty-parameter">Paramètre de pénalité (API compatible)</label>
+        <DesignSystemSelect id="ai-transcription-penalty-parameter" value={transcriptionPenaltyParameter} onChange={(event) => { setTranscriptionPenaltyParameter(event.target.value as 'frequency_penalty' | 'repeat_penalty'); setTranscription(null); }}>
+          <option value="frequency_penalty">frequency_penalty (standard OpenAI)</option><option value="repeat_penalty">repeat_penalty (serveur compatible Ollama)</option>
+        </DesignSystemSelect>
         <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}
         <p className="hint">Ce modèle applique le barème au texte lu. Le mode thinking reste désactivé pour privilégier une correction plus rapide et compatible.</p>
