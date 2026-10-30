@@ -932,3 +932,19 @@ footer { padding-top: 24px; line-height: 1.6; }
 .evaluation-history-rationales li p{margin:4px 0;color:#6b7b6c}
 .evaluation-history-rationales li small{color:#748275}
 @media(max-width:620px){.evaluation-history-criteria-comparison{padding:12px}.evaluation-history-criteria-table th,.evaluation-history-criteria-table td{padding:8px}}
+
+
+/* The model-evaluation workspace shares the same desktop canvas as correction.
+   Its horizontal navigation remains specific to the evaluation workflow. */
+.evaluation-workspace-shell {
+  width: 100%;
+  max-width: 1560px;
+  margin-inline: auto;
+  padding: 30px clamp(20px, 2.6vw, 40px) 36px;
+}
+.evaluation-workspace-shell > .topbar { min-height: 76px; }
+.evaluation-workspace-shell .evaluation-page-header { margin-top: 24px; }
+@media (max-width: 720px) {
+  .evaluation-workspace-shell { padding: 20px 16px 24px; }
+  .evaluation-workspace-shell > .topbar { min-height: 0; }
+}

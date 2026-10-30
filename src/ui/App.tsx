@@ -1127,7 +1127,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
 
 
   return (
-    <main className={interfaceMode === 'teacher' ? "app-shell teacher-flow-shell" : "app-shell"}>
+    <main className={interfaceMode === 'teacher' ? "app-shell teacher-flow-shell" : interfaceMode === 'diagnostic' ? "app-shell evaluation-workspace-shell" : "app-shell"}>
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
