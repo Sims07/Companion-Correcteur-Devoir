@@ -168,6 +168,8 @@ export interface ModelEvaluationRecord {
   subjectTranscription: string | null;
   configurations: ModelEvaluationConfiguration[];
   results: ModelEvaluationResultSnapshot[];
+  /** The shared, teacher-reviewed input used by Analysis-only experiments. */
+  referenceTranscription?: string | null;
   /** Stage measured by this experiment; absent means a legacy full-pipeline run. */
   stage?: 'vision' | 'analysis' | 'integrated';
 }
