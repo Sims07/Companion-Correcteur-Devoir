@@ -633,7 +633,7 @@ export function createOllamaProvider(
             'Retourne uniquement un JSON : {"studentTranscription":"transcription fidèle sans les seules annotations professorales certaines","annotations":[{"text":"2/3","kind":"score","points":2,"color":"rouge","location":"marge droite, question 2","confidence":"high"}]}. studentTranscription est obligatoire et doit être une chaîne. kind doit être exactement comment, correction, score, mark ou unknown ; confidence doit être exactement low, medium ou high. points est facultatif et réservé aux notes numériques explicitement visibles. Sans annotation repérable, retourne {"studentTranscription":"transcription initiale recopiée fidèlement","annotations":[]}. N’invente rien.',
             'Analyse l’image entière, y compris les marges, les corrections superposées et les notes manuscrites. Utilise la transcription initiale comme aide pour préserver exactement les réponses de l’étudiant.',
             `TRANSCRIPTION INITIALE DE LA PAGE (référence fidèle à préserver) :\n<transcription_initiale>\n${originalPageText}\n</transcription_initiale>`,
-          ].join('\\n\\n'), [providerImage(image)], undefined, true, false, {
+          ].join('\n\n'), [providerImage(image)], undefined, true, false, {
             kind: 'vision', stage: 'reading', temperature: 0, generationTokenLimit: 2048,
             keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
           }).catch(() => '');
@@ -648,7 +648,7 @@ export function createOllamaProvider(
       if (pageTranscriptions.length > 0) {
         transcription = pageTranscriptions.map(({ pageLabel, pageText, doubtfulMarker, regionAnchors }) => [
           `[ ${pageLabel} ]`, pageText + doubtfulMarker, ...regionAnchors,
-        ].join('\\n')).join('\\n\\n');
+        ].join('\n')).join('\n\n');
         onTranscription?.(transcription, 'copy');
       }
 
