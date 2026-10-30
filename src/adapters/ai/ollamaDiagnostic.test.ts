@@ -171,10 +171,10 @@ describe('Ollama diagnostic multi-model strategy', () => {
   });
 
   it('records Ollama termination reason, thinking presence and requested generation budgets', async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({
       message: { content: '{"summary":"ok"}', thinking: 'raisonnement séparé' },
       done: true, done_reason: 'stop', prompt_eval_count: 1500, eval_count: 80,
-    }) + '\\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } }));
+    }) + '\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } }));
     const events: Array<{ doneReason?: string; thinkingPresent?: boolean; contextTokens?: number; generationTokenLimit?: number }> = [];
     const provider = createOllamaProvider({ ...settings, diagnosticStrategy: 'single' }, fetchMock as typeof fetch);
     await expect(provider.generate(request, undefined, undefined, undefined, (event) => events.push(event))).resolves.toContain('ok');
@@ -194,7 +194,7 @@ describe('Ollama diagnostic multi-model strategy', () => {
   });
 
   it('distinguishes a thinking-only response from a normal empty response', async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({
       message: { content: '', thinking: 'raisonnement sans réponse finale' }, done: true, done_reason: 'stop',
     }) + '\\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } }));
     const events: Array<{ thinkingPresent?: boolean; doneReason?: string; contextTokens?: number }> = [];
