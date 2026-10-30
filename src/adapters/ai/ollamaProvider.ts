@@ -2,6 +2,7 @@ import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProvider, G
 import { parseGradingProposal } from '../../domain/grading.ts';
 import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
+import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
 
 interface OllamaChatResponse {
   message?: { content?: string; thinking?: string };
@@ -149,8 +150,11 @@ export function createOllamaProvider(
   settings: OllamaSettings,
   fetchImpl: typeof fetch = fetch,
 ): GradingProvider {
+  const providerFetch = settings.apiCompatible
+    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '' }, fetchImpl)
+    : fetchImpl;
   return {
-    id: 'ollama',
+    id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
     async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
       const visionOnly = request.visionOnly === true;
@@ -238,7 +242,7 @@ export function createOllamaProvider(
         const startedAt = Date.now();
         let response: Response;
         try {
-          response = await fetchImpl(`${endpoint}/api/chat`, {
+          response = await providerFetch(`${endpoint}/api/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
