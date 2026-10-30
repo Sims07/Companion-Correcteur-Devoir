@@ -32,12 +32,14 @@ describe('design system foundations', () => {
       htmlFor: 'assignment-name',
       hint: 'Visible dans votre espace local.',
       error: 'Ce champ est obligatoire.',
+      required: true,
       children: createElement(TextInput, { id: 'assignment-name' }),
     }));
 
     expect(markup).toContain('for="assignment-name"');
     expect(markup).toContain('aria-describedby="assignment-name-hint assignment-name-error"');
     expect(markup).toContain('aria-invalid="true"');
+    expect(markup).toContain('required=""');
     expect(markup).toContain('role="alert"');
   });
 
