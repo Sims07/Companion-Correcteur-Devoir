@@ -60,8 +60,11 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('offers a sequential independent evaluation for saved model configurations', () => {
     const text = app();
-    expect(text).toContain('Choisir les configurations à comparer');
+    expect(text).toContain('Choisir les configurations à évaluer');
     expect(text).toContain('Configurations à exécuter');
+    expect(text).toContain('Une seule suffit pour mesurer ses performances');
+    expect(text).toContain('selectedProfiles.length < 1');
+    expect(text).toContain('selectedEvaluationProfileIds.length < 1');
     expect(text).toContain('Comparer les modèles Vision');
     expect(text).toContain('Comparer les modèles d’analyse');
     expect(text).toContain('Lancer le parcours complet');
