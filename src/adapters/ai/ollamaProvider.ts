@@ -132,7 +132,7 @@ function normalizeVisionPageResult(raw: string, pageNumber: number): string {
     });
     const anchors = regions.map((region) =>
       `[ANCRE_VISUELLE page=${pageNumber} id=${region.id} x=${region.x} y=${region.y} width=${region.width} height=${region.height}] ${region.text}`);
-    return [parsed.transcription.trim(), ...anchors].filter(Boolean).join('\\n');
+    return [parsed.transcription.trim(), ...anchors].filter(Boolean).join('\n');
   } catch {
     // Older vision models may still return plain text; preserve that transcription.
     return raw;
