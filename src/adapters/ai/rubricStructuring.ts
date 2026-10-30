@@ -5,6 +5,7 @@ export const RUBRIC_STRUCTURING_CHUNK_MAX_CHARACTERS = 3600;
 export interface RubricTranscriptionChunk {
   page: number;
   text: string;
+  pages?: Array<{ page: number; text: string }>;
 }
 
 function splitText(text: string, maxCharacters: number): string[] {
@@ -30,13 +31,31 @@ export function splitRubricTranscriptions(
   if (!Number.isInteger(maxCharacters) || maxCharacters < 256) {
     throw new Error('La taille des blocs de structuration doit être d’au moins 256 caractères.');
   }
-  return transcriptions.flatMap((transcription, index) =>
-    splitText(transcription, maxCharacters).map((text) => ({ page: index + 1, text })),
-  );
+  const chunks: RubricTranscriptionChunk[] = [];
+  let currentPages: Array<{ page: number; text: string }> = [];
+  let currentSize = 0;
+  for (const [index, transcription] of transcriptions.entries()) {
+    const page = index + 1;
+    for (const text of splitText(transcription, maxCharacters - 64)) {
+      const formattedSize = text.length + 48;
+      if (currentPages.length > 0 && currentSize + formattedSize + 2 > maxCharacters) {
+        chunks.push({ page: currentPages[0].page, text: '', pages: currentPages });
+        currentPages = [];
+        currentSize = 0;
+      }
+      currentPages.push({ page, text });
+      currentSize += formattedSize + 2;
+    }
+  }
+  if (currentPages.length > 0) chunks.push({ page: currentPages[0].page, text: '', pages: currentPages });
+  return chunks;
 }
 
 export function formatRubricTranscriptionChunk(chunk: RubricTranscriptionChunk): string {
-  return `<transcription_page_${chunk.page}>\n${chunk.text}\n</transcription_page_${chunk.page}>`;
+  const pages = chunk.pages ?? [{ page: chunk.page, text: chunk.text }];
+  return pages.map(({ page, text }) =>
+    `<transcription_page_${page}>\\n${text}\\n</transcription_page_${page}>`,
+  ).join('\\n\\n');
 }
 
 export function buildRubricStructuringPrompt(
