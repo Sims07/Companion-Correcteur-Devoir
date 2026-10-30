@@ -243,7 +243,7 @@ describe('rubric import progress', () => {
 
   it('preserves the six mitosis rubric criteria and their pedagogical constraints', async () => {
     const pages = [
-      'Titre : objectif du TP et méthode ; ne pas reprendre simplement le titre du TP.',
+      `Titre : objectif du TP et méthode ; ne pas reprendre simplement le titre du TP. ${'Attendu complémentaire de la première page. '.repeat(120)}`,
       'Introduction : définir la mitose, ses rôles et ses phases ; objectif : estimer leur durée.',
       'Introduction : présenter la méthode et les hypothèses ; ne pas donner les durées en introduction.',
       'Introduction : ne pas répondre à la problématique dans cette partie.',
@@ -289,11 +289,12 @@ describe('rubric import progress', () => {
     expect(result.rubric.criteria[4].description).toContain('biais de comptage');
     const calls = (fetchMock as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }).mock.calls;
     const analysisBodies = calls.slice(10).map((call) => JSON.parse(String(call[1]?.body)) as { options?: { num_predict?: number }; messages: Array<{ content: string }> });
-    expect(calls).toHaveLength(29);
-    expect(analysisBodies.slice(0, 10).every((body) => body.options?.num_predict === 768)).toBe(true);
+    expect(calls).toHaveLength(13);
+    expect(analysisBodies).toHaveLength(3);
+    expect(analysisBodies.slice(0, 2).every((body) => body.options?.num_predict === 768)).toBe(true);
     expect(analysisBodies.at(-1)?.options?.num_predict).toBe(2048);
     for (let page = 1; page <= 10; page += 1) {
-      expect(analysisBodies.some((body) => body.messages[0].content.includes(`<transcription_page_${page}>`))).toBe(true);
+      expect(analysisBodies.slice(0, 2).some((body) => body.messages[0].content.includes(`<transcription_page_${page}>`))).toBe(true);
     }
     expect(progress.at(-1)?.stage).toBe('complete');
   });
