@@ -473,7 +473,7 @@ export function createOllamaProvider(
               if (!Number.isFinite(points) || points < 0 || points > criterion.maxPoints) {
                 throw new Error('La note proposée est en dehors du barème de ce critère.');
               }
-              const confidence = candidate.confidence === 'high' || candidate.confidence === 'medium' || candidate.confidence === 'low'
+              const confidence: 'low' | 'medium' | 'high' = candidate.confidence === 'high' || candidate.confidence === 'medium' || candidate.confidence === 'low'
                 ? candidate.confidence : 'low';
               const proposal = {
                 criterionId: criterion.id,
