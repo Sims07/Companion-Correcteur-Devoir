@@ -230,6 +230,26 @@ describe('Ollama adapter', () => {
     expect(analysisBody.format).toBe('json');
   });
 
+  it('skips localization and releases the vision model after a truncated transcription', async () => {
+    const truncated = new Response([
+      JSON.stringify({ message: { content: 'Réponse partielle' }, done: false }),
+      JSON.stringify({ message: {}, done: true, done_reason: 'length' }),
+    ].join('\\n') + '\\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(truncated)
+      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const transcriptions: string[] = [];
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b',
+      regionsEnabled: true, regionsModel: 'locator', analysisModel: 'grader',
+    }, fetchMock);
+    await expect(provider.generate(request, undefined, undefined, (value) => transcriptions.push(value))).resolves.toBe('{"criteria":[]}');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).keep_alive).toBe(0);
+    expect(transcriptions[0]).toContain('LECTURE DOUTEUSE');
+    expect(transcriptions[0]).toContain('Réponse partielle');
+  });
+
   it('runs optional region localization with its configured vision model and tolerates failures', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse('Question 1\nRéponse manuscrite.'))
@@ -249,7 +269,7 @@ describe('Ollama adapter', () => {
     const transcriptionBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(transcriptionBody.messages[0].content).toBe('Text Recognition:');
     const regionsBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
-    expect(regionsBody.model).toBe('locator');
+    expect(transcriptionBody.keep_alive).toBe(0); // Release vision before loading a distinct localization model.\n    expect(regionsBody.model).toBe('locator');\n    expect(regionsBody.keep_alive).toBe(0);
     expect(regionsBody.format).toBe('json');
     expect(regionsBody.messages[0].content).toContain('{"regions":[]}');
     const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
@@ -263,7 +283,7 @@ describe('Ollama adapter', () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse('Réponse manuscrite.'))
       .mockResolvedValueOnce(streamingResponse(JSON.stringify({
-        regions: [{ id: 'r1', text: 'Réponse manuscrite.', x: 120, y: 240, width: 280, height: 90 }],
+        regions: [\n          { id: 'r1', text: 'Réponse manuscrite.', x: 120, y: 240, width: 280, height: 90 },\n          { id: 'r2', text: 'Texte inventé absent de la page', x: 10, y: 20, width: 100, height: 40 },\n        ],
       })))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const transcriptions: string[] = [];
@@ -309,7 +329,7 @@ describe('Ollama adapter', () => {
       { type: 'text', text: expect.stringContaining('Transcris fidèlement') },
       { type: 'image_url', image_url: { url: 'data:image/png;base64,aGVsbG8=' } },
     ]);
-    expect(transcriptionBody).toMatchObject({ temperature: 0, max_tokens: 2048, stop: ['\n\n\n'] });
+    expect(transcriptionBody).toMatchObject({ temperature: 0, max_tokens: 2048, stop: ['\n\n\n\n'] });
     expect(transcriptionBody.response_format).toBeUndefined();
     expect(transcriptionBody.stream_options).toBeUndefined();
 
