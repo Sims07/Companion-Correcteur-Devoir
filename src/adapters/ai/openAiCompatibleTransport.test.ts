@@ -110,6 +110,40 @@ describe('OpenAI-compatible chat transport', () => {
     expect(previews[1]).not.toContain('stream_options');
   });
 
+  it('never removes the configured output token ceiling after provider validation errors', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('unsupported max_completion_tokens', { status: 422 }))
+      .mockResolvedValueOnce(new Response('unsupported max_tokens', { status: 422 }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        model: 'analysis-model', stream: false, generation_token_parameter: 'max_completion_tokens',
+        options: { num_predict: 2048 }, messages: [{ role: 'user', content: 'structure this rubric' }],
+      }),
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).max_completion_tokens).toBe(2048);
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).max_tokens).toBe(2048);
+    expect(response.status).toBe(422);
+  });
+
+  it('does not retry a context-window validation error with a different token parameter', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response('maximum context length exceeded', { status: 422 }),
+    );
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        model: 'analysis-model', stream: false, generation_token_parameter: 'max_completion_tokens',
+        options: { num_predict: 768 }, messages: [{ role: 'user', content: 'bounded rubric block' }],
+      }),
+    });
+    expect(response.status).toBe(422);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it('does not retry compatible requests for authentication, rate-limit or server errors', async () => {
     for (const status of [401, 429, 500, 503]) {
       const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('failure', { status }));
