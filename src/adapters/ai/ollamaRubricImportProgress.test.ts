@@ -234,7 +234,7 @@ describe('rubric import progress', () => {
       { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b' },
       fetchMock,
       (event) => progress.push(event),
-    )).rejects.toThrow(/limite de génération \(8192 tokens\) a été atteinte/);
+    )).rejects.toThrow(/limite de génération \(2048 tokens\) a été atteinte/);
 
     expect(requestBodies[1].options?.num_predict).toBe(2048);
     expect(progress.some((event) => event.stage === 'parsing')).toBe(false);
