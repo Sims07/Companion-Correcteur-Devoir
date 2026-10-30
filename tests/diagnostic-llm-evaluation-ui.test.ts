@@ -134,9 +134,11 @@ describe('Évaluation des modèles — comparaison graphique de l’historique',
     expect(domainSource).toContain('analysisTokens?: number | null');
   });
 
-  it('lets teachers select two saved experiments and compare four visual indicators', () => {
+  it('filters history by evaluation stage and compares models from one run or two runs of the same stage', () => {
+    expect(appSource).toContain('evaluationHistoryStageFilter');
+    expect(appSource).toContain('evaluation-history-stage-filter');
     expect(appSource).toContain('selectedEvaluationHistoryIds');
-    expect(appSource).toContain('Sélectionnez deux expériences');
+    expect(appSource).toContain('canCompareModelEvaluationRecords(selectedEvaluationHistoryRecords)');
     expect(appSource).toContain('Comparaison des modèles Vision');
     expect(appSource).toContain('Comparaison des modèles d’analyse');
     expect(appSource).toContain('Comparaison du parcours complet');
@@ -144,12 +146,16 @@ describe('Évaluation des modèles — comparaison graphique de l’historique',
     expect(appSource).toContain("title: 'Temps d’analyse'");
     expect(appSource).toContain("title: 'Tokens de lecture'");
     expect(appSource).toContain("title: 'Tokens d’analyse'");
+    expect(appSource).toContain("title: 'Note proposée'");
+    expect(appSource).toContain('Comparer les transcriptions');
     expect(appSource).toContain("aria-label={'Graphique ' + metric.title}");
     expect(appSource).toContain('Non mesuré');
   });
 
   it('styles the comparison charts responsively and respects reduced-motion settings', () => {
     expect(evaluationStyles).toContain('.evaluation-history-chart-grid');
+    expect(evaluationStyles).toContain('.evaluation-history-stage-filter');
+    expect(evaluationStyles).toContain('.evaluation-history-transcriptions');
     expect(evaluationStyles).toContain('.evaluation-history-bar-fill.experiment-1');
     expect(evaluationStyles).toContain('@media(max-width:760px){.evaluation-history-selection');
     expect(evaluationStyles).toContain('prefers-reduced-motion:reduce){.evaluation-history-bar-fill');
