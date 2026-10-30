@@ -216,7 +216,7 @@ export function createOllamaProvider(
       ].join('\n\n');
       };
 
-      const diagnosticTracking = settings.diagnosticStrategy !== undefined;
+      const diagnosticTracking = settings.diagnosticStrategy !== undefined || Boolean(onDiagnosticResult);
       let lastDiagnosticMetrics: Omit<DiagnosticModelResult, 'raw'> | null = null;
       async function sendStream(
         model: string,
@@ -257,6 +257,16 @@ export function createOllamaProvider(
               kind: tracking.kind,
               stage: tracking.stage,
               model,
+              requestPrompt: content,
+              requestMetadata: {
+                stream: true,
+                think,
+                ...(json ? { format: 'json' as const } : {}),
+                imageCount: images?.length ?? 0,
+                imageMimeTypes: (images ?? []).map((_, index) => index < (tracking?.kind === 'vision' ? request.images?.length ?? 0 : 0) ? 'image' : 'image'),
+                keepAlive: tracking?.keepAlive ?? 0,
+                ...(tracking?.temperature !== undefined ? { temperature: tracking.temperature } : {}),
+              },
               elapsedMs: Date.now() - startedAt,
               ...(result.promptTokens !== undefined ? { promptTokens: result.promptTokens } : {}),
               ...(result.generatedTokens !== undefined ? { generatedTokens: result.generatedTokens } : {}),
@@ -267,7 +277,7 @@ export function createOllamaProvider(
               ...(result.tokensPerSecond !== undefined ? { tokensPerSecond: result.tokensPerSecond } : {}),
             };
             lastDiagnosticMetrics = metrics;
-            if (!tracking.deferResult) onDiagnosticResult?.({ ...metrics, raw: tracking.kind === 'vision' ? '' : result.content });
+            if (!tracking.deferResult) onDiagnosticResult?.({ ...metrics, raw: result.content });
           }
           return result.content;
         } catch (cause) {
