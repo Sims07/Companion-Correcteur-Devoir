@@ -10,7 +10,7 @@ function salukiLoadUrl(endpoint: string): string {
   }
   const withoutChatPath = value.replace(/\/v1\/chat\/completions$/i, '');
   const base = withoutChatPath.replace(/\/v1$/i, '');
-  return \`\${base}/v1/models/saluki-27b/load\`;
+  return base + '/v1/models/saluki-27b/load';
 }
 
 export async function loadSalukiModel(
@@ -22,7 +22,7 @@ export async function loadSalukiModel(
     headers: {
       'Content-Type': 'application/json',
       ...(settings.apiKey.trim()
-        ? { Authorization: \`Bearer \${settings.apiKey.trim()}\` }
+        ? { Authorization: 'Bearer ' + settings.apiKey.trim() }
         : {}),
     },
   });
@@ -40,5 +40,5 @@ export async function loadSalukiModel(
   } catch {
     // Keep the raw server message when it is not JSON.
   }
-  throw new Error(detail || \`Le serveur a refusé le chargement de Saluki 27B (HTTP \${response.status}).\`);
+  throw new Error(detail || 'Le serveur a refusé le chargement de Saluki 27B (HTTP ' + response.status + ').');
 }
