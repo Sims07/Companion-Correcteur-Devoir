@@ -253,6 +253,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   const [rubricImportAnalysisResponse, setRubricImportAnalysisResponse] = useState('');
   const [rubricImageImporting, setRubricImageImporting] = useState(false);
   const rubricImportAbortController = useRef<AbortController | null>(null);
+  const rubricImportDiagnosticRuns = useRef<DiagnosticModelResult[]>([]);
   const [rubricFileImporting, setRubricFileImporting] = useState(false);
   const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
   const [endpoint, setEndpoint] = useState(() => readAiModelConfiguration().endpoint);
@@ -498,17 +499,23 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setRubricImportProgress({ stage: 'preparing', message: 'Préparation du fichier et conversion des pages en images dans le navigateur…' });
     const abortController = new AbortController();
     rubricImportAbortController.current = abortController;
+    rubricImportDiagnosticRuns.current = [];
+    const importStartedAt = Date.now();
+    let preparedPageCountForTrace = 0;
+    let rubricImportSucceeded = false;
     setRubricImageImporting(true);
     try {
       if (!visionModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale pour choisir un modèle de vision pour la lecture du barème.');
       if (!analysisModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale pour choisir un modèle d’analyse pour structurer le barème.');
       const prepared = await service.prepareFiles([file]);
+      preparedPageCountForTrace = prepared.length;
       if (abortController.signal.aborted) throw new Error('Import du barème interrompu par l’enseignant.');
       if (prepared.length === 0) throw new Error('Aucune page du barème n’a pu être préparée.');
       const preparedMessage = `${prepared.length} page(s) préparée(s) en images. Envoi au modèle de vision Ollama « ${visionModel} »…`;
       setRubricImportProgress({ stage: 'preparing', message: preparedMessage, page: 0, totalPages: prepared.length });
       setRubricImportEvents((events) => [...events, preparedMessage]);
       const imported = await service.importRubricImage(prepared, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking }, (progress) => {
+        if (progress.diagnosticRun) rubricImportDiagnosticRuns.current.push(progress.diagnosticRun);
         setRubricImportProgress(progress);
         if (progress.rawResponse !== undefined && progress.rawResponseStage === 'vision') {
           setRubricImportVisionResponse((current) => {
@@ -529,6 +536,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       setTeacherQuestions('');
       const summary = `Barème extrait : ${imported.rubric.criteria.length} critère(s), ${total} point(s) au total. Les critères sont affichés ci-dessous pour vérification et modification.`;
       setRubricImportProgress({ stage: 'complete', message: summary, page: prepared.length, totalPages: prepared.length });
+      rubricImportSucceeded = true;
       setRubricImportEvents((events) => [...events, summary]);
       setRubricImportMessage(imported.warnings.join(' ') || summary);
     } catch (cause) {
@@ -538,6 +546,36 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       setRubricImportProgress({ stage: cancelled ? 'cancelled' : 'error', message });
       setRubricImportEvents((events) => [...events, cancelled ? message : `Échec : ${message}`]);
     } finally {
+      const runs = rubricImportDiagnosticRuns.current;
+      if (runs.length > 0) {
+        const readingMs = runs.filter((run) => run.kind === 'vision').reduce((sum, run) => sum + run.elapsedMs, 0);
+        const analysisMs = runs.filter((run) => run.kind === 'model').reduce((sum, run) => sum + run.elapsedMs, 0);
+        const record: TimingRecord = {
+          id: `rubric-import-${crypto.randomUUID()}`,
+          completedAt: new Date().toISOString(),
+          visionModel,
+          analysisModel,
+          thinking: analysisThinking,
+          correctionMode,
+          pageCount: preparedPageCountForTrace,
+          readingSeconds: readingMs / 1000,
+          analysisSeconds: analysisMs / 1000,
+          totalSeconds: Math.max(0, Date.now() - importStartedAt) / 1000,
+          outcome: rubricImportSucceeded ? 'success' : 'error',
+          modelScore: null,
+          criterionScores: [],
+          assignmentId: activeAssignmentId,
+          assignmentTitle: assignmentTitle.trim() || 'Devoir sans titre',
+          diagnosticStrategy: 'single',
+          diagnosticRuns: runs,
+        };
+        setTimingHistory((current) => {
+          const next = [record, ...current].slice(0, timingHistoryLimit);
+          try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); } catch { /* Keep the trace visible for this session. */ }
+          return next;
+        });
+      }
+      rubricImportDiagnosticRuns.current = [];
       if (rubricImportAbortController.current === abortController) rubricImportAbortController.current = null;
       setRubricImageImporting(false);
     }

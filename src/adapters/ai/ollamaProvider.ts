@@ -855,6 +855,8 @@ import { validateRubric, type Rubric, type RubricCriterion } from '../../domain/
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import type { ImportedRubric, RubricImportProgress } from '../../ports/correctionWorkspace.ts';
 
+const RUBRIC_STRUCTURING_TOKEN_LIMIT = 8192;
+
 function rubricSlug(value: string, index: number): string {
   const slug = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return slug || `critere-${index + 1}`;
@@ -894,6 +896,7 @@ export async function importRubricImageWithOllama(
       totalPages: images.length,
       message: `Envoi de la page ${page} sur ${images.length} au modèle de vision « ${visionModel} »…`,
     });
+    const visionStartedAt = Date.now();
     let response: Response;
     try {
       response = await requestFetch(`${endpoint}/api/chat`, {
@@ -952,6 +955,16 @@ export async function importRubricImageWithOllama(
       message: `Transcription visuelle reçue pour la page ${page} sur ${images.length}.`,
       rawResponse: transcription,
       rawResponseStage: 'vision',
+      diagnosticRun: {
+        kind: 'vision',
+        model: visionModel,
+        elapsedMs: Math.max(0, Date.now() - visionStartedAt),
+        raw: transcription,
+        ...(streamed.promptTokens !== undefined ? { promptTokens: streamed.promptTokens } : {}),
+        ...(streamed.generatedTokens !== undefined ? { generatedTokens: streamed.generatedTokens } : {}),
+        ...(streamed.totalTokens !== undefined ? { totalTokens: streamed.totalTokens } : {}),
+        ...(streamed.doneReason ? { doneReason: streamed.doneReason } : {}),
+      },
     });
     onProgress?.({ stage: 'page-complete', page, totalPages: images.length, message: `Lecture de la page ${page} sur ${images.length} terminée.` });
   }
@@ -989,6 +1002,7 @@ export async function importRubricImageWithOllama(
   const transcriptionContext = transcriptions.map((text, index) =>
     `<transcription_page_${index + 1}>\n${text}\n</transcription_page_${index + 1}>`,
   ).join('\n\n');
+  const analysisStartedAt = Date.now();
   let analysisResponse: Response;
   try {
     analysisResponse = await requestFetch(`${endpoint}/api/chat`, {
@@ -1000,6 +1014,10 @@ export async function importRubricImageWithOllama(
         stream: false,
         think: settings.thinking ?? false,
         keep_alive: 0,
+        // A multi-page rubric can contain long pedagogical descriptions. Do not rely on
+        // the model/provider default (often much smaller than the transcription input).
+        options: { temperature: 0, num_predict: RUBRIC_STRUCTURING_TOKEN_LIMIT },
+        ...(settings.apiCompatible ? { generation_token_parameter: 'max_completion_tokens' as const } : {}),
         format: schema,
         messages: [{
           role: 'user',
@@ -1031,6 +1049,28 @@ export async function importRubricImageWithOllama(
   if (analysisPayload.error) throw new Error('Ollama signale une erreur pendant la structuration du barème.');
   const content = analysisPayload.message?.content;
   if (!content?.trim()) throw new Error('Le modèle d’analyse n’a retourné aucun barème structuré.');
+  const analysisTrace = {
+    kind: 'model' as const,
+    model: analysisModel,
+    elapsedMs: Math.max(0, Date.now() - analysisStartedAt),
+    raw: content,
+    ...(analysisPayload.usage?.prompt_tokens !== undefined ? { promptTokens: analysisPayload.usage.prompt_tokens } : {}),
+    ...(analysisPayload.usage?.completion_tokens !== undefined ? { generatedTokens: analysisPayload.usage.completion_tokens } : {}),
+    ...(analysisPayload.usage?.total_tokens !== undefined ? { totalTokens: analysisPayload.usage.total_tokens } : {}),
+    ...(analysisPayload.done_reason ? { doneReason: analysisPayload.done_reason } : {}),
+  };
+  if (analysisPayload.done_reason === 'length') {
+    onProgress?.({
+      stage: 'response',
+      page: images.length,
+      totalPages: images.length,
+      message: 'Réponse du modèle d’analyse interrompue par la limite de génération.',
+      rawResponse: content,
+      rawResponseStage: 'analysis',
+      diagnosticRun: analysisTrace,
+    });
+    throw new Error(`La structuration du barème a été interrompue : la limite de génération (${RUBRIC_STRUCTURING_TOKEN_LIMIT} tokens) a été atteinte. Augmentez la capacité de sortie du modèle ou utilisez un modèle adapté aux longs barèmes.`);
+  }
   onProgress?.({
     stage: 'parsing',
     page: images.length,
@@ -1038,6 +1078,7 @@ export async function importRubricImageWithOllama(
     message: 'Réponse structurée reçue : validation du JSON et des critères…',
     rawResponse: content,
     rawResponseStage: 'analysis',
+    diagnosticRun: analysisTrace,
   });
   let parsed: unknown;
   try { parsed = JSON.parse(content); }

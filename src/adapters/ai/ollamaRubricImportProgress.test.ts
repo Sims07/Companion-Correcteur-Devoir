@@ -43,6 +43,8 @@ describe('rubric import progress', () => {
     expect(progress.find((event) => event.rawResponseStage === 'analysis')?.rawResponse).toContain('criteria');
     expect(result.rubric.criteria).toHaveLength(1);
     expect(progress.at(-1)?.message).toContain('1 critère');
+    expect(progress.find((event) => event.diagnosticRun?.kind === 'vision')?.diagnosticRun).toMatchObject({ kind: 'vision', model: 'qwen3-vl:4b' });
+    expect(progress.find((event) => event.diagnosticRun?.kind === 'model')?.diagnosticRun).toMatchObject({ kind: 'model', model: 'qwen3.5:4b' });
   });
 
   it('applies bounded transcription options and marks a truncated rubric page as doubtful', async () => {
@@ -186,4 +188,85 @@ describe('rubric import progress', () => {
     expect(analysisBody.messages[0].images).toBeUndefined();
     expect(progress.at(-1)?.stage).toBe('complete');
   });
+  it('uses an explicit large output budget and rejects a response stopped by the token limit', async () => {
+    const requestBodies: Array<{ options?: { num_predict?: number } }> = [];
+    const progress: RubricImportProgress[] = [];
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestBodies.push(JSON.parse(String(init?.body)) as typeof requestBodies[number]);
+      return requestBodies.length === 1
+        ? visionResponse()
+        : new Response(JSON.stringify({
+            message: { content: '{"title":"Barème","criteria":[{"title":"Résultats","description":"Le tableau doit être' },
+            done_reason: 'length',
+          }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }) as unknown as typeof fetch;
+
+    await expect(importRubricImageWithOllama(
+      image('bareme-dix-pages.pdf · page 1'),
+      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b' },
+      fetchMock,
+      (event) => progress.push(event),
+    )).rejects.toThrow(/limite de génération \(8192 tokens\) a été atteinte/);
+
+    expect(requestBodies[1].options?.num_predict).toBe(8192);
+    expect(progress.some((event) => event.stage === 'parsing')).toBe(false);
+  });
+
+  it('preserves the six mitosis rubric criteria and their pedagogical constraints', async () => {
+    const pages = [
+      'Titre : objectif du TP et méthode ; ne pas reprendre simplement le titre du TP.',
+      'Introduction : définir la mitose, ses rôles et ses phases ; objectif : estimer leur durée.',
+      'Introduction : présenter la méthode et les hypothèses ; ne pas donner les durées en introduction.',
+      'Introduction : ne pas répondre à la problématique dans cette partie.',
+      'Matériel & Méthodes : échantillon, microscope, grossissement, nombre de cellules et formule ; pas un protocole.',
+      'Résultats : comptage et durées dans un tableau titré et numéroté ; pas les calculs détaillés.',
+      'Résultats : exemple de tableau avec prophase, métaphase, anaphase et télophase.',
+      'Résultats : présenter les résultats sans les interpréter ; discuter les écarts ensuite.',
+      'Discussion : comparer théorie et expérience, expliquer les biais de comptage et proposer des améliorations.',
+      'Conclusion : objectif, méthode, durées chiffrées, critiques et perspectives.',
+    ];
+    const criteria = [
+      { title: 'Titre', description: 'Exprime l’objectif scientifique du TP et la méthode utilisée ; ne se limite pas au nom du TP.', maxPoints: 1 },
+      { title: 'Introduction', description: 'Définit la mitose, ses rôles et ses phases, présente la problématique, la méthode globale et les hypothèses. Ne donne pas directement les durées des phases.', maxPoints: 3 },
+      { title: 'Matériel & Méthodes', description: 'Précise l’échantillon, le microscope, les paramètres d’observation, le nombre de cellules comptées et la formule de calcul. Ne décrit pas un protocole pas à pas.', maxPoints: 2 },
+      { title: 'Résultats', description: 'Présente comptages et durées dans un tableau autonome, titré et numéroté, sans détailler les calculs ni interpréter les résultats.', maxPoints: 1 },
+      { title: 'Discussion', description: 'Compare résultats expérimentaux et théoriques, explique les difficultés de différenciation et les biais de comptage, puis propose des améliorations.', maxPoints: 2 },
+      { title: 'Conclusion', description: 'Rappelle brièvement objectif, méthode, durées chiffrées et critiques ; ouvre sur des perspectives comme davantage de réplicats ou une autre coloration.', maxPoints: 1 },
+    ];
+    const progress: RubricImportProgress[] = [];
+    const analysisResponse = new Response(JSON.stringify({
+      message: { content: JSON.stringify({ title: 'TP5 — Mitose', criteria }) },
+      done_reason: 'stop',
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[0])))
+      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[1])))
+      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[2])))
+      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[3])))
+      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[4])))
+      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[5])))
+      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[6])))
+      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[7])))
+      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[8])))
+      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[9])))
+      .mockResolvedValueOnce(analysisResponse) as unknown as typeof fetch;
+
+    const result = await importRubricImageWithOllama(
+      pages.map((_, index) => image(`mitose.pdf · page ${index + 1}`)),
+      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b' },
+      fetchMock,
+      (event) => progress.push(event),
+    );
+
+    expect(result.rubric.criteria.map((criterion) => criterion.title)).toEqual(criteria.map((criterion) => criterion.title));
+    expect(result.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)).toBe(10);
+    expect(result.rubric.criteria[1].description).toContain('Ne donne pas directement les durées');
+    expect(result.rubric.criteria[2].description).toContain('pas à pas');
+    expect(result.rubric.criteria[3].description).toContain('titré et numéroté');
+    expect(result.rubric.criteria[4].description).toContain('biais de comptage');
+    const analysisBody = JSON.parse(String((fetchMock as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }).mock.calls[10][1]?.body)) as { messages: Array<{ content: string }> };
+    for (let page = 1; page <= 10; page += 1) expect(analysisBody.messages[0].content).toContain(`<transcription_page_${page}>`);
+    expect(progress.at(-1)?.stage).toBe('complete');
+  });
+
 });
