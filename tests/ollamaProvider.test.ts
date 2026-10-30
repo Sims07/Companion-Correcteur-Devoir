@@ -234,6 +234,18 @@ describe('Ollama adapter', () => {
     expect(annotations[0]).toContain('"kind": "score"');
   });
 
+  it('does not bypass annotation detection in legacy single-model mode', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse('Réponse de l’étudiant'))
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ annotations: [{ text: '1/2', kind: 'score', points: 1, color: 'rouge', location: 'marge', confidence: 'medium' }] })))
+      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava', detectTeacherAnnotations: true }, fetchMock);
+    await provider.generate(request);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const gradingRequest = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
+    expect(gradingRequest.messages[0].content).toContain('<annotations_professeur>');
+  });
+
   it('does not add an annotation vision request when the option is disabled', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse('Réponse de l’étudiant'))
