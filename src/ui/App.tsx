@@ -18,6 +18,7 @@ import { getReviewInsights, hasUnreadableCopySignal } from '../domain/reviewInsi
 import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../domain/copyQueue.ts';
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
+import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 
 type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
 
@@ -134,7 +135,7 @@ type TimingRecord = {
 
 const timingHistoryKey = 'companion-correcteur:timing-history:v1';
 const assignmentTitleKey = 'companion-correcteur:assignment-title:v1';
-const timingHistoryLimit = 20;
+const timingHistoryLimit = 100;
 
 type DiagnosticUsageGroup = {
   model: string;
@@ -308,7 +309,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
   const [teacherQuestions, setTeacherQuestions] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [isFinalized, setIsFinalized] = useState(false);
-  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug'>('teacher');
+  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher');
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
   const reviewedTotal = review.reduce((sum, item) => sum + item.teacherPoints, 0);
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
@@ -1125,7 +1126,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => { setShowAiSettings(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button><button type="button" className={interfaceMode === 'debug' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'debug'} onClick={() => { setShowAiSettings(false); setInterfaceMode('debug'); }}>Debug</button></div></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => { setShowAiSettings(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button><button type="button" className={interfaceMode === 'debug' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'debug'} onClick={() => { setShowAiSettings(false); setInterfaceMode('debug'); }}>Debug</button><button type="button" className={interfaceMode === 'observability' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'observability'} onClick={() => { setShowAiSettings(false); setInterfaceMode('observability'); }}>Observabilité</button></div></div>
       </header>
 
       {interfaceMode === 'teacher' && <aside className="teacher-sidebar" aria-label="Navigation de la correction">
@@ -1231,6 +1232,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         <p className="hint">En cas d’échec, aucune solution cloud n’est utilisée.</p>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}
+      {interfaceMode === 'observability' && <ObservabilityDashboard records={timingHistory} />}
       {interfaceMode === 'diagnostic' && <section className="evaluation-page-header" aria-labelledby="evaluation-page-title">
         <div><p className="eyebrow">ESPACE EXPÉRIMENTAL · OLLAMA LOCAL</p><h1 id="evaluation-page-title">Évaluation des modèles</h1><p>Comparez plusieurs configurations sur la même copie et le même barème. Les essais, les images et les résultats restent sur cet appareil et votre serveur Ollama.</p><div className="evaluation-page-badges"><span>Traitement local</span><span>2 à 3 configurations</span><span>Validation humaine</span></div></div>
       </section>}
