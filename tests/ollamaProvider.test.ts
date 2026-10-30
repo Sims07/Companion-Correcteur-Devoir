@@ -1,6 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkOllamaReady, createOllamaProvider, importRubricImageWithOllama, listOllamaModels } from '../src/adapters/ai/ollamaProvider.ts';
+import { buildTranscriptionPrompt, checkOllamaReady, createOllamaProvider, importRubricImageWithOllama, listOllamaModels } from '../src/adapters/ai/ollamaProvider.ts';
 import type { GradingRequest } from '../src/ports/aiProvider.ts';
+
+describe('model-aware transcription prompts', () => {
+  it('uses Text Recognition for dedicated OCR models and detailed safeguards for general vision models', () => {
+    expect(buildTranscriptionPrompt('glm-ocr:latest')).toBe('Text Recognition:');
+    const prompt = buildTranscriptionPrompt('qwen3.5:4b');
+    expect(prompt).toContain('[illisible]');
+    expect(prompt).toContain('Ne devine');
+    expect(prompt).toContain('ordre de lecture');
+    expect(buildTranscriptionPrompt('gemma3:4b', 'general')).toContain('retours à la ligne');
+    expect(buildTranscriptionPrompt('gemma3:4b', 'ocr')).toBe('Text Recognition:');
+  });
+});
 
 function streamingResponse(content: string): Response {
   const lines = [...content.split('').map((character) => JSON.stringify({ message: { content: character }, done: false })), JSON.stringify({ message: {}, done: true })];
