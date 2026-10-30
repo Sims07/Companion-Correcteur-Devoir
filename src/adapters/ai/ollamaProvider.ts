@@ -489,7 +489,9 @@ export function createOllamaProvider(
             regionAnchors = normalizeRegions(regionResult, index + 1);
           }
           const doubtfulMarker = transcriptionTruncated ? ' [LECTURE DOUTEUSE : transcription interrompue par la limite de génération]' : '';
-          transcriptions.push([`[ ${pageLabel} ]`, pageText + doubtfulMarker, ...regionAnchors].join('\\n'));        }
+          transcriptions.push([`[ ${pageLabel} ]`, pageText + doubtfulMarker, ...regionAnchors].join('
+'));
+        }
         transcription = transcriptions.join('\n\n');
         onTranscription?.(transcription, 'copy');
       }
