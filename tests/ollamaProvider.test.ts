@@ -247,6 +247,25 @@ describe('Ollama adapter', () => {
     expect(transcriptions[0]).not.toContain('[ANCRE_VISUELLE');
   });
 
+  it('adds valid visual anchors when optional region localization succeeds', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse('Réponse manuscrite.'))
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({
+        regions: [{ id: 'r1', text: 'Réponse manuscrite.', x: 120, y: 240, width: 280, height: 90 }],
+      })))
+      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const transcriptions: string[] = [];
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434',
+      visionModel: 'transcriber',
+      regionsEnabled: true,
+      analysisModel: 'grader',
+    }, fetchMock);
+
+    await expect(provider.generate(request, undefined, undefined, (value) => transcriptions.push(value))).resolves.toBe('{"criteria":[]}');
+    expect(transcriptions[0]).toContain('[ANCRE_VISUELLE page=1 id=r1 x=120 y=240 width=280 height=90] Réponse manuscrite.');
+  });
+
   it('runs transcription, optional localization and grading through the OpenAI-compatible transport', async () => {
     const openAiStream = (content: string) => new Response([
       `data: ${JSON.stringify({ choices: [{ delta: { content }, finish_reason: null }] })}`,
