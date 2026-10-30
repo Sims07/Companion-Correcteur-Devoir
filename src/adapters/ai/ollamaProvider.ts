@@ -164,7 +164,7 @@ export async function checkOllamaReady(
   const model = settings.model?.trim() || settings.visionModel?.trim() || settings.analysisModel?.trim() || '';
   if (!model) throw new Error(settings.apiCompatible ? 'Renseignez un identifiant de modèle compatible OpenAI.' : 'Choisissez un modèle Ollama.');
   const requestFetch = settings.apiCompatible
-    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '' }, fetchImpl)
+    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter }, fetchImpl)
     : fetchImpl;
   const response = await requestFetch(`${endpoint}/api/chat`, {
     method: 'POST',
@@ -196,7 +196,7 @@ export function createOllamaProvider(
   fetchImpl: typeof fetch = fetch,
 ): GradingProvider {
   const providerFetch = settings.apiCompatible
-    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '' }, fetchImpl)
+    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter }, fetchImpl)
     : fetchImpl;
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
@@ -745,7 +745,7 @@ export async function importRubricImageWithOllama(
 ): Promise<ImportedRubric> {
   const endpoint = normalizedEndpoint(settings.endpoint);
   const requestFetch = settings.apiCompatible
-    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '' }, fetchImpl)
+    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter }, fetchImpl)
     : fetchImpl;
   const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
   const analysisModel = settings.analysisModel?.trim();
