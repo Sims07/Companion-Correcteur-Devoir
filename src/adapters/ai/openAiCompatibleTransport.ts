@@ -118,7 +118,7 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     if (!requestUrl.endsWith('/api/chat')) return fetchImpl(input, init);
-    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[] }>; options?: { temperature?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number }; format?: unknown } =
+    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[] }>; options?: { temperature?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number; frequency_penalty?: number }; format?: unknown } =
       typeof init?.body === 'string' ? JSON.parse(init.body) : {};
     const body = {
       model: source.model ?? '',
@@ -127,13 +127,33 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
       ...(source.options?.temperature !== undefined ? { temperature: source.options.temperature } : {}),
       ...(source.options?.num_predict !== undefined ? { max_tokens: source.options.num_predict } : {}),
       ...(source.options?.stop?.length ? { stop: source.options.stop } : {}),
-      ...(source.format === 'json' ? { response_format: { type: 'json_object' } } : {}),
+      ...(source.options?.frequency_penalty !== undefined
+        ? { frequency_penalty: source.options.frequency_penalty }
+        : source.options?.repeat_penalty !== undefined
+          ? { frequency_penalty: Math.max(0, Math.min(2, source.options.repeat_penalty - 1)) }
+          : {}),
+      ...(source.format === 'json'
+        ? { response_format: { type: 'json_object' } }
+        : typeof source.format === 'object' && source.format !== null
+          ? { response_format: { type: 'json_schema', json_schema: { name: 'structured_response', strict: true, schema: source.format } } }
+          : {}),
+      ...(source.stream ? { stream_options: { include_usage: true } } : {}),
     };
-    const response = await fetchImpl(url, {
-      ...init,
-      headers: { 'Content-Type': 'application/json', ...(settings.apiKey.trim() ? { Authorization: `Bearer ${settings.apiKey.trim()}` } : {}) },
-      body: JSON.stringify(body),
-    });
+    const headers = { 'Content-Type': 'application/json', ...(settings.apiKey.trim() ? { Authorization: `Bearer ${settings.apiKey.trim()}` } : {}) };
+    let response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(body) });
+    if (!response.ok && 'stream_options' in body) {
+      const { stream_options: _streamOptions, ...withoutStreamOptions } = body;
+      response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(withoutStreamOptions) });
+    }
+    if (!response.ok && 'response_format' in body && body.response_format?.type === 'json_schema') {
+      const fallbackBody = { ...body, response_format: { type: 'json_object' } };
+      if ('stream_options' in fallbackBody) {
+        const { stream_options: _streamOptions, ...withoutStreamOptions } = fallbackBody;
+        response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(withoutStreamOptions) });
+      } else {
+        response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(fallbackBody) });
+      }
+    }
     if (!response.ok) return response;
     if (source.stream) return streamAsOllama(response);
     const payload = await response.json() as {
