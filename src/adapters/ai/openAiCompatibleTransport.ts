@@ -4,6 +4,7 @@
 export interface OpenAiCompatibleSettings {
   endpoint: string;
   apiKey: string;
+  repetitionPenaltyParameter?: 'frequency_penalty' | 'repeat_penalty';
 }
 
 function completionUrl(endpoint: string): string {
@@ -130,7 +131,9 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
       ...(source.options?.frequency_penalty !== undefined
         ? { frequency_penalty: source.options.frequency_penalty }
         : source.options?.repeat_penalty !== undefined
-          ? { frequency_penalty: Math.max(0, Math.min(2, source.options.repeat_penalty - 1)) }
+          ? settings.repetitionPenaltyParameter === 'repeat_penalty'
+            ? { repeat_penalty: source.options.repeat_penalty }
+            : { frequency_penalty: Math.max(0, Math.min(2, source.options.repeat_penalty - 1)) }
           : {}),
       ...(source.format === 'json'
         ? { response_format: { type: 'json_object' } }
