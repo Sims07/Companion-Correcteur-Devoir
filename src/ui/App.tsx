@@ -753,7 +753,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       analysisTokensPerSecond: output.value?.analysisTokensPerSecond ?? null,
       tokens: output.value?.tokens ?? null,
       status: output.status,
-      transcription: output.value?.transcription ?? (evaluationStageMode === 'analysis' ? transcription ?? '' : ''),
+      transcription: evaluationStageMode === 'analysis' ? transcription ?? '' : output.value?.transcription ?? '',
       raw: output.value?.raw ?? '',
       score: output.value?.score ?? null,
       proposal: output.value?.proposal ?? null,
