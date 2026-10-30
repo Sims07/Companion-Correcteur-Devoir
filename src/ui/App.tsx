@@ -60,6 +60,7 @@ type AssignmentDraft = {
   currentCorrectionId: string | null;
   isFinalized: boolean;
   reviewMessage: string;
+  detectTeacherAnnotations: boolean;
 };
 
 const aiModelConfigurationKey = 'companion-correcteur:ollama-configuration:v1';
@@ -262,7 +263,6 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   const [salukiMessage, setSalukiMessage] = useState('');
   const [visionModel, setVisionModel] = useState(() => readAiModelConfiguration().visionModel);
   const [regionsEnabled, setRegionsEnabled] = useState(() => readAiModelConfiguration().regionsEnabled);
-  const [detectTeacherAnnotations, setDetectTeacherAnnotations] = useState(() => readAiModelConfiguration().detectTeacherAnnotations);
   const [regionsModel, setRegionsModel] = useState(() => readAiModelConfiguration().regionsModel);
   const [transcriptionTokenLimit, setTranscriptionTokenLimit] = useState(() => readAiModelConfiguration().transcriptionTokenLimit);
   const [transcriptionPromptMode, setTranscriptionPromptMode] = useState<'auto' | 'ocr' | 'general'>(() => readAiModelConfiguration().transcriptionPromptMode);
@@ -322,6 +322,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   const [error, setError] = useState('');
   const [proposal, setProposal] = useState<GradingProposal | null>(null);
   const [studentLabel, setStudentLabel] = useState('');
+  const [detectTeacherAnnotations, setDetectTeacherAnnotations] = useState(false);
   const [currentCorrectionId, setCurrentCorrectionId] = useState<string | null>(null);
   const [archivedCorrections, setArchivedCorrections] = useState<LocalCorrection[]>([]);
   const [archiveMessage, setArchiveMessage] = useState('');
@@ -351,10 +352,10 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   ];
 
   useEffect(() => {
-    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, detectTeacherAnnotations, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
+    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
-  }, [endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, detectTeacherAnnotations, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion]);
+  }, [endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion]);
 
   function applyAiModelProfile(profile: AiModelProfile) {
     setEndpoint(profile.configuration.endpoint);
@@ -362,7 +363,6 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setApiKey(profile.configuration.apiKey);
     setVisionModel(profile.configuration.visionModel);
     setRegionsEnabled(profile.configuration.regionsEnabled);
-    setDetectTeacherAnnotations(profile.configuration.detectTeacherAnnotations);
     setRegionsModel(profile.configuration.regionsModel);
     setTranscriptionTokenLimit(profile.configuration.transcriptionTokenLimit);
     setTranscriptionPromptMode(profile.configuration.transcriptionPromptMode);
@@ -385,7 +385,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
-    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, detectTeacherAnnotations, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
+    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
     const profile: AiModelProfile = {
       id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
       name,
@@ -991,6 +991,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       review: structuredClone(review),
       teacherQuestions,
       images: structuredClone(images),
+      detectTeacherAnnotations,
       transcription,
       subjectImages: structuredClone(subjectImages),
       subjectTranscription,
@@ -1054,7 +1055,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   function captureActiveDraft(): AssignmentDraft {
     return {
       copyQueue, images, transcription, subjectImages, subjectTranscription, proposal, review,
-      teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage,
+      teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations,
     };
   }
 
@@ -1078,6 +1079,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setReview(draft?.review ?? []);
     setTeacherQuestions(draft?.teacherQuestions ?? '');
     setStudentLabel(draft?.studentLabel ?? '');
+    setDetectTeacherAnnotations(draft?.detectTeacherAnnotations ?? false);
     setCurrentCorrectionId(draft?.currentCorrectionId ?? null);
     setIsFinalized(draft?.isFinalized ?? false);
     setReviewMessage(draft?.reviewMessage ?? '');
@@ -1139,6 +1141,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setCorrectionMode(profile.correctionMode);
     setCopyQueue([]);
     setImages([]);
+    setDetectTeacherAnnotations(false);
     setTranscription(null);
     setSubjectImages([]);
     setSubjectTranscription(null);
@@ -1165,6 +1168,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     };
     setCopyQueue((current) => appendQueuedCopy(current, queued));
     setStudentLabel('');
+    setDetectTeacherAnnotations(false);
     setImages([]);
     setTranscription(null);
     setProposal(null);
@@ -1180,6 +1184,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     if (!next) return;
     setCopyQueue(remaining);
     setStudentLabel(next.label);
+    setDetectTeacherAnnotations(next.detectTeacherAnnotations ?? false);
     setImages(next.images);
     setTranscription(null);
     setProposal(null);
@@ -1385,7 +1390,6 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
           <input id="ai-transcription-frequency-penalty" type="number" min="0" max="2" step="0.05" value={transcriptionFrequencyPenalty} onChange={(event) => { setTranscriptionFrequencyPenalty(Math.min(2, Math.max(0, Number(event.target.value) || 0))); setTranscription(null); }} />
           <p className="hint">Cette pénalité est différente de repeat_penalty. Pour une transcription fidèle, la valeur neutre 0 est recommandée ; n’augmentez-la que si vous avez validé son effet avec votre fournisseur.</p>
         </>}
-        <label className="analysis-thinking-option" htmlFor="detect-teacher-annotations"><input id="detect-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Détecter les annotations déjà présentes</strong><small>Recherche localement remarques, corrections, coches et notes. La couleur est un indice, pas une preuve ; les détections restent à vérifier et les points déjà inscrits ne sont jamais additionnés automatiquement.</small></span></label>
         <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}
         <p className="hint">Ce modèle applique le barème au texte lu. Le mode thinking reste désactivé pour privilégier une correction plus rapide et compatible.</p>
@@ -1905,6 +1909,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
         <article className={`panel copy-panel ${images.length ? 'setup-complete' : 'setup-needed'}`}>
           <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">03</span>}<div><h3>Copie de l’étudiant</h3><p>Importez les pages d’un seul étudiant à la fois.</p></div></div>
           {interfaceMode === 'teacher' && <div className="student-label-field"><label className="field-label" htmlFor="student-label">Nom ou identifiant de l’étudiant <span>(facultatif)</span></label><input id="student-label" value={studentLabel} onChange={(event) => setStudentLabel(event.target.value)} placeholder="Ex. Étudiant 014 ou groupe B" /></div>}
+          {interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="copy-has-teacher-annotations"><input id="copy-has-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient déjà des annotations du professeur</strong><small>À activer uniquement pour cette copie si elle comporte des remarques, corrections, coches ou notes déjà inscrites. Leur détection reste locale et les points existants ne sont jamais additionnés automatiquement.</small></span></label>}
           <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
           <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
           {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button type="button" className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie</button></div></div>}
