@@ -501,14 +501,17 @@ describe('Ollama adapter', () => {
     expect(secondAnalysis.keep_alive).toBe(0);
   });
 
-  it('keeps the vision model warm between pages and unloads it before analysis', async () => {
+  it('keeps the vision model warm across transcription and optional region calls between pages', async () => {
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ transcription: 'Transcription page 1', regions: [{ id: 'r1', text: 'Transcription page 1', x: 100, y: 200, width: 300, height: 80 }] })))
-      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ transcription: 'Transcription page 2', regions: [{ id: 'r1', text: 'Transcription page 2', x: 120, y: 240, width: 280, height: 90 }] })))
+      .mockResolvedValueOnce(streamingResponse('Transcription page 1'))
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ regions: [{ id: 'r1', text: 'Transcription page 1', x: 100, y: 200, width: 300, height: 80 }] })))
+      .mockResolvedValueOnce(streamingResponse('Transcription page 2'))
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ regions: [{ id: 'r1', text: 'Transcription page 2', x: 120, y: 240, width: 280, height: 90 }] })))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const provider = createOllamaProvider({
       endpoint: 'http://localhost:11434',
       visionModel: 'gemma3:4b',
+      regionsEnabled: true,
       analysisModel: 'qwen3.5:4b',
     }, fetchMock);
 
@@ -520,23 +523,29 @@ describe('Ollama adapter', () => {
       ],
     })).resolves.toBe('{"criteria":[]}');
 
-    const firstPage = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { model: string; keep_alive?: string | number; options?: { temperature?: number }; messages: Array<{ images?: string[]; content: string }> };
-    const lastPage = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { model: string; keep_alive?: string | number; options?: { temperature?: number }; messages: Array<{ images?: string[]; content: string }> };
-    const analysis = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { model: string; keep_alive?: string | number };
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    const firstPage = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    const firstRegions = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    const lastPage = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
+    const lastRegions = JSON.parse(String(fetchMock.mock.calls[3][1]?.body));
+    const analysis = JSON.parse(String(fetchMock.mock.calls[4][1]?.body));
     expect(firstPage.model).toBe('gemma3:4b');
     expect(firstPage.keep_alive).toBe('30s');
-    expect(firstPage.messages[0].images).toEqual(['cGFnZTE=']);
-    expect(firstPage.options?.temperature).toBe(0);
     expect(firstPage.messages[0].content).toBe('Text Recognition:');
+    expect(firstPage.messages[0].images).toEqual(['cGFnZTE=']);
+    expect(firstRegions.keep_alive).toBe('30s');
+    expect(firstRegions.format).toBe('json');
     expect(lastPage.model).toBe('gemma3:4b');
-    expect(lastPage.keep_alive).toBe(0);
+    expect(lastPage.keep_alive).toBe('30s');
+    expect(lastPage.messages[0].content).toBe('Text Recognition:');
     expect(lastPage.messages[0].images).toEqual(['cGFnZTI=']);
-    expect(lastPage.options?.temperature).toBe(0);
+    expect(lastRegions.keep_alive).toBe(0);
+    expect(lastRegions.format).toBe('json');
     expect(analysis.model).toBe('qwen3.5:4b');
     expect(analysis.keep_alive).toBe(0);
-    const analysisBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
-    expect(analysisBody.messages[0].content).toContain('[ANCRE_VISUELLE page=1 id=r1 x=100 y=200 width=300 height=80] Transcription page 1');
-    expect(analysisBody.messages[0].content).toContain('[ANCRE_VISUELLE page=2 id=r1 x=120 y=240 width=280 height=90] Transcription page 2');
+    const analysisPrompt = analysis.messages[0].content as string;
+    expect(analysisPrompt).toContain('[ANCRE_VISUELLE page=1 id=r1 x=100 y=200 width=300 height=80] Transcription page 1');
+    expect(analysisPrompt).toContain('[ANCRE_VISUELLE page=2 id=r1 x=120 y=240 width=280 height=90] Transcription page 2');
   });
 
   it('transcribes a separate reference subject before the student copy and includes it in grading context', async () => {
