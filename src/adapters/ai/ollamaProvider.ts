@@ -1044,7 +1044,19 @@ export async function importRubricImageWithOllama(
     throw new Error(`Impossible de joindre le modèle d’analyse Ollama pour structurer le barème. Détail : ${detail}`);
   }
   onProgress?.({ stage: 'response', page: images.length, totalPages: images.length, message: 'Réponse reçue du modèle d’analyse. Vérification du JSON et des critères…' });
-  if (!analysisResponse.ok) throw new Error(`Le modèle d’analyse a refusé de structurer le barème (HTTP ${analysisResponse.status}).`);
+  if (!analysisResponse.ok) {
+    let detail = '';
+    try {
+      const errorPayload = await analysisResponse.clone().json() as { error?: { message?: string } | string; message?: string; detail?: string };
+      detail = typeof errorPayload.error === 'string'
+        ? errorPayload.error
+        : errorPayload.error?.message ?? errorPayload.message ?? errorPayload.detail ?? '';
+    } catch {
+      try { detail = (await analysisResponse.clone().text()).slice(0, 500); } catch { /* The provider supplied no readable error body. */ }
+    }
+    const safeDetail = detail.replace(/(?:Bearer\s+)[^\s"']+/gi, 'Bearer [masqué]').trim().slice(0, 500);
+    throw new Error(`Le modèle d’analyse a refusé de structurer le barème (HTTP ${analysisResponse.status})${safeDetail ? ` : ${safeDetail}` : '. Vérifiez les paramètres de l’API compatible OpenAI.'}`);
+  }
   const analysisPayload = await analysisResponse.json() as OllamaChatResponse;
   if (analysisPayload.error) throw new Error('Ollama signale une erreur pendant la structuration du barème.');
   const content = analysisPayload.message?.content;

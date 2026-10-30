@@ -110,6 +110,27 @@ describe('OpenAI-compatible chat transport', () => {
     expect(previews[1]).not.toContain('stream_options');
   });
 
+  it('retries without a token limit when a gateway rejects both token parameter dialects', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('unsupported max_completion_tokens', { status: 422 }))
+      .mockResolvedValueOnce(new Response('unsupported max_tokens', { status: 422 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: '{"ok":true}' } }] }), { status: 200 }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        model: 'analysis-model', stream: false, generation_token_parameter: 'max_completion_tokens',
+        options: { num_predict: 8192 }, messages: [{ role: 'user', content: 'structure this rubric' }],
+      }),
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).max_completion_tokens).toBe(8192);
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).max_tokens).toBe(8192);
+    expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body)).max_tokens).toBeUndefined();
+    expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body)).max_completion_tokens).toBeUndefined();
+    expect(response.ok).toBe(true);
+  });
+
   it('does not retry compatible requests for authentication, rate-limit or server errors', async () => {
     for (const status of [401, 429, 500, 503]) {
       const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('failure', { status }));

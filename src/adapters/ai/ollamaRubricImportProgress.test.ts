@@ -64,6 +64,21 @@ describe('rubric import progress', () => {
     expect(requestBodies[1].messages?.[0].content).not.toMatch(/\\n{3,}/);
   });
 
+  it('surfaces the compatible API validation message when rubric structuring is rejected', async () => {
+    const progress: RubricImportProgress[] = [];
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(visionResponse())
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: "Unsupported parameter: 'max_tokens'" } }), {
+        status: 422, headers: { 'Content-Type': 'application/json' },
+      })) as unknown as typeof fetch;
+    await expect(importRubricImageWithOllama(
+      image('bareme.png'),
+      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b' },
+      fetchMock,
+      (event) => progress.push(event),
+    )).rejects.toThrow("HTTP 422 : Unsupported parameter: 'max_tokens'");
+  });
+
   it('keeps the exact model response visible when rubric validation fails', async () => {
     const progress: RubricImportProgress[] = [];
     const rawResponse = JSON.stringify({
