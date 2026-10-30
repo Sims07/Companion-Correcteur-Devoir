@@ -741,6 +741,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         let readingMs = 0;
         let analysisStartedAt: number | null = null;
         const measuredRuns: DiagnosticModelResult[] = [];
+        let streamedOutput = '';
         const provider = service.createProvider({
           endpoint: configuration.endpoint,
           apiCompatible: configuration.apiCompatible,
@@ -760,7 +761,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
             ...(evaluationStageMode === 'vision' ? { visionOnly: true } : {}),
             images: evaluationStageMode === 'analysis' ? [] : structuredClone(images),
             ...(evaluationStageMode !== 'vision' && correctionMode === 'separate' ? { subjectImages: structuredClone(subjectImages), ...(subjectTranscription ? { subjectTranscription } : {}) } : {}),
-          }, (chunk) => setStreamedOutput((current) => current + chunk), (stage) => {
+          }, (chunk) => { streamedOutput += chunk; setStreamedOutput((current) => current + chunk); }, (stage) => {
             const now = Date.now();
             if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = Math.max(0, now - startedAt); analysisStartedAt = now; } onStage('analysis'); setEvaluationStage('grading'); setAnalysisStage('grading'); setStreamedOutput(''); }
             else { onStage('reading'); setEvaluationStage('reading'); setAnalysisStage('reading'); }
@@ -780,7 +781,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
             : null;
           const partialValue = {
             transcription: extractedTranscription,
-            raw: measuredRuns[measuredRuns.length - 1]?.raw ?? '',
+            raw: streamedOutput || measuredRuns[measuredRuns.length - 1]?.raw || '',
             score: null,
             proposal: null,
             readingMs,
