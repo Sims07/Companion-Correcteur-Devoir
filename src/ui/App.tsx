@@ -20,7 +20,6 @@ import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelPro
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
-import { loadSalukiModel } from '../adapters/ai/modelLoadClient.ts';
 
 type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
 
@@ -233,7 +232,7 @@ function getLocalMemoryCorrectionId(): string | null {
   }
 }
 
-export function App({ service, archiveService, evaluationService }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService }) {
+export function App({ service, archiveService, evaluationService, loadSalukiModel }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; loadSalukiModel: (settings: { endpoint: string; apiKey: string }) => Promise<void> }) {
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
   const [showAssignmentPicker, setShowAssignmentPicker] = useState(false);
