@@ -36,6 +36,14 @@ export interface DiagnosticModelResult {
   generationMs?: number;
   loadMs?: number;
   tokensPerSecond?: number;
+  /** Ollama's explicit termination reason (for example `stop` or `length`). */
+  doneReason?: string;
+  /** True when Ollama emitted a separate message.thinking stream; its content is never exposed as the grading answer. */
+  thinkingPresent?: boolean;
+  /** Context window requested for this Ollama call. */
+  contextTokens?: number;
+  /** Maximum number of generated tokens requested for this Ollama call. */
+  generationTokenLimit?: number;
 }
 
 export type DiagnosticStrategy = 'single' | 'compare' | 'arbitrate';

@@ -16,6 +16,7 @@ function streamResponse(content: string, usage: Partial<{
   prompt_eval_duration: number;
   eval_duration: number;
   usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+  done_reason: string;
 }> = {}): Response {
   return new Response(JSON.stringify({ message: { content }, done: true, ...usage }) + '\n', {
     status: 200,
@@ -167,6 +168,48 @@ describe('Ollama diagnostic multi-model strategy', () => {
     ]);
     expect(events[0].raw).toBe('');
     expect(events.every((event) => event.totalTokens === 30)).toBe(true);
+  });
+
+  it('records Ollama termination reason, thinking presence and requested generation budgets', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({
+      message: { content: '{"summary":"ok"}', thinking: 'raisonnement séparé' },
+      done: true, done_reason: 'stop', prompt_eval_count: 1500, eval_count: 80,
+    }) + '\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } }));
+    const events: Array<{ doneReason?: string; thinkingPresent?: boolean; contextTokens?: number; generationTokenLimit?: number }> = [];
+    const provider = createOllamaProvider({ ...settings, diagnosticStrategy: 'single' }, fetchMock as typeof fetch);
+    await expect(provider.generate(request, undefined, undefined, undefined, (event) => events.push(event))).resolves.toContain('ok');
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { options: { num_ctx: number; num_predict: number } };
+    expect(body.options).toEqual({ num_ctx: 8192, num_predict: 2048 });
+    expect(events[0]).toMatchObject({ doneReason: 'stop', thinkingPresent: true, contextTokens: 8192, generationTokenLimit: 2048 });
+  });
+
+  it('rejects a truncated response when Ollama reports done_reason=length and keeps its diagnostics', async () => {
+    const fetchMock = vi.fn(async () => streamResponse('{"summary":"incomplete"', { done_reason: 'length', prompt_eval_count: 7900, eval_count: 2048 }));
+    const events: Array<{ doneReason?: string; raw: string }> = [];
+    const provider = createOllamaProvider({ ...settings, diagnosticStrategy: 'single' }, fetchMock as typeof fetch);
+    await expect(provider.generate(request, undefined, undefined, undefined, (event) => events.push(event)))
+      .rejects.toThrow(/limite de génération.*done_reason=length/);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ doneReason: 'length', raw: '{"summary":"incomplete"' });
+  });
+
+  it('distinguishes a thinking-only response from a normal empty response', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({
+      message: { content: '', thinking: 'raisonnement sans réponse finale' }, done: true, done_reason: 'stop',
+    }) + '\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } }));
+    const events: Array<{ thinkingPresent?: boolean; doneReason?: string; contextTokens?: number }> = [];
+    const provider = createOllamaProvider({ ...settings, diagnosticStrategy: 'single' }, fetchMock as typeof fetch);
+    await expect(provider.generate(request, undefined, undefined, undefined, (event) => events.push(event)))
+      .rejects.toThrow(/raisonnement interne mais aucune réponse finale/);
+    expect(events[0]).toMatchObject({ thinkingPresent: true, doneReason: 'stop', contextTokens: 8192 });
+  });
+
+  it('uses a smaller context window for vision requests than for analysis', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => streamResponse('Transcription'));
+    const provider = createOllamaProvider({ ...settings, diagnosticStrategy: 'single' }, fetchMock as typeof fetch);
+    await provider.generate({ ...request, transcription: undefined, images: [{ base64: 'aGVsbG8=', mimeType: 'image/png' }], visionOnly: true });
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { options: { num_ctx: number; num_predict: number } };
+    expect(body.options).toEqual({ num_ctx: 4096, num_predict: 2048 });
   });
 
   it('rejects using the same model twice so the comparison stays independent', async () => {
