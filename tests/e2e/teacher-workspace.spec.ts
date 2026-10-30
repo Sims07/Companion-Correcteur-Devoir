@@ -52,7 +52,6 @@ test('teacher can create and switch between independent local assignments', asyn
   await expect(page.getByLabel('Niveau scolaire / universitaire')).toHaveValue('Université — Licence 2');
   await page.getByRole('button', { name: /Continuer vers le barème/ }).click();
   await expect(rubricTitle).toHaveValue('Barème génétique');
-  await currentAssignment.click();
   await expect(page.locator('.sidebar-assignment-item').filter({ hasText: 'Biologie cellulaire' })).toBeVisible();
   await expect(page.locator('.sidebar-assignment-item').filter({ hasText: 'Génétique moléculaire' })).toBeVisible();
 });
