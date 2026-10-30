@@ -45,7 +45,7 @@ describe('OpenAI-compatible chat transport', () => {
       stream: true,
       temperature: 0,
       max_tokens: 2048,
-      stop: ['\\n\\n\\n'],
+      stop: ['\n\n\n'],
       messages: [{ role: 'user', content: [
         { type: 'text', text: 'Text Recognition:' },
         { type: 'image_url', image_url: { url: 'data:image/png;base64,abc' } },
