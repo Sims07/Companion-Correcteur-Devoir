@@ -27,6 +27,34 @@ describe('OpenAI-compatible chat transport', () => {
     expect(await response.json()).toEqual({ message: { content: 'PRÊT' }, usage: undefined });
   });
 
+  it('maps transcription stop sequences and token limits without sending provider-specific options', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('data: [DONE]\\n\\n', {
+      status: 200, headers: { 'Content-Type': 'text/event-stream' },
+    }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example/v1/chat/completions', apiKey: '' }, fetchMock);
+    await request('http://localhost:11434/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        model: 'vision', stream: true, messages: [{ role: 'user', content: 'Text Recognition:', images: ['data:image/png;base64,abc'] }],
+        options: { temperature: 0, num_predict: 2048, stop: ['\\n\\n\\n'], repeat_penalty: 1.05 },
+      }),
+    });
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body).toMatchObject({
+      model: 'vision',
+      stream: true,
+      temperature: 0,
+      max_tokens: 2048,
+      stop: ['\\n\\n\\n'],
+      messages: [{ role: 'user', content: [
+        { type: 'text', text: 'Text Recognition:' },
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,abc' } },
+      ] }],
+    });
+    expect(body.repeat_penalty).toBeUndefined();
+    expect(body.stream_options).toBeUndefined();
+  });
+
   it('translates image payloads to OpenAI image_url content blocks', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
       choices: [{ message: { content: 'lu' } }],
