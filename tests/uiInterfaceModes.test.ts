@@ -54,7 +54,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     const text = app();
     expect(text).toContain('>Observabilité</button>');
     expect(text).toContain("aria-pressed={interfaceMode === 'observability'}");
-    expect(text).toContain('<ObservabilityDashboard records={timingHistory} />');
+    expect(text).toContain('<ObservabilityDashboard records={observabilityRecords} />');
     expect(text).toContain('const timingHistoryLimit = 100;');
   });
 
