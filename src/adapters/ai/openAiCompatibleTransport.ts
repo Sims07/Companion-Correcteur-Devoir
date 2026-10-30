@@ -22,7 +22,7 @@ function openAiMessages(messages: Array<{ role: string; content: string; images?
     content: images?.length
       ? [{ type: 'text', text: content }, ...images.map((image) => ({
           type: 'image_url',
-          image_url: { url: image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}` },
+          image_url: { url: image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`, detail: 'high' },
         }))]
       : content,
   }));
@@ -174,19 +174,35 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
       settings.onRequest?.(safeRequestPreview(requestBody));
       return fetchImpl(url, { ...init, headers, body: JSON.stringify(requestBody) });
     };
-    let response = await send(body);
-    if (!response.ok && [400, 422].includes(response.status) && 'stream_options' in body) {
-      const { stream_options: _streamOptions, ...withoutStreamOptions } = body;
-      response = await send(withoutStreamOptions);
+    let requestBody: Record<string, unknown> = body;
+    let response = await send(requestBody);
+    if (!response.ok && [400, 422].includes(response.status) && 'stream_options' in requestBody) {
+      const { stream_options: _streamOptions, ...withoutStreamOptions } = requestBody;
+      requestBody = withoutStreamOptions;
+      response = await send(requestBody);
     }
-    if (!response.ok && [400, 422].includes(response.status) && 'response_format' in body && body.response_format?.type === 'json_schema') {
-      const fallbackBody = { ...body, response_format: { type: 'json_object' } };
-      if ('stream_options' in fallbackBody) {
-        const { stream_options: _streamOptions, ...withoutStreamOptions } = fallbackBody;
-        response = await send(withoutStreamOptions);
-      } else {
-        response = await send(fallbackBody);
+    if (!response.ok && [400, 422].includes(response.status)) {
+      const messages = requestBody.messages;
+      const hasHighDetailImage = Array.isArray(messages) && messages.some((message) =>
+        message && typeof message === 'object'
+        && Array.isArray((message as { content?: unknown }).content)
+        && ((message as { content: Array<{ type?: string; image_url?: { detail?: string } }> }).content)
+          .some((part) => part.type === 'image_url' && part.image_url?.detail === 'high'),
+      );
+      if (hasHighDetailImage) {
+        const fallbackBody = JSON.parse(JSON.stringify(requestBody)) as Record<string, unknown>;
+        for (const message of fallbackBody.messages as Array<{ content?: Array<{ type?: string; image_url?: { detail?: string } }> }>) {
+          for (const part of message.content ?? []) {
+            if (part.type === 'image_url' && part.image_url) delete part.image_url.detail;
+          }
+        }
+        requestBody = fallbackBody;
+        response = await send(requestBody);
       }
+    }
+    if (!response.ok && [400, 422].includes(response.status) && 'response_format' in requestBody && (requestBody.response_format as { type?: string })?.type === 'json_schema') {
+      requestBody = { ...requestBody, response_format: { type: 'json_object' } };
+      response = await send(requestBody);
     }
     if (!response.ok) return response;
     if (source.stream) return streamAsOllama(response);
