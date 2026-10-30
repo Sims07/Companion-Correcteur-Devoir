@@ -123,7 +123,7 @@ describe('Ollama adapter', () => {
   });
 
   it('records the exact sanitized OpenAI-compatible multimodal request and neutral transcription parameters', async () => {
-    const sse = 'data: {"choices":[{"delta":{"content":"Transcription lue"},"finish_reason":"stop"}]}\\n\\ndata: [DONE]\\n\\n';
+    const sse = ['data: {"choices":[{"delta":{"content":"Transcription lue"},"finish_reason":"stop"}]}', '', 'data: [DONE]', ''].join('\n');
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(sse, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }));
     const onDiagnosticResult = vi.fn();
     const provider = createOllamaProvider({ endpoint: 'https://api.example', apiCompatible: true, apiKey: 'secret-token', model: 'vision-model' }, fetchMock);
