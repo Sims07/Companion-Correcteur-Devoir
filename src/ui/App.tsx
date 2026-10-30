@@ -768,7 +768,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       question,
       rubricSnapshot: structuredClone(rubric),
       correctionMode,
-      images: structuredClone(images),
+      images: evaluationStageMode === 'analysis' ? [] : structuredClone(images),
       subjectImages: structuredClone(subjectImages),
       subjectTranscription,
       referenceTranscription: evaluationStageMode === 'analysis' ? transcription : null,
@@ -1760,7 +1760,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
           <div className="evaluation-history-selection" role="group" aria-label="Expériences à comparer">
             {visibleEvaluationHistoryRecords.map((record) => <label className={selectedEvaluationHistoryIds.includes(record.id) ? 'evaluation-history-option is-selected' : 'evaluation-history-option'} key={record.id}>
               <input type="checkbox" checked={selectedEvaluationHistoryIds.includes(record.id)} disabled={!selectedEvaluationHistoryIds.includes(record.id) && (selectedEvaluationHistoryIds.length >= 2 || (selectedEvaluationHistoryRecords.length === 1 && !canCompareModelEvaluationRecords([selectedEvaluationHistoryRecords[0]!, record])))} onChange={(event) => setSelectedEvaluationHistoryIds((current) => event.target.checked ? [...current, record.id].slice(-2) : current.filter((id) => id !== record.id))} />
-              <span><strong>{record.assignmentTitle}</strong><small>{getModelEvaluationStage(record) === 'vision' ? 'Vision seule' : getModelEvaluationStage(record) === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {record.images.length} page(s)</small></span>
+              <span><strong>{record.assignmentTitle}</strong><small>{getModelEvaluationStage(record) === 'vision' ? 'Vision seule' : getModelEvaluationStage(record) === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {getModelEvaluationStage(record) === 'analysis' ? 'transcription commune' : record.images.length + ' page(s)'}</small></span>
             </label>)}
           </div>
           {canCompareModelEvaluationRecords(selectedEvaluationHistoryRecords) ? (() => {
