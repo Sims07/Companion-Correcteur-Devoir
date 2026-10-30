@@ -13,6 +13,7 @@ describe('hexagonal architecture boundaries', () => {
       '../src/domain/localMemoryContext.ts',
       '../src/domain/rubric.ts',
       '../src/domain/observability.ts',
+      '../src/domain/teacherAnnotations.ts',
     ];
     for (const file of files) {
       const text = source(file);
