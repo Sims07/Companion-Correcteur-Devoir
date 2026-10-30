@@ -206,7 +206,7 @@ describe('Ollama adapter', () => {
     expect(visionBody.model).toBe('gemma3:4b');
     expect(visionBody.messages[0].images).toEqual(['aGVsbG8=']);
     expect(visionBody.messages[0].content).toContain('locate visible answer regions');
-    expect(visionBody.messages[0].content).toContain('"transcription": "Question 1\\\\nLa réponse manuscrite est ici."');
+    expect(visionBody.messages[0].content).toContain('"transcription": "Question 1\\nLa réponse manuscrite est ici."');
     expect(visionBody.messages[0].content).toContain('"regions": [');
     expect(visionBody.messages[0].content).toContain('"id": "r1", "text": "La réponse manuscrite est ici.", "x": 120, "y": 240, "width": 280, "height": 90');
     expect(visionBody.messages[0].content).toContain('Do not wrap the JSON in Markdown fences');
