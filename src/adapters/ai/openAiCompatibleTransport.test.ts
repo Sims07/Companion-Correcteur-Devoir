@@ -27,7 +27,7 @@ describe('OpenAI-compatible chat transport', () => {
     expect(await response.json()).toEqual({ message: { content: 'PRÊT' }, usage: undefined });
   });
 
-  it('maps transcription stop sequences and token limits without sending provider-specific options', async () => {
+  it('maps transcription stop sequences, token limits, repetition penalties and usage metadata', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('data: [DONE]\n\n', {
       status: 200, headers: { 'Content-Type': 'text/event-stream' },
     }));
@@ -45,7 +45,7 @@ describe('OpenAI-compatible chat transport', () => {
       stream: true,
       temperature: 0,
       max_tokens: 2048,
-      stop: ['\n\n\n'],
+      stop: ['\n\n\n\n'],
       messages: [{ role: 'user', content: [
         { type: 'text', text: 'Text Recognition:' },
         { type: 'image_url', image_url: { url: 'data:image/png;base64,abc' } },
