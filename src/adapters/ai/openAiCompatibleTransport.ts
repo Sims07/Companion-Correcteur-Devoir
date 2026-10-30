@@ -138,6 +138,14 @@ function safeRequestPreview(body: Record<string, unknown>): string {
   return JSON.stringify(copy, null, 2);
 }
 
+async function providerRejectsParameter(response: Response, parameter: string): Promise<boolean> {
+  let detail = '';
+  try { detail = await response.clone().text(); } catch { return false; }
+  const message = detail.toLowerCase();
+  return message.includes(parameter.toLowerCase()) &&
+    /(unsupported|unknown|unrecognized|invalid|not supported|not allowed)/i.test(message);
+}
+
 /** Compatible fetch passed to the existing provider; credentials never enter request metadata or logs. */
 export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, fetchImpl: typeof fetch = fetch): typeof fetch {
   const url = completionUrl(settings.endpoint);
@@ -182,12 +190,12 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
     let response = await send(requestBody);
     // Newer OpenAI models use max_completion_tokens. Some older compatible
     // endpoints still expose only max_tokens, so retry that parameter on 4xx.
-    if (!response.ok && [400, 422].includes(response.status) && 'max_completion_tokens' in requestBody) {
+    if (!response.ok && [400, 422].includes(response.status) && 'max_completion_tokens' in requestBody && await providerRejectsParameter(response, 'max_completion_tokens')) {
       const { max_completion_tokens, ...legacyBody } = requestBody;
       requestBody = { ...legacyBody, max_tokens: max_completion_tokens };
       response = await send(requestBody);
     }
-    if (!response.ok && [400, 422].includes(response.status) && 'stream_options' in requestBody) {
+    if (!response.ok && [400, 422].includes(response.status) && 'stream_options' in requestBody && await providerRejectsParameter(response, 'stream_options')) {
       const { stream_options: _streamOptions, ...withoutStreamOptions } = requestBody;
       requestBody = withoutStreamOptions;
       response = await send(requestBody);
@@ -200,7 +208,7 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
         && ((message as { content: Array<{ type?: string; image_url?: { detail?: string } }> }).content)
           .some((part) => part.type === 'image_url' && part.image_url?.detail === 'high'),
       );
-      if (hasHighDetailImage) {
+      if (hasHighDetailImage && await providerRejectsParameter(response, 'detail')) {
         const fallbackBody = JSON.parse(JSON.stringify(requestBody)) as Record<string, unknown>;
         for (const message of fallbackBody.messages as Array<{ content?: Array<{ type?: string; image_url?: { detail?: string } }> }>) {
           for (const part of message.content ?? []) {
@@ -211,7 +219,7 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
         response = await send(requestBody);
       }
     }
-    if (!response.ok && [400, 422].includes(response.status) && 'response_format' in requestBody && (requestBody.response_format as { type?: string })?.type === 'json_schema') {
+    if (!response.ok && [400, 422].includes(response.status) && 'response_format' in requestBody && (requestBody.response_format as { type?: string })?.type === 'json_schema' && (await providerRejectsParameter(response, 'response_format') || await providerRejectsParameter(response, 'json_schema'))) {
       requestBody = { ...requestBody, response_format: { type: 'json_object' } };
       response = await send(requestBody);
     }
