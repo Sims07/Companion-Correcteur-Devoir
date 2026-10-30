@@ -12,7 +12,7 @@ describe('rubric structuring chunks', () => {
     const chunks = splitRubricTranscriptions([firstPage, secondPage], 900);
 
     expect(chunks.length).toBeGreaterThan(2);
-    expect(chunks.every((chunk) => chunk.text.length <= 900)).toBe(true);
+    expect(chunks.every((chunk) => formatRubricTranscriptionChunk(chunk).length <= 900)).toBe(true);
     const pages = chunks.flatMap((chunk) => chunk.pages ?? [{ page: chunk.page, text: chunk.text }]);
     expect(pages.filter((page) => page.page === 1).map((page) => page.text).join('')).toBe(firstPage);
     expect(pages.filter((page) => page.page === 2).map((page) => page.text).join('')).toBe(secondPage);
