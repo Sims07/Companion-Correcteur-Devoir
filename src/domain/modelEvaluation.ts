@@ -153,6 +153,23 @@ export interface ModelEvaluationResultSnapshot {
   score: number | null;
   proposal: GradingProposal | null;
   error?: string;
+  /** Per-call local LLM traces, including prompt and raw response (never image bytes). */
+  diagnosticRuns?: Array<{
+    kind: 'vision' | 'model' | 'arbitrator';
+    stage?: 'reading' | 'analysis' | 'arbitration';
+    model: string;
+    requestPrompt?: string;
+    requestMetadata?: { stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; temperature?: number };
+    raw: string;
+    elapsedMs: number;
+    promptTokens?: number;
+    generatedTokens?: number;
+    totalTokens?: number;
+    promptEvaluationMs?: number;
+    generationMs?: number;
+    loadMs?: number;
+    tokensPerSecond?: number;
+  }>;
 }
 
 export interface ModelEvaluationRecord {
