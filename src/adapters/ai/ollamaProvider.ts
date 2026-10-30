@@ -578,6 +578,9 @@ export async function importRubricImageWithOllama(
   signal?: AbortSignal,
 ): Promise<ImportedRubric> {
   const endpoint = normalizedEndpoint(settings.endpoint);
+  const requestFetch = settings.apiCompatible
+    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '' }, fetchImpl)
+    : fetchImpl;
   const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
   const analysisModel = settings.analysisModel?.trim();
   const images = Array.isArray(inputImages) ? inputImages : [inputImages];
@@ -602,7 +605,7 @@ export async function importRubricImageWithOllama(
     });
     let response: Response;
     try {
-      response = await fetchImpl(`${endpoint}/api/chat`, {
+      response = await requestFetch(`${endpoint}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal,
@@ -685,7 +688,7 @@ export async function importRubricImageWithOllama(
   ).join('\n\n');
   let analysisResponse: Response;
   try {
-    analysisResponse = await fetchImpl(`${endpoint}/api/chat`, {
+    analysisResponse = await requestFetch(`${endpoint}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal,
