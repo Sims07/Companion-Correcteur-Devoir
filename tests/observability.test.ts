@@ -60,7 +60,7 @@ describe('local observability metrics', () => {
       averageAnalysisSeconds: 70,
       measuredCalls: 2,
       totalCalls: 3,
-      totalTokens: 700,
+      totalTokens: 1000,
       modelsObserved: 3,
       scoredTraces: 1,
       averageProposedScore: 14,
