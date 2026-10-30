@@ -15,6 +15,8 @@ export interface CorrectionArchiveSnapshot {
   review: ReviewedCriterion[];
   teacherQuestions: string;
   images: ArchivedImage[];
+  /** Whether this individual copy should be scanned for pre-existing teacher marks. */
+  detectTeacherAnnotations?: boolean;
   transcription: string | null;
   subjectImages: ArchivedImage[];
   subjectTranscription: string | null;

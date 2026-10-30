@@ -17,6 +17,7 @@ export interface GradingRequest {
   transcription?: string;
   /** Stop after local image transcription for an independent Vision benchmark. */
   visionOnly?: boolean;
+  detectTeacherAnnotations?: boolean;
 }
 
 export interface DiagnosticModelResult {
@@ -70,7 +71,7 @@ export interface CriterionAnalysisUpdate {
 
 export interface GradingProvider {
   readonly id: string;
-  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void): Promise<string>;
+  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void): Promise<string>;
 }
 
 export interface OllamaSettings {

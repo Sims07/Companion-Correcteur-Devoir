@@ -79,7 +79,9 @@ export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {
     return value.filter((item): item is AiModelProfile => Boolean(item) && typeof item === 'object' && typeof item.id === 'string' &&
       typeof item.name === 'string' && item.name.trim().length > 0 && isStrategy(item.mode) && isConfiguration(item.configuration) && typeof item.updatedAt === 'string')
       .map((item) => {
-        const configuration = { ...defaultAiModelConfiguration, ...item.configuration };
+        const legacyConfiguration = { ...item.configuration } as AiModelConfiguration & { detectTeacherAnnotations?: boolean };
+        delete legacyConfiguration.detectTeacherAnnotations;
+        const configuration = { ...defaultAiModelConfiguration, ...legacyConfiguration };
         if (configuration.transcriptionPenaltyParameter === 'frequency_penalty' && configuration.transcriptionFrequencyPenalty === 0.5) {
           configuration.transcriptionPenaltyParameter = 'none';
           configuration.transcriptionFrequencyPenalty = 0;

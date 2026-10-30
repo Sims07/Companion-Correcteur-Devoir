@@ -60,6 +60,7 @@ type AssignmentDraft = {
   currentCorrectionId: string | null;
   isFinalized: boolean;
   reviewMessage: string;
+  detectTeacherAnnotations: boolean;
 };
 
 const aiModelConfigurationKey = 'companion-correcteur:ollama-configuration:v1';
@@ -300,6 +301,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   const [images, setImages] = useState<ImageInput[]>([]);
   const [copyQueue, setCopyQueue] = useState<QueuedCopy[]>([]);
   const [transcription, setTranscription] = useState<string | null>(null);
+  const [teacherAnnotations, setTeacherAnnotations] = useState('');
   const [busy, setBusy] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
@@ -320,6 +322,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   const [error, setError] = useState('');
   const [proposal, setProposal] = useState<GradingProposal | null>(null);
   const [studentLabel, setStudentLabel] = useState('');
+  const [detectTeacherAnnotations, setDetectTeacherAnnotations] = useState(false);
   const [currentCorrectionId, setCurrentCorrectionId] = useState<string | null>(null);
   const [archivedCorrections, setArchivedCorrections] = useState<LocalCorrection[]>([]);
   const [archiveMessage, setArchiveMessage] = useState('');
@@ -440,6 +443,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setRubric((current) => ({ ...current, criteria: current.criteria.map((criterion) => criterion.id === id ? { ...criterion, ...patch } : criterion) }));
     setProposal(null);
     setReview([]);
+    setTeacherAnnotations('');
   }
 
   function addCriterion() {
@@ -649,7 +653,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       setAnalysisStage('reading');
       const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
       const raw = await provider.generate(
-        { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
+        { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images, detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
         (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
         (stage) => {
           const now = Date.now();
@@ -667,6 +671,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
         },
         (extracted, kind) => {
           if (kind === 'subject') setSubjectTranscription(extracted);
+          else if (kind === 'annotations') setTeacherAnnotations(extracted);
           else setTranscription(extracted);
         },
         (result) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); },
@@ -986,6 +991,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       review: structuredClone(review),
       teacherQuestions,
       images: structuredClone(images),
+      detectTeacherAnnotations,
       transcription,
       subjectImages: structuredClone(subjectImages),
       subjectTranscription,
@@ -1049,7 +1055,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   function captureActiveDraft(): AssignmentDraft {
     return {
       copyQueue, images, transcription, subjectImages, subjectTranscription, proposal, review,
-      teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage,
+      teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations,
     };
   }
 
@@ -1073,6 +1079,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setReview(draft?.review ?? []);
     setTeacherQuestions(draft?.teacherQuestions ?? '');
     setStudentLabel(draft?.studentLabel ?? '');
+    setDetectTeacherAnnotations(draft?.detectTeacherAnnotations ?? false);
     setCurrentCorrectionId(draft?.currentCorrectionId ?? null);
     setIsFinalized(draft?.isFinalized ?? false);
     setReviewMessage(draft?.reviewMessage ?? '');
@@ -1134,6 +1141,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setCorrectionMode(profile.correctionMode);
     setCopyQueue([]);
     setImages([]);
+    setDetectTeacherAnnotations(false);
     setTranscription(null);
     setSubjectImages([]);
     setSubjectTranscription(null);
@@ -1157,9 +1165,11 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       id: `queued-copy-${crypto.randomUUID()}`,
       label: studentLabel.trim() || images[0]?.fileName || `Copie ${copyQueue.length + 1}`,
       images: structuredClone(images),
+      detectTeacherAnnotations,
     };
     setCopyQueue((current) => appendQueuedCopy(current, queued));
     setStudentLabel('');
+    setDetectTeacherAnnotations(false);
     setImages([]);
     setTranscription(null);
     setProposal(null);
@@ -1175,6 +1185,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     if (!next) return;
     setCopyQueue(remaining);
     setStudentLabel(next.label);
+    setDetectTeacherAnnotations(next.detectTeacherAnnotations ?? false);
     setImages(next.images);
     setTranscription(null);
     setProposal(null);
@@ -1193,6 +1204,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     if (copyQueue.length > 0) { loadNextQueuedCopy(); return; }
     setStudentLabel('');
     setImages([]);
+    setDetectTeacherAnnotations(false);
     setTranscription(null);
     setProposal(null);
     setShowOnlyFlagged(false);
@@ -1234,6 +1246,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setShowOnlyFlagged(false);
     setTeacherQuestions(snapshot.teacherQuestions);
     setImages(snapshot.images);
+    setDetectTeacherAnnotations(snapshot.detectTeacherAnnotations ?? false);
     setTranscription(snapshot.transcription);
     setSubjectImages(snapshot.subjectImages);
     setSubjectTranscription(snapshot.subjectTranscription);
@@ -1901,8 +1914,9 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
           {interfaceMode === 'teacher' && <div className="student-label-field"><label className="field-label" htmlFor="student-label">Nom ou identifiant de l’étudiant <span>(facultatif)</span></label><input id="student-label" value={studentLabel} onChange={(event) => setStudentLabel(event.target.value)} placeholder="Ex. Étudiant 014 ou groupe B" /></div>}
           <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
           <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
-          {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button type="button" className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie</button></div></div>}
-          {copyQueue.length > 0 && <section className="copy-queue" aria-label="File des copies à corriger"><div className="copy-queue-heading"><div><span className="eyebrow">FILE LOCALE</span><h4>{copyQueue.length} copie(s) à traiter</h4></div><button type="button" className="primary-button" onClick={loadNextQueuedCopy} disabled={isAnalyzing}>Charger la prochaine copie</button></div><p>Les copies en attente restent sur cet appareil et réutilisent le barème de ce devoir. La file est conservée en mémoire pendant cette session.</p><ol>{copyQueue.map((copy, index) => <li key={copy.id}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{copy.label}</strong><small>{copy.images.length} page(s) · À traiter</small></span><button type="button" className="text-button" onClick={() => setCopyQueue((current) => current.filter((item) => item.id !== copy.id))} disabled={isAnalyzing}>Retirer</button></li>)}</ol></section>}
+          {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>
+             {interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="copy-has-teacher-annotations"><input id="copy-has-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient déjà des annotations du professeur</strong><small>À activer uniquement pour cette copie si elle comporte des remarques, corrections, coches ou notes déjà inscrites. Leur détection reste locale et les points existants ne sont jamais additionnés automatiquement.</small></span></label>}{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button type="button" className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie</button></div></div>}
+          {copyQueue.length > 0 && <section className="copy-queue" aria-label="File des copies à corriger"><div className="copy-queue-heading"><div><span className="eyebrow">FILE LOCALE</span><h4>{copyQueue.length} copie(s) à traiter</h4></div><button type="button" className="primary-button" onClick={loadNextQueuedCopy} disabled={isAnalyzing}>Charger la prochaine copie</button></div><p>Les copies en attente restent sur cet appareil et réutilisent le barème de ce devoir. La file est conservée en mémoire pendant cette session.</p><ol>{copyQueue.map((copy, index) => <li key={copy.id}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{copy.label}</strong><small>{copy.images.length} page(s) · À traiter{copy.detectTeacherAnnotations ? ' · annotations à détecter' : ''}</small></span><button type="button" className="text-button" onClick={() => setCopyQueue((current) => current.filter((item) => item.id !== copy.id))} disabled={isAnalyzing}>Retirer</button></li>)}</ol></section>}
         </article>
 
       </section>
@@ -2130,6 +2144,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
 
       {(proposal || isAnalyzing || review.length > 0 || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section">
         <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{isAnalyzing && criterionProgress.completedCount < criterionProgress.totalCount ? `${criterionProgress.totalCount - criterionProgress.completedCount} EN ATTENTE` : `${pendingCount} À VÉRIFIER`}</span></div>{isAnalyzing && <p className="criterion-live-progress" role="status" aria-live="polite">{criterionProgress.completedCount} / {criterionProgress.totalCount} critère(s) évalué(s) · {criterionProgressMessage || 'Analyse progressive en cours'}. La note affichée est provisoire et évoluera à mesure des résultats.</p>}{(readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
+        {teacherAnnotations && <section className="panel teacher-annotations-review" aria-label="Annotations préexistantes détectées"><div className="panel-heading"><span className="number">✎</span><div><h3>Annotations déjà présentes sur la copie</h3><p>Détections locales à vérifier : elles ne sont pas considérées comme de nouvelles notes.</p></div></div><pre>{teacherAnnotations}</pre></section>}
         <section className="review-alerts" aria-label="Points nécessitant votre attention">
           <div className="review-alerts-heading"><div><span className="eyebrow">CONTRÔLE CIBLÉ</span><h3>Vérifications prioritaires</h3></div><span className="review-alert-count">{reviewInsights.flaggedCriteriaIds.length} critère(s)</span></div>
           {unreadableCopySignal && <div className="review-alert review-alert-warning" role="alert"><strong>Lecture de la copie à contrôler</strong><p>La transcription est absente ou contient un signal d’illisibilité. Vérifiez les images originales avant de vous fier à la note proposée.</p></div>}
