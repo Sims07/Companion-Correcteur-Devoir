@@ -376,8 +376,8 @@ describe('Ollama adapter', () => {
 
   it('keeps the vision model warm between pages and unloads it before analysis', async () => {
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamingResponse('Transcription page 1'))
-      .mockResolvedValueOnce(streamingResponse('Transcription page 2'))
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ transcription: 'Transcription page 1', regions: [{ id: 'r1', text: 'Transcription page 1', x: 100, y: 200, width: 300, height: 80 }] })))
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ transcription: 'Transcription page 2', regions: [{ id: 'r1', text: 'Transcription page 2', x: 120, y: 240, width: 280, height: 90 }] })))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const provider = createOllamaProvider({
       endpoint: 'http://localhost:11434',
@@ -400,12 +400,16 @@ describe('Ollama adapter', () => {
     expect(firstPage.keep_alive).toBe('30s');
     expect(firstPage.messages[0].images).toEqual(['cGFnZTE=']);
     expect(firstPage.options?.temperature).toBe(0);
+    expect(firstPage.messages[0].content).toContain('locate visible answer regions');
     expect(lastPage.model).toBe('gemma3:4b');
     expect(lastPage.keep_alive).toBe(0);
     expect(lastPage.messages[0].images).toEqual(['cGFnZTI=']);
     expect(lastPage.options?.temperature).toBe(0);
     expect(analysis.model).toBe('qwen3.5:4b');
     expect(analysis.keep_alive).toBe(0);
+    const analysisBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
+    expect(analysisBody.messages[0].content).toContain('[ANCRE_VISUELLE page=1 id=r1 x=100 y=200 width=300 height=80] Transcription page 1');
+    expect(analysisBody.messages[0].content).toContain('[ANCRE_VISUELLE page=2 id=r1 x=120 y=240 width=280 height=90] Transcription page 2');
   });
 
   it('transcribes a separate reference subject before the student copy and includes it in grading context', async () => {
