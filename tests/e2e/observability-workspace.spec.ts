@@ -30,8 +30,8 @@ test('opens the local observability workspace and explores a trace without expos
 
   await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
   await expect(page.getByText('Corrections analysées')).toBeVisible();
-  await expect(page.getByText('qwen3.5:4b')).toBeVisible();
-  await expect(page.getByText('gemma3:4b')).toBeVisible();
+  await expect(page.locator('.observability-model-list').getByText('qwen3.5:4b')).toBeVisible();
+  await expect(page.locator('.observability-model-list').getByText('gemma3:4b')).toBeVisible();
   await expect(page.getByText('TRANSCRIPTION PRIVÉE À NE PAS AFFICHER')).toHaveCount(0);
   await expect(page.getByText('SORTIE PRIVÉE À NE PAS AFFICHER')).toHaveCount(0);
 
