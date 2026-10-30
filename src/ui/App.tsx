@@ -634,7 +634,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
             };
             setProposal(partialProposal);
             setReview((current) => toReviewedCriteria(partialProposal).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item));
-            setTeacherQuestions(partialProposal.questionsForTeacher.join('\\n'));
+            setTeacherQuestions(partialProposal.questionsForTeacher.join('\n'));
             setCompletedCriterionCount(orderedCriteria.length);
             if (interfaceMode === 'teacher') setTeacherStep('review');
           }

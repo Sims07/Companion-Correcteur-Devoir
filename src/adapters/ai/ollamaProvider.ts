@@ -394,11 +394,11 @@ export function createOllamaProvider(
           'RÔLE : arbitre uniquement, tu n’es pas un troisième correcteur. Tu ne dois pas générer de correction complète.',
           'Pour chaque critère litigieux, choisis exclusivement la note déjà donnée par AVIS 1 ou AVIS 2. Interdiction de créer une troisième note, de calculer une moyenne ou de modifier un critère non litigieux.',
           'SORTIE JSON STRICTE : {"decisions":[{"criterionId":"ID_EXACT","selected":"avis1","reason":"justification courte"}]}. selected doit valoir exactement "avis1" ou "avis2". Retourne une décision pour chaque critère litigieux et aucun autre champ. Ne retourne pas finalScore, summary, criteria, points ou questionsForTeacher.',
-          `BARÈME DES CRITÈRES LITIGIEUX :\n${JSON.stringify(disputedRubric)}`,
-          `TRANSCRIPTION :\n${transcription ?? ''}`,
-          `AVIS 1 (JSON) :\n${JSON.stringify(selectCriteria(firstProposal))}`,
-          `AVIS 2 (JSON) :\n${JSON.stringify(selectCriteria(secondProposal))}`,
-        ].join('\n\n');
+          `BARÈME DES CRITÈRES LITIGIEUX :\\n${JSON.stringify(disputedRubric)}`,
+          `TRANSCRIPTION :\\n${transcription ?? ''}`,
+          `AVIS 1 (JSON) :\\n${JSON.stringify(selectCriteria(firstProposal))}`,
+          `AVIS 2 (JSON) :\\n${JSON.stringify(selectCriteria(secondProposal))}`,
+        ].join('\\n\\n');
         const raw = await sendStream(arbitratorModel, arbitrationPrompt, undefined, onChunk, true, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration', deferResult: true });
         const decisions = parseArbitrationDecisions(raw, resolution.disputedCriterionIds, firstProposal.criteria, secondProposal.criteria);
         const judgedCriteria = resolution.disputedCriterionIds.map((criterionId) => {
