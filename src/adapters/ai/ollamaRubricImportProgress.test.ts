@@ -203,17 +203,18 @@ describe('rubric import progress', () => {
       (event) => progress.push(event),
     );
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(result.rubric.criteria).toHaveLength(2);
     expect(progress.some((event) => event.stage === 'page-complete' && event.page === 1 && event.totalPages === 2)).toBe(true);
     expect(progress.some((event) => event.stage === 'page-complete' && event.page === 2 && event.totalPages === 2)).toBe(true);
-    const analysisBody = JSON.parse(String((fetchMock as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }).mock.calls[2][1]?.body)) as { messages: Array<{ content: string; images?: string[] }> };
-    expect(analysisBody.messages[0].content).toContain('<transcription_page_1>');
-    expect(analysisBody.messages[0].content).toContain('<transcription_page_2>');
-    expect(analysisBody.messages[0].images).toBeUndefined();
+    const analysisCalls = (fetchMock as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }).mock.calls.slice(2);
+    const analysisBodies = analysisCalls.map((call) => JSON.parse(String(call[1]?.body)) as { messages: Array<{ content: string; images?: string[] }> });
+    expect(analysisBodies[0].messages[0].content).toContain('<transcription_page_1>');
+    expect(analysisBodies[1].messages[0].content).toContain('<transcription_page_2>');
+    expect(analysisBodies.every((body) => body.messages[0].images === undefined)).toBe(true);
     expect(progress.at(-1)?.stage).toBe('complete');
   });
-  it('uses an explicit large output budget and rejects a response stopped by the token limit', async () => {
+  it('uses the documented 2048-token output ceiling and rejects a response stopped by the token limit', async () => {
     const requestBodies: Array<{ options?: { num_predict?: number } }> = [];
     const progress: RubricImportProgress[] = [];
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -233,7 +234,7 @@ describe('rubric import progress', () => {
       (event) => progress.push(event),
     )).rejects.toThrow(/limite de génération \(8192 tokens\) a été atteinte/);
 
-    expect(requestBodies[1].options?.num_predict).toBe(8192);
+    expect(requestBodies[1].options?.num_predict).toBe(2048);
     expect(progress.some((event) => event.stage === 'parsing')).toBe(false);
   });
 
