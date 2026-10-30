@@ -20,6 +20,7 @@ import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelPro
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
+import { loadSalukiModel } from '../adapters/ai/modelLoadClient.ts';
 
 type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
 
@@ -256,6 +257,9 @@ export function App({ service, archiveService, evaluationService }: { service: C
   const [endpoint, setEndpoint] = useState(() => readAiModelConfiguration().endpoint);
   const [apiCompatible, setApiCompatible] = useState(() => readAiModelConfiguration().apiCompatible);
   const [apiKey, setApiKey] = useState(() => readAiModelConfiguration().apiKey);
+  const [salukiLoading, setSalukiLoading] = useState(false);
+  const [salukiLoaded, setSalukiLoaded] = useState(false);
+  const [salukiMessage, setSalukiMessage] = useState('');
   const [visionModel, setVisionModel] = useState(() => readAiModelConfiguration().visionModel);
   const [analysisModel, setAnalysisModel] = useState(() => readAiModelConfiguration().analysisModel);
   const [secondAnalysisModel, setSecondAnalysisModel] = useState(() => readAiModelConfiguration().secondAnalysisModel);
@@ -549,6 +553,20 @@ export function App({ service, archiveService, evaluationService }: { service: C
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Échec de préparation du sujet en local.');
     }
+  }
+
+  async function handleLoadSaluki() {
+    if (!apiCompatible || salukiLoading) return;
+    setSalukiLoading(true);
+    setSalukiMessage('Chargement de Saluki 27B sur le serveur…');
+    try {
+      await loadSalukiModel({ endpoint, apiKey });
+      setSalukiLoaded(true);
+      setSalukiMessage('Saluki 27B est chargé et prêt. Les modèles system1 et system1-vision utilisent maintenant ce modèle sur le serveur.');
+    } catch (cause) {
+      setSalukiLoaded(false);
+      setSalukiMessage(cause instanceof Error ? cause.message : 'Le chargement de Saluki 27B a échoué.');
+    } finally { setSalukiLoading(false); }
   }
 
   async function connectOllama() {
@@ -1316,6 +1334,15 @@ export function App({ service, archiveService, evaluationService }: { service: C
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}
         <p className="hint">Ce modèle applique le barème au texte lu. Le mode thinking reste désactivé pour privilégier une correction plus rapide et compatible.</p>
         <label className="analysis-thinking-option" htmlFor="ai-criterion-by-criterion"><input id="ai-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère, avec affichage progressif. Désactivez cette option pour envoyer tout le barème dans un seul appel et comparer les deux approches.</small></span></label>
+        {apiCompatible && <section className="saluki-load-card" aria-labelledby="saluki-load-title">
+          <div className="saluki-load-heading"><div><p className="eyebrow">MODÈLE AVANCÉ · À LA DEMANDE</p><h3 id="saluki-load-title">Saluki 27B <span className="saluki-beta">BÊTA</span></h3></div><span className={salukiLoaded ? 'saluki-status is-loaded' : 'saluki-status'}>{salukiLoaded ? 'Chargé' : 'Non chargé'}</span></div>
+          <p>Modèle texte et images plus puissant, chargé temporairement à la place de <code>system1</code> et <code>system1-vision</code>. Les mêmes endpoints de correction restent utilisés : les sélecteurs de modèles ne changent pas.</p>
+          <div className="saluki-load-details"><span>Dérivé de Qwen3.8-27B</span><span>Chargement à la demande</span><span>Clé API : périmètre <code>models</code></span></div>
+          <button type="button" className="primary-button full-button" disabled={busy || salukiLoading} onClick={() => void handleLoadSaluki()}>{salukiLoading ? 'Chargement en cours…' : salukiLoaded ? 'Recharger Saluki 27B' : 'Charger Saluki 27B'}</button>
+          {salukiMessage && <p className={salukiLoaded ? 'saluki-feedback is-loaded' : 'saluki-feedback'} role="status" aria-live="polite">{salukiMessage}</p>}
+          <p className="hint">Le serveur peut décharger les autres modèles pour libérer la mémoire de la carte graphique. Le temps de chargement dépend de la taille du modèle et de la mémoire disponible.</p>
+          <details><summary>Détails techniques</summary><p>POST <code>/v1/models/saluki-27b/load</code></p><p>Le token Bearer configuré est transmis au serveur. Il doit disposer du périmètre <code>models</code>.</p></details>
+        </section>}
         <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : apiCompatible ? 'Tester la connexion' : 'Tester la connexion et détecter les modèles'}</button>
         {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
         <p className="hint">Aucun basculement automatique vers un autre fournisseur n’est effectué.</p>
