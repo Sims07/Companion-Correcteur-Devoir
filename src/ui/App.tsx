@@ -231,6 +231,7 @@ function getLocalMemoryCorrectionId(): string | null {
 export function App({ service, archiveService, evaluationService }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService }) {
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
+  const [showAssignmentPicker, setShowAssignmentPicker] = useState(false);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, AssignmentDraft>>({});
   const [assignmentTitle, setAssignmentTitle] = useState(() => readActiveAssignmentProfile().title);
   const [assignmentDescription, setAssignmentDescription] = useState(() => readActiveAssignmentProfile().description ?? '');
@@ -1113,22 +1114,40 @@ export function App({ service, archiveService, evaluationService }: { service: C
       </header>
 
       {interfaceMode === 'teacher' && <aside className="teacher-sidebar" aria-label="Navigation de la correction">
-        <div className="sidebar-assignment">
-          <label className="field-label" htmlFor="assignment-title">DEVOIR EN COURS</label>
-          <input id="assignment-title" value={assignmentTitle} onChange={(event) => setAssignmentTitle(event.target.value)} placeholder="Nom du devoir" />
-        </div>
         <section className="sidebar-assignment-list" aria-label="Mes devoirs">
-          <div className="sidebar-assignment-list-heading"><span className="eyebrow">MES DEVOIRS</span><span>{assignmentProfiles.length}</span></div>
-          <div className="sidebar-assignment-items">
-            {assignmentProfiles.map((profile) => <div key={profile.id} className="sidebar-assignment-row">
-              <button type="button" className={profile.id === activeAssignmentId ? 'sidebar-assignment-item active' : 'sidebar-assignment-item'} aria-current={profile.id === activeAssignmentId ? 'page' : undefined} onClick={() => switchAssignment(profile)} disabled={isAnalyzing}>
-                <span className="sidebar-assignment-dot" aria-hidden="true" />
-                <span><strong>{profile.title.trim() || 'Devoir sans titre'}</strong><small>{profile.rubric.criteria.length} critères · {profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)} points</small></span>
-              </button>
-              <button type="button" className="sidebar-assignment-delete" aria-label={`Supprimer le devoir ${profile.title.trim() || 'sans titre'}`} title="Supprimer ce devoir" onClick={() => deleteAssignment(profile)} disabled={isAnalyzing || assignmentProfiles.length <= 1}>×</button>
-            </div>)}
-          </div>
-          <button type="button" className="sidebar-new-assignment" onClick={createNewAssignment} disabled={isAnalyzing}><span aria-hidden="true">＋</span> Nouveau devoir</button>
+          <button
+            type="button"
+            className="sidebar-assignment-current"
+            aria-expanded={showAssignmentPicker}
+            aria-controls="assignment-picker-options"
+            onClick={() => setShowAssignmentPicker((open) => !open)}
+            disabled={isAnalyzing}
+          >
+            <span className="sidebar-assignment-current-copy">
+              <span className="field-label">DEVOIR ACTUEL</span>
+              <strong>{assignmentTitle.trim() || 'Devoir sans titre'}</strong>
+              <small>{rubric.criteria.length} critères · {validation.maximumPoints} points</small>
+            </span>
+            <span className={showAssignmentPicker ? 'sidebar-assignment-chevron is-open' : 'sidebar-assignment-chevron'} aria-hidden="true">⌄</span>
+          </button>
+          {showAssignmentPicker && <div className="sidebar-assignment-menu" id="assignment-picker-options">
+            <div className="sidebar-assignment-list-heading"><span className="eyebrow">CHANGER DE DEVOIR</span><span>{assignmentProfiles.length}</span></div>
+            <div className="sidebar-assignment-items">
+              {assignmentProfiles.map((profile) => <div key={profile.id} className="sidebar-assignment-row">
+                <button type="button" className={profile.id === activeAssignmentId ? 'sidebar-assignment-item active' : 'sidebar-assignment-item'} aria-current={profile.id === activeAssignmentId ? 'page' : undefined} onClick={() => { switchAssignment(profile); setShowAssignmentPicker(false); }} disabled={isAnalyzing}>
+                  <span className="sidebar-assignment-dot" aria-hidden="true" />
+                  <span><strong>{profile.title.trim() || 'Devoir sans titre'}</strong><small>{profile.rubric.criteria.length} critères · {profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)} points</small></span>
+                </button>
+                <details className="sidebar-assignment-actions">
+                  <summary aria-label={`Actions pour ${profile.title.trim() || 'devoir sans titre'}`} title="Actions du devoir">···</summary>
+                  <div className="sidebar-assignment-actions-menu">
+                    <button type="button" onClick={() => deleteAssignment(profile)} disabled={isAnalyzing || assignmentProfiles.length <= 1}>Supprimer</button>
+                  </div>
+                </details>
+              </div>)}
+            </div>
+            <button type="button" className="sidebar-new-assignment" onClick={() => { createNewAssignment(); setShowAssignmentPicker(false); }} disabled={isAnalyzing}><span aria-hidden="true">＋</span> Nouveau devoir</button>
+          </div>}
         </section>
         {(!visionModel.trim() || !analysisModel.trim()) && <section className="sidebar-ai-setup" aria-label="Configuration nécessaire de l’IA locale">
           <span className="sidebar-ai-setup-icon" aria-hidden="true">⚙</span>

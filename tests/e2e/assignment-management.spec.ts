@@ -1,12 +1,20 @@
 import { expect, test } from '@playwright/test';
 
-test('new assignments start with an explicitly separate, empty rubric and can be deleted', async ({ page }) => {
+test('assignment management stays collapsed until requested and supports create, switch and delete', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByLabel('DEVOIR EN COURS')).toHaveValue('Devoir de biologie');
-  await page.getByRole('button', { name: 'Nouveau devoir' }).click();
+  const currentAssignment = page.locator('.sidebar-assignment-current');
+  await expect(currentAssignment).toContainText('Devoir de biologie');
+  await expect(currentAssignment).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('.sidebar-assignment-menu')).toHaveCount(0);
 
-  await expect(page.getByLabel('DEVOIR EN COURS')).toHaveValue('Nouveau devoir');
+  await currentAssignment.click();
+  await expect(currentAssignment).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: 'Nouveau devoir' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Nouveau devoir' }).click();
+  await expect(currentAssignment).toContainText('Nouveau devoir');
+  await expect(currentAssignment).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByRole('heading', { name: 'Définir le devoir' })).toBeVisible();
   await expect(page.getByLabel('Description et objectifs pédagogiques')).toBeVisible();
   await expect(page.getByLabel('Niveau scolaire / universitaire')).toBeVisible();
@@ -19,23 +27,29 @@ test('new assignments start with an explicitly separate, empty rubric and can be
   await expect(page.getByRole('status').filter({ hasText: 'Le barème n’est pas encore défini' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Continuer vers la copie' })).toBeDisabled();
 
+  await currentAssignment.click();
+  await page.locator('.sidebar-assignment-actions summary[aria-label="Actions pour Contrôle de biologie"]').click();
   page.on('dialog', async (dialog) => {
     expect(dialog.message()).toContain('Les corrections déjà archivées seront conservées');
     await dialog.accept();
   });
-  await page.getByRole('button', { name: 'Supprimer le devoir Contrôle de biologie' }).click();
+  await page.getByRole('button', { name: 'Supprimer', exact: true }).click();
 
-  await expect(page.getByLabel('DEVOIR EN COURS')).toHaveValue('Devoir de biologie');
-  await expect(page.getByRole('button', { name: 'Supprimer le devoir Devoir de biologie' })).toBeDisabled();
+  await expect(currentAssignment).toContainText('Devoir de biologie');
+  await page.locator('.sidebar-assignment-actions summary[aria-label="Actions pour Devoir de biologie"]').click();
+  await expect(page.getByRole('button', { name: 'Supprimer', exact: true })).toBeDisabled();
 });
 
 test('the assignment list scrolls instead of growing without bound', async ({ page }) => {
   await page.goto('/');
+  await page.locator('.sidebar-assignment-current').click();
 
   for (let index = 0; index < 6; index += 1) {
     await page.locator('.sidebar-new-assignment').click();
+    if (index < 5) await page.locator('.sidebar-assignment-current').click();
   }
 
+  await page.locator('.sidebar-assignment-current').click();
   const list = page.locator('.sidebar-assignment-items');
   await expect(list.locator('.sidebar-assignment-row')).toHaveCount(7);
   await expect.poll(() => list.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
