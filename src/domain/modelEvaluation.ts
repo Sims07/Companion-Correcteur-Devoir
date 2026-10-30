@@ -159,7 +159,7 @@ export interface ModelEvaluationResultSnapshot {
     stage?: 'reading' | 'analysis' | 'arbitration';
     model: string;
     requestPrompt?: string;
-    requestMetadata?: { stream: boolean; think: boolean; format?: 'json'; imageCount: number; imageMimeTypes: string[]; keepAlive: string | number; temperature?: number };
+    requestMetadata?: { stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; temperature?: number };
     raw: string;
     elapsedMs: number;
     promptTokens?: number;
