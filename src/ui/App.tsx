@@ -266,7 +266,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   const [transcriptionTokenLimit, setTranscriptionTokenLimit] = useState(() => readAiModelConfiguration().transcriptionTokenLimit);
   const [transcriptionPromptMode, setTranscriptionPromptMode] = useState<'auto' | 'ocr' | 'general'>(() => readAiModelConfiguration().transcriptionPromptMode);
   const [transcriptionRepeatPenalty, setTranscriptionRepeatPenalty] = useState(() => readAiModelConfiguration().transcriptionRepeatPenalty);
-  const [transcriptionPenaltyParameter, setTranscriptionPenaltyParameter] = useState<'frequency_penalty' | 'repeat_penalty'>(() => readAiModelConfiguration().transcriptionPenaltyParameter);
+  const [transcriptionPenaltyParameter, setTranscriptionPenaltyParameter] = useState<'none' | 'frequency_penalty' | 'repeat_penalty'>(() => readAiModelConfiguration().transcriptionPenaltyParameter);
   const [transcriptionFrequencyPenalty, setTranscriptionFrequencyPenalty] = useState(() => readAiModelConfiguration().transcriptionFrequencyPenalty);
   const [analysisModel, setAnalysisModel] = useState(() => readAiModelConfiguration().analysisModel);
   const [secondAnalysisModel, setSecondAnalysisModel] = useState(() => readAiModelConfiguration().secondAnalysisModel);
@@ -1372,13 +1372,13 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
         <label className="field-label" htmlFor="ai-transcription-repeat-penalty">Pénalité de répétition</label>
         <input id="ai-transcription-repeat-penalty" type="number" min="1" max="2" step="0.01" value={transcriptionRepeatPenalty} onChange={(event) => { setTranscriptionRepeatPenalty(Math.min(2, Math.max(1, Number(event.target.value) || 1.05))); setTranscription(null); }} />
         <label className="field-label" htmlFor="ai-transcription-penalty-parameter">Paramètre de pénalité (API compatible)</label>
-        <DesignSystemSelect id="ai-transcription-penalty-parameter" value={transcriptionPenaltyParameter} onChange={(event) => { setTranscriptionPenaltyParameter(event.target.value as 'frequency_penalty' | 'repeat_penalty'); setTranscription(null); }}>
-          <option value="frequency_penalty">frequency_penalty (standard OpenAI)</option><option value="repeat_penalty">repeat_penalty (serveur compatible Ollama)</option>
+        <DesignSystemSelect id="ai-transcription-penalty-parameter" value={transcriptionPenaltyParameter} onChange={(event) => { setTranscriptionPenaltyParameter(event.target.value as 'none' | 'frequency_penalty' | 'repeat_penalty'); setTranscription(null); }}>
+          <option value="none">Aucune pénalité (recommandé)</option><option value="frequency_penalty">frequency_penalty (standard OpenAI)</option><option value="repeat_penalty">repeat_penalty (serveur compatible Ollama)</option>
         </DesignSystemSelect>
         {apiCompatible && transcriptionPenaltyParameter === 'frequency_penalty' && <>
           <label className="field-label" htmlFor="ai-transcription-frequency-penalty">Valeur frequency_penalty (API compatible)</label>
           <input id="ai-transcription-frequency-penalty" type="number" min="0" max="2" step="0.05" value={transcriptionFrequencyPenalty} onChange={(event) => { setTranscriptionFrequencyPenalty(Math.min(2, Math.max(0, Number(event.target.value) || 0))); setTranscription(null); }} />
-          <p className="hint">Cette valeur est indépendante de repeat_penalty : la conversion automatique 1,05 → 0,05 est trop faible pour agir sensiblement. Valeur proposée par défaut : 0,5. Ajustez selon le serveur et le modèle.</p>
+          <p className="hint">Cette pénalité est différente de repeat_penalty. Pour une transcription fidèle, la valeur neutre 0 est recommandée ; n’augmentez-la que si vous avez validé son effet avec votre fournisseur.</p>
         </>}
         <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}

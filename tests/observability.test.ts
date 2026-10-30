@@ -123,10 +123,10 @@ describe('local observability metrics', () => {
       configurations: [{ id: 'p', name: 'Profil', endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'analysis', thinking: false }],
       results: [{
         profileId: 'p', profileName: 'Profil', elapsedMs: 1000, readingMs: 400, analysisMs: 600, tokens: null, status: 'success', transcription: '', raw: response, score: 12, proposal: null,
-        diagnosticRuns: [{ kind: 'model', stage: 'analysis', model: 'analysis', elapsedMs: 600, requestPrompt: prompt, requestMetadata: { stream: true, think: false, format: 'json', imageCount: 0, keepAlive: 0, options: { contextTokens: 8192, generationTokenLimit: 2048 } }, raw: response, error: 'Connexion interrompue après le premier fragment.' }],
+        diagnosticRuns: [{ kind: 'model', stage: 'analysis', model: 'analysis', elapsedMs: 600, requestPrompt: prompt, requestPayload: 'SANITIZED_REQUEST_JSON', requestMetadata: { provider: 'openai-compatible', endpoint: 'https://api.example', stream: true, think: false, format: 'json', imageCount: 0, keepAlive: 0, options: { contextTokens: 8192, generationTokenLimit: 2048, temperature: 0, frequencyPenalty: 0 } }, raw: response, error: 'Connexion interrompue après le premier fragment.' }],
       }],
     }]);
-    expect(trace.diagnosticRuns?.[0]).toMatchObject({ requestPrompt: prompt, raw: response, error: 'Connexion interrompue après le premier fragment.', requestMetadata: { imageCount: 0, format: 'json', options: { contextTokens: 8192 } } });
+    expect(trace.diagnosticRuns?.[0]).toMatchObject({ requestPrompt: prompt, raw: response, error: 'Connexion interrompue après le premier fragment.', requestMetadata: { provider: 'openai-compatible', endpoint: 'https://api.example', imageCount: 0, format: 'json', options: { contextTokens: 8192, temperature: 0, frequencyPenalty: 0 } }, requestPayload: 'SANITIZED_REQUEST_JSON' });
   });
 
   it('keeps stage-only model evaluations scoped to the stage that was actually measured', () => {

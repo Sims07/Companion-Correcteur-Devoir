@@ -31,7 +31,7 @@ describe('OpenAI-compatible chat transport', () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('data: [DONE]\n\n', {
       status: 200, headers: { 'Content-Type': 'text/event-stream' },
     }));
-    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example/v1/chat/completions', apiKey: '', frequencyPenalty: 0.65 }, fetchMock);
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example/v1/chat/completions', apiKey: '', repetitionPenaltyParameter: 'frequency_penalty', frequencyPenalty: 0.65 }, fetchMock);
     await request('http://localhost:11434/api/chat', {
       method: 'POST',
       body: JSON.stringify({
@@ -73,6 +73,14 @@ describe('OpenAI-compatible chat transport', () => {
     expect(body.frequency_penalty).toBeUndefined();
   });
 
+  it('does not translate Ollama repeat_penalty into a frequency penalty unless explicitly configured', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('data: [DONE]\\n\\n', { status: 200, headers: { 'Content-Type': 'text/event-stream' } }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+    await request('http://localhost:11434/api/chat', { method: 'POST', body: JSON.stringify({ model: 'vision', stream: true, messages: [{ role: 'user', content: 'Lis' }], options: { repeat_penalty: 1.05 } }) });
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.repeat_penalty).toBeUndefined();
+    expect(body.frequency_penalty).toBeUndefined();
+  });
   it('maps structured schema output to json_schema and falls back to json_object when rejected', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response('unsupported response_format', { status: 400 }))
@@ -92,10 +100,14 @@ describe('OpenAI-compatible chat transport', () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response('unsupported stream_options', { status: 400 }))
       .mockResolvedValueOnce(new Response('data: [DONE]\\n\\n', { status: 200, headers: { 'Content-Type': 'text/event-stream' } }));
-    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+    const previews: string[] = [];
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '', onRequest: (payload) => previews.push(payload) }, fetchMock);
     await request('http://localhost:11434/api/chat', { method: 'POST', body: JSON.stringify({ model: 'vision', stream: true, messages: [{ role: 'user', content: 'read' }] }) });
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).stream_options).toEqual({ include_usage: true });
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).stream_options).toBeUndefined();
+    expect(previews).toHaveLength(2);
+    expect(previews[0]).toContain('stream_options');
+    expect(previews[1]).not.toContain('stream_options');
   });
 
   it('does not retry compatible requests for authentication, rate-limit or server errors', async () => {
@@ -127,6 +139,18 @@ describe('OpenAI-compatible chat transport', () => {
     ]);
   });
 
+  it('exposes a sanitized preview of the exact outgoing request without image bytes', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: 'lu' } }] }), { status: 200 }));
+    let preview = '';
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: 'secret', onRequest: (value) => { preview = value; } }, fetchMock);
+    await request('http://localhost:11434/api/chat', { method: 'POST', body: JSON.stringify({ model: 'vision', stream: false, messages: [{ role: 'user', content: 'Transcris', images: ['data:image/png;base64,PRIVATE_IMAGE_BYTES'] }], options: { temperature: 0, num_predict: 2048 } }) });
+    expect(preview).toContain('vision');
+    expect(preview).toContain('temperature');
+    expect(preview).toContain('image/png');
+    expect(preview).toContain('IMAGE REDACTED');
+    expect(preview).not.toContain('PRIVATE_IMAGE_BYTES');
+    expect(preview).not.toContain('secret');
+  });
   it('converts OpenAI SSE deltas into the existing newline-delimited stream contract', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(
       'data: {"choices":[{"delta":{"content":"bon"}}]}\n\ndata: {"choices":[{"delta":{"content":"jour"},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":2,"total_tokens":4}}\n\ndata: [DONE]\n',

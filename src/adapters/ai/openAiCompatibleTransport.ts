@@ -4,8 +4,10 @@
 export interface OpenAiCompatibleSettings {
   endpoint: string;
   apiKey: string;
-  repetitionPenaltyParameter?: 'frequency_penalty' | 'repeat_penalty';
+  repetitionPenaltyParameter?: 'none' | 'frequency_penalty' | 'repeat_penalty';
   frequencyPenalty?: number;
+  /** Receives a credential-free, image-redacted preview for local observability. */
+  onRequest?: (payload: string) => void;
 }
 
 function completionUrl(endpoint: string): string {
@@ -114,6 +116,28 @@ function streamAsOllama(response: Response): Response {
   return new Response(body, { status: response.status, headers: { 'Content-Type': 'application/x-ndjson' } });
 }
 
+function safeRequestPreview(body: Record<string, unknown>): string {
+  const copy = JSON.parse(JSON.stringify(body)) as Record<string, unknown>;
+  const messages = copy.messages;
+  if (Array.isArray(messages)) {
+    for (const message of messages) {
+      if (!message || typeof message !== 'object') continue;
+      const content = (message as { content?: unknown }).content;
+      if (!Array.isArray(content)) continue;
+      for (const part of content) {
+        if (!part || typeof part !== 'object' || (part as { type?: string }).type !== 'image_url') continue;
+        const imageUrl = (part as { image_url?: { url?: string } }).image_url?.url ?? '';
+        const mimeType = imageUrl.match(/^data:([^;,]+)/)?.[1] ?? 'image/unknown';
+        const base64 = imageUrl.split(',', 2)[1] ?? '';
+        (part as { image_url: { url: string } }).image_url = {
+          url: `[IMAGE REDACTED · ${mimeType} · environ ${Math.floor(base64.length * 3 / 4)} octets]`,
+        };
+      }
+    }
+  }
+  return JSON.stringify(copy, null, 2);
+}
+
 /** Compatible fetch passed to the existing provider; credentials never enter request metadata or logs. */
 export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, fetchImpl: typeof fetch = fetch): typeof fetch {
   const url = completionUrl(settings.endpoint);
@@ -134,7 +158,9 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
         : source.options?.repeat_penalty !== undefined
           ? settings.repetitionPenaltyParameter === 'repeat_penalty'
             ? { repeat_penalty: source.options.repeat_penalty }
-            : { frequency_penalty: settings.frequencyPenalty ?? 0.5 }
+            : settings.repetitionPenaltyParameter === 'frequency_penalty'
+              ? { frequency_penalty: settings.frequencyPenalty ?? 0 }
+              : {}
           : {}),
       ...(source.format === 'json'
         ? { response_format: { type: 'json_object' } }
@@ -144,18 +170,22 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
       ...(source.stream ? { stream_options: { include_usage: true } } : {}),
     };
     const headers = { 'Content-Type': 'application/json', ...(settings.apiKey.trim() ? { Authorization: `Bearer ${settings.apiKey.trim()}` } : {}) };
-    let response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(body) });
+    const send = (requestBody: Record<string, unknown>) => {
+      settings.onRequest?.(safeRequestPreview(requestBody));
+      return fetchImpl(url, { ...init, headers, body: JSON.stringify(requestBody) });
+    };
+    let response = await send(body);
     if (!response.ok && [400, 422].includes(response.status) && 'stream_options' in body) {
       const { stream_options: _streamOptions, ...withoutStreamOptions } = body;
-      response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(withoutStreamOptions) });
+      response = await send(withoutStreamOptions);
     }
     if (!response.ok && [400, 422].includes(response.status) && 'response_format' in body && body.response_format?.type === 'json_schema') {
       const fallbackBody = { ...body, response_format: { type: 'json_object' } };
       if ('stream_options' in fallbackBody) {
         const { stream_options: _streamOptions, ...withoutStreamOptions } = fallbackBody;
-        response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(withoutStreamOptions) });
+        response = await send(withoutStreamOptions);
       } else {
-        response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(fallbackBody) });
+        response = await send(fallbackBody);
       }
     }
     if (!response.ok) return response;

@@ -52,16 +52,23 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
             {span.error && <p className="observability-call-error" role="alert"><strong>Erreur pendant cet appel</strong><span>{span.error}</span></p>}
             <div className="observability-call-section"><strong>Requête envoyée au modèle</strong>
               {span.requestMetadata && <dl className="observability-request-metadata">
+                {span.requestMetadata.provider && <div><dt>Transport</dt><dd>{span.requestMetadata.provider === 'openai-compatible' ? 'API compatible OpenAI' : 'Ollama natif'}</dd></div>}
+                {span.requestMetadata.endpoint && <div><dt>Endpoint</dt><dd>{span.requestMetadata.endpoint}</dd></div>}
                 <div><dt>Mode</dt><dd>{span.requestMetadata.stream ? 'Streaming' : 'Sans streaming'}</dd></div>
-                <div><dt>Thinking</dt><dd>{span.requestMetadata.think ? 'Activé' : 'Désactivé'}</dd></div>
+                <div><dt>Thinking</dt><dd>{span.requestMetadata.provider === 'openai-compatible' ? 'Non transmis par ce transport' : span.requestMetadata.think ? 'Activé' : 'Désactivé'}</dd></div>
                 <div><dt>Format</dt><dd>{span.requestMetadata.format ?? 'Texte libre'}</dd></div>
                 <div><dt>Images jointes</dt><dd>{span.requestMetadata.imageCount}</dd></div>
-                <div><dt>Contexte</dt><dd>{span.requestMetadata.options.contextTokens} tokens</dd></div>
+                {span.requestMetadata.provider !== 'openai-compatible' && <div><dt>Contexte Ollama</dt><dd>{span.requestMetadata.options.contextTokens} tokens</dd></div>}
                 <div><dt>Budget génération</dt><dd>{span.requestMetadata.options.generationTokenLimit} tokens</dd></div>
-                <div><dt>Keep alive</dt><dd>{String(span.requestMetadata.keepAlive)}</dd></div>
+                {span.requestMetadata.provider !== 'openai-compatible' && <div><dt>Keep alive Ollama</dt><dd>{String(span.requestMetadata.keepAlive)}</dd></div>}
                 {span.requestMetadata.options.temperature !== undefined && <div><dt>Température</dt><dd>{span.requestMetadata.options.temperature}</dd></div>}
+                {span.requestMetadata.options.repeatPenalty !== undefined && <div><dt>repeat_penalty (valeur source Ollama)</dt><dd>{span.requestMetadata.options.repeatPenalty}</dd></div>}
+                {span.requestMetadata.options.frequencyPenalty !== undefined && <div><dt>frequency_penalty (effectif)</dt><dd>{span.requestMetadata.options.frequencyPenalty}</dd></div>}
+                {span.requestMetadata.options.stop && <div><dt>Séquences stop</dt><dd><code>{JSON.stringify(span.requestMetadata.options.stop)}</code></dd></div>}
               </dl>}
-              <pre>{span.requestPrompt ?? 'Prompt non conservé pour cette ancienne trace.'}</pre>
+              {span.requestPayload
+                ? <><strong>Corps JSON réellement transmis (images masquées)</strong><pre>{span.requestPayload}</pre></>
+                : <><p className="observability-empty-inline">Corps JSON non conservé pour cette ancienne trace.</p>{span.requestPrompt && <><strong>Prompt texte conservé dans cette ancienne trace</strong><pre>{span.requestPrompt}</pre></>}</>}
             </div>
             <div className="observability-call-section"><strong>Réponse brute du modèle</strong>
               {span.doneReason && <p className="observability-call-reason">Fin de génération : <b>{span.doneReason}</b>{span.thinkingPresent ? ' · raisonnement interne détecté' : ''}</p>}
@@ -71,7 +78,7 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
           </details>}
         </li>;
       })}</ol> : <p className="observability-empty-inline">Les anciennes traces ne contiennent pas encore le détail des appels par modèle. Les durées des deux étapes restent disponibles.</p>}
-      <p className="observability-privacy-note"><span aria-hidden="true">⌂</span> Les détails textuels des échanges LLM sont accessibles à la demande ; les octets des images ne sont jamais exposés.</p>
+      <p className="observability-privacy-note"><span aria-hidden="true">⌂</span> Les requêtes et réponses LLM sont accessibles à la demande ; les clés API et les octets des images ne sont jamais exposés.</p>
     </div>
   </details>;
 }
@@ -94,13 +101,13 @@ export function ObservabilityDashboard({ records }: Props) {
 
   return <section className="observability-workspace" aria-labelledby="observability-title">
     <header className="observability-page-heading">
-      <div><p className="observability-eyebrow">PILOTAGE LOCAL · OLLAMA</p><h1 id="observability-title">Observabilité</h1><p>Comprenez les performances et la fiabilité de votre chaîne de correction, sans exposer les copies.</p></div>
+      <div><p className="observability-eyebrow">PILOTAGE IA · TRAÇABILITÉ</p><h1 id="observability-title">Observabilité</h1><p>Comprenez les performances et la fiabilité de votre chaîne de correction, sans afficher les données binaires des copies.</p></div>
       <div className="observability-local-badge"><span></span>Données conservées sur cet appareil</div>
     </header>
 
     <section className="observability-intro" aria-label="Périmètre des données">
       <div className="observability-intro-icon" aria-hidden="true">⌂</div>
-      <div><strong>Vos données pédagogiques restent locales</strong><p>Cette vue exploite l’historique technique conservé dans le navigateur. Les prompts et réponses sont consultables à la demande dans chaque appel ; les octets des images ne sont jamais affichés.</p></div>
+      <div><strong>Les traces techniques restent sur cet appareil</strong><p>Les requêtes sont envoyées uniquement à l’endpoint configuré (Ollama local ou API compatible). Leur historique de diagnostic est conservé dans ce navigateur ; les clés API et octets des images sont masqués dans cette vue.</p></div>
       <span>LOCAL</span>
     </section>
 
@@ -160,6 +167,6 @@ export function ObservabilityDashboard({ records }: Props) {
       </div>
       {filteredRecords.length ? <div className="observability-trace-list">{filteredRecords.map((trace) => <TraceDetails key={trace.id} trace={trace} />)}</div> : <div className="observability-empty-state"><span>⌕</span><strong>Aucune trace ne correspond à votre recherche</strong><p>Modifiez le filtre ou lancez une nouvelle correction / évaluation.</p></div>}
     </section>
-    <p className="observability-footnote">Les indicateurs reflètent uniquement les données effectivement remontées par Ollama et conservées localement. Une note proposée n’est pas une mesure de qualité pédagogique sans référence validée par l’enseignant.</p>
+    <p className="observability-footnote">Les indicateurs reflètent uniquement les données effectivement remontées par le fournisseur configuré et conservées localement. Une note proposée n’est pas une mesure de qualité pédagogique sans référence validée par l’enseignant.</p>
   </section>;
 }

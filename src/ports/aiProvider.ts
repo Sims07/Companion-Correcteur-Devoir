@@ -24,10 +24,12 @@ export interface DiagnosticModelResult {
   kind: 'vision' | 'model' | 'arbitrator';
   stage?: 'reading' | 'analysis' | 'arbitration';
   model: string;
-  /** Exact textual content sent in messages[0].content. Image bytes are deliberately excluded. */
+  /** Legacy standalone prompt preview. New traces keep the full sanitized request in requestPayload. */
   requestPrompt?: string;
-  /** Actual non-sensitive Ollama request settings; never contains image payloads or endpoint credentials. */
-  requestMetadata?: { stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number } };
+  /** Effective non-sensitive provider settings; never contains image bytes or endpoint credentials. */
+  requestMetadata?: { provider?: 'ollama' | 'openai-compatible'; endpoint?: string; stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number; stop?: string[]; repeatPenalty?: number; frequencyPenalty?: number } };
+  /** Sanitized JSON preview of the exact provider request; image bytes and credentials are always redacted. */
+  requestPayload?: string;
   /** Raw response content returned by the model, including partial output when available. */
   raw: string;
   /** Provider/network failure associated with this exact request, when the call did not complete. */
@@ -90,7 +92,7 @@ export interface OllamaSettings {
   /** Repetition penalty used for all local document transcription requests. */
   transcriptionRepeatPenalty?: number;
   /** OpenAI-compatible server parameter used for the repetition penalty. */
-  transcriptionPenaltyParameter?: 'frequency_penalty' | 'repeat_penalty';
+  transcriptionPenaltyParameter?: 'none' | 'frequency_penalty' | 'repeat_penalty';
   transcriptionFrequencyPenalty?: number;
   /** Maximum transcription tokens, capped at 2048. */
   transcriptionTokenLimit?: number;

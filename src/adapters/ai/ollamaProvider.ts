@@ -184,6 +184,19 @@ interface OllamaTagsResponse {
   models?: Array<{ name?: string }>;
 }
 
+function diagnosticEndpoint(endpoint: string): string {
+  try {
+    const parsed = new URL(endpoint);
+    parsed.username = '';
+    parsed.password = '';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return '[endpoint non disponible]';
+  }
+}
+
 function normalizedEndpoint(endpoint: string): string {
   const value = endpoint.trim().replace(/\/+$/, '');
   if (!/^https?:\/\//i.test(value)) throw new Error('L’adresse Ollama doit commencer par http:// ou https://.');
@@ -230,8 +243,15 @@ export function createOllamaProvider(
   settings: OllamaSettings,
   fetchImpl: typeof fetch = fetch,
 ): GradingProvider {
+  let activeRequestPayloads: unknown[] | null = null;
   const providerFetch = settings.apiCompatible
-    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter, frequencyPenalty: settings.transcriptionFrequencyPenalty }, fetchImpl)
+    ? createOpenAiCompatibleFetch({
+        endpoint: settings.endpoint,
+        apiKey: settings.apiKey ?? '',
+        repetitionPenaltyParameter: settings.transcriptionPenaltyParameter,
+        frequencyPenalty: settings.transcriptionFrequencyPenalty,
+        onRequest: (payload) => { try { activeRequestPayloads?.push(JSON.parse(payload)); } catch { activeRequestPayloads?.push({ preview: payload }); } },
+      }, fetchImpl)
     : fetchImpl;
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
@@ -325,6 +345,7 @@ export function createOllamaProvider(
         tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage'> & { deferResult?: boolean; keepAlive?: string | number; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void },
       ): Promise<string> {
         const startedAt = Date.now();
+        activeRequestPayloads = [];
         let response: Response;
         let partialContent = '';
         let diagnosticResultEmitted = false;
@@ -334,8 +355,10 @@ export function createOllamaProvider(
             kind: tracking.kind,
             stage: tracking.stage,
             model,
-            requestPrompt: content,
+            ...(activeRequestPayloads?.length ? { requestPayload: JSON.stringify({ attempts: activeRequestPayloads }, null, 2) } : { requestPrompt: content }),
             requestMetadata: {
+              provider: settings.apiCompatible ? 'openai-compatible' : 'ollama',
+              endpoint: diagnosticEndpoint(settings.endpoint),
               stream: true,
               think,
               ...(json ? { format: 'json' as const } : {}),
@@ -345,6 +368,10 @@ export function createOllamaProvider(
                 contextTokens: tracking.contextTokenLimit ?? (tracking.kind === 'vision' ? 4096 : 8192),
                 generationTokenLimit: tracking.generationTokenLimit ?? 2048,
                 ...(tracking.temperature !== undefined ? { temperature: tracking.temperature } : {}),
+                ...(tracking.stop ? { stop: tracking.stop } : {}),
+                ...(tracking.repeatPenalty !== undefined ? { repeatPenalty: tracking.repeatPenalty } : {}),
+                ...(settings.apiCompatible && settings.transcriptionPenaltyParameter === 'frequency_penalty' && settings.transcriptionFrequencyPenalty !== undefined
+                  ? { frequencyPenalty: settings.transcriptionFrequencyPenalty } : {}),
               },
             },
             elapsedMs: Date.now() - startedAt,
@@ -361,10 +388,7 @@ export function createOllamaProvider(
           diagnosticResultEmitted = true;
         };
         try {
-          response = await providerFetch(`${endpoint}/api/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          const requestBody = {
               model,
               stream: true,
               think,
@@ -381,7 +405,16 @@ export function createOllamaProvider(
               },
               ...(json ? { format: 'json' } : {}),
               messages: [{ role: 'user', content, ...(images?.length ? { images } : {}) }],
-            }),
+          };
+          if (!settings.apiCompatible) {
+            const preview = JSON.parse(JSON.stringify(requestBody)) as typeof requestBody;
+            if (preview.messages[0].images) preview.messages[0].images = preview.messages[0].images.map((image) => `[IMAGE REDACTED · ${image.startsWith('data:') ? image.slice(5, image.indexOf(';')) : 'base64'}]`);
+            activeRequestPayloads?.push(preview);
+          }
+          response = await providerFetch(`${endpoint}/api/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
           });
         } catch (cause) {
           publishFailedCall(cause);
@@ -405,8 +438,10 @@ export function createOllamaProvider(
               kind: tracking.kind,
               stage: tracking.stage,
               model,
-              requestPrompt: content,
+              ...(activeRequestPayloads?.length ? { requestPayload: JSON.stringify({ attempts: activeRequestPayloads }, null, 2) } : { requestPrompt: content }),
               requestMetadata: {
+                provider: settings.apiCompatible ? 'openai-compatible' : 'ollama',
+                endpoint: diagnosticEndpoint(settings.endpoint),
                 stream: true,
                 think,
                 ...(json ? { format: 'json' as const } : {}),
@@ -416,6 +451,10 @@ export function createOllamaProvider(
                   contextTokens: tracking.contextTokenLimit ?? (tracking.kind === 'vision' ? 4096 : 8192),
                   generationTokenLimit: tracking.generationTokenLimit ?? 2048,
                   ...(tracking?.temperature !== undefined ? { temperature: tracking.temperature } : {}),
+                  ...(tracking?.stop ? { stop: tracking.stop } : {}),
+                  ...(tracking?.repeatPenalty !== undefined ? { repeatPenalty: tracking.repeatPenalty } : {}),
+                  ...(settings.apiCompatible && settings.transcriptionPenaltyParameter === 'frequency_penalty' && settings.transcriptionFrequencyPenalty !== undefined
+                    ? { frequencyPenalty: settings.transcriptionFrequencyPenalty } : {}),
                 },
               },
               elapsedMs: Date.now() - startedAt,
