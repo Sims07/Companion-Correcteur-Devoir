@@ -215,13 +215,6 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
       requestBody = { ...requestBody, response_format: { type: 'json_object' } };
       response = await send(requestBody);
     }
-    // Some nominally OpenAI-compatible gateways reject both token-limit dialects.
-    // Retry once without the optional output cap rather than failing before generation.
-    if (!response.ok && [400, 422].includes(response.status) && ('max_tokens' in requestBody || 'max_completion_tokens' in requestBody)) {
-      const { max_tokens: _maxTokens, max_completion_tokens: _maxCompletionTokens, ...withoutTokenLimit } = requestBody;
-      requestBody = withoutTokenLimit;
-      response = await send(requestBody);
-    }
     if (!response.ok) return response;
     if (source.stream) return streamAsOllama(response);
     const payload = await response.json() as {
