@@ -24,6 +24,7 @@ export function buildIncrementalCriterionPrompt(
     annotationSuggestion: '',
     pageNumber: 1,
     locationHint: 'Repère textuel approximatif si identifiable.',
+    locationBox: { x: 100, y: 200, width: 400, height: 120 },
     questionForTeacher: '',
   };
 
@@ -35,7 +36,7 @@ export function buildIncrementalCriterionPrompt(
     'JUSTIFICATION ET PREUVE : rationale relie explicitement les attendus du critère aux éléments corrects, partiels, manquants ou erronés. evidence cite fidèlement un passage court de la transcription ou décrit explicitement pourquoi aucune preuve fiable n’est disponible. N’invente jamais de citation. Ces deux champs restent obligatoires même lorsque le maximum de points est attribué.',
     'COMMENTAIRE PÉDAGOGIQUE : si la note est inférieure au maximum, annotationSuggestion contient une remarque courte, concrète et directement reportable sur la copie, sauf si aucune remarque ne peut être formulée sans inventer un fait ; dans ce seul cas, utilise une chaîne vide. Si le maximum est attribué, utilise une chaîne vide sauf apport pédagogique réel. Ne confonds pas ce commentaire avec rationale ou locationHint.',
     'INCERTITUDE : confidence vaut exactement low, medium ou high et mesure la fiabilité de l’interprétation, pas le niveau de l’étudiant. questionForTeacher est une chaîne vide sauf si une ambiguïté concrète, explicitement décrite, pourrait changer la note. N’assimile jamais une transcription illisible à une erreur scientifique.',
-    'LOCALISATION : pageNumber est facultatif et doit être un entier à partir de 1 uniquement si la page est identifiable dans les repères de transcription. locationHint est facultatif et décrit un repère textuel approximatif. Tu ne disposes pas des images originales dans cette étape : ne fournis jamais locationBox et ne prétends pas localiser visuellement une zone.',
+    'LOCALISATION : la lecture des documents a pu fournir des ancres visuelles sous la forme [ANCRE_VISUELLE page=N id=... x=X y=Y width=W height=H] suivies du passage concerné. Si evidence correspond clairement à une ancre, recopie exactement ses coordonnées dans locationBox et sa page dans pageNumber. Ne modifie jamais ces coordonnées et ne les invente pas. Si aucune ancre ne correspond de façon fiable, omets locationBox et conserve éventuellement locationHint. pageNumber est facultatif et doit être un entier à partir de 1 ; locationHint décrit un repère textuel approximatif.',
     'N’ajoute aucun autre champ. N’invente aucun sous-critère, attendu, pénalité ou point. Le code vérifiera l’identifiant, le maximum, la structure et la cohérence des résultats.',
     `EXEMPLE DE STRUCTURE JSON (valeurs illustratives, à remplacer par ton évaluation) : ${JSON.stringify(outputExample)}`,
   ].join('\n\n');

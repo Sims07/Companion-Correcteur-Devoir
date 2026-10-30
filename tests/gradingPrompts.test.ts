@@ -35,11 +35,11 @@ describe('incremental grading prompt contract', () => {
     expect(prompt).toContain('si la note est inférieure au maximum');
   });
 
-  it('does not invite visual coordinates when only a transcription is available', () => {
+  it('reuses only coordinates explicitly extracted by the document-reading stage', () => {
     const prompt = buildIncrementalCriterionPrompt('Contexte issu de transcription', criterion);
 
-    expect(prompt).toContain('ne fournis jamais locationBox');
-    expect(prompt).toContain('ne prétends pas localiser visuellement une zone');
+    expect(prompt).toContain('recopie exactement ses coordonnées dans locationBox');
+    expect(prompt).toContain('ne les invente pas');
     expect(prompt).toContain('pageNumber');
     expect(prompt).toContain('locationHint');
   });
