@@ -58,6 +58,14 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('const timingHistoryLimit = 100;');
   });
 
+  it('exposes an independent local observability workspace with privacy-safe trace exploration', () => {
+    const text = app();
+    expect(text).toContain('>Observabilité</button>');
+    expect(text).toContain("aria-pressed={interfaceMode === 'observability'}");
+    expect(text).toContain('<ObservabilityDashboard records={timingHistory} />');
+    expect(text).toContain('const timingHistoryLimit = 100;');
+  });
+
   it('offers a sequential independent evaluation for saved model configurations', () => {
     const text = app();
     expect(text).toContain('Choisir les configurations à comparer');
