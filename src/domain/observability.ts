@@ -57,7 +57,7 @@ export function extractObservabilityPromptMessages(requestPayload?: string): Obs
 }
 
 export type ObservabilityTrace = {
-  source?: 'correction' | 'model-evaluation';
+  source?: 'correction' | 'model-evaluation' | 'rubric-import';
   evaluationProfileName?: string;
   id: string;
   completedAt: string;

@@ -64,6 +64,31 @@ describe('rubric import progress', () => {
     expect(requestBodies[1].messages?.[0].content).not.toMatch(/\\n{3,}/);
   });
 
+  it('surfaces the compatible API validation message when rubric structuring is rejected', async () => {
+    const progress: RubricImportProgress[] = [];
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(visionResponse())
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: "Unsupported parameter: 'max_tokens'" } }), {
+        status: 422, headers: { 'Content-Type': 'application/json' },
+      })) as unknown as typeof fetch;
+    await expect(importRubricImageWithOllama(
+      image('bareme.png'),
+      { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b' },
+      fetchMock,
+      (event) => progress.push(event),
+    )).rejects.toThrow("HTTP 422 : Unsupported parameter: 'max_tokens'");
+
+    const failedAnalysis = progress.find((event) => event.stage === 'error' && event.diagnosticRun?.kind === 'model');
+    expect(failedAnalysis?.rawResponseStage).toBe('analysis');
+    expect(failedAnalysis?.diagnosticRun).toMatchObject({
+      kind: 'model',
+      model: 'qwen3.5:4b',
+      doneReason: 'http_422',
+      error: "HTTP 422 : Unsupported parameter: 'max_tokens'",
+    });
+    expect(failedAnalysis?.diagnosticRun?.elapsedMs).toEqual(expect.any(Number));
+  });
+
   it('keeps the exact model response visible when rubric validation fails', async () => {
     const progress: RubricImportProgress[] = [];
     const rawResponse = JSON.stringify({
@@ -169,6 +194,8 @@ describe('rubric import progress', () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(visionResponse('Page 1 : Exercice 1, critère 1, 2 points.'))
       .mockResolvedValueOnce(visionResponse('Page 2 : Exercice 2, critère 2, 3 points.'))
+      .mockResolvedValueOnce(analysisResult)
+      .mockResolvedValueOnce(analysisResult)
       .mockResolvedValueOnce(analysisResult) as unknown as typeof fetch;
 
     const result = await importRubricImageWithOllama(
@@ -182,13 +209,15 @@ describe('rubric import progress', () => {
     expect(result.rubric.criteria).toHaveLength(2);
     expect(progress.some((event) => event.stage === 'page-complete' && event.page === 1 && event.totalPages === 2)).toBe(true);
     expect(progress.some((event) => event.stage === 'page-complete' && event.page === 2 && event.totalPages === 2)).toBe(true);
-    const analysisBody = JSON.parse(String((fetchMock as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }).mock.calls[2][1]?.body)) as { messages: Array<{ content: string; images?: string[] }> };
-    expect(analysisBody.messages[0].content).toContain('<transcription_page_1>');
-    expect(analysisBody.messages[0].content).toContain('<transcription_page_2>');
-    expect(analysisBody.messages[0].images).toBeUndefined();
+    const analysisCalls = (fetchMock as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }).mock.calls.slice(2);
+    const analysisBodies = analysisCalls.map((call) => JSON.parse(String(call[1]?.body)) as { messages: Array<{ content: string; images?: string[] }> });
+    expect(analysisBodies).toHaveLength(1);
+    expect(analysisBodies[0].messages[0].content).toContain('<transcription_page_1>');
+    expect(analysisBodies[0].messages[0].content).toContain('<transcription_page_2>');
+    expect(analysisBodies.every((body) => body.messages[0].images === undefined)).toBe(true);
     expect(progress.at(-1)?.stage).toBe('complete');
   });
-  it('uses an explicit large output budget and rejects a response stopped by the token limit', async () => {
+  it('uses the documented 2048-token output ceiling and rejects a response stopped by the token limit', async () => {
     const requestBodies: Array<{ options?: { num_predict?: number } }> = [];
     const progress: RubricImportProgress[] = [];
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -206,15 +235,15 @@ describe('rubric import progress', () => {
       { endpoint: 'http://localhost:11434', visionModel: 'qwen3-vl:4b', analysisModel: 'qwen3.5:4b' },
       fetchMock,
       (event) => progress.push(event),
-    )).rejects.toThrow(/limite de génération \(8192 tokens\) a été atteinte/);
+    )).rejects.toThrow(/limite de génération \(2048 tokens\) a été atteinte/);
 
-    expect(requestBodies[1].options?.num_predict).toBe(8192);
+    expect(requestBodies[1].options?.num_predict).toBe(2048);
     expect(progress.some((event) => event.stage === 'parsing')).toBe(false);
   });
 
   it('preserves the six mitosis rubric criteria and their pedagogical constraints', async () => {
     const pages = [
-      'Titre : objectif du TP et méthode ; ne pas reprendre simplement le titre du TP.',
+      `Titre : objectif du TP et méthode ; ne pas reprendre simplement le titre du TP. ${'Attendu complémentaire de la première page. '.repeat(120)}`,
       'Introduction : définir la mitose, ses rôles et ses phases ; objectif : estimer leur durée.',
       'Introduction : présenter la méthode et les hypothèses ; ne pas donner les durées en introduction.',
       'Introduction : ne pas répondre à la problématique dans cette partie.',
@@ -238,18 +267,12 @@ describe('rubric import progress', () => {
       message: { content: JSON.stringify({ title: 'TP5 — Mitose', criteria }) },
       done_reason: 'stop',
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    const fetchMock = vi.fn()
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[0])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[1])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[2])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[3])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[4])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[5])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[6])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[7])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[8])))
-      .mockImplementationOnce(() => Promise.resolve(visionResponse(pages[9])))
-      .mockResolvedValueOnce(analysisResponse) as unknown as typeof fetch;
+    let visionIndex = 0;
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { stream?: boolean };
+      if (body.stream) return visionResponse(pages[visionIndex++]);
+      return analysisResponse;
+    }) as unknown as typeof fetch;
 
     const result = await importRubricImageWithOllama(
       pages.map((_, index) => image(`mitose.pdf · page ${index + 1}`)),
@@ -264,8 +287,15 @@ describe('rubric import progress', () => {
     expect(result.rubric.criteria[2].description).toContain('pas à pas');
     expect(result.rubric.criteria[3].description).toContain('titré et numéroté');
     expect(result.rubric.criteria[4].description).toContain('biais de comptage');
-    const analysisBody = JSON.parse(String((fetchMock as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }).mock.calls[10][1]?.body)) as { messages: Array<{ content: string }> };
-    for (let page = 1; page <= 10; page += 1) expect(analysisBody.messages[0].content).toContain(`<transcription_page_${page}>`);
+    const calls = (fetchMock as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }).mock.calls;
+    const analysisBodies = calls.slice(10).map((call) => JSON.parse(String(call[1]?.body)) as { options?: { num_predict?: number }; messages: Array<{ content: string }> });
+    expect(calls).toHaveLength(13);
+    expect(analysisBodies).toHaveLength(3);
+    expect(analysisBodies.slice(0, 2).every((body) => body.options?.num_predict === 768)).toBe(true);
+    expect(analysisBodies.at(-1)?.options?.num_predict).toBe(2048);
+    for (let page = 1; page <= 10; page += 1) {
+      expect(analysisBodies.slice(0, 2).some((body) => body.messages[0].content.includes(`<transcription_page_${page}>`))).toBe(true);
+    }
     expect(progress.at(-1)?.stage).toBe('complete');
   });
 

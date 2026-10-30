@@ -20,6 +20,8 @@ export type RubricImportProgress = {
     generatedTokens?: number;
     totalTokens?: number;
     doneReason?: string;
+    /** Provider/network failure for this exact model request. */
+    error?: string;
   };
 };
 

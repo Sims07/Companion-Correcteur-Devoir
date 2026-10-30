@@ -854,6 +854,8 @@ describe('Ollama adapter', () => {
     });
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: 'Exercice 1 — Connaissances : notions exactes, 8 points. Vocabulaire : 2,5 points.' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: rubricJson } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: rubricJson } }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: rubricJson } }), { status: 200 }));
     const imported = await importRubricImageWithOllama(
       { base64: 'aGVsbG8=', mimeType: 'image/png', fileName: 'bareme.png' },
@@ -905,12 +907,16 @@ describe('Ollama adapter', () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: 'Page 1 du barème.' } }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: 'Page 2 du barème.' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: rubricJson } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: rubricJson } }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: rubricJson } }), { status: 200 }));
 
     await importRubricImageWithOllama([
       { base64: 'cGFnZTE=', mimeType: 'image/png', fileName: 'bareme-page-1.png' },
       { base64: 'cGFnZTI=', mimeType: 'image/png', fileName: 'bareme-page-2.png' },
     ], { endpoint: 'http://localhost:11434', visionModel: 'vision-model', analysisModel: 'analysis-model' }, fetchMock);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
 
     const firstPage = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { keep_alive?: string | number };
     const lastPage = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { keep_alive?: string | number };

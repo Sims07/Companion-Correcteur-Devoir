@@ -24,14 +24,14 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
   return <details className="observability-trace-details">
     <summary>
       <span className="observability-trace-date">{new Date(trace.completedAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</span>
-      <span className="observability-trace-models"><strong>{trace.source === 'model-evaluation' ? `Évaluation · ${trace.evaluationProfileName ?? 'Profil'}` : trace.visionModel || 'Vision non renseigné'}</strong><small>{trace.source === 'model-evaluation' ? `${trace.visionModel || 'Sans Vision'} · ${trace.analysisModel || 'Sans Analyse'}` : trace.analysisModel || 'Analyse non renseignée'}</small></span>
+      <span className="observability-trace-models"><strong>{trace.source === 'model-evaluation' ? `Évaluation · ${trace.evaluationProfileName ?? 'Profil'}` : trace.source === 'rubric-import' ? 'Import de barème' : trace.visionModel || 'Vision non renseigné'}</strong><small>{trace.source === 'model-evaluation' ? `${trace.visionModel || 'Sans Vision'} · ${trace.analysisModel || 'Sans Analyse'}` : trace.source === 'rubric-import' ? `Vision : ${trace.visionModel || 'non renseigné'} · Analyse : ${trace.analysisModel || 'non renseigné'}` : trace.analysisModel || 'Analyse non renseignée'}</small></span>
       <span className="observability-trace-duration">{duration(trace.totalSeconds)}</span>
       <span className={trace.outcome === 'success' ? 'observability-status success' : 'observability-status error'}>{trace.outcome === 'success' ? 'Terminée' : 'Échec'}</span>
       <span className="observability-expand" aria-hidden="true">⌄</span>
     </summary>
     <div className="observability-trace-body">
       <div className="observability-trace-meta">
-        <span><small>Type d’exécution</small><strong>{trace.source === 'model-evaluation' ? `Évaluation de modèles · ${trace.evaluationProfileName ?? 'Profil'}` : 'Correction'}</strong></span>
+        <span><small>Type d’exécution</small><strong>{trace.source === 'model-evaluation' ? `Évaluation de modèles · ${trace.evaluationProfileName ?? 'Profil'}` : trace.source === 'rubric-import' ? 'Import de barème' : 'Correction'}</strong></span>
         <span><small>Devoir</small><strong>{trace.assignmentTitle || 'Devoir sans titre'}</strong></span>
         <span><small>Pages traitées</small><strong>{trace.pageCount}</strong></span>
         <span><small>Lecture / Vision</small><strong>{duration(trace.readingSeconds)}</strong></span>

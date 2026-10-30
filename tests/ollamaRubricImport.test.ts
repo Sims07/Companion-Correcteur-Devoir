@@ -15,6 +15,8 @@ describe('importRubricImageWithOllama', () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(visionResponse('Page 1 : Questions 1 et 2, 5 points chacune.'))
       .mockResolvedValueOnce(visionResponse('Page 2 : Questions 3 et 4, 5 points chacune.'))
+      .mockResolvedValueOnce(analysisResponse(validRubric))
+      .mockResolvedValueOnce(analysisResponse(validRubric))
       .mockResolvedValueOnce(analysisResponse(validRubric));
     const pages = [page('PAGE_ONE', 'bareme.pdf · page 1'), page('PAGE_TWO', 'bareme.pdf · page 2')];
     const result = await importRubricImageWithOllama(pages, {
