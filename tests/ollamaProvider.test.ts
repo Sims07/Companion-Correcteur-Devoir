@@ -114,8 +114,7 @@ describe('Ollama adapter', () => {
     const trace = onDiagnosticResult.mock.calls[0][0];
     expect(trace).toMatchObject({
       model: 'llava',
-      requestPrompt: expect.stringContaining('Expliquez la mitose'),
-      requestPayload: expect.stringContaining('IMAGE REDACTED'),
+      requestPayload: expect.stringMatching(/Expliquez la mitose[\\s\\S]*IMAGE REDACTED/),
       requestMetadata: { provider: 'ollama', endpoint: 'http://localhost:11434', stream: true, think: false, format: 'json', imageCount: 1, keepAlive: 0, options: { contextTokens: 8192, generationTokenLimit: 2048 } },
       raw: 'Réponse brute du modèle',
     });
@@ -176,7 +175,7 @@ describe('Ollama adapter', () => {
     expect(onDiagnosticResult).toHaveBeenCalledOnce();
     expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({
       model: 'llava',
-      requestPrompt: expect.stringContaining('Expliquez la mitose'),
+      requestPayload: expect.stringContaining('Expliquez la mitose'),
       requestMetadata: { stream: true, format: 'json', imageCount: 1 },
       raw: partial,
       error: expect.stringContaining('connection reset'),
