@@ -916,6 +916,8 @@ describe('Ollama adapter', () => {
       { base64: 'cGFnZTI=', mimeType: 'image/png', fileName: 'bareme-page-2.png' },
     ], { endpoint: 'http://localhost:11434', visionModel: 'vision-model', analysisModel: 'analysis-model' }, fetchMock);
 
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
     const firstPage = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { keep_alive?: string | number };
     const lastPage = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { keep_alive?: string | number };
     const analysis = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { keep_alive?: string | number };
