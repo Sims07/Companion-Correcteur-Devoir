@@ -37,7 +37,7 @@ export function splitRubricTranscriptions(
   for (const [index, transcription] of transcriptions.entries()) {
     const page = index + 1;
     for (const text of splitText(transcription, maxCharacters - 64)) {
-      const formattedSize = text.length + 48;
+      const formattedSize = text.length + 64;
       if (currentPages.length > 0 && currentSize + formattedSize + 2 > maxCharacters) {
         chunks.push({ page: currentPages[0].page, text: '', pages: currentPages });
         currentPages = [];
@@ -54,8 +54,8 @@ export function splitRubricTranscriptions(
 export function formatRubricTranscriptionChunk(chunk: RubricTranscriptionChunk): string {
   const pages = chunk.pages ?? [{ page: chunk.page, text: chunk.text }];
   return pages.map(({ page, text }) =>
-    `<transcription_page_${page}>\\n${text}\\n</transcription_page_${page}>`,
-  ).join('\\n\\n');
+    `<transcription_page_${page}>\n${text}\n</transcription_page_${page}>`,
+  ).join('\n\n');
 }
 
 export function buildRubricStructuringPrompt(
