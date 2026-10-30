@@ -36,7 +36,7 @@ function streamAsOllama(response: Response): Response {
         const { value, done } = await reader.read();
         if (done) { controller.close(); return; }
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\\n');
+        const lines = buffer.split('\n');
         buffer = lines.pop() ?? '';
         for (const line of lines) {
           if (!line.startsWith('data:')) continue;
@@ -49,7 +49,7 @@ function streamAsOllama(response: Response): Response {
               error?: { message?: string };
             };
             if (event.error) {
-              controller.enqueue(encoder.encode(JSON.stringify({ error: event.error.message ?? 'Erreur du fournisseur.' }) + '\\n'));
+              controller.enqueue(encoder.encode(JSON.stringify({ error: event.error.message ?? 'Erreur du fournisseur.' }) + '\n'));
               continue;
             }
             const choice = event.choices?.[0];
@@ -59,7 +59,7 @@ function streamAsOllama(response: Response): Response {
               ...(choice?.finish_reason ? { done_reason: choice.finish_reason, done: true } : {}),
               ...(event.usage ? { usage: event.usage } : {}),
             };
-            if (Object.keys(converted).length) controller.enqueue(encoder.encode(JSON.stringify(converted) + '\\n'));
+            if (Object.keys(converted).length) controller.enqueue(encoder.encode(JSON.stringify(converted) + '\n'));
           } catch {
             // Ignore malformed SSE frames; the provider may emit comments or metadata.
           }
