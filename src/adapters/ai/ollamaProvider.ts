@@ -460,7 +460,7 @@ export function createOllamaProvider(
                 onChunk,
                 true,
                 settings.thinking ?? false,
-                { kind: 'model', stage: 'analysis', generationTokenLimit: 512 },
+                { kind: 'model', stage: 'analysis', generationTokenLimit: 512, keepAlive: index < criteria.length - 1 || attempt === 1 ? '30s' : 0 },
               );
               let parsed: unknown;
               try { parsed = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }

@@ -186,6 +186,8 @@ describe('Ollama adapter', () => {
     expect(firstSuffix).toContain('"id":"knowledge"');
     expect(secondSuffix).toContain('"id":"reasoning"');
     expect(first.options.num_predict).toBe(512);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).keep_alive).toBe('30s');
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).keep_alive).toBe(0);
     expect(JSON.parse(raw)).toMatchObject({ finalScore: 7, criteria: [{ criterionId: 'knowledge', points: 4 }, { criterionId: 'reasoning', points: 3 }] });
     expect(updates.filter((item) => item.status === 'completed').map((item) => item.criterionId)).toEqual(['knowledge', 'reasoning']);
   });
@@ -206,6 +208,26 @@ describe('Ollama adapter', () => {
     expect(updates.filter((item) => item.status === 'completed').map((item) => item.criterionId)).toEqual(['first', 'second']);
     expect(updates).toContainEqual({ status: 'retrying', criterionId: 'second' });
     expect(JSON.parse(raw).criteria).toHaveLength(2);
+  });
+
+  it('continues after a criterion still fails its targeted retry and retains the other results', async () => {
+    const rubric = JSON.stringify({ title: 'Barème', criteria: [
+      { id: 'first', title: 'Premier critère', description: 'Attendu 1', maxPoints: 2 },
+      { id: 'second', title: 'Second critère', description: 'Attendu 2', maxPoints: 3 },
+      { id: 'third', title: 'Troisième critère', description: 'Attendu 3', maxPoints: 5 },
+    ] });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'first', points: 2, confidence: 'high' })))
+      .mockResolvedValueOnce(streamingResponse('{"criterionId":'))
+      .mockResolvedValueOnce(streamingResponse('{"criterionId":'))
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'third', points: 4, confidence: 'medium', rationale: 'Un élément manque.' })));
+    const updates: Array<{ status: string; criterionId: string }> = [];
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision-model', analysisModel: 'analysis-model' }, fetchMock);
+    await expect(provider.generate({ question: request.question, rubric, images: [], transcription: 'Réponse' }, undefined, undefined, undefined, undefined, (update) => updates.push({ status: update.status, criterionId: update.criterionId })))
+      .rejects.toThrow(/second critère/i);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(updates).toContainEqual({ status: 'failed', criterionId: 'second' });
+    expect(updates.filter((item) => item.status === 'completed').map((item) => item.criterionId)).toEqual(['first', 'third']);
   });
 
   it('unloads each independent analysis model immediately during comparison', async () => {
