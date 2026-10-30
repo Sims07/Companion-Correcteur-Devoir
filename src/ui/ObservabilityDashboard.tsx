@@ -19,24 +19,6 @@ function stageLabel(stage: string): string {
   return stage === 'reading' ? 'Vision · lecture' : stage === 'analysis' ? 'Analyse' : stage === 'arbitration' ? 'Arbitrage' : 'Autre';
 }
 
-function requestPromptFromPayload(payload?: string): string | null {
-  if (!payload) return null;
-  try {
-    const parsed = JSON.parse(payload) as { attempts?: Array<{ messages?: Array<{ content?: unknown }> }> };
-    const content = parsed.attempts?.[0]?.messages?.[0]?.content;
-    if (typeof content === 'string') return content;
-    if (Array.isArray(content)) {
-      return content
-        .filter((part): part is { type: string; text: string } => Boolean(part) && typeof part === 'object' && (part as { type?: unknown }).type === 'text' && typeof (part as { text?: unknown }).text === 'string')
-        .map((part) => part.text)
-        .join('\n');
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
   const spans = trace.diagnosticRuns ?? [];
   return <details className="observability-trace-details">
@@ -84,8 +66,9 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
                 {span.requestMetadata.options.frequencyPenalty !== undefined && <div><dt>frequency_penalty (effectif)</dt><dd>{span.requestMetadata.options.frequencyPenalty}</dd></div>}
                 {span.requestMetadata.options.stop && <div><dt>Séquences stop</dt><dd><code>{JSON.stringify(span.requestMetadata.options.stop)}</code></dd></div>}
               </dl>}
-              {span.requestPayload ? <><strong>Corps JSON réellement transmis (images masquées)</strong><pre>{span.requestPayload}</pre></> : <p className="observability-empty-inline">Corps JSON non conservé pour cette ancienne trace.</p>}
-              <details className="observability-prompt-details"><summary>Voir uniquement le prompt texte</summary><pre>{span.requestPrompt ?? requestPromptFromPayload(span.requestPayload) ?? 'Prompt non conservé pour cette ancienne trace.'}</pre></details>
+              {span.requestPayload
+                ? <><strong>Corps JSON réellement transmis (images masquées)</strong><pre>{span.requestPayload}</pre></>
+                : <><p className="observability-empty-inline">Corps JSON non conservé pour cette ancienne trace.</p>{span.requestPrompt && <><strong>Prompt texte conservé dans cette ancienne trace</strong><pre>{span.requestPrompt}</pre></>}</>}
             </div>
             <div className="observability-call-section"><strong>Réponse brute du modèle</strong>
               {span.doneReason && <p className="observability-call-reason">Fin de génération : <b>{span.doneReason}</b>{span.thinkingPresent ? ' · raisonnement interne détecté' : ''}</p>}
