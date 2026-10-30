@@ -424,6 +424,11 @@ export function createOllamaProvider(
         return mergedRaw;
       };
 
+      if (strategy === 'single' && diagnosticTracking) {
+        // Keep diagnostic/model-evaluation runs on the whole-rubric contract so benchmark outputs stay comparable.
+        return sendStream(analysisModel, gradingPrompt, undefined, onChunk, true, settings.thinking ?? false, { kind: 'model', stage: 'analysis' });
+      }
+
       if (strategy === 'single') {
         const parsedRubric = JSON.parse(request.rubric) as { title?: string; criteria?: Array<{ id: string; title: string; description: string; maxPoints: number }> };
         const criteria = parsedRubric.criteria ?? [];
