@@ -5,7 +5,7 @@ function streamResponse(content: string): Response {
   return new Response([
     ...content.split('').map((character) => JSON.stringify({ message: { content: character }, done: false })),
     JSON.stringify({ message: {}, done: true }),
-  ].join('\\n') + '\\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
+  ].join('\n') + '\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
 }
 
 describe('teacher annotation separation in the grading pipeline', () => {
