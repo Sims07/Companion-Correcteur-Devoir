@@ -157,12 +157,12 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
     if (!response.ok) return response;
     if (source.stream) return streamAsOllama(response);
     const payload = await response.json() as {
-      choices?: Array<{ message?: { content?: string } }>;
+      choices?: Array<{ message?: { content?: string }; finish_reason?: string | null }>;
       usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
       error?: { message?: string };
     };
     if (payload.error) return new Response(JSON.stringify({ error: payload.error.message }), { status: 200 });
-    return new Response(JSON.stringify({ message: { content: payload.choices?.[0]?.message?.content ?? '' }, usage: payload.usage }), {
+    return new Response(JSON.stringify({ message: { content: payload.choices?.[0]?.message?.content ?? '' }, done_reason: payload.choices?.[0]?.finish_reason ?? undefined, usage: payload.usage }), {
       status: 200, headers: { 'Content-Type': 'application/json' },
     });
   };
