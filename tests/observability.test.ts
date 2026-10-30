@@ -59,6 +59,37 @@ describe('observability prompt extraction', () => {
 });
 
 describe('local observability metrics', () => {
+  it('counts failed rubric-import model calls as visible analysis spans', () => {
+    const rubricImportTrace: ObservabilityTrace = {
+      id: 'rubric-import-1',
+      source: 'rubric-import',
+      completedAt: '2026-10-30T22:55:00.000Z',
+      visionModel: 'qwen3-vl:4b',
+      analysisModel: 'qwen3.5:4b',
+      totalSeconds: 12,
+      readingSeconds: 10,
+      analysisSeconds: 2,
+      outcome: 'error',
+      modelScore: null,
+      pageCount: 10,
+      assignmentTitle: 'TP5 Mitose',
+      diagnosticRuns: [{
+        kind: 'model',
+        stage: 'analysis',
+        model: 'qwen3.5:4b',
+        elapsedMs: 2000,
+        raw: "Unsupported parameter: 'max_tokens'",
+        error: "HTTP 422 : Unsupported parameter: 'max_tokens'",
+        doneReason: 'http_422',
+      }],
+    };
+    expect(buildObservabilitySummary([rubricImportTrace])).toMatchObject({ traceCount: 1, errorCount: 1, totalCalls: 1 });
+    expect(buildObservabilityModelMetrics([rubricImportTrace])).toMatchObject([
+      expect.objectContaining({ model: 'qwen3.5:4b', stage: 'analysis', calls: 1, elapsedMs: 2000 }),
+    ]);
+    expect(rubricImportTrace.diagnosticRuns?.[0]).toMatchObject({ error: expect.stringContaining('HTTP 422'), doneReason: 'http_422' });
+  });
+
   it('normalizes the model stage without depending on provider internals', () => {
     expect(getObservabilityStage({ model: 'vision-a', kind: 'vision', elapsedMs: 1 })).toBe('reading');
     expect(getObservabilityStage({ model: 'arbiter', kind: 'arbitrator', elapsedMs: 1 })).toBe('arbitration');
