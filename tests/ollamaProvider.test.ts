@@ -127,7 +127,7 @@ describe('Ollama adapter', () => {
     const partial = '{"criteria":[{"criterionId":"knowledge","points":';
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content: partial }, done: false }) + '\\n'));
+        controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content: partial }, done: false }) + '\n'));
         controller.error(new TypeError('connection reset'));
       },
     });
