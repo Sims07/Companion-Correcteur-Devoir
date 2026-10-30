@@ -69,6 +69,10 @@ export interface GradingProvider {
 
 export interface OllamaSettings {
   endpoint: string;
+  /** Route chat calls through an OpenAI Chat Completions compatible endpoint. */
+  apiCompatible?: boolean;
+  /** Optional bearer token, never included in diagnostic metadata. */
+  apiKey?: string;
   /** Legacy single-model mode remains supported for existing integrations. */
   model?: string;
   /** Vision-capable model used only to transcribe each page locally. */
