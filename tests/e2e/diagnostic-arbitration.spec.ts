@@ -37,7 +37,7 @@ test('evaluation presents four focused spaces and keeps launch disabled until th
   await expect(page.getByRole('heading', { name: 'Préparer le barème de correction' })).toHaveCount(0);
   await navigation.getByRole('button', { name: /Résultats/ }).click();
   await expect(navigation.getByRole('button', { name: /Résultats/ })).toHaveAttribute('aria-current', 'step');
-  await expect(page.getByRole('heading', { name: 'Résultats de l’évaluation' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Résultats du parcours complet' })).toBeVisible();
   await navigation.getByRole('button', { name: /Analyse & historique/ }).click();
   await expect(navigation.getByRole('button', { name: /Analyse & historique/ })).toHaveAttribute('aria-current', 'step');
   await expect(page.getByRole('heading', { name: 'Analyser et comparer les expériences' })).toBeVisible();
