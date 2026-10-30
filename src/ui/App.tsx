@@ -351,7 +351,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
-  }, [endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion]);
+  }, [endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion]);
 
   function applyAiModelProfile(profile: AiModelProfile) {
     setEndpoint(profile.configuration.endpoint);
@@ -380,7 +380,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
-    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
+    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
     const profile: AiModelProfile = {
       id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
       name,
