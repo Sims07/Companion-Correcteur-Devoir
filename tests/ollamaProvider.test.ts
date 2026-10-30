@@ -255,7 +255,7 @@ describe('Ollama adapter', () => {
       '',
       'data: [DONE]',
       '',
-    ].join('\\n'), { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+    ].join('\n'), { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(openAiStream('Question 1 - réponse'))
       .mockResolvedValueOnce(openAiStream('{"regions":[]}'))
@@ -300,7 +300,7 @@ describe('Ollama adapter', () => {
     const visionStream = new Response([
       JSON.stringify({ message: { content: partial }, done: false }),
       JSON.stringify({ message: {}, done: true, done_reason: 'length' }),
-    ].join('\\n') + '\\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
+    ].join('\n') + '\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(visionStream)
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
