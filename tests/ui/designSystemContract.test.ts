@@ -1,5 +1,9 @@
 import { readFileSync } from 'node:fs';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { Field } from '../../src/ui/design-system/components/Field.tsx';
+import { TextInput } from '../../src/ui/design-system/components/TextInput.tsx';
 
 const read = (path: string) => readFileSync(path, 'utf8');
 
@@ -12,20 +16,29 @@ describe('design system foundations', () => {
     expect(tokens).toContain('--ds-focus-ring');
   });
 
-  it('provides consistent keyboard focus and disabled states for shared controls', () => {
+  it('provides consistent keyboard focus and disabled states for shared and native controls', () => {
     const controls = read('src/ui/design-system/controls.css');
     expect(controls).toContain('.ds-input:focus-visible');
     expect(controls).toContain('.design-system-select:focus-visible');
+    expect(controls).toContain('select:not([multiple])');
     expect(controls).toContain('.ds-button:focus-visible');
     expect(controls).toContain(':disabled');
     expect(controls).toContain('prefers-reduced-motion');
   });
 
-  it('keeps field validation messages available to assistive technology', () => {
-    const field = read('src/ui/design-system/components/Field.tsx');
-    expect(field).toContain('aria-hidden="true"');
-    expect(field).toContain('role="alert"');
-    expect(field).toContain('aria-describedby');
+  it('connects field labels, hints and validation errors to the rendered control', () => {
+    const markup = renderToStaticMarkup(createElement(Field, {
+      label: 'Nom du devoir',
+      htmlFor: 'assignment-name',
+      hint: 'Visible dans votre espace local.',
+      error: 'Ce champ est obligatoire.',
+      children: createElement(TextInput, { id: 'assignment-name' }),
+    }));
+
+    expect(markup).toContain('for="assignment-name"');
+    expect(markup).toContain('aria-describedby="assignment-name-hint assignment-name-error"');
+    expect(markup).toContain('aria-invalid="true"');
+    expect(markup).toContain('role="alert"');
   });
 
   it('keeps native form semantics in shared input components', () => {
