@@ -33,7 +33,7 @@ export type ObservabilityTrace = {
 
 };
 
-/** Convert each saved model/profile result into a privacy-safe trace for the shared dashboard. */
+/** Convert each saved model/profile result into a local trace without retaining image payloads. */
 export function toModelEvaluationObservabilityTraces(records: import('./modelEvaluation.ts').ModelEvaluationRecord[]): ObservabilityTrace[] {
   return records.flatMap((record) => record.results.map((result) => {
     const configuration = record.configurations.find((item) => item.id === result.profileId);
