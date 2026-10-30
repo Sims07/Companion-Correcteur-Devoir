@@ -263,7 +263,6 @@ export function createOllamaProvider(
                 think,
                 ...(json ? { format: 'json' as const } : {}),
                 imageCount: images?.length ?? 0,
-                imageMimeTypes: (images ?? []).map((_, index) => index < (tracking?.kind === 'vision' ? request.images?.length ?? 0 : 0) ? 'image' : 'image'),
                 keepAlive: tracking?.keepAlive ?? 0,
                 ...(tracking?.temperature !== undefined ? { temperature: tracking.temperature } : {}),
               },
