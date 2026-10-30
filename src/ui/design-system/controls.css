@@ -24,7 +24,17 @@
 
 input.ds-input,
 textarea.ds-input,
-select.design-system-select {
+select.design-system-select,
+input:not([type]),
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="url"],
+input[type="tel"],
+textarea,
+select:not([multiple]) {
   display: block;
   box-sizing: border-box;
   width: 100%;
@@ -43,9 +53,19 @@ select.design-system-select {
 }
 
 input.ds-input::placeholder,
-textarea.ds-input::placeholder { color: var(--ds-color-text-disabled); opacity: 1; }
+textarea.ds-input::placeholder,
+input:not([type])::placeholder,
+input[type="text"]::placeholder,
+input[type="number"]::placeholder,
+input[type="email"]::placeholder,
+input[type="password"]::placeholder,
+input[type="search"]::placeholder,
+input[type="url"]::placeholder,
+input[type="tel"]::placeholder,
+textarea::placeholder { color: var(--ds-color-text-disabled); opacity: 1; }
 
-select.design-system-select {
+select.design-system-select,
+select:not([multiple]) {
   appearance: none;
   padding-right: 42px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%23587960' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -57,13 +77,33 @@ select.design-system-select {
 
 input.ds-input:hover:not(:disabled),
 textarea.ds-input:hover:not(:disabled),
-select.design-system-select:hover:not(:disabled) {
+select.design-system-select:hover:not(:disabled),
+input:not([type]):hover:not(:disabled),
+input[type="text"]:hover:not(:disabled),
+input[type="number"]:hover:not(:disabled),
+input[type="email"]:hover:not(:disabled),
+input[type="password"]:hover:not(:disabled),
+input[type="search"]:hover:not(:disabled),
+input[type="url"]:hover:not(:disabled),
+input[type="tel"]:hover:not(:disabled),
+textarea:hover:not(:disabled),
+select:not([multiple]):hover:not(:disabled) {
   border-color: #afc6b2;
 }
 
 input.ds-input:focus-visible,
 textarea.ds-input:focus-visible,
-select.design-system-select:focus-visible {
+select.design-system-select:focus-visible,
+input:not([type]):focus-visible,
+input[type="text"]:focus-visible,
+input[type="number"]:focus-visible,
+input[type="email"]:focus-visible,
+input[type="password"]:focus-visible,
+input[type="search"]:focus-visible,
+input[type="url"]:focus-visible,
+input[type="tel"]:focus-visible,
+textarea:focus-visible,
+select:not([multiple]):focus-visible {
   border-color: var(--ds-color-brand-600);
   outline: none;
   box-shadow: var(--ds-focus-ring);
@@ -71,14 +111,27 @@ select.design-system-select:focus-visible {
 
 input.ds-input[aria-invalid="true"],
 textarea.ds-input[aria-invalid="true"],
-select.design-system-select[aria-invalid="true"] {
+select.design-system-select[aria-invalid="true"],
+input[aria-invalid="true"],
+textarea[aria-invalid="true"],
+select:not([multiple])[aria-invalid="true"] {
   border-color: var(--ds-color-danger);
   background-color: var(--ds-color-danger-surface);
 }
 
 input.ds-input:disabled,
 textarea.ds-input:disabled,
-select.design-system-select:disabled {
+select.design-system-select:disabled,
+input:not([type]):disabled,
+input[type="text"]:disabled,
+input[type="number"]:disabled,
+input[type="email"]:disabled,
+input[type="password"]:disabled,
+input[type="search"]:disabled,
+input[type="url"]:disabled,
+input[type="tel"]:disabled,
+textarea:disabled,
+select:not([multiple]):disabled {
   color: var(--ds-color-text-disabled);
   background-color: var(--ds-color-surface-subtle);
   cursor: not-allowed;
@@ -158,12 +211,32 @@ textarea.ds-textarea {
 @media (max-width: 560px) {
   input.ds-input,
   textarea.ds-input,
-  select.design-system-select { min-height: 46px; }
+  select.design-system-select,
+  input:not([type]),
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="url"],
+  input[type="tel"],
+  textarea,
+  select:not([multiple]) { min-height: 46px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   input.ds-input,
   textarea.ds-input,
   select.design-system-select,
+  input:not([type]),
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="url"],
+  input[type="tel"],
+  textarea,
+  select:not([multiple]),
   .ds-button { transition: none; }
 }
