@@ -196,7 +196,7 @@ describe('Ollama diagnostic multi-model strategy', () => {
   it('distinguishes a thinking-only response from a normal empty response', async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({
       message: { content: '', thinking: 'raisonnement sans réponse finale' }, done: true, done_reason: 'stop',
-    }) + '\\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } }));
+    }) + '\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } }));
     const events: Array<{ thinkingPresent?: boolean; doneReason?: string; contextTokens?: number }> = [];
     const provider = createOllamaProvider({ ...settings, diagnosticStrategy: 'single' }, fetchMock as typeof fetch);
     await expect(provider.generate(request, undefined, undefined, undefined, (event) => events.push(event)))
@@ -205,7 +205,7 @@ describe('Ollama diagnostic multi-model strategy', () => {
   });
 
   it('uses a smaller context window for vision requests than for analysis', async () => {
-    const fetchMock = vi.fn(async () => streamResponse('Transcription'));
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => streamResponse('Transcription'));
     const provider = createOllamaProvider({ ...settings, diagnosticStrategy: 'single' }, fetchMock as typeof fetch);
     await provider.generate({ ...request, transcription: undefined, images: [{ base64: 'aGVsbG8=', mimeType: 'image/png' }], visionOnly: true });
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { options: { num_ctx: number; num_predict: number } };
