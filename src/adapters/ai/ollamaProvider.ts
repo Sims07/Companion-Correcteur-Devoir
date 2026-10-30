@@ -126,7 +126,7 @@ export function buildTranscriptionPrompt(model: string, mode: 'auto' | 'ocr' | '
     'Si un passage est réellement illisible, écris [illisible]. Ne devine, ne complète et n’invente aucun mot.',
     'Ne répète aucun passage. N’ajoute aucun préambule, commentaire ni conclusion.',
     'Réduis les zones blanches à au plus deux lignes vides consécutives afin de ne pas interrompre la transcription.',
-  ].join('\\n');
+  ].join('\n');
 }
 
 function normalizeRegions(raw: string, pageNumber: number, transcription: string): string[] {
@@ -450,7 +450,7 @@ export function createOllamaProvider(
             onDoneReason: (reason) => { subjectTruncated = reason === 'length'; },
             keepAlive: index < subjectImages.length - 1 || (!request.transcription && (request.images?.length ?? 0) > 0) ? '30s' : 0,
           });
-          const subjectStopReached = /(?:\\r?\\n){4}$/.test(pageText);
+          const subjectStopReached = /(?:\r?\n){4}$/.test(pageText);
           const cleanedSubjectText = cleanTranscription(pageText);
           subjectPages.push(`[ ${pageLabel} ]\n${cleanedSubjectText}${subjectTruncated || subjectStopReached ? ' [LECTURE DOUTEUSE : transcription interrompue par la limite de génération]' : ''}`);
         }
@@ -483,7 +483,7 @@ export function createOllamaProvider(
               keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
             },
           );
-          if (/(?:\\r?\\n){4}$/.test(pageTranscription)) transcriptionTruncated = true;
+          if (/(?:\r?\n){4}$/.test(pageTranscription)) transcriptionTruncated = true;
           const pageText = cleanTranscription(pageTranscription);
           if (!pageText) throw new Error(`Aucun texte n’a pu être lu sur ${pageLabel}.`);
           let regionAnchors: string[] = [];
@@ -558,7 +558,7 @@ export function createOllamaProvider(
           `TRANSCRIPTION :\\n${transcription ?? ''}`,
           `AVIS 1 (JSON) :\\n${JSON.stringify(selectCriteria(firstProposal))}`,
           `AVIS 2 (JSON) :\\n${JSON.stringify(selectCriteria(secondProposal))}`,
-        ].join('\\n\\n');
+        ].join('\n\n');
         const raw = await sendStream(arbitratorModel, arbitrationPrompt, undefined, onChunk, true, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration', deferResult: true });
         const decisions = parseArbitrationDecisions(raw, resolution.disputedCriterionIds, firstProposal.criteria, secondProposal.criteria);
         const judgedCriteria = resolution.disputedCriterionIds.map((criterionId) => {
@@ -785,7 +785,7 @@ export async function importRubricImageWithOllama(
           options: {
             temperature: 0,
             num_predict: Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048))),
-            stop: ['\\n\\n\\n\\n'],
+            stop: ['\n\n\n\n'],
             repeat_penalty: settings.transcriptionRepeatPenalty ?? 1.05,
           },
           messages: [{
@@ -817,7 +817,7 @@ export async function importRubricImageWithOllama(
     const rawTranscription = payload.message?.content ?? '';
     const transcription = cleanTranscription(rawTranscription);
     if (!transcription) throw new Error(`Le modèle de vision n’a retourné aucune transcription pour la page ${page}.`);
-    const doubtful = payload.done_reason === 'length' || /(?:\\r?\\n){4}$/.test(rawTranscription);
+    const doubtful = payload.done_reason === 'length' || /(?:\r?\n){4}$/.test(rawTranscription);
     transcriptions.push(` ${transcription}${doubtful ? ' [LECTURE DOUTEUSE : transcription interrompue par la limite de génération]' : ''}`.trim());
     onProgress?.({
       stage: 'vision-reading',
