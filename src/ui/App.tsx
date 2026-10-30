@@ -735,7 +735,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
             : null;
           const partialValue = {
             transcription: extractedTranscription,
-            raw: measuredRuns.at(-1)?.raw ?? '',
+            raw: measuredRuns[measuredRuns.length - 1]?.raw ?? '',
             score: null,
             proposal: null,
             readingMs,
