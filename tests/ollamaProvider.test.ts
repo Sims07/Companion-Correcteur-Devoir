@@ -256,8 +256,8 @@ describe('Ollama adapter', () => {
     const encoder = new TextEncoder();
     const driftingResponse = new Response(new ReadableStream<Uint8Array>({
       start(controller) {
-        for (const character of ['Réponse', '\\n', '\\n', '\\n', '\\n']) {
-          controller.enqueue(encoder.encode(JSON.stringify({ message: { content: character }, done: false }) + '\\n'));
+        for (const character of ['Réponse', '\n', '\n', '\n', '\n']) {
+          controller.enqueue(encoder.encode(JSON.stringify({ message: { content: character }, done: false }) + '\n'));
         }
       },
       cancel() { cancelled = true; },
