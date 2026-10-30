@@ -115,12 +115,28 @@ describe('Ollama adapter', () => {
     expect(trace).toMatchObject({
       model: 'llava',
       requestPrompt: expect.stringContaining('Expliquez la mitose'),
-      requestMetadata: { stream: true, think: false, format: 'json', imageCount: 1, keepAlive: 0, options: { contextTokens: 8192, generationTokenLimit: 2048 } },
+      requestPayload: expect.stringContaining('IMAGE REDACTED'),
+      requestMetadata: { provider: 'ollama', endpoint: 'http://localhost:11434', stream: true, think: false, format: 'json', imageCount: 1, keepAlive: 0, options: { contextTokens: 8192, generationTokenLimit: 2048 } },
       raw: 'Réponse brute du modèle',
     });
     expect(JSON.stringify(trace)).not.toContain('aGVsbG8=');
   });
 
+  it('records the exact sanitized OpenAI-compatible multimodal request and neutral transcription parameters', async () => {
+    const sse = 'data: {"choices":[{"delta":{"content":"Transcription lue"},"finish_reason":"stop"}]}\\n\\ndata: [DONE]\\n\\n';
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(sse, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }));
+    const onDiagnosticResult = vi.fn();
+    const provider = createOllamaProvider({ endpoint: 'https://api.example', apiCompatible: true, apiKey: 'secret-token', model: 'vision-model' }, fetchMock);
+    await provider.generate({ ...request, visionOnly: true }, undefined, undefined, undefined, onDiagnosticResult);
+    const trace = onDiagnosticResult.mock.calls[0][0];
+    expect(trace.requestMetadata).toMatchObject({ provider: 'openai-compatible', endpoint: 'https://api.example', options: { temperature: 0 } });
+    expect(trace.requestPayload).toContain('image_url');
+    expect(trace.requestPayload).toContain('IMAGE REDACTED');
+    expect(trace.requestPayload).toContain('temperature');
+    expect(trace.requestPayload).not.toContain('aGVsbG8=');
+    expect(trace.requestPayload).not.toContain('secret-token');
+    expect(trace.requestPayload).not.toContain('frequency_penalty');
+  });
   it('keeps a truncated LLM response available in the trace when Ollama stops at its token limit', async () => {
     const partial = '{"criteria":[{"criterionId":"knowledge"';
     const body = [
