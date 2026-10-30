@@ -414,6 +414,18 @@ describe('Ollama adapter', () => {
     expect(analysisBody.messages[0].content).not.toContain('image_url');
   });
 
+  it('marks a transcription as doubtful when one line loops repeatedly at the end', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse('Repeated line\nRepeated line\nRepeated line\n'))
+      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const transcriptions: string[] = [];
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'grader',
+    }, fetchMock);
+    await expect(provider.generate(request, undefined, undefined, (value) => transcriptions.push(value))).resolves.toBe('{"criteria":[]}');
+    expect(transcriptions[0]).toContain('LECTURE DOUTEUSE');
+  });
+
   it('marks a transcription as doubtful when the vision model reaches its token limit and continues grading', async () => {
     const partial = 'CE 6/10';
     const visionStream = new Response([
