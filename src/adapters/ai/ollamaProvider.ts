@@ -450,8 +450,9 @@ export function createOllamaProvider(
             onDoneReason: (reason) => { subjectTruncated = reason === 'length'; },
             keepAlive: index < subjectImages.length - 1 || (!request.transcription && (request.images?.length ?? 0) > 0) ? '30s' : 0,
           });
+          const subjectStopReached = /(?:\\r?\\n){4}$/.test(pageText);
           const cleanedSubjectText = cleanTranscription(pageText);
-          subjectPages.push(`[ ${pageLabel} ]\n${cleanedSubjectText}${subjectTruncated ? ' [LECTURE DOUTEUSE : transcription interrompue par la limite de génération]' : ''}`);
+          subjectPages.push(`[ ${pageLabel} ]\n${cleanedSubjectText}${subjectTruncated || subjectStopReached ? ' [LECTURE DOUTEUSE : transcription interrompue par la limite de génération]' : ''}`);
         }
         subjectTranscription = subjectPages.join('\n\n');
         onTranscription?.(subjectTranscription, 'subject');
@@ -479,9 +480,10 @@ export function createOllamaProvider(
               repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
               allowTruncated: true,
               onDoneReason: (reason) => { transcriptionTruncated = reason === 'length'; },
-              keepAlive: index < (request.images?.length ?? 0) - 1 || (settings.regionsEnabled && !transcriptionTruncated && (settings.regionsModel?.trim() || visionModel) === visionModel) ? '30s' : 0,
+              keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
             },
           );
+          if (/(?:\\r?\\n){4}$/.test(pageTranscription)) transcriptionTruncated = true;
           const pageText = cleanTranscription(pageTranscription);
           if (!pageText) throw new Error(`Aucun texte n’a pu être lu sur ${pageLabel}.`);
           let regionAnchors: string[] = [];
@@ -812,9 +814,10 @@ export async function importRubricImageWithOllama(
     if (!response.ok) throw new Error(`Le modèle de vision a refusé la page ${page} (HTTP ${response.status}).`);
     const payload = await response.json() as OllamaChatResponse;
     if (payload.error) throw new Error(`Ollama signale une erreur pendant la lecture visuelle de la page ${page}.`);
-    const transcription = cleanTranscription(payload.message?.content ?? '');
+    const rawTranscription = payload.message?.content ?? '';
+    const transcription = cleanTranscription(rawTranscription);
     if (!transcription) throw new Error(`Le modèle de vision n’a retourné aucune transcription pour la page ${page}.`);
-    const doubtful = payload.done_reason === 'length';
+    const doubtful = payload.done_reason === 'length' || /(?:\\r?\\n){4}$/.test(rawTranscription);
     transcriptions.push(` ${transcription}${doubtful ? ' [LECTURE DOUTEUSE : transcription interrompue par la limite de génération]' : ''}`.trim());
     onProgress?.({
       stage: 'vision-reading',
