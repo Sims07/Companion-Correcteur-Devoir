@@ -91,6 +91,7 @@ export interface OllamaSettings {
   transcriptionRepeatPenalty?: number;
   /** OpenAI-compatible server parameter used for the repetition penalty. */
   transcriptionPenaltyParameter?: 'frequency_penalty' | 'repeat_penalty';
+  transcriptionFrequencyPenalty?: number;
   /** Maximum transcription tokens, capped at 2048. */
   transcriptionTokenLimit?: number;
   /** Text model used to grade the transcription against the rubric. */
