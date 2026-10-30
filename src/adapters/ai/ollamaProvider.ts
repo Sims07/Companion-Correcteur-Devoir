@@ -243,14 +243,14 @@ export function createOllamaProvider(
   settings: OllamaSettings,
   fetchImpl: typeof fetch = fetch,
 ): GradingProvider {
-  let activeRequestPayloads: string[] | null = null;
+  let activeRequestPayloads: unknown[] | null = null;
   const providerFetch = settings.apiCompatible
     ? createOpenAiCompatibleFetch({
         endpoint: settings.endpoint,
         apiKey: settings.apiKey ?? '',
         repetitionPenaltyParameter: settings.transcriptionPenaltyParameter,
         frequencyPenalty: settings.transcriptionFrequencyPenalty,
-        onRequest: (payload) => { activeRequestPayloads?.push(payload); },
+        onRequest: (payload) => { try { activeRequestPayloads?.push(JSON.parse(payload)); } catch { activeRequestPayloads?.push({ preview: payload }); } },
       }, fetchImpl)
     : fetchImpl;
   return {
@@ -409,7 +409,7 @@ export function createOllamaProvider(
           if (!settings.apiCompatible) {
             const preview = JSON.parse(JSON.stringify(requestBody)) as typeof requestBody;
             if (preview.messages[0].images) preview.messages[0].images = preview.messages[0].images.map((image) => `[IMAGE REDACTED · ${image.startsWith('data:') ? image.slice(5, image.indexOf(';')) : 'base64'}]`);
-            activeRequestPayloads?.push(JSON.stringify(preview, null, 2));
+            activeRequestPayloads?.push(preview);
           }
           response = await providerFetch(`${endpoint}/api/chat`, {
             method: 'POST',
