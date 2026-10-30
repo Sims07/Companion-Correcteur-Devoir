@@ -262,6 +262,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   const [salukiMessage, setSalukiMessage] = useState('');
   const [visionModel, setVisionModel] = useState(() => readAiModelConfiguration().visionModel);
   const [regionsEnabled, setRegionsEnabled] = useState(() => readAiModelConfiguration().regionsEnabled);
+  const [detectTeacherAnnotations, setDetectTeacherAnnotations] = useState(() => readAiModelConfiguration().detectTeacherAnnotations);
   const [regionsModel, setRegionsModel] = useState(() => readAiModelConfiguration().regionsModel);
   const [transcriptionTokenLimit, setTranscriptionTokenLimit] = useState(() => readAiModelConfiguration().transcriptionTokenLimit);
   const [transcriptionPromptMode, setTranscriptionPromptMode] = useState<'auto' | 'ocr' | 'general'>(() => readAiModelConfiguration().transcriptionPromptMode);
@@ -300,6 +301,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   const [images, setImages] = useState<ImageInput[]>([]);
   const [copyQueue, setCopyQueue] = useState<QueuedCopy[]>([]);
   const [transcription, setTranscription] = useState<string | null>(null);
+  const [teacherAnnotations, setTeacherAnnotations] = useState('');
   const [busy, setBusy] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
@@ -349,10 +351,10 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   ];
 
   useEffect(() => {
-    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
+    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, detectTeacherAnnotations, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
-  }, [endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion]);
+  }, [endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, detectTeacherAnnotations, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion]);
 
   function applyAiModelProfile(profile: AiModelProfile) {
     setEndpoint(profile.configuration.endpoint);
@@ -360,6 +362,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setApiKey(profile.configuration.apiKey);
     setVisionModel(profile.configuration.visionModel);
     setRegionsEnabled(profile.configuration.regionsEnabled);
+    setDetectTeacherAnnotations(profile.configuration.detectTeacherAnnotations);
     setRegionsModel(profile.configuration.regionsModel);
     setTranscriptionTokenLimit(profile.configuration.transcriptionTokenLimit);
     setTranscriptionPromptMode(profile.configuration.transcriptionPromptMode);
@@ -440,6 +443,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setRubric((current) => ({ ...current, criteria: current.criteria.map((criterion) => criterion.id === id ? { ...criterion, ...patch } : criterion) }));
     setProposal(null);
     setReview([]);
+    setTeacherAnnotations('');
   }
 
   function addCriterion() {
@@ -647,9 +651,9 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       if ((!transcription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
       await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
       setAnalysisStage('reading');
-      const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
+      const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, detectTeacherAnnotations, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
       const raw = await provider.generate(
-        { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
+        { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images, detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
         (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
         (stage) => {
           const now = Date.now();
@@ -667,6 +671,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
         },
         (extracted, kind) => {
           if (kind === 'subject') setSubjectTranscription(extracted);
+          else if (kind === 'annotations') setTeacherAnnotations(extracted);
           else setTranscription(extracted);
         },
         (result) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); },
@@ -1380,6 +1385,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
           <input id="ai-transcription-frequency-penalty" type="number" min="0" max="2" step="0.05" value={transcriptionFrequencyPenalty} onChange={(event) => { setTranscriptionFrequencyPenalty(Math.min(2, Math.max(0, Number(event.target.value) || 0))); setTranscription(null); }} />
           <p className="hint">Cette pénalité est différente de repeat_penalty. Pour une transcription fidèle, la valeur neutre 0 est recommandée ; n’augmentez-la que si vous avez validé son effet avec votre fournisseur.</p>
         </>}
+        <label className="analysis-thinking-option" htmlFor="detect-teacher-annotations"><input id="detect-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Détecter les annotations déjà présentes</strong><small>Recherche localement remarques, corrections, coches et notes. La couleur est un indice, pas une preuve ; les détections restent à vérifier et les points déjà inscrits ne sont jamais additionnés automatiquement.</small></span></label>
         <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}
         <p className="hint">Ce modèle applique le barème au texte lu. Le mode thinking reste désactivé pour privilégier une correction plus rapide et compatible.</p>
@@ -2130,6 +2136,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
 
       {(proposal || isAnalyzing || review.length > 0 || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section">
         <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{isAnalyzing && criterionProgress.completedCount < criterionProgress.totalCount ? `${criterionProgress.totalCount - criterionProgress.completedCount} EN ATTENTE` : `${pendingCount} À VÉRIFIER`}</span></div>{isAnalyzing && <p className="criterion-live-progress" role="status" aria-live="polite">{criterionProgress.completedCount} / {criterionProgress.totalCount} critère(s) évalué(s) · {criterionProgressMessage || 'Analyse progressive en cours'}. La note affichée est provisoire et évoluera à mesure des résultats.</p>}{(readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
+        {teacherAnnotations && <section className="panel teacher-annotations-review" aria-label="Annotations préexistantes détectées"><div className="panel-heading"><span className="number">✎</span><div><h3>Annotations déjà présentes sur la copie</h3><p>Détections locales à vérifier : elles ne sont pas considérées comme de nouvelles notes.</p></div></div><pre>{teacherAnnotations}</pre></section>}
         <section className="review-alerts" aria-label="Points nécessitant votre attention">
           <div className="review-alerts-heading"><div><span className="eyebrow">CONTRÔLE CIBLÉ</span><h3>Vérifications prioritaires</h3></div><span className="review-alert-count">{reviewInsights.flaggedCriteriaIds.length} critère(s)</span></div>
           {unreadableCopySignal && <div className="review-alert review-alert-warning" role="alert"><strong>Lecture de la copie à contrôler</strong><p>La transcription est absente ou contient un signal d’illisibilité. Vérifiez les images originales avant de vous fier à la note proposée.</p></div>}
