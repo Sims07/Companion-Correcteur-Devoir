@@ -183,7 +183,7 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
       const fallbackBody = { ...body, response_format: { type: 'json_object' } };
       if ('stream_options' in fallbackBody) {
         const { stream_options: _streamOptions, ...withoutStreamOptions } = fallbackBody;
-        response = await fetchImpl(url, { ...init, headers, body: JSON.stringify(withoutStreamOptions) });
+        response = await send(withoutStreamOptions);
       } else {
         response = await send(fallbackBody);
       }
