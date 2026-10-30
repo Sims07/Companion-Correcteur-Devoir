@@ -232,4 +232,20 @@ describe('UI design system', () => {
     expect(stylesheet).toContain('.design-system-select:focus-visible');
     expect(stylesheet).toContain('.design-system-select:disabled');
   });
+  
+  it('uses a shared wide workspace frame while preserving workflow-specific navigation', () => {
+    expect(appComponent).toContain('evaluation-workspace-shell');
+    expect(correctionFlowStylesheet).toContain('max-width: 1560px;');
+    expect(correctionFlowStylesheet).toContain('grid-template-columns: minmax(240px, 264px) minmax(0, 1fr);');
+    expect(correctionFlowStylesheet).toContain('.teacher-content-column {');
+    expect(correctionFlowStylesheet).toContain('padding: 32px 0 0;');
+    expect(stylesheet).toContain('.evaluation-workspace-shell {');
+    expect(stylesheet).toContain('max-width: 1560px;');
+    expect(stylesheet).toContain('.evaluation-workspace-shell .evaluation-page-header');
+    expect(correctionFlowStylesheet).toContain('@media (max-width: 720px)');
+    expect(stylesheet).toContain('@media (max-width: 720px)');
+    expect(correctionFlowStylesheet).toContain('.teacher-step-nav');
+    expect(stylesheet).toContain('.evaluation-step-nav');
+  });
+
 });
