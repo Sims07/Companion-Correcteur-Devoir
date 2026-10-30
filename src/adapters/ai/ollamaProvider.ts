@@ -256,7 +256,7 @@ export function createOllamaProvider(
     : fetchImpl;
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
-    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void): Promise<string> {
+    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
       const providerName = settings.apiCompatible ? 'API compatible OpenAI' : 'Ollama';
       const visionOnly = request.visionOnly === true;
@@ -572,19 +572,6 @@ export function createOllamaProvider(
           if (/(?:\r?\n){4}$/.test(pageTranscription)) transcriptionTruncated = true;
           const pageText = cleanTranscription(pageTranscription);
           if (!pageText) throw new Error(`Aucun texte n’a pu être lu sur ${pageLabel}.`);
-          if (request.detectTeacherAnnotations || settings.detectTeacherAnnotations) {
-            const annotationResponse = await sendStream(visionModel, [
-              'Repère uniquement les marques possiblement ajoutées par le professeur : commentaires en marge, corrections, coches, croix, cercles et notes déjà attribuées.',
-              'Une couleur différente de l’écriture principale est un indice, jamais une preuve. Le rouge, vert, violet ou toute autre encre peut être utilisé ; un étudiant peut aussi employer plusieurs couleurs. Si l’auteur est ambigu, indique une confiance low ou le type unknown.',
-              'Distingue comment, correction, score (note/points déjà inscrits), mark (coche, croix, cercle) et unknown. Ne recalcule aucune note et ne confonds pas l’écriture de l’étudiant avec une annotation.',
-              'Retourne uniquement un JSON : {"annotations":[{"text":"texte fidèle","kind":"comment|correction|score|mark|unknown","points":2,"color":"rouge / bleu / vert / inconnu","location":"marge droite, question 2","confidence":"low|medium|high"}]}. points est facultatif et réservé aux notes numériques explicitement visibles. Sans annotation repérable, retourne {"annotations":[]}. N’invente rien.',
-              `Transcription de référence (écriture étudiante) :\n${pageText}`,
-            ].join('\n\n'), [providerImage(image)], undefined, true, false, {
-              kind: 'vision', stage: 'reading', temperature: 0, generationTokenLimit: 1024, keepAlive: '30s',
-            }).catch(() => '');
-            const annotations = parseTeacherAnnotations(annotationResponse);
-            if (annotations.length) detectedTeacherAnnotations.push({ page: index + 1, annotations });
-          }
           const regionModelForPage = settings.regionsModel?.trim() || visionModel;
           const isLastPage = index === (request.images?.length ?? 0) - 1;
           if (isLastPage && settings.regionsEnabled && regionModelForPage === visionModel && transcriptionTruncated) {
@@ -631,6 +618,23 @@ export function createOllamaProvider(
         }
         transcription = transcriptions.join('\n\n');
         onTranscription?.(transcription, 'copy');
+      }
+
+      if ((request.detectTeacherAnnotations || settings.detectTeacherAnnotations) && !request.visionOnly) {
+        for (const [index, image] of (request.images ?? []).entries()) {
+          const annotationResponse = await sendStream(visionModel, [
+            'Repère uniquement les marques possiblement ajoutées par le professeur : commentaires en marge, corrections, coches, croix, cercles et notes déjà attribuées.',
+            'Une couleur différente de l’écriture principale est un indice, jamais une preuve. Le rouge, vert, violet ou toute autre encre peut être utilisé ; un étudiant peut aussi employer plusieurs couleurs. Si l’auteur est ambigu, indique une confiance low ou le type unknown.',
+            'Distingue comment, correction, score (note/points déjà inscrits), mark (coche, croix, cercle) et unknown. Ne recalcule aucune note et ne confonds pas l’écriture de l’étudiant avec une annotation.',
+            'Retourne uniquement un JSON : {"annotations":[{"text":"texte fidèle","kind":"comment|correction|score|mark|unknown","points":2,"color":"rouge / bleu / vert / inconnu","location":"marge droite, question 2","confidence":"low|medium|high"}]}. points est facultatif et réservé aux notes numériques explicitement visibles. Sans annotation repérable, retourne {"annotations":[]}. N’invente rien.',
+            'Analyse l’image entière, y compris les marges, les corrections superposées et les notes manuscrites.',
+          ].join('\\n\\n'), [providerImage(image)], undefined, true, false, {
+            kind: 'vision', stage: 'reading', temperature: 0, generationTokenLimit: 1024,
+            keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
+          }).catch(() => '');
+          const annotations = parseTeacherAnnotations(annotationResponse);
+          if (annotations.length) detectedTeacherAnnotations.push({ page: index + 1, annotations });
+        }
       }
 
       // A vision benchmark stops after transcription: it must not call the analysis model.
