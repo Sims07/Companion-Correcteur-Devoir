@@ -410,7 +410,7 @@ describe('Ollama adapter', () => {
     expect(transcriptionBody.model).toBe('vision-model');
     expect(transcriptionBody.messages[0].content).toEqual([
       { type: 'text', text: expect.stringContaining('Transcris fidèlement') },
-      { type: 'image_url', image_url: { url: 'data:image/png;base64,aGVsbG8=' } },
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,aGVsbG8=', detail: 'high' } },
     ]);
     expect(transcriptionBody).toMatchObject({ temperature: 0, max_tokens: 2048, stop: ['\n\n\n\n'] });
     expect(transcriptionBody.response_format).toBeUndefined();
