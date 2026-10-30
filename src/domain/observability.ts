@@ -19,6 +19,43 @@ export type ObservabilitySpan = {
   thinkingPresent?: boolean;
 };
 
+export type ObservabilityPromptMessage = {
+  attempt: number;
+  role: string;
+  content: string;
+};
+
+/** Extract readable text messages from the exact, image-redacted request payload saved for a model call. */
+export function extractObservabilityPromptMessages(requestPayload?: string): ObservabilityPromptMessage[] {
+  if (!requestPayload) return [];
+  try {
+    const parsed: unknown = JSON.parse(requestPayload);
+    if (typeof parsed !== 'object' || parsed === null) return [];
+    const root = parsed as Record<string, unknown>;
+    const attempts = Array.isArray(root.attempts) ? root.attempts : [root];
+    return attempts.flatMap((attempt, attemptIndex) => {
+      if (typeof attempt !== 'object' || attempt === null || !Array.isArray((attempt as Record<string, unknown>).messages)) return [];
+      return ((attempt as Record<string, unknown>).messages as unknown[]).flatMap((message) => {
+        if (typeof message !== 'object' || message === null) return [];
+        const item = message as Record<string, unknown>;
+        const role = typeof item.role === 'string' && item.role.trim() ? item.role : 'unknown';
+        const content = typeof item.content === 'string'
+          ? item.content
+          : Array.isArray(item.content)
+            ? item.content.flatMap((part) => {
+                if (typeof part !== 'object' || part === null) return [];
+                const text = (part as Record<string, unknown>).text;
+                return typeof text === 'string' ? [text] : [];
+              }).join('\n')
+            : '';
+        return content.trim() ? [{ attempt: attemptIndex + 1, role, content }] : [];
+      });
+    });
+  } catch {
+    return [];
+  }
+}
+
 export type ObservabilityTrace = {
   source?: 'correction' | 'model-evaluation';
   evaluationProfileName?: string;

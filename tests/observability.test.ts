@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildObservabilityModelMetrics, buildObservabilitySummary, getObservabilityStage, toModelEvaluationObservabilityTraces, type ObservabilityTrace } from '../src/domain/observability.ts';
+import { buildObservabilityModelMetrics, buildObservabilitySummary, extractObservabilityPromptMessages, getObservabilityStage, toModelEvaluationObservabilityTraces, type ObservabilityTrace } from '../src/domain/observability.ts';
 
 const traces: ObservabilityTrace[] = [
   {
@@ -32,6 +32,31 @@ const traces: ObservabilityTrace[] = [
     diagnosticRuns: [{ model: 'analysis-b', stage: 'analysis', elapsedMs: 60000 }],
   },
 ];
+
+describe('observability prompt extraction', () => {
+  it('separates system and user prompts across every recorded retry without exposing image parts', () => {
+    const payload = JSON.stringify({
+      attempts: [
+        { messages: [
+          { role: 'system', content: 'SYSTEM PROMPT ENVOYÉ' },
+          { role: 'user', content: [{ type: 'text', text: 'USER PROMPT ENVOYÉ' }, { type: 'image_url', image_url: { url: '[IMAGE REDACTED]' } }] },
+        ] },
+        { messages: [{ role: 'developer', content: 'DEVELOPER PROMPT RETRY' }, { role: 'user', content: 'USER PROMPT RETRY' }] },
+      ],
+    });
+    expect(extractObservabilityPromptMessages(payload)).toEqual([
+      { attempt: 1, role: 'system', content: 'SYSTEM PROMPT ENVOYÉ' },
+      { attempt: 1, role: 'user', content: 'USER PROMPT ENVOYÉ' },
+      { attempt: 2, role: 'developer', content: 'DEVELOPER PROMPT RETRY' },
+      { attempt: 2, role: 'user', content: 'USER PROMPT RETRY' },
+    ]);
+  });
+
+  it('returns no prompt messages for missing or malformed payloads', () => {
+    expect(extractObservabilityPromptMessages()).toEqual([]);
+    expect(extractObservabilityPromptMessages('{invalid')).toEqual([]);
+  });
+});
 
 describe('local observability metrics', () => {
   it('normalizes the model stage without depending on provider internals', () => {

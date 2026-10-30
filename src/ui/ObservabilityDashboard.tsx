@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { buildObservabilityModelMetrics, buildObservabilitySummary, type ObservabilityTrace } from '../domain/observability.ts';
+import { buildObservabilityModelMetrics, buildObservabilitySummary, extractObservabilityPromptMessages, type ObservabilityTrace } from '../domain/observability.ts';
 import './observability.css';
 
 type Props = { records: ObservabilityTrace[] };
@@ -41,13 +41,14 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
       <div className="observability-span-heading"><div><span className="observability-eyebrow">DÉROULÉ TECHNIQUE</span><h4>Étapes de cette trace</h4></div><span>{spans.length} appel(s) détaillé(s)</span></div>
       {spans.length ? <ol className="observability-span-list">{spans.map((span, index) => {
         const stage = span.stage ?? (span.kind === 'vision' ? 'reading' : span.kind === 'arbitrator' ? 'arbitration' : span.kind === 'model' ? 'analysis' : 'other');
+        const promptMessages = extractObservabilityPromptMessages(span.requestPayload);
         const measured = span.promptTokens !== undefined || span.generatedTokens !== undefined || span.totalTokens !== undefined;
         const tokens = span.totalTokens ?? ((span.promptTokens ?? 0) + (span.generatedTokens ?? 0));
         return <li key={`${span.model}-${stage}-${index}`}>
           <span className="observability-span-marker">{String(index + 1).padStart(2, '0')}</span>
           <div className="observability-span-copy"><strong>{stageLabel(stage)}</strong><small>{span.model}</small></div>
           <div className="observability-span-measure"><strong>{duration(span.elapsedMs / 1000)}</strong><small>{measured ? `${number(tokens)} tokens` : 'Tokens non remontés'}</small></div>
-          {(span.requestPrompt !== undefined || span.raw !== undefined) && <details className="observability-call-details">
+          {(span.requestPrompt !== undefined || span.requestPayload !== undefined || span.raw !== undefined) && <details className="observability-call-details">
             <summary>{span.error ? "Requête & réponse · échec" : "Requête & réponse"}</summary>
             {span.error && <p className="observability-call-error" role="alert"><strong>Erreur pendant cet appel</strong><span>{span.error}</span></p>}
             <div className="observability-call-section"><strong>Requête envoyée au modèle</strong>
@@ -66,9 +67,16 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
                 {span.requestMetadata.options.frequencyPenalty !== undefined && <div><dt>frequency_penalty (effectif)</dt><dd>{span.requestMetadata.options.frequencyPenalty}</dd></div>}
                 {span.requestMetadata.options.stop && <div><dt>Séquences stop</dt><dd><code>{JSON.stringify(span.requestMetadata.options.stop)}</code></dd></div>}
               </dl>}
+              {promptMessages.length > 0 && <div className="observability-prompt-messages">
+                <strong>Prompts et messages réellement envoyés</strong>
+                {promptMessages.map((message, messageIndex) => <section className="observability-prompt-message" key={`${message.attempt}-${messageIndex}`}>
+                  <div><b>{message.role === 'system' ? 'System prompt' : message.role === 'developer' ? 'Developer prompt' : message.role === 'user' ? 'User prompt' : `Message · ${message.role}`}</b><small>{promptMessages.filter((item) => item.attempt === message.attempt).length > 1 ? `Tentative ${message.attempt}` : 'Message transmis'}</small></div>
+                  <pre>{message.content}</pre>
+                </section>)}
+              </div>}
               {span.requestPayload
                 ? <><strong>Corps JSON réellement transmis (images masquées)</strong><pre>{span.requestPayload}</pre></>
-                : <><p className="observability-empty-inline">Corps JSON non conservé pour cette ancienne trace.</p>{span.requestPrompt && <><strong>Prompt texte conservé dans cette ancienne trace</strong><pre>{span.requestPrompt}</pre></>}</>}
+                : <><p className="observability-empty-inline">Corps JSON non conservé pour cette ancienne trace.</p>{span.requestPrompt && <><strong>Prompt utilisateur conservé dans cette ancienne trace (rôle non détaillé)</strong><pre>{span.requestPrompt}</pre></>}</>}
             </div>
             <div className="observability-call-section"><strong>Réponse brute du modèle</strong>
               {span.doneReason && <p className="observability-call-reason">Fin de génération : <b>{span.doneReason}</b>{span.thinkingPresent ? ' · raisonnement interne détecté' : ''}</p>}
