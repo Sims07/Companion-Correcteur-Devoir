@@ -125,9 +125,14 @@ describe('Ollama adapter', () => {
 
   it('records the exact prompt and partial response when a streaming request is interrupted', async () => {
     const partial = '{"criteria":[{"criterionId":"knowledge","points":';
+    let deliveredPartial = false;
     const stream = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content: partial }, done: false }) + '\n'));
+      pull(controller) {
+        if (!deliveredPartial) {
+          deliveredPartial = true;
+          controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content: partial }, done: false }) + '\n'));
+          return;
+        }
         controller.error(new TypeError('connection reset'));
       },
     });
