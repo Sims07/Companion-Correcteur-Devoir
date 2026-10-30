@@ -247,8 +247,7 @@ export function createOllamaProvider(
 ): GradingProvider {
   let activeRequestPayloads: unknown[] | null = null;
   const providerFetch = settings.apiCompatible
-    ? createOpenAiCompatibleFetch({
-        endpoint: settings.endpoint,
+    ? createOpenAiCompatibleFetch({        endpoint: settings.endpoint,
         apiKey: settings.apiKey ?? '',
         repetitionPenaltyParameter: settings.transcriptionPenaltyParameter,
         frequencyPenalty: settings.transcriptionFrequencyPenalty,
@@ -497,8 +496,7 @@ export function createOllamaProvider(
             const error = new Error(`Le flux envoyé par ${providerName} est mal formé. Vérifiez la compatibilité du serveur.`);
             publishFailedCall(error);
             throw error;
-          }
-          // A completed trace is already emitted above; this also records interrupted reads
+          }          // A completed trace is already emitted above; this also records interrupted reads
           // with the exact prompt and every text chunk received before the interruption.
           if (!diagnosticResultEmitted) publishFailedCall(cause);
           throw cause;
@@ -545,7 +543,6 @@ export function createOllamaProvider(
       const detectedTeacherAnnotations: Array<{ page: number; annotations: ReturnType<typeof parseTeacherAnnotations> }> = [];
       if (!transcription) {
         onStage?.('reading');
-        const transcriptions: string[] = [];
         for (const [index, image] of (request.images ?? []).entries()) {
           const pageLabel = image.fileName || `page ${index + 1}`;
           let transcriptionTruncated = false;
@@ -747,8 +744,7 @@ export function createOllamaProvider(
                 { kind: 'model', stage: 'analysis', generationTokenLimit: 512, keepAlive: index < criteria.length - 1 ? '30s' : 0, deferResult: diagnosticTracking },
               );
               if (diagnosticTracking && lastDiagnosticMetrics) criterionDiagnosticMetrics.push(lastDiagnosticMetrics);
-              let parsed: unknown;
-              try { parsed = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }
+              let parsed: unknown;              try { parsed = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }
               catch { throw new Error('Réponse JSON invalide ou tronquée pour ce critère.'); }
               const candidate = typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
               if (!candidate || candidate.criterionId !== criterion.id || typeof candidate.points !== 'number') {
@@ -997,8 +993,7 @@ export async function importRubricImageWithOllama(
   };
   let analysisRequestCount = 0;
   const runStructuringRequest = async (mode: 'extract' | 'merge', source: string, outputTokens: number): Promise<string> => {
-    if (signal?.aborted) throw new Error('Import du barème interrompu par l’enseignant.');
-    analysisRequestCount += 1;
+    if (signal?.aborted) throw new Error('Import du barème interrompu par l’enseignant.');    analysisRequestCount += 1;
     const requestNumber = analysisRequestCount;
     const analysisStartedAt = Date.now();
     onProgress?.({
