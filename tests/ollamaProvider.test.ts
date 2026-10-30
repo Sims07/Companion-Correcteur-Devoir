@@ -199,12 +199,18 @@ describe('Ollama adapter', () => {
       { id: 'knowledge', title: 'Connaissances', description: 'Exactitude scientifique', maxPoints: 4 },
       { id: 'reasoning', title: 'Raisonnement', description: 'Liens logiques', maxPoints: 6 },
     ] });
+    let releaseFirstRequest: ((response: Response) => void) | undefined;
+    const firstRequest = new Promise<Response>((resolve) => { releaseFirstRequest = resolve; });
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'knowledge', points: 4, confidence: 'high', rationale: '', evidence: '' })))
+      .mockReturnValueOnce(firstRequest)
       .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'reasoning', points: 3, confidence: 'medium', rationale: 'Le lien causal est incomplet.', evidence: 'La conséquence est absente.', annotationSuggestion: 'Précise la conséquence de la division.' })));
     const updates: Array<{ status: string; criterionId: string }> = [];
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision-model', analysisModel: 'analysis-model' }, fetchMock);
-    const raw = await provider.generate({ question: request.question, rubric, images: [], transcription: 'La cellule se divise. Cela produit deux cellules.' }, undefined, undefined, undefined, undefined, (update) => updates.push({ status: update.status, criterionId: update.criterionId }));
+    const grading = provider.generate({ question: request.question, rubric, images: [], transcription: 'La cellule se divise. Cela produit deux cellules.' }, undefined, undefined, undefined, undefined, (update) => updates.push({ status: update.status, criterionId: update.criterionId }));
+    await Promise.resolve();
+    expect(fetchMock).toHaveBeenCalledOnce();
+    releaseFirstRequest?.(streamingResponse(JSON.stringify({ criterionId: 'knowledge', points: 4, confidence: 'high', rationale: '', evidence: '' })));
+    const raw = await grading;
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const first = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { messages: Array<{ content: string }>; options: { num_predict: number } };
