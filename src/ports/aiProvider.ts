@@ -27,7 +27,9 @@ export interface DiagnosticModelResult {
   /** Exact textual content sent in messages[0].content. Image bytes are deliberately excluded. */
   requestPrompt?: string;
   /** Actual non-sensitive Ollama request settings; never contains image payloads or endpoint credentials. */
-  requestMetadata?: { stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number } };
+  requestMetadata?: { provider?: 'ollama' | 'openai-compatible'; endpoint?: string; stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number; stop?: string[]; repeatPenalty?: number; frequencyPenalty?: number } };
+  /** Sanitized JSON preview of the exact provider request; image bytes and credentials are always redacted. */
+  requestPayload?: string;
   /** Raw response content returned by the model, including partial output when available. */
   raw: string;
   /** Provider/network failure associated with this exact request, when the call did not complete. */
