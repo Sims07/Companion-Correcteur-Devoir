@@ -15,7 +15,6 @@ function streamResponse(content: string, usage: Partial<{
   load_duration: number;
   prompt_eval_duration: number;
   eval_duration: number;
-  done_reason: string;
   usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
   done_reason: string;
 }> = {}): Response {
