@@ -99,7 +99,7 @@ test('opens the local observability workspace and explores a trace without expos
   await page.locator('.observability-call-details summary').first().click();
   await expect(page.getByText('PROMPT VISION ENVOYÉ')).toBeVisible();
   await expect(page.getByText('RÉPONSE VISION BRUTE')).toBeVisible();
-  await expect(page.getByText('PROMPT ANALYSE ENVOYÉ')).toHaveCount(0);
+  await expect(page.getByText('PROMPT ANALYSE ENVOYÉ')).toBeHidden();
   await page.locator('.observability-call-details summary').nth(1).click();
   await expect(page.getByText('PROMPT ANALYSE ENVOYÉ')).toBeVisible();
   await expect(page.getByText('RÉPONSE ANALYSE BRUTE')).toBeVisible();
