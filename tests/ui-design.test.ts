@@ -14,6 +14,15 @@ const observabilityStyles = readFileSync(new URL('../src/ui/observability.css', 
 const dropdownComponent = readFileSync(new URL('../src/ui/components/DesignSystemSelect.tsx', import.meta.url), 'utf8');
 
 describe('UI design system', () => {
+  it('exposes progressive criterion results while analysis is still running and blocks incomplete finalization', () => {
+    expect(appComponent).toContain('setCompletedCriterionCount');
+    expect(appComponent).toContain('completedCriterionCount');
+    expect(appComponent).toContain('criterion-live-progress');
+    expect(appComponent).toContain('review.length !== rubric.criteria.length');
+    expect(appComponent).toContain('Les propositions restent provisoires jusqu’à validation.');
+    expect(correctionFlowStylesheet).toContain('.criterion-live-progress');
+  });
+
   it('presents rubric import as separate reading and extraction steps with inspectable raw outputs', () => {
     expect(appComponent).toContain('aria-label="Étapes de l’import du barème"');
     expect(appComponent).toContain('1. Lecture du document');
