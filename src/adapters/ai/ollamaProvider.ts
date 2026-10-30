@@ -1058,16 +1058,16 @@ export async function importRubricImageWithOllama(
     ...(analysisPayload.usage?.total_tokens !== undefined ? { totalTokens: analysisPayload.usage.total_tokens } : {}),
     ...(analysisPayload.done_reason ? { doneReason: analysisPayload.done_reason } : {}),
   };
-  onProgress?.({
-    stage: 'response',
-    page: images.length,
-    totalPages: images.length,
-    message: 'Réponse du modèle d’analyse reçue.',
-    rawResponse: content,
-    rawResponseStage: 'analysis',
-    diagnosticRun: analysisTrace,
-  });
   if (analysisPayload.done_reason === 'length') {
+    onProgress?.({
+      stage: 'response',
+      page: images.length,
+      totalPages: images.length,
+      message: 'Réponse du modèle d’analyse interrompue par la limite de génération.',
+      rawResponse: content,
+      rawResponseStage: 'analysis',
+      diagnosticRun: analysisTrace,
+    });
     throw new Error(`La structuration du barème a été interrompue : la limite de génération (${RUBRIC_STRUCTURING_TOKEN_LIMIT} tokens) a été atteinte. Augmentez la capacité de sortie du modèle ou utilisez un modèle adapté aux longs barèmes.`);
   }
   onProgress?.({
@@ -1077,6 +1077,7 @@ export async function importRubricImageWithOllama(
     message: 'Réponse structurée reçue : validation du JSON et des critères…',
     rawResponse: content,
     rawResponseStage: 'analysis',
+    diagnosticRun: analysisTrace,
   });
   let parsed: unknown;
   try { parsed = JSON.parse(content); }
