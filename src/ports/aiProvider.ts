@@ -81,6 +81,12 @@ export interface OllamaSettings {
   model?: string;
   /** Vision-capable model used only to transcribe each page locally. */
   visionModel?: string;
+  /** Optional second vision pass to locate answer regions; disabled by default. */
+  regionsEnabled?: boolean;
+  /** Optional vision model dedicated to region localization; falls back to visionModel. */
+  regionsModel?: string;
+  /** Maximum transcription tokens, capped at 2048. */
+  transcriptionTokenLimit?: number;
   /** Text model used to grade the transcription against the rubric. */
   analysisModel?: string;
   /** Enable Ollama's thinking mode for analysis only; disabled by default for model compatibility. */
