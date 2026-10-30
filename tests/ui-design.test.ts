@@ -210,7 +210,7 @@ describe('UI design system', () => {
     expect(observabilityStyles).toContain('.observability-kpis');
     expect(appComponent).toContain('toModelEvaluationObservabilityTraces(savedModelEvaluations)');
     expect(appComponent).toContain('records={observabilityRecords}');
-    expect(observabilityComponent).toContain('Évaluation des modèles');
+    expect(observabilityComponent).toContain("trace.source === 'model-evaluation'");
     expect(observabilityComponent).toContain('Historique des corrections et évaluations');
     expect(observabilityStyles).toContain('.observability-activity-chart');
     expect(observabilityStyles).toContain('@media (max-width: 700px)');
