@@ -446,7 +446,7 @@ describe('Ollama adapter', () => {
     expect(subjectBody.messages[0].images).toEqual(['c3ViamV0']);
     expect(subjectBody.keep_alive).toBe('30s'); // Keep vision warm for the following copy page.
     const copyBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { keep_alive?: string | number; messages: Array<{ content: string; images?: string[] }> };
-    expect(copyBody.messages[0].content).toContain('text recognition only');
+    expect(copyBody.messages[0].content).toContain('locate visible answer regions');
     expect(copyBody.keep_alive).toBe(0); // Final vision page: release RAM before grading.
     const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
     expect(gradingBody.messages[0].content).toContain('<sujet_reference>');
