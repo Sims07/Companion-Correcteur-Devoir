@@ -28,7 +28,7 @@ describe('OpenAI-compatible chat transport', () => {
   });
 
   it('maps transcription stop sequences and token limits without sending provider-specific options', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('data: [DONE]\\n\\n', {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('data: [DONE]\n\n', {
       status: 200, headers: { 'Content-Type': 'text/event-stream' },
     }));
     const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example/v1/chat/completions', apiKey: '' }, fetchMock);
@@ -36,7 +36,7 @@ describe('OpenAI-compatible chat transport', () => {
       method: 'POST',
       body: JSON.stringify({
         model: 'vision', stream: true, messages: [{ role: 'user', content: 'Text Recognition:', images: ['data:image/png;base64,abc'] }],
-        options: { temperature: 0, num_predict: 2048, stop: ['\\n\\n\\n'], repeat_penalty: 1.05 },
+        options: { temperature: 0, num_predict: 2048, stop: ['\n\n\n'], repeat_penalty: 1.05 },
       }),
     });
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
