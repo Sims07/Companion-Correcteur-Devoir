@@ -52,6 +52,8 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
             {span.error && <p className="observability-call-error" role="alert"><strong>Erreur pendant cet appel</strong><span>{span.error}</span></p>}
             <div className="observability-call-section"><strong>Requête envoyée au modèle</strong>
               {span.requestMetadata && <dl className="observability-request-metadata">
+                {span.requestMetadata.provider && <div><dt>Transport</dt><dd>{span.requestMetadata.provider === 'openai-compatible' ? 'API compatible OpenAI' : 'Ollama natif'}</dd></div>}
+                {span.requestMetadata.endpoint && <div><dt>Endpoint</dt><dd>{span.requestMetadata.endpoint}</dd></div>}
                 <div><dt>Mode</dt><dd>{span.requestMetadata.stream ? 'Streaming' : 'Sans streaming'}</dd></div>
                 <div><dt>Thinking</dt><dd>{span.requestMetadata.think ? 'Activé' : 'Désactivé'}</dd></div>
                 <div><dt>Format</dt><dd>{span.requestMetadata.format ?? 'Texte libre'}</dd></div>
@@ -60,8 +62,12 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
                 <div><dt>Budget génération</dt><dd>{span.requestMetadata.options.generationTokenLimit} tokens</dd></div>
                 <div><dt>Keep alive</dt><dd>{String(span.requestMetadata.keepAlive)}</dd></div>
                 {span.requestMetadata.options.temperature !== undefined && <div><dt>Température</dt><dd>{span.requestMetadata.options.temperature}</dd></div>}
+                {span.requestMetadata.options.repeatPenalty !== undefined && <div><dt>repeat_penalty (interne)</dt><dd>{span.requestMetadata.options.repeatPenalty}</dd></div>}
+                {span.requestMetadata.options.frequencyPenalty !== undefined && <div><dt>frequency_penalty (effectif)</dt><dd>{span.requestMetadata.options.frequencyPenalty}</dd></div>}
+                {span.requestMetadata.options.stop && <div><dt>Séquences stop</dt><dd><code>{JSON.stringify(span.requestMetadata.options.stop)}</code></dd></div>}
               </dl>}
-              <pre>{span.requestPrompt ?? 'Prompt non conservé pour cette ancienne trace.'}</pre>
+              {span.requestPayload ? <><strong>Corps JSON réellement transmis (images masquées)</strong><pre>{span.requestPayload}</pre></> : <p className="observability-empty-inline">Corps JSON non conservé pour cette ancienne trace.</p>}
+              <details className="observability-prompt-details"><summary>Voir uniquement le prompt texte</summary><pre>{span.requestPrompt ?? 'Prompt non conservé pour cette ancienne trace.'}</pre></details>
             </div>
             <div className="observability-call-section"><strong>Réponse brute du modèle</strong>
               {span.doneReason && <p className="observability-call-reason">Fin de génération : <b>{span.doneReason}</b>{span.thinkingPresent ? ' · raisonnement interne détecté' : ''}</p>}
@@ -71,7 +77,7 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
           </details>}
         </li>;
       })}</ol> : <p className="observability-empty-inline">Les anciennes traces ne contiennent pas encore le détail des appels par modèle. Les durées des deux étapes restent disponibles.</p>}
-      <p className="observability-privacy-note"><span aria-hidden="true">⌂</span> Les détails textuels des échanges LLM sont accessibles à la demande ; les octets des images ne sont jamais exposés.</p>
+      <p className="observability-privacy-note"><span aria-hidden="true">⌂</span> Les requêtes et réponses LLM sont accessibles à la demande ; les clés API et les octets des images ne sont jamais exposés.</p>
     </div>
   </details>;
 }
@@ -100,7 +106,7 @@ export function ObservabilityDashboard({ records }: Props) {
 
     <section className="observability-intro" aria-label="Périmètre des données">
       <div className="observability-intro-icon" aria-hidden="true">⌂</div>
-      <div><strong>Vos données pédagogiques restent locales</strong><p>Cette vue exploite l’historique technique conservé dans le navigateur. Les prompts et réponses sont consultables à la demande dans chaque appel ; les octets des images ne sont jamais affichés.</p></div>
+      <div><strong>Vos données pédagogiques restent locales</strong><p>Cette vue exploite l’historique technique conservé dans le navigateur. Les requêtes JSON, paramètres effectifs, prompts et réponses sont consultables à la demande ; les clés API et octets des images sont masqués.</p></div>
       <span>LOCAL</span>
     </section>
 
