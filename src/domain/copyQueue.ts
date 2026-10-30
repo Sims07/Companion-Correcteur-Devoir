@@ -4,6 +4,7 @@ export interface QueuedCopy {
   id: string;
   label: string;
   images: ImageInput[];
+  detectTeacherAnnotations?: boolean;
 }
 
 export function appendQueuedCopy(queue: readonly QueuedCopy[], copy: QueuedCopy): QueuedCopy[] {
