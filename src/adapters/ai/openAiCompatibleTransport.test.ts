@@ -128,6 +128,22 @@ describe('OpenAI-compatible chat transport', () => {
     expect(response.status).toBe(422);
   });
 
+  it('does not retry a context-window validation error with a different token parameter', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response('maximum context length exceeded', { status: 422 }),
+    );
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        model: 'analysis-model', stream: false, generation_token_parameter: 'max_completion_tokens',
+        options: { num_predict: 768 }, messages: [{ role: 'user', content: 'bounded rubric block' }],
+      }),
+    });
+    expect(response.status).toBe(422);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it('does not retry compatible requests for authentication, rate-limit or server errors', async () => {
     for (const status of [401, 429, 500, 503]) {
       const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('failure', { status }));
