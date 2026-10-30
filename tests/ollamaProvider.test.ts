@@ -298,6 +298,7 @@ describe('Ollama adapter', () => {
   it('marks a page doubtful when the four-newline stop is reached without a length finish reason', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse('Réponse avant le grand blanc.\n\n\n\n'))
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const transcriptions: string[] = [];
     const provider = createOllamaProvider({
@@ -305,8 +306,9 @@ describe('Ollama adapter', () => {
       regionsEnabled: true, analysisModel: 'qwen3.5:4b',
     }, fetchMock);
     await expect(provider.generate(request, undefined, undefined, (value) => transcriptions.push(value))).resolves.toBe('{"criteria":[]}');
-    expect(fetchMock).toHaveBeenCalledTimes(2); // Localization is skipped for a potentially cut page.
-    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).keep_alive).toBe(0);
+    expect(fetchMock).toHaveBeenCalledTimes(3); // Unload the resident vision model, then continue grading.
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).keep_alive).toBe('30s');
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).keep_alive).toBe(0);
     expect(transcriptions[0]).toContain('LECTURE DOUTEUSE');
     expect(transcriptions[0]).toContain('Réponse avant le grand blanc.');
   });
