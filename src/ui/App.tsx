@@ -651,7 +651,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       if ((!transcription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
       await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
       setAnalysisStage('reading');
-      const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, detectTeacherAnnotations, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
+      const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
       const raw = await provider.generate(
         { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images, detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
         (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
@@ -1203,6 +1203,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     if (copyQueue.length > 0) { loadNextQueuedCopy(); return; }
     setStudentLabel('');
     setImages([]);
+    setDetectTeacherAnnotations(false);
     setTranscription(null);
     setProposal(null);
     setShowOnlyFlagged(false);
