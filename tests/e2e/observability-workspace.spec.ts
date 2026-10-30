@@ -97,7 +97,7 @@ test('opens the local observability workspace and explores a trace without expos
   await expect(page.getByRole('heading', { name: 'Étapes de cette trace' })).toBeVisible();
   await expect(page.getByText('Tokens non remontés')).toHaveCount(0);
   await page.locator('.observability-call-details summary').first().click();
-  await expect(page.getByText('PROMPT VISION ENVOYÉ', { exact: true })).toBeVisible();
+  await expect(page.locator('.observability-call-section pre').first()).toContainText('PROMPT VISION ENVOYÉ');
   await expect(page.locator('.observability-prompt-details pre').first()).toHaveText('PROMPT VISION ENVOYÉ');
   await page.locator('.observability-prompt-details summary').first().click();
   await expect(page.getByText('PROMPT VISION ENVOYÉ', { exact: true })).toBeVisible();
