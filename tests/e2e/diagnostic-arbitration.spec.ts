@@ -25,12 +25,12 @@ test('evaluation presents four focused spaces and keeps launch disabled until th
   await expect(navigation.getByRole('button', { name: /Exécution/ })).toBeVisible();
   await expect(navigation.getByRole('button', { name: /Résultats/ })).toBeVisible();
   await expect(navigation.getByRole('button', { name: /Analyse & historique/ })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Choisir les configurations à comparer' })).toBeVisible();
-  await expect(page.getByText('Il faut au moins deux configurations.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sélection pour cette expérience' })).toBeVisible();
+  await expect(page.getByText('Aucune configuration enregistrée.')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Préparer le barème de correction' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Lancer et comparer les résultats' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Lancer le parcours complet' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Évaluer cette configuration' })).toBeDisabled();
 
   await navigation.getByRole('button', { name: /Exécution/ }).click();
   await expect(page.getByRole('heading', { name: 'Exécution de l’expérience' })).toBeVisible();
@@ -146,14 +146,14 @@ test('model evaluation and raw debug are separate workspaces', async ({ page }) 
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Choisir les configurations à comparer' })).toBeVisible();
-  await expect(page.getByText('Il faut au moins deux configurations.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sélection pour cette expérience' })).toBeVisible();
+  await expect(page.getByText('Aucune configuration enregistrée.')).toBeVisible();
 
   await page.getByRole('button', { name: 'Debug', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Debug des appels IA locaux' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Choisir les configurations à comparer' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Sélection pour cette expérience' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Sorties brutes des modèles (0)' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
-  await expect(page.getByRole('heading', { name: 'Choisir les configurations à comparer' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sélection pour cette expérience' })).toBeVisible();
 });

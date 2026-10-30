@@ -60,11 +60,14 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('offers a sequential independent evaluation for saved model configurations', () => {
     const text = app();
-    expect(text).toContain('Choisir les configurations à comparer');
+    expect(text).toContain('Choisir les configurations à évaluer');
     expect(text).toContain('Configurations à exécuter');
+    expect(text).toContain('Une seule suffit pour mesurer ses performances');
+    expect(text).toContain('selectedProfiles.length < 1');
+    expect(text).toContain('selectedEvaluationProfileIds.length < 1');
     expect(text).toContain('Comparer les modèles Vision');
     expect(text).toContain('Comparer les modèles d’analyse');
-    expect(text).toContain('Lancer le parcours complet');
+    expect(text).toContain('Évaluer cette configuration');
     expect(text).toContain('Annuler après l’appel en cours');
     expect(text).toContain('runModelEvaluation({');
     expect(text).toContain('images: structuredClone(images)');
@@ -95,7 +98,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('className="evaluation-profile-options"');
     expect(text).toContain("className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}");
     expect(text).toContain('className="evaluation-profile-models"');
-    expect(text).toContain('aria-live="polite" className={selectedEvaluationProfileIds.length >= 2 ?');
+    expect(text).toContain('aria-live="polite" className={selectedEvaluationProfileIds.length >= 1 ?');
     expect(text).toContain('aria-describedby="evaluation-profile-selection-help"');
     expect(text).toContain('className="evaluation-profile-selection-mark" aria-hidden="true"');
     expect(styles).toContain('.evaluation-profile-option.is-selected');
@@ -309,7 +312,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('id="evaluation-results"');
     expect(text).toContain('Comparer les modèles Vision');
     expect(text).toContain('Comparer les modèles d’analyse');
-    expect(text).toContain('Lancer le parcours complet');
+    expect(text).toContain('Évaluer cette configuration');
     expect(text).toContain('Debug des appels IA locaux');
     expect(evaluation).toContain('Sélection pour cette expérience');
     expect(evaluation).not.toContain('Lancer la correction');
