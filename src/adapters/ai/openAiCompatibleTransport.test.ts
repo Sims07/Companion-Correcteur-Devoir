@@ -60,6 +60,35 @@ describe('OpenAI-compatible chat transport', () => {
     ]);
   });
 
+  it('keeps the final SSE event when chunks split CRLF frames and the stream has no trailing newline', async () => {
+    const chunks = [
+      'data: {"choices":[{"delta":{"content":"débu',
+      't"}}]}\r\n\r\ndata: {"choices":[{"delta":{"content":" fin"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}\r\n\r\ndata: [DONE]',
+    ];
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const encoder = new TextEncoder();
+        chunks.forEach((chunk) => controller.enqueue(encoder.encode(chunk)));
+        controller.close();
+      },
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(stream, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example/v1/chat/completions', apiKey: '' }, fetchMock);
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({ model: 'text', stream: true, messages: [{ role: 'user', content: 'test' }] }),
+    });
+    const lines = (await response.text()).trim().split('\n').map((line) => JSON.parse(line));
+    expect(lines).toEqual([
+      { message: { content: 'début' } },
+      { message: { content: ' fin' }, done_reason: 'stop', done: true, usage: { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 } },
+      { done: true },
+    ]);
+  });
+
   it('does not intercept unrelated requests', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('ok'));
     const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
