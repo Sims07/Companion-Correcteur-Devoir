@@ -38,5 +38,5 @@ test('opens the local observability workspace and explores a trace without expos
   await page.locator('.observability-trace-details summary').first().click();
   await expect(page.getByRole('heading', { name: 'Étapes de cette trace' })).toBeVisible();
   await expect(page.getByText('Tokens non remontés')).toHaveCount(0);
-  await expect(page.getByText('Cette vue n’affiche ni image, ni transcription, ni sortie brute des modèles.')).toBeVisible();
+  await expect(page.locator('.observability-privacy-note')).toContainText('ni image, ni transcription, ni sortie brute des modèles');
 });
