@@ -26,7 +26,7 @@ describe('incremental grading prompt contract', () => {
       expect(prompt).toContain(field);
     }
     expect(prompt).toContain('même lorsque le maximum de points est attribué');
-    expect(prompt).toContain('remplir');
+    expect(prompt).toContain('si la note est inférieure au maximum');
   });
 
   it('does not invite visual coordinates when only a transcription is available', () => {
