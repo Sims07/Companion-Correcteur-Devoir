@@ -948,3 +948,8 @@ footer { padding-top: 24px; line-height: 1.6; }
   .evaluation-workspace-shell { padding: 20px 16px 24px; }
   .evaluation-workspace-shell > .topbar { min-height: 0; }
 }
+
+
+/* Current experiment results adapt their emphasis to the measured stage. */
+.evaluation-current-results .evaluation-result-stage-metrics{margin:8px 0;padding:9px 11px;border:1px solid #e4ebe2;border-radius:8px;background:#f8faf7;color:#526653;font-size:11px;line-height:1.55;font-variant-numeric:tabular-nums}
+.evaluation-current-results .evaluation-result-score{margin:10px 0;color:#2f633b;font-size:15px;font-weight:750;font-variant-numeric:tabular-nums}
