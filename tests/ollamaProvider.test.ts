@@ -283,7 +283,10 @@ describe('Ollama adapter', () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse('Réponse manuscrite.'))
       .mockResolvedValueOnce(streamingResponse(JSON.stringify({
-        regions: [\n          { id: 'r1', text: 'Réponse manuscrite.', x: 120, y: 240, width: 280, height: 90 },\n          { id: 'r2', text: 'Texte inventé absent de la page', x: 10, y: 20, width: 100, height: 40 },\n        ],
+        regions: [
+          { id: 'r1', text: 'Réponse manuscrite.', x: 120, y: 240, width: 280, height: 90 },
+          { id: 'r2', text: 'Texte inventé absent de la page', x: 10, y: 20, width: 100, height: 40 },
+        ],
       })))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const transcriptions: string[] = [];
