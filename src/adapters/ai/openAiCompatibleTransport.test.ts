@@ -36,7 +36,7 @@ describe('OpenAI-compatible chat transport', () => {
       method: 'POST',
       body: JSON.stringify({
         model: 'vision', stream: true, messages: [{ role: 'user', content: 'Text Recognition:', images: ['data:image/png;base64,abc'] }],
-        options: { temperature: 0, num_predict: 2048, stop: ['\n\n\n'], repeat_penalty: 1.05 },
+        options: { temperature: 0, num_predict: 2048, stop: ['\n\n\n\n'], repeat_penalty: 1.05 },
       }),
     });
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
@@ -51,8 +51,33 @@ describe('OpenAI-compatible chat transport', () => {
         { type: 'image_url', image_url: { url: 'data:image/png;base64,abc' } },
       ] }],
     });
-    expect(body.repeat_penalty).toBeUndefined();
-    expect(body.stream_options).toBeUndefined();
+    expect(body.frequency_penalty).toBe(0.05);
+    expect(body.stream_options).toEqual({ include_usage: true });
+  });
+
+  it('maps structured schema output to json_schema and falls back to json_object when rejected', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('unsupported response_format', { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: '{"ok":true}' } }] }), { status: 200 }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+    const schema = { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'], additionalProperties: false };
+    const response = await request('http://localhost:11434/api/chat', {
+      method: 'POST', body: JSON.stringify({ model: 'vision', stream: false, format: schema, messages: [{ role: 'user', content: 'schema' }] }),
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).response_format.type).toBe('json_schema');
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).response_format).toEqual({ type: 'json_object' });
+    expect(response.ok).toBe(true);
+  });
+
+  it('retries streaming requests without stream_options when the server rejects usage metadata', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('unsupported stream_options', { status: 400 }))
+      .mockResolvedValueOnce(new Response('data: [DONE]\\n\\n', { status: 200, headers: { 'Content-Type': 'text/event-stream' } }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+    await request('http://localhost:11434/api/chat', { method: 'POST', body: JSON.stringify({ model: 'vision', stream: true, messages: [{ role: 'user', content: 'read' }] }) });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).stream_options).toEqual({ include_usage: true });
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).stream_options).toBeUndefined();
   });
 
   it('translates image payloads to OpenAI image_url content blocks', async () => {
