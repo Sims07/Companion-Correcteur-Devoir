@@ -374,7 +374,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
-    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
+    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
     const profile: AiModelProfile = {
       id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
       name,
