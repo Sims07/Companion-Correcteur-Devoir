@@ -225,6 +225,50 @@ describe('Ollama adapter', () => {
     expect(updates.filter((item) => item.status === 'completed').map((item) => item.criterionId)).toEqual(['knowledge', 'reasoning']);
   });
 
+  it('uses sequential per-criterion calls in diagnostic mode when the option is enabled', async () => {
+    const rubric = JSON.stringify({ title: 'Barème', criteria: [
+      { id: 'knowledge', title: 'Connaissances', description: 'Exactitude scientifique', maxPoints: 4 },
+      { id: 'reasoning', title: 'Raisonnement', description: 'Liens logiques', maxPoints: 6 },
+    ] });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'knowledge', points: 4, confidence: 'high', rationale: 'Correct.', evidence: 'La mitose.' })))
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'reasoning', points: 3, confidence: 'medium', rationale: 'Partiel.', evidence: 'Lien incomplet.' })));
+    const onDiagnosticResult = vi.fn();
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'vision-model', analysisModel: 'analysis-model',
+      diagnosticStrategy: 'single', criterionByCriterion: true,
+    }, fetchMock);
+    const raw = await provider.generate({ question: request.question, rubric, images: [], transcription: 'Réponse transcrite.' }, undefined, undefined, undefined, onDiagnosticResult);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).messages[0].content).toContain('"id":"knowledge"');
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).messages[0].content).toContain('"id":"reasoning"');
+    expect(onDiagnosticResult).toHaveBeenCalledOnce();
+    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ requestCount: 2, stage: 'analysis', kind: 'model' });
+    expect(JSON.parse(onDiagnosticResult.mock.calls[0][0].raw).criteria).toHaveLength(2);
+    expect(JSON.parse(raw).criteria).toHaveLength(2);
+  });
+
+  it('uses one whole-rubric request when criterion-by-criterion analysis is disabled', async () => {
+    const rubric = JSON.stringify({ title: 'Barème', criteria: [
+      { id: 'knowledge', title: 'Connaissances', description: 'Exactitude scientifique', maxPoints: 4 },
+      { id: 'reasoning', title: 'Raisonnement', description: 'Liens logiques', maxPoints: 6 },
+    ] });
+    const wholeProposal = JSON.stringify({ summary: 'Proposition à vérifier.', criteria: [
+      { criterionId: 'knowledge', points: 4, rationale: 'Correct.', evidence: 'La mitose.', confidence: 'high' },
+      { criterionId: 'reasoning', points: 3, rationale: 'Partiel.', evidence: 'Lien incomplet.', confidence: 'medium' },
+    ], questionsForTeacher: [], finalScore: 7 });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(streamingResponse(wholeProposal));
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'vision-model', analysisModel: 'analysis-model',
+      diagnosticStrategy: 'single', criterionByCriterion: false,
+    }, fetchMock);
+
+    await expect(provider.generate({ question: request.question, rubric, images: [], transcription: 'Réponse transcrite.' })).resolves.toBe(wholeProposal);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).messages[0].content).not.toContain('MODE INCRÉMENTAL');
+  });
+
   it('retries only a criterion whose JSON response is invalid and keeps earlier proposals', async () => {
     const rubric = JSON.stringify({ title: 'Barème', criteria: [
       { id: 'first', title: 'Premier critère', description: 'Attendu 1', maxPoints: 2 },
