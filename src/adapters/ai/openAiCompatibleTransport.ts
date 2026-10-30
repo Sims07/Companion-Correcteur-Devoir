@@ -4,7 +4,7 @@
 export interface OpenAiCompatibleSettings {
   endpoint: string;
   apiKey: string;
-  repetitionPenaltyParameter?: 'frequency_penalty' | 'repeat_penalty';
+  repetitionPenaltyParameter?: 'none' | 'frequency_penalty' | 'repeat_penalty';
   frequencyPenalty?: number;
   /** Receives a credential-free, image-redacted preview for local observability. */
   onRequest?: (payload: string) => void;
@@ -156,11 +156,11 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
       ...(source.options?.frequency_penalty !== undefined
         ? { frequency_penalty: source.options.frequency_penalty }
         : source.options?.repeat_penalty !== undefined
-          ? settings.repetitionPenaltyParameter === 'none'
-            ? {}
-            : settings.repetitionPenaltyParameter === 'repeat_penalty'
-              ? { repeat_penalty: source.options.repeat_penalty }
-              : { frequency_penalty: settings.frequencyPenalty ?? 0 }
+          ? settings.repetitionPenaltyParameter === 'repeat_penalty'
+            ? { repeat_penalty: source.options.repeat_penalty }
+            : settings.repetitionPenaltyParameter === 'frequency_penalty'
+              ? { frequency_penalty: settings.frequencyPenalty ?? 0 }
+              : {}
           : {}),
       ...(source.format === 'json'
         ? { response_format: { type: 'json_object' } }
