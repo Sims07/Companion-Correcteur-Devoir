@@ -213,7 +213,7 @@ describe('Ollama adapter', () => {
     const secondPrompt = second.messages[0].content;
     const firstSuffix = firstPrompt.slice(firstPrompt.indexOf('MODE INCRÉMENTAL'));
     const secondSuffix = secondPrompt.slice(secondPrompt.indexOf('MODE INCRÉMENTAL'));
-    expect(firstPrompt.slice(0, firstPrompt.indexOf('ÉVALUATION INCRÉMENTALE'))).toBe(secondPrompt.slice(0, secondPrompt.indexOf('ÉVALUATION INCRÉMENTALE')));
+    expect(firstPrompt.slice(0, firstPrompt.indexOf('MODE INCRÉMENTAL'))).toBe(secondPrompt.slice(0, secondPrompt.indexOf('MODE INCRÉMENTAL')));
     expect(firstSuffix).toContain('"id":"knowledge"');
     expect(firstSuffix).toContain('annotationSuggestion');
     expect(firstSuffix).toContain('N’évalue aucun autre critère');
