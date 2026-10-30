@@ -154,7 +154,8 @@ export function createOllamaProvider(
       const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
       const analysisModel = settings.analysisModel?.trim() || settings.model?.trim() || '';
       const useTwoModels = Boolean(settings.visionModel?.trim() && settings.analysisModel?.trim());
-      if (!visionModel || !analysisModel) throw new Error('Choisissez un modèle de lecture et un modèle d’analyse.');
+      if (!visionModel && !request.transcription) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
+      if (!analysisModel && !request.visionOnly) throw new Error('Choisissez un modèle d’analyse pour noter la transcription.');
 
       if (!request.question.trim()) throw new Error('La consigne de correction est vide.');
       if (!request.transcription && !request.images?.length) throw new Error('Ajoutez au moins une photo ou un PDF avant de lancer la correction.');
