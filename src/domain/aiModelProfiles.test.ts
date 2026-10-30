@@ -25,6 +25,16 @@ describe('AI model configuration persistence', () => {
     });
     expect(parseAiModelConfiguration(JSON.stringify({ ...defaultAiModelConfiguration, transcriptionTokenLimit: 32 })).transcriptionTokenLimit).toBe(128);
   });
+  it('persists model-aware transcription prompt mode and clamps repetition penalty', () => {
+    expect(defaultAiModelConfiguration.transcriptionPromptMode).toBe('auto');
+    expect(defaultAiModelConfiguration.transcriptionRepeatPenalty).toBe(1.05);
+    expect(parseAiModelConfiguration(JSON.stringify({
+      ...defaultAiModelConfiguration, transcriptionPromptMode: 'ocr', transcriptionRepeatPenalty: 2.5,
+    }))).toMatchObject({ transcriptionPromptMode: 'ocr', transcriptionRepeatPenalty: 2 });
+    expect(parseAiModelConfiguration(JSON.stringify({
+      ...defaultAiModelConfiguration, transcriptionPromptMode: 'unknown', transcriptionRepeatPenalty: 0,
+    }))).toMatchObject({ transcriptionPromptMode: 'auto', transcriptionRepeatPenalty: 1 });
+  });
   it('uses safe defaults for missing or malformed saved configuration', () => {
     expect(parseAiModelConfiguration(null)).toEqual(defaultAiModelConfiguration);
     expect(parseAiModelConfiguration('{invalid')).toEqual(defaultAiModelConfiguration);
