@@ -14,6 +14,8 @@ import './ui/styles.css';
 import './ui/correctionFlow.css';
 import './ui/modelSelect.css';
 import './ui/observability.css';
+import './ui/design-system/tokens.css';
+import './ui/design-system/controls.css';
 
 const localCorrectionRepository = new IndexedDbLocalCorrectionRepository();
 const localCorrectionService = createLocalCorrectionService(localCorrectionRepository);
