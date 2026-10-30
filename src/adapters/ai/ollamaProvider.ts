@@ -4,7 +4,7 @@ import { buildIncrementalCriterionPrompt } from './gradingPrompts.ts';
 import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
-import { formatTeacherAnnotations, parseTeacherAnnotations } from '../../domain/teacherAnnotations.ts';
+import { formatTeacherAnnotations, parseTeacherAnnotationDetection } from '../../domain/teacherAnnotations.ts';
 import { buildRubricStructuringPrompt, formatRubricTranscriptionChunk, RUBRIC_STRUCTURING_CHUNK_OUTPUT_TOKENS, RUBRIC_STRUCTURING_MAX_OUTPUT_TOKENS, splitRubricTranscriptions } from './rubricStructuring.ts';
 
 interface OllamaChatResponse {
@@ -247,7 +247,8 @@ export function createOllamaProvider(
 ): GradingProvider {
   let activeRequestPayloads: unknown[] | null = null;
   const providerFetch = settings.apiCompatible
-    ? createOpenAiCompatibleFetch({        endpoint: settings.endpoint,
+    ? createOpenAiCompatibleFetch({
+        endpoint: settings.endpoint,
         apiKey: settings.apiKey ?? '',
         repetitionPenaltyParameter: settings.transcriptionPenaltyParameter,
         frequencyPenalty: settings.transcriptionFrequencyPenalty,
@@ -496,7 +497,8 @@ export function createOllamaProvider(
             const error = new Error(`Le flux envoyé par ${providerName} est mal formé. Vérifiez la compatibilité du serveur.`);
             publishFailedCall(error);
             throw error;
-          }          // A completed trace is already emitted above; this also records interrupted reads
+          }
+          // A completed trace is already emitted above; this also records interrupted reads
           // with the exact prompt and every text chunk received before the interruption.
           if (!diagnosticResultEmitted) publishFailedCall(cause);
           throw cause;
@@ -540,9 +542,11 @@ export function createOllamaProvider(
       }
 
       let transcription = request.transcription;
-      const detectedTeacherAnnotations: Array<{ page: number; annotations: ReturnType<typeof parseTeacherAnnotations> }> = [];
+      const detectedTeacherAnnotations: Array<{ page: number; annotations: ReturnType<typeof parseTeacherAnnotationDetection>['annotations'] }> = [];
+      const pageTranscriptions: Array<{ pageLabel: string; pageText: string; doubtfulMarker: string; regionAnchors: string[] }> = [];
       if (!transcription) {
         onStage?.('reading');
+        
         for (const [index, image] of (request.images ?? []).entries()) {
           const pageLabel = image.fileName || `page ${index + 1}`;
           let transcriptionTruncated = false;
@@ -612,27 +616,40 @@ export function createOllamaProvider(
             regionAnchors = normalizeRegions(regionResult, index + 1, pageText);
           }
           const doubtfulMarker = transcriptionTruncated ? ' [LECTURE DOUTEUSE : transcription possiblement interrompue par une longue zone blanche ou la limite de génération]' : '';
-          transcriptions.push([`[ ${pageLabel} ]`, pageText + doubtfulMarker, ...regionAnchors].join('\n'));
+          pageTranscriptions.push({ pageLabel, pageText, doubtfulMarker, regionAnchors });
         }
-        transcription = transcriptions.join('\n\n');
-        onTranscription?.(transcription, 'copy');
+        transcription = pageTranscriptions.map(({ pageLabel, pageText, doubtfulMarker, regionAnchors }) => [`[ ${pageLabel} ]`, pageText + doubtfulMarker, ...regionAnchors].join('\n')).join('\n\n');
       }
 
       if (request.detectTeacherAnnotations && !request.visionOnly) {
         for (const [index, image] of (request.images ?? []).entries()) {
+          const originalPageText = pageTranscriptions[index]?.pageText ?? '';
           const annotationResponse = await sendStream(visionModel, [
-            'Repère uniquement les marques possiblement ajoutées par le professeur : commentaires en marge, corrections, coches, croix, cercles et notes déjà attribuées.',
-            'Une couleur différente de l’écriture principale est un indice, jamais une preuve. Le rouge, vert, violet ou toute autre encre peut être utilisé ; un étudiant peut aussi employer plusieurs couleurs. Si l’auteur est ambigu, indique une confiance low ou le type unknown.',
-            'Distingue comment, correction, score (note/points déjà inscrits), mark (coche, croix, cercle) et unknown. Ne recalcule aucune note et ne confonds pas l’écriture de l’étudiant avec une annotation.',
-            'Retourne uniquement un JSON : {"annotations":[{"text":"2/3","kind":"score","points":2,"color":"rouge","location":"marge droite, question 2","confidence":"high"}]}. kind doit être exactement comment, correction, score, mark ou unknown ; confidence doit être exactement low, medium ou high. points est facultatif et réservé aux notes numériques explicitement visibles. Sans annotation repérable, retourne {"annotations":[]}. N’invente rien.',
-            'Analyse l’image entière, y compris les marges, les corrections superposées et les notes manuscrites.',
+            'Tu réalises une seconde passe de séparation éditoriale sur cette page déjà transcrite. Identifie les annotations possiblement ajoutées par le professeur et produis une transcription fidèle du seul travail de l’étudiant.',
+            'Repère les commentaires en marge, corrections, coches, croix, cercles, soulignements de correction et notes déjà attribuées. Une couleur différente est un indice, jamais une preuve : un étudiant peut utiliser plusieurs couleurs et un professeur peut écrire dans la même couleur.',
+            'Distingue comment, correction, score (note/points déjà inscrits), mark (coche, croix, cercle) et unknown. Ne confonds jamais une réponse de l’étudiant, une rature ou une autocorrection de l’étudiant avec une annotation professorale.',
+            'RÈGLE DE CONSERVATION : studentTranscription doit reprendre fidèlement le texte étudiant initial, sans reformulation, correction orthographique, résumé ni omission. Retire uniquement le texte/les marques dont l’origine professorale est identifiable avec une confiance high. Pour toute annotation de confiance medium ou low, ou dont l’auteur est ambigu, conserve le contenu correspondant dans studentTranscription et signale-le dans annotations. Si aucune annotation certaine n’est visible, recopie intégralement la transcription initiale.',
+            'Ne supprime jamais une réponse, un mot barré, une rature, un schéma ou une tentative de l’étudiant au seul motif qu’il est corrigé, entouré, souligné ou écrit dans une autre couleur. Une réponse erronée reste une réponse de l’étudiant.',
+            'Retourne uniquement un JSON : {"studentTranscription":"transcription fidèle sans les seules annotations professorales certaines","annotations":[{"text":"2/3","kind":"score","points":2,"color":"rouge","location":"marge droite, question 2","confidence":"high"}]}. studentTranscription est obligatoire et doit être une chaîne. kind doit être exactement comment, correction, score, mark ou unknown ; confidence doit être exactement low, medium ou high. points est facultatif et réservé aux notes numériques explicitement visibles. Sans annotation repérable, retourne {"studentTranscription":"transcription initiale recopiée fidèlement","annotations":[]}. N’invente rien.',
+            'Analyse l’image entière, y compris les marges, les corrections superposées et les notes manuscrites. Utilise la transcription initiale comme aide pour préserver exactement les réponses de l’étudiant.',
+            `TRANSCRIPTION INITIALE DE LA PAGE (référence fidèle à préserver) :\n<transcription_initiale>\n${originalPageText}\n</transcription_initiale>`,
           ].join('\\n\\n'), [providerImage(image)], undefined, true, false, {
-            kind: 'vision', stage: 'reading', temperature: 0, generationTokenLimit: 1024,
+            kind: 'vision', stage: 'reading', temperature: 0, generationTokenLimit: 2048,
             keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
           }).catch(() => '');
-          const annotations = parseTeacherAnnotations(annotationResponse);
-          if (annotations.length) detectedTeacherAnnotations.push({ page: index + 1, annotations });
+          const detection = parseTeacherAnnotationDetection(annotationResponse);
+          if (detection.annotations.length) detectedTeacherAnnotations.push({ page: index + 1, annotations: detection.annotations });
+          if (detection.annotations.some((annotation) => annotation.confidence === 'high') && detection.studentTranscription && pageTranscriptions[index]) {
+            pageTranscriptions[index].pageText = detection.studentTranscription;
+          }
         }
+      }
+
+      if (pageTranscriptions.length > 0) {
+        transcription = pageTranscriptions.map(({ pageLabel, pageText, doubtfulMarker, regionAnchors }) => [
+          `[ ${pageLabel} ]`, pageText + doubtfulMarker, ...regionAnchors,
+        ].join('\\n')).join('\\n\\n');
+        onTranscription?.(transcription, 'copy');
       }
 
       // A vision benchmark stops after transcription: it must not call the analysis model.
@@ -744,7 +761,8 @@ export function createOllamaProvider(
                 { kind: 'model', stage: 'analysis', generationTokenLimit: 512, keepAlive: index < criteria.length - 1 ? '30s' : 0, deferResult: diagnosticTracking },
               );
               if (diagnosticTracking && lastDiagnosticMetrics) criterionDiagnosticMetrics.push(lastDiagnosticMetrics);
-              let parsed: unknown;              try { parsed = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }
+              let parsed: unknown;
+              try { parsed = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }
               catch { throw new Error('Réponse JSON invalide ou tronquée pour ce critère.'); }
               const candidate = typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
               if (!candidate || candidate.criterionId !== criterion.id || typeof candidate.points !== 'number') {
@@ -993,7 +1011,8 @@ export async function importRubricImageWithOllama(
   };
   let analysisRequestCount = 0;
   const runStructuringRequest = async (mode: 'extract' | 'merge', source: string, outputTokens: number): Promise<string> => {
-    if (signal?.aborted) throw new Error('Import du barème interrompu par l’enseignant.');    analysisRequestCount += 1;
+    if (signal?.aborted) throw new Error('Import du barème interrompu par l’enseignant.');
+    analysisRequestCount += 1;
     const requestNumber = analysisRequestCount;
     const analysisStartedAt = Date.now();
     onProgress?.({
