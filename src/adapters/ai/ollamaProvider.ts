@@ -394,11 +394,11 @@ export function createOllamaProvider(
           'RÔLE : arbitre uniquement, tu n’es pas un troisième correcteur. Tu ne dois pas générer de correction complète.',
           'Pour chaque critère litigieux, choisis exclusivement la note déjà donnée par AVIS 1 ou AVIS 2. Interdiction de créer une troisième note, de calculer une moyenne ou de modifier un critère non litigieux.',
           'SORTIE JSON STRICTE : {"decisions":[{"criterionId":"ID_EXACT","selected":"avis1","reason":"justification courte"}]}. selected doit valoir exactement "avis1" ou "avis2". Retourne une décision pour chaque critère litigieux et aucun autre champ. Ne retourne pas finalScore, summary, criteria, points ou questionsForTeacher.',
-          `BARÈME DES CRITÈRES LITIGIEUX :\\n${JSON.stringify(disputedRubric)}`,
-          `TRANSCRIPTION :\\n${transcription ?? ''}`,
-          `AVIS 1 (JSON) :\\n${JSON.stringify(selectCriteria(firstProposal))}`,
-          `AVIS 2 (JSON) :\\n${JSON.stringify(selectCriteria(secondProposal))}`,
-        ].join('\\n\\n');
+          `BARÈME DES CRITÈRES LITIGIEUX :\n${JSON.stringify(disputedRubric)}`,
+          `TRANSCRIPTION :\n${transcription ?? ''}`,
+          `AVIS 1 (JSON) :\n${JSON.stringify(selectCriteria(firstProposal))}`,
+          `AVIS 2 (JSON) :\n${JSON.stringify(selectCriteria(secondProposal))}`,
+        ].join('\n\n');
         const raw = await sendStream(arbitratorModel, arbitrationPrompt, undefined, onChunk, true, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration', deferResult: true });
         const decisions = parseArbitrationDecisions(raw, resolution.disputedCriterionIds, firstProposal.criteria, secondProposal.criteria);
         const judgedCriteria = resolution.disputedCriterionIds.map((criterionId) => {
@@ -446,7 +446,7 @@ export function createOllamaProvider(
             `CRITÈRE À NOTER : ${JSON.stringify(criterion)}`,
             'SORTIE MINIMALE OBLIGATOIRE : retourne un seul objet JSON, sans tableau, sans résumé global ni note finale. Champs obligatoires : criterionId (identifiant exact), points (nombre dans le maximum), confidence ("low", "medium" ou "high"). Si points est inférieur au maximum, ajoute rationale (une justification courte liée au barème et à la copie) et evidence (preuve très courte ou limite de lecture). Si le maximum est attribué, rationale et evidence peuvent être des chaînes vides. Ajoute questionForTeacher uniquement si une ambiguïté concrète peut changer la note. N’ajoute aucun autre champ.',
             `SCHÉMA : ${JSON.stringify({ criterionId: criterion.id, points: 0, confidence: 'medium', rationale: '', evidence: '', questionForTeacher: '' })}`,
-          ].join('\\n\\n');
+          ].join('\n\n');
 
           let lastError = 'Échec inconnu.';
           let succeeded = false;
@@ -463,7 +463,7 @@ export function createOllamaProvider(
                 { kind: 'model', stage: 'analysis', generationTokenLimit: 512 },
               );
               let parsed: unknown;
-              try { parsed = JSON.parse(raw.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '')); }
+              try { parsed = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }
               catch { throw new Error('Réponse JSON invalide ou tronquée pour ce critère.'); }
               const candidate = typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
               if (!candidate || candidate.criterionId !== criterion.id || typeof candidate.points !== 'number') {
@@ -489,7 +489,7 @@ export function createOllamaProvider(
               break;
             } catch (cause) {
               lastError = cause instanceof Error ? cause.message : 'Échec de l’analyse du critère.';
-              const retryable = /JSON invalide|JSON tronquée|réponse JSON|limite de génération|done_reason=length|réponse vide/i.test(lastError);
+              const retryable = /JSON invalide|JSON tronquée|réponse JSON|proposition valide|en dehors du barème|limite de génération|done_reason=length|réponse vide/i.test(lastError);
               if (attempt === 1 && retryable) continue;
               break;
             }

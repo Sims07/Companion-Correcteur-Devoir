@@ -633,7 +633,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
               finalScore: orderedCriteria.reduce((sum, item) => sum + item.points, 0),
             };
             setProposal(partialProposal);
-            setReview(toReviewedCriteria(partialProposal));
+            setReview((current) => toReviewedCriteria(partialProposal).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item));
             setTeacherQuestions(partialProposal.questionsForTeacher.join('\\n'));
             setCompletedCriterionCount(orderedCriteria.length);
             if (interfaceMode === 'teacher') setTeacherStep('review');
@@ -644,7 +644,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       const parsed = parseGradingProposal(raw, rubric);
       diagnosticProposal = parsed;
       setProposal(parsed);
-      setReview(toReviewedCriteria(parsed));
+      setReview((current) => toReviewedCriteria(parsed).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item));
       setTeacherQuestions(parsed.questionsForTeacher.join('\n'));
       if (interfaceMode === 'teacher') setTeacherStep('review');
       outcome = 'success';
