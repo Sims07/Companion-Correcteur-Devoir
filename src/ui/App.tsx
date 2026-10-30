@@ -717,6 +717,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
           if (kind !== 'subject') extractedTranscription = text;
         }, (result) => measuredRuns.push(result));
         const analysisFinishedAt = Date.now();
+        if (evaluationStageMode === 'vision' && analysisStartedAt === null) readingMs = Math.max(0, analysisFinishedAt - startedAt);
         const analysisMs = analysisStartedAt === null ? 0 : Math.max(0, analysisFinishedAt - analysisStartedAt);
         setEvaluationStage('parsing');
         let score: number | null = null;
