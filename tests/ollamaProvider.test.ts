@@ -602,7 +602,7 @@ describe('Ollama adapter', () => {
     const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
     expect(gradingBody.messages[0].content).toContain('<sujet_reference>');
     expect(gradingBody.messages[0].content).toContain('Question 1 : Décrire la mitose.');
-    expect(gradingBody.messages[0].content).not.toContain('mitose.\\n\\n\\n');
+    expect(gradingBody.messages[0].content).not.toContain('mitose.\n\n\n');
     expect(gradingBody.messages[0].content).toContain('<transcription_etudiant>');
   });
 
