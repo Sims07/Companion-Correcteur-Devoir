@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 const stylesheet = readFileSync(new URL('../src/ui/styles.css', import.meta.url), 'utf8');
 const correctionFlowStylesheet = readFileSync(new URL('../src/ui/correctionFlow.css', import.meta.url), 'utf8');
 const modelSelectStylesheet = readFileSync(new URL('../src/ui/modelSelect.css', import.meta.url), 'utf8');
+const designSystemControls = readFileSync(new URL('../src/ui/design-system/controls.css', import.meta.url), 'utf8');
 const memoryStylesheet = readFileSync(new URL('../src/ui/localMemory.css', import.meta.url), 'utf8');
 const memoryComponent = readFileSync(new URL('../src/ui/LocalMemoryCompanion.tsx', import.meta.url), 'utf8');
 const mainEntry = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
@@ -118,18 +119,22 @@ describe('UI design system', () => {
     expect(memoryComponent).toContain('+ Nouvelle correction');
   });
 
-  it('styles Ollama model selectors as a reusable, accessible design-system control', () => {
+  it('styles Ollama model selectors through the shared design-system control contract', () => {
     expect(mainEntry).toContain("import './ui/modelSelect.css';");
-    expect(modelSelectStylesheet).toContain('.ollama-panel select {');
+    expect(mainEntry).toContain("import './ui/design-system/tokens.css';");
+    expect(mainEntry).toContain("import './ui/design-system/controls.css';");
     expect(appComponent).toContain('id="diagnostic-strategy"');
     expect(appComponent).toContain('value={diagnosticStrategy}');
-    expect(modelSelectStylesheet).toContain('appearance: none;');
-    expect(modelSelectStylesheet).toContain('min-height: 48px;');
-    expect(modelSelectStylesheet).toContain('border-radius: 12px;');
-    expect(modelSelectStylesheet).toContain('box-shadow: 0 1px 2px');
-    expect(modelSelectStylesheet).toContain('.ollama-panel select:focus-visible');
-    expect(modelSelectStylesheet).toContain('@media (max-width: 430px)');
-    expect(modelSelectStylesheet).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(modelSelectStylesheet).not.toContain('.ollama-panel select {');
+    expect(modelSelectStylesheet).toContain('var(--ds-color-border)');
+    expect(designSystemControls).toContain('select:not([multiple])');
+    expect(designSystemControls).toContain('appearance: none;');
+    expect(designSystemControls).toContain('min-height: 44px;');
+    expect(designSystemControls).toContain('border-radius: var(--ds-radius-md)');
+    expect(designSystemControls).toContain('box-shadow: var(--ds-shadow-control)');
+    expect(designSystemControls).toContain('select.design-system-select:focus-visible');
+    expect(designSystemControls).toContain('@media (max-width: 560px)');
+    expect(designSystemControls).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
   it('renders a live transcription preview while reading and a visual rubric analysis while grading', () => {
