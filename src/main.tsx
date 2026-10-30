@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './ui/App.tsx';
 import { LocalMemoryCompanion } from './ui/LocalMemoryCompanion.tsx';
 import { installLocalMemoryFetchBridge } from './adapters/ai/localMemoryFetchBridge.ts';
+import { loadSalukiModel } from './adapters/ai/modelLoadClient.ts';
 import { IndexedDbLocalCorrectionRepository, IndexedDbModelEvaluationRepository } from './adapters/storage/indexedDbMemory.ts';
 import { createLocalCorrectionService } from './application/localCorrectionService.ts';
 import { createModelEvaluationService } from './application/modelEvaluationService.ts';
@@ -28,7 +29,7 @@ const correctionWorkspaceService = createCorrectionWorkspaceService(
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App service={correctionWorkspaceService} archiveService={localCorrectionService} evaluationService={modelEvaluationService} />
+    <App service={correctionWorkspaceService} archiveService={localCorrectionService} evaluationService={modelEvaluationService} loadSalukiModel={loadSalukiModel} />
     <LocalMemoryCompanion service={localCorrectionService} />
   </React.StrictMode>,
 );

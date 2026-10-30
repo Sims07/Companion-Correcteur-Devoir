@@ -175,6 +175,16 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('aria-expanded={showAiSettings}');
   });
 
+  it('offers on-demand Saluki 27B loading only for the OpenAI-compatible server', () => {
+    const text = app();
+    expect(text).toContain('Saluki 27B');
+    expect(text).toContain('MODÈLE AVANCÉ · À LA DEMANDE');
+    expect(text).toContain('POST <code>/v1/models/saluki-27b/load</code>');
+    expect(text).toContain('handleLoadSaluki');
+    expect(text).toContain("await loadSalukiModel({ endpoint, apiKey })");
+    expect(text).toContain('system1-vision');
+  });
+
   it('keeps model-evaluation streaming separate from technical debug traces', () => {
     const text = app();
     expect(text).toContain("evaluationWorkspaceStep === 'execution' && busy && streamedOutput && <section className=\"transcription-review\"");
