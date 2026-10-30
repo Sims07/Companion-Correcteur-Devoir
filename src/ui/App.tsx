@@ -230,7 +230,8 @@ function getLocalMemoryCorrectionId(): string | null {
 
 export function App({ service, archiveService, evaluationService }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService }) {
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
-  const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);\n  const [showAssignmentPicker, setShowAssignmentPicker] = useState(false);
+  const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
+  const [showAssignmentPicker, setShowAssignmentPicker] = useState(false);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, AssignmentDraft>>({});
   const [assignmentTitle, setAssignmentTitle] = useState(() => readActiveAssignmentProfile().title);
   const [assignmentDescription, setAssignmentDescription] = useState(() => readActiveAssignmentProfile().description ?? '');
