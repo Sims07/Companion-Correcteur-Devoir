@@ -2,16 +2,17 @@ export type TeacherAnnotationKind = 'comment' | 'correction' | 'score' | 'mark' 
 export type TeacherAnnotationConfidence = 'low' | 'medium' | 'high';
 export interface TeacherAnnotation { text: string; kind: TeacherAnnotationKind; color: string; location: string; points?: number; confidence: TeacherAnnotationConfidence; }
 export interface TeacherAnnotationDetection {
-  /** Faithful student-only transcription; omit when a legacy detector did not provide it. */
   studentTranscription?: string;
   annotations: TeacherAnnotation[];
 }
 export function parseTeacherAnnotationDetection(raw: string): TeacherAnnotationDetection {
   try {
-    const parsed: unknown = JSON.parse(raw.trim().replace(/^\`\`\`(?:json)?\\s*/i, '').replace(/\\s*\`\`\`$/, ''));
+    const cleaned = raw.trim().replace(/^\x60\x60\x60(?:json)?\s*/i, '').replace(/\s*\x60\x60\x60$/, '');
+    const parsed: unknown = JSON.parse(cleaned);
     if (typeof parsed !== 'object' || parsed === null || !('annotations' in parsed) || !Array.isArray(parsed.annotations)) return { annotations: [] };
     const value = parsed as Record<string, unknown>;
-    const annotations = value.annotations.flatMap((item): TeacherAnnotation[] => {
+    const rawAnnotations = value.annotations as unknown[];
+    const annotations = rawAnnotations.flatMap((item: unknown): TeacherAnnotation[] => {
       if (typeof item !== 'object' || item === null) return [];
       const annotation = item as Record<string, unknown>;
       if (typeof annotation.text !== 'string' || !annotation.text.trim()) return [];
