@@ -78,3 +78,15 @@ Voir [`docs/architecture.md`](docs/architecture.md) pour les couches, les flux, 
 - `tests` : tests unitaires, d'intégration, de contrat UI et parcours Playwright.
 
 La décision finale appartient toujours à l'enseignant.
+
+## Design system
+
+The shared UI foundations are documented in [`docs/design-system.md`](docs/design-system.md).
+
+- Design tokens live in `src/ui/design-system/tokens.css`.
+- Shared control styles live in `src/ui/design-system/controls.css`.
+- Reusable React primitives are exported from `src/ui/design-system/index.ts`.
+- Feature styles own layout and domain composition; they must not fork the appearance of shared controls.
+- Contract tests run as part of `npm test`.
+
+New forms should use `Field`, `TextInput`, `TextArea`, `Checkbox` and `Button`. Existing native selects keep native keyboard and assistive-technology semantics; their closed control is styled consistently, while the operating-system option popup remains browser-controlled.
