@@ -51,7 +51,7 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
       transcriptionPromptMode: candidate.transcriptionPromptMode === 'ocr' || candidate.transcriptionPromptMode === 'general' ? candidate.transcriptionPromptMode : 'auto',
       transcriptionRepeatPenalty: typeof candidate.transcriptionRepeatPenalty === 'number' && Number.isFinite(candidate.transcriptionRepeatPenalty) ? Math.min(2, Math.max(1, candidate.transcriptionRepeatPenalty)) : 1.05,
       transcriptionPenaltyParameter: candidate.transcriptionPenaltyParameter === 'repeat_penalty' || candidate.transcriptionPenaltyParameter === 'frequency_penalty' ? candidate.transcriptionPenaltyParameter : 'none',
-      transcriptionFrequencyPenalty: typeof candidate.transcriptionFrequencyPenalty === 'number' && Number.isFinite(candidate.transcriptionFrequencyPenalty) ? Math.min(2, Math.max(0, candidate.transcriptionFrequencyPenalty)) : 0.5,
+      transcriptionFrequencyPenalty: typeof candidate.transcriptionFrequencyPenalty === 'number' && Number.isFinite(candidate.transcriptionFrequencyPenalty) ? Math.min(2, Math.max(0, candidate.transcriptionFrequencyPenalty)) : defaultAiModelConfiguration.transcriptionFrequencyPenalty,
       analysisModel: typeof candidate.analysisModel === 'string' ? candidate.analysisModel : '',
       secondAnalysisModel: typeof candidate.secondAnalysisModel === 'string' ? candidate.secondAnalysisModel : '',
       arbitratorModel: typeof candidate.arbitratorModel === 'string' ? candidate.arbitratorModel : '',
