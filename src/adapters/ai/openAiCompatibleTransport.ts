@@ -78,12 +78,10 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     if (!requestUrl.endsWith('/api/chat')) return fetchImpl(input, init);
-    const source = typeof init?.body === 'string' ? JSON.parse(init.body) as {
-      model: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[] }>;
-      options?: { temperature?: number; num_predict?: number }; format?: unknown;
-    } : {};
+    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[] }>; options?: { temperature?: number; num_predict?: number }; format?: unknown } =
+      typeof init?.body === 'string' ? JSON.parse(init.body) : {};
     const body = {
-      model: source.model,
+      model: source.model ?? '',
       stream: source.stream ?? false,
       messages: openAiMessages(source.messages ?? []),
       ...(source.options?.temperature !== undefined ? { temperature: source.options.temperature } : {}),
