@@ -47,9 +47,30 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
           <span className="observability-span-marker">{String(index + 1).padStart(2, '0')}</span>
           <div className="observability-span-copy"><strong>{stageLabel(stage)}</strong><small>{span.model}</small></div>
           <div className="observability-span-measure"><strong>{duration(span.elapsedMs / 1000)}</strong><small>{measured ? `${number(tokens)} tokens` : 'Tokens non remontés'}</small></div>
+          {(span.requestPrompt !== undefined || span.raw !== undefined) && <details className="observability-call-details">
+            <summary>Requête & réponse</summary>
+            <div className="observability-call-section"><strong>Requête envoyée au modèle</strong>
+              {span.requestMetadata && <dl className="observability-request-metadata">
+                <div><dt>Mode</dt><dd>{span.requestMetadata.stream ? 'Streaming' : 'Sans streaming'}</dd></div>
+                <div><dt>Thinking</dt><dd>{span.requestMetadata.think ? 'Activé' : 'Désactivé'}</dd></div>
+                <div><dt>Format</dt><dd>{span.requestMetadata.format ?? 'Texte libre'}</dd></div>
+                <div><dt>Images jointes</dt><dd>{span.requestMetadata.imageCount}</dd></div>
+                <div><dt>Contexte</dt><dd>{span.requestMetadata.options.contextTokens} tokens</dd></div>
+                <div><dt>Budget génération</dt><dd>{span.requestMetadata.options.generationTokenLimit} tokens</dd></div>
+                <div><dt>Keep alive</dt><dd>{String(span.requestMetadata.keepAlive)}</dd></div>
+                {span.requestMetadata.options.temperature !== undefined && <div><dt>Température</dt><dd>{span.requestMetadata.options.temperature}</dd></div>}
+              </dl>}
+              <pre>{span.requestPrompt ?? 'Prompt non conservé pour cette ancienne trace.'}</pre>
+            </div>
+            <div className="observability-call-section"><strong>Réponse brute du modèle</strong>
+              {span.doneReason && <p className="observability-call-reason">Fin de génération : <b>{span.doneReason}</b>{span.thinkingPresent ? ' · raisonnement interne détecté' : ''}</p>}
+              <pre>{span.raw ?? 'Réponse non conservée pour cette ancienne trace.'}</pre>
+            </div>
+            <p className="observability-call-warning">Ces contenus peuvent inclure la consigne, le barème et la transcription de la copie. Ils restent dans le stockage local du navigateur. Les octets des images ne sont pas affichés.</p>
+          </details>}
         </li>;
       })}</ol> : <p className="observability-empty-inline">Les anciennes traces ne contiennent pas encore le détail des appels par modèle. Les durées des deux étapes restent disponibles.</p>}
-      <p className="observability-privacy-note"><span aria-hidden="true">⌂</span> Cette vue n’affiche ni image, ni transcription, ni sortie brute des modèles.</p>
+      <p className="observability-privacy-note"><span aria-hidden="true">⌂</span> Les détails textuels des échanges LLM sont accessibles à la demande ; les octets des images ne sont jamais exposés.</p>
     </div>
   </details>;
 }
@@ -78,7 +99,7 @@ export function ObservabilityDashboard({ records }: Props) {
 
     <section className="observability-intro" aria-label="Périmètre des données">
       <div className="observability-intro-icon" aria-hidden="true">⌂</div>
-      <div><strong>Vos données pédagogiques restent locales</strong><p>Cette vue exploite l’historique technique déjà enregistré dans le navigateur. Elle n’affiche jamais les photos, les transcriptions ou les réponses brutes des étudiants.</p></div>
+      <div><strong>Vos données pédagogiques restent locales</strong><p>Cette vue exploite l’historique technique conservé dans le navigateur. Les prompts et réponses sont consultables à la demande dans chaque appel ; les octets des images ne sont jamais affichés.</p></div>
       <span>LOCAL</span>
     </section>
 
