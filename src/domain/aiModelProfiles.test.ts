@@ -28,9 +28,10 @@ describe('AI model configuration persistence', () => {
   it('persists model-aware transcription prompt mode and clamps repetition penalty', () => {
     expect(defaultAiModelConfiguration.transcriptionPromptMode).toBe('auto');
     expect(defaultAiModelConfiguration.transcriptionRepeatPenalty).toBe(1.05);
+    expect(defaultAiModelConfiguration.transcriptionFrequencyPenalty).toBe(0.5);
     expect(parseAiModelConfiguration(JSON.stringify({
-      ...defaultAiModelConfiguration, transcriptionPromptMode: 'ocr', transcriptionRepeatPenalty: 2.5, transcriptionPenaltyParameter: 'repeat_penalty',
-    }))).toMatchObject({ transcriptionPromptMode: 'ocr', transcriptionRepeatPenalty: 2 });
+      ...defaultAiModelConfiguration, transcriptionPromptMode: 'ocr', transcriptionRepeatPenalty: 2.5, transcriptionPenaltyParameter: 'repeat_penalty', transcriptionFrequencyPenalty: 1.25,
+    }))).toMatchObject({ transcriptionPromptMode: 'ocr', transcriptionRepeatPenalty: 2, transcriptionFrequencyPenalty: 1.25 });
     expect(parseAiModelConfiguration(JSON.stringify({
       ...defaultAiModelConfiguration, transcriptionPromptMode: 'unknown', transcriptionRepeatPenalty: 0,
     }))).toMatchObject({ transcriptionPromptMode: 'auto', transcriptionRepeatPenalty: 1 });
