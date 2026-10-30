@@ -603,7 +603,7 @@ describe('Ollama adapter', () => {
 
   it('transcribes a separate reference subject before the student copy and includes it in grading context', async () => {
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamingResponse('Question 1 : Décrire la mitose.\\n\\n\\n\\n'))
+      .mockResolvedValueOnce(streamingResponse('Question 1 : Décrire la mitose.\n\n\n\n'))
       .mockResolvedValueOnce(streamingResponse('La mitose comporte quatre phases.'))
       .mockResolvedValueOnce(streamingResponse('{\"criteria\":[]}'));
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
