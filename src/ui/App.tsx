@@ -718,6 +718,8 @@ export function App({ service, archiveService, evaluationService }: { service: C
         id: profile.id,
         name: profile.name,
         endpoint: profile.configuration.endpoint,
+        apiCompatible: profile.configuration.apiCompatible,
+        apiKey: profile.configuration.apiKey,
         visionModel: profile.configuration.visionModel,
         analysisModel: profile.configuration.analysisModel,
         thinking: profile.configuration.analysisThinking,
