@@ -3,7 +3,7 @@ export type TeacherAnnotationConfidence = 'low' | 'medium' | 'high';
 export interface TeacherAnnotation { text: string; kind: TeacherAnnotationKind; color: string; location: string; points?: number; confidence: TeacherAnnotationConfidence; }
 export function parseTeacherAnnotations(raw: string): TeacherAnnotation[] {
   try {
-    const parsed: unknown = JSON.parse(raw.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, ''));
+    const parsed: unknown = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
     if (typeof parsed !== 'object' || parsed === null || !('annotations' in parsed) || !Array.isArray(parsed.annotations)) return [];
     return parsed.annotations.flatMap((item): TeacherAnnotation[] => {
       if (typeof item !== 'object' || item === null) return [];
