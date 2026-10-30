@@ -40,13 +40,21 @@ function nanosecondsToMilliseconds(value: number | undefined): number | undefine
 
 function hasTranscriptionDrift(content: string): boolean {
   if (/(?:\r?\n){4}$/.test(content)) return true;
-  const lines = content.replace(/\r/g, '').split('\n');
-  let lastIndex = lines.length - 1;
-  while (lastIndex >= 0 && !lines[lastIndex]?.trim()) lastIndex -= 1;
-  const last = lines[lastIndex]?.trim();
+
+  // Vision models often repeat the same OCR line with one or more blank lines
+  // between occurrences. Ignore blank lines when inspecting the trailing run.
+  const nonEmptyLines = content
+    .replace(/\r/g, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const last = nonEmptyLines.at(-1);
   if (!last) return false;
+
   let repeats = 0;
-  for (let index = lastIndex - 1; index >= 0 && lines[index]?.trim() === last; index -= 1) repeats += 1;
+  for (let index = nonEmptyLines.length - 2; index >= 0 && nonEmptyLines[index] === last; index -= 1) {
+    repeats += 1;
+  }
   return repeats >= 2;
 }
 
