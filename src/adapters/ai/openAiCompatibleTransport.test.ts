@@ -230,6 +230,7 @@ describe('OpenAI-compatible chat transport', () => {
         model: 'analysis',
         stream: false,
         options: { num_predict: 8192 },
+        generation_token_parameter: 'max_completion_tokens',
         messages: [{ role: 'user', content: 'structure this rubric as JSON' }],
       }),
     });

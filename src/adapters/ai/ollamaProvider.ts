@@ -1017,6 +1017,7 @@ export async function importRubricImageWithOllama(
         // A multi-page rubric can contain long pedagogical descriptions. Do not rely on
         // the model/provider default (often much smaller than the transcription input).
         options: { temperature: 0, num_predict: RUBRIC_STRUCTURING_TOKEN_LIMIT },
+        ...(settings.apiCompatible ? { generation_token_parameter: 'max_completion_tokens' as const } : {}),
         format: schema,
         messages: [{
           role: 'user',

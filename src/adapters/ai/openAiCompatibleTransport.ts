@@ -144,14 +144,18 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     if (!requestUrl.endsWith('/api/chat')) return fetchImpl(input, init);
-    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[] }>; options?: { temperature?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number; frequency_penalty?: number }; format?: unknown } =
+    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[] }>; options?: { temperature?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number; frequency_penalty?: number }; generation_token_parameter?: 'max_tokens' | 'max_completion_tokens'; format?: unknown } =
       typeof init?.body === 'string' ? JSON.parse(init.body) : {};
     const body = {
       model: source.model ?? '',
       stream: source.stream ?? false,
       messages: openAiMessages(source.messages ?? []),
       ...(source.options?.temperature !== undefined ? { temperature: source.options.temperature } : {}),
-      ...(source.options?.num_predict !== undefined ? { max_completion_tokens: source.options.num_predict } : {}),
+      ...(source.options?.num_predict !== undefined
+        ? source.generation_token_parameter === 'max_completion_tokens'
+          ? { max_completion_tokens: source.options.num_predict }
+          : { max_tokens: source.options.num_predict }
+        : {}),
       ...(source.options?.stop?.length ? { stop: source.options.stop } : {}),
       ...(source.options?.frequency_penalty !== undefined
         ? { frequency_penalty: source.options.frequency_penalty }
