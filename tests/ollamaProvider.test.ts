@@ -247,6 +247,54 @@ describe('Ollama adapter', () => {
     expect(transcriptions[0]).not.toContain('[ANCRE_VISUELLE');
   });
 
+  it('runs transcription, optional localization and grading through the OpenAI-compatible transport', async () => {
+    const openAiStream = (content: string) => new Response([
+      `data: ${JSON.stringify({ choices: [{ delta: { content }, finish_reason: null }] })}`,
+      '',
+      `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] })}`,
+      '',
+      'data: [DONE]',
+      '',
+    ].join('\\n'), { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(openAiStream('Question 1 - réponse'))
+      .mockResolvedValueOnce(openAiStream('{"regions":[]}'))
+      .mockResolvedValueOnce(openAiStream('{"criteria":[]}'));
+    const provider = createOllamaProvider({
+      endpoint: 'https://api.example/v1/chat/completions',
+      apiCompatible: true,
+      apiKey: 'secret',
+      visionModel: 'vision-model',
+      regionsEnabled: true,
+      regionsModel: 'regions-model',
+      analysisModel: 'analysis-model',
+    }, fetchMock);
+
+    await expect(provider.generate(request)).resolves.toBe('{"criteria":[]}');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const transcriptionBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(transcriptionBody.model).toBe('vision-model');
+    expect(transcriptionBody.messages[0].content).toEqual([
+      { type: 'text', text: 'Text Recognition:' },
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,aGVsbG8=' } },
+    ]);
+    expect(transcriptionBody).toMatchObject({ temperature: 0, max_tokens: 2048, stop: ['\n\n\n'] });
+    expect(transcriptionBody.response_format).toBeUndefined();
+    expect(transcriptionBody.stream_options).toBeUndefined();
+
+    const regionsBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(regionsBody.model).toBe('regions-model');
+    expect(regionsBody.response_format).toEqual({ type: 'json_object' });
+    expect(regionsBody.messages[0].content[0].text).toContain('"regions": []');
+    expect(regionsBody.messages[0].content[1].image_url.url).toBe('data:image/png;base64,aGVsbG8=');
+
+    const analysisBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
+    expect(analysisBody.model).toBe('analysis-model');
+    expect(analysisBody.response_format).toEqual({ type: 'json_object' });
+    expect(analysisBody.messages[0].content).toContain('Question 1 - réponse');
+    expect(analysisBody.messages[0].content).not.toContain('image_url');
+  });
+
   it('marks a transcription as doubtful when the vision model reaches its token limit and continues grading', async () => {
     const partial = 'CE 6/10';
     const visionStream = new Response([
