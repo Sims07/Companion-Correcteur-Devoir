@@ -6,7 +6,6 @@ export interface AiModelConfiguration {
   apiKey: string;
   visionModel: string;
   regionsEnabled: boolean;
-  detectTeacherAnnotations: boolean;
   regionsModel: string;
   transcriptionTokenLimit: number;
   transcriptionPromptMode: 'auto' | 'ocr' | 'general';
@@ -30,7 +29,7 @@ export interface AiModelProfile {
 }
 
 export const defaultAiModelConfiguration: AiModelConfiguration = {
-  endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '', visionModel: '', regionsEnabled: false, detectTeacherAnnotations: false, regionsModel: '', transcriptionTokenLimit: 2048, transcriptionPromptMode: 'auto', transcriptionRepeatPenalty: 1.05, transcriptionPenaltyParameter: 'none', transcriptionFrequencyPenalty: 0, analysisModel: '', secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single', analysisThinking: false, criterionByCriterion: true,
+  endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '', visionModel: '', regionsEnabled: false, regionsModel: '', transcriptionTokenLimit: 2048, transcriptionPromptMode: 'auto', transcriptionRepeatPenalty: 1.05, transcriptionPenaltyParameter: 'none', transcriptionFrequencyPenalty: 0, analysisModel: '', secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single', analysisThinking: false, criterionByCriterion: true,
 };
 
 function isStrategy(value: unknown): value is AiModelStrategy { return value === 'single' || value === 'compare' || value === 'arbitrate'; }
@@ -49,7 +48,6 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
       apiKey: typeof candidate.apiKey === 'string' ? candidate.apiKey : '',
       visionModel: typeof candidate.visionModel === 'string' ? candidate.visionModel : '',
       regionsEnabled: candidate.regionsEnabled === true,
-      detectTeacherAnnotations: candidate.detectTeacherAnnotations === true,
       regionsModel: typeof candidate.regionsModel === 'string' ? candidate.regionsModel : '',
       transcriptionTokenLimit: typeof candidate.transcriptionTokenLimit === 'number' && Number.isFinite(candidate.transcriptionTokenLimit) ? Math.min(2048, Math.max(128, Math.floor(candidate.transcriptionTokenLimit))) : 2048,
       transcriptionPromptMode: candidate.transcriptionPromptMode === 'ocr' || candidate.transcriptionPromptMode === 'general' ? candidate.transcriptionPromptMode : 'auto',
@@ -69,7 +67,7 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
 function isConfiguration(value: unknown): value is AiModelConfiguration {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<AiModelConfiguration>;
-  return typeof candidate.endpoint === 'string' && (candidate.apiCompatible === undefined || typeof candidate.apiCompatible === 'boolean') && (candidate.apiKey === undefined || typeof candidate.apiKey === 'string') && typeof candidate.visionModel === 'string' && (candidate.regionsEnabled === undefined || typeof candidate.regionsEnabled === 'boolean') && (candidate.detectTeacherAnnotations === undefined || typeof candidate.detectTeacherAnnotations === 'boolean') && (candidate.regionsModel === undefined || typeof candidate.regionsModel === 'string') && (candidate.transcriptionTokenLimit === undefined || typeof candidate.transcriptionTokenLimit === 'number') && (candidate.transcriptionPromptMode === undefined || candidate.transcriptionPromptMode === 'auto' || candidate.transcriptionPromptMode === 'ocr' || candidate.transcriptionPromptMode === 'general') && (candidate.transcriptionRepeatPenalty === undefined || typeof candidate.transcriptionRepeatPenalty === 'number') && (candidate.transcriptionPenaltyParameter === undefined || candidate.transcriptionPenaltyParameter === 'none' || candidate.transcriptionPenaltyParameter === 'frequency_penalty' || candidate.transcriptionPenaltyParameter === 'repeat_penalty') && (candidate.transcriptionFrequencyPenalty === undefined || typeof candidate.transcriptionFrequencyPenalty === 'number') && typeof candidate.analysisModel === 'string' &&
+  return typeof candidate.endpoint === 'string' && (candidate.apiCompatible === undefined || typeof candidate.apiCompatible === 'boolean') && (candidate.apiKey === undefined || typeof candidate.apiKey === 'string') && typeof candidate.visionModel === 'string' && (candidate.regionsEnabled === undefined || typeof candidate.regionsEnabled === 'boolean') && (candidate.regionsModel === undefined || typeof candidate.regionsModel === 'string') && (candidate.transcriptionTokenLimit === undefined || typeof candidate.transcriptionTokenLimit === 'number') && (candidate.transcriptionPromptMode === undefined || candidate.transcriptionPromptMode === 'auto' || candidate.transcriptionPromptMode === 'ocr' || candidate.transcriptionPromptMode === 'general') && (candidate.transcriptionRepeatPenalty === undefined || typeof candidate.transcriptionRepeatPenalty === 'number') && (candidate.transcriptionPenaltyParameter === undefined || candidate.transcriptionPenaltyParameter === 'none' || candidate.transcriptionPenaltyParameter === 'frequency_penalty' || candidate.transcriptionPenaltyParameter === 'repeat_penalty') && (candidate.transcriptionFrequencyPenalty === undefined || typeof candidate.transcriptionFrequencyPenalty === 'number') && typeof candidate.analysisModel === 'string' &&
     typeof candidate.secondAnalysisModel === 'string' && typeof candidate.arbitratorModel === 'string' && isStrategy(candidate.diagnosticStrategy) && typeof candidate.analysisThinking === 'boolean' && (candidate.criterionByCriterion === undefined || typeof candidate.criterionByCriterion === 'boolean');
 }
 
@@ -81,7 +79,9 @@ export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {
     return value.filter((item): item is AiModelProfile => Boolean(item) && typeof item === 'object' && typeof item.id === 'string' &&
       typeof item.name === 'string' && item.name.trim().length > 0 && isStrategy(item.mode) && isConfiguration(item.configuration) && typeof item.updatedAt === 'string')
       .map((item) => {
-        const configuration = { ...defaultAiModelConfiguration, ...item.configuration };
+        const legacyConfiguration = { ...item.configuration } as AiModelConfiguration & { detectTeacherAnnotations?: boolean };
+        delete legacyConfiguration.detectTeacherAnnotations;
+        const configuration = { ...defaultAiModelConfiguration, ...legacyConfiguration };
         if (configuration.transcriptionPenaltyParameter === 'frequency_penalty' && configuration.transcriptionFrequencyPenalty === 0.5) {
           configuration.transcriptionPenaltyParameter = 'none';
           configuration.transcriptionFrequencyPenalty = 0;
