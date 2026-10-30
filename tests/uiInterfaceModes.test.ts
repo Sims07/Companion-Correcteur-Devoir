@@ -168,6 +168,10 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('id="evaluation-profile-name"');
     expect(text).toContain('id="evaluation-vision-model"');
     expect(text).toContain('id="evaluation-analysis-model"');
+    expect(text).toContain('id="evaluation-provider"');
+    expect(text).toContain('API compatible OpenAI');
+    expect(text).toContain('id="evaluation-api-key"');
+    expect(text).toContain('value={apiKey}');
     expect(text).toContain('className="debug-advanced-settings"');
     expect(text).toContain('id="diagnostic-strategy"');
     expect(text).toContain("interfaceMode === 'teacher' && showAiSettings && <section className={`panel ollama-panel teacher-model-panel ai-settings-view");
