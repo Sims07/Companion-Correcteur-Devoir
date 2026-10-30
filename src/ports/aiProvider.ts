@@ -17,6 +17,7 @@ export interface GradingRequest {
   transcription?: string;
   /** Stop after local image transcription for an independent Vision benchmark. */
   visionOnly?: boolean;
+  detectTeacherAnnotations?: boolean;
 }
 
 export interface DiagnosticModelResult {
@@ -85,7 +86,6 @@ export interface OllamaSettings {
   visionModel?: string;
   /** Optional second vision pass to locate answer regions; disabled by default. */
   regionsEnabled?: boolean;
-  detectTeacherAnnotations?: boolean;
   /** Optional vision model dedicated to region localization; falls back to visionModel. */
   regionsModel?: string;
   /** Optional prompt override; auto selects OCR-specialized or general vision instructions. */
