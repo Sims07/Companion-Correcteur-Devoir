@@ -64,6 +64,7 @@ describe('Ollama adapter', () => {
       endpoint: 'http://localhost:11434',
       visionModel: 'gemma3:4b',
       analysisModel: 'BioMistral-7B',
+      diagnosticStrategy: 'single',
     }, fetchMock);
     const rubric = JSON.stringify({
       title: 'Biologie moléculaire',

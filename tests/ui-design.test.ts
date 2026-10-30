@@ -15,7 +15,7 @@ const dropdownComponent = readFileSync(new URL('../src/ui/components/DesignSyste
 
 describe('UI design system', () => {
   it('exposes progressive criterion results while analysis is still running and blocks incomplete finalization', () => {
-    expect(appComponent).toContain('onCriterionUpdate');
+    expect(appComponent).toContain('setCompletedCriterionCount');
     expect(appComponent).toContain('completedCriterionCount');
     expect(appComponent).toContain('criterion-live-progress');
     expect(appComponent).toContain('review.length !== rubric.criteria.length');
