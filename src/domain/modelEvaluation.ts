@@ -10,6 +10,7 @@ export interface ModelEvaluationConfiguration {
   visionModel: string;
   analysisModel: string;
   thinking: boolean;
+  criterionByCriterion?: boolean;
 }
 
 export interface ModelEvaluationOutput<T> {

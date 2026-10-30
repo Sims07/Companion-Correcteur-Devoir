@@ -448,8 +448,8 @@ export function createOllamaProvider(
         return mergedRaw;
       };
 
-      if (strategy === 'single' && diagnosticTracking) {
-        // Keep diagnostic/model-evaluation runs on the whole-rubric contract so benchmark outputs stay comparable.
+      if (strategy === 'single' && diagnosticTracking && settings.criterionByCriterion !== true) {
+        // Whole-rubric mode remains available as a controlled baseline in diagnostics.
         return sendStream(analysisModel, gradingPrompt, undefined, onChunk, true, settings.thinking ?? false, { kind: 'model', stage: 'analysis' });
       }
 
@@ -463,6 +463,7 @@ export function createOllamaProvider(
 
         const completed: Array<Record<string, unknown>> = [];
         const failed: string[] = [];
+        const criterionDiagnosticMetrics: Array<Omit<DiagnosticModelResult, 'raw'>> = [];
         for (const [index, criterion] of criteria.entries()) {
           const baseUpdate: Omit<CriterionAnalysisUpdate, 'status' | 'attempt' | 'proposal' | 'error'> = {
             criterionId: criterion.id,
@@ -483,8 +484,9 @@ export function createOllamaProvider(
                 onChunk,
                 true,
                 settings.thinking ?? false,
-                { kind: 'model', stage: 'analysis', generationTokenLimit: 512, keepAlive: index < criteria.length - 1 ? '30s' : 0 },
+                { kind: 'model', stage: 'analysis', generationTokenLimit: 512, keepAlive: index < criteria.length - 1 ? '30s' : 0, deferResult: diagnosticTracking },
               );
+              if (diagnosticTracking && lastDiagnosticMetrics) criterionDiagnosticMetrics.push(lastDiagnosticMetrics);
               let parsed: unknown;
               try { parsed = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }
               catch { throw new Error('Réponse JSON invalide ou tronquée pour ce critère.'); }
@@ -535,7 +537,34 @@ export function createOllamaProvider(
           questionsForTeacher: completed.flatMap((item) => typeof item.questionForTeacher === 'string' ? [item.questionForTeacher] : []),
           finalScore: completed.reduce((sum, item) => sum + Number(item.points), 0),
         };
-        return JSON.stringify(fullProposal);
+        const fullProposalRaw = JSON.stringify(fullProposal);
+        if (diagnosticTracking && criterionDiagnosticMetrics.length > 0) {
+          const sumMetric = (key: 'promptTokens' | 'generatedTokens' | 'totalTokens' | 'promptEvaluationMs' | 'generationMs' | 'loadMs') => {
+            const values = criterionDiagnosticMetrics.map((item) => item[key]).filter((value): value is number => value !== undefined);
+            return values.length ? values.reduce((sum, value) => sum + value, 0) : undefined;
+          };
+          const firstMetric = criterionDiagnosticMetrics[0];
+          const generationMs = sumMetric('generationMs');
+          const generatedTokens = sumMetric('generatedTokens');
+          onDiagnosticResult?.({
+            ...firstMetric,
+            requestPrompt: `Analyse séquentielle : ${criterionDiagnosticMetrics.length} appel(s), un par critère du barème.`,
+            elapsedMs: criterionDiagnosticMetrics.reduce((sum, item) => sum + item.elapsedMs, 0),
+            promptTokens: sumMetric('promptTokens'),
+            generatedTokens,
+            totalTokens: sumMetric('totalTokens'),
+            promptEvaluationMs: sumMetric('promptEvaluationMs'),
+            generationMs,
+            loadMs: sumMetric('loadMs'),
+            tokensPerSecond: generationMs && generatedTokens !== undefined ? generatedTokens / (generationMs / 1000) : undefined,
+            doneReason: criterionDiagnosticMetrics.some((item) => item.doneReason === 'length') ? 'length' : firstMetric.doneReason,
+            thinkingPresent: criterionDiagnosticMetrics.some((item) => item.thinkingPresent),
+            generationTokenLimit: 512,
+            requestCount: criterionDiagnosticMetrics.length,
+            raw: fullProposalRaw,
+          });
+        }
+        return fullProposalRaw;
       }
       if (strategy === 'arbitrate-only') {
         const firstResult = settings.diagnosticFirstResult?.trim() || '';

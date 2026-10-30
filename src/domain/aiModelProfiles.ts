@@ -10,6 +10,7 @@ export interface AiModelConfiguration {
   arbitratorModel: string;
   diagnosticStrategy: AiModelStrategy;
   analysisThinking: boolean;
+  criterionByCriterion: boolean;
 }
 
 export interface AiModelProfile {
@@ -21,7 +22,7 @@ export interface AiModelProfile {
 }
 
 export const defaultAiModelConfiguration: AiModelConfiguration = {
-  endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '', visionModel: '', analysisModel: '', secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single', analysisThinking: false,
+  endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '', visionModel: '', analysisModel: '', secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single', analysisThinking: false, criterionByCriterion: true,
 };
 
 function isStrategy(value: unknown): value is AiModelStrategy { return value === 'single' || value === 'compare' || value === 'arbitrate'; }
@@ -42,6 +43,7 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
       arbitratorModel: typeof candidate.arbitratorModel === 'string' ? candidate.arbitratorModel : '',
       diagnosticStrategy: isStrategy(candidate.diagnosticStrategy) ? candidate.diagnosticStrategy : 'single',
       analysisThinking: candidate.analysisThinking === true,
+      criterionByCriterion: candidate.criterionByCriterion !== false,
     };
   } catch { return { ...defaultAiModelConfiguration }; }
 }
@@ -50,7 +52,7 @@ function isConfiguration(value: unknown): value is AiModelConfiguration {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<AiModelConfiguration>;
   return typeof candidate.endpoint === 'string' && (candidate.apiCompatible === undefined || typeof candidate.apiCompatible === 'boolean') && (candidate.apiKey === undefined || typeof candidate.apiKey === 'string') && typeof candidate.visionModel === 'string' && typeof candidate.analysisModel === 'string' &&
-    typeof candidate.secondAnalysisModel === 'string' && typeof candidate.arbitratorModel === 'string' && isStrategy(candidate.diagnosticStrategy) && typeof candidate.analysisThinking === 'boolean';
+    typeof candidate.secondAnalysisModel === 'string' && typeof candidate.arbitratorModel === 'string' && isStrategy(candidate.diagnosticStrategy) && typeof candidate.analysisThinking === 'boolean' && (candidate.criterionByCriterion === undefined || typeof candidate.criterionByCriterion === 'boolean');
 }
 
 export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {

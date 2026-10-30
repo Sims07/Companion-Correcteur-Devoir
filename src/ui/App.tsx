@@ -160,9 +160,9 @@ function groupDiagnosticUsage(runs: DiagnosticModelResult[] = []): DiagnosticUsa
       model: run.model, stage, calls: 0, measuredCalls: 0, elapsedMs: 0,
       promptTokens: 0, generatedTokens: 0, totalTokens: 0, generationMs: 0, loadMs: 0,
     };
-    group.calls += 1;
+    group.calls += run.requestCount ?? 1;
     group.elapsedMs += run.elapsedMs;
-    if (run.promptTokens !== undefined || run.generatedTokens !== undefined) group.measuredCalls += 1;
+    if (run.promptTokens !== undefined || run.generatedTokens !== undefined) group.measuredCalls += run.requestCount ?? 1;
     group.promptTokens += run.promptTokens ?? 0;
     group.generatedTokens += run.generatedTokens ?? 0;
     group.totalTokens += run.totalTokens ?? 0;
@@ -262,6 +262,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
   const [arbitratorModel, setArbitratorModel] = useState(() => readAiModelConfiguration().arbitratorModel);
   const [diagnosticStrategy, setDiagnosticStrategy] = useState<DiagnosticStrategy>(() => readAiModelConfiguration().diagnosticStrategy);
   const [analysisThinking, setAnalysisThinking] = useState(() => readAiModelConfiguration().analysisThinking);
+  const [criterionByCriterion, setCriterionByCriterion] = useState(() => readAiModelConfiguration().criterionByCriterion);
   const [aiModelProfiles, setAiModelProfiles] = useState<AiModelProfile[]>(readAiModelProfiles);
   const [aiModelProfileName, setAiModelProfileName] = useState('');
   const [selectedAiModelProfileId, setSelectedAiModelProfileId] = useState('');
@@ -335,10 +336,10 @@ export function App({ service, archiveService, evaluationService }: { service: C
   ];
 
   useEffect(() => {
-    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking };
+    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
-  }, [endpoint, apiCompatible, apiKey, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking]);
+  }, [endpoint, apiCompatible, apiKey, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion]);
 
   function applyAiModelProfile(profile: AiModelProfile) {
     setEndpoint(profile.configuration.endpoint);
@@ -350,6 +351,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
     setArbitratorModel(profile.configuration.arbitratorModel);
     setDiagnosticStrategy(profile.configuration.diagnosticStrategy);
     setAnalysisThinking(profile.configuration.analysisThinking);
+    setCriterionByCriterion(profile.configuration.criterionByCriterion);
     setSelectedAiModelProfileId(profile.id);
     setAiModelProfileMessage('Profil « ' + profile.name + ' » chargé.');
     setAvailableModels([]);
@@ -360,7 +362,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
-    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking };
+    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
     const profile: AiModelProfile = {
       id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
       name,
@@ -610,7 +612,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
       if ((!transcription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
       await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
       setAnalysisStage('reading');
-      const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
+      const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
       const raw = await provider.generate(
         { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
         (chunk) => setStreamedOutput((current) => current + chunk),
@@ -723,6 +725,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         visionModel: profile.configuration.visionModel,
         analysisModel: profile.configuration.analysisModel,
         thinking: profile.configuration.analysisThinking,
+        criterionByCriterion: profile.configuration.criterionByCriterion,
       })),
       isCancelled: () => evaluationCancelledRef.current,
       onProgress: setEvaluationProgress,
@@ -745,6 +748,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
           visionModel: configuration.visionModel,
           analysisModel: configuration.analysisModel,
           thinking: configuration.thinking,
+          criterionByCriterion: configuration.criterionByCriterion,
           diagnosticStrategy: 'single',
         });
         setStreamedOutput('');
@@ -1310,6 +1314,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}
         <p className="hint">Ce modèle applique le barème au texte lu. Le mode thinking reste désactivé pour privilégier une correction plus rapide et compatible.</p>
+        <label className="analysis-thinking-option" htmlFor="ai-criterion-by-criterion"><input id="ai-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère, avec affichage progressif. Désactivez cette option pour envoyer tout le barème dans un seul appel et comparer les deux approches.</small></span></label>
         <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : apiCompatible ? 'Tester la connexion' : 'Tester la connexion et détecter les modèles'}</button>
         {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
         <p className="hint">Aucun basculement automatique vers un autre fournisseur n’est effectué.</p>
@@ -1335,7 +1340,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
         </div>
         <p className="evaluation-stage-guidance" role="status">{evaluationStageMode === 'vision' ? 'Seul le modèle Vision est sollicité. Les transcriptions obtenues sont comparables entre profils et restent disponibles pour une validation humaine.' : evaluationStageMode === 'analysis' ? 'La transcription courante est réutilisée à l’identique pour chaque profil : aucune image n’est renvoyée au modèle Vision.' : 'Chaque profil exécute les deux étapes successivement. Ce mode mesure aussi le temps total du parcours.'}</p>
         <div className="evaluation-config-editor">
-          <div className="evaluation-config-editor-heading"><div><h3>Configuration IA locale</h3><p>Un profil = un modèle de lecture, un modèle d’analyse et ses options.</p></div><button type="button" className="secondary-button" disabled={busy} onClick={() => { setSelectedAiModelProfileId(''); setAiModelProfileName(''); setAiModelProfileMessage('Nouvelle configuration : renseignez les modèles puis enregistrez.'); setEndpoint(defaultAiModelConfiguration.endpoint); setVisionModel(''); setAnalysisModel(''); setSecondAnalysisModel(''); setArbitratorModel(''); setDiagnosticStrategy('single'); setAnalysisThinking(false); setAvailableModels([]); setConnectionMessage(''); }}>＋ Nouvelle configuration</button></div>
+          <div className="evaluation-config-editor-heading"><div><h3>Configuration IA locale</h3><p>Un profil = un modèle de lecture, un modèle d’analyse et ses options.</p></div><button type="button" className="secondary-button" disabled={busy} onClick={() => { setSelectedAiModelProfileId(''); setAiModelProfileName(''); setAiModelProfileMessage('Nouvelle configuration : renseignez les modèles puis enregistrez.'); setEndpoint(defaultAiModelConfiguration.endpoint); setVisionModel(''); setAnalysisModel(''); setSecondAnalysisModel(''); setArbitratorModel(''); setDiagnosticStrategy('single'); setAnalysisThinking(false); setCriterionByCriterion(true); setAvailableModels([]); setConnectionMessage(''); }}>＋ Nouvelle configuration</button></div>
           <div className="evaluation-config-fields">
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</DesignSystemSelect></div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-name">Nom de la configuration</label><input id="evaluation-profile-name" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Ex. Gemma rapide, Qwen raisonnement…" /></div>
@@ -1346,6 +1351,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
             {diagnosticStrategy !== 'single' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-second-model">Second modèle d’analyse</label>{availableModels.length ? <DesignSystemSelect id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}><option value="">Choisir un modèle</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle" />}</div>}
             {diagnosticStrategy === 'arbitrate' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-arbitrator-model">Modèle arbitre</label>{availableModels.length ? <DesignSystemSelect id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)}><option value="">Choisir un arbitre</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)} placeholder="Nom du modèle arbitre" />}</div>}
           </div>
+          <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-criterion-by-criterion"><input id="evaluation-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel par critère, séquentiellement. Désactivez pour comparer avec une requête globale.</small></span></label>
           <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-analysis-thinking"><input id="evaluation-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} /><span><strong>Activer le mode thinking</strong><small>Désactivé par défaut. Peut améliorer le raisonnement mais allonger fortement les essais.</small></span></label>
           <div className="evaluation-config-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button><button type="button" className="primary-button" disabled={busy} onClick={saveAiModelProfile}>Enregistrer la configuration</button></div>
           {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}{aiModelProfileMessage && <p className="evaluation-profile-message" role="status">{aiModelProfileMessage}</p>}
@@ -1395,6 +1401,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
               <option value="compare">Deux modèles — comparer les avis</option>
               <option value="arbitrate">Deux modèles + un arbitre</option>
             </DesignSystemSelect>
+            <p className="hint">L’option « Analyser critère par critère » s’applique à la stratégie « Un modèle ». Les stratégies multi-modèles conservent un appel par modèle sur le barème complet.</p>
             {diagnosticStrategy !== 'single' && <>
               <label className="field-label" htmlFor="diagnostic-second-model">Second modèle d’analyse</label>
               {availableModels.length > 0 ? <DesignSystemSelect id="diagnostic-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="diagnostic-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle Ollama" />}
@@ -1407,6 +1414,7 @@ export function App({ service, archiveService, evaluationService }: { service: C
             </>}
             <p className="hint">Ces options ne sont appliquées qu’en mode Diagnostic IA. Le mode Correction reste sur un seul modèle.</p>
           </div>
+          <label className="analysis-thinking-option" htmlFor="debug-criterion-by-criterion"><input id="debug-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère. Désactivez pour envoyer tout le barème en une seule requête.</small></span></label>
           <label className="analysis-thinking-option" htmlFor="ollama-analysis-thinking">
             <input id="ollama-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} />
             <span><strong>Activer le mode thinking pour l’analyse</strong><small>Désactivé par défaut. Peut améliorer le raisonnement, mais allonger fortement le temps de correction et ne fonctionne pas avec tous les modèles.</small></span>

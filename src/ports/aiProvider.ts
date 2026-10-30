@@ -48,6 +48,8 @@ export interface DiagnosticModelResult {
   contextTokens?: number;
   /** Maximum number of generated tokens requested for this Ollama call. */
   generationTokenLimit?: number;
+  /** Number of sequential Ollama requests represented by this aggregated diagnostic result. */
+  requestCount?: number;
 }
 
 export type DiagnosticStrategy = 'single' | 'compare' | 'arbitrate';
@@ -81,6 +83,8 @@ export interface OllamaSettings {
   analysisModel?: string;
   /** Enable Ollama's thinking mode for analysis only; disabled by default for model compatibility. */
   thinking?: boolean;
+  /** Evaluate one rubric criterion per sequential analysis request instead of sending the whole rubric at once. */
+  criterionByCriterion?: boolean;
   /** Experimental multi-model evaluation, enabled only from the diagnostic UI. */
   diagnosticStrategy?: DiagnosticStrategy | 'arbitrate-only';
   /** Previously captured model outputs for rerunning arbitration without repeating analysis. */
