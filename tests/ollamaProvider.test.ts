@@ -582,7 +582,7 @@ describe('Ollama adapter', () => {
 
   it('transcribes a separate reference subject before the student copy and includes it in grading context', async () => {
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamingResponse('Question 1 : Décrire la mitose.'))
+      .mockResolvedValueOnce(streamingResponse('Question 1 : Décrire la mitose.\\n\\n\\n\\n'))
       .mockResolvedValueOnce(streamingResponse('La mitose comporte quatre phases.'))
       .mockResolvedValueOnce(streamingResponse('{\"criteria\":[]}'));
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
@@ -598,7 +598,7 @@ describe('Ollama adapter', () => {
     expect(copyBody.keep_alive).toBe(0); // Final vision page: release RAM before grading.
     const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
     expect(gradingBody.messages[0].content).toContain('<sujet_reference>');
-    expect(gradingBody.messages[0].content).toContain('Question 1 : Décrire la mitose.');
+    expect(gradingBody.messages[0].content).toContain('Question 1 : Décrire la mitose.');\n    expect(gradingBody.messages[0].content).not.toContain('mitose.\\n\\n\\n');
     expect(gradingBody.messages[0].content).toContain('<transcription_etudiant>');
   });
 
