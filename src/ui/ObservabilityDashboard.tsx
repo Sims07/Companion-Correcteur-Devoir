@@ -48,7 +48,8 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
           <div className="observability-span-copy"><strong>{stageLabel(stage)}</strong><small>{span.model}</small></div>
           <div className="observability-span-measure"><strong>{duration(span.elapsedMs / 1000)}</strong><small>{measured ? `${number(tokens)} tokens` : 'Tokens non remontés'}</small></div>
           {(span.requestPrompt !== undefined || span.raw !== undefined) && <details className="observability-call-details">
-            <summary>Requête & réponse</summary>
+            <summary>{span.error ? "Requête & réponse · échec" : "Requête & réponse"}</summary>
+            {span.error && <p className="observability-call-error" role="alert"><strong>Erreur pendant cet appel</strong><span>{span.error}</span></p>}
             <div className="observability-call-section"><strong>Requête envoyée au modèle</strong>
               {span.requestMetadata && <dl className="observability-request-metadata">
                 <div><dt>Mode</dt><dd>{span.requestMetadata.stream ? 'Streaming' : 'Sans streaming'}</dd></div>
