@@ -190,6 +190,7 @@ export function createOllamaProvider(
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
     async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
+      const providerName = settings.apiCompatible ? 'API compatible OpenAI' : 'Ollama';
       const visionOnly = request.visionOnly === true;
       const hasTranscription = Boolean(request.transcription?.trim());
       if (!visionOnly && !hasTranscription && !(settings.visionModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
@@ -338,10 +339,10 @@ export function createOllamaProvider(
         } catch (cause) {
           publishFailedCall(cause);
           const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';
-          throw new Error(`Connexion à Ollama interrompue pendant le traitement (modèle « ${model} », ${request.images?.length ?? 0} image(s)). Vérifiez que le serveur Ollama fonctionne et que la mémoire disponible suffit. Détail réseau : ${detail}`);
+          throw new Error(`Connexion à ${providerName} interrompue pendant le traitement (modèle « ${model} », ${request.images?.length ?? 0} image(s)). Vérifiez l’adresse du fournisseur, le token et la disponibilité du modèle. Détail réseau : ${detail}`);
         }
         if (!response.ok) {
-          const error = new Error(`Ollama a répondu avec le statut HTTP ${response.status} pour le modèle « ${model} ».`);
+          const error = new Error(`${providerName} a répondu avec le statut HTTP ${response.status} pour le modèle « ${model} ».`);
           publishFailedCall(error);
           throw error;
         }
@@ -389,7 +390,7 @@ export function createOllamaProvider(
           }
           if (result.doneReason) tracking?.onDoneReason?.(result.doneReason);
           if (result.doneReason === 'length' && !tracking?.allowTruncated) {
-            throw new Error(`Analyse incomplète : Ollama a atteint la limite de génération (done_reason=length, num_predict=${tracking?.generationTokenLimit ?? 2048}). La réponse partielle n’est pas exploitable comme correction. Réduisez la longueur des données ou relancez avec un budget adapté.`);
+            throw new Error(`Analyse incomplète : ${providerName} a atteint la limite de génération (done_reason=length, num_predict=${tracking?.generationTokenLimit ?? 2048}). La réponse partielle n’est pas exploitable comme correction. Réduisez la longueur des données ou relancez avec un budget adapté.`);
           }
           if (!result.content.trim()) {
             throw new Error(result.thinkingPresent
@@ -399,7 +400,7 @@ export function createOllamaProvider(
           return result.content;
         } catch (cause) {
           if (cause instanceof SyntaxError) {
-            const error = new Error('Le flux envoyé par Ollama est mal formé. Vérifiez la version du serveur.');
+            const error = new Error(`Le flux envoyé par ${providerName} est mal formé. Vérifiez la compatibilité du serveur.`);
             publishFailedCall(error);
             throw error;
           }
