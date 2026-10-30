@@ -1,5 +1,6 @@
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
+import { buildIncrementalCriterionPrompt } from './gradingPrompts.ts';
 import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 
@@ -203,7 +204,7 @@ export function createOllamaProvider(
         'DISTINCTIONS OBLIGATOIRES : distingue (a) réponse absente, (b) réponse présente mais scientifiquement incorrecte, (c) passage marqué [illisible] ou non transcrit de façon fiable, et (d) réponse ambiguë dont plusieurs interprétations plausibles changeraient la note. Ne transforme jamais une incertitude de transcription en erreur scientifique. Ne devine jamais le contenu illisible.',
         'CONFIANCE : confidence mesure la solidité de l’interprétation des éléments disponibles, pas le niveau de maîtrise scientifique ni la note. Une réponse lisible peut mériter zéro ou une note partielle. Utilise low, medium ou high ; réserve low aux critères réellement incertains et explique pourquoi.',
         'QUESTION À L’ENSEIGNANT : pose une question uniquement si tu peux nommer une ambiguïté concrète dont la résolution pourrait changer la note. La question doit expliquer les interprétations possibles. N’écris aucune question générique. Une confiance faible seule n’impose pas de question ; sinon questionForTeacher doit être une chaîne vide et questionsForTeacher un tableau vide.',
-        'EXHAUSTIVITÉ : retourne exactement une entrée par critère du barème, sans doublon ni critère inconnu. Si une réponse semble présente mais est illisible, ne la traite pas comme absente ; signale la limite et demande une précision uniquement si elle peut changer la note.',
+        'EXHAUSTIVITÉ : en correction complète, retourne exactement une entrée par critère du barème, sans doublon ni critère inconnu. En mode incrémental, retourne uniquement le critère explicitement demandé pour cet appel. Si une réponse semble présente mais est illisible, ne la traite pas comme absente ; signale la limite et demande une précision uniquement si elle peut changer la note.',
         'AUTO-CONTRÔLE : avant de répondre, vérifie les identifiants, l’unicité et la présence de tous les critères, les limites de points, la cohérence entre points/rationale/evidence et le fait que chaque note maximale est soutenue par tous les attendus essentiels. Le code validera également la structure et les limites mécaniques ; ne remplace pas le jugement pédagogique par une somme inventée.',
         `SCHÉMA JSON ATTENDU : ${JSON.stringify({ summary: 'synthèse prudente indiquant que la proposition doit être vérifiée', criteria: [{ criterionId: exampleCriterionId, points: 0, rationale: 'éléments démontrés, partiels, manquants ou incorrects reliés au barème', evidence: 'preuve fidèle ou limite explicite', pageNumber: 1, annotationSuggestion: 'commentaire court à éventuellement reporter au stylo', locationHint: 'repère textuel approximatif, si fiable', locationBox: { x: 100, y: 200, width: 500, height: 100 }, confidence: 'low', questionForTeacher: '' }], questionsForTeacher: [] })}. L’identifiant montré est un exemple : utilise pour chaque entrée son propre identifiant exact. summary doit rester prudent.`,
         'La correction produite est une proposition de travail et non une validation définitive.',
@@ -458,13 +459,7 @@ export function createOllamaProvider(
             index: index + 1,
             total: criteria.length,
           };
-          const criterionPrompt = [
-            gradingPrompt,
-            'ÉVALUATION INCRÉMENTALE — INSTRUCTION PRIORITAIRE POUR CET APPEL : le barème complet ci-dessus sert de contexte, mais tu dois noter UNIQUEMENT le critère explicitement désigné ci-dessous. N’évalue aucun autre critère et ne retourne aucun résultat pour les autres.',
-            `CRITÈRE À NOTER : ${JSON.stringify(criterion)}`,
-            'SORTIE MINIMALE OBLIGATOIRE : retourne un seul objet JSON, sans tableau, sans résumé global ni note finale. Champs obligatoires : criterionId (identifiant exact), points (nombre dans le maximum), confidence ("low", "medium" ou "high"). Si points est inférieur au maximum, ajoute rationale (une justification courte liée au barème et à la copie) et evidence (preuve très courte ou limite de lecture). Si le maximum est attribué, rationale et evidence peuvent être des chaînes vides. Ajoute questionForTeacher uniquement si une ambiguïté concrète peut changer la note. N’ajoute aucun autre champ.',
-            `SCHÉMA : ${JSON.stringify({ criterionId: criterion.id, points: 0, confidence: 'medium', rationale: '', evidence: '', questionForTeacher: '' })}`,
-          ].join('\n\n');
+          const criterionPrompt = buildIncrementalCriterionPrompt(gradingPrompt, criterion);
 
           let lastError = 'Échec inconnu.';
           let succeeded = false;
@@ -499,6 +494,9 @@ export function createOllamaProvider(
                 confidence,
                 rationale: typeof candidate.rationale === 'string' ? candidate.rationale.trim() : '',
                 evidence: typeof candidate.evidence === 'string' ? candidate.evidence.trim() : '',
+                ...(typeof candidate.annotationSuggestion === 'string' && candidate.annotationSuggestion.trim() ? { annotationSuggestion: candidate.annotationSuggestion.trim() } : {}),
+                ...(typeof candidate.pageNumber === 'number' && Number.isInteger(candidate.pageNumber) && candidate.pageNumber >= 1 ? { pageNumber: candidate.pageNumber } : {}),
+                ...(typeof candidate.locationHint === 'string' && candidate.locationHint.trim() ? { locationHint: candidate.locationHint.trim() } : {}),
                 ...(typeof candidate.questionForTeacher === 'string' && candidate.questionForTeacher.trim() ? { questionForTeacher: candidate.questionForTeacher.trim() } : {}),
               };
               completed.push(proposal);
