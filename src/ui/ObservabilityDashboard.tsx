@@ -25,7 +25,8 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
     <summary>
       <span className="observability-trace-date">{new Date(trace.completedAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</span>
       <span className="observability-trace-models"><strong>{trace.source === 'model-evaluation' ? `Évaluation · ${trace.evaluationProfileName ?? 'Profil'}` : trace.source === 'rubric-import' ? 'Import de barème' : trace.source === 'scientific-diagram' ? 'Analyse de schéma scientifique' : trace.visionModel || 'Vision non renseigné'}</strong><small>{trace.source === 'model-evaluation' ? `${trace.visionModel || 'Sans Vision'} · ${trace.analysisModel || 'Sans Analyse'}` : trace.source === 'rubric-import' ? `Vision : ${trace.visionModel || 'non renseigné'} · Analyse : ${trace.analysisModel || 'non renseigné'}` : trace.analysisModel || 'Analyse non renseignée'}</small></span>
-      {spans.some((span) => span.purpose?.startsWith('scientific-diagram')) && <span className="observability-task-badge">SCHÉMA SCIENTIFIQUE</span>}\n      <span className="observability-trace-duration">{duration(trace.totalSeconds)}</span>
+      {spans.some((span) => span.purpose?.startsWith('scientific-diagram')) && <span className="observability-task-badge">SCHÉMA SCIENTIFIQUE</span>}
+      <span className="observability-trace-duration">{duration(trace.totalSeconds)}</span>
       <span className={trace.outcome === 'success' ? 'observability-status success' : 'observability-status error'}>{trace.outcome === 'success' ? 'Terminée' : 'Échec'}</span>
       <span className="observability-expand" aria-hidden="true">⌄</span>
     </summary>
