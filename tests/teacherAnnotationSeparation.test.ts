@@ -8,63 +8,110 @@ function streamResponse(content: string): Response {
   ].join('\n') + '\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
 }
 
-describe('teacher annotation separation in the grading pipeline', () => {
-  it('removes only high-confidence professor annotations before sending the copy to grading', async () => {
+const image = { base64: 'aGVsbG8=', mimeType: 'image/png', fileName: 'copie.png' };
+const structuredReading = JSON.stringify({
+  studentTranscription: 'La mitose produit deux cellules filles. entouré',
+  annotations: [
+    { text: 'Bien vu', kind: 'comment', color: 'rouge', location: 'marge droite', confidence: 'high' },
+    { text: 'entouré', kind: 'mark', color: 'bleu', location: 'question 1', confidence: 'medium' },
+  ],
+});
+
+describe('one-pass teacher annotation detection', () => {
+  it('uses one Vision request per page and waits for explicit confirmation before removing uncertain annotations', async () => {
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamResponse('La mitose produit deux cellules filles. Bien vu 2/3'))
-      .mockResolvedValueOnce(streamResponse(JSON.stringify({
-        studentTranscription: 'La mitose produit deux cellules filles.',
-        annotations: [
-          { text: 'Bien vu', kind: 'comment', color: 'rouge', location: 'marge', confidence: 'high' },
-          { text: '2/3', kind: 'score', points: 2, color: 'rouge', location: 'marge', confidence: 'high' },
-        ],
-      })))
+      .mockResolvedValueOnce(streamResponse(structuredReading))
       .mockResolvedValueOnce(streamResponse('{"criteria":[]}'));
     const copyTranscriptions: string[] = [];
     const annotationTranscriptions: string[] = [];
+    const reviewCandidates: Array<{ id: string; page: number; confidence: string }> = [];
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'grader' }, fetchMock);
+
     await provider.generate({
       question: 'Expliquez la mitose.',
       rubric: '{"criteria":[]}',
-      images: [{ base64: 'aGVsbG8=', mimeType: 'image/png', fileName: 'copie.png' }],
+      images: [image],
       detectTeacherAnnotations: true,
     }, undefined, undefined, (value, kind) => {
       if (kind === 'copy') copyTranscriptions.push(value);
       if (kind === 'annotations') annotationTranscriptions.push(value);
+    }, undefined, undefined, async (candidates) => {
+      reviewCandidates.push(...candidates.map(({ id, page, confidence }) => ({ id, page, confidence })));
+      return [{ id: candidates[0].id, confirmed: true }];
     });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const visionBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { format?: string; messages: Array<{ content: string }> };
+    expect(visionBody.format).toBe('json');
+    expect(visionBody.messages[0].content).toContain('studentTranscription');
+    expect(reviewCandidates).toEqual([{ id: 'page-1-annotation-2', page: 1, confidence: 'medium' }]);
     expect(copyTranscriptions).toHaveLength(1);
     expect(copyTranscriptions[0]).toContain('La mitose produit deux cellules filles.');
     expect(copyTranscriptions[0]).not.toContain('Bien vu');
-    expect(copyTranscriptions[0]).not.toContain('2/3');
+    expect(copyTranscriptions[0]).not.toContain('entouré');
     expect(annotationTranscriptions[0]).toContain('Bien vu');
-    expect(annotationTranscriptions[0]).toContain('2/3');
-    const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
-    expect(gradingBody.messages[0].content).toContain('<transcription_etudiant>');
-    expect(gradingBody.messages[0].content).toContain('La mitose produit deux cellules filles.');
-    const studentSection = gradingBody.messages[0].content.split('<transcription_etudiant>')[1]?.split('</transcription_etudiant>')[0] ?? '';
+    expect(annotationTranscriptions[0]).toContain('entouré');
+
+    const gradingBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { messages: Array<{ content: string }> };
+    const prompt = gradingBody.messages[0].content;
+    const studentSection = prompt.split('<transcription_etudiant>')[1]?.split('</transcription_etudiant>')[0] ?? '';
     expect(studentSection).not.toContain('Bien vu');
-    expect(studentSection).not.toContain('2/3');
-    expect(gradingBody.messages[0].content).toContain('<annotations_professeur>');
-    expect(gradingBody.messages[0].content).toContain('Bien vu');
-    expect(gradingBody.messages[0].content).toContain('2/3');
+    expect(studentSection).not.toContain('entouré');
+    expect(prompt).toContain('<annotations_professeur>');
+    expect(prompt).toContain('Bien vu');
+    expect(prompt).toContain('entouré');
   });
 
-  it('keeps the original transcription when no high-confidence annotation is detected', async () => {
+  it('keeps uncertain annotations in the student transcription when the teacher does not confirm them', async () => {
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamResponse('Réponse de l’étudiant'))
-      .mockResolvedValueOnce(streamResponse(JSON.stringify({
-        studentTranscription: 'Réponse de l’étudiant',
-        annotations: [{ text: 'entouré', kind: 'mark', color: 'bleu', location: 'question 1', confidence: 'medium' }],
-      })))
+      .mockResolvedValueOnce(streamResponse(structuredReading))
       .mockResolvedValueOnce(streamResponse('{"criteria":[]}'));
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'grader' }, fetchMock);
+
     await provider.generate({
       question: 'Question',
       rubric: '{"criteria":[]}',
-      images: [{ base64: 'aGVsbG8=', mimeType: 'image/png' }],
+      images: [image],
+      detectTeacherAnnotations: true,
+    }, undefined, undefined, undefined, undefined, undefined, async (candidates) => [
+      { id: candidates[0].id, confirmed: false },
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const gradingBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { messages: Array<{ content: string }> };
+    const studentSection = gradingBody.messages[0].content.split('<transcription_etudiant>')[1]?.split('</transcription_etudiant>')[0] ?? '';
+    expect(studentSection).toContain('entouré');
+    expect(studentSection).not.toContain('Bien vu');
+  });
+
+  it('fails closed when the combined Vision response is not valid structured transcription', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamResponse('transcription libre sans JSON'));
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'grader' }, fetchMock);
+
+    await expect(provider.generate({
+      question: 'Question',
+      rubric: '{"criteria":[]}',
+      images: [image],
+      detectTeacherAnnotations: true,
+    })).rejects.toThrow('transcription structurée attendue');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads each page once when annotation detection is enabled', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamResponse(JSON.stringify({ studentTranscription: 'Page 1', annotations: [] })))
+      .mockResolvedValueOnce(streamResponse(JSON.stringify({ studentTranscription: 'Page 2', annotations: [] })))
+      .mockResolvedValueOnce(streamResponse('{"criteria":[]}'));
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'grader' }, fetchMock);
+
+    await provider.generate({
+      question: 'Question',
+      rubric: '{"criteria":[]}',
+      images: [image, { ...image, fileName: 'page-2.png' }],
       detectTeacherAnnotations: true,
     });
-    const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
-    expect(gradingBody.messages[0].content).toContain('Réponse de l’étudiant');
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });
