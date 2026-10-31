@@ -115,6 +115,23 @@ describe('prepareLocalFiles', () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
+  it.each([180, 270] as const)('rotates a working image by %i degrees from the decoded original', async (degrees) => {
+    const bitmap = { width: 1200, height: 800, close: vi.fn() };
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue(bitmap));
+    const rotate = vi.fn();
+    const fillRect = vi.fn();
+    const drawImage = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ translate: vi.fn(), rotate, drawImage, fillRect } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,dHVybmVk');
+
+    const result = await rotateLocalImage({ mimeType: 'image/png', base64: 'b3JpZ2luYWw=', fileName: 'page.png' }, degrees);
+
+    expect(result.mimeType).toBe('image/png');
+    expect(rotate).toHaveBeenCalledWith(degrees * Math.PI / 180);
+    expect(fillRect).toHaveBeenCalledWith(0, 0, degrees === 180 ? 1200 : 1200, 800);
+    expect(bitmap.close).toHaveBeenCalledOnce();
+  });
+
   it('renders each PDF page to a lossless PNG payload and cleans up the loading task', async () => {
     const destroy = vi.fn().mockResolvedValue(undefined);
     const cleanup = vi.fn();
