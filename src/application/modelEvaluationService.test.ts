@@ -25,7 +25,8 @@ describe('model evaluation application service', () => {
     expect(repository.save).toHaveBeenCalledWith(record);
     expect(repository.list).toHaveBeenCalledOnce();
     expect(repository.delete).toHaveBeenCalledWith(record.id);
-  })
+  });
+
   it('delegates diagnostic trace persistence to the same persistence port', async () => {
     const diagnostic = [{ id: 'trace-1', prompt: 'private local prompt', raw: 'raw response' }];
     const repository: ModelEvaluationRepository = {
@@ -41,5 +42,4 @@ describe('model evaluation application service', () => {
     expect(repository.saveDiagnosticHistory).toHaveBeenCalledWith(diagnostic);
     expect(repository.listDiagnosticHistory).toHaveBeenCalledOnce();
   });
-;
 });
