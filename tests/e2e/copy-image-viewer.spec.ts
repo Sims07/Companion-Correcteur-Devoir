@@ -14,7 +14,7 @@ test('teacher can open an imported copy page in a fullscreen viewer and zoom it'
   const viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 1' });
   await expect(viewer).toBeVisible();
   await expect(viewer.getByText('100 %')).toBeVisible();
-  await viewer.getByRole('button', { name: 'Zoomer' }).click();
+  await viewer.getByRole('button', { name: 'Zoomer', exact: true }).click();
   await expect(viewer.getByText('125 %')).toBeVisible();
   await viewer.getByRole('button', { name: 'Fermer le visualiseur' }).click();
   await expect(viewer).toHaveCount(0);
