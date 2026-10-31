@@ -19,6 +19,8 @@ export interface CorrectionArchiveSnapshot {
   review: ReviewedCriterion[];
   teacherQuestions: string;
   images: ArchivedImage[];
+  /** Unrotated, locally prepared source pages; older archives fall back to images. */
+  originalImages?: ArchivedImage[];
   /** Whether this individual copy should be scanned for pre-existing teacher marks. */
   detectTeacherAnnotations?: boolean;
   transcription: string | null;
