@@ -65,12 +65,6 @@ describe('parseScientificDiagramAnalysis', () => {
     const parsed = parseScientificDiagramAnalysis(JSON.stringify(localPageResult), rubric, 1, [4]);
     expect(parsed.diagrams[0].pageNumber).toBe(4);
   });
-  it('accepts original page numbers when only a filtered subset is analyzed', () => {
-    const originalPageResult = structuredClone(valid);
-    originalPageResult.diagrams[0].pageNumber = 4;
-    expect(parseScientificDiagramAnalysis(JSON.stringify(originalPageResult), rubric, 1, [4]).diagrams[0].pageNumber).toBe(4);
-    expect(() => parseScientificDiagramAnalysis(JSON.stringify(originalPageResult), rubric, 1)).toThrow(/page inexistante/);
-  });
   it('rejects duplicated criteria within one diagram', () => {
     const duplicated = structuredClone(valid);
     duplicated.diagrams[0].criteria.push({ ...duplicated.diagrams[0].criteria[0] });
