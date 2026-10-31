@@ -57,6 +57,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
         subjectTranscription: null,
         correctionMode: 'integrated',
         maximumPoints: 4,
+        hasScientificDiagrams: true,
       },
     });
     await new Promise<void>((resolve, reject) => {
@@ -65,11 +66,20 @@ test('review workspace keeps original evidence beside grading criteria on deskto
       transaction.onabort = () => reject(transaction.error);
     });
     database.close();
+    localStorage.setItem('companion-correcteur:ollama-configuration:v1', JSON.stringify({ endpoint: 'https://ai.example', apiCompatible: true, apiKey: 'test-token', visionModel: 'vision-model', analysisModel: 'analysis-model' }));
   });
 
   await page.reload();
   await page.getByRole('button', { name: /Corrections enregistrées/ }).click();
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Analyse des schémas scientifiques' })).toBeVisible();
+  const diagramConsent = page.getByRole('checkbox', { name: /J’autorise l’envoi des images de cette copie/ });
+  const diagramAnalyzeButton = page.getByRole('button', { name: 'Analyser les schémas avec Vision' });
+  await expect(diagramConsent).not.toBeChecked();
+  await expect(diagramAnalyzeButton).toBeDisabled();
+  await diagramConsent.check();
+  await expect(diagramAnalyzeButton).toBeEnabled();
 
   await expect(page.getByRole('complementary', { name: 'Copie de référence' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
