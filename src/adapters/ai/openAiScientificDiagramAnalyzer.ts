@@ -48,7 +48,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       const classifications = [];
       // Keep one image per request: this prevents cross-page attribution and makes page identity explicit.
       for (const [index, image] of request.images.entries()) {
-        const response = await compatibleFetch(`${request.endpoint.replace(/\\/+$/, '')}/api/chat`, {
+        const response = await compatibleFetch(`${request.endpoint.replace(/\/+$/, '')}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
