@@ -17,7 +17,7 @@ describe('prepareLocalFiles', () => {
     getDocumentMock.mockReset();
     vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 7, height: 7, close: vi.fn() }));
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
-      drawImage: vi.fn(), translate: vi.fn(), rotate: vi.fn(),
+      drawImage: vi.fn(), translate: vi.fn(), rotate: vi.fn(), fillRect: vi.fn(),
     } as unknown as CanvasRenderingContext2D);
     vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,YmlvbG9neQ==');
   });
@@ -106,6 +106,7 @@ describe('prepareLocalFiles', () => {
     const canvas = createCanvas.mock.results[0].value as HTMLCanvasElement;
     expect(canvas.width).toBe(800);
     expect(canvas.height).toBe(1200);
+    expect(context.fillRect).toHaveBeenCalledWith(0, 0, 800, 1200);
     expect(translate).toHaveBeenCalledWith(400, 600);
     expect(rotate).toHaveBeenCalledWith(Math.PI / 2);
     expect(drawImage).toHaveBeenCalledWith(bitmap, -600, -400);
