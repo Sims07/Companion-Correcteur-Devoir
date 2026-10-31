@@ -408,7 +408,8 @@ describe('Ollama adapter', () => {
     await expect(provider.generate(request, undefined, undefined, (value) => transcriptions.push(value))).resolves.toBe('{"criteria":[]}');
     expect(fetchMock).toHaveBeenCalledTimes(3);
     const transcriptionBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
-    expect(transcriptionBody.messages[0].content).toBe('Text Recognition:');
+    expect(transcriptionBody.messages[0].content).toContain('Text Recognition:');
+    expect(transcriptionBody.messages[0].content).toContain('preserve the original row and column structure');
     const regionsBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
     expect(transcriptionBody.keep_alive).toBe(0); // Release vision before loading a distinct localization model.
     expect(regionsBody.model).toBe('locator');
