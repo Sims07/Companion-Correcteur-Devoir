@@ -1,6 +1,6 @@
 import type { Rubric } from '../domain/rubric.ts';
 import type { ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
-import type { ImageInput } from './aiProvider.ts';
+import type { DiagnosticModelResult, ImageInput } from './aiProvider.ts';
 import type { ScientificPageClassification } from '../domain/scientificPageClassification.ts';
 
 export interface ScientificDiagramAnalysisRequest {
