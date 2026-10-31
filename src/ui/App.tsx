@@ -2360,11 +2360,18 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         <div className="review-criteria-toolbar">
           <span>{flaggedCriteriaIds.size > 0 ? `${flaggedCriteriaIds.size} critère(s) à examiner · ${reliableCriteriaCount} sans alerte` : `Aucun signal particulier · ${review.length} critère(s)`}</span>
           <div className="review-criteria-toolbar-actions">
-            {reliableCriteriaCount > 0 && <button type="button" className="text-action" onClick={() => { const reliableIds = new Set(reviewFocus.reliableCriteriaIds); setIsFinalized(false); setReview((current) => current.map((item) => reliableIds.has(item.criterionId) ? { ...item, decision: 'accepted' } : item)); setReviewMessage(`${reliableCriteriaCount} critère(s) sans alerte confirmé(s). Les points retirés et les incertitudes restent à examiner.`); }}>Confirmer les {reliableCriteriaCount} critères sans alerte</button>}
+            {reliableCriteriaCount > 0 && <button type="button" className="text-action" onClick={() => { const reliableIds = new Set(reviewFocus.reliableCriteriaIds); setIsFinalized(false); setReview((current) => current.map((item) => reliableIds.has(item.criterionId) ? { ...item, decision: 'accepted' } : item)); setReviewMessage(`${reliableCriteriaCount} critère(s) sans alerte confirmé(s). Les points retirés et les incertitudes restent à examiner.`); }}>Confirmer les critères sans alerte ({reliableCriteriaCount})</button>}
             {flaggedCriteriaIds.size > 0 && <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>}
           </div>
         </div>
-        {shouldFocusExceptions && <p className="review-focus-hint">Les critères sans alerte sont masqués pour accélérer la lecture. Vous pouvez les afficher à tout moment.</p>}
+        {shouldFocusExceptions && <details className="review-safe-summary">
+          <summary>Voir les {reliableCriteriaCount} critères sans alerte</summary>
+          <ul>{review.filter((item) => reviewFocus.reliableCriteriaIds.includes(item.criterionId)).map((item) => {
+            const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
+            return <li key={item.criterionId}><strong>{criterion?.title ?? item.criterionId}</strong><span>{item.teacherPoints} / {criterion?.maxPoints ?? 0} points</span></li>;
+          })}</ul>
+        </details>}
+        {shouldFocusExceptions && <p className="review-focus-hint">Les critères sans alerte sont regroupés pour accélérer la lecture. Vous pouvez les afficher à tout moment.</p>}
         {(isAnalyzing ? rubric.criteria : rubric.criteria.filter((criterion) => !shouldFocusExceptions || flaggedCriteriaIds.has(criterion.id))).map((criterion, criterionIndex) => {
           const item = review.find((entry) => entry.criterionId === criterion.id);
           if (!item) {
