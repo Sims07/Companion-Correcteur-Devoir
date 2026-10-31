@@ -19,7 +19,7 @@ import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/local
 import type { RubricImportProgress } from '../ports/correctionWorkspace.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
-import { getReviewInsights, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
+import { getReviewFocus, getReviewInsights, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
 import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../domain/copyQueue.ts';
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
@@ -342,7 +342,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [archivedCorrections, setArchivedCorrections] = useState<LocalCorrection[]>([]);
   const [archiveMessage, setArchiveMessage] = useState('');
   const [review, setReview] = useState<ReviewedCriterion[]>([]);
-  const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
+  const [showOnlyFlagged, setShowOnlyFlagged] = useState(true);
   const [focusedEvidencePage, setFocusedEvidencePage] = useState<number | null>(null);
   const [focusedEvidenceCriterionId, setFocusedEvidenceCriterionId] = useState<string | null>(null);
   const [teacherQuestions, setTeacherQuestions] = useState('');
@@ -354,8 +354,11 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const reviewedTotal = criterionProgress.provisionalPoints;
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
   const reviewInsights = useMemo(() => getReviewInsights(review), [review]);
-  const flaggedCriteriaIds = useMemo(() => new Set(reviewInsights.flaggedCriteriaIds), [reviewInsights]);
-  const displayedReview = showOnlyFlagged ? review.filter((item) => flaggedCriteriaIds.has(item.criterionId)) : review;
+  const reviewFocus = useMemo(() => getReviewFocus(review, rubric.criteria), [review, rubric.criteria]);
+  const flaggedCriteriaIds = useMemo(() => new Set(reviewFocus.flaggedCriteriaIds), [reviewFocus]);
+  const reliableCriteriaCount = reviewFocus.reliableCriteriaIds.length;
+  const shouldFocusExceptions = showOnlyFlagged && flaggedCriteriaIds.size > 0;
+  const displayedReview = shouldFocusExceptions ? review.filter((item) => flaggedCriteriaIds.has(item.criterionId)) : review;
   const unreadableCopySignal = hasUnreadableCopySignal(transcription, images.length > 0);
   const completedForAssignment = archivedCorrections.filter((item) => item.assignmentTitle === (assignmentTitle.trim() || 'Devoir de biologie')).length;
   const subjectReady = correctionMode === 'integrated' || subjectImages.length > 0 || Boolean(subjectTranscription);
@@ -2354,9 +2357,16 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             </details>
           </aside>
           <div className="review-main-column">
-            <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite"><strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : criterionProgress.isComplete ? 'Note proposée · à valider' : 'Note partielle · analyse incomplète'}</strong><p>{proposal?.summary ?? 'Analyse du barème en cours. Les résultats apparaîtront ici, critère par critère.'}</p><span>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente de la première note'} · {criterionProgress.completedCount} / {criterionProgress.totalCount} critères évalués</span></div>
-        <div className="review-criteria-toolbar"><span>{showOnlyFlagged ? `Affichage ciblé : ${displayedReview.length} critère(s)` : `${review.length} critère(s) dans le barème`}</span>{showOnlyFlagged && <button type="button" className="text-action" onClick={() => setShowOnlyFlagged(false)}>Réafficher tous les critères</button>}</div>
-        {(isAnalyzing ? rubric.criteria : rubric.criteria.filter((criterion) => !showOnlyFlagged || flaggedCriteriaIds.has(criterion.id))).map((criterion, criterionIndex) => {
+            <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite"><strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : criterionProgress.isComplete ? 'Note proposée · à valider' : 'Note partielle · analyse incomplète'}</strong><span>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente de la première note'} · {criterionProgress.completedCount} / {criterionProgress.totalCount} critères évalués</span>{proposal?.summary && <details className="review-summary-details"><summary>Voir la synthèse de l’analyse</summary><p>{proposal.summary}</p></details>}</div>
+        <div className="review-criteria-toolbar">
+          <span>{flaggedCriteriaIds.size > 0 ? `${flaggedCriteriaIds.size} critère(s) à examiner · ${reliableCriteriaCount} sans alerte` : `Aucun signal particulier · ${review.length} critère(s)`}</span>
+          <div className="review-criteria-toolbar-actions">
+            {reliableCriteriaCount > 0 && <button type="button" className="text-action" onClick={() => { const reliableIds = new Set(reviewFocus.reliableCriteriaIds); setReview((current) => current.map((item) => reliableIds.has(item.criterionId) ? { ...item, decision: 'accepted' } : item)); setReviewMessage(`${reliableCriteriaCount} critère(s) sans alerte confirmé(s). Les points retirés et les incertitudes restent à examiner.`); }}>Confirmer les {reliableCriteriaCount} critères sans alerte</button>}
+            {flaggedCriteriaIds.size > 0 && <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>}
+          </div>
+        </div>
+        {shouldFocusExceptions && <p className="review-focus-hint">Les critères sans alerte sont masqués pour accélérer la lecture. Vous pouvez les afficher à tout moment.</p>}
+        {(isAnalyzing ? rubric.criteria : rubric.criteria.filter((criterion) => !shouldFocusExceptions || flaggedCriteriaIds.has(criterion.id))).map((criterion, criterionIndex) => {
           const item = review.find((entry) => entry.criterionId === criterion.id);
           if (!item) {
             const status = criterionStatuses[criterion.id];
@@ -2368,7 +2378,16 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             </article>;
           }
           return <article className="panel review-card" key={item.criterionId}>
-            <div className="review-card-heading"><div><h3>{criterion.title}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div><span className={`confidence confidence-${item.confidence}`}>Confiance {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</span></div>
+            <div className="review-card-heading">
+              <div><h3>{criterion.title}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div>
+              <div className="review-card-result">
+                <strong>{item.teacherPoints} / {criterion?.maxPoints ?? 0}</strong>
+                <span className={flaggedCriteriaIds.has(item.criterionId) ? 'review-result-status needs-review' : 'review-result-status'}>{flaggedCriteriaIds.has(item.criterionId) ? 'À examiner' : 'Sans alerte'}</span>
+              </div>
+            </div>
+            {item.confidence === 'low' && <p className="teacher-question review-compact-warning"><strong>Confiance faible.</strong> Une vérification humaine est nécessaire.</p>}
+            <details className="review-explanation">
+              <summary>Voir la preuve et la justification</summary>
             <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p>{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); setFocusedEvidenceCriterionId(item.criterionId); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>
             {item.annotationSuggestion && <section className="annotation-suggestion" aria-label={`Suggestion d’annotation pour le critère ${criterion?.title ?? item.criterionId}`}>
               <div className="annotation-suggestion-heading"><span className="eyebrow">COMMENTAIRE ÉVENTUEL À REPORTER AU STYLO</span><span className="annotation-suggestion-status">Suggestion IA</span></div>
@@ -2390,7 +2409,9 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
                 </ul>
               </details>
             )}
-            {item.confidence === 'low' && <p className="teacher-question"><strong>Lecture à vérifier :</strong> {item.questionForTeacher || 'Le modèle est incertain sur ce critère. Vérifiez la preuve citée et la note proposée ; aucune question précise ne peut être formulée automatiquement.'}</p>}
+
+              {item.confidence === 'low' && <p className="teacher-question"><strong>Lecture à vérifier :</strong> {item.questionForTeacher || 'Le modèle est incertain sur ce critère. Vérifiez la preuve citée et la note proposée.'}</p>}
+            </details>
             <div className="review-controls">
               <label><span className="field-label">Votre note</span><input type="number" min="0" max={criterion?.maxPoints ?? 0} step="0.5" value={item.teacherPoints} onChange={(event) => updateReview(item.criterionId, { teacherPoints: Number(event.target.value), decision: 'adjusted' })} /></label>
               <label className="comment-field"><span className="field-label">Commentaire enseignant</span><input value={item.teacherComment} onChange={(event) => updateReview(item.criterionId, { teacherComment: event.target.value })} placeholder="Précision ou correction éventuelle" /></label>
