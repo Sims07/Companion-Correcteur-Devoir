@@ -20,7 +20,7 @@ const STORAGE_KEY = 'companion-correcteur:network-inspector:v1';
 const EVENT_NAME = 'companion-correcteur:network-inspector:update';
 const MAX_RECORDS = 150;
 const MAX_BODY_LENGTH = 80_000;
-const SENSITIVE_KEY = /authorization|api[-_]?key|token|secret|password|base64|image|content[-_]?encoding/i;
+const SENSITIVE_KEY = /authorization|api[-_]?key|token|secret|password|base64|image|content[-_]?encoding|cookie/i;
 
 function truncate(value: string): string {
   return value.length > MAX_BODY_LENGTH ? `${value.slice(0, MAX_BODY_LENGTH)}\n… contenu tronqué dans l’inspecteur` : value;
@@ -39,7 +39,7 @@ function sanitizeValue(value: unknown, key = ''): unknown {
   return value;
 }
 
-export function sanitizeRequestBody(body: BodyInit | null | undefined): string {
+export function sanitizeUrl(value: string): string {\n  try {\n    const url = new URL(value, window.location?.origin ?? 'http://localhost');\n    for (const key of [...url.searchParams.keys()]) if (SENSITIVE_KEY.test(key)) url.searchParams.set(key, '[masqué]');\n    return url.toString();\n  } catch { return value; }\n}\n\nexport function sanitizeRequestBody(body: BodyInit | null | undefined): string {
   if (typeof body !== 'string') return body == null ? '' : '[corps non textuel masqué]';
   try {
     return JSON.stringify(sanitizeValue(JSON.parse(body)), null, 2);
@@ -92,7 +92,7 @@ export function installNetworkInspector(): () => void {
     const id = crypto.randomUUID();
     const startedAt = new Date().toISOString();
     const record: NetworkRequestRecord = {
-      id, method, url, startedAt, durationMs: null, state: 'pending', status: null, statusText: '',
+      id, method, url: sanitizeUrl(url), startedAt, durationMs: null, state: 'pending', status: null, statusText: '',
       requestHeaders: sanitizeHeaders(headers), responseHeaders: {},
       requestBody: sanitizeRequestBody(init?.body), responseBody: '', error: null,
     };
@@ -111,7 +111,7 @@ export function installNetworkInspector(): () => void {
         status: response.status,
         statusText: response.statusText,
         responseHeaders: sanitizeHeaders(response.headers),
-        state: response.ok ? 'success' : 'error',
+        state: response.ok ? 'pending' : 'error',
       });
       const clone = response.clone();
       if (clone.body) {
@@ -127,13 +127,13 @@ export function installNetworkInspector(): () => void {
               update({ responseBody: body });
             }
             body += decoder.decode();
-            update({ responseBody: truncate(body), durationMs: Math.round(performance.now() - started) });
+            update({ responseBody: truncate(body), durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error' });
           } catch (cause) {
             update({ responseBody: body, durationMs: Math.round(performance.now() - started), error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' });
           }
         })();
       } else {
-        update({ durationMs: Math.round(performance.now() - started) });
+        update({ durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error' });
       }
       return response;
     } catch (cause) {
