@@ -12,7 +12,8 @@ describe('teacher annotation color removal', () => {
     ['blue', [0, 0, 255]],
     ['purple', [160, 32, 240]],
   ] as const)('replaces selected %s ink with the sampled paper tone', (color, ink) => {
-    const result = eraseTeacherInkPixels(rgba(ink[0], ink[1], ink[2]), [244, 241, 232], color as Exclude<TeacherAnnotationInkColor, 'none'>);
+    const [red, green, blue] = ink as readonly [number, number, number];
+    const result = eraseTeacherInkPixels(rgba(red, green, blue), [244, 241, 232], color as Exclude<TeacherAnnotationInkColor, 'none'>);
     expect([...result]).toEqual([244, 241, 232, 255]);
   });
 
