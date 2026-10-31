@@ -18,8 +18,8 @@ export function buildIncrementalCriterionPrompt(
   const outputExample = {
     criterionId: criterion.id,
     points: 0,
-    rationale: 'Tous les attendus sont présents.',
-    evidence: 'La mitochondrie produit l’ATP.',
+    rationale: 'Le point décisif est conforme.',
+    evidence: 'Fragment exact de la copie.',
     confidence: 'medium',
     annotationSuggestion: '',
     pageNumber: 1,
