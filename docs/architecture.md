@@ -2,7 +2,7 @@
 
 ## Objectif et contraintes
 
-L'application aide les enseignants universitaires en biologie à analyser des copies manuscrites à partir d'un barème. La confidentialité est une contrainte d'architecture : les images sont préparées dans le navigateur et les requêtes IA sont envoyées uniquement à l'endpoint Ollama configuré. Aucun basculement silencieux vers un fournisseur cloud n'est autorisé.
+L'application aide les enseignants universitaires en biologie à analyser des copies manuscrites à partir d'un barème. La confidentialité est une contrainte d'architecture : les images sont préparées dans le navigateur. Le parcours textuel et la lecture courante utilisent l'endpoint Ollama configuré. Une exception dédiée, facultative et explicitement autorisée par copie permet d'envoyer les pages originales à l'endpoint API compatible OpenAI configuré pour l'analyse spécialisée des schémas scientifiques. Aucun basculement silencieux vers un fournisseur cloud n'est autorisé.
 
 L'application suit une **architecture hexagonale (ports et adaptateurs)** avec dépendances orientées vers le cœur métier. React, IndexedDB, les APIs du navigateur et Ollama sont des détails externes remplaçables.
 
@@ -75,7 +75,7 @@ Seul point d'assemblage des adaptateurs concrets, services applicatifs et compos
 
 ## Flux principaux
 
-1. L'enseignant crée ou sélectionne un devoir, ajuste son barème et choisit entre questions intégrées à la copie ou sujet de référence séparé.
+1. L'enseignant crée ou sélectionne un devoir, ajuste son barème, choisit entre questions intégrées à la copie ou sujet de référence séparé, et peut activer la modalité « schémas scientifiques ».
 2. Les fichiers sont préparés localement. Les PDF sont rendus en images dans le navigateur ; aucun téléversement de fichier n'est effectué par l'application.
 3. L'enseignant configure un modèle de lecture (vision) et un modèle d'analyse/notation. Pour un barème importé depuis une image, le modèle de vision demande une sortie structurée qui est validée et présentée à l'enseignant pour vérification.
 4. Le modèle de vision lit les images de la copie. Le texte extrait reste consultable et peut être réutilisé lors d'une nouvelle analyse sans rappeler le modèle de vision. En mode sujet séparé, la transcription du sujet est conservée en mémoire de la session et réutilisée pour les copies suivantes.
@@ -83,11 +83,11 @@ Seul point d'assemblage des adaptateurs concrets, services applicatifs et compos
 6. Une correction finalisée peut être archivée dans IndexedDB avec son instantané de révision, ses images, ses transcriptions, le barème et la proposition. Elle peut ensuite être rouverte pour consultation. Les données restent dans le profil de navigateur ; elles ne sont pas synchronisées entre appareils.
 7. Les écarts entre les notes proposées et les décisions de l'enseignant, ainsi que les commentaires explicites, peuvent être mémorisés localement. Le contexte récupéré est consultatif et ne remplace jamais la décision enseignante.
 8. La file de copies facilite le passage à la copie suivante pendant une session. Elle ne doit pas être confondue avec un traitement serveur en lot ni avec un service cloud.
-9. Le Diagnostic IA permet d'évaluer séparément les modèles et stratégies expérimentales, sans changer le comportement par défaut du parcours de correction enseignant.
+9. Lorsque la modalité « schémas scientifiques » est activée, un panneau indépendant propose une analyse visuelle à la demande. L'enseignant doit autoriser explicitement l'envoi des images de la copie à l'endpoint API compatible OpenAI configuré. Le résultat est validé contre les identifiants et maxima du barème ; les incertitudes sont conservées, et les points ne sont pas ajoutés automatiquement au total textuel.\n10. Le Diagnostic IA permet d'évaluer séparément les modèles et stratégies expérimentales, sans changer le comportement par défaut du parcours de correction enseignant.
 
 ## Confidentialité et limites
 
-- Les données sont transmises au seul endpoint Ollama configuré par l'utilisateur. Si cet endpoint est distant, les requêtes et images qu'il reçoit sortent de l'appareil : le caractère local dépend donc de la configuration choisie.
+- Le parcours courant transmet les données au seul endpoint Ollama configuré par l'utilisateur. Si cet endpoint est distant, les requêtes et images qu'il reçoit sortent de l'appareil.\n- L'analyse dédiée des schémas est une exception cloud facultative : elle n'est exécutée qu'après activation sur le devoir et consentement explicite pour la copie ; les images originales sont alors envoyées à l'endpoint API compatible OpenAI configuré.
 - Les archives, images et retours sont stockés dans IndexedDB du navigateur et peuvent être supprimés avec les données du site. Ce stockage n'est ni chiffré par l'application ni synchronisé.
 - La transcription du sujet de référence est en mémoire de page et n'est pas un dossier persistant partagé entre appareils.
 - La confiance déclarée par un modèle n'est pas calibrée statistiquement. Les preuves et justifications générées doivent être comparées à la copie originale.
