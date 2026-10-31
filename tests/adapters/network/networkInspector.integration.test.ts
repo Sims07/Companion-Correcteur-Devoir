@@ -58,6 +58,7 @@ describe('network inspector fetch integration', () => {
     };
     vi.stubGlobal('window', fakeWindow);
     vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    clearNetworkHistory();
     const restoreInspector = installNetworkInspector();
     const restoreMemoryBridge = installLocalMemoryFetchBridge({} as LocalCorrectionRepository);
 
