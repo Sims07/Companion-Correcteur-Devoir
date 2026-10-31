@@ -69,7 +69,7 @@ Ces limites de longueur sont des objectifs de lisibilité, pas une autorisation 
 
 Une évolution de la correction doit être évaluée selon :
 - le temps nécessaire pour comprendre la proposition et finaliser une copie ;
-- le nombre de mots affichés avant interaction, comparé au volume de la copie ;
+- le nombre de mots affichés avant interaction, comparé au volume de la copie (texte utile des critères : titres, scores, raisons, justifications et commentaires, hors navigation) ;
 - le nombre de critères, le nombre de critères à examiner, le nombre confirmés en groupe et le nombre ensuite modifiés par l'enseignant ;
 - le taux de modification des critères confirmés en groupe ;
 - le taux de corrections humaines des propositions et les erreurs détectées ;
