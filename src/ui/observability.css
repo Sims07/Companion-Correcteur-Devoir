@@ -229,3 +229,5 @@
   color: #35463a;
   font: 10px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
 }
+
+.observability-task-badge{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;background:#fff1dc;color:#8a4b08;font-size:10px;font-weight:800;letter-spacing:.06em;white-space:nowrap}
