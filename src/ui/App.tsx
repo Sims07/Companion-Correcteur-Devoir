@@ -1262,7 +1262,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       detectTeacherAnnotations,
       annotationInkColor,
       teacherAnnotations,
-      annotationInkColor,
       transcription,
       subjectImages: structuredClone(subjectImages),
       subjectTranscription,
