@@ -86,17 +86,13 @@ describe('parseGradingProposal', () => {
       criteria: [validCriteria[0], validCriteria[0], validCriteria[1]],
     }), rubric)).toThrow(/plusieurs propositions/);
   });
-  it('preserves a valid approximate image region and rejects out-of-page coordinates', () => {
-    const validBox = { x: 100, y: 200, width: 400, height: 120 };
+
+
+  it('ignores legacy location metadata in grading responses', () => {
     const proposal = parseGradingProposal(JSON.stringify({
-      criteria: [{ ...validCriteria[0], locationBox: validBox }, validCriteria[1]],
+      criteria: [{ ...validCriteria[0], locationHint: 'ancienne zone', locationBox: { x: 1, y: 2, width: 3, height: 4 } }, validCriteria[1]],
     }), rubric);
-    expect(proposal.criteria[0].locationBox).toEqual(validBox);
-
-    const invalid = parseGradingProposal(JSON.stringify({
-      criteria: [{ ...validCriteria[0], locationBox: { x: 900, y: 200, width: 200, height: 100 } }, validCriteria[1]],
-    }), rubric);
-    expect(invalid.criteria[0]).not.toHaveProperty('locationBox');
+    expect(proposal.criteria[0]).not.toHaveProperty('locationHint');
+    expect(proposal.criteria[0]).not.toHaveProperty('locationBox');
   });
-
 });
