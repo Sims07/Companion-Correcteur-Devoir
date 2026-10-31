@@ -102,14 +102,17 @@ export function undoGroupConfirmation(
   metrics: ReviewTraceMetrics,
   criterionIds: readonly string[],
 ): ReviewTraceMetrics {
-  const removed = new Set(criterionIds);
-  const confirmed = metrics.groupConfirmedCriterionIds.filter((id) => !removed.has(id));
-  const modified = metrics.groupModifiedCriterionIds.filter((id) => !removed.has(id));
+  // Keep the historical group-confirmation cohort. Undoing the action is a
+  // teacher change after confirmation and therefore contributes to the rate.
+  const confirmed = new Set(metrics.groupConfirmedCriterionIds);
+  const modified = new Set(metrics.groupModifiedCriterionIds);
+  for (const id of criterionIds) {
+    if (confirmed.has(id)) modified.add(id);
+  }
   return {
     ...metrics,
-    groupConfirmedCriterionIds: confirmed,
-    groupModifiedCriterionIds: modified,
-    groupConfirmedCount: confirmed.length,
-    groupConfirmedThenModifiedCount: modified.length,
+    groupConfirmedCount: confirmed.size,
+    groupModifiedCriterionIds: [...modified],
+    groupConfirmedThenModifiedCount: modified.size,
   };
 }
