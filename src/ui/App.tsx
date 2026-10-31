@@ -25,7 +25,7 @@ import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelPro
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
-import { listDiagnosticHistory, saveDiagnosticHistory } from '../adapters/storage/indexedDbMemory.ts';
+
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
 import { confirmReviewCriteriaInGroup, createReviewTraceMetrics, markGroupConfirmedCriterionModified, undoGroupConfirmation, type ReviewTraceMetrics } from '../domain/reviewMetrics.ts';
@@ -339,10 +339,10 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const diagnosticHistoryReady = useRef(false);
   useEffect(() => {
     let active = true;
-    void listDiagnosticHistory<TimingRecord>().then(async (stored) => {
+    void evaluationService.listDiagnosticHistory<TimingRecord>().then(async (stored) => {
       if (!active) return;
       const history = stored.length > 0 ? stored : readTimingHistory();
-      if (stored.length === 0 && history.length > 0) await saveDiagnosticHistory(history);
+      if (stored.length === 0 && history.length > 0) await evaluationService.saveDiagnosticHistory(history);
       if (!active) return;
       setTimingHistory(history);
       try { window.localStorage.removeItem(timingHistoryKey); } catch { /* IndexedDB remains the source of truth after migration. */ }
@@ -354,7 +354,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   }, []);
   useEffect(() => {
     if (!diagnosticHistoryReady.current) return;
-    void saveDiagnosticHistory(timingHistory).catch(() => { /* Keep the current session usable if IndexedDB is unavailable. */ });
+    void evaluationService.saveDiagnosticHistory(timingHistory).catch(() => { /* Keep the current session usable if IndexedDB is unavailable. */ });
   }, [timingHistory]);
   const observabilityRecords = useMemo(() => [...timingHistory, ...toModelEvaluationObservabilityTraces(savedModelEvaluations)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)).slice(0, timingHistoryLimit), [timingHistory, savedModelEvaluations]);
   const [currentTimingRecordId, setCurrentTimingRecordId] = useState<string | null>(null);
