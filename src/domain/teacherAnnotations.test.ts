@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatTeacherAnnotations, parseTeacherAnnotations } from './teacherAnnotations.ts';
+import { formatTeacherAnnotations, parseTeacherAnnotationDetection, parseTeacherAnnotations } from './teacherAnnotations.ts';
 
 describe('teacher annotation extraction contract', () => {
   it('keeps comments and already awarded points distinct', () => {
@@ -12,8 +12,21 @@ describe('teacher annotation extraction contract', () => {
     expect(annotations[1]).toMatchObject({ kind: 'score', points: 2, confidence: 'medium' });
     expect(parseTeacherAnnotations(formatTeacherAnnotations(annotations))).toEqual(annotations);
   });
+  it('returns a faithful student-only transcription separately from professor annotations', () => {
+    const detection = parseTeacherAnnotationDetection(JSON.stringify({
+      studentTranscription: 'La mitose produit deux cellules filles.',
+      annotations: [{ text: '2/3', kind: 'score', points: 2, color: 'rouge', location: 'marge', confidence: 'high' }],
+    }));
+    expect(detection.studentTranscription).toBe('La mitose produit deux cellules filles.');
+    expect(detection.annotations).toHaveLength(1);
+    expect(formatTeacherAnnotations(detection.annotations)).not.toContain('La mitose');
+  });
+  it('preserves legacy annotation responses without a cleaned transcription', () => {
+    const detection = parseTeacherAnnotationDetection(JSON.stringify({ annotations: [] }));
+    expect(detection).toEqual({ annotations: [] });
+  });
   it('rejects malformed output', () => {
-    expect(parseTeacherAnnotations('not json')).toEqual([]);
-    expect(parseTeacherAnnotations(JSON.stringify({ annotations: [{ text: 'x', kind: 'guess', color: 'red', location: 'margin', confidence: 'certain' }] }))).toEqual([]);
+    expect(parseTeacherAnnotationDetection('not json')).toEqual({ annotations: [] });
+    expect(parseTeacherAnnotationDetection(JSON.stringify({ annotations: [{ text: 'x', kind: 'guess', color: 'red', location: 'margin', confidence: 'certain' }] }))).toEqual({ annotations: [] });
   });
 });
