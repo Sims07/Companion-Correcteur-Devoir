@@ -1799,3 +1799,20 @@
   .review-criteria-toolbar-actions { justify-content: flex-start; }
   .review-card-result > strong { font-size: 16px; }
 }
+
+.review-safe-summary {
+  margin: 8px 0;
+  padding: 9px 12px;
+  border: 1px solid var(--flow-border);
+  border-radius: 9px;
+  background: var(--flow-surface-soft);
+}
+.review-safe-summary > summary {
+  color: var(--flow-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+.review-safe-summary ul { display: grid; gap: 6px; margin: 9px 0 0; padding: 0; list-style: none; }
+.review-safe-summary li { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
+.review-safe-summary li span { color: var(--flow-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
