@@ -1373,12 +1373,14 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       id: `queued-copy-${crypto.randomUUID()}`,
       label: studentLabel.trim() || images[0]?.fileName || `Copie ${copyQueue.length + 1}`,
       images: structuredClone(images),
+      originalImages: structuredClone(originalImages),
       detectTeacherAnnotations,
     };
     setCopyQueue((current) => appendQueuedCopy(current, queued));
     setStudentLabel('');
     setDetectTeacherAnnotations(false);
     setImages([]);
+    setOriginalImages([]);
     setTranscription(null);
     setScientificDiagramAnalysis(null);
     setPageClassifications(null);
