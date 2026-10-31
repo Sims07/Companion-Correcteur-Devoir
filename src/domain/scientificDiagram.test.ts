@@ -59,6 +59,12 @@ describe('parseScientificDiagramAnalysis', () => {
     wrongPage.diagrams[0].pageNumber = 2;
     expect(() => parseScientificDiagramAnalysis(JSON.stringify(wrongPage), rubric, 1)).toThrow(/page inexistante/);
   });
+  it('maps a Vision-local page index back to the original page when analyzing a filtered subset', () => {
+    const localPageResult = structuredClone(valid);
+    localPageResult.diagrams[0].pageNumber = 1;
+    const parsed = parseScientificDiagramAnalysis(JSON.stringify(localPageResult), rubric, 1, [4]);
+    expect(parsed.diagrams[0].pageNumber).toBe(4);
+  });
   it('accepts original page numbers when only a filtered subset is analyzed', () => {
     const originalPageResult = structuredClone(valid);
     originalPageResult.diagrams[0].pageNumber = 4;
