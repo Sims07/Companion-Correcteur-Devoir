@@ -87,6 +87,13 @@ export function ScientificDiagramAnalysisPanel({
           {analysis.diagrams.map((diagram) => (
             <article className="scientific-diagram-result" key={diagram.id}>
               <div className="panel-heading"><div><strong>{diagram.diagramType || 'Schéma'} · page {diagram.pageNumber}</strong><p>{diagram.summary}</p></div></div>
+              {images[diagram.pageNumber - 1] && <figure className="scientific-diagram-evidence">
+                <div style={{ position: 'relative', maxWidth: '560px' }}>
+                  <img src={`data:${images[diagram.pageNumber - 1].mimeType};base64,${images[diagram.pageNumber - 1].base64}`} alt={`Page ${diagram.pageNumber} contenant le schéma détecté`} style={{ display: 'block', width: '100%', height: 'auto' }} />
+                  {diagram.bounds && <div aria-label="Zone du schéma repérée par Vision" style={{ position: 'absolute', left: `${diagram.bounds.x * 100}%`, top: `${diagram.bounds.y * 100}%`, width: `${diagram.bounds.width * 100}%`, height: `${diagram.bounds.height * 100}%`, border: '2px solid #d97706', boxSizing: 'border-box', pointerEvents: 'none' }} />}
+                </div>
+                <figcaption>Zone repérée sur la page originale par le modèle Vision. Vérifiez le cadrage avant de retenir son analyse.</figcaption>
+              </figure>}
               {diagram.criteria.map((criterion) => (
                 <div className="scientific-diagram-criterion" key={criterion.criterionId}>
                   <div><strong>{criterion.title}</strong><span>{criterion.points} / {criterion.maxPoints} pt</span></div>
