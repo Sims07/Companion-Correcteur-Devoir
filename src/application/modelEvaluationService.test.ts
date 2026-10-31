@@ -15,8 +15,8 @@ describe('model evaluation application service', () => {
       save: vi.fn(async () => undefined),
       list: vi.fn(async () => [record]),
       delete: vi.fn(async () => undefined),
-      saveDiagnosticHistory: vi.fn(async () => undefined),
-      listDiagnosticHistory: vi.fn(async () => []),
+      saveDiagnosticHistory: vi.fn(async <T extends { id: string }>(_records: T[]) => undefined),
+      listDiagnosticHistory: vi.fn(async <T extends { id: string }>(): Promise<T[]> => []),
     };
     const service = createModelEvaluationService(repository);
     await service.save(record);
@@ -25,5 +25,21 @@ describe('model evaluation application service', () => {
     expect(repository.save).toHaveBeenCalledWith(record);
     expect(repository.list).toHaveBeenCalledOnce();
     expect(repository.delete).toHaveBeenCalledWith(record.id);
+  })
+  it('delegates diagnostic trace persistence to the same persistence port', async () => {
+    const diagnostic = [{ id: 'trace-1', prompt: 'private local prompt', raw: 'raw response' }];
+    const repository: ModelEvaluationRepository = {
+      save: vi.fn(async () => undefined),
+      list: vi.fn(async () => []),
+      delete: vi.fn(async () => undefined),
+      saveDiagnosticHistory: vi.fn(async <T extends { id: string }>(_records: T[]) => undefined),
+      listDiagnosticHistory: vi.fn(async <T extends { id: string }>(): Promise<T[]> => diagnostic as T[]),
+    };
+    const service = createModelEvaluationService(repository);
+    await service.saveDiagnosticHistory(diagnostic);
+    expect(await service.listDiagnosticHistory<typeof diagnostic[number]>()).toEqual(diagnostic);
+    expect(repository.saveDiagnosticHistory).toHaveBeenCalledWith(diagnostic);
+    expect(repository.listDiagnosticHistory).toHaveBeenCalledOnce();
   });
+;
 });
