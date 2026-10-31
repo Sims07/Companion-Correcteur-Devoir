@@ -19,6 +19,8 @@ const correction: LocalCorrection = {
     review: [{ criterionId: 'knowledge', points: 3, rationale: 'Bonne explication.', evidence: 'Les phases sont citées.', confidence: 'high', teacherPoints: 3.5, teacherComment: 'Précision apportée.', decision: 'adjusted' }],
     teacherQuestions: '',
     images: [{ base64: 'local-base64-copy', mimeType: 'image/jpeg', fileName: 'page-1.jpg' }],
+    originalImages: [{ base64: 'original-base64-copy', mimeType: 'image/jpeg', fileName: 'page-1.jpg' }],
+    annotationInkColor: 'red',
     transcription: 'La mitose comprend plusieurs phases.',
     subjectImages: [],
     subjectTranscription: null,
@@ -50,6 +52,8 @@ describe('local correction archive persistence', () => {
       snapshot: {
         question: 'Expliquez la mitose.',
         images: [{ base64: 'local-base64-copy', fileName: 'page-1.jpg' }],
+        originalImages: [{ base64: 'original-base64-copy', fileName: 'page-1.jpg' }],
+        annotationInkColor: 'red',
         transcription: 'La mitose comprend plusieurs phases.',
         review: [{ teacherPoints: 3.5, teacherComment: 'Précision apportée.', decision: 'adjusted' }],
         hasScientificDiagrams: true,
