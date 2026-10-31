@@ -25,6 +25,9 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Afficher tous les critères');
     expect(text).toContain('Voir les {reliableCriteriaCount} critères sans alerte');
     expect(text).toContain('Voir la synthèse de l’analyse');
+    expect(text).toContain('Synthèse des éléments à examiner');
+    expect(text).not.toContain('Vérifications prioritaires');
+    expect(text).not.toContain('reviewInsights.flaggedCriteriaIds.length');
     expect(text).not.toContain('<p>{proposal?.summary ??');
   });
 
