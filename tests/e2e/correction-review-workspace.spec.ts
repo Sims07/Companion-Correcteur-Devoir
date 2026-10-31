@@ -56,7 +56,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
           finalScore: 4,
         },
         review: [
-          { criterionId: 'membrane', points: 2, rationale: 'Le mécanisme est partiellement expliqué.', evidence: 'La réponse mentionne la membrane.', pageNumber: 1, confidence: 'medium', teacherPoints: 2, teacherComment: '', decision: 'pending' },
+          { criterionId: 'membrane', points: 2, rationale: 'Le mécanisme est partiellement expliqué.', evidence: 'La réponse mentionne la membrane.', annotationSuggestion: 'Précise le rôle de la membrane.', pageNumber: 1, confidence: 'medium', teacherPoints: 2, teacherComment: '', decision: 'pending' },
           { criterionId: 'transport', points: 2, rationale: 'Le transport sélectif est identifié.', evidence: 'La membrane contrôle les échanges.', pageNumber: 1, confidence: 'high', teacherPoints: 2, teacherComment: '', decision: 'pending' },
         ],
         teacherQuestions: '',
