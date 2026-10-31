@@ -19,7 +19,7 @@ const textProposal: GradingProposal = {
 const diagramAnalysis = {
   diagrams: [{
     id: 'd1', pageNumber: 2, diagramType: 'Cellule', summary: 'Schéma de cellule.',
-    criteria: [{ criterionId: 'diagram', title: 'Schéma scientifique', points: 7, maxPoints: 8, evidence: 'Membrane et organites correctement légendés.', confidence: 0.94, requiresTeacherReview: false }],
+    criteria: [{ criterionId: 'diagram', title: 'Schéma scientifique', points: 7, maxPoints: 8, evidence: 'Membrane et organites correctement légendés.', confidence: 0.94, requiresTeacherReview: false, qualityBreakdown: [{ dimension: 'title', status: 'fulfilled', evidence: 'Titre présent.' }, { dimension: 'scientific-accuracy', status: 'fulfilled', evidence: 'Structures exactes.' }, { dimension: 'completeness', status: 'partial', evidence: 'Un élément manque.' }, { dimension: 'labels', status: 'fulfilled', evidence: 'Légendes correctes.' }, { dimension: 'arrows-relations', status: 'not-applicable', evidence: 'Pas de relation à flécher.' }, { dimension: 'organization-conventions', status: 'fulfilled', evidence: 'Organisation claire.' }, { dimension: 'legibility', status: 'fulfilled', evidence: 'Lisible.' }] }],
     uncertainties: [],
   }],
   overallUncertainties: [],
@@ -41,12 +41,14 @@ describe('scientific rubric routing', () => {
   });
 
   it('uses Vision assessment for diagram criteria and text proposal for written criteria', () => {
-    const result = mergeScientificDiagramCriteria(rubric, textProposal, diagramAnalysis);
+    const explicitlyMarkedRubric: Rubric = { ...rubric, criteria: rubric.criteria.map((criterion) => criterion.id === 'diagram' ? { ...criterion, analysisMode: 'scientific-diagram' } : criterion) };
+    const result = mergeScientificDiagramCriteria(explicitlyMarkedRubric, textProposal, diagramAnalysis);
     expect(result.criteria).toEqual([
-      expect.objectContaining({ criterionId: 'diagram', points: 7, confidence: 'high', evidence: expect.stringContaining('Page 2') }),
+      expect.objectContaining({ criterionId: 'diagram', points: 7, confidence: 'high', evidence: expect.stringContaining('Page 2'), qualityBreakdown: expect.arrayContaining([expect.objectContaining({ dimension: 'title', status: 'fulfilled' })]) }),
       expect.objectContaining({ criterionId: 'text', points: 9, evidence: 'La transcription explique le mécanisme.' }),
     ]);
     expect(result.finalScore).toBe(16);
+    expect(result.criteria[0].qualityBreakdown).toHaveLength(7);
   });
 
   it('asks the teacher to review a visual criterion when Vision has no matching assessment', () => {
