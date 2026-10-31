@@ -3,17 +3,18 @@ import { parseScientificPageClassifications } from '../../domain/scientificPageC
 import type { ScientificDiagramAnalyzer, ScientificDiagramAnalysisRequest, ScientificPageClassificationRequest } from '../../ports/scientificDiagramAnalysis.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
 
-function classificationPrompt(pageCount: number): string {
+function classificationPrompt(originalPageNumber: number): string {
   return [
-    'Tu es chargé de classer les pages d’une copie universitaire de biologie avant toute correction.',
-    'Pour chaque page, décide si elle contient principalement une réponse rédigée, un schéma scientifique produit par l’étudiant, ou si le cas est ambigu.',
+    'Tu es chargé de classer UNE SEULE page d’une copie universitaire de biologie avant toute correction.',
+    'L’image jointe est la page indiquée ci-dessous. Ne fais aucune hypothèse sur les autres pages de la copie.',
+    'Décide si CETTE page contient principalement une réponse rédigée, un schéma scientifique produit par l’étudiant, ou si le cas est ambigu.',
     'Un schéma scientifique est une représentation dessinée porteuse d’information scientifique : cellule, tissu, anatomie, coupe, cycle, voie métabolique, graphique scientifique, arbre phylogénétique, montage expérimental annoté, etc.',
     'Ne classe pas comme schéma les simples tableaux, formules isolées, décorations, pictogrammes ou illustrations imprimées du sujet. Une page mêlant texte et schéma doit être classée scientific-diagram si le schéma constitue une production à évaluer ; sinon ambiguous.',
-    'Ne juge pas la qualité scientifique et n’attribue aucun point à cette étape. Cette étape sert uniquement à router les pages vers le bon parcours.',
-    'Retourne exactement une entrée par page, sans en omettre ni en inventer. Utilise les numéros 1 à N correspondant à l’ordre des images jointes.',
-    'Retourne exclusivement un JSON valide : {"pages":[{"pageNumber":1,"kind":"scientific-diagram","confidence":0.0,"reason":"..." }]}',
-    `NOMBRE DE PAGES : ${pageCount}`,
-  ].join('\n\n');
+    'Ne juge pas la qualité scientifique et n’attribue aucun point à cette étape. Cette étape sert uniquement à router cette page vers le bon parcours.',
+    'Retourne exactement une entrée pour l’unique image jointe. Le champ pageNumber doit toujours valoir 1 dans cette réponse isolée.',
+    'Retourne exclusivement un JSON valide : {"pages":[{"pageNumber":1,"kind":"text","confidence":0.0,"reason":"..."}]}',
+    `NUMÉRO DE PAGE ORIGINAL : ${originalPageNumber}`,
+  ].join('\\n\\n');
 }
 
 function promptFor(request: ScientificDiagramAnalysisRequest): string {
@@ -44,31 +45,37 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
   return {
     async classifyPages(request: ScientificPageClassificationRequest) {
       const compatibleFetch = createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey }, fetchImpl);
-      const response = await compatibleFetch(`${request.endpoint.replace(/\/+$/, '')}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: request.model,
-          stream: false,
-          format: 'json',
-          generation_token_parameter: 'max_completion_tokens',
-          options: { num_predict: 768 },
-          messages: [{
-            role: 'user',
-            content: classificationPrompt(request.images.length),
-            imageDetail: 'low',
-            images: request.images.map((image) => `data:${image.mimeType};base64,${image.base64}`),
-          }],
-        }),
-      });
-      if (!response.ok) {
-        const detail = (await response.text()).slice(0, 500);
-        throw new Error(`La détection des types de page a échoué (HTTP ${response.status}). ${detail}`);
+      const classifications = [];
+      // Keep one image per request: this prevents cross-page attribution and makes page identity explicit.
+      for (const [index, image] of request.images.entries()) {
+        const response = await compatibleFetch(`${request.endpoint.replace(/\\/+$/, '')}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: request.model,
+            stream: false,
+            format: 'json',
+            generation_token_parameter: 'max_tokens',
+            options: { num_predict: 256 },
+            messages: [{
+              role: 'user',
+              content: classificationPrompt(index + 1),
+              imageDetail: 'low',
+              images: [`data:${image.mimeType};base64,${image.base64}`],
+            }],
+          }),
+        });
+        if (!response.ok) {
+          const detail = (await response.text()).slice(0, 500);
+          throw new Error(`La détection Vision de la page ${index + 1} a échoué (HTTP ${response.status}). ${detail}`);
+        }
+        const payload = await response.json() as { message?: { content?: string }; error?: string };
+        if (payload.error) throw new Error(`La détection Vision de la page ${index + 1} a échoué : ${payload.error}`);
+        if (!payload.message?.content?.trim()) throw new Error(`Le modèle Vision n’a retourné aucune classification pour la page ${index + 1}.`);
+        const [classification] = parseScientificPageClassifications(payload.message.content, 1);
+        classifications.push({ ...classification, pageNumber: index + 1 });
       }
-      const payload = await response.json() as { message?: { content?: string }; error?: string };
-      if (payload.error) throw new Error(payload.error);
-      if (!payload.message?.content?.trim()) throw new Error('Le modèle Vision n’a retourné aucune classification des pages.');
-      return parseScientificPageClassifications(payload.message.content, request.images.length);
+      return classifications;
     },
     async analyze(request) {
       const compatibleFetch = createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey }, fetchImpl);
@@ -79,8 +86,8 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           model: request.model,
           stream: false,
           format: 'json',
-          generation_token_parameter: 'max_completion_tokens',
-          options: { num_predict: 4096 },
+          generation_token_parameter: 'max_tokens',
+          options: { num_predict: 2048 },
           messages: [{
             role: 'user',
             content: promptFor(request),
