@@ -94,6 +94,19 @@ export function ScientificDiagramAnalysisPanel({
                 <div className="scientific-diagram-criterion" key={criterion.criterionId}>
                   <div><strong>{criterion.title}</strong><span>{criterion.points} / {criterion.maxPoints} pt</span></div>
                   <p>{criterion.evidence}</p>
+                  {criterion.qualityBreakdown && (
+                    <details className="scientific-diagram-quality-details">
+                      <summary>Voir le détail de l'évaluation</summary>
+                      <ul>
+                        {criterion.qualityBreakdown.map((dimension) => (
+                          <li key={dimension.dimension}>
+                            <div><strong>{({ title: 'Titre et identification', 'scientific-accuracy': 'Exactitude scientifique', completeness: 'Exhaustivité et pertinence', labels: 'Légendes et annotations', 'arrows-relations': 'Flèches et relations', 'organization-conventions': 'Organisation et conventions', legibility: 'Lisibilité et soin' })[dimension.dimension]}</strong><span className={`quality-status quality-status-${dimension.status}`}>{({ fulfilled: 'Conforme', partial: 'Partiel', missing: 'Manquant', 'not-applicable': 'Non applicable', uncertain: 'Incertain' })[dimension.status]}</span></div>
+                            <p>{dimension.evidence}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
                   <small>Confiance indicative : {Math.round(criterion.confidence * 100)} %{criterion.requiresTeacherReview ? ' · Vérification enseignante requise' : ''}</small>
                 </div>
               ))}
