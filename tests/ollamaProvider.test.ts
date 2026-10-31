@@ -4,7 +4,9 @@ import type { GradingRequest } from '../src/ports/aiProvider.ts';
 
 describe('model-aware transcription prompts', () => {
   it('uses Text Recognition for dedicated OCR models and detailed safeguards for general vision models', () => {
-    expect(buildTranscriptionPrompt('glm-ocr:latest')).toBe('Text Recognition:');
+    expect(buildTranscriptionPrompt('glm-ocr:latest')).toContain('Text Recognition:');
+    expect(buildTranscriptionPrompt('glm-ocr:latest')).toContain('preserve the original row and column structure');
+    expect(buildTranscriptionPrompt('glm-ocr:latest')).toContain('Do not flatten a table into prose');
     const prompt = buildTranscriptionPrompt('qwen3.5:4b');
     expect(prompt).toContain('[illisible]');
     expect(prompt).toContain('Ne devine');
@@ -253,6 +255,26 @@ describe('Ollama adapter', () => {
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
     await provider.generate(request);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves a table-only page as rows and columns through GLM-OCR transcription', async () => {
+    const table = '| Phase | Durée | Résultat |\\n|---|---:|---|\\n| Prophase | 20 min | Chromosomes condensés |\\n| Métaphase | 5 min | Alignement équatorial |';
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse(table))
+      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const transcriptions: string[] = [];
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'glm-ocr:latest', analysisModel: 'grader',
+    }, fetchMock);
+
+    await expect(provider.generate(request, undefined, undefined, (value) => transcriptions.push(value))).resolves.toBe('{"criteria":[]}');
+
+    const visionPrompt = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).messages[0].content as string;
+    const analysisPrompt = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).messages[0].content as string;
+    expect(visionPrompt).toContain('preserve the original row and column structure');
+    expect(transcriptions[0]).toContain('| Phase | Durée | Résultat |');
+    expect(transcriptions[0]).toContain('| Métaphase | 5 min | Alignement équatorial |');
+    expect(analysisPrompt).toContain('| Phase | Durée | Résultat |');
   });
 
   it('transcribes each page as plain text with bounded generation before grading', async () => {
