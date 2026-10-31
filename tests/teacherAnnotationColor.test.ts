@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eraseTeacherInkPixels, type TeacherAnnotationInkColor } from '../src/domain/teacherAnnotationColor.ts';
+import { eraseTeacherInkPixels, sampleTeacherPaperColor, type TeacherAnnotationInkColor } from '../src/domain/teacherAnnotationColor.ts';
 
 function rgba(red: number, green: number, blue: number): Uint8ClampedArray {
   return new Uint8ClampedArray([red, green, blue, 255]);
@@ -28,5 +28,17 @@ describe('teacher annotation color removal', () => {
     const before = [...source];
     eraseTeacherInkPixels(source, [255, 255, 255], 'red');
     expect([...source]).toEqual(before);
+  });
+
+  it('samples the paper tone from corner regions while ignoring dark marks and saturated ink', () => {
+    const pixels = new Uint8ClampedArray(8 * 8 * 4);
+    for (let index = 0; index < pixels.length; index += 4) pixels.set([238, 232, 218, 255], index);
+    pixels.set([0, 0, 0, 255], 0);
+    pixels.set([255, 0, 0, 255], 4);
+    expect(sampleTeacherPaperColor(pixels, 8, 8)).toEqual([238, 232, 218]);
+  });
+
+  it('falls back to white for invalid image dimensions', () => {
+    expect(sampleTeacherPaperColor(new Uint8ClampedArray(), 0, 0)).toEqual([255, 255, 255]);
   });
 });
