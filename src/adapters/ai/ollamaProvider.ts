@@ -155,7 +155,17 @@ function cleanTranscription(raw: string): string {
 }
 
 export function buildTranscriptionPrompt(model: string, mode: 'auto' | 'ocr' | 'general' = 'auto'): string {
-  if (mode === 'ocr' || (mode === 'auto' && /(?:glm[-_]?ocr|ocr[-_]?model|paddleocr|dots[-_]?ocr)/i.test(model))) return 'Text Recognition:';
+  if (mode === 'ocr' || (mode === 'auto' && /(?:glm[-_]?ocr|ocr[-_]?model|paddleocr|dots[-_]?ocr)/i.test(model))) {
+    if (/glm[-_]?ocr/i.test(model)) {
+      return [
+        'Text Recognition:',
+        'For tables, preserve the original row and column structure. Transcribe a table as aligned rows with explicit column separators; keep headers, cell boundaries, empty cells, units and values in their original positions.',
+        'Do not flatten a table into prose or merge adjacent cells. Keep table titles and notes immediately before or after the table.',
+        'If a cell is unreadable, mark only that cell as [illisible] without shifting the other columns.',
+      ].join('\\n');
+    }
+    return 'Text Recognition:';
+  }
   return [
     'Transcris fidèlement tout le contenu visible de cette page, dans son ordre de lecture.',
     'Conserve les numéros, titres, paragraphes, listes, tableaux, unités, symboles et retours à la ligne utiles.',
