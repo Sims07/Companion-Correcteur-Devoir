@@ -396,5 +396,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('originalImages');
     expect(text).toContain('eraseTeacherAnnotationColor(rotated, annotationInkColor)');
     expect(text).toContain('images: textImages');
+    expect(text).toContain('teacherAnnotationImages');
+    expect(text).toContain('annotationRotationAngles');
   });
 });
