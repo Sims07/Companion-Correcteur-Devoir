@@ -55,8 +55,9 @@ Les seuils de couverture ne sont pas encore bloquants. Le badge de couverture es
 
 ## Confidentialité et limites
 
-- Les photos et PDF sont préparés dans le navigateur ; les PDF sont rendus en images localement. Aucun fichier n'est téléversé vers un service de stockage cloud par l'application.
-- Les requêtes d'analyse et de vision sont envoyées à l'endpoint Ollama explicitement configuré. Il n'y a pas de basculement silencieux vers un fournisseur cloud.
+- Les photos et PDF sont préparés dans le navigateur ; les PDF sont rendus en images localement. Aucun fichier n'est téléversé vers un service de stockage cloud par défaut.
+- Le parcours courant de lecture et de correction textuelle utilise l'endpoint Ollama explicitement configuré. Il n'y a pas de basculement silencieux vers un fournisseur cloud.
+- Exception facultative : lorsqu'un devoir active « schémas scientifiques », l'enseignant peut lancer une analyse Vision distincte. Après une autorisation explicite pour la copie concernée, les pages originales sont envoyées à l'endpoint API compatible OpenAI configuré. Cette analyse ne démarre jamais automatiquement, ne remplace pas la correction textuelle et ses points ne sont pas ajoutés automatiquement au total.
 - **Vérifiez l'endpoint Ollama avant d'importer des copies.** Si vous le configurez sur une machine distante, les données envoyées à cet endpoint quittent l'appareil. Pour un usage strictement local, utilisez un serveur Ollama local que vous contrôlez.
 - Selon le navigateur et la configuration réseau, Ollama peut nécessiter une règle CORS autorisant l'origine de l'application.
 - La qualité de lecture de l'écriture manuscrite varie selon le modèle, la résolution et la qualité des photos. Un score de confiance fourni par un modèle n'est pas une mesure statistique calibrée.
