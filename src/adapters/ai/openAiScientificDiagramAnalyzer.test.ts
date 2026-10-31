@@ -4,6 +4,7 @@ import { createOpenAiScientificDiagramAnalyzer } from './openAiScientificDiagram
 const request = {
   endpoint: 'https://ai.example',
   apiKey: 'secret',
+  teacherAnnotations: 'Correction rouge : légende à revoir',
   model: 'vision-model',
   question: 'Dessiner une cellule',
   rubric: { title: 'Barème', criteria: [{ id: 'labels', title: 'Légendes', description: '', maxPoints: 2 }] },
@@ -20,6 +21,7 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(String(url)).toBe('https://ai.example/v1/chat/completions');
     const body = JSON.parse(String(init?.body));
     expect(body.model).toBe('vision-model');
+    expect(body.messages[0].content[0].text).toContain('Correction rouge : légende à revoir');
     expect(body.max_completion_tokens).toBe(4096);
     expect(body.messages[0].content).toEqual([
       { type: 'text', text: expect.stringContaining('BARÈME') },
