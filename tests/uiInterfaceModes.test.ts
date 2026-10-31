@@ -63,6 +63,17 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('setIsFinalized(false)');
   });
 
+  it('requires teacher approval for rotation suggestions and verifies enabled automatic rotations', () => {
+    const text = app();
+    expect(text).toContain('La page {index + 1} semble tournée de {rotationSuggestions[index].degrees}°');
+    expect(text).toContain('>Appliquer</button>');
+    expect(text).toContain('>Ignorer</button>');
+    expect(text).toContain("getItem('companion-correcteur:auto-rotate-diagrams:v1') === 'true'");
+    expect(text).toContain("verification.suggestedRotation === 0");
+    expect(text).toContain('manualRotationAngles');
+    expect(text).toContain('accumulateClockwiseRotation');
+  });
+
   it('defaults to the teacher correction view', () => {
     expect(app()).toContain("useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher')");
     expect(app()).toContain("interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'");
