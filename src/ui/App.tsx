@@ -358,7 +358,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const flaggedCriteriaIds = useMemo(() => new Set(reviewFocus.flaggedCriteriaIds), [reviewFocus]);
   const reliableCriteriaCount = reviewFocus.reliableCriteriaIds.length;
   const shouldFocusExceptions = showOnlyFlagged && flaggedCriteriaIds.size > 0;
-  const displayedReview = shouldFocusExceptions ? review.filter((item) => flaggedCriteriaIds.has(item.criterionId)) : review;
   const unreadableCopySignal = hasUnreadableCopySignal(transcription, images.length > 0);
   const completedForAssignment = archivedCorrections.filter((item) => item.assignmentTitle === (assignmentTitle.trim() || 'Devoir de biologie')).length;
   const subjectReady = correctionMode === 'integrated' || subjectImages.length > 0 || Boolean(subjectTranscription);
