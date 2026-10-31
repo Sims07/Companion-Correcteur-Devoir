@@ -4,12 +4,12 @@ import { parseScientificPageClassifications, routeScientificPages } from './scie
 describe('scientific page classification', () => {
   it('accepts a complete ordered classification and preserves ambiguous pages', () => {
     expect(parseScientificPageClassifications(JSON.stringify({ pages: [
-      { pageNumber: 2, kind: 'scientific-diagram', confidence: 0.96, reason: 'Schéma annoté de cellule' },
+      { pageNumber: 2, kind: 'scientific-diagram', confidence: 0.96, reason: 'Schéma annoté de cellule', suggestedRotation: 90, orientationConfidence: 0.97 },
       { pageNumber: 1, kind: 'text', confidence: 0.99, reason: 'Réponse rédigée' },
       { pageNumber: 3, kind: 'ambiguous', confidence: 0.52, reason: 'Dessin partiel' },
     ] }), 3)).toEqual([
       { pageNumber: 1, kind: 'text', confidence: 0.99, reason: 'Réponse rédigée' },
-      { pageNumber: 2, kind: 'scientific-diagram', confidence: 0.96, reason: 'Schéma annoté de cellule' },
+      { pageNumber: 2, kind: 'scientific-diagram', confidence: 0.96, reason: 'Schéma annoté de cellule', suggestedRotation: 90, orientationConfidence: 0.97 },
       { pageNumber: 3, kind: 'ambiguous', confidence: 0.52, reason: 'Dessin partiel' },
     ]);
   });
@@ -53,6 +53,22 @@ describe('scientific page classification', () => {
     expect(parseScientificPageClassifications(JSON.stringify({ pages: [
       { pageNumber: 1, kind: 'mixed', confidence: 0.61, reason: 'Schéma et tableau peu lisibles' },
     ] }), 1)[0].kind).toBe('ambiguous');
+  });
+
+  it('accepts only complete, bounded orientation suggestions', () => {
+    const parsed = parseScientificPageClassifications(JSON.stringify({ pages: [
+      { pageNumber: 1, kind: 'scientific-diagram', confidence: 0.98, reason: 'Schéma', suggestedRotation: 270, orientationConfidence: 0.96 },
+    ] }), 1);
+    expect(parsed[0]).toMatchObject({ suggestedRotation: 270, orientationConfidence: 0.96 });
+    expect(() => parseScientificPageClassifications(JSON.stringify({ pages: [
+      { pageNumber: 1, kind: 'scientific-diagram', confidence: 0.98, reason: 'Schéma', suggestedRotation: 45, orientationConfidence: 0.96 },
+    ] }), 1)).toThrow(/orientation proposée/);
+    expect(() => parseScientificPageClassifications(JSON.stringify({ pages: [
+      { pageNumber: 1, kind: 'scientific-diagram', confidence: 0.98, reason: 'Schéma', suggestedRotation: 90 },
+    ] }), 1)).toThrow(/décision d’orientation.*incomplète/);
+    expect(() => parseScientificPageClassifications(JSON.stringify({ pages: [
+      { pageNumber: 1, kind: 'scientific-diagram', confidence: 0.98, reason: 'Schéma', suggestedRotation: 90, orientationConfidence: 1.2 },
+    ] }), 1)).toThrow(/confiance d’orientation/);
   });
 
   it('rejects unsupported page kinds and malformed JSON', () => {
