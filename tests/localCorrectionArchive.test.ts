@@ -24,6 +24,10 @@ const correction: LocalCorrection = {
     subjectTranscription: null,
     correctionMode: 'integrated',
     maximumPoints: 4,
+    scientificDiagramAnalysis: {
+      diagrams: [{ id: 'diagram-1', pageNumber: 1, diagramType: 'Cellule', summary: 'Schéma de cellule végétale', criteria: [{ criterionId: 'knowledge', title: 'Connaissances', points: 3, maxPoints: 4, evidence: 'Les structures attendues sont présentes.', confidence: 0.85, requiresTeacherReview: false }], uncertainties: [] }],
+      overallUncertainties: [],
+    },
   },
 };
 
@@ -46,6 +50,7 @@ describe('local correction archive persistence', () => {
         images: [{ base64: 'local-base64-copy', fileName: 'page-1.jpg' }],
         transcription: 'La mitose comprend plusieurs phases.',
         review: [{ teacherPoints: 3.5, teacherComment: 'Précision apportée.', decision: 'adjusted' }],
+        scientificDiagramAnalysis: { diagrams: [{ id: 'diagram-1', pageNumber: 1, diagramType: 'Cellule', summary: 'Schéma de cellule végétale', criteria: [{ criterionId: 'knowledge', points: 3, maxPoints: 4, evidence: 'Les structures attendues sont présentes.' }] }], overallUncertainties: [] },
       },
     });
   });
