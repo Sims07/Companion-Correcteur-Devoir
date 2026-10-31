@@ -52,6 +52,27 @@ describe('OpenAI scientific diagram adapter', () => {
     ]);
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer secret');
   });
+  it('asks Vision for the seven-dimension explanation when a rubric criterion is explicitly marked as a scientific diagram', async () => {
+    const detailedOutput = structuredClone(output);
+    detailedOutput.diagrams[0].criteria[0].qualityBreakdown = [
+      { dimension: 'title', status: 'fulfilled', evidence: 'Titre précis.' },
+      { dimension: 'scientific-accuracy', status: 'partial', evidence: 'Une structure est imprécise.' },
+      { dimension: 'completeness', status: 'fulfilled', evidence: 'Éléments essentiels présents.' },
+      { dimension: 'labels', status: 'partial', evidence: 'Deux légendes manquent.' },
+      { dimension: 'arrows-relations', status: 'not-applicable', evidence: 'Aucune relation à représenter.' },
+      { dimension: 'organization-conventions', status: 'fulfilled', evidence: 'Organisation logique.' },
+      { dimension: 'legibility', status: 'fulfilled', evidence: 'Lecture aisée.' },
+    ];
+    const markedRequest = { ...request, rubric: { title: 'Barème', criteria: [{ id: 'labels', title: 'Qualité du schéma', description: '', maxPoints: 10, analysisMode: 'scientific-diagram' as const }] } };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(detailedOutput) } }] }), { status: 200 }));
+    const result = await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(markedRequest);
+    expect(result.diagrams[0].criteria[0].qualityBreakdown).toHaveLength(7);
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    const prompt = body.messages[0].content[0].text as string;
+    expect(prompt).toContain('GRILLE AUTOMATIQUE DE QUALITÉ');
+    expect(prompt).toContain('arrows-relations');
+    expect(prompt).toContain('ne crée PAS de sous-notes');
+  });
   it('does not retry authentication and server errors', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('unauthorized', { status: 401 }));
     await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request)).rejects.toThrow(/HTTP 401/);
