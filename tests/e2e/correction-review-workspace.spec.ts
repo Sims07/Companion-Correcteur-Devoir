@@ -58,6 +58,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
         correctionMode: 'integrated',
         maximumPoints: 4,
         hasScientificDiagrams: true,
+        scientificPageClassifications: [{ pageNumber: 1, kind: 'scientific-diagram', confidence: 0.96, reason: 'Schéma de cellule' }],
         scientificDiagramAnalysis: { diagrams: [{ id: 'diagram-1', pageNumber: 1, bounds: { x: 0.1, y: 0.2, width: 0.5, height: 0.4 }, diagramType: 'Cellule', summary: 'Schéma de cellule végétale', criteria: [{ criterionId: 'membrane', title: 'Rôle de la membrane', points: 3, maxPoints: 4, evidence: 'La membrane est représentée.', confidence: 0.8, requiresTeacherReview: false }], uncertainties: [] }], overallUncertainties: [] },
       },
     });
