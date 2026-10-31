@@ -1839,5 +1839,5 @@
 .review-alert-summary .rationale { margin: 0; color: var(--flow-text); font-size: 13px; line-height: 1.45; }
 .review-alert-summary .annotation-suggestion { margin: 0; }
 .review-safe-summary li { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,2fr); align-items: baseline; gap: 6px 12px; }
-.review-safe-summary li small { color: var(--flow-muted); font-size: 12px; line-height: 1.4; }
+.review-safe-summary li small { color: var(--flow-muted); font-size: 12px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 720px) { .review-safe-summary li { grid-template-columns: minmax(0,1fr) auto; } .review-safe-summary li small { grid-column: 1 / -1; } }
