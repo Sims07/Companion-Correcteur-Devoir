@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatTeacherAnnotations, isDeletionOnlyTranscription, parseTeacherAnnotationDetection, parseTeacherAnnotations } from './teacherAnnotations.ts';
+import { formatTeacherAnnotations, isDeletionOnlyTranscription, parseTeacherAnnotationDetection, parseTeacherAnnotations, removeConfirmedTeacherAnnotation } from './teacherAnnotations.ts';
 
 describe('teacher annotation extraction contract', () => {
   it('keeps comments and already awarded points distinct', () => {
@@ -40,5 +40,16 @@ describe('deletion-only transcription validation', () => {
     expect(isDeletionOnlyTranscription(original, 'La mitose produit quatre cellules filles.')).toBe(false);
     expect(isDeletionOnlyTranscription(original, 'La division cellulaire produit deux cellules filles.')).toBe(false);
     expect(isDeletionOnlyTranscription(original, 'Deux cellules filles produit la mitose.')).toBe(false);
+  });
+});
+
+
+describe('confirmed teacher annotation removal', () => {
+  it('removes one unique exact annotation only', () => {
+    expect(removeConfirmedTeacherAnnotation('Réponse. Très bien', 'Très bien')).toBe('Réponse. ');
+  });
+  it('keeps missing or repeated text unchanged because its location is ambiguous', () => {
+    expect(removeConfirmedTeacherAnnotation('Réponse.', 'Très bien')).toBe('Réponse.');
+    expect(removeConfirmedTeacherAnnotation('Très bien. Très bien.', 'Très bien')).toBe('Très bien. Très bien.');
   });
 });

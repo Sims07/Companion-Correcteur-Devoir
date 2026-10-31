@@ -89,4 +89,48 @@ describe('teacher annotation separation in the grading pipeline', () => {
     })).rejects.toThrow(/page 3.*confirmation de l’enseignant/);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it('removes an uncertain annotation only after explicit teacher confirmation', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamResponse('La réponse étudiante. Très bien'))
+      .mockResolvedValueOnce(streamResponse(JSON.stringify({
+        studentTranscription: 'La réponse étudiante. Très bien',
+        annotations: [{ text: 'Très bien', kind: 'comment', color: 'rouge', location: 'marge', confidence: 'medium' }],
+      })))
+      .mockResolvedValueOnce(streamResponse('{"criteria":[]}'));
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'grader' }, fetchMock);
+    let reviewed = false;
+    await provider.generate({
+      question: 'Question', rubric: '{"criteria":[]}',
+      images: [{ base64: 'aGVsbG8=', mimeType: 'image/png' }], detectTeacherAnnotations: true,
+    }, undefined, undefined, undefined, undefined, undefined, async (candidates) => {
+      reviewed = true;
+      expect(candidates).toMatchObject([{ text: 'Très bien', confidence: 'medium', page: 1 }]);
+      return [{ id: candidates[0].id, confirmed: true }];
+    });
+    expect(reviewed).toBe(true);
+    const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
+    const studentSection = gradingBody.messages[0].content.split('<transcription_etudiant>')[1]?.split('</transcription_etudiant>')[0] ?? '';
+    expect(studentSection).not.toContain('Très bien');
+    expect(gradingBody.messages[0].content).not.toContain('<annotations_professeur>');
+  });
+
+  it('keeps an uncertain annotation in the student text when the teacher does not confirm it', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamResponse('La réponse étudiante. Entouré'))
+      .mockResolvedValueOnce(streamResponse(JSON.stringify({
+        studentTranscription: 'La réponse étudiante. Entouré',
+        annotations: [{ text: 'Entouré', kind: 'mark', color: 'bleu', location: 'réponse', confidence: 'low' }],
+      })))
+      .mockResolvedValueOnce(streamResponse('{"criteria":[]}'));
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'grader' }, fetchMock);
+    await provider.generate({
+      question: 'Question', rubric: '{"criteria":[]}',
+      images: [{ base64: 'aGVsbG8=', mimeType: 'image/png' }], detectTeacherAnnotations: true,
+    }, undefined, undefined, undefined, undefined, undefined, async (candidates) => [{ id: candidates[0].id, confirmed: false }]);
+    const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
+    const studentSection = gradingBody.messages[0].content.split('<transcription_etudiant>')[1]?.split('</transcription_etudiant>')[0] ?? '';
+    expect(studentSection).toContain('Entouré');
+    expect(gradingBody.messages[0].content).not.toContain('<annotations_professeur>');
+  });
 });

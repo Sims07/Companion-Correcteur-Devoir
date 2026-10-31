@@ -5,7 +5,7 @@ import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolutio
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
-import { formatTeacherAnnotations, isDeletionOnlyTranscription, parseTeacherAnnotationDetection } from '../../domain/teacherAnnotations.ts';
+import { formatTeacherAnnotations, isDeletionOnlyTranscription, parseTeacherAnnotationDetection, removeConfirmedTeacherAnnotation, type TeacherAnnotationReviewCandidate, type TeacherAnnotationReviewDecision } from '../../domain/teacherAnnotations.ts';
 import { buildRubricStructuringPrompt, formatRubricTranscriptionChunk, RUBRIC_STRUCTURING_CHUNK_OUTPUT_TOKENS, RUBRIC_STRUCTURING_MAX_OUTPUT_TOKENS, splitRubricTranscriptions } from './rubricStructuring.ts';
 
 interface OllamaChatResponse {
@@ -243,7 +243,7 @@ export function createOllamaProvider(
     : fetchImpl;
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
-    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void): Promise<string> {
+    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
       const providerName = settings.apiCompatible ? 'API compatible OpenAI' : 'Ollama';
       const visionOnly = request.visionOnly === true;
@@ -605,6 +605,7 @@ export function createOllamaProvider(
           }
           const retainedProfessorText = detection.annotations.filter((annotation) =>
             annotation.text.trim().length > 0
+            && annotation.confidence === 'high'
             && originalPageText.includes(annotation.text)
             && detection.studentTranscription!.includes(annotation.text));
           if (retainedProfessorText.length > 0) {
@@ -613,14 +614,34 @@ export function createOllamaProvider(
             throw new Error(warning);
           }
           if (detection.annotations.length) detectedTeacherAnnotations.push({ page: pageNumber, annotations: detection.annotations });
+          if (pageTranscriptions[index]) pageTranscriptions[index].pageText = detection.studentTranscription;
           const uncertainAnnotations = detection.annotations.filter((annotation) => annotation.confidence !== 'high');
           if (uncertainAnnotations.length > 0) {
             onTranscription?.(formatTeacherAnnotations(uncertainAnnotations), 'annotations');
-            const warning = `La page ${pageNumber} contient ${uncertainAnnotations.length} annotation(s) de confiance moyenne ou faible. Une confirmation de l’enseignant est nécessaire avant toute notation.`;
-            onTranscription?.(warning, 'warning');
-            throw new Error(warning);
+            if (!onTeacherAnnotationReview) {
+              const warning = `La page ${pageNumber} contient ${uncertainAnnotations.length} annotation(s) de confiance moyenne ou faible. Une confirmation de l’enseignant est nécessaire avant toute notation.`;
+              onTranscription?.(warning, 'warning');
+              throw new Error(warning);
+            }
+            const candidates: TeacherAnnotationReviewCandidate[] = uncertainAnnotations.map((annotation, candidateIndex) => ({
+              ...annotation,
+              id: `page-${pageNumber}-annotation-${candidateIndex + 1}`,
+              page: pageNumber,
+            }));
+            const decisions = await onTeacherAnnotationReview(candidates);
+            const confirmedIds = new Set(decisions.filter((decision) => decision.confirmed).map((decision) => decision.id));
+            for (const candidate of candidates) {
+              if (!confirmedIds.has(candidate.id)) continue;
+              const currentText = pageTranscriptions[index]?.pageText ?? detection.studentTranscription;
+              const cleanedText = removeConfirmedTeacherAnnotation(currentText, candidate.text);
+              if (cleanedText === currentText || !isDeletionOnlyTranscription(currentText, cleanedText)) {
+                const warning = `L’annotation de la page ${pageNumber} ne peut pas être retirée sans ambiguïté. Aucune note ne peut être calculée.`;
+                onTranscription?.(warning, 'warning');
+                throw new Error(warning);
+              }
+              if (pageTranscriptions[index]) pageTranscriptions[index].pageText = cleanedText;
+            }
           }
-          if (pageTranscriptions[index]) pageTranscriptions[index].pageText = detection.studentTranscription;
         }
       }
 
