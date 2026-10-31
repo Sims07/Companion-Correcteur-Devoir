@@ -1250,7 +1250,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
 
   function createNewAssignment() {
     if (isAnalyzing) return;
-    setShowOnlyFlagged(false);
+    setShowOnlyFlagged(true);
     setAssignmentDrafts((current) => ({ ...current, [activeAssignmentId]: captureActiveDraft() }));
     const profile: AssignmentProfile = {
       id: `assignment-${crypto.randomUUID()}`,
@@ -1335,7 +1335,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setProposal(null);
     setReview([]);
     setTeacherQuestions('');
-    setShowOnlyFlagged(false);
+    setShowOnlyFlagged(true);
     setReviewMessage('Copie chargée depuis la file locale. Lancez la lecture et la correction quand vous êtes prêt.');
     setError('');
     setCurrentCorrectionId(null);
@@ -1354,7 +1354,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setPageClassifications(null);
     setScientificDiagramError('');
     setProposal(null);
-    setShowOnlyFlagged(false);
+    setShowOnlyFlagged(true);
     setReview([]);
     setTeacherQuestions('');
     setReviewMessage('');
@@ -1394,7 +1394,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setScientificDiagramAnalysis(snapshot.scientificDiagramAnalysis ?? null);
     setPageClassifications(snapshot.scientificPageClassifications ?? null);
     setScientificDiagramError('');
-    setShowOnlyFlagged(false);
+    setShowOnlyFlagged(true);
     setTeacherQuestions(snapshot.teacherQuestions);
     setImages(snapshot.images);
     setDetectTeacherAnnotations(snapshot.detectTeacherAnnotations ?? false);
