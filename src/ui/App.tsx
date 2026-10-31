@@ -2451,7 +2451,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             {!isFlagged && item.annotationSuggestion && <section className="annotation-suggestion" aria-label={`Suggestion d’annotation pour le critère ${criterion?.title ?? item.criterionId}`}>
               <div className="annotation-suggestion-heading"><span className="eyebrow">COMMENTAIRE ÉVENTUEL À REPORTER AU STYLO</span><span className="annotation-suggestion-status">Suggestion IA</span></div>
               <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>
-              {item.locationHint && <p className="annotation-location"><strong>Repère indicatif :</strong> {item.locationHint}</p>}
             </section>}
             {!isFlagged && <p className="rationale">{item.rationale}</p>}
             {item.qualityBreakdown && (
