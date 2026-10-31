@@ -85,7 +85,8 @@ describe('teacher annotation separation in the grading pipeline', () => {
       rubric: '{"criteria":[]}',
       images: [{ base64: 'aGVsbG8=', mimeType: 'image/png' }],
       detectTeacherAnnotations: true,
-    })).rejects.toThrow(/confirmation de l’enseignant/);
+      teacherAnnotationPageNumbers: [3],
+    })).rejects.toThrow(/page 3.*confirmation de l’enseignant/);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
