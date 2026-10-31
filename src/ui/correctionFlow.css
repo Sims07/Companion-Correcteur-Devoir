@@ -1816,3 +1816,19 @@
 .review-safe-summary ul { display: grid; gap: 6px; margin: 9px 0 0; padding: 0; list-style: none; }
 .review-safe-summary li { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
 .review-safe-summary li span { color: var(--flow-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.review-focus-overview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--flow-border);
+  border-radius: 9px;
+  background: var(--flow-surface-soft);
+  color: var(--flow-muted);
+  font-size: 12px;
+}
+.review-focus-overview strong { color: var(--flow-text); }
+.review-focus-overview span { color: #9a5a17; }
