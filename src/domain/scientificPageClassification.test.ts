@@ -60,7 +60,7 @@ describe('scientific page classification', () => {
     ] }), 1)[0].kind).toBe('ambiguous');
   });
 
-  it('accepts only complete, bounded orientation suggestions', () => {
+  it('accepts valid orientation suggestions and falls back for incomplete or invalid metadata', () => {
     const parsed = parseScientificPageClassifications(JSON.stringify({ pages: [
       { pageNumber: 1, kind: 'scientific-diagram', confidence: 0.98, reason: 'Schéma', suggestedRotation: 270, orientationConfidence: 0.96 },
     ] }), 1);
