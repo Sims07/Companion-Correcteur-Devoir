@@ -66,7 +66,7 @@ describe('teacher and AI diagnostic interface modes', () => {
   it('keeps teacher annotations local to the teacher view and resets them between copies', () => {
     const text = app();
     expect(text).toContain('teacherAnnotations,');
-    expect(text).toContain('teacherAnnotations:');
+    expect(text).toContain('teacherAnnotations?: string;');
     expect(text).toContain('setTeacherAnnotations(snapshot.teacherAnnotations ?? \'\')');
     expect(text).toContain('setTeacherAnnotations(draft?.teacherAnnotations ?? \'\')');
     expect(text).toContain('setTeacherAnnotations(\'\');');
