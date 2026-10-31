@@ -27,6 +27,7 @@ import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
+import { confirmReviewCriteriaInGroup, createReviewTraceMetrics, markGroupConfirmedCriterionModified, undoGroupConfirmation, type ReviewTraceMetrics } from '../domain/reviewMetrics.ts';
 
 type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
 
@@ -143,6 +144,7 @@ type TimingRecord = {
   rubricSnapshot?: Rubric;
   diagnosticStrategy?: DiagnosticStrategy;
   diagnosticRuns?: DiagnosticModelResult[];
+  reviewMetrics?: ReviewTraceMetrics;
   referenceScores?: ReferenceCriterionScore[];
 };
 
@@ -864,6 +866,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         rubricSnapshot: structuredClone(rubric),
         diagnosticStrategy: interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
         diagnosticRuns: diagnosticResultsForHistory,
+        reviewMetrics: createReviewTraceMetrics(diagnosticProposal ? toReviewedCriteria(diagnosticProposal) : [], rubric.criteria),
       };
       setCurrentTimingRecordId(record.id);
       setTimingHistory((current) => {
@@ -1094,10 +1097,22 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setReferenceMessage('Référence retirée de cet essai. Les résultats restent consultables sans référence.');
   }
 
+  function updateCurrentReviewTraceMetrics(update: (metrics: ReviewTraceMetrics) => ReviewTraceMetrics) {
+    if (!currentTimingRecordId) return;
+    setTimingHistory((current) => {
+      const next = current.map((record) => record.id === currentTimingRecordId && record.reviewMetrics
+        ? { ...record, reviewMetrics: update(record.reviewMetrics) }
+        : record);
+      try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); } catch { /* Keep local observability available for this session. */ }
+      return next;
+    });
+  }
+
   function updateReview(id: string, patch: Partial<ReviewedCriterion>) {
     setIsFinalized(false);
     setReviewMessage('');
-    if (patch.teacherPoints !== undefined || patch.teacherComment !== undefined || patch.decision !== undefined) {
+    if ((patch.teacherPoints !== undefined || patch.teacherComment !== undefined || patch.decision !== undefined) && bulkConfirmedCriterionIds.includes(id)) {
+      updateCurrentReviewTraceMetrics((metrics) => markGroupConfirmedCriterionModified(metrics, id));
       setBulkConfirmedCriterionIds((current) => current.filter((criterionId) => criterionId !== id));
     }
     setReview((current) => current.map((item) => item.criterionId === id ? { ...item, ...patch } : item));
@@ -2387,8 +2402,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
           <span>{flaggedCriteriaIds.size > 0 ? `${flaggedCriteriaIds.size} critère(s) à examiner · ${reliableCriteriaCount} sans alerte` : `Aucun signal particulier · ${review.length} critère(s)`}</span>
           <div className="review-criteria-toolbar-actions">
             {bulkConfirmedCount > 0 && <span role="status">{bulkConfirmedCount} critère(s) confirmé(s)</span>}
-            {bulkConfirmedCount > 0 && <button type="button" className="text-action" onClick={() => { const confirmedIds = new Set(bulkConfirmedCriterionIds); setReview((current) => current.map((item) => confirmedIds.has(item.criterionId) && item.decision === 'accepted' ? { ...item, decision: 'pending' } : item)); setBulkConfirmedCriterionIds([]); setReviewMessage('Confirmation groupée annulée. Les critères sont de nouveau en attente.'); }}>Annuler</button>}
-            {pendingReliableCriterionIds.length > 0 && <button type="button" className="text-action" disabled={!criterionProgress.isComplete || isAnalyzing} onClick={() => { const reliableIds = new Set(pendingReliableCriterionIds); setIsFinalized(false); setBulkConfirmedCriterionIds(pendingReliableCriterionIds); setReview((current) => current.map((item) => reliableIds.has(item.criterionId) ? { ...item, decision: 'accepted' } : item)); setReviewMessage(`${pendingReliableCriterionIds.length} critère(s) sans alerte confirmé(s). Les points retirés et les incertitudes restent à examiner.`); }}>Confirmer les critères sans alerte ({pendingReliableCriterionIds.length})</button>}
+            {bulkConfirmedCount > 0 && <button type="button" className="text-action" onClick={() => { const confirmedIds = new Set(bulkConfirmedCriterionIds); updateCurrentReviewTraceMetrics((metrics) => undoGroupConfirmation(metrics, bulkConfirmedCriterionIds)); setReview((current) => current.map((item) => confirmedIds.has(item.criterionId) && item.decision === 'accepted' ? { ...item, decision: 'pending' } : item)); setBulkConfirmedCriterionIds([]); setReviewMessage('Confirmation groupée annulée. Les critères sont de nouveau en attente.'); }}>Annuler</button>}
+            {pendingReliableCriterionIds.length > 0 && <button type="button" className="text-action" disabled={!criterionProgress.isComplete || isAnalyzing} onClick={() => { const reliableIds = new Set(pendingReliableCriterionIds); updateCurrentReviewTraceMetrics((metrics) => confirmReviewCriteriaInGroup(metrics, pendingReliableCriterionIds)); setIsFinalized(false); setBulkConfirmedCriterionIds(pendingReliableCriterionIds); setReview((current) => current.map((item) => reliableIds.has(item.criterionId) ? { ...item, decision: 'accepted' } : item)); setReviewMessage(`${pendingReliableCriterionIds.length} critère(s) sans alerte confirmé(s). Les points retirés et les incertitudes restent à examiner.`); }}>Confirmer les critères sans alerte ({pendingReliableCriterionIds.length})</button>}
             {flaggedCriteriaIds.size > 0 && <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>}
           </div>
         </div>
