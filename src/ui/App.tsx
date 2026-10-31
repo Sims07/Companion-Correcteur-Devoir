@@ -10,6 +10,7 @@ import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationReco
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
 import { routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
+import { mergeScientificDiagramCriteria, partitionScientificRubric } from '../domain/scientificRubricRouting.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/diagnosticReference.ts';
@@ -687,6 +688,9 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     let diagramImages: ImageInput[] = [];
     let diagramPageNumbers: number[] = [];
     let classificationWasJustCreated = false;
+    const rubricRouting = partitionScientificRubric(rubric);
+    const gradingRubric: Rubric = interfaceMode === 'teacher' ? { ...rubric, criteria: rubricRouting.textCriteria } : rubric;
+    const diagramRubric: Rubric = { ...rubric, criteria: rubricRouting.diagramCriteria };
     setBusy(true);
     if ((interfaceMode === 'diagnostic' || interfaceMode === 'debug') && strategyOverride !== 'arbitrate-only') {
     }
@@ -722,7 +726,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
           diagramPageNumbers = routing.diagramPageNumbers;
           diagramImages = diagramPageNumbers.map((pageNumber) => images[pageNumber - 1]);
           textImages = routing.textPageNumbers.map((pageNumber) => images[pageNumber - 1]);
-          if (diagramImages.length > 0 && !scientificDiagramAnalysis) {
+          if (diagramImages.length > 0 && diagramRubric.criteria.length > 0 && !scientificDiagramAnalysis) {
             setCriterionProgressMessage(`${diagramImages.length} page(s) de schéma détectée(s) · correction scientifique spécialisée…`);
             setScientificDiagramError('');
             try {
@@ -731,7 +735,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
                 pageNumbers: diagramPageNumbers,
                 question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
                 teacherAnnotations,
-                rubric,
+                rubric: diagramRubric,
                 model: visionModel,
                 endpoint,
                 apiKey,
@@ -748,69 +752,78 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
           textImages = images;
         }
       }
-      if (textImages.length === 0) {
-        setTeacherStep('review');
-        throw new Error('Aucune page de réponse rédigée n’a été détectée. Les schémas ont été traités séparément ; vérifiez leurs commentaires et le barème avant de poursuivre.');
-      }
-      if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) throw new Error('Importez le sujet de référence pour ce mode de correction.');
-      const gradingTranscription = classificationWasJustCreated && diagramImages.length > 0 ? null : transcription;
-      if ((!gradingTranscription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
-      await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
-      setAnalysisStage('reading');
-      const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
-      const raw = await provider.generate(
-        { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images: textImages, detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
-        (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
-        (stage) => {
-          const now = Date.now();
-          if (stage === 'reading' && readingStartedAt === null) readingStartedAt = now;
-          if (stage === 'grading') {
-            if (readingStartedAt !== null && readingDurationMs === null) { readingDurationMs = now - readingStartedAt; setReadingElapsedMs(readingDurationMs); }
-            analysisStartedAt = now;
-            setStreamedOutput('');
-            if (interfaceMode === 'teacher') {
-              setTeacherStep('review');
-              if (criterionByCriterion && rubric.criteria[0]) setActiveCriterionId(rubric.criteria[0].id);
+      const shouldRunTextGrading = textImages.length > 0 && gradingRubric.criteria.length > 0;
+      if (shouldRunTextGrading && correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) throw new Error('Importez le sujet de référence pour ce mode de correction.');
+      let textProposal: GradingProposal | null = null;
+      if (shouldRunTextGrading) {
+        const gradingTranscription = classificationWasJustCreated && diagramImages.length > 0 ? null : transcription;
+        if ((!gradingTranscription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
+        await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
+        setAnalysisStage('reading');
+        const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
+        const raw = await provider.generate(
+          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
+          (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
+          (stage) => {
+            const now = Date.now();
+            if (stage === 'reading' && readingStartedAt === null) readingStartedAt = now;
+            if (stage === 'grading') {
+              if (readingStartedAt !== null && readingDurationMs === null) { readingDurationMs = now - readingStartedAt; setReadingElapsedMs(readingDurationMs); }
+              analysisStartedAt = now;
+              setStreamedOutput('');
+              if (interfaceMode === 'teacher') {
+                setTeacherStep('review');
+                if (criterionByCriterion && gradingRubric.criteria[0]) setActiveCriterionId(gradingRubric.criteria[0].id);
+              }
             }
-          }
-          setAnalysisStage(stage);
-        },
-        (extracted, kind) => {
-          if (kind === 'subject') setSubjectTranscription(extracted);
-          else if (kind === 'annotations') setTeacherAnnotations(extracted);
-          else setTranscription(extracted);
-        },
-        (result) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); },
-        (update) => {
-          setCriterionStatuses((current) => ({ ...current, [update.criterionId]: update.status }));
-          if (update.status === 'completed') setActiveCriterionId(criterionByCriterion ? rubric.criteria[update.index]?.id ?? null : null);
-          else setActiveCriterionId(update.criterionId);
-          setCriterionProgressMessage(`Critère ${update.index}/${update.total} · ${update.status === 'retrying' ? 'nouvel essai' : update.status === 'failed' ? 'à vérifier' : update.status === 'completed' ? 'proposition reçue' : 'analyse en cours'}`);
-          if (update.status === 'completed' && update.proposal) {
-            const existingIndex = partialCriteria.findIndex((item) => item.criterionId === update.criterionId);
-            if (existingIndex >= 0) partialCriteria.splice(existingIndex, 1);
-            partialCriteria.push(update.proposal);
-            const orderedCriteria = [...partialCriteria].sort((left, right) => rubric.criteria.findIndex((item) => item.id === left.criterionId) - rubric.criteria.findIndex((item) => item.id === right.criterionId));
-            const partialProposal: GradingProposal = {
-              summary: 'Analyse en cours : les propositions sont affichées au fur et à mesure et restent à vérifier.',
-              criteria: orderedCriteria,
-              questionsForTeacher: orderedCriteria.flatMap((item) => item.questionForTeacher ? [item.questionForTeacher] : []),
-              finalScore: orderedCriteria.reduce((sum, item) => sum + item.points, 0),
-            };
-            setProposal(partialProposal);
-            setReview((current) => toReviewedCriteria(partialProposal).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item));
-            setTeacherQuestions(partialProposal.questionsForTeacher.join('\n'));
-            if (interfaceMode === 'teacher') setTeacherStep('review');
-          }
-        },
-      );
-      if (analysisStartedAt !== null) { analysisDurationMs = Math.max(0, Date.now() - analysisStartedAt); setAnalysisElapsedMs(analysisDurationMs); }
-      const parsed = parseGradingProposal(raw, rubric);
+            setAnalysisStage(stage);
+          },
+          (extracted, kind) => {
+            if (kind === 'subject') setSubjectTranscription(extracted);
+            else if (kind === 'annotations') setTeacherAnnotations(extracted);
+            else setTranscription(extracted);
+          },
+          (result) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); },
+          (update) => {
+            setCriterionStatuses((current) => ({ ...current, [update.criterionId]: update.status }));
+            if (update.status === 'completed') setActiveCriterionId(criterionByCriterion ? gradingRubric.criteria[update.index]?.id ?? null : null);
+            else setActiveCriterionId(update.criterionId);
+            setCriterionProgressMessage(`Critère ${update.index}/${update.total} · ${update.status === 'retrying' ? 'nouvel essai' : update.status === 'failed' ? 'à vérifier' : update.status === 'completed' ? 'proposition reçue' : 'analyse en cours'}`);
+            if (update.status === 'completed' && update.proposal) {
+              const existingIndex = partialCriteria.findIndex((item) => item.criterionId === update.criterionId);
+              if (existingIndex >= 0) partialCriteria.splice(existingIndex, 1);
+              partialCriteria.push(update.proposal);
+              const orderedCriteria = [...partialCriteria].sort((left, right) => gradingRubric.criteria.findIndex((item) => item.id === left.criterionId) - gradingRubric.criteria.findIndex((item) => item.id === right.criterionId));
+              const partialProposal: GradingProposal = {
+                summary: 'Analyse en cours : les propositions sont affichées au fur et à mesure et restent à vérifier.',
+                criteria: orderedCriteria,
+                questionsForTeacher: orderedCriteria.flatMap((item) => item.questionForTeacher ? [item.questionForTeacher] : []),
+                finalScore: orderedCriteria.reduce((sum, item) => sum + item.points, 0),
+              };
+              setProposal(partialProposal);
+              setReview((current) => toReviewedCriteria(partialProposal).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item));
+              setTeacherQuestions(partialProposal.questionsForTeacher.join('\\n'));
+              if (interfaceMode === 'teacher') setTeacherStep('review');
+            }
+          },
+        );
+        if (analysisStartedAt !== null) { analysisDurationMs = Math.max(0, Date.now() - analysisStartedAt); setAnalysisElapsedMs(analysisDurationMs); }
+        textProposal = parseGradingProposal(raw, gradingRubric);
+      } else {
+        analysisStartedAt = Date.now();
+        setAnalysisStage('grading');
+        setTeacherStep('review');
+        setCriterionProgressMessage('Les critères graphiques sont évalués directement sur les schémas ; les critères textuels sans page rédigée restent à vérifier.');
+      }
+      const parsed = interfaceMode === 'teacher'
+        ? mergeScientificDiagramCriteria(rubric, textProposal, scientificDiagramAnalysis)
+        : textProposal;
+      if (!parsed) throw new Error('Aucune proposition de correction exploitable n’a été produite.');
       diagnosticProposal = parsed;
       setProposal(parsed);
       setReview((current) => toReviewedCriteria(parsed).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item));
-      setTeacherQuestions(parsed.questionsForTeacher.join('\n'));
-      setActiveCriterionId(null);
+      setTeacherQuestions(parsed.questionsForTeacher.join('\\n'));
+
       setCriterionStatuses(Object.fromEntries(rubric.criteria.map((criterion) => [criterion.id, 'completed' as const])));
       if (interfaceMode === 'teacher') setTeacherStep('review');
       outcome = 'success';
