@@ -6,6 +6,8 @@ const copy = (id: string): QueuedCopy => ({
   label: `Étudiant ${id}`,
   images: [{ fileName: `${id}.png`, mimeType: 'image/png', base64: 'cG5n' }],
   detectTeacherAnnotations: id === '1',
+  annotationInkColor: id === '1' ? 'red' : 'none',
+  annotationInkColorApplied: id === '1',
 });
 
 describe('local copy queue', () => {
@@ -17,6 +19,8 @@ describe('local copy queue', () => {
     const result = takeNextQueuedCopy([copy('1'), copy('2'), copy('3')]);
     expect(result.next?.id).toBe('1');
     expect(result.next?.detectTeacherAnnotations).toBe(true);
+    expect(result.next?.annotationInkColor).toBe('red');
+    expect(result.next?.annotationInkColorApplied).toBe(true);
     expect(result.remaining[0]?.detectTeacherAnnotations).toBe(false);
     expect(result.remaining.map((item) => item.id)).toEqual(['2', '3']);
   });
