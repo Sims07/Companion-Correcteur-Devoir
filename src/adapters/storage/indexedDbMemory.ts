@@ -201,6 +201,9 @@ export async function deleteModelEvaluation(evaluationId: string): Promise<void>
 }
 
 export class IndexedDbModelEvaluationRepository implements ModelEvaluationRepository {
+  saveDiagnosticHistory<T extends { id: string }>(records: T[]): Promise<void> { return saveDiagnosticHistory(records); }
+  listDiagnosticHistory<T extends { id: string }>(): Promise<T[]> { return listDiagnosticHistory<T>(); }
+
   save(record: ModelEvaluationRecord): Promise<void> {
     return saveModelEvaluation(record);
   }
