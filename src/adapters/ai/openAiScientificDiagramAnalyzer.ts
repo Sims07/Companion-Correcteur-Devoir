@@ -31,7 +31,7 @@ function classificationPrompt(originalPageNumber: number): string {
     'Retourne exactement une entrée pour l’unique image jointe. Le champ pageNumber doit toujours valoir 1 dans cette réponse isolée.',
     'Les seules valeurs autorisées pour kind sont text, scientific-diagram, mixed ou ambiguous. Exemple de JSON valide : {"pages":[{"pageNumber":1,"kind":"text","confidence":0.0,"reason":"..."}]}',
     `NUMÉRO DE PAGE ORIGINAL : ${originalPageNumber}`,
-  ].join('\\n\\n');
+  ].join('\n\n');
 }
 
 function promptFor(request: ScientificDiagramAnalysisRequest): string {
