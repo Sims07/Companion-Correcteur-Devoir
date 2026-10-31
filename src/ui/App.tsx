@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FilePicker } from './components/FilePicker.tsx';
+import { ScientificDiagramAnalysisPanel } from './components/ScientificDiagramAnalysisPanel.tsx';
+import { Checkbox } from './design-system/components/Checkbox.tsx';
+import type { ScientificDiagramAnalysisService } from '../application/scientificDiagramAnalysisService.ts';
 import { DesignSystemSelect } from './components/DesignSystemSelect.tsx';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
 import type { ModelEvaluationService } from '../application/modelEvaluationService.ts';
@@ -45,6 +48,7 @@ type AssignmentProfile = {
   rubric: Rubric;
   question: string;
   correctionMode: 'integrated' | 'separate';
+  hasScientificDiagrams?: boolean;
 };
 
 type AssignmentDraft = {
@@ -235,7 +239,7 @@ function getLocalMemoryCorrectionId(): string | null {
   }
 }
 
-export function App({ service, archiveService, evaluationService, loadSalukiModel }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; loadSalukiModel: (settings: { endpoint: string; apiKey: string }) => Promise<void> }) {
+export function App({ service, archiveService, evaluationService, diagramAnalysisService, loadSalukiModel }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; diagramAnalysisService: ScientificDiagramAnalysisService; loadSalukiModel: (settings: { endpoint: string; apiKey: string }) => Promise<void> }) {
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
   const [showAssignmentPicker, setShowAssignmentPicker] = useState(false);
@@ -298,6 +302,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   useEffect(() => { void evaluationService.list().then(setSavedModelEvaluations).catch(() => setError('Impossible de lire l’historique local des évaluations.')); }, [evaluationService]);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>(() => readActiveAssignmentProfile().correctionMode);
+  const [hasScientificDiagrams, setHasScientificDiagrams] = useState(() => readActiveAssignmentProfile().hasScientificDiagrams ?? false);
   const [subjectImages, setSubjectImages] = useState<ImageInput[]>([]);
   const [subjectTranscription, setSubjectTranscription] = useState<string | null>(null);
   const [images, setImages] = useState<ImageInput[]>([]);
@@ -405,7 +410,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
   }
 
   useEffect(() => {
-    const current: AssignmentProfile = { id: activeAssignmentId, title: assignmentTitle, description: assignmentDescription, educationLevel, rubric, question, correctionMode };
+    const current: AssignmentProfile = { id: activeAssignmentId, title: assignmentTitle, description: assignmentDescription, educationLevel, rubric, question, correctionMode, hasScientificDiagrams };
     setAssignmentProfiles((profiles) => {
       const next = profiles.some((profile) => profile.id === activeAssignmentId)
         ? profiles.map((profile) => profile.id === activeAssignmentId ? current : profile)
@@ -419,7 +424,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       } catch { /* Keep the current assignment usable when browser storage is unavailable. */ }
       return next;
     });
-  }, [activeAssignmentId, assignmentTitle, assignmentDescription, educationLevel, rubric, question, correctionMode]);
+  }, [activeAssignmentId, assignmentTitle, assignmentDescription, educationLevel, rubric, question, correctionMode, hasScientificDiagrams]);
 
   useEffect(() => {
     let active = true;
@@ -1109,6 +1114,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setRubric(profile.rubric);
     setQuestion(profile.question);
     setCorrectionMode(profile.correctionMode);
+    setHasScientificDiagrams(profile.hasScientificDiagrams ?? false);
     const draft = assignmentDrafts[profile.id];
     setCopyQueue(draft?.copyQueue ?? []);
     setImages(draft?.images ?? []);
@@ -1170,6 +1176,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
       rubric: { title: 'Barème à définir', criteria: [] },
       question: defaultQuestion,
       correctionMode: 'integrated',
+      hasScientificDiagrams: false,
     };
     setAssignmentProfiles((current) => [...current, profile]);
     setActiveAssignmentId(profile.id);
@@ -1179,6 +1186,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
     setRubric(profile.rubric);
     setQuestion(profile.question);
     setCorrectionMode(profile.correctionMode);
+    setHasScientificDiagrams(false);
     setCopyQueue([]);
     setImages([]);
     setDetectTeacherAnnotations(false);
@@ -1850,6 +1858,13 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
             <option value="Autre">Autre</option>
           </DesignSystemSelect>
           <p className="hint">Le niveau sert à calibrer les attentes : vocabulaire, profondeur du raisonnement et précision scientifique. Il ne remplace pas les critères explicites du barème.</p>
+          <section className="assignment-modalities" aria-labelledby="assignment-modalities-title">
+            <div className="panel-heading"><div><h3 id="assignment-modalities-title">Modalités d’évaluation</h3><p>Activez les analyses spécifiques réellement nécessaires pour ce devoir.</p></div></div>
+            <Checkbox checked={hasScientificDiagrams} onChange={(event) => setHasScientificDiagrams(event.target.checked)}>
+              <strong>Ce devoir comporte des schémas scientifiques à évaluer</strong>
+              <small>Une analyse visuelle dédiée sera proposée pendant la révision. Elle restera séparée de la correction textuelle.</small>
+            </Checkbox>
+          </section>
           <div className="teacher-step-footer"><span>Vous pourrez modifier ces informations à tout moment.</span><button type="button" className="primary-button" onClick={() => setTeacherStep('rubric')}>Continuer vers le barème <span aria-hidden="true">→</span></button></div>
         </section>
       </>}
@@ -2184,6 +2199,7 @@ export function App({ service, archiveService, evaluationService, loadSalukiMode
 
       {(proposal || isAnalyzing || review.length > 0 || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section">
         <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{isAnalyzing && criterionProgress.completedCount < criterionProgress.totalCount ? `${criterionProgress.totalCount - criterionProgress.completedCount} EN ATTENTE` : `${pendingCount} À VÉRIFIER`}</span></div>{isAnalyzing && <p className="criterion-live-progress" role="status" aria-live="polite">{criterionProgress.completedCount} / {criterionProgress.totalCount} critère(s) évalué(s) · {criterionProgressMessage || 'Analyse progressive en cours'}. La note affichée est provisoire et évoluera à mesure des résultats.</p>}{(readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
+        {hasScientificDiagrams && <ScientificDiagramAnalysisPanel enabled={hasScientificDiagrams} images={images} question={buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question })} rubric={rubric} model={visionModel} endpoint={endpoint} apiKey={apiKey} apiCompatible={apiCompatible} service={diagramAnalysisService} />}
         {teacherAnnotations && <section className="panel teacher-annotations-review" aria-label="Annotations préexistantes détectées"><div className="panel-heading"><span className="number">✎</span><div><h3>Annotations déjà présentes sur la copie</h3><p>Détections locales à vérifier : elles ne sont pas considérées comme de nouvelles notes.</p></div></div><pre>{teacherAnnotations}</pre></section>}
         <section className="review-alerts" aria-label="Points nécessitant votre attention">
           <div className="review-alerts-heading"><div><span className="eyebrow">CONTRÔLE CIBLÉ</span><h3>Vérifications prioritaires</h3></div><span className="review-alert-count">{reviewInsights.flaggedCriteriaIds.length} critère(s)</span></div>
