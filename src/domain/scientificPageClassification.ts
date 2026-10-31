@@ -62,15 +62,21 @@ export function parseScientificPageClassifications(raw: string, pageCount: numbe
     if (typeof value.confidence !== 'number' || !Number.isFinite(value.confidence) || value.confidence < 0 || value.confidence > 1 || typeof value.reason !== 'string') {
       throw new Error(`Les éléments de classification de la page ${String(pageNumber)} sont invalides.`);
     }
-    const suggestedRotation = value.suggestedRotation;
-    const orientationConfidence = value.orientationConfidence;
-    if (suggestedRotation !== undefined && suggestedRotation !== 0 && suggestedRotation !== 90 && suggestedRotation !== 180 && suggestedRotation !== 270) throw new Error(`L’orientation proposée pour la page ${String(pageNumber)} est invalide.`);
-    if (orientationConfidence !== undefined && (typeof orientationConfidence !== 'number' || !Number.isFinite(orientationConfidence) || orientationConfidence < 0 || orientationConfidence > 1)) throw new Error(`La confiance d’orientation de la page ${String(pageNumber)} est invalide.`);
-    if ((suggestedRotation === undefined) !== (orientationConfidence === undefined)) throw new Error(`La décision d’orientation de la page ${String(pageNumber)} est incomplète.`);
+    const rawRotation = value.suggestedRotation;
+    const rawOrientationConfidence = value.orientationConfidence;
+    const normalizedRotation = rawRotation === -90 ? 270 : rawRotation;
+    const validRotation = normalizedRotation === 0 || normalizedRotation === 90 || normalizedRotation === 180 || normalizedRotation === 270;
+    const validOrientationConfidence = typeof rawOrientationConfidence === 'number'
+      && Number.isFinite(rawOrientationConfidence)
+      && rawOrientationConfidence >= 0
+      && rawOrientationConfidence <= 1;
+    // Orientation is optional metadata: malformed or partial model output must not
+    // invalidate an otherwise usable page classification.
+    const hasValidOrientation = validRotation && validOrientationConfidence;
     seen.add(Number(pageNumber));
     const confidence = value.confidence;
     const kind = (value.kind === 'scientific-diagram' || value.kind === 'mixed') && confidence < 0.75 ? 'ambiguous' : value.kind;
-    return { pageNumber: Number(pageNumber), kind, confidence, reason: value.reason, ...(suggestedRotation !== undefined && orientationConfidence !== undefined ? { suggestedRotation, orientationConfidence } : {}) };
+    return { pageNumber: Number(pageNumber), kind, confidence, reason: value.reason, ...(hasValidOrientation ? { suggestedRotation: normalizedRotation as 0 | 90 | 180 | 270, orientationConfidence: rawOrientationConfidence as number } : {}) };
   });
   return pages.sort((left, right) => left.pageNumber - right.pageNumber);
 }
