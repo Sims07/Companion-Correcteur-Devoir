@@ -787,6 +787,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
     const captureDiagramDiagnostic = (result: DiagnosticModelResult) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); };
     let textImages = images;
+    let annotationRotationAngles = manualRotationAngles;
     let diagramImages: ImageInput[] = [];
     let diagramPageNumbers: number[] = [];
     let diagramAnalysisResult = scientificDiagramAnalysis;
@@ -859,7 +860,9 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             if (Object.keys(acceptedAutomaticRotations).length > 0) {
               textImages = images.map((image, index) => acceptedAutomaticRotations[index] ?? image);
               setImages((current) => current.map((image, index) => acceptedAutomaticRotations[index] ?? image));
-              setManualRotationAngles((current) => ({ ...current, ...Object.fromEntries(Object.keys(acceptedAutomaticRotations).map((key) => [Number(key), pendingSuggestions.find((item) => item.index === Number(key))?.degrees ?? 0])) }));
+              const acceptedRotationAngles = Object.fromEntries(Object.keys(acceptedAutomaticRotations).map((key) => [Number(key), pendingSuggestions.find((item) => item.index === Number(key))?.degrees ?? 0]));
+              annotationRotationAngles = { ...annotationRotationAngles, ...acceptedRotationAngles };
+              setManualRotationAngles((current) => ({ ...current, ...acceptedRotationAngles }));
               setReviewMessage('Rotation automatique appliquée après un second contrôle confirmant une orientation droite.');
             } else {
               textImages = images;
@@ -906,8 +909,14 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
         setAnalysisStage('reading');
         const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
+        const teacherAnnotationImages = detectTeacherAnnotations
+          ? await Promise.all(originalImages.map(async (image, index) => {
+            const degrees = annotationRotationAngles[index] ?? 0;
+            return degrees === 0 ? image : service.rotateImage(image, degrees as 90 | 180 | 270);
+          }))
+          : undefined;
         const raw = await provider.generate(
-          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
+          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, ...(teacherAnnotationImages ? { teacherAnnotationImages } : {}), detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
           (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
           (stage) => {
             const now = Date.now();
