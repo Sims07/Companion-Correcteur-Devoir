@@ -32,6 +32,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           model: request.model,
           stream: false,
           format: 'json',
+          generation_token_parameter: 'max_completion_tokens',
           options: { temperature: 0.1, num_predict: 4096 },
           messages: [{
             role: 'user',
