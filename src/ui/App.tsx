@@ -10,6 +10,7 @@ import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type Re
 import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationRecords, getModelEvaluationStage, runModelEvaluation, sumReportedTokensForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot } from '../domain/modelEvaluation.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
+import type { ScientificPageClassification } from '../domain/scientificPageClassification.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/diagnosticReference.ts';
@@ -67,6 +68,7 @@ type AssignmentDraft = {
   reviewMessage: string;
   detectTeacherAnnotations: boolean;
   scientificDiagramAnalysis: ScientificDiagramAnalysis | null;
+  scientificPageClassifications: ScientificPageClassification[] | null;
 };
 
 const aiModelConfigurationKey = 'companion-correcteur:ollama-configuration:v1';
@@ -306,6 +308,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>(() => readActiveAssignmentProfile().correctionMode);
   const [hasScientificDiagrams, setHasScientificDiagrams] = useState(() => readActiveAssignmentProfile().hasScientificDiagrams ?? false);
   const [scientificDiagramAnalysis, setScientificDiagramAnalysis] = useState<ScientificDiagramAnalysis | null>(null);
+  const [pageClassifications, setPageClassifications] = useState<ScientificPageClassification[] | null>(null);
+  const [scientificDiagramError, setScientificDiagramError] = useState('');
   const [subjectImages, setSubjectImages] = useState<ImageInput[]>([]);
   const [subjectTranscription, setSubjectTranscription] = useState<string | null>(null);
   const [images, setImages] = useState<ImageInput[]>([]);
@@ -602,6 +606,9 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     try {
       const prepared = await service.prepareFiles(files);
       setImages((current) => [...current, ...prepared]);
+      setPageClassifications(null);
+      setScientificDiagramAnalysis(null);
+      setScientificDiagramError('');
       setFocusedEvidencePage(null);
       setTranscription(null);
       setProposal(null);
@@ -677,6 +684,10 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     const partialCriteria: CriterionProposal[] = [];
     const previousModelResults = strategyOverride === 'arbitrate-only' ? diagnosticRuns.filter((run) => run.kind === 'model') : [];
     const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
+    let textImages = images;
+    let diagramImages: ImageInput[] = [];
+    let diagramPageNumbers: number[] = [];
+    let classificationWasJustCreated = false;
     setBusy(true);
     if ((interfaceMode === 'diagnostic' || interfaceMode === 'debug') && strategyOverride !== 'arbitrate-only') {
     }
@@ -700,13 +711,57 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     try {
       if (!validation.valid) throw new Error(validation.errors.join(' '));
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF de la copie.');
+      if (interfaceMode === 'teacher' && apiCompatible) {
+        try {
+          let classifications = pageClassifications;
+          if (!classifications || classifications.length !== images.length) {
+            setCriterionProgressMessage('Détection du type de chaque page…');
+            classifications = await diagramAnalysisService.classifyPages({ images, model: visionModel, endpoint, apiKey });
+            classificationWasJustCreated = true;
+            setPageClassifications(classifications);
+          }
+          const diagramPages = classifications.filter((page) => page.kind === 'scientific-diagram');
+          diagramPageNumbers = diagramPages.map((page) => page.pageNumber);
+          diagramImages = diagramPageNumbers.map((pageNumber) => images[pageNumber - 1]);
+          textImages = classifications.filter((page) => page.kind !== 'scientific-diagram').map((page) => images[page.pageNumber - 1]);
+          if (diagramImages.length > 0 && !scientificDiagramAnalysis) {
+            setCriterionProgressMessage(`${diagramImages.length} page(s) de schéma détectée(s) · correction scientifique spécialisée…`);
+            setScientificDiagramError('');
+            try {
+              const diagramResult = await diagramAnalysisService.analyze({
+                images: diagramImages,
+                pageNumbers: diagramPageNumbers,
+                question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+                teacherAnnotations,
+                rubric,
+                model: visionModel,
+                endpoint,
+                apiKey,
+              });
+              setScientificDiagramAnalysis(diagramResult);
+            } catch (cause) {
+              setScientificDiagramError(cause instanceof Error ? cause.message : 'La correction des schémas a échoué.');
+            }
+          }
+          if (classificationWasJustCreated && diagramImages.length > 0 && transcription) setTranscription(null);
+        } catch (cause) {
+          setPageClassifications(null);
+          setScientificDiagramError(cause instanceof Error ? cause.message : 'La détection des types de page a échoué. Le parcours textuel utilisera toutes les pages.');
+          textImages = images;
+        }
+      }
+      if (textImages.length === 0) {
+        setTeacherStep('review');
+        throw new Error('Aucune page de réponse rédigée n’a été détectée. Les schémas ont été traités séparément ; vérifiez leurs commentaires et le barème avant de poursuivre.');
+      }
       if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) throw new Error('Importez le sujet de référence pour ce mode de correction.');
-      if ((!transcription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
+      const gradingTranscription = classificationWasJustCreated && diagramImages.length > 0 ? null : transcription;
+      if ((!gradingTranscription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
       await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
       setAnalysisStage('reading');
       const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
       const raw = await provider.generate(
-        { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images, detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(transcription ? { transcription } : {}) },
+        { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(rubric), images: textImages, detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
         (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
         (stage) => {
           const now = Date.now();
@@ -1052,6 +1107,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       maximumPoints: validation.maximumPoints,
       hasScientificDiagrams,
       ...(scientificDiagramAnalysis ? { scientificDiagramAnalysis: structuredClone(scientificDiagramAnalysis) } : {}),
+      ...(pageClassifications ? { scientificPageClassifications: structuredClone(pageClassifications) } : {}),
     };
     const correction: LocalCorrection = {
       id,
@@ -1110,7 +1166,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   function captureActiveDraft(): AssignmentDraft {
     return {
       copyQueue, images, transcription, subjectImages, subjectTranscription, proposal, review,
-      teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, scientificDiagramAnalysis,
+      teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
     };
   }
 
@@ -1127,6 +1183,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setHasScientificDiagrams(profile.hasScientificDiagrams ?? false);
     const draft = assignmentDrafts[profile.id];
     setScientificDiagramAnalysis(draft?.scientificDiagramAnalysis ?? null);
+    setPageClassifications(draft?.scientificPageClassifications ?? null);
+    setScientificDiagramError('');
     setCopyQueue(draft?.copyQueue ?? []);
     setImages(draft?.images ?? []);
     setTranscription(draft?.transcription ?? null);
@@ -1199,6 +1257,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setCorrectionMode(profile.correctionMode);
     setHasScientificDiagrams(false);
     setScientificDiagramAnalysis(null);
+    setPageClassifications(null);
+    setScientificDiagramError('');
     setCopyQueue([]);
     setImages([]);
     setDetectTeacherAnnotations(false);
@@ -1308,6 +1368,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setProposal(snapshot.proposal);
     setReview(snapshot.review);
     setScientificDiagramAnalysis(snapshot.scientificDiagramAnalysis ?? null);
+    setPageClassifications(snapshot.scientificPageClassifications ?? null);
+    setScientificDiagramError('');
     setShowOnlyFlagged(false);
     setTeacherQuestions(snapshot.teacherQuestions);
     setImages(snapshot.images);
@@ -1876,13 +1938,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             <option value="Autre">Autre</option>
           </DesignSystemSelect>
           <p className="hint">Le niveau sert à calibrer les attentes : vocabulaire, profondeur du raisonnement et précision scientifique. Il ne remplace pas les critères explicites du barème.</p>
-          <section className="assignment-modalities" aria-labelledby="assignment-modalities-title">
-            <div className="panel-heading"><div><h3 id="assignment-modalities-title">Modalités d’évaluation</h3><p>Activez les analyses spécifiques réellement nécessaires pour ce devoir.</p></div></div>
-            <Checkbox checked={hasScientificDiagrams} onChange={(event) => { setHasScientificDiagrams(event.target.checked); if (!event.target.checked) setScientificDiagramAnalysis(null); }}>
-              <strong>Ce devoir comporte des schémas scientifiques à évaluer</strong>
-              <small>Une analyse visuelle dédiée sera proposée pendant la révision. Elle restera séparée de la correction textuelle.</small>
-            </Checkbox>
-          </section>
           <div className="teacher-step-footer"><span>Vous pourrez modifier ces informations à tout moment.</span><button type="button" className="primary-button" onClick={() => setTeacherStep('rubric')}>Continuer vers le barème <span aria-hidden="true">→</span></button></div>
         </section>
       </>}
@@ -2217,7 +2272,9 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
 
       {(proposal || isAnalyzing || review.length > 0 || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section">
         <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{isAnalyzing && criterionProgress.completedCount < criterionProgress.totalCount ? `${criterionProgress.totalCount - criterionProgress.completedCount} EN ATTENTE` : `${pendingCount} À VÉRIFIER`}</span></div>{isAnalyzing && <p className="criterion-live-progress" role="status" aria-live="polite">{criterionProgress.completedCount} / {criterionProgress.totalCount} critère(s) évalué(s) · {criterionProgressMessage || 'Analyse progressive en cours'}. La note affichée est provisoire et évoluera à mesure des résultats.</p>}{(readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
-        {hasScientificDiagrams && <ScientificDiagramAnalysisPanel enabled={hasScientificDiagrams} images={images} question={buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question })} teacherAnnotations={teacherAnnotations} rubric={rubric} model={visionModel} endpoint={endpoint} apiKey={apiKey} apiCompatible={apiCompatible} service={diagramAnalysisService} analysis={scientificDiagramAnalysis} onAnalysisChange={(analysis) => { setScientificDiagramAnalysis(analysis); setIsFinalized(false); setReviewMessage('L’analyse visuelle a changé. Enregistrez à nouveau la correction pour conserver ce résultat.'); }} />}
+        {pageClassifications && <section className="panel scientific-page-routing" aria-label="Détection des types de page"><div className="panel-heading"><div><h3>Pages identifiées</h3><p>Les pages de schéma suivent une correction scientifique distincte ; les pages ambiguës restent dans le parcours textuel.</p></div><span className="step-count">{pageClassifications.length} PAGE(S)</span></div><ul>{pageClassifications.map((page) => <li key={page.pageNumber}><strong>Page {page.pageNumber}</strong> · {page.kind === 'scientific-diagram' ? 'Schéma scientifique' : page.kind === 'ambiguous' ? 'À vérifier' : 'Réponse rédigée'} <small>({Math.round(page.confidence * 100)} % · {page.reason})</small></li>)}</ul></section>}
+        {scientificDiagramError && <p className="review-alert review-alert-warning" role="alert">{scientificDiagramError}</p>}
+        {pageClassifications?.some((page) => page.kind === 'scientific-diagram') && <ScientificDiagramAnalysisPanel enabled={true} images={images} diagramImages={pageClassifications.filter((page) => page.kind === 'scientific-diagram').map((page) => images[page.pageNumber - 1])} pageNumbers={pageClassifications.filter((page) => page.kind === 'scientific-diagram').map((page) => page.pageNumber)} question={buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question })} teacherAnnotations={teacherAnnotations} rubric={rubric} model={visionModel} endpoint={endpoint} apiKey={apiKey} apiCompatible={apiCompatible} service={diagramAnalysisService} analysis={scientificDiagramAnalysis} onAnalysisChange={(analysis) => { setScientificDiagramAnalysis(analysis); setIsFinalized(false); setReviewMessage('L’analyse visuelle a changé. Enregistrez à nouveau la correction pour conserver ce résultat.'); }} />}
         {teacherAnnotations && <section className="panel teacher-annotations-review" aria-label="Annotations préexistantes détectées"><div className="panel-heading"><span className="number">✎</span><div><h3>Annotations déjà présentes sur la copie</h3><p>Détections locales à vérifier : elles ne sont pas considérées comme de nouvelles notes.</p></div></div><pre>{teacherAnnotations}</pre></section>}
         <section className="review-alerts" aria-label="Points nécessitant votre attention">
           <div className="review-alerts-heading"><div><span className="eyebrow">CONTRÔLE CIBLÉ</span><h3>Vérifications prioritaires</h3></div><span className="review-alert-count">{reviewInsights.flaggedCriteriaIds.length} critère(s)</span></div>
