@@ -71,6 +71,7 @@ type AssignmentDraft = {
   isFinalized: boolean;
   reviewMessage: string;
   detectTeacherAnnotations: boolean;
+  teacherAnnotations?: string;
   scientificDiagramAnalysis: ScientificDiagramAnalysis | null;
   scientificPageClassifications: ScientificPageClassification[] | null;
   manualRotationAngles?: Record<number, number>;
@@ -755,6 +756,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     let analysisDurationMs: number | null = null;
     let outcome: TimingRecord['outcome'] = 'error';
     let diagnosticProposal: GradingProposal | null = null;
+    if (!transcription) setTeacherAnnotations('');
     const partialCriteria: CriterionProposal[] = [];
     const previousModelResults = strategyOverride === 'arbitrate-only' ? diagnosticRuns.filter((run) => run.kind === 'model') : [];
     const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
@@ -847,7 +849,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
                 images: diagramImages,
                 pageNumbers: diagramPageNumbers,
                 question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
-                teacherAnnotations,
                 rubric: diagramRubric,
                 model: visionModel,
                 endpoint,
@@ -896,6 +897,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
           (extracted, kind) => {
             if (kind === 'subject') setSubjectTranscription(extracted);
             else if (kind === 'annotations') setTeacherAnnotations(extracted);
+            else if (kind === 'warning') setError(extracted);
             else setTranscription(extracted);
           },
           (result) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); },
@@ -1236,6 +1238,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       images: structuredClone(images),
       originalImages: structuredClone(originalImages),
       detectTeacherAnnotations,
+      teacherAnnotations,
       transcription,
       subjectImages: structuredClone(subjectImages),
       subjectTranscription,
@@ -1302,7 +1305,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   function captureActiveDraft(): AssignmentDraft {
     return {
       copyQueue, images, originalImages, transcription, subjectImages, subjectTranscription, proposal, review,
-      teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
+      teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, teacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
     };
   }
 
@@ -1334,6 +1337,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setTeacherQuestions(draft?.teacherQuestions ?? '');
     setStudentLabel(draft?.studentLabel ?? '');
     setDetectTeacherAnnotations(draft?.detectTeacherAnnotations ?? false);
+    setTeacherAnnotations(draft?.teacherAnnotations ?? '');
     setCurrentCorrectionId(draft?.currentCorrectionId ?? null);
     setIsFinalized(draft?.isFinalized ?? false);
     setReviewMessage(draft?.reviewMessage ?? '');
@@ -1405,6 +1409,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setScientificDiagramAnalysis(null);
     setScientificDiagramError('');
     setDetectTeacherAnnotations(false);
+    setTeacherAnnotations('');
     setTranscription(null);
     setSubjectImages([]);
     setSubjectTranscription(null);
@@ -1434,6 +1439,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setCopyQueue((current) => appendQueuedCopy(current, queued));
     setStudentLabel('');
     setDetectTeacherAnnotations(false);
+    setTeacherAnnotations('');
     setImages([]);
     setOriginalImages([]);
     setTranscription(null);
@@ -1454,6 +1460,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setCopyQueue(remaining);
     setStudentLabel(next.label);
     setDetectTeacherAnnotations(next.detectTeacherAnnotations ?? false);
+    setTeacherAnnotations('');
     setImages(next.images);
     setOriginalImages(next.originalImages ?? next.images);
     setTranscription(null);
@@ -1478,6 +1485,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setImages([]);
     setOriginalImages([]);
     setDetectTeacherAnnotations(false);
+    setTeacherAnnotations('');
     setTranscription(null);
     setScientificDiagramAnalysis(null);
     setPageClassifications(null);
@@ -1527,9 +1535,11 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setScientificDiagramError('');
     setShowOnlyFlagged(true);
     setTeacherQuestions(snapshot.teacherQuestions);
+    setTeacherAnnotations('');
     setImages(snapshot.images);
     setOriginalImages(snapshot.originalImages ?? snapshot.images);
     setDetectTeacherAnnotations(snapshot.detectTeacherAnnotations ?? false);
+    setTeacherAnnotations(snapshot.teacherAnnotations ?? '');
     setTranscription(snapshot.transcription);
     setSubjectImages(snapshot.subjectImages);
     setSubjectTranscription(snapshot.subjectTranscription);

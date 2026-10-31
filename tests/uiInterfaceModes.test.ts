@@ -63,6 +63,16 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('setIsFinalized(false)');
   });
 
+  it('keeps teacher annotations local to the teacher view and resets them between copies', () => {
+    const text = app();
+    expect(text).toContain('teacherAnnotations,');
+    expect(text).toContain('teacherAnnotations?: string;');
+    expect(text).toContain('setTeacherAnnotations(snapshot.teacherAnnotations ?? \'\')');
+    expect(text).toContain('setTeacherAnnotations(draft?.teacherAnnotations ?? \'\')');
+    expect(text).toContain('setTeacherAnnotations(\'\');');
+    expect(text).not.toContain('teacherAnnotations,\\n                rubric: diagramRubric');
+  });
+
   it('requires teacher approval for rotation suggestions and verifies enabled automatic rotations', () => {
     const text = app();
     expect(text).toContain('La page {index + 1} semble tournée de {rotationSuggestions[index].degrees}°');

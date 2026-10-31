@@ -23,6 +23,8 @@ export interface CorrectionArchiveSnapshot {
   originalImages?: ArchivedImage[];
   /** Whether this individual copy should be scanned for pre-existing teacher marks. */
   detectTeacherAnnotations?: boolean;
+  /** Teacher-only local display data; never sent to grading prompts. */
+  teacherAnnotations?: string;
   transcription: string | null;
   subjectImages: ArchivedImage[];
   subjectTranscription: string | null;
