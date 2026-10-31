@@ -105,6 +105,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   const safeSummary = page.locator('details.review-safe-summary');
   await expect(safeSummary).toBeVisible();
   await expect(safeSummary.getByText('Transport membranaire')).toBeVisible();
+  await safeSummary.locator('summary').click();
   await expect(safeSummary.getByText('La membrane contrôle les échanges.')).toBeVisible();
   const bulkConfirm = page.getByRole('button', { name: 'Confirmer les critères sans alerte (1)' });
   await expect(bulkConfirm).toBeVisible();
