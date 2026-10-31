@@ -14,10 +14,6 @@ export interface CriterionProposal {
   pageNumber?: number;
   /** Short teacher-facing comment that can be copied by hand onto the paper copy. */
   annotationSuggestion?: string;
-  /** Approximate textual landmark to help the teacher find the passage on the page. */
-  locationHint?: string;
-  /** Optional approximate region in the source image, normalized to a 0–1000 coordinate space. */
-  locationBox?: { x: number; y: number; width: number; height: number };
   confidence: Confidence;
   questionForTeacher?: string;
 }
@@ -119,16 +115,6 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     if ((points < rubricCriterion.maxPoints || confidence !== 'high') && !rationale) {
       throw new Error(`La justification du critère « ${rubricCriterion.title} » est obligatoire lorsque la note est partielle ou la confiance n’est pas élevée.`);
     }
-    const locationBox = isRecord(item.locationBox) ? item.locationBox : null;
-    const hasValidLocationBox = locationBox !== null &&
-      ['x', 'y', 'width', 'height'].every((key) =>
-        typeof locationBox[key] === 'number' && Number.isFinite(locationBox[key])) &&
-      Number(locationBox.x) >= 0 && Number(locationBox.y) >= 0 &&
-      Number(locationBox.x) <= 1000 && Number(locationBox.y) <= 1000 &&
-      Number(locationBox.width) > 0 && Number(locationBox.height) > 0 &&
-      Number(locationBox.x) + Number(locationBox.width) <= 1000 &&
-      Number(locationBox.y) + Number(locationBox.height) <= 1000;
-
     criteria.push({
       criterionId: item.criterionId,
       points,
@@ -136,10 +122,6 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
       evidence,
       ...(typeof item.pageNumber === 'number' && Number.isInteger(item.pageNumber) && item.pageNumber >= 1 ? { pageNumber: item.pageNumber } : {}),
       ...(text(item.annotationSuggestion) ? { annotationSuggestion: text(item.annotationSuggestion) } : {}),
-      ...(text(item.locationHint) ? { locationHint: text(item.locationHint) } : {}),
-      ...(hasValidLocationBox
-        ? { locationBox: { x: Number(locationBox.x), y: Number(locationBox.y), width: Number(locationBox.width), height: Number(locationBox.height) } }
-        : {}),
       confidence,
       ...(text(item.questionForTeacher) ? { questionForTeacher: text(item.questionForTeacher) } : {}),
     });
