@@ -36,3 +36,23 @@ export function parseScientificPageClassifications(raw: string, pageCount: numbe
   });
   return pages.sort((left, right) => left.pageNumber - right.pageNumber);
 }
+
+export interface ScientificPageRouting {
+  textPageNumbers: number[];
+  diagramPageNumbers: number[];
+  ambiguousPageNumbers: number[];
+}
+
+/** Keep uncertain pages in the text workflow; route only confident diagram pages separately. */
+export function routeScientificPages(classifications: ScientificPageClassification[], pageCount: number): ScientificPageRouting {
+  if (classifications.length !== pageCount) throw new Error('La classification ne correspond pas au nombre de pages de la copie.');
+  const byPage = new Map(classifications.map((page) => [page.pageNumber, page]));
+  if (byPage.size !== pageCount || Array.from({ length: pageCount }, (_, index) => index + 1).some((page) => !byPage.has(page))) {
+    throw new Error('La classification ne couvre pas exactement les pages de la copie.');
+  }
+  return {
+    textPageNumbers: classifications.filter((page) => page.kind !== 'scientific-diagram').map((page) => page.pageNumber),
+    diagramPageNumbers: classifications.filter((page) => page.kind === 'scientific-diagram').map((page) => page.pageNumber),
+    ambiguousPageNumbers: classifications.filter((page) => page.kind === 'ambiguous').map((page) => page.pageNumber),
+  };
+}
