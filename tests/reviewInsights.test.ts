@@ -60,6 +60,12 @@ describe('review insights', () => {
     expect(focus.flaggedCriteriaIds).toEqual(['low-confidence', 'missing-proof', 'teacher-question', 'deduction', 'medium-confidence']);
   });
 
+  it('describes the visible reasons that make a criterion require review', () => {
+    expect(getReviewAlertReasons(criterion({ points: 0.5, confidence: 'low', evidence: '', questionForTeacher: 'La formulation est ambiguë.' }), 1))
+      .toEqual(['Point retiré', 'Preuve manquante', 'Confiance faible', 'Question pour vous']);
+    expect(getReviewAlertReasons(criterion({ confidence: 'medium' }), 1)).toEqual(['Confiance à vérifier']);
+  });
+
   it('signals absent transcription only when a copy image exists', () => {
     expect(hasUnreadableCopySignal(null, true)).toBe(true);
     expect(hasUnreadableCopySignal('   ', true)).toBe(true);
