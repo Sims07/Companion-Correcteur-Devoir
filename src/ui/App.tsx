@@ -849,7 +849,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
                 images: diagramImages,
                 pageNumbers: diagramPageNumbers,
                 question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
-                teacherAnnotations,
                 rubric: diagramRubric,
                 model: visionModel,
                 endpoint,
@@ -1306,7 +1305,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   function captureActiveDraft(): AssignmentDraft {
     return {
       copyQueue, images, originalImages, transcription, subjectImages, subjectTranscription, proposal, review,
-      teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
+      teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, teacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
     };
   }
 
@@ -1486,6 +1485,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setImages([]);
     setOriginalImages([]);
     setDetectTeacherAnnotations(false);
+    setTeacherAnnotations('');
     setTranscription(null);
     setScientificDiagramAnalysis(null);
     setPageClassifications(null);
