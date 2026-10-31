@@ -12,25 +12,25 @@ export interface ArchivedAssignmentCopy {
   assignmentTitle?: string;
 }
 
-export interface AssignmentOverviewCard {
-  profile: AssignmentOverviewProfile;
+export interface AssignmentOverviewCard<T extends AssignmentOverviewProfile = AssignmentOverviewProfile> {
+  profile: T;
   archivedCount: number;
   maximumPoints: number;
   ready: boolean;
 }
 
-export interface AssignmentOverview {
-  cards: AssignmentOverviewCard[];
+export interface AssignmentOverview<T extends AssignmentOverviewProfile = AssignmentOverviewProfile> {
+  cards: AssignmentOverviewCard<T>[];
   correctionCount: number;
   preparationCount: number;
 }
 
-export function getAssignmentOverview(
-  assignments: AssignmentOverviewProfile[],
+export function getAssignmentOverview<T extends AssignmentOverviewProfile>(
+  assignments: T[],
   archivedCorrections: ArchivedAssignmentCopy[],
   query = '',
   filter: AssignmentOverviewFilter = 'all',
-): AssignmentOverview {
+): AssignmentOverview<T> {
   const normalizedQuery = query.trim().toLocaleLowerCase('fr-FR');
   const cards = assignments.map((profile) => {
     const archivedCount = archivedCorrections.filter((item) => item.assignmentTitle === profile.title).length;
