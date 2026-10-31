@@ -47,7 +47,7 @@ export function removeConfirmedTeacherAnnotation(transcription: string, annotati
   const target = annotationText.trim();
   if (!target) return transcription;
   const index = transcription.indexOf(target);
-  if (index < 0) return transcription;
+  if (index < 0 || transcription.indexOf(target, index + target.length) >= 0) return transcription;
   return `${transcription.slice(0, index)}${transcription.slice(index + target.length)}`
     .replace(/[\t ]{2,}/g, ' ')
     .replace(/[\t ]+\n/g, '\n')
