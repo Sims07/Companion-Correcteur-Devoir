@@ -95,7 +95,8 @@ describe('prepareLocalFiles', () => {
     const translate = vi.fn();
     const rotate = vi.fn();
     const drawImage = vi.fn();
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ translate, rotate, drawImage } as unknown as CanvasRenderingContext2D);
+    const fillRect = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ translate, rotate, drawImage, fillRect } as unknown as CanvasRenderingContext2D);
     vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,dHVybmVk');
 
     const original = { mimeType: 'image/jpeg', base64: 'b3JpZ2luYWw=', fileName: 'diagram.jpg' };
@@ -106,7 +107,7 @@ describe('prepareLocalFiles', () => {
     const canvas = createCanvas.mock.results[0].value as HTMLCanvasElement;
     expect(canvas.width).toBe(800);
     expect(canvas.height).toBe(1200);
-    expect(context.fillRect).toHaveBeenCalledWith(0, 0, 800, 1200);
+    expect(fillRect).toHaveBeenCalledWith(0, 0, 800, 1200);
     expect(translate).toHaveBeenCalledWith(400, 600);
     expect(rotate).toHaveBeenCalledWith(Math.PI / 2);
     expect(drawImage).toHaveBeenCalledWith(bitmap, -600, -400);
