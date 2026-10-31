@@ -2360,6 +2360,19 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
               {item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Afficher la page ${item.pageNumber} pour le commentaire proposé`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Afficher la page liée</button>}
             </section>}
             <p className="rationale">{item.rationale}</p>
+            {item.qualityBreakdown && (
+              <details className="scientific-diagram-quality-details review-quality-details">
+                <summary>Pourquoi cette note ? · Détail du schéma</summary>
+                <ul>
+                  {item.qualityBreakdown.map((dimension) => (
+                    <li key={dimension.dimension}>
+                      <div><strong>{({ title: 'Titre et identification', 'scientific-accuracy': 'Exactitude scientifique', completeness: 'Exhaustivité et pertinence', labels: 'Légendes et annotations', 'arrows-relations': 'Flèches et relations', 'organization-conventions': 'Organisation et conventions', legibility: 'Lisibilité et soin' })[dimension.dimension]}</strong><span className={`quality-status quality-status-${dimension.status}`}>{({ fulfilled: 'Conforme', partial: 'Partiel', missing: 'Manquant', 'not-applicable': 'Non applicable', uncertain: 'Incertain' })[dimension.status]}</span></div>
+                      <p>{dimension.evidence}</p>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
             {item.confidence === 'low' && <p className="teacher-question"><strong>Lecture à vérifier :</strong> {item.questionForTeacher || 'Le modèle est incertain sur ce critère. Vérifiez la preuve citée et la note proposée ; aucune question précise ne peut être formulée automatiquement.'}</p>}
             <div className="review-controls">
               <label><span className="field-label">Votre note</span><input type="number" min="0" max={criterion?.maxPoints ?? 0} step="0.5" value={item.teacherPoints} onChange={(event) => updateReview(item.criterionId, { teacherPoints: Number(event.target.value), decision: 'adjusted' })} /></label>
