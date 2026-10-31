@@ -132,4 +132,32 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(sourcePane).toHaveCSS('position', 'static');
   await expect(page.locator('.review-workspace')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
+
+  await page.evaluate(async () => {
+    const request = indexedDB.open('companion-correcteur-devoir', 3);
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const transaction = database.transaction('local-corrections', 'readwrite');
+    const store = transaction.objectStore('local-corrections');
+    const correction = await new Promise<any>((resolve, reject) => {
+      const get = store.get('design-review-copy');
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    correction.snapshot.review = [correction.snapshot.review.find((item: { criterionId: string }) => item.criterionId === 'transport')];
+    store.put(correction);
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    database.close();
+  });
+  await page.reload();
+  await page.getByRole('button', { name: /Corrections enregistrées/ }).click();
+  await page.getByRole('button', { name: 'Consulter la correction' }).click();
+  const incompleteBulkConfirm = page.getByRole('button', { name: 'Confirmer les critères sans alerte (1)' });
+  await expect(incompleteBulkConfirm).toBeVisible();
+  await expect(incompleteBulkConfirm).toBeDisabled();
 });
