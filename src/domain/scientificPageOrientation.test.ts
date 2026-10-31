@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getConfidentDiagramRotation } from './scientificPageOrientation.ts';
+import { accumulateClockwiseRotation, getConfidentDiagramRotation } from './scientificPageOrientation.ts';
 import type { ScientificPageClassification } from './scientificPageClassification.ts';
 
 const diagram: ScientificPageClassification = {
@@ -16,6 +16,17 @@ describe('automatic scientific diagram orientation', () => {
     expect(getConfidentDiagramRotation(diagram)).toBe(90);
     expect(getConfidentDiagramRotation({ ...diagram, suggestedRotation: 180 })).toBe(180);
     expect(getConfidentDiagramRotation({ ...diagram, suggestedRotation: 270 })).toBe(270);
+  });
+
+  it('never suggests a second rotation for a page already rotated manually', () => {
+    expect(getConfidentDiagramRotation(diagram, true)).toBeNull();
+  });
+
+  it('accumulates manual quarter-turns from the original orientation', () => {
+    expect(accumulateClockwiseRotation(0, 90)).toBe(90);
+    expect(accumulateClockwiseRotation(90, 90)).toBe(180);
+    expect(accumulateClockwiseRotation(180, 270)).toBe(90);
+    expect(accumulateClockwiseRotation(270, 90)).toBe(0);
   });
 
   it('never rotates text, mixed, ambiguous, or low-confidence pages automatically', () => {
