@@ -13,7 +13,7 @@ function classificationPrompt(pageCount: number): string {
     'Retourne exactement une entrée par page, sans en omettre ni en inventer. Utilise les numéros 1 à N correspondant à l’ordre des images jointes.',
     'Retourne exclusivement un JSON valide : {"pages":[{"pageNumber":1,"kind":"text|scientific-diagram|ambiguous","confidence":0.0,"reason":"..." }]}',
     `NOMBRE DE PAGES : ${pageCount}`,
-  ].join('\\n\\n');
+  ].join('\n\n');
 }
 
 function promptFor(request: ScientificDiagramAnalysisRequest): string {
@@ -44,7 +44,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
   return {
     async classifyPages(request: ScientificPageClassificationRequest) {
       const compatibleFetch = createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey }, fetchImpl);
-      const response = await compatibleFetch(`${request.endpoint.replace(/\\/+$/, '')}/api/chat`, {
+      const response = await compatibleFetch(`${request.endpoint.replace(/\/+$/, '')}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
