@@ -1743,3 +1743,59 @@
 .review-pending-skeleton span:nth-child(3) { width: 54%; }
 .review-score-summary.is-provisional { border-color: var(--flow-accent); background: var(--flow-surface-soft); }
 @media (prefers-reduced-motion: reduce) { .review-pending-skeleton span { animation: none; } }
+
+
+/* Teacher-first review: show the decision first, keep explanation on demand. */
+.review-card-result {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.review-card-result > strong {
+  color: var(--flow-text);
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.review-result-status {
+  color: var(--flow-muted);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.review-result-status.needs-review { color: #9a5a17; }
+.review-criteria-toolbar { align-items: center; gap: 12px; }
+.review-criteria-toolbar-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 14px; }
+.review-focus-hint {
+  margin: -5px 0 4px;
+  color: var(--flow-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.review-explanation,
+.review-summary-details {
+  margin-top: 10px;
+  border-top: 1px solid var(--flow-border);
+  padding-top: 9px;
+}
+.review-explanation > summary,
+.review-summary-details > summary {
+  color: var(--flow-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+.review-explanation[open],
+.review-summary-details[open] { display: grid; gap: 10px; }
+.review-explanation .evidence,
+.review-explanation .annotation-suggestion,
+.review-explanation .rationale,
+.review-explanation .review-quality-details { margin-block: 0; }
+.review-compact-warning { margin: 8px 0 0; font-size: 12px; }
+@media (max-width: 720px) {
+  .review-criteria-toolbar { align-items: flex-start; flex-direction: column; }
+  .review-criteria-toolbar-actions { justify-content: flex-start; }
+  .review-card-result > strong { font-size: 16px; }
+}
