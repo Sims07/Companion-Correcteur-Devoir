@@ -13,23 +13,28 @@ const request = {
 const output = { diagrams: [{ id: 'd1', pageNumber: 1, diagramType: 'Cellule', summary: 'Schéma de cellule', criteria: [{ criterionId: 'labels', points: 2, evidence: 'Légendes présentes', confidence: 0.9, requiresTeacherReview: false }], uncertainties: [] }], overallUncertainties: [] };
 
 describe('OpenAI scientific diagram adapter', () => {
-  it('classifies each original page with a lightweight JSON-only Vision request', async () => {
-    const classification = { pages: [
-      { pageNumber: 1, kind: 'text', confidence: 0.98, reason: 'Réponse manuscrite' },
-      { pageNumber: 2, kind: 'scientific-diagram', confidence: 0.96, reason: 'Schéma biologique' },
-    ] };
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(classification) } }] }), { status: 200 }));
+  it('classifies every page in an isolated low-detail request and preserves the original page index', async () => {
+    const pageOne = { pages: [{ pageNumber: 1, kind: 'text', confidence: 0.98, reason: 'Réponse manuscrite' }] };
+    const pageTwo = { pages: [{ pageNumber: 1, kind: 'scientific-diagram', confidence: 0.96, reason: 'Schéma biologique' }] };
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(pageOne) } }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(pageTwo) } }] }), { status: 200 }));
     const analyzer = createOpenAiScientificDiagramAnalyzer(fetchMock);
     await expect(analyzer.classifyPages({ ...request, images: [...request.images, { base64: 'cG5nMg==', mimeType: 'image/png' }] })).resolves.toMatchObject([
       { pageNumber: 1, kind: 'text' }, { pageNumber: 2, kind: 'scientific-diagram' },
     ]);
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(String(url)).toBe('https://ai.example/v1/chat/completions');
-    const body = JSON.parse(String(init?.body));
-    expect(body.max_completion_tokens).toBe(768);
-    expect(body.messages[0].content).toHaveLength(3);
-    expect(body.messages[0].content[0].text).toContain('Ne juge pas la qualité scientifique');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [index, [url, init]] of fetchMock.mock.calls.entries()) {
+      expect(String(url)).toBe('https://ai.example/v1/chat/completions');
+      const body = JSON.parse(String(init?.body));
+      expect(body.max_tokens).toBe(256);
+      expect(body.max_completion_tokens).toBeUndefined();
+      expect(body.messages[0].content).toHaveLength(2);
+      expect(body.messages[0].content[0].text).toContain(`NUMÉRO DE PAGE ORIGINAL : ${index + 1}`);
+      expect(body.messages[0].content[1].image_url.url).toContain(index === 0 ? 'cG5n' : 'cG5nMg==');
+    }
   });
+
   it('sends the original page image and rubric to the configured OpenAI-compatible Vision endpoint', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
     const analyzer = createOpenAiScientificDiagramAnalyzer(fetchMock);
@@ -39,7 +44,8 @@ describe('OpenAI scientific diagram adapter', () => {
     const body = JSON.parse(String(init?.body));
     expect(body.model).toBe('vision-model');
     expect(body.messages[0].content[0].text).toContain('Correction rouge : légende à revoir');
-    expect(body.max_completion_tokens).toBe(4096);
+    expect(body.max_tokens).toBe(2048);
+    expect(body.max_completion_tokens).toBeUndefined();
     expect(body.messages[0].content).toEqual([
       { type: 'text', text: expect.stringContaining('BARÈME') },
       { type: 'image_url', image_url: { url: 'data:image/png;base64,cG5n', detail: 'high' } },

@@ -89,7 +89,7 @@ Seul point d'assemblage des adaptateurs concrets, services applicatifs et compos
 ## Confidentialité et limites
 
 - Le parcours courant transmet les données au seul endpoint Ollama configuré par l'utilisateur. Si cet endpoint est distant, les requêtes et images qu'il reçoit sortent de l'appareil.
-- La classification des pages et la correction spécialisée des schémas utilisent l'endpoint API compatible OpenAI configuré par l'utilisateur, qui peut être auto-hébergé. La classification légère examine les pages de la copie ; seules les pages reconnues comme schémas sont ensuite transmises à la correction graphique.
+- La classification des pages et la correction spécialisée des schémas utilisent l'endpoint API compatible OpenAI configuré par l'utilisateur, qui peut être auto-hébergé. La classification légère examine chaque page dans une requête Vision isolée ; seules les pages reconnues comme schémas sont ensuite transmises à la correction graphique. Les requêtes de correction graphique sont plafonnées à 2 048 tokens de sortie pour rester compatibles avec les serveurs configurés.
 - Les archives, images et retours sont stockés dans IndexedDB du navigateur et peuvent être supprimés avec les données du site. Ce stockage n'est ni chiffré par l'application ni synchronisé.
 - La transcription du sujet de référence est en mémoire de page et n'est pas un dossier persistant partagé entre appareils.
 - La confiance déclarée par un modèle n'est pas calibrée statistiquement. Les preuves et justifications générées doivent être comparées à la copie originale.
