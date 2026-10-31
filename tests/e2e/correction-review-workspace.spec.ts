@@ -75,11 +75,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
 
   await expect(page.getByRole('heading', { name: 'Analyse des schémas scientifiques' })).toBeVisible();
-  const diagramConsent = page.getByRole('checkbox', { name: /J’autorise l’envoi des images de cette copie/ });
+  await expect(page.getByRole('checkbox', { name: /J’autorise l’envoi des images de cette copie/ })).toHaveCount(0);
   const diagramAnalyzeButton = page.getByRole('button', { name: /Analyser les schémas avec Vision|Relancer l’analyse des schémas/ });
-  await expect(diagramConsent).not.toBeChecked();
-  await expect(diagramAnalyzeButton).toBeDisabled();
-  await diagramConsent.check();
   await expect(diagramAnalyzeButton).toBeEnabled();
   await expect(page.getByRole('img', { name: 'Page 1 contenant le schéma détecté' })).toBeVisible();
   await expect(page.getByRole('img', { name: 'Zone du schéma repérée par Vision' })).toBeVisible();
