@@ -184,11 +184,12 @@ describe('network inspector fetch integration', () => {
 
   it('records an explicit intent and context without sending them over HTTP', async () => {
     const values = new Map<string, string>();
+    const underlyingFetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.headers).toBeUndefined();
+      return new Response('{"ok":true}', { status: 200 });
+    });
     const fakeWindow = {
-      fetch: vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-        expect(init?.headers).toBeUndefined();
-        return new Response('{"ok":true}', { status: 200 });
-      }),
+      fetch: underlyingFetch,
       localStorage: {
         getItem: (key: string) => values.get(key) ?? null,
         setItem: (key: string, value: string) => { values.set(key, value); },
@@ -205,7 +206,7 @@ describe('network inspector fetch integration', () => {
     await window.fetch('/api/chat', annotateNetworkRequest({ method: 'POST', body: '{"model":"qwen3.5:4b"}' }, 'Lire et transcrire une page de copie', 'Copie TP1 · page 2/4'));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(loadNetworkHistory()[0]).toMatchObject({ intent: 'Lire et transcrire une page de copie', context: 'Copie TP1 · page 2/4', state: 'success' });
-    expect(fakeWindow.fetch).toHaveBeenCalledTimes(1);
+    expect(underlyingFetch).toHaveBeenCalledTimes(1);
     restore();
   });
 
