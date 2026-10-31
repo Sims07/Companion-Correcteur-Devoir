@@ -67,21 +67,30 @@ describe('one-pass teacher annotation detection', () => {
       .mockResolvedValueOnce(streamResponse(structuredReading))
       .mockResolvedValueOnce(streamResponse('{"criteria":[]}'));
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'grader' }, fetchMock);
+    const annotationTranscriptions: string[] = [];
 
     await provider.generate({
       question: 'Question',
       rubric: '{"criteria":[]}',
       images: [image],
       detectTeacherAnnotations: true,
-    }, undefined, undefined, undefined, undefined, undefined, async (candidates) => [
+    }, undefined, undefined, (value, kind) => {
+      if (kind === 'annotations') annotationTranscriptions.push(value);
+    }, undefined, undefined, async (candidates) => [
       { id: candidates[0].id, confirmed: false },
     ]);
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const gradingBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { messages: Array<{ content: string }> };
-    const studentSection = gradingBody.messages[0].content.split('<transcription_etudiant>')[1]?.split('</transcription_etudiant>')[0] ?? '';
+    const prompt = gradingBody.messages[0].content;
+    const studentSection = prompt.split('<transcription_etudiant>')[1]?.split('</transcription_etudiant>')[0] ?? '';
+    const professorSection = prompt.split('<annotations_professeur>')[1]?.split('</annotations_professeur>')[0] ?? '';
     expect(studentSection).toContain('entouré');
     expect(studentSection).not.toContain('Bien vu');
+    expect(professorSection).toContain('Bien vu');
+    expect(professorSection).not.toContain('entouré');
+    expect(annotationTranscriptions[0]).toContain('Bien vu');
+    expect(annotationTranscriptions[0]).not.toContain('entouré');
   });
 
   it('fails closed when the combined Vision response is not valid structured transcription', async () => {
