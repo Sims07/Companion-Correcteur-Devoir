@@ -19,7 +19,7 @@ import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/local
 import type { RubricImportProgress } from '../ports/correctionWorkspace.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
-import { getReviewFocus, getReviewInsights, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
+import { getReviewFocus, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
 import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../domain/copyQueue.ts';
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
@@ -353,7 +353,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
   const reviewedTotal = criterionProgress.provisionalPoints;
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
-  const reviewInsights = useMemo(() => getReviewInsights(review), [review]);
   const reviewFocus = useMemo(() => getReviewFocus(review, rubric.criteria), [review, rubric.criteria]);
   const flaggedCriteriaIds = useMemo(() => new Set(reviewFocus.flaggedCriteriaIds), [reviewFocus]);
   const reliableCriteriaCount = reviewFocus.reliableCriteriaIds.length;
@@ -1187,7 +1186,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   }
 
   function applyAssignment(profile: AssignmentProfile) {
-    setShowOnlyFlagged(false);
+    setShowOnlyFlagged(true);
     setFocusedEvidencePage(null);
     setActiveAssignmentId(profile.id);
     setAssignmentTitle(profile.title);
@@ -2318,15 +2317,10 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         {scientificDiagramError && <p className="review-alert review-alert-warning" role="alert">{scientificDiagramError}</p>}
         {pageClassifications?.some((page) => page.kind === 'scientific-diagram') && <ScientificDiagramAnalysisPanel enabled={true} images={images} diagramImages={pageClassifications.filter((page) => page.kind === 'scientific-diagram').map((page) => images[page.pageNumber - 1])} pageNumbers={pageClassifications.filter((page) => page.kind === 'scientific-diagram').map((page) => page.pageNumber)} question={buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question })} teacherAnnotations={teacherAnnotations} rubric={{ ...rubric, criteria: partitionScientificRubric(rubric).diagramCriteria }} model={visionModel} endpoint={endpoint} apiKey={apiKey} apiCompatible={apiCompatible} service={diagramAnalysisService} analysis={scientificDiagramAnalysis} onAnalysisChange={(analysis) => { setScientificDiagramAnalysis(analysis); if (analysis) { const merged = mergeScientificDiagramCriteria(rubric, proposal, analysis); setProposal(merged); setReview((current) => toReviewedCriteria(merged).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item)); setTeacherQuestions(merged.questionsForTeacher.join('\\n')); } setIsFinalized(false); setReviewMessage('L’analyse visuelle a changé. Enregistrez à nouveau la correction pour conserver ce résultat.'); }} />}
         {teacherAnnotations && <section className="panel teacher-annotations-review" aria-label="Annotations préexistantes détectées"><div className="panel-heading"><span className="number">✎</span><div><h3>Annotations déjà présentes sur la copie</h3><p>Détections locales à vérifier : elles ne sont pas considérées comme de nouvelles notes.</p></div></div><pre>{teacherAnnotations}</pre></section>}
-        <section className="review-alerts" aria-label="Points nécessitant votre attention">
-          <div className="review-alerts-heading"><div><span className="eyebrow">CONTRÔLE CIBLÉ</span><h3>Vérifications prioritaires</h3></div><span className="review-alert-count">{reviewInsights.flaggedCriteriaIds.length} critère(s)</span></div>
-          {unreadableCopySignal && <div className="review-alert review-alert-warning" role="alert"><strong>Lecture de la copie à contrôler</strong><p>La transcription est absente ou contient un signal d’illisibilité. Vérifiez les images originales avant de vous fier à la note proposée.</p></div>}
-          {reviewInsights.lowConfidenceCount > 0 && <div className="review-alert"><strong>{reviewInsights.lowConfidenceCount} critère(s) avec une confiance faible</strong><p>Examinez la preuve et le raisonnement associés avant d’accepter ces points.</p></div>}
-          {reviewInsights.missingEvidenceCount > 0 && <div className="review-alert review-alert-warning"><strong>{reviewInsights.missingEvidenceCount} critère(s) sans preuve exploitable</strong><p>Une justification sans élément précis de la copie ne suffit pas à valider une attribution de points.</p></div>}
-          {reviewInsights.unreadableEvidenceCount > 0 && <div className="review-alert review-alert-warning"><strong>{reviewInsights.unreadableEvidenceCount} critère(s) signalant une lecture difficile</strong><p>Vérifiez la lisibilité du passage ou du schéma concerné.</p></div>}
-          {reviewInsights.flaggedCriteriaIds.length === 0 && !unreadableCopySignal && <p className="review-all-clear">Aucun signal automatique prioritaire. La vérification humaine reste nécessaire.</p>}
-          <div className="review-alert-actions"><button type="button" className="secondary-button" onClick={() => setShowOnlyFlagged((value) => !value)} disabled={reviewInsights.flaggedCriteriaIds.length === 0}>{showOnlyFlagged ? 'Afficher tous les critères' : `Afficher les ${reviewInsights.flaggedCriteriaIds.length} critères à vérifier`}</button></div>
-        </section>
+        {(flaggedCriteriaIds.size > 0 || unreadableCopySignal) && <section className="review-alerts review-focus-overview" aria-label="Synthèse des éléments à examiner">
+          <strong>{flaggedCriteriaIds.size} critère(s) à examiner</strong>
+          {unreadableCopySignal && <span role="alert">La lecture de la copie mérite une vérification sur l’image originale.</span>}
+        </section>}
         <div className="correction-batch-progress" aria-label="Progression des corrections pour ce devoir"><div><span className="eyebrow">CORRECTION EN SÉRIE</span><strong>{completedForAssignment} copie(s) enregistrée(s) pour ce devoir</strong><p>Chaque copie enregistrée reste disponible dans « Corrections enregistrées ».</p></div></div>
         <div className="review-workspace">
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
