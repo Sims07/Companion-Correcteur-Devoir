@@ -128,7 +128,7 @@ describe('prepareLocalFiles', () => {
 
     expect(result.mimeType).toBe('image/png');
     expect(rotate).toHaveBeenCalledWith(degrees * Math.PI / 180);
-    expect(fillRect).toHaveBeenCalledWith(0, 0, degrees === 180 ? 1200 : 1200, 800);
+    expect(fillRect).toHaveBeenCalledWith(0, 0, degrees === 180 ? 1200 : 800, degrees === 180 ? 800 : 1200);
     expect(bitmap.close).toHaveBeenCalledOnce();
   });
 
