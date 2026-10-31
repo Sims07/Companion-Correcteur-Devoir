@@ -124,6 +124,38 @@ describe('local observability metrics', () => {
     expect(buildObservabilitySummary([]).totalTokens).toBeNull();
     expect(buildObservabilitySummary([]).successRatePercent).toBeNull();
   });
+  it('aggregates teacher review metrics and prompt word-limit overruns', () => {
+    const trace: ObservabilityTrace = {
+      ...traces[0],
+      id: 'review-metrics',
+      reviewMetrics: {
+        criterionCount: 5,
+        criteriaToReviewCount: 2,
+        groupConfirmedCount: 3,
+        groupConfirmedThenModifiedCount: 1,
+        visibleWordCount: 48,
+        groupConfirmedCriterionIds: ['a', 'b', 'c'],
+        groupModifiedCriterionIds: ['b'],
+        wordLimits: {
+          rationale: { checked: 5, exceeded: 1 },
+          evidence: { checked: 5, exceeded: 2 },
+          annotationSuggestion: { checked: 3, exceeded: 0 },
+        },
+      },
+    };
+    expect(buildObservabilitySummary([trace])).toMatchObject({
+      reviewedCriteriaCount: 5,
+      criteriaToReviewCount: 2,
+      groupConfirmedCount: 3,
+      groupConfirmedThenModifiedCount: 1,
+      groupModificationRatePercent: 33,
+      visibleWordCount: 48,
+      wordLimitCheckedCount: 13,
+      wordLimitExceededCount: 3,
+      wordLimitExceededRatePercent: 23,
+    });
+  });
+
   it('converts saved model evaluation results into one privacy-safe trace per profile', () => {
     const evaluations = toModelEvaluationObservabilityTraces([{
       id: 'evaluation-1',
