@@ -6,6 +6,8 @@ import type { ScientificDiagramAnalysisService } from '../../application/scienti
 export function ScientificDiagramAnalysisPanel({
   enabled,
   images,
+  diagramImages,
+  pageNumbers,
   question,
   teacherAnnotations,
   rubric,
@@ -19,6 +21,8 @@ export function ScientificDiagramAnalysisPanel({
 }: {
   enabled: boolean;
   images: ImageInput[];
+  diagramImages: ImageInput[];
+  pageNumbers: number[];
   question: string;
   teacherAnnotations: string;
   rubric: Rubric;
@@ -40,7 +44,7 @@ export function ScientificDiagramAnalysisPanel({
     setError('');
     onAnalysisChange(null);
     try {
-      const result = await service.analyze({ images, question, teacherAnnotations, rubric, model, endpoint, apiKey });
+      const result = await service.analyze({ images: diagramImages, pageNumbers, question, teacherAnnotations, rubric, model, endpoint, apiKey });
       onAnalysisChange(result);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'L’analyse des schémas a échoué.');
@@ -58,7 +62,7 @@ export function ScientificDiagramAnalysisPanel({
         </div>
         <span className="step-count">VISION · OPTIONNEL</span>
       </div>
-      <p>Le modèle examine les pages originales, repère les dessins et confronte les observations au barème du devoir. Il ne modifie pas la note textuelle.</p>
+      <p>Les pages ont été classées automatiquement. Seules les pages identifiées comme schémas sont envoyées à cette correction scientifique spécialisée. Elle reste indépendante de la note textuelle.</p>
       {!apiCompatible ? (
         <p className="review-alert review-alert-warning" role="status">Cette analyse nécessite un endpoint API compatible OpenAI. Activez ce fournisseur dans les réglages de l’IA avant de continuer.</p>
       ) : !model.trim() ? (
@@ -66,7 +70,7 @@ export function ScientificDiagramAnalysisPanel({
       ) : (
         <>
           <p className="hint">Les pages originales sont analysées par le serveur Vision configuré dans vos réglages. L’analyse démarre lorsque vous cliquez sur le bouton ci-dessous.</p>
-          <button type="button" className="secondary-button" onClick={() => void analyze()} disabled={loading || images.length === 0}>
+          <button type="button" className="secondary-button" onClick={() => void analyze()} disabled={loading || diagramImages.length === 0}>
             {loading ? 'Analyse visuelle en cours…' : analysis ? 'Relancer l’analyse des schémas' : 'Analyser les schémas avec Vision'}
           </button>
         </>
@@ -84,7 +88,7 @@ export function ScientificDiagramAnalysisPanel({
                   <img src={`data:${images[diagram.pageNumber - 1].mimeType};base64,${images[diagram.pageNumber - 1].base64}`} alt={`Page ${diagram.pageNumber} contenant le schéma détecté`} style={{ display: 'block', width: '100%', height: 'auto' }} />
                   {diagram.bounds && <div role="img" aria-label="Zone du schéma repérée par Vision" style={{ position: 'absolute', left: `${diagram.bounds.x * 100}%`, top: `${diagram.bounds.y * 100}%`, width: `${diagram.bounds.width * 100}%`, height: `${diagram.bounds.height * 100}%`, border: '2px solid #d97706', boxSizing: 'border-box', pointerEvents: 'none' }} />}
                 </div>
-                <figcaption>Zone repérée sur la page originale par le modèle Vision. Vérifiez le cadrage avant de retenir son analyse.</figcaption>
+                <figcaption>Repère proposé par Vision sur la page originale. Vérifiez la zone avant de retenir le commentaire.</figcaption>
               </figure>}
               {diagram.criteria.map((criterion) => (
                 <div className="scientific-diagram-criterion" key={criterion.criterionId}>
