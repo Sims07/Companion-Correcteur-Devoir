@@ -82,7 +82,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
               stream: false,
               format: 'json',
               generation_token_parameter: 'max_tokens',
-              options: { num_predict: 256 },
+              options: { num_predict: 320 },
               messages: [{
                 role: 'user',
                 content: prompt,
