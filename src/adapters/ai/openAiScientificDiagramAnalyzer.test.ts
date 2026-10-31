@@ -80,6 +80,12 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(prompt).toContain('arrows-relations');
     expect(prompt).toContain('ne crée PAS de sous-notes');
   });
+  it('records failed diagram Vision calls in observability', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('vision unavailable', { status: 503 }));
+    const diagnostic = vi.fn();
+    await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({ ...request, onDiagnosticResult: diagnostic })).rejects.toThrow(/HTTP 503/);
+    expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'scientific-diagram-analysis', error: expect.stringContaining('HTTP 503') }));
+  });
   it('does not retry authentication and server errors', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('unauthorized', { status: 401 }));
     await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request)).rejects.toThrow(/HTTP 401/);
