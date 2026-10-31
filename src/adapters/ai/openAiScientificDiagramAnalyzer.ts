@@ -11,7 +11,7 @@ function classificationPrompt(pageCount: number): string {
     'Ne classe pas comme schéma les simples tableaux, formules isolées, décorations, pictogrammes ou illustrations imprimées du sujet. Une page mêlant texte et schéma doit être classée scientific-diagram si le schéma constitue une production à évaluer ; sinon ambiguous.',
     'Ne juge pas la qualité scientifique et n’attribue aucun point à cette étape. Cette étape sert uniquement à router les pages vers le bon parcours.',
     'Retourne exactement une entrée par page, sans en omettre ni en inventer. Utilise les numéros 1 à N correspondant à l’ordre des images jointes.',
-    'Retourne exclusivement un JSON valide : {"pages":[{"pageNumber":1,"kind":"text|scientific-diagram|ambiguous","confidence":0.0,"reason":"..." }]}',
+    'Retourne exclusivement un JSON valide : {"pages":[{"pageNumber":1,"kind":"scientific-diagram","confidence":0.0,"reason":"..." }]}',
     `NOMBRE DE PAGES : ${pageCount}`,
   ].join('\n\n');
 }
