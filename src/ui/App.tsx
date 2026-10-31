@@ -809,13 +809,17 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             const unverifiedSuggestions: Record<number, { degrees: 90 | 180 | 270; preview: ImageInput }> = {};
             for (const suggestion of pendingSuggestions) {
               if (autoRotateScientificDiagrams) {
-                const [verification] = await diagramAnalysisService.classifyPages({
-                  images: [suggestion.preview], model: visionModel, endpoint, apiKey,
-                  onDiagnosticResult: captureDiagramDiagnostic,
-                });
-                if (verification?.kind === 'scientific-diagram' && verification.confidence >= 0.9 && verification.suggestedRotation === 0 && (verification.orientationConfidence ?? 0) >= 0.92) {
-                  acceptedAutomaticRotations[suggestion.index] = suggestion.preview;
-                  continue;
+                try {
+                  const [verification] = await diagramAnalysisService.classifyPages({
+                    images: [suggestion.preview], model: visionModel, endpoint, apiKey,
+                    onDiagnosticResult: captureDiagramDiagnostic,
+                  });
+                  if (verification?.kind === 'scientific-diagram' && verification.confidence >= 0.9 && verification.suggestedRotation === 0 && (verification.orientationConfidence ?? 0) >= 0.92) {
+                    acceptedAutomaticRotations[suggestion.index] = suggestion.preview;
+                    continue;
+                  }
+                } catch {
+                  // A failed second check cancels automation; the teacher can still inspect the suggestion.
                 }
               }
               unverifiedSuggestions[suggestion.index] = { degrees: suggestion.degrees, preview: suggestion.preview };
