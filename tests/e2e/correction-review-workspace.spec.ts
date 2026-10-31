@@ -53,7 +53,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
               { criterionId: 'transport', points: 2, rationale: 'Le transport sélectif est identifié.', evidence: 'La membrane contrôle les échanges.', pageNumber: 1, confidence: 'high' },
             ],
           questionsForTeacher: [],
-          finalScore: 2,
+          finalScore: 4,
         },
         review: [
           { criterionId: 'membrane', points: 2, rationale: 'Le mécanisme est partiellement expliqué.', evidence: 'La réponse mentionne la membrane.', pageNumber: 1, confidence: 'medium', teacherPoints: 2, teacherComment: '', decision: 'pending' },
