@@ -2399,14 +2399,14 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         <div className="correction-batch-progress" aria-label="Progression des corrections pour ce devoir"><div><span className="eyebrow">CORRECTION EN SÉRIE</span><strong>{completedForAssignment} copie(s) enregistrée(s) pour ce devoir</strong><p>Chaque copie enregistrée reste disponible dans « Corrections enregistrées ».</p></div></div>
         <div className="review-workspace">
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
-            <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de référence</h3><p>Gardez les pages originales sous les yeux pendant que vous vérifiez les points et les preuves.</p></div>
+            <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de référence</h3><p>Consultez l’orientation utilisée pour l’analyse. Si une rotation a été appliquée, l’image originale reste accessible sous la page.</p></div>
             <div className="review-source-pages" aria-label="Pages originales de la copie">
               {images.length > 0 ? images.map((image, index) => {
                 const pageNumber = index + 1;
                 const pageAnchors = review.filter((item) => item.pageNumber === pageNumber && item.locationBox);
                 return <figure id={`review-copy-page-${pageNumber}`} className={focusedEvidencePage === pageNumber ? 'live-copy-page evidence-page-focused' : 'live-copy-page'} key={image.fileName + '-review-' + index}>
                   <div className="evidence-image-stage">
-                    <img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page originale ${pageNumber} de la copie`} />
+                    <img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page de travail ${pageNumber} de la copie`} />
                     <div className="copy-image-rotation-controls review-image-rotation-controls"><button type="button" className="text-button" aria-label={`Réorienter la page ${pageNumber} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Réorienter la page ${pageNumber} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button></div>
                     {originalImages[pageNumber - 1] && originalImages[pageNumber - 1].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non tournée</summary><img src={`data:${originalImages[pageNumber - 1].mimeType};base64,${originalImages[pageNumber - 1].base64}`} alt={`Image originale non modifiée de la page ${pageNumber}`} /></details>}
                     {pageAnchors.length > 0 && <svg className="evidence-region-overlay" viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label={`Repères de localisation des commentaires sur la page ${pageNumber}`}>
