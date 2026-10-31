@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FilePicker } from './components/FilePicker.tsx';
 import { ScientificDiagramAnalysisPanel } from './components/ScientificDiagramAnalysisPanel.tsx';
-import { Checkbox } from './design-system/components/Checkbox.tsx';
 import type { ScientificDiagramAnalysisService } from '../application/scientificDiagramAnalysisService.ts';
 import { DesignSystemSelect } from './components/DesignSystemSelect.tsx';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
