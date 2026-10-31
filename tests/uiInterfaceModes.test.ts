@@ -317,7 +317,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('analysisSeconds:');
     expect(text).toContain('totalSeconds:');
     expect(text).toContain('evaluationService.saveDiagnosticHistory(timingHistory)');
-    expect(text).toContain('evaluationService.listDiagnosticHistory<TimingRecord>()');
+    expect(text).toContain('evaluationService.listDiagnosticHistory()');
     expect(text).toContain('window.localStorage.removeItem(timingHistoryKey)');
     expect(text).toContain('Tableau de bord des expériences');
     expect(text).toContain('LABORATOIRE LOCAL · OLLAMA');
