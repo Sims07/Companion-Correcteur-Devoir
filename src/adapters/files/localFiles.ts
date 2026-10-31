@@ -68,6 +68,27 @@ async function renderPdf(file: File): Promise<ImageInput[]> {
   return images;
 }
 
+/** Rotate only the working copy. The caller keeps its original ImageInput unchanged. */
+export async function rotateLocalImage(image: ImageInput, clockwiseDegrees: 90 | 180 | 270): Promise<ImageInput> {
+  const binary = Uint8Array.from(atob(image.base64), (character) => character.charCodeAt(0));
+  const blob = new Blob([binary], { type: image.mimeType });
+  const bitmap = await createImageBitmap(blob);
+  try {
+    const quarterTurn = clockwiseDegrees === 90 || clockwiseDegrees === 270;
+    const canvas = globalThis.document.createElement('canvas');
+    canvas.width = quarterTurn ? bitmap.height : bitmap.width;
+    canvas.height = quarterTurn ? bitmap.width : bitmap.height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Le navigateur ne permet pas de faire pivoter cette image localement.');
+    context.translate(canvas.width / 2, canvas.height / 2);
+    context.rotate(clockwiseDegrees * Math.PI / 180);
+    context.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2);
+    return canvasToJpeg(canvas, image.fileName ?? 'page tournée');
+  } finally {
+    bitmap.close();
+  }
+}
+
 /** Converts accepted files to local image payloads; nothing is uploaded by this function. */
 export async function prepareLocalFiles(files: FileList | File[]): Promise<ImageInput[]> {
   const selected = Array.from(files);
