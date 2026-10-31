@@ -612,7 +612,7 @@ export function createOllamaProvider(
       if (pageTranscriptions.length > 0) {
         transcription = pageTranscriptions.map(({ pageLabel, pageText, doubtfulMarker }) => [
           `[ ${pageLabel} ]`, pageText + doubtfulMarker,
-        ].join('\\n')).join('\\n\\n');
+        ].join('\n')).join('\n\n');
         onTranscription?.(transcription, 'copy');
       }
 
