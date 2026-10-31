@@ -678,6 +678,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       const rotated = nextAngle === 0 ? original : await service.rotateImage(original, nextAngle as 90 | 180 | 270);
       setImages((current) => current.map((entry, index) => index === pageIndex ? rotated : entry));
       setManualRotationAngles((current) => ({ ...current, [pageIndex]: nextAngle }));
+      setAnnotationInkColorPreview(null);
       setRotationSuggestions((current) => { const next = { ...current }; delete next[pageIndex]; return next; });
       setScientificDiagramAnalysis(null);
       setScientificDiagramError('');
@@ -695,6 +696,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
 
   function removeCopyPage(pageIndex: number) {
     setImages((current) => current.filter((_, index) => index !== pageIndex));
+    setAnnotationInkColorPreview(null);
     setOriginalImages((current) => current.filter((_, index) => index !== pageIndex));
     setManualRotationAngles((current) => Object.fromEntries(Object.entries(current)
       .filter(([index]) => Number(index) !== pageIndex)
