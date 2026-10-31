@@ -65,15 +65,17 @@ describe('scientific page classification', () => {
       { pageNumber: 1, kind: 'scientific-diagram', confidence: 0.98, reason: 'Schéma', suggestedRotation: 270, orientationConfidence: 0.96 },
     ] }), 1);
     expect(parsed[0]).toMatchObject({ suggestedRotation: 270, orientationConfidence: 0.96 });
-    expect(() => parseScientificPageClassifications(JSON.stringify({ pages: [
-      { pageNumber: 1, kind: 'scientific-diagram', confidence: 0.98, reason: 'Schéma', suggestedRotation: 45, orientationConfidence: 0.96 },
-    ] }), 1)).toThrow(/orientation proposée/);
-    expect(() => parseScientificPageClassifications(JSON.stringify({ pages: [
-      { pageNumber: 1, kind: 'scientific-diagram', confidence: 0.98, reason: 'Schéma', suggestedRotation: 90 },
-    ] }), 1)).toThrow(/décision d’orientation.*incomplète/);
-    expect(() => parseScientificPageClassifications(JSON.stringify({ pages: [
-      { pageNumber: 1, kind: 'scientific-diagram', confidence: 0.98, reason: 'Schéma', suggestedRotation: 90, orientationConfidence: 1.2 },
-    ] }), 1)).toThrow(/confiance d’orientation/);
+    for (const orientation of [
+      { suggestedRotation: 45, orientationConfidence: 0.96 },
+      { suggestedRotation: 90 },
+      { suggestedRotation: 90, orientationConfidence: 1.2 },
+    ]) {
+      const fallback = parseScientificPageClassifications(JSON.stringify({ pages: [
+        { pageNumber: 1, kind: 'scientific-diagram', confidence: 0.98, reason: 'Schéma', ...orientation },
+      ] }), 1);
+      expect(fallback[0].suggestedRotation).toBeUndefined();
+      expect(fallback[0].orientationConfidence).toBeUndefined();
+    }
   });
 
   it('ignores partial or invalid orientation metadata and normalizes -90 degrees', () => {
