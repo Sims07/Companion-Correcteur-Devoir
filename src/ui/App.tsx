@@ -135,7 +135,7 @@ type TimingRecord = {
   analysisSeconds: number | null;
   totalSeconds: number;
   outcome: 'success' | 'error';
-  source?: 'rubric-import';
+  source?: 'rubric-import' | 'scientific-diagram';
   modelScore: number | null;
   criterionScores: DiagnosticCriterionScore[];
   assignmentId?: string;
@@ -685,6 +685,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     const partialCriteria: CriterionProposal[] = [];
     const previousModelResults = strategyOverride === 'arbitrate-only' ? diagnosticRuns.filter((run) => run.kind === 'model') : [];
     const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
+    const captureDiagramDiagnostic = (result: DiagnosticModelResult) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); };
     let textImages = images;
     let diagramImages: ImageInput[] = [];
     let diagramPageNumbers: number[] = [];
@@ -720,7 +721,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
           let classifications = pageClassifications;
           if (!classifications || classifications.length !== images.length) {
             setCriterionProgressMessage('Détection du type de chaque page…');
-            classifications = await diagramAnalysisService.classifyPages({ images, model: visionModel, endpoint, apiKey });
+            classifications = await diagramAnalysisService.classifyPages({ images, model: visionModel, endpoint, apiKey, onDiagnosticResult: captureDiagramDiagnostic });
             classificationWasJustCreated = true;
             setPageClassifications(classifications);
           }
@@ -741,6 +742,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
                 model: visionModel,
                 endpoint,
                 apiKey,
+                onDiagnosticResult: captureDiagramDiagnostic,
               });
               diagramAnalysisResult = diagramResult;
               setScientificDiagramAnalysis(diagramResult);
@@ -2312,9 +2314,32 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
 
       {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section">
         <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{isAnalyzing && criterionProgress.completedCount < criterionProgress.totalCount ? `${criterionProgress.totalCount - criterionProgress.completedCount} EN ATTENTE` : `${pendingCount} À VÉRIFIER`}</span></div>{isAnalyzing && <p className="criterion-live-progress" role="status" aria-live="polite">{criterionProgress.completedCount} / {criterionProgress.totalCount} critère(s) évalué(s) · {criterionProgressMessage || 'Analyse progressive en cours'}. La note affichée est provisoire et évoluera à mesure des résultats.</p>}{(readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
-        {pageClassifications && <section className="panel scientific-page-routing" aria-label="Détection des types de page"><div className="panel-heading"><div><h3>Pages identifiées</h3><p>Les pages de schéma suivent une correction scientifique distincte ; les pages ambiguës restent dans le parcours textuel.</p></div><span className="step-count">{pageClassifications.length} PAGE(S)</span></div><ul>{pageClassifications.map((page) => <li key={page.pageNumber}><strong>Page {page.pageNumber}</strong> · {page.kind === 'scientific-diagram' ? 'Schéma scientifique' : page.kind === 'ambiguous' ? 'À vérifier' : 'Réponse rédigée'} <small>({Math.round(page.confidence * 100)} % · {page.reason})</small></li>)}</ul></section>}
+        {pageClassifications && <section className="panel scientific-page-routing" aria-label="Détection des types de page"><div className="panel-heading"><div><h3>Pages identifiées</h3><p>Les pages de schéma suivent une correction scientifique distincte ; les pages ambiguës restent dans le parcours textuel.</p></div><span className="step-count">{pageClassifications.length} PAGE(S)</span></div><ul>{pageClassifications.map((page) => <li key={page.pageNumber}><strong>Page {page.pageNumber}</strong> · {page.kind === 'scientific-diagram' ? 'Schéma scientifique' : page.kind === 'mixed' ? 'Texte + schéma' : page.kind === 'ambiguous' ? 'À vérifier' : 'Réponse rédigée'} <small>({Math.round(page.confidence * 100)} % · {page.reason})</small></li>)}</ul></section>}
         {scientificDiagramError && <p className="review-alert review-alert-warning" role="alert">{scientificDiagramError}</p>}
-        {pageClassifications?.some((page) => page.kind === 'scientific-diagram') && <ScientificDiagramAnalysisPanel enabled={true} images={images} diagramImages={pageClassifications.filter((page) => page.kind === 'scientific-diagram').map((page) => images[page.pageNumber - 1])} pageNumbers={pageClassifications.filter((page) => page.kind === 'scientific-diagram').map((page) => page.pageNumber)} question={buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question })} teacherAnnotations={teacherAnnotations} rubric={{ ...rubric, criteria: partitionScientificRubric(rubric).diagramCriteria }} model={visionModel} endpoint={endpoint} apiKey={apiKey} apiCompatible={apiCompatible} service={diagramAnalysisService} analysis={scientificDiagramAnalysis} onAnalysisChange={(analysis) => { setScientificDiagramAnalysis(analysis); if (analysis) { const merged = mergeScientificDiagramCriteria(rubric, proposal, analysis); setProposal(merged); setReview((current) => toReviewedCriteria(merged).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item)); setTeacherQuestions(merged.questionsForTeacher.join('\\n')); } setIsFinalized(false); setReviewMessage('L’analyse visuelle a changé. Enregistrez à nouveau la correction pour conserver ce résultat.'); }} />}
+        {pageClassifications?.some((page) => page.kind === 'scientific-diagram') && <ScientificDiagramAnalysisPanel enabled={true} images={images} diagramImages={pageClassifications.filter((page) => page.kind === 'scientific-diagram' || page.kind === 'mixed').map((page) => images[page.pageNumber - 1])} pageNumbers={pageClassifications.filter((page) => page.kind === 'scientific-diagram' || page.kind === 'mixed').map((page) => page.pageNumber)} question={buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question })} teacherAnnotations={teacherAnnotations} rubric={{ ...rubric, criteria: partitionScientificRubric(rubric).diagramCriteria }} model={visionModel} endpoint={endpoint} apiKey={apiKey} apiCompatible={apiCompatible} service={diagramAnalysisService} analysis={scientificDiagramAnalysis} onDiagnosticResult={(result) => {
+          const record: TimingRecord = {
+            id: `scientific-diagram-${crypto.randomUUID()}`,
+            completedAt: new Date().toISOString(),
+            visionModel,
+            analysisModel,
+            thinking: analysisThinking,
+            correctionMode,
+            pageCount: pageClassifications?.filter((page) => page.kind === 'scientific-diagram' || page.kind === 'mixed').length ?? 0,
+            readingSeconds: result.elapsedMs / 1000,
+            analysisSeconds: null,
+            totalSeconds: result.elapsedMs / 1000,
+            outcome: result.error ? 'error' : 'success',
+            source: 'scientific-diagram',
+            modelScore: null,
+            criterionScores: [],
+            assignmentId: activeAssignmentId,
+            assignmentTitle: assignmentTitle.trim() || 'Devoir sans titre',
+            rubricSnapshot: structuredClone(rubric),
+            diagnosticRuns: [result],
+          };
+          setTimingHistory((current) => [record, ...current].slice(0, timingHistoryLimit));
+          setDiagnosticRuns((current) => [...current, result]);
+        }} onAnalysisChange={(analysis) => { setScientificDiagramAnalysis(analysis); if (analysis) { const merged = mergeScientificDiagramCriteria(rubric, proposal, analysis); setProposal(merged); setReview((current) => toReviewedCriteria(merged).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item)); setTeacherQuestions(merged.questionsForTeacher.join('\\n')); } setIsFinalized(false); setReviewMessage('L’analyse visuelle a changé. Enregistrez à nouveau la correction pour conserver ce résultat.'); }} />}
         {teacherAnnotations && <section className="panel teacher-annotations-review" aria-label="Annotations préexistantes détectées"><div className="panel-heading"><span className="number">✎</span><div><h3>Annotations déjà présentes sur la copie</h3><p>Détections locales à vérifier : elles ne sont pas considérées comme de nouvelles notes.</p></div></div><pre>{teacherAnnotations}</pre></section>}
         <section className="review-alerts" aria-label="Points nécessitant votre attention">
           <div className="review-alerts-heading"><div><span className="eyebrow">CONTRÔLE CIBLÉ</span><h3>Vérifications prioritaires</h3></div><span className="review-alert-count">{reviewInsights.flaggedCriteriaIds.length} critère(s)</span></div>
