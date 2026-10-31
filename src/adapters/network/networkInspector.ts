@@ -137,7 +137,7 @@ export function installNetworkInspector(): () => void {
             body += decoder.decode();
             update({ responseBody: truncate(body), durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error' });
           } catch (cause) {
-            update({ responseBody: body, durationMs: Math.round(performance.now() - started), error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' });
+            update({ responseBody: body, durationMs: Math.round(performance.now() - started), state: 'error', error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' });
           }
         })();
       } else {
