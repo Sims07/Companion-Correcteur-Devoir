@@ -710,6 +710,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setReadingElapsedMs(null);
     setAnalysisElapsedMs(null);
     setAnalysisStage('checking');
+    setCurrentTimingRecordId(null);
+    setBulkConfirmedCriterionIds([]);
     setCriterionProgressMessage('');
     setCriterionStatuses({});
     setActiveCriterionId(null);
@@ -1386,6 +1388,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setError('');
     setIsFinalized(false);
     setCurrentCorrectionId(null);
+    setCurrentTimingRecordId(null);
+    setBulkConfirmedCriterionIds([]);
     setDiagnosticRuns([]);
     setStreamedOutput('');
     setTeacherStep('copy');
@@ -1430,6 +1434,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setHasScientificDiagrams(snapshot.hasScientificDiagrams ?? matchingAssignment.hasScientificDiagrams ?? false);
     setCurrentCorrectionId(correction.id);
     setCurrentTimingRecordId(snapshot.timingTraceId ?? null);
+    setBulkConfirmedCriterionIds([]);
     setIsFinalized(true);
     setReviewMessage('Correction enregistrée ouverte en lecture et révision locale.');
     setArchiveMessage('');
