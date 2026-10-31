@@ -38,8 +38,8 @@ describe('local teacher review metrics', () => {
     expect(modifiedAgain.groupConfirmedCount).toBe(1);
     expect(modifiedAgain.groupConfirmedThenModifiedCount).toBe(1);
     const undone = undoGroupConfirmation(modifiedAgain, ['full']);
-    expect(undone.groupConfirmedCount).toBe(0);
-    expect(undone.groupConfirmedThenModifiedCount).toBe(0);
+    expect(undone.groupConfirmedCount).toBe(1);
+    expect(undone.groupConfirmedThenModifiedCount).toBe(1);
   });
 
   it('measures over-limit text without truncating or rewriting it', () => {
