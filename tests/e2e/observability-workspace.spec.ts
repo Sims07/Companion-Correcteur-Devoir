@@ -95,7 +95,7 @@ test('opens the local observability workspace and explores a trace without expos
   await expect(page.getByText('SORTIE PRIVÉE À NE PAS AFFICHER')).toHaveCount(0);
 
   const diagramTrace = page.locator('.observability-trace-details').filter({ has: page.locator('.observability-task-badge') });
-  await diagramTrace.locator('summary').click();
+  await diagramTrace.locator('summary').first().click();
   await expect(page.getByRole('heading', { name: 'Étapes de cette trace' })).toBeVisible();
   await expect(page.getByText('Tokens non remontés')).toHaveCount(0);
   await page.locator('.observability-call-details summary').first().click();
