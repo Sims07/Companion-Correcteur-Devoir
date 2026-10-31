@@ -60,7 +60,7 @@ describe('Ollama adapter', () => {
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { messages: Array<{ content: string }> };
     expect(body.messages[0].content).toContain('Le maximum n’est justifié que si tous les attendus essentiels explicitement décrits sont démontrés');
     expect(body.messages[0].content).toContain('Le maximum n’est justifié que si tous les attendus essentiels explicitement décrits sont démontrés');
-    expect(body.messages[0].content).toContain('corrects, partiels, manquants ou erronés');
+    expect(body.messages[0].content).toContain('Donne uniquement le fait décisif qui explique les points attribués ou retirés');
     expect(body.messages[0].content).toContain('tu DOIS proposer annotationSuggestion');
     expect(body.messages[0].content).toContain('N’utilise jamais locationHint à la place du commentaire');
     expect(body.messages[0].content).toContain('confidence mesure la solidité de l’interprétation');

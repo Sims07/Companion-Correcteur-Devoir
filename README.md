@@ -42,6 +42,10 @@ npm run test:e2e
 
 Les seuils de couverture ne sont pas encore bloquants. Le badge de couverture est recalculé par la CI sur les pushes vers `main` ; les pull requests n'ont pas à le modifier manuellement.
 
+## Expérience de correction : priorité au temps enseignant
+
+La règle produit centrale est de rendre la correction nettement plus rapide à lire que la copie originale. Le parcours enseignant privilégie les exceptions (points retirés, preuves manquantes, ambiguïtés et incertitudes), replie les justifications et conserve le diagnostic technique dans un espace séparé. Voir [`docs/correction-experience.md`](docs/correction-experience.md) : cette ligne directrice s'applique à toute évolution de l'application.
+
 ## Parcours de correction
 
 1. **Préparer le devoir.** Modifiez le barème ou importez-en un depuis un fichier pris en charge. Pour un barème photographié, le modèle de vision d'Ollama extrait une structure JSON que l'enseignant peut vérifier et ajuster. Les documents texte sont importés localement.
