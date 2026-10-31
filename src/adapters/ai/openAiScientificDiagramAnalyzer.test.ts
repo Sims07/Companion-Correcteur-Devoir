@@ -59,6 +59,14 @@ describe('OpenAI scientific diagram adapter', () => {
     ]);
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer secret');
   });
+  it('accepts a valid Vision diagram response without optional overall uncertainties', async () => {
+    const { overallUncertainties: _omitted, ...outputWithoutGlobalUncertainties } = output;
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify(outputWithoutGlobalUncertainties) } }],
+    }), { status: 200 }));
+    await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request))
+      .resolves.toMatchObject({ diagrams: [{ criteria: [{ points: 2 }] }], overallUncertainties: [] });
+  });
   it('asks Vision for one global score per selected diagram criterion and makes the seven-dimension explanation optional when explicitly marked', async () => {
     const detailedOutput = structuredClone(output) as { diagrams: Array<{ criteria: Array<{ qualityBreakdown?: Array<{ dimension: string; status: string; evidence: string }> }> }> };
     detailedOutput.diagrams[0].criteria[0].qualityBreakdown = [
