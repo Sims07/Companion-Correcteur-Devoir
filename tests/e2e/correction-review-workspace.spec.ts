@@ -161,4 +161,17 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   const incompleteBulkConfirm = page.getByRole('button', { name: 'Confirmer les critères sans alerte (1)' });
   await expect(incompleteBulkConfirm).toBeVisible();
   await expect(incompleteBulkConfirm).toBeDisabled();
+
+  await page.getByRole('button', { name: 'Ajouter une autre copie' }).click();
+  await page.locator('#copy-files').setInputFiles({
+    name: 'diagram.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/9ioAAAAASUVORK5CYII=', 'base64'),
+  });
+  const workingPage = page.getByRole('img', { name: 'Aperçu de la page 1' });
+  await expect(workingPage).toBeVisible();
+  const originalWorkingImage = await workingPage.getAttribute('src');
+  await page.getByRole('button', { name: 'Tourner la page 1 à droite de 90 degrés' }).click();
+  await expect.poll(() => workingPage.getAttribute('src')).not.toBe(originalWorkingImage);
+  await expect(page.getByText('Les rotations s’appliquent uniquement à la copie de travail. Les images originales non modifiées sont conservées localement avec la correction.')).toBeVisible();
 });
