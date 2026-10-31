@@ -72,6 +72,7 @@ type AssignmentDraft = {
   detectTeacherAnnotations: boolean;
   scientificDiagramAnalysis: ScientificDiagramAnalysis | null;
   scientificPageClassifications: ScientificPageClassification[] | null;
+  manualRotationAngles?: Record<number, number>;
 };
 
 const aiModelConfigurationKey = 'companion-correcteur:ollama-configuration:v1';
@@ -619,6 +620,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       const prepared = await service.prepareFiles(files);
       setImages((current) => [...current, ...prepared]);
       setOriginalImages((current) => [...current, ...structuredClone(prepared)]);
+      setRotationSuggestions({});
+      setManualRotationAngles({});
       setPageClassifications(null);
       setScientificDiagramAnalysis(null);
       setScientificDiagramError('');
@@ -1264,6 +1267,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     const draft = assignmentDrafts[profile.id];
     setScientificDiagramAnalysis(draft?.scientificDiagramAnalysis ?? null);
     setPageClassifications(draft?.scientificPageClassifications ?? null);
+    setManualRotationAngles(draft?.manualRotationAngles ?? {});
+    setRotationSuggestions({});
     setScientificDiagramError('');
     setCopyQueue(draft?.copyQueue ?? []);
     setImages(draft?.images ?? []);
