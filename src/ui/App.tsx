@@ -339,7 +339,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const diagnosticHistoryReady = useRef(false);
   useEffect(() => {
     let active = true;
-    void evaluationService.listDiagnosticHistory<TimingRecord>().then(async (stored) => {
+    void evaluationService.listDiagnosticHistory().then((records) => records as TimingRecord[]).then(async (stored) => {
       if (!active) return;
       const history = stored.length > 0 ? stored : readTimingHistory();
       if (stored.length === 0 && history.length > 0) await evaluationService.saveDiagnosticHistory(history);
