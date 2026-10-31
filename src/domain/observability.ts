@@ -1,3 +1,5 @@
+import type { ReviewTraceMetrics } from './reviewMetrics.ts';
+
 export type ObservabilityStage = 'reading' | 'analysis' | 'arbitration' | 'other';
 
 export type ObservabilitySpan = {
@@ -72,6 +74,7 @@ export type ObservabilityTrace = {
   pageCount: number;
   assignmentTitle?: string;
   diagnosticRuns?: ObservabilitySpan[];
+  reviewMetrics?: ReviewTraceMetrics;
 
 };
 
@@ -146,6 +149,15 @@ export type ObservabilitySummary = {
   modelsObserved: number;
   scoredTraces: number;
   averageProposedScore: number | null;
+  reviewedCriteriaCount: number;
+  criteriaToReviewCount: number;
+  groupConfirmedCount: number;
+  groupConfirmedThenModifiedCount: number;
+  groupModificationRatePercent: number | null;
+  visibleWordCount: number;
+  wordLimitCheckedCount: number;
+  wordLimitExceededCount: number;
+  wordLimitExceededRatePercent: number | null;
 };
 
 export function getObservabilityStage(span: ObservabilitySpan): ObservabilityStage {
@@ -200,6 +212,14 @@ export function buildObservabilitySummary(traces: ObservabilityTrace[]): Observa
   const measuredCalls = metrics.reduce((sum, metric) => sum + metric.measuredCalls, 0);
   const totalCalls = metrics.reduce((sum, metric) => sum + metric.calls, 0);
   const models = new Set(metrics.map((metric) => metric.model));
+  const reviewMetrics = traces.map((trace) => trace.reviewMetrics).filter((item): item is ReviewTraceMetrics => Boolean(item));
+  const reviewedCriteriaCount = reviewMetrics.reduce((sum, item) => sum + item.criterionCount, 0);
+  const criteriaToReviewCount = reviewMetrics.reduce((sum, item) => sum + item.criteriaToReviewCount, 0);
+  const groupConfirmedCount = reviewMetrics.reduce((sum, item) => sum + item.groupConfirmedCount, 0);
+  const groupConfirmedThenModifiedCount = reviewMetrics.reduce((sum, item) => sum + item.groupConfirmedThenModifiedCount, 0);
+  const visibleWordCount = reviewMetrics.reduce((sum, item) => sum + item.visibleWordCount, 0);
+  const wordLimitCheckedCount = reviewMetrics.reduce((sum, item) => sum + item.wordLimits.rationale.checked + item.wordLimits.evidence.checked + item.wordLimits.annotationSuggestion.checked, 0);
+  const wordLimitExceededCount = reviewMetrics.reduce((sum, item) => sum + item.wordLimits.rationale.exceeded + item.wordLimits.evidence.exceeded + item.wordLimits.annotationSuggestion.exceeded, 0);
 
   return {
     traceCount: traces.length,
@@ -215,5 +235,14 @@ export function buildObservabilitySummary(traces: ObservabilityTrace[]): Observa
     modelsObserved: new Set([...traces.flatMap((trace) => [trace.visionModel, trace.analysisModel]), ...models].filter(Boolean)).size,
     scoredTraces: scores.length,
     averageProposedScore: scores.length ? scores.reduce((sum, value) => sum + value, 0) / scores.length : null,
+    reviewedCriteriaCount,
+    criteriaToReviewCount,
+    groupConfirmedCount,
+    groupConfirmedThenModifiedCount,
+    groupModificationRatePercent: groupConfirmedCount ? Math.round(groupConfirmedThenModifiedCount / groupConfirmedCount * 100) : null,
+    visibleWordCount,
+    wordLimitCheckedCount,
+    wordLimitExceededCount,
+    wordLimitExceededRatePercent: wordLimitCheckedCount ? Math.round(wordLimitExceededCount / wordLimitCheckedCount * 100) : null,
   };
 }

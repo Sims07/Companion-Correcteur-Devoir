@@ -31,8 +31,15 @@ describe('incremental grading prompt contract', () => {
     for (const field of ['criterionId', 'points', 'rationale', 'evidence', 'confidence', 'annotationSuggestion']) {
       expect(prompt).toContain(field);
     }
-    expect(prompt).toContain('même lorsque le maximum de points est attribué');
-    expect(prompt).toContain('si la note est inférieure au maximum');
+    expect(prompt).toContain('18 mots maximum');
+    expect(prompt).toContain('12 mots maximum');
+  });
+
+  it('allows empty rationale and annotation for confident maximum score while keeping evidence required', () => {
+    const prompt = buildIncrementalCriterionPrompt('Contexte', criterion);
+    expect(prompt).toContain('rationale et annotationSuggestion peuvent être des chaînes vides uniquement lorsque points atteint maxPoints et confidence vaut high');
+    expect(prompt).toContain('evidence reste toujours obligatoire et non vide');
+    expect(prompt).toContain('confidence vaut high');
   });
 
   it('reuses only coordinates explicitly extracted by the document-reading stage', () => {

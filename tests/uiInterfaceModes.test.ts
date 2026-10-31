@@ -16,6 +16,24 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('item.locationHint');
   });
 
+  it('keeps the normal correction view concise and exposes explanations only on demand', () => {
+    const text = app();
+    expect(text).toContain('Voir la preuve et la justification');
+    expect(text).toContain('review-explanation');
+    expect(text).toContain('Confirmer les critères sans alerte ({pendingReliableCriterionIds.length})');
+    expect(text).toContain('disabled={!criterionProgress.isComplete || isAnalyzing}');
+    expect(text).toContain('undoGroupConfirmation');
+    expect(text).toContain('Aucun signal automatique. La vérification humaine reste nécessaire.');
+    expect(text).toContain('Les points retirés et les incertitudes restent à examiner.');
+    expect(text).toContain('Afficher tous les critères');
+    expect(text).toContain('Voir les {reliableCriteriaCount} critères sans alerte');
+    expect(text).toContain('Voir la synthèse de l’analyse');
+    expect(text).toContain('Synthèse des éléments à examiner');
+    expect(text).not.toContain('Vérifications prioritaires');
+    expect(text).not.toContain('reviewInsights.flaggedCriteriaIds.length');
+    expect(text).not.toContain('<p>{proposal?.summary ??');
+  });
+
   it('keeps a local archive and next-copy path after finalization', () => {
     const text = app();
     expect(text).toContain("useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric')");

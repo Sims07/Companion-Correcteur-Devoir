@@ -113,6 +113,12 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     const confidence: Confidence = item.confidence === 'low' || item.confidence === 'medium' || item.confidence === 'high'
       ? item.confidence
       : 'low';
+    const evidence = text(item.evidence);
+    if (!evidence) throw new Error(`La preuve du critère « ${rubricCriterion.title} » est obligatoire, même lorsque le maximum de points est attribué.`);
+    const rationale = text(item.rationale);
+    if ((points < rubricCriterion.maxPoints || confidence !== 'high') && !rationale) {
+      throw new Error(`La justification du critère « ${rubricCriterion.title} » est obligatoire lorsque la note est partielle ou la confiance n’est pas élevée.`);
+    }
     const locationBox = isRecord(item.locationBox) ? item.locationBox : null;
     const hasValidLocationBox = locationBox !== null &&
       ['x', 'y', 'width', 'height'].every((key) =>
@@ -126,8 +132,8 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     criteria.push({
       criterionId: item.criterionId,
       points,
-      rationale: text(item.rationale, 'Justification non fournie.'),
-      evidence: text(item.evidence, 'Aucun élément précis de la copie cité.'),
+      rationale,
+      evidence,
       ...(typeof item.pageNumber === 'number' && Number.isInteger(item.pageNumber) && item.pageNumber >= 1 ? { pageNumber: item.pageNumber } : {}),
       ...(text(item.annotationSuggestion) ? { annotationSuggestion: text(item.annotationSuggestion) } : {}),
       ...(text(item.locationHint) ? { locationHint: text(item.locationHint) } : {}),

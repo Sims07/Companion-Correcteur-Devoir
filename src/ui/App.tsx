@@ -19,7 +19,7 @@ import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/local
 import type { RubricImportProgress } from '../ports/correctionWorkspace.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
-import { getReviewInsights, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
+import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
 import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../domain/copyQueue.ts';
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
@@ -27,6 +27,7 @@ import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
+import { confirmReviewCriteriaInGroup, createReviewTraceMetrics, markGroupConfirmedCriterionModified, undoGroupConfirmation, type ReviewTraceMetrics } from '../domain/reviewMetrics.ts';
 
 type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
 
@@ -143,6 +144,7 @@ type TimingRecord = {
   rubricSnapshot?: Rubric;
   diagnosticStrategy?: DiagnosticStrategy;
   diagnosticRuns?: DiagnosticModelResult[];
+  reviewMetrics?: ReviewTraceMetrics;
   referenceScores?: ReferenceCriterionScore[];
 };
 
@@ -342,7 +344,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [archivedCorrections, setArchivedCorrections] = useState<LocalCorrection[]>([]);
   const [archiveMessage, setArchiveMessage] = useState('');
   const [review, setReview] = useState<ReviewedCriterion[]>([]);
-  const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
+  const [bulkConfirmedCriterionIds, setBulkConfirmedCriterionIds] = useState<string[]>([]);
+  const [showOnlyFlagged, setShowOnlyFlagged] = useState(true);
   const [focusedEvidencePage, setFocusedEvidencePage] = useState<number | null>(null);
   const [focusedEvidenceCriterionId, setFocusedEvidenceCriterionId] = useState<string | null>(null);
   const [teacherQuestions, setTeacherQuestions] = useState('');
@@ -353,10 +356,14 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
   const reviewedTotal = criterionProgress.provisionalPoints;
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
-  const reviewInsights = useMemo(() => getReviewInsights(review), [review]);
-  const flaggedCriteriaIds = useMemo(() => new Set(reviewInsights.flaggedCriteriaIds), [reviewInsights]);
-  const displayedReview = showOnlyFlagged ? review.filter((item) => flaggedCriteriaIds.has(item.criterionId)) : review;
+  const reviewFocus = useMemo(() => getReviewFocus(review, rubric.criteria), [review, rubric.criteria]);
+  const flaggedCriteriaIds = useMemo(() => new Set(reviewFocus.flaggedCriteriaIds), [reviewFocus]);
+  const pendingReliableCriterionIds = reviewFocus.reliableCriteriaIds.filter((id) => review.find((item) => item.criterionId === id)?.decision === 'pending');
+  const reliableCriteriaCount = reviewFocus.reliableCriteriaIds.length;
+  const bulkConfirmedCount = bulkConfirmedCriterionIds.filter((id) => review.find((item) => item.criterionId === id)?.decision === 'accepted').length;
+  const shouldFocusExceptions = showOnlyFlagged && flaggedCriteriaIds.size > 0;
   const unreadableCopySignal = hasUnreadableCopySignal(transcription, images.length > 0);
+  useEffect(() => { setShowOnlyFlagged(!isFinalized); }, [isFinalized]);
   const completedForAssignment = archivedCorrections.filter((item) => item.assignmentTitle === (assignmentTitle.trim() || 'Devoir de biologie')).length;
   const subjectReady = correctionMode === 'integrated' || subjectImages.length > 0 || Boolean(subjectTranscription);
   const setupChecks = [
@@ -703,6 +710,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setReadingElapsedMs(null);
     setAnalysisElapsedMs(null);
     setAnalysisStage('checking');
+    setCurrentTimingRecordId(null);
+    setBulkConfirmedCriterionIds([]);
     setCriterionProgressMessage('');
     setCriterionStatuses({});
     setActiveCriterionId(null);
@@ -859,6 +868,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         rubricSnapshot: structuredClone(rubric),
         diagnosticStrategy: interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
         diagnosticRuns: diagnosticResultsForHistory,
+        reviewMetrics: createReviewTraceMetrics(diagnosticProposal ? toReviewedCriteria(diagnosticProposal) : [], rubric.criteria),
       };
       setCurrentTimingRecordId(record.id);
       setTimingHistory((current) => {
@@ -1089,9 +1099,24 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setReferenceMessage('Référence retirée de cet essai. Les résultats restent consultables sans référence.');
   }
 
+  function updateCurrentReviewTraceMetrics(update: (metrics: ReviewTraceMetrics) => ReviewTraceMetrics) {
+    if (!currentTimingRecordId) return;
+    setTimingHistory((current) => {
+      const next = current.map((record) => record.id === currentTimingRecordId && record.reviewMetrics
+        ? { ...record, reviewMetrics: update(record.reviewMetrics) }
+        : record);
+      try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); } catch { /* Keep local observability available for this session. */ }
+      return next;
+    });
+  }
+
   function updateReview(id: string, patch: Partial<ReviewedCriterion>) {
     setIsFinalized(false);
     setReviewMessage('');
+    if (patch.teacherPoints !== undefined || patch.teacherComment !== undefined || patch.decision !== undefined) {
+      updateCurrentReviewTraceMetrics((metrics) => markGroupConfirmedCriterionModified(metrics, id));
+      setBulkConfirmedCriterionIds((current) => current.filter((criterionId) => criterionId !== id));
+    }
     setReview((current) => current.map((item) => item.criterionId === id ? { ...item, ...patch } : item));
   }
 
@@ -1108,6 +1133,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     const id = currentCorrectionId ?? `correction-${crypto.randomUUID()}`;
     const previous = archivedCorrections.find((item) => item.id === id);
     const snapshot: CorrectionArchiveSnapshot = {
+      ...(currentTimingRecordId ? { timingTraceId: currentTimingRecordId } : {}),
       assignmentTitle: assignmentTitle.trim() || 'Devoir de biologie',
       question,
       rubric: structuredClone(rubric),
@@ -1187,7 +1213,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   }
 
   function applyAssignment(profile: AssignmentProfile) {
-    setShowOnlyFlagged(false);
+    setShowOnlyFlagged(true);
     setFocusedEvidencePage(null);
     setActiveAssignmentId(profile.id);
     setAssignmentTitle(profile.title);
@@ -1251,7 +1277,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
 
   function createNewAssignment() {
     if (isAnalyzing) return;
-    setShowOnlyFlagged(false);
+    setShowOnlyFlagged(true);
     setAssignmentDrafts((current) => ({ ...current, [activeAssignmentId]: captureActiveDraft() }));
     const profile: AssignmentProfile = {
       id: `assignment-${crypto.randomUUID()}`,
@@ -1336,7 +1362,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setProposal(null);
     setReview([]);
     setTeacherQuestions('');
-    setShowOnlyFlagged(false);
+    setShowOnlyFlagged(true);
     setReviewMessage('Copie chargée depuis la file locale. Lancez la lecture et la correction quand vous êtes prêt.');
     setError('');
     setCurrentCorrectionId(null);
@@ -1355,13 +1381,15 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setPageClassifications(null);
     setScientificDiagramError('');
     setProposal(null);
-    setShowOnlyFlagged(false);
+    setShowOnlyFlagged(true);
     setReview([]);
     setTeacherQuestions('');
     setReviewMessage('');
     setError('');
     setIsFinalized(false);
     setCurrentCorrectionId(null);
+    setCurrentTimingRecordId(null);
+    setBulkConfirmedCriterionIds([]);
     setDiagnosticRuns([]);
     setStreamedOutput('');
     setTeacherStep('copy');
@@ -1395,7 +1423,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setScientificDiagramAnalysis(snapshot.scientificDiagramAnalysis ?? null);
     setPageClassifications(snapshot.scientificPageClassifications ?? null);
     setScientificDiagramError('');
-    setShowOnlyFlagged(false);
+    setShowOnlyFlagged(true);
     setTeacherQuestions(snapshot.teacherQuestions);
     setImages(snapshot.images);
     setDetectTeacherAnnotations(snapshot.detectTeacherAnnotations ?? false);
@@ -1405,6 +1433,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setCorrectionMode(snapshot.correctionMode);
     setHasScientificDiagrams(snapshot.hasScientificDiagrams ?? matchingAssignment.hasScientificDiagrams ?? false);
     setCurrentCorrectionId(correction.id);
+    setCurrentTimingRecordId(snapshot.timingTraceId ?? null);
+    setBulkConfirmedCriterionIds([]);
     setIsFinalized(true);
     setReviewMessage('Correction enregistrée ouverte en lecture et révision locale.');
     setArchiveMessage('');
@@ -1619,7 +1649,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         {evaluationStageMode === 'analysis' && <section className="evaluation-analysis-reference" aria-labelledby="evaluation-analysis-reference-title">
           <div><p className="eyebrow">SOURCE DE RÉFÉRENCE</p><h3 id="evaluation-analysis-reference-title">Transcription à noter</h3><p>Vérifiez et corrigez le texte une fois pour toutes : chaque modèle d’analyse recevra exactement cette même transcription, sans nouvelle lecture d’image.</p></div>
           <textarea aria-label="Transcription de référence pour l’évaluation de l’analyse" rows={8} value={transcription ?? ''} onChange={(event) => setTranscription(event.target.value)} placeholder="Lancez d’abord une évaluation Vision, ou collez ici une transcription déjà vérifiée…" />
-          <p className="evaluation-reference-meta">{transcription?.trim() ? `${transcription.trim().split(/\\s+/).filter(Boolean).length} mots dans la transcription de référence` : 'Aucune transcription de référence pour le moment'}</p>
+          <p className="evaluation-reference-meta">{transcription?.trim() ? `${transcription.trim().split(/\s+/).filter(Boolean).length} mots dans la transcription de référence` : 'Aucune transcription de référence pour le moment'}</p>
         </section>}
         <div className="evaluation-selection-block"><div className="evaluation-section-heading compact"><div><h3>Sélection pour cette expérience</h3><p>Choisissez une à trois configurations. Une seule suffit pour mesurer ses performances ; plusieurs permettent de comparer leurs résultats sur les mêmes pages et le même barème.</p></div><span aria-live="polite" className={selectedEvaluationProfileIds.length >= 1 ? 'evaluation-step-chip ready' : 'evaluation-step-chip'}>{selectedEvaluationProfileIds.length} / 3 sélectionnée(s)</span></div>
           {aiModelProfiles.length < 1 ? <div className="evaluation-empty-inline"><strong>Aucune configuration enregistrée.</strong><p>Créez un profil ci-dessus pour pouvoir lancer une première évaluation.</p></div> : <fieldset className="evaluation-profile-list" aria-describedby="evaluation-profile-selection-help"><legend>Configurations à exécuter</legend><p id="evaluation-profile-selection-help" className="evaluation-selection-help">La même copie sera relue et notée par chaque configuration. L’ordre reste séquentiel pour limiter la mémoire utilisée par Ollama.</p><div className="evaluation-profile-options">{aiModelProfiles.map((profile) => { const selected = selectedEvaluationProfileIds.includes(profile.id); const disabled = busy || (!selected && selectedEvaluationProfileIds.length >= 3); return <label key={profile.id} className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}><input className="evaluation-profile-checkbox" type="checkbox" checked={selected} disabled={disabled} onChange={(event) => setSelectedEvaluationProfileIds((current) => event.target.checked ? [...current, profile.id].slice(-3) : current.filter((id) => id !== profile.id))} /><span className="evaluation-profile-card-content"><strong>{profile.name}</strong><span className="evaluation-profile-models"><span><small>LECTURE</small><b>{profile.configuration.visionModel || 'Modèle non défini'}</b></span><span><small>ANALYSE</small><b>{profile.configuration.analysisModel || 'Modèle non défini'}</b></span></span>{profile.configuration.analysisThinking && <span className="evaluation-profile-thinking">Thinking activé</span>}</span><span className="evaluation-profile-selection-mark" aria-hidden="true">{selected ? '✓' : '+'}</span></label>; })}</div></fieldset>}
@@ -2341,15 +2371,10 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
           setDiagnosticRuns((current) => [...current, result]);
         }} onAnalysisChange={(analysis) => { setScientificDiagramAnalysis(analysis); if (analysis) { const merged = mergeScientificDiagramCriteria(rubric, proposal, analysis); setProposal(merged); setReview((current) => toReviewedCriteria(merged).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item)); setTeacherQuestions(merged.questionsForTeacher.join('\\n')); } setIsFinalized(false); setReviewMessage('L’analyse visuelle a changé. Enregistrez à nouveau la correction pour conserver ce résultat.'); }} />}
         {teacherAnnotations && <section className="panel teacher-annotations-review" aria-label="Annotations préexistantes détectées"><div className="panel-heading"><span className="number">✎</span><div><h3>Annotations déjà présentes sur la copie</h3><p>Détections locales à vérifier : elles ne sont pas considérées comme de nouvelles notes.</p></div></div><pre>{teacherAnnotations}</pre></section>}
-        <section className="review-alerts" aria-label="Points nécessitant votre attention">
-          <div className="review-alerts-heading"><div><span className="eyebrow">CONTRÔLE CIBLÉ</span><h3>Vérifications prioritaires</h3></div><span className="review-alert-count">{reviewInsights.flaggedCriteriaIds.length} critère(s)</span></div>
-          {unreadableCopySignal && <div className="review-alert review-alert-warning" role="alert"><strong>Lecture de la copie à contrôler</strong><p>La transcription est absente ou contient un signal d’illisibilité. Vérifiez les images originales avant de vous fier à la note proposée.</p></div>}
-          {reviewInsights.lowConfidenceCount > 0 && <div className="review-alert"><strong>{reviewInsights.lowConfidenceCount} critère(s) avec une confiance faible</strong><p>Examinez la preuve et le raisonnement associés avant d’accepter ces points.</p></div>}
-          {reviewInsights.missingEvidenceCount > 0 && <div className="review-alert review-alert-warning"><strong>{reviewInsights.missingEvidenceCount} critère(s) sans preuve exploitable</strong><p>Une justification sans élément précis de la copie ne suffit pas à valider une attribution de points.</p></div>}
-          {reviewInsights.unreadableEvidenceCount > 0 && <div className="review-alert review-alert-warning"><strong>{reviewInsights.unreadableEvidenceCount} critère(s) signalant une lecture difficile</strong><p>Vérifiez la lisibilité du passage ou du schéma concerné.</p></div>}
-          {reviewInsights.flaggedCriteriaIds.length === 0 && !unreadableCopySignal && <p className="review-all-clear">Aucun signal automatique prioritaire. La vérification humaine reste nécessaire.</p>}
-          <div className="review-alert-actions"><button type="button" className="secondary-button" onClick={() => setShowOnlyFlagged((value) => !value)} disabled={reviewInsights.flaggedCriteriaIds.length === 0}>{showOnlyFlagged ? 'Afficher tous les critères' : `Afficher les ${reviewInsights.flaggedCriteriaIds.length} critères à vérifier`}</button></div>
-        </section>
+        {(flaggedCriteriaIds.size > 0 || unreadableCopySignal) && <section className="review-alerts review-focus-overview" aria-label="Synthèse des éléments à examiner">
+          <strong>{flaggedCriteriaIds.size} critère(s) à examiner</strong>
+          {unreadableCopySignal && <span role="alert">La lecture de la copie mérite une vérification sur l’image originale.</span>}
+        </section>}
         <div className="correction-batch-progress" aria-label="Progression des corrections pour ce devoir"><div><span className="eyebrow">CORRECTION EN SÉRIE</span><strong>{completedForAssignment} copie(s) enregistrée(s) pour ce devoir</strong><p>Chaque copie enregistrée reste disponible dans « Corrections enregistrées ».</p></div></div>
         <div className="review-workspace">
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
@@ -2379,9 +2404,26 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             </details>
           </aside>
           <div className="review-main-column">
-            <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite"><strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : criterionProgress.isComplete ? 'Note proposée · à valider' : 'Note partielle · analyse incomplète'}</strong><p>{proposal?.summary ?? 'Analyse du barème en cours. Les résultats apparaîtront ici, critère par critère.'}</p><span>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente de la première note'} · {criterionProgress.completedCount} / {criterionProgress.totalCount} critères évalués</span></div>
-        <div className="review-criteria-toolbar"><span>{showOnlyFlagged ? `Affichage ciblé : ${displayedReview.length} critère(s)` : `${review.length} critère(s) dans le barème`}</span>{showOnlyFlagged && <button type="button" className="text-action" onClick={() => setShowOnlyFlagged(false)}>Réafficher tous les critères</button>}</div>
-        {(isAnalyzing ? rubric.criteria : rubric.criteria.filter((criterion) => !showOnlyFlagged || flaggedCriteriaIds.has(criterion.id))).map((criterion, criterionIndex) => {
+            <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite"><strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : criterionProgress.isComplete ? 'Note proposée · à valider' : 'Note partielle · analyse incomplète'}</strong><span>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente de la première note'} · {criterionProgress.completedCount} / {criterionProgress.totalCount} critères évalués</span>{proposal?.summary && <details className="review-summary-details"><summary>Voir la synthèse de l’analyse</summary><p>{proposal.summary}</p></details>}</div>
+        <div className="review-criteria-toolbar">
+          <span>{flaggedCriteriaIds.size > 0 ? `${flaggedCriteriaIds.size} critère(s) à examiner · ${reliableCriteriaCount} sans alerte` : `Aucun signal particulier · ${review.length} critère(s)`}</span>
+          <div className="review-criteria-toolbar-actions">
+            {bulkConfirmedCount > 0 && <span role="status">{bulkConfirmedCount} critère(s) confirmé(s)</span>}
+            {bulkConfirmedCount > 0 && <button type="button" className="text-action" onClick={() => { const confirmedIds = new Set(bulkConfirmedCriterionIds); updateCurrentReviewTraceMetrics((metrics) => undoGroupConfirmation(metrics, bulkConfirmedCriterionIds)); setReview((current) => current.map((item) => confirmedIds.has(item.criterionId) && item.decision === 'accepted' ? { ...item, decision: 'pending' } : item)); setBulkConfirmedCriterionIds([]); setReviewMessage('Confirmation groupée annulée. Les critères sont de nouveau en attente.'); }}>Annuler</button>}
+            {pendingReliableCriterionIds.length > 0 && <button type="button" className="text-action" disabled={!criterionProgress.isComplete || isAnalyzing} onClick={() => { const reliableIds = new Set(pendingReliableCriterionIds); updateCurrentReviewTraceMetrics((metrics) => confirmReviewCriteriaInGroup(metrics, pendingReliableCriterionIds)); setIsFinalized(false); setBulkConfirmedCriterionIds(pendingReliableCriterionIds); setReview((current) => current.map((item) => reliableIds.has(item.criterionId) ? { ...item, decision: 'accepted' } : item)); setReviewMessage(`${pendingReliableCriterionIds.length} critère(s) sans alerte confirmé(s). Les points retirés et les incertitudes restent à examiner.`); }}>Confirmer les critères sans alerte ({pendingReliableCriterionIds.length})</button>}
+            {flaggedCriteriaIds.size > 0 && <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>}
+          </div>
+        </div>
+        {flaggedCriteriaIds.size === 0 && <p className="review-focus-hint" role="note">Aucun signal automatique. La vérification humaine reste nécessaire.</p>}
+        {shouldFocusExceptions && <details className="review-safe-summary">
+          <summary>Voir les {reliableCriteriaCount} critères sans alerte</summary>
+          <ul>{review.filter((item) => reviewFocus.reliableCriteriaIds.includes(item.criterionId)).map((item) => {
+            const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
+            return <li key={item.criterionId}><strong>{criterion?.title ?? item.criterionId}</strong><span>{item.teacherPoints} / {criterion?.maxPoints ?? 0} points</span><small>{item.evidence.trim().split(/\s+/u).slice(0, 12).join(' ')}{item.evidence.trim().split(/\s+/u).length > 12 ? '…' : ''}</small></li>;
+          })}</ul>
+        </details>}
+        {shouldFocusExceptions && <p className="review-focus-hint">Les critères sans alerte sont regroupés pour accélérer la lecture. Vous pouvez les afficher à tout moment.</p>}
+        {(isAnalyzing ? rubric.criteria : rubric.criteria.filter((criterion) => !shouldFocusExceptions || flaggedCriteriaIds.has(criterion.id))).map((criterion, criterionIndex) => {
           const item = review.find((entry) => entry.criterionId === criterion.id);
           if (!item) {
             const status = criterionStatuses[criterion.id];
@@ -2392,16 +2434,34 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
               <div className="review-pending-content"><span className="live-score-placeholder" aria-hidden="true" /><div className="review-pending-skeleton" aria-hidden="true"><span /><span /><span /></div></div>
             </article>;
           }
+          const isFlagged = flaggedCriteriaIds.has(item.criterionId);
+          const alertReasons = getReviewAlertReasons(item, criterion?.maxPoints ?? 0);
           return <article className="panel review-card" key={item.criterionId}>
-            <div className="review-card-heading"><div><h3>{criterion.title}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div><span className={`confidence confidence-${item.confidence}`}>Confiance {item.confidence === 'high' ? 'élevée' : item.confidence === 'medium' ? 'moyenne' : 'faible'}</span></div>
+            <div className="review-card-heading">
+              <div><h3>{criterion.title}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div>
+              <div className="review-card-result">
+                <strong>{item.teacherPoints} / {criterion?.maxPoints ?? 0}</strong>
+                <span className={flaggedCriteriaIds.has(item.criterionId) ? 'review-result-status needs-review' : 'review-result-status'}>{flaggedCriteriaIds.has(item.criterionId) ? 'À examiner' : 'Sans alerte'}</span>
+              </div>
+            </div>
+            {isFlagged && <div className="review-alert-summary">
+              <div className="review-alert-reasons">{alertReasons.map((reason) => <span className="review-alert-reason" key={reason}>{reason}</span>)}</div>
+              <p className="rationale">{item.rationale || 'Justification non fournie.'}</p>
+              {item.annotationSuggestion && <section className="annotation-suggestion" aria-label={`Commentaire à reporter pour le critère ${criterion?.title ?? item.criterionId}`}>
+                <div className="annotation-suggestion-heading"><span className="eyebrow">COMMENTAIRE À REPORTER SUR LA COPIE</span><span className="annotation-suggestion-status">Suggestion IA</span></div>
+                <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>
+              </section>}
+            </div>}
+            <details className="review-explanation">
+              <summary>Voir la preuve et la justification détaillées</summary>
             <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p>{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); setFocusedEvidenceCriterionId(item.criterionId); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>
-            {item.annotationSuggestion && <section className="annotation-suggestion" aria-label={`Suggestion d’annotation pour le critère ${criterion?.title ?? item.criterionId}`}>
+            {item.locationHint && <p className="annotation-location"><strong>Repère indicatif :</strong> {item.locationHint}</p>}
+            {item.annotationSuggestion && item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Afficher la page ${item.pageNumber} pour le commentaire proposé`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Afficher la page liée</button>}
+            {!isFlagged && item.annotationSuggestion && <section className="annotation-suggestion" aria-label={`Suggestion d’annotation pour le critère ${criterion?.title ?? item.criterionId}`}>
               <div className="annotation-suggestion-heading"><span className="eyebrow">COMMENTAIRE ÉVENTUEL À REPORTER AU STYLO</span><span className="annotation-suggestion-status">Suggestion IA</span></div>
-              {item.annotationSuggestion && <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>}
-              {item.locationHint && <p className="annotation-location"><strong>Repère indicatif :</strong> {item.locationHint}</p>}
-              {item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Afficher la page ${item.pageNumber} pour le commentaire proposé`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Afficher la page liée</button>}
+              <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>
             </section>}
-            <p className="rationale">{item.rationale}</p>
+            {!isFlagged && <p className="rationale">{item.rationale}</p>}
             {item.qualityBreakdown && (
               <details className="scientific-diagram-quality-details review-quality-details">
                 <summary>Pourquoi cette note ? · Détail du schéma</summary>
@@ -2415,7 +2475,9 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
                 </ul>
               </details>
             )}
-            {item.confidence === 'low' && <p className="teacher-question"><strong>Lecture à vérifier :</strong> {item.questionForTeacher || 'Le modèle est incertain sur ce critère. Vérifiez la preuve citée et la note proposée ; aucune question précise ne peut être formulée automatiquement.'}</p>}
+
+              {item.questionForTeacher && <p className="teacher-question"><strong>Question pour vous :</strong> {item.questionForTeacher}</p>}
+            </details>
             <div className="review-controls">
               <label><span className="field-label">Votre note</span><input type="number" min="0" max={criterion?.maxPoints ?? 0} step="0.5" value={item.teacherPoints} onChange={(event) => updateReview(item.criterionId, { teacherPoints: Number(event.target.value), decision: 'adjusted' })} /></label>
               <label className="comment-field"><span className="field-label">Commentaire enseignant</span><input value={item.teacherComment} onChange={(event) => updateReview(item.criterionId, { teacherComment: event.target.value })} placeholder="Précision ou correction éventuelle" /></label>

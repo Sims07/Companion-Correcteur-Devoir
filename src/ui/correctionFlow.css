@@ -1743,3 +1743,101 @@
 .review-pending-skeleton span:nth-child(3) { width: 54%; }
 .review-score-summary.is-provisional { border-color: var(--flow-accent); background: var(--flow-surface-soft); }
 @media (prefers-reduced-motion: reduce) { .review-pending-skeleton span { animation: none; } }
+
+
+/* Teacher-first review: show the decision first, keep explanation on demand. */
+.review-card-result {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.review-card-result > strong {
+  color: var(--flow-text);
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.review-result-status {
+  color: var(--flow-muted);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.review-result-status.needs-review { color: #9a5a17; }
+.review-criteria-toolbar { align-items: center; gap: 12px; }
+.review-criteria-toolbar-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 14px; }
+.review-focus-hint {
+  margin: -5px 0 4px;
+  color: var(--flow-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.review-explanation,
+.review-summary-details {
+  margin-top: 10px;
+  border-top: 1px solid var(--flow-border);
+  padding-top: 9px;
+}
+.review-explanation > summary,
+.review-summary-details > summary {
+  color: var(--flow-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+.review-explanation[open],
+.review-summary-details[open] { display: grid; gap: 10px; }
+.review-explanation .evidence,
+.review-explanation .annotation-suggestion,
+.review-explanation .rationale,
+.review-explanation .review-quality-details { margin-block: 0; }
+.review-compact-warning { margin: 8px 0 0; font-size: 12px; }
+@media (max-width: 720px) {
+  .review-criteria-toolbar { align-items: flex-start; flex-direction: column; }
+  .review-criteria-toolbar-actions { justify-content: flex-start; }
+  .review-card-result > strong { font-size: 16px; }
+}
+
+.review-safe-summary {
+  margin: 8px 0;
+  padding: 9px 12px;
+  border: 1px solid var(--flow-border);
+  border-radius: 9px;
+  background: var(--flow-surface-soft);
+}
+.review-safe-summary > summary {
+  color: var(--flow-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+.review-safe-summary ul { display: grid; gap: 6px; margin: 9px 0 0; padding: 0; list-style: none; }
+.review-safe-summary li { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
+.review-safe-summary li span { color: var(--flow-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.review-focus-overview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--flow-border);
+  border-radius: 9px;
+  background: var(--flow-surface-soft);
+  color: var(--flow-muted);
+  font-size: 12px;
+}
+.review-focus-overview strong { color: var(--flow-text); }
+.review-focus-overview span { color: #9a5a17; }
+
+.review-alert-summary { display: grid; gap: 7px; margin-top: 12px; }
+.review-alert-reasons { display: flex; flex-wrap: wrap; gap: 6px; }
+.review-alert-reason { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 8px; background: var(--flow-surface-soft); color: var(--flow-text); font-size: 11px; font-weight: 750; }
+.review-alert-summary .rationale { margin: 0; color: var(--flow-text); font-size: 13px; line-height: 1.45; }
+.review-alert-summary .annotation-suggestion { margin: 0; }
+.review-safe-summary li { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,2fr); align-items: baseline; gap: 6px 12px; }
+.review-safe-summary li small { color: var(--flow-muted); font-size: 12px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 720px) { .review-safe-summary li { grid-template-columns: minmax(0,1fr) auto; } .review-safe-summary li small { grid-column: 1 / -1; } }
