@@ -23,6 +23,7 @@ export interface CorrectionArchiveSnapshot {
   subjectTranscription: string | null;
   correctionMode: 'integrated' | 'separate';
   maximumPoints: number;
+  hasScientificDiagrams?: boolean;
   scientificDiagramAnalysis?: ScientificDiagramAnalysis | null;
 }
 
