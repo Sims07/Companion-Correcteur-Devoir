@@ -58,6 +58,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
         correctionMode: 'integrated',
         maximumPoints: 4,
         hasScientificDiagrams: true,
+        scientificDiagramAnalysis: { diagrams: [{ id: 'diagram-1', pageNumber: 1, bounds: { x: 0.1, y: 0.2, width: 0.5, height: 0.4 }, diagramType: 'Cellule', summary: 'Schéma de cellule végétale', criteria: [{ criterionId: 'membrane', title: 'Rôle de la membrane', points: 3, maxPoints: 4, evidence: 'La membrane est représentée.', confidence: 0.8, requiresTeacherReview: false }], uncertainties: [] }], overallUncertainties: [] },
       },
     });
     await new Promise<void>((resolve, reject) => {
@@ -75,11 +76,13 @@ test('review workspace keeps original evidence beside grading criteria on deskto
 
   await expect(page.getByRole('heading', { name: 'Analyse des schémas scientifiques' })).toBeVisible();
   const diagramConsent = page.getByRole('checkbox', { name: /J’autorise l’envoi des images de cette copie/ });
-  const diagramAnalyzeButton = page.getByRole('button', { name: 'Analyser les schémas avec Vision' });
+  const diagramAnalyzeButton = page.getByRole('button', { name: /Analyser les schémas avec Vision|Relancer l’analyse des schémas/ });
   await expect(diagramConsent).not.toBeChecked();
   await expect(diagramAnalyzeButton).toBeDisabled();
   await diagramConsent.check();
   await expect(diagramAnalyzeButton).toBeEnabled();
+  await expect(page.getByRole('img', { name: 'Page 1 contenant le schéma détecté' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Zone du schéma repérée par Vision' })).toBeVisible();
 
   await expect(page.getByRole('complementary', { name: 'Copie de référence' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
