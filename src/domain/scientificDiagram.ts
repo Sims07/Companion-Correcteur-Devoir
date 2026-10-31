@@ -43,8 +43,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** Extract one complete JSON object from common local-model wrappers without relaxing schema validation. */
 function extractModelJsonObject(raw: string): string {
-  const withoutThinking = raw.replace(/<think>[\\s\\S]*?<\\/think>/gi, '').trim();
-  const fenced = withoutThinking.replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');
+  const withoutThinking = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  const fenced = withoutThinking.replace(/^\u0060{3}(?:json)?\s*/i, '').replace(/\s*\u0060{3}$/, '');
   const start = fenced.indexOf('{');
   if (start < 0) return fenced;
   let depth = 0;
@@ -54,7 +54,7 @@ function extractModelJsonObject(raw: string): string {
     const character = fenced[index];
     if (inString) {
       if (escaped) escaped = false;
-      else if (character === '\\\\') escaped = true;
+      else if (character.charCodeAt(0) === 92) escaped = true;
       else if (character === '"') inString = false;
       continue;
     }
