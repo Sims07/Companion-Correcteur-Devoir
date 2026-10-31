@@ -18,6 +18,16 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).not.toContain('item.locationBox');
   });
 
+  it('pauses grading for teacher confirmation of uncertain pre-existing annotations', () => {
+    const text = app();
+    expect(text).toContain('Vérifier les annotations incertaines');
+    expect(text).toContain('Par défaut, elles restent dans la transcription');
+    expect(text).toContain('Confirmer et poursuivre');
+    expect(text).toContain('teacherAnnotationReviewResolver.current = resolve');
+    expect(text).toContain('confirmed: teacherAnnotationReviewDecisions[candidate.id] === true');
+    expect(text).toContain('Retirées du texte noté');
+  });
+
   it('keeps the normal correction view concise and exposes explanations only on demand', () => {
     const text = app();
     expect(text).toContain('Voir la preuve et la justification');
