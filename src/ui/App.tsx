@@ -10,7 +10,7 @@ import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type Re
 import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationRecords, getModelEvaluationStage, runModelEvaluation, sumReportedTokensForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot } from '../domain/modelEvaluation.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
-import type { ScientificPageClassification } from '../domain/scientificPageClassification.ts';
+import { routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/diagnosticReference.ts';
@@ -701,7 +701,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setCriterionStatuses({});
     setActiveCriterionId(null);
     setProposal(null);
-    setScientificDiagramAnalysis(null);
     setReview([]);
     setStreamedOutput('');
     setDiagnosticRuns(previousModelResults);
@@ -720,10 +719,10 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             classificationWasJustCreated = true;
             setPageClassifications(classifications);
           }
-          const diagramPages = classifications.filter((page) => page.kind === 'scientific-diagram');
-          diagramPageNumbers = diagramPages.map((page) => page.pageNumber);
+          const routing = routeScientificPages(classifications, images.length);
+          diagramPageNumbers = routing.diagramPageNumbers;
           diagramImages = diagramPageNumbers.map((pageNumber) => images[pageNumber - 1]);
-          textImages = classifications.filter((page) => page.kind !== 'scientific-diagram').map((page) => images[page.pageNumber - 1]);
+          textImages = routing.textPageNumbers.map((pageNumber) => images[pageNumber - 1]);
           if (diagramImages.length > 0 && !scientificDiagramAnalysis) {
             setCriterionProgressMessage(`${diagramImages.length} page(s) de schéma détectée(s) · correction scientifique spécialisée…`);
             setScientificDiagramError('');
@@ -817,7 +816,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       if (interfaceMode === 'teacher') setTeacherStep('review');
       outcome = 'success';
     } catch (cause) {
-      if (interfaceMode === 'teacher') setTeacherStep(partialCriteria.length > 0 || analysisStartedAt !== null ? 'review' : 'copy');
+      if (interfaceMode === 'teacher') setTeacherStep(textImages.length === 0 || partialCriteria.length > 0 || analysisStartedAt !== null ? 'review' : 'copy');
       setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
     } finally {
       const finishedAt = Date.now();
@@ -1261,6 +1260,9 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setScientificDiagramError('');
     setCopyQueue([]);
     setImages([]);
+    setPageClassifications(null);
+    setScientificDiagramAnalysis(null);
+    setScientificDiagramError('');
     setDetectTeacherAnnotations(false);
     setTranscription(null);
     setSubjectImages([]);
@@ -1293,6 +1295,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setImages([]);
     setTranscription(null);
     setScientificDiagramAnalysis(null);
+    setPageClassifications(null);
+    setScientificDiagramError('');
     setProposal(null);
     setReview([]);
     setTeacherQuestions('');
@@ -1310,6 +1314,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setImages(next.images);
     setTranscription(null);
     setScientificDiagramAnalysis(null);
+    setPageClassifications(null);
+    setScientificDiagramError('');
     setProposal(null);
     setReview([]);
     setTeacherQuestions('');
@@ -1329,6 +1335,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setDetectTeacherAnnotations(false);
     setTranscription(null);
     setScientificDiagramAnalysis(null);
+    setPageClassifications(null);
+    setScientificDiagramError('');
     setProposal(null);
     setShowOnlyFlagged(false);
     setReview([]);
@@ -2043,7 +2051,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
           <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
           <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
           {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>
-             {interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="copy-has-teacher-annotations"><input id="copy-has-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient déjà des annotations du professeur</strong><small>À activer uniquement pour cette copie si elle comporte des remarques, corrections, coches ou notes déjà inscrites. Leur détection reste locale et les points existants ne sont jamais additionnés automatiquement.</small></span></label>}{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button type="button" className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setTranscription(null); }}>Retirer</button></div>)}<div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie</button></div></div>}
+             {interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="copy-has-teacher-annotations"><input id="copy-has-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient déjà des annotations du professeur</strong><small>À activer uniquement pour cette copie si elle comporte des remarques, corrections, coches ou notes déjà inscrites. Leur détection reste locale et les points existants ne sont jamais additionnés automatiquement.</small></span></label>}{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button type="button" className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setPageClassifications(null); setScientificDiagramAnalysis(null); setTranscription(null); }}>Retirer</button></div>)}<div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie</button></div></div>}
           {copyQueue.length > 0 && <section className="copy-queue" aria-label="File des copies à corriger"><div className="copy-queue-heading"><div><span className="eyebrow">FILE LOCALE</span><h4>{copyQueue.length} copie(s) à traiter</h4></div><button type="button" className="primary-button" onClick={loadNextQueuedCopy} disabled={isAnalyzing}>Charger la prochaine copie</button></div><p>Les copies en attente restent sur cet appareil et réutilisent le barème de ce devoir. La file est conservée en mémoire pendant cette session.</p><ol>{copyQueue.map((copy, index) => <li key={copy.id}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{copy.label}</strong><small>{copy.images.length} page(s) · À traiter{copy.detectTeacherAnnotations ? ' · annotations à détecter' : ''}</small></span><button type="button" className="text-button" onClick={() => setCopyQueue((current) => current.filter((item) => item.id !== copy.id))} disabled={isAnalyzing}>Retirer</button></li>)}</ol></section>}
         </article>
 
