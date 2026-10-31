@@ -1,0 +1,38 @@
+export type ScientificPageKind = 'text' | 'scientific-diagram' | 'ambiguous';
+
+export interface ScientificPageClassification {
+  pageNumber: number;
+  kind: ScientificPageKind;
+  confidence: number;
+  reason: string;
+}
+
+/** Validate page routing decisions before they influence the correction pipeline. */
+export function parseScientificPageClassifications(raw: string, pageCount: number): ScientificPageClassification[] {
+  const cleaned = raw.trim().replace(/^\x60\x60\x60(?:json)?\s*/i, '').replace(/\s*\x60\x60\x60$/, '');
+  let parsed: unknown;
+  try { parsed = JSON.parse(cleaned); }
+  catch { throw new Error('La classification Vision des pages n’est pas un JSON valide.'); }
+  if (typeof parsed !== 'object' || parsed === null || !('pages' in parsed) || !Array.isArray(parsed.pages)) {
+    throw new Error('La réponse Vision ne respecte pas le contrat de classification des pages.');
+  }
+  if (parsed.pages.length !== pageCount) throw new Error('La classification Vision doit couvrir exactement toutes les pages de la copie.');
+  const seen = new Set<number>();
+  const pages = parsed.pages.map((item): ScientificPageClassification => {
+    if (typeof item !== 'object' || item === null) throw new Error('Une classification de page est invalide.');
+    const value = item as Record<string, unknown>;
+    const pageNumber = value.pageNumber;
+    if (!Number.isInteger(pageNumber) || Number(pageNumber) < 1 || Number(pageNumber) > pageCount || seen.has(Number(pageNumber))) {
+      throw new Error('La classification contient un numéro de page invalide ou répété.');
+    }
+    if (value.kind !== 'text' && value.kind !== 'scientific-diagram' && value.kind !== 'ambiguous') {
+      throw new Error(`Le type de page ${String(pageNumber)} n’est pas reconnu.`);
+    }
+    if (typeof value.confidence !== 'number' || !Number.isFinite(value.confidence) || value.confidence < 0 || value.confidence > 1 || typeof value.reason !== 'string') {
+      throw new Error(`Les éléments de classification de la page ${String(pageNumber)} sont invalides.`);
+    }
+    seen.add(Number(pageNumber));
+    return { pageNumber: Number(pageNumber), kind: value.kind, confidence: value.confidence, reason: value.reason };
+  });
+  return pages.sort((left, right) => left.pageNumber - right.pageNumber);
+}
