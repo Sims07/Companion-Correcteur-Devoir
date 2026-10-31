@@ -65,10 +65,11 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
     });
     let bounds: ScientificDiagramFinding['bounds'];
     if (value.bounds !== undefined) {
-      if (!isRecord(value.bounds) || !['x', 'y', 'width', 'height'].every((key) => typeof value.bounds?.[key] === 'number')) {
+      const rawBounds = value.bounds;
+      if (!isRecord(rawBounds) || !['x', 'y', 'width', 'height'].every((key) => typeof rawBounds[key] === 'number')) {
         throw new Error(`Les coordonnées du schéma ${value.id} sont invalides.`);
       }
-      const box = value.bounds as Record<string, number>;
+      const box = rawBounds as Record<string, number>;
       if (box.x < 0 || box.y < 0 || box.width <= 0 || box.height <= 0 || box.x + box.width > 1 || box.y + box.height > 1) {
         throw new Error(`Les coordonnées du schéma ${value.id} sortent de la page.`);
       }
