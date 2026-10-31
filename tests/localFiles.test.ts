@@ -17,9 +17,9 @@ describe('prepareLocalFiles', () => {
     getDocumentMock.mockReset();
     vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 7, height: 7, close: vi.fn() }));
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
-      drawImage: vi.fn(), fillRect: vi.fn(), fillStyle: '#ffffff',
+      drawImage: vi.fn(), translate: vi.fn(), rotate: vi.fn(), fillRect: vi.fn(),
     } as unknown as CanvasRenderingContext2D);
-    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/jpeg;base64,YmlvbG9neQ==');
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,YmlvbG9neQ==');
   });
 
   afterEach(() => {
@@ -45,35 +45,49 @@ describe('prepareLocalFiles', () => {
     await expect(prepareLocalFiles([file])).rejects.toThrow('dépasse la limite de 15 Mo');
   });
 
-  it('converts an accepted image into a base64 payload locally', async () => {
-    const file = new File(['biology'], 'copy.png', { type: 'image/png' });
+  it('preserves JPEG bytes and the original MIME type without decoding or recompression', async () => {
+    const file = new File(['original-jpeg-bytes'], 'copy.jpg', { type: 'image/jpeg' });
     const images = await prepareLocalFiles([file]);
-    expect(images).toHaveLength(1);
-    expect(images[0]).toMatchObject({
+    expect(images).toEqual([{
       mimeType: 'image/jpeg',
-      fileName: 'copy.png',
-      base64: expect.any(String),
-    });
-    expect(atob(images[0].base64)).toBe('biology');
+      fileName: 'copy.jpg',
+      base64: btoa('original-jpeg-bytes'),
+    }]);
+    expect(createImageBitmap).not.toHaveBeenCalled();
+    expect(HTMLCanvasElement.prototype.toDataURL).not.toHaveBeenCalled();
   });
 
-  it('resizes large uploaded images to at most 1300 px and compresses them as JPEG', async () => {
+  it('preserves PNG bytes and the original MIME type without decoding or resizing', async () => {
+    const file = new File(['original-png-bytes'], 'diagram.png', { type: 'image/png' });
+    const images = await prepareLocalFiles([file]);
+    expect(images).toEqual([{
+      mimeType: 'image/png',
+      fileName: 'diagram.png',
+      base64: btoa('original-png-bytes'),
+    }]);
+    expect(createImageBitmap).not.toHaveBeenCalled();
+  });
+
+  it('converts WebP to full-resolution PNG without lossy JPEG compression', async () => {
     const close = vi.fn();
     vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 4000, height: 3000, close }));
     const drawImage = vi.fn();
-    const fillRect = vi.fn();
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage, fillRect, set fillStyle(_value: string) {} } as unknown as CanvasRenderingContext2D);
-    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/jpeg;base64,Y29tcHJlc3NlZA==');
+    const createCanvas = vi.spyOn(document, 'createElement');
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,cG5n');
 
-    const images = await prepareLocalFiles([new File(['image'], 'large.png', { type: 'image/png' })]);
+    const images = await prepareLocalFiles([new File(['webp'], 'large.webp', { type: 'image/webp' })]);
 
-    expect(images[0]).toMatchObject({ mimeType: 'image/jpeg', fileName: 'large.png' });
-    expect(drawImage).toHaveBeenCalledWith(expect.objectContaining({ width: 4000, height: 3000 }), 0, 0, 1300, 975);
-    expect(HTMLCanvasElement.prototype.toDataURL).toHaveBeenCalledWith('image/jpeg', 0.85);
+    expect(images[0]).toMatchObject({ mimeType: 'image/png', fileName: 'large.webp', base64: 'cG5n' });
+    expect(drawImage).toHaveBeenCalledWith(expect.objectContaining({ width: 4000, height: 3000 }), 0, 0);
+    const canvas = createCanvas.mock.results[0].value as HTMLCanvasElement;
+    expect(canvas.width).toBe(4000);
+    expect(canvas.height).toBe(3000);
+    expect(HTMLCanvasElement.prototype.toDataURL).toHaveBeenCalledWith('image/png');
     expect(close).toHaveBeenCalledOnce();
   });
 
-  it('rotates a working image clockwise and preserves its dimensions after a quarter turn', async () => {
+  it('rotates a working image clockwise to lossless PNG without resizing or mutating the source', async () => {
     const close = vi.fn();
     const bitmap = { width: 1200, height: 800, close };
     vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue(bitmap));
@@ -81,24 +95,44 @@ describe('prepareLocalFiles', () => {
     const translate = vi.fn();
     const rotate = vi.fn();
     const drawImage = vi.fn();
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ translate, rotate, drawImage } as unknown as CanvasRenderingContext2D);
-    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/jpeg;base64,dHVybmVk');
+    const fillRect = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ translate, rotate, drawImage, fillRect } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,dHVybmVk');
 
     const original = { mimeType: 'image/jpeg', base64: 'b3JpZ2luYWw=', fileName: 'diagram.jpg' };
     const rotated = await rotateLocalImage(original, 90);
 
-    expect(rotated).toEqual({ mimeType: 'image/jpeg', base64: 'dHVybmVk', fileName: 'diagram.jpg' });
-    expect(original.base64).toBe('b3JpZ2luYWw=');
+    expect(rotated).toEqual({ mimeType: 'image/png', base64: 'dHVybmVk', fileName: 'diagram.jpg' });
+    expect(original).toEqual({ mimeType: 'image/jpeg', base64: 'b3JpZ2luYWw=', fileName: 'diagram.jpg' });
     const canvas = createCanvas.mock.results[0].value as HTMLCanvasElement;
     expect(canvas.width).toBe(800);
     expect(canvas.height).toBe(1200);
+    expect(fillRect).toHaveBeenCalledWith(0, 0, 800, 1200);
     expect(translate).toHaveBeenCalledWith(400, 600);
     expect(rotate).toHaveBeenCalledWith(Math.PI / 2);
     expect(drawImage).toHaveBeenCalledWith(bitmap, -600, -400);
+    expect(HTMLCanvasElement.prototype.toDataURL).toHaveBeenCalledWith('image/png');
     expect(close).toHaveBeenCalledOnce();
   });
 
-  it('renders each PDF page to a compressed JPEG payload and cleans up the loading task', async () => {
+  it.each([180, 270] as const)('rotates a working image by %i degrees from the decoded original', async (degrees) => {
+    const bitmap = { width: 1200, height: 800, close: vi.fn() };
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue(bitmap));
+    const rotate = vi.fn();
+    const fillRect = vi.fn();
+    const drawImage = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ translate: vi.fn(), rotate, drawImage, fillRect } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,dHVybmVk');
+
+    const result = await rotateLocalImage({ mimeType: 'image/png', base64: 'b3JpZ2luYWw=', fileName: 'page.png' }, degrees);
+
+    expect(result.mimeType).toBe('image/png');
+    expect(rotate).toHaveBeenCalledWith(degrees * Math.PI / 180);
+    expect(fillRect).toHaveBeenCalledWith(0, 0, degrees === 180 ? 1200 : 800, degrees === 180 ? 800 : 1200);
+    expect(bitmap.close).toHaveBeenCalledOnce();
+  });
+
+  it('renders each PDF page to a lossless PNG payload and cleans up the loading task', async () => {
     const destroy = vi.fn().mockResolvedValue(undefined);
     const cleanup = vi.fn();
     const render = vi.fn().mockReturnValue({ promise: Promise.resolve() });
@@ -112,16 +146,16 @@ describe('prepareLocalFiles', () => {
       destroy,
     });
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({} as CanvasRenderingContext2D);
-    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/jpeg;base64,cGFnZQ==');
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,cGFnZQ==');
 
     const file = new File(['fake pdf'], 'exam.pdf', { type: 'application/pdf' });
     const images = await prepareLocalFiles([file]);
 
-    expect(images).toEqual([{ mimeType: 'image/jpeg', base64: 'cGFnZQ==', fileName: 'exam.pdf · page 1' }]);
+    expect(images).toEqual([{ mimeType: 'image/png', base64: 'cGFnZQ==', fileName: 'exam.pdf · page 1' }]);
     expect(getDocumentMock).toHaveBeenCalledOnce();
     expect(getPage).toHaveBeenCalledWith(1);
     expect(render).toHaveBeenCalledOnce();
-    expect(HTMLCanvasElement.prototype.toDataURL).toHaveBeenCalledWith('image/jpeg', 0.85);
+    expect(HTMLCanvasElement.prototype.toDataURL).toHaveBeenCalledWith('image/png');
     expect(cleanup).toHaveBeenCalledOnce();
     expect(destroy).toHaveBeenCalledOnce();
   });

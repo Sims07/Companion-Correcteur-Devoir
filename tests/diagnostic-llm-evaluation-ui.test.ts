@@ -37,7 +37,7 @@ describe('Diagnostic IA — correction de référence facultative', () => {
 
   it('records teacher scores locally and displays model accuracy metrics', () => {
     expect(appSource).toContain('saveDiagnosticReference');
-    expect(appSource).toContain('window.localStorage.setItem(timingHistoryKey, JSON.stringify(next))');
+    expect(appSource).toContain('evaluationService.saveDiagnosticHistory(timingHistory)');
     expect(appSource).toContain('Erreur moyenne :');
     expect(appSource).toContain('Correspondances exactes :');
     expect(appSource).toContain('Écart de note totale :');

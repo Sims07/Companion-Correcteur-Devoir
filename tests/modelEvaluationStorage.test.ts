@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { deleteModelEvaluation, listModelEvaluations, saveModelEvaluation } from '../src/adapters/storage/indexedDbMemory.ts';
+import { deleteModelEvaluation, listDiagnosticHistory, listModelEvaluations, saveDiagnosticHistory, saveModelEvaluation } from '../src/adapters/storage/indexedDbMemory.ts';
 import type { ModelEvaluationRecord } from '../src/domain/modelEvaluation.ts';
 
 const record: ModelEvaluationRecord = {
@@ -49,6 +49,20 @@ describe('local model evaluation archive', () => {
     const saved = await listModelEvaluations();
     expect(saved.map((item) => item.id)).toEqual(['evaluation-2', 'evaluation-1']);
     expect(saved[1].assignmentTitle).toBe('Updated title');
+  });
+
+  it('stores full diagnostic traces with prompts and raw responses in IndexedDB', async () => {
+    const trace = {
+      id: 'diagnostic-1',
+      completedAt: '2026-10-31T10:00:00.000Z',
+      requestPrompt: 'Analyse cette copie selon le barème',
+      requestPayload: JSON.stringify({ rubric: { title: 'Biologie' } }),
+      raw: '{"score":12}',
+    };
+    await saveDiagnosticHistory([trace]);
+    await expect(listDiagnosticHistory<typeof trace>()).resolves.toEqual([trace]);
+    await saveDiagnosticHistory([]);
+    await expect(listDiagnosticHistory<typeof trace>()).resolves.toEqual([]);
   });
 
   it('deletes one local evaluation without deleting the remaining history', async () => {

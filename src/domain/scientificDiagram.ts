@@ -41,9 +41,36 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** Extract one complete JSON object from common local-model wrappers without relaxing schema validation. */
+function extractModelJsonObject(raw: string): string {
+  const withoutThinking = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  const fenced = withoutThinking.replace(/^\u0060{3}(?:json)?\s*/i, '').replace(/\s*\u0060{3}$/, '');
+  const start = fenced.indexOf('{');
+  if (start < 0) return fenced;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < fenced.length; index += 1) {
+    const character = fenced[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character.charCodeAt(0) === 92) escaped = true;
+      else if (character === '"') inString = false;
+      continue;
+    }
+    if (character === '"') inString = true;
+    else if (character === '{') depth += 1;
+    else if (character === '}') {
+      depth -= 1;
+      if (depth === 0) return fenced.slice(start, index + 1);
+    }
+  }
+  return fenced;
+}
+
 /** Parse and constrain model output against the teacher's actual rubric. */
 export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, pageCount: number, allowedPageNumbers: number[] = Array.from({ length: pageCount }, (_, index) => index + 1)): ScientificDiagramAnalysis {
-  const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  const cleaned = extractModelJsonObject(raw);
   let parsed: unknown;
   try { parsed = JSON.parse(cleaned); }
   catch { throw new Error('La réponse du modèle Vision n’est pas un JSON valide.'); }

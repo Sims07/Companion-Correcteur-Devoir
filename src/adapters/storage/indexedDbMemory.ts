@@ -4,10 +4,11 @@ import type { LocalMemoryEntry, LocalMemoryQuery } from '../../domain/localMemor
 import { rankLocalMemories } from '../../domain/localMemory.ts';
 
 const DATABASE_NAME = 'companion-correcteur-devoir';
-const DATABASE_VERSION = 3;
+const DATABASE_VERSION = 4;
 const STORE_NAME = 'local-memory';
 const CORRECTION_STORE_NAME = 'local-corrections';
 const MODEL_EVALUATION_STORE_NAME = 'model-evaluations';
+const DIAGNOSTIC_HISTORY_STORE_NAME = 'diagnostic-history';
 
 interface StoredMemoryEntry extends LocalMemoryEntry {
   searchText: string;
@@ -34,6 +35,10 @@ function openDatabase(): Promise<IDBDatabase> {
         const store = database.createObjectStore(MODEL_EVALUATION_STORE_NAME, { keyPath: 'id' });
         store.createIndex('completedAt', 'completedAt', { unique: false });
         store.createIndex('assignmentId', 'assignmentId', { unique: false });
+      }
+      if (!database.objectStoreNames.contains(DIAGNOSTIC_HISTORY_STORE_NAME)) {
+        const store = database.createObjectStore(DIAGNOSTIC_HISTORY_STORE_NAME, { keyPath: 'id' });
+        store.createIndex('completedAt', 'completedAt', { unique: false });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -196,6 +201,9 @@ export async function deleteModelEvaluation(evaluationId: string): Promise<void>
 }
 
 export class IndexedDbModelEvaluationRepository implements ModelEvaluationRepository {
+  saveDiagnosticHistory(records: Array<{ id: string }>): Promise<void> { return saveDiagnosticHistory(records); }
+  listDiagnosticHistory(): Promise<Array<{ id: string }>> { return listDiagnosticHistory<{ id: string }>(); }
+
   save(record: ModelEvaluationRecord): Promise<void> {
     return saveModelEvaluation(record);
   }
@@ -207,4 +215,27 @@ export class IndexedDbModelEvaluationRepository implements ModelEvaluationReposi
   delete(id: string): Promise<void> {
     return deleteModelEvaluation(id);
   }
+}
+
+
+/** Stores diagnostic traces, including prompts and raw model responses, outside localStorage. */
+export async function saveDiagnosticHistory<T extends { id: string }>(records: T[]): Promise<void> {
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(DIAGNOSTIC_HISTORY_STORE_NAME, 'readwrite');
+    const completion = transactionToPromise(transaction);
+    const store = transaction.objectStore(DIAGNOSTIC_HISTORY_STORE_NAME);
+    store.clear();
+    for (const record of records) store.put(record);
+    await completion;
+  } finally { database.close(); }
+}
+
+export async function listDiagnosticHistory<T>(): Promise<T[]> {
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(DIAGNOSTIC_HISTORY_STORE_NAME, 'readonly');
+    const records = await requestToPromise(transaction.objectStore(DIAGNOSTIC_HISTORY_STORE_NAME).getAll()) as T[];
+    return records;
+  } finally { database.close(); }
 }
