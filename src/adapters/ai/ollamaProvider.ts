@@ -563,7 +563,7 @@ export function createOllamaProvider(
             {
               kind: 'vision', stage: 'reading', intent: annotationAware ? 'Lire la page et repérer les annotations du professeur' : 'Lire et transcrire une page de copie', context: `${pageLabel} · page ${index + 1}/${request.images?.length ?? 0}`, temperature: 0,
               generationTokenLimit: transcriptionLimit,
-              stop: annotationAware ? undefined : ['\\n\\n\\n\\n'],
+              stop: annotationAware ? undefined : ['\n\n\n\n'],
               repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
               allowTruncated: !annotationAware,
               onDoneReason: (reason) => { transcriptionTruncated = reason === 'length'; },
@@ -571,7 +571,7 @@ export function createOllamaProvider(
               onSuspiciousStop: () => { transcriptionTruncated = true; },
             },
           );
-          if (/(?:\\r?\\n){4}$/.test(pageTranscription)) transcriptionTruncated = true;
+          if (/(?:\r?\n){4}$/.test(pageTranscription)) transcriptionTruncated = true;
           let pageText = cleanTranscription(pageTranscription);
           if (annotationAware) {
             const detection = parseTeacherAnnotationDetection(pageTranscription);
