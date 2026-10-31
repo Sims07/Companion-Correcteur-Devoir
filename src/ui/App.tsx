@@ -24,6 +24,7 @@ import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../domain
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
+import { NetworkInspector } from './NetworkInspector.tsx';
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
 
@@ -1409,6 +1410,22 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setTeacherStep('review');
   }
 
+
+  if (interfaceMode === 'debug') {
+    return <main className="app-shell">
+      <header className="topbar">
+        <div className="brand-mark" aria-hidden="true">CC</div>
+        <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface">
+          <button type="button" className="view-switch-button" onClick={() => setInterfaceMode('teacher')}>Correction</button>
+          <button type="button" className="view-switch-button" onClick={() => { setShowAiSettings(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button>
+          <button type="button" className="view-switch-button active" aria-pressed="true">Inspecteur réseau</button>
+          <button type="button" className="view-switch-button" onClick={() => { setShowAiSettings(false); setInterfaceMode('observability'); }}>Observabilité</button>
+        </div></div>
+      </header>
+      <NetworkInspector />
+    </main>;
+  }
 
   return (
     <main className={interfaceMode === 'teacher' ? "app-shell teacher-flow-shell" : interfaceMode === 'diagnostic' ? "app-shell evaluation-workspace-shell" : "app-shell"}>
