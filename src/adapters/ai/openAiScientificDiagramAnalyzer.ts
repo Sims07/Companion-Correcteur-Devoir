@@ -25,7 +25,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
   return {
     async analyze(request) {
       const compatibleFetch = createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey }, fetchImpl);
-      const response = await compatibleFetch(`${request.endpoint.replace(/\\/+$/, '')}/api/chat`, {
+      const response = await compatibleFetch(`${request.endpoint.replace(/\/+$/, '')}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
