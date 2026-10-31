@@ -52,6 +52,15 @@ describe('scientific rubric routing', () => {
     expect(result.criteria[0].qualityBreakdown).toHaveLength(7);
   });
 
+  it('preserves one global visual score when Vision omits the optional quality breakdown', () => {
+    const withoutBreakdown: ScientificDiagramAnalysis = { ...diagramAnalysis, diagrams: diagramAnalysis.diagrams.map((diagram) => ({ ...diagram, criteria: diagram.criteria.map(({ qualityBreakdown: _qualityBreakdown, ...criterion }) => criterion) })) };
+    const visualRubric: Rubric = { ...rubric, criteria: rubric.criteria.map((criterion) => criterion.id === 'diagram' ? { ...criterion, analysisMode: 'scientific-diagram' } : criterion) };
+    const result = mergeScientificDiagramCriteria(visualRubric, textProposal, withoutBreakdown);
+    expect(result.criteria[0]).toMatchObject({ criterionId: 'diagram', points: 7 });
+    expect(result.finalScore).toBe(16);
+    expect(result.criteria[0].qualityBreakdown).toBeUndefined();
+  });
+
   it('asks the teacher to review a visual criterion when Vision has no matching assessment', () => {
     const result = mergeScientificDiagramCriteria(rubric, textProposal, { diagrams: [], overallUncertainties: [] });
     expect(result.criteria[0]).toMatchObject({ criterionId: 'diagram', points: 0, confidence: 'low', questionForTeacher: expect.stringContaining('Vérifiez le schéma') });

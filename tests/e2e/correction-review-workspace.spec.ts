@@ -41,7 +41,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
         question: 'Expliquez le rôle de la membrane plasmique.',
         rubric: {
           title: 'Barème de membrane',
-          criteria: [{ id: 'membrane', title: 'Rôle de la membrane', description: 'Expliquer la barrière sélective.', maxPoints: 4 }],
+          criteria: [{ id: 'membrane', title: 'Rôle de la membrane', description: 'Expliquer la barrière sélective.', maxPoints: 4, analysisMode: 'scientific-diagram' }],
         },
         proposal: {
           summary: 'La réponse mentionne la membrane mais manque de précision.',

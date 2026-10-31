@@ -54,9 +54,16 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
   const ids = new Set<string>();
   const diagrams = parsed.diagrams.map((value, index): ScientificDiagramFinding => {
     if (!isRecord(value)) throw new Error(`Le schéma ${index + 1} est invalide.`);
-    const pageNumber = value.pageNumber;
-    if (!Number.isInteger(pageNumber) || !allowedPageNumbers.includes(Number(pageNumber))) {
-      throw new Error(`Le schéma ${index + 1} référence une page inexistante.`);
+    const reportedPageNumber = value.pageNumber;
+    if (!Number.isInteger(reportedPageNumber) || Number(reportedPageNumber) < 1 || Number(reportedPageNumber) > pageCount) {
+      throw new Error(`Le schéma ${index + 1} référence un index d’image invalide (numéro retourné : ${String(reportedPageNumber)}).`);
+    }
+    // Vision always returns a 1-based index in the filtered image batch.
+    // Resolve it unconditionally: a local index may coincidentally equal a
+    // different original page number (for example local page 2 vs original page 2).
+    const pageNumber = allowedPageNumbers[Number(reportedPageNumber) - 1];
+    if (pageNumber === undefined) {
+      throw new Error(`Le schéma ${index + 1} ne peut pas être rattaché à une page originale.`);
     }
     if (typeof value.id !== 'string' || !value.id.trim() || ids.has(value.id)) throw new Error('Chaque schéma doit avoir un identifiant unique.');
     ids.add(value.id);
@@ -77,22 +84,25 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
         throw new Error(`Les éléments de preuve du critère « ${expected.title} » sont invalides.`);
       }
       let qualityBreakdown: ScientificDiagramQualityAssessment[] | undefined;
-      if (item.qualityBreakdown !== undefined || expected.analysisMode === 'scientific-diagram') {
-        if (!Array.isArray(item.qualityBreakdown)) throw new Error(`Le détail de qualité du schéma est absent pour « ${expected.title} ».`);
-        const seenDimensions = new Set<string>();
-        qualityBreakdown = item.qualityBreakdown.map((entry): ScientificDiagramQualityAssessment => {
-          if (!isRecord(entry) || typeof entry.dimension !== 'string' || !SCIENTIFIC_DIAGRAM_QUALITY_DIMENSIONS.includes(entry.dimension as ScientificDiagramQualityDimension) || seenDimensions.has(entry.dimension)) {
-            throw new Error(`Une dimension de qualité est invalide ou répétée pour « ${expected.title} ».`);
-          }
-          seenDimensions.add(entry.dimension);
-          if (!['fulfilled', 'partial', 'missing', 'not-applicable', 'uncertain'].includes(String(entry.status)) || typeof entry.evidence !== 'string') {
-            throw new Error(`L'évaluation d'une dimension est invalide pour « ${expected.title} ».`);
-          }
-          return { dimension: entry.dimension as ScientificDiagramQualityDimension, status: entry.status as ScientificDiagramQualityStatus, evidence: entry.evidence };
-        });
-        if (qualityBreakdown.length !== SCIENTIFIC_DIAGRAM_QUALITY_DIMENSIONS.length || SCIENTIFIC_DIAGRAM_QUALITY_DIMENSIONS.some((dimension) => !seenDimensions.has(dimension))) {
-          throw new Error(`Le détail de qualité doit couvrir les sept dimensions pour « ${expected.title} ».`);
+      if (Array.isArray(item.qualityBreakdown)) {
+        const byDimension = new Map<ScientificDiagramQualityDimension, ScientificDiagramQualityAssessment>();
+        for (const entry of item.qualityBreakdown) {
+          if (!isRecord(entry) || typeof entry.dimension !== 'string' || !SCIENTIFIC_DIAGRAM_QUALITY_DIMENSIONS.includes(entry.dimension as ScientificDiagramQualityDimension)) continue;
+          const dimension = entry.dimension as ScientificDiagramQualityDimension;
+          if (byDimension.has(dimension)) continue;
+          const status = ['fulfilled', 'partial', 'missing', 'not-applicable', 'uncertain'].includes(String(entry.status))
+            ? entry.status as ScientificDiagramQualityStatus
+            : 'uncertain';
+          const evidence = typeof entry.evidence === 'string' && entry.evidence.trim()
+            ? entry.evidence.trim()
+            : 'Le modèle n’a pas fourni de justification exploitable pour cette dimension.';
+          byDimension.set(dimension, { dimension, status, evidence });
         }
+        qualityBreakdown = SCIENTIFIC_DIAGRAM_QUALITY_DIMENSIONS.map((dimension) => byDimension.get(dimension) ?? ({
+          dimension,
+          status: 'uncertain',
+          evidence: 'Détail non fourni par le modèle ; cette absence ne modifie pas la note globale.',
+        }));
       }
       return { criterionId: expected.id, title: expected.title, points: item.points, maxPoints: expected.maxPoints, evidence: item.evidence, confidence: item.confidence, requiresTeacherReview: item.requiresTeacherReview, ...(qualityBreakdown ? { qualityBreakdown } : {}) };
     });
@@ -109,7 +119,7 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
       bounds = { x: box.x, y: box.y, width: box.width, height: box.height };
     }
     if (!value.uncertainties.every((item) => typeof item === 'string')) throw new Error('Les incertitudes doivent être des textes.');
-    return { id: value.id, pageNumber: Number(pageNumber), ...(bounds ? { bounds } : {}), diagramType: value.diagramType, summary: value.summary, criteria, uncertainties: value.uncertainties as string[] };
+    return { id: value.id, pageNumber, ...(bounds ? { bounds } : {}), diagramType: value.diagramType, summary: value.summary, criteria, uncertainties: value.uncertainties as string[] };
   });
   if (!parsed.overallUncertainties.every((item) => typeof item === 'string')) throw new Error('Les incertitudes globales doivent être des textes.');
   return { diagrams, overallUncertainties: parsed.overallUncertainties as string[] };

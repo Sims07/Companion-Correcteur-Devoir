@@ -1,6 +1,6 @@
 import type { Rubric } from '../domain/rubric.ts';
 import type { ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
-import type { ImageInput } from './aiProvider.ts';
+import type { DiagnosticModelResult, ImageInput } from './aiProvider.ts';
 import type { ScientificPageClassification } from '../domain/scientificPageClassification.ts';
 
 export interface ScientificDiagramAnalysisRequest {
@@ -13,6 +13,7 @@ export interface ScientificDiagramAnalysisRequest {
   endpoint: string;
   apiKey: string;
   teacherAnnotations?: string;
+  onDiagnosticResult?: (result: DiagnosticModelResult) => void;
 }
 
 export interface ScientificPageClassificationRequest {
@@ -20,6 +21,7 @@ export interface ScientificPageClassificationRequest {
   model: string;
   endpoint: string;
   apiKey: string;
+  onDiagnosticResult?: (result: DiagnosticModelResult) => void;
 }
 
 export interface ScientificDiagramAnalyzer {

@@ -4,6 +4,7 @@ export type ObservabilitySpan = {
   model: string;
   kind?: string;
   stage?: string;
+  purpose?: 'scientific-diagram-classification' | 'scientific-diagram-analysis';
   elapsedMs: number;
   promptTokens?: number;
   generatedTokens?: number;
@@ -57,7 +58,7 @@ export function extractObservabilityPromptMessages(requestPayload?: string): Obs
 }
 
 export type ObservabilityTrace = {
-  source?: 'correction' | 'model-evaluation' | 'rubric-import';
+  source?: 'correction' | 'model-evaluation' | 'rubric-import' | 'scientific-diagram';
   evaluationProfileName?: string;
   id: string;
   completedAt: string;

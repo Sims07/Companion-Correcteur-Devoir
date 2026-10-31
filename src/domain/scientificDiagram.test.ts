@@ -19,19 +19,31 @@ describe('parseScientificDiagramAnalysis', () => {
     const result = parseScientificDiagramAnalysis(JSON.stringify(valid), rubric, 2);
     expect(result.diagrams[0].criteria[0]).toMatchObject({ points: 1.5, maxPoints: 2, title: 'Légendes' });
   });
-  it('requires and validates the seven quality dimensions for explicitly visual criteria', () => {
+  it('keeps the global score when the optional quality breakdown is missing or incomplete', () => {
+    const visualRubric: Rubric = { title: 'Schéma', criteria: [{ id: 'labels', title: 'Qualité du schéma', description: '', maxPoints: 10, analysisMode: 'scientific-diagram' }] };
+    const withoutDetails = parseScientificDiagramAnalysis(JSON.stringify(valid), visualRubric, 1);
+    expect(withoutDetails.diagrams[0].criteria[0].points).toBe(1.5);
+    expect(withoutDetails.diagrams[0].criteria[0].qualityBreakdown).toBeUndefined();
+    const partial = structuredClone(valid);
+    (partial.diagrams[0].criteria[0] as { qualityBreakdown?: typeof qualityBreakdown }).qualityBreakdown = [qualityBreakdown[0], { dimension: 'labels', status: 'unknown', evidence: '' }];
+    const parsed = parseScientificDiagramAnalysis(JSON.stringify(partial), visualRubric, 1);
+    expect(parsed.diagrams[0].criteria[0].points).toBe(1.5);
+    expect(parsed.diagrams[0].criteria[0].qualityBreakdown).toHaveLength(7);
+    expect(parsed.diagrams[0].criteria[0].qualityBreakdown?.find((item) => item.dimension === 'labels')).toMatchObject({ status: 'uncertain' });
+  });
+  it('validates a complete seven-dimension explanation when provided', () => {
     const visualRubric: Rubric = { title: 'Schéma', criteria: [{ id: 'labels', title: 'Qualité du schéma', description: '', maxPoints: 10, analysisMode: 'scientific-diagram' }] };
     const detailed = structuredClone(valid);
     (detailed.diagrams[0].criteria[0] as { qualityBreakdown?: typeof qualityBreakdown }).qualityBreakdown = qualityBreakdown;
     expect(parseScientificDiagramAnalysis(JSON.stringify(detailed), visualRubric, 1).diagrams[0].criteria[0].qualityBreakdown).toHaveLength(7);
     const missing = structuredClone(valid);
-    expect(() => parseScientificDiagramAnalysis(JSON.stringify(missing), visualRubric, 1)).toThrow(/détail de qualité.*absent/);
+    expect(parseScientificDiagramAnalysis(JSON.stringify(missing), visualRubric, 1).diagrams[0].criteria[0].points).toBe(1.5);
     const incomplete = structuredClone(detailed);
     (incomplete.diagrams[0].criteria[0] as { qualityBreakdown?: typeof qualityBreakdown }).qualityBreakdown?.pop();
-    expect(() => parseScientificDiagramAnalysis(JSON.stringify(incomplete), visualRubric, 1)).toThrow(/sept dimensions/);
+    expect(parseScientificDiagramAnalysis(JSON.stringify(incomplete), visualRubric, 1).diagrams[0].criteria[0].qualityBreakdown).toHaveLength(7);
     const invalidStatus = structuredClone(detailed);
     ((invalidStatus.diagrams[0].criteria[0] as { qualityBreakdown?: Array<{ dimension: string; status: string; evidence: string }> }).qualityBreakdown![0]).status = 'excellent';
-    expect(() => parseScientificDiagramAnalysis(JSON.stringify(invalidStatus), visualRubric, 1)).toThrow(/évaluation d'une dimension est invalide/);
+    expect(parseScientificDiagramAnalysis(JSON.stringify(invalidStatus), visualRubric, 1).diagrams[0].criteria[0].qualityBreakdown?.[0].status).toBe('uncertain');
   });
   it('rejects malformed JSON and criteria outside the rubric', () => {
     expect(() => parseScientificDiagramAnalysis('not json', rubric, 1)).toThrow(/JSON valide/);
@@ -47,11 +59,11 @@ describe('parseScientificDiagramAnalysis', () => {
     wrongPage.diagrams[0].pageNumber = 2;
     expect(() => parseScientificDiagramAnalysis(JSON.stringify(wrongPage), rubric, 1)).toThrow(/page inexistante/);
   });
-  it('accepts original page numbers when only a filtered subset is analyzed', () => {
-    const originalPageResult = structuredClone(valid);
-    originalPageResult.diagrams[0].pageNumber = 4;
-    expect(parseScientificDiagramAnalysis(JSON.stringify(originalPageResult), rubric, 1, [4]).diagrams[0].pageNumber).toBe(4);
-    expect(() => parseScientificDiagramAnalysis(JSON.stringify(originalPageResult), rubric, 1)).toThrow(/page inexistante/);
+  it('maps a Vision-local page index back to the original page when analyzing a filtered subset', () => {
+    const localPageResult = structuredClone(valid);
+    localPageResult.diagrams[0].pageNumber = 1;
+    const parsed = parseScientificDiagramAnalysis(JSON.stringify(localPageResult), rubric, 1, [4]);
+    expect(parsed.diagrams[0].pageNumber).toBe(4);
   });
   it('rejects duplicated criteria within one diagram', () => {
     const duplicated = structuredClone(valid);

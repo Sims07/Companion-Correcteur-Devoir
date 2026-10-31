@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Rubric } from '../../domain/rubric.ts';
-import type { ImageInput } from '../../ports/aiProvider.ts';
+import type { DiagnosticModelResult, ImageInput } from '../../ports/aiProvider.ts';
 import type { ScientificDiagramAnalysisService } from '../../application/scientificDiagramAnalysisService.ts';
 
 export function ScientificDiagramAnalysisPanel({
@@ -18,6 +18,7 @@ export function ScientificDiagramAnalysisPanel({
   service,
   analysis,
   onAnalysisChange,
+  onDiagnosticResult,
 }: {
   enabled: boolean;
   images: ImageInput[];
@@ -33,6 +34,7 @@ export function ScientificDiagramAnalysisPanel({
   service: ScientificDiagramAnalysisService;
   analysis: Awaited<ReturnType<ScientificDiagramAnalysisService['analyze']>> | null;
   onAnalysisChange: (analysis: Awaited<ReturnType<ScientificDiagramAnalysisService['analyze']>> | null) => void;
+  onDiagnosticResult?: (result: DiagnosticModelResult) => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -44,7 +46,7 @@ export function ScientificDiagramAnalysisPanel({
     setError('');
     onAnalysisChange(null);
     try {
-      const result = await service.analyze({ images: diagramImages, pageNumbers, question, teacherAnnotations, rubric, model, endpoint, apiKey });
+      const result = await service.analyze({ images: diagramImages, pageNumbers, question, teacherAnnotations, rubric, model, endpoint, apiKey, onDiagnosticResult });
       onAnalysisChange(result);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'L’analyse des schémas a échoué.');
@@ -62,14 +64,14 @@ export function ScientificDiagramAnalysisPanel({
         </div>
         <span className="step-count">PAGES DÉTECTÉES</span>
       </div>
-      <p>Les pages ont été classées automatiquement. Seules les pages identifiées comme schémas sont envoyées à cette correction scientifique spécialisée. Elle reste indépendante de la note textuelle.</p>
+      <p>Les schémas sont évalués séparément sur l’image. Les tableaux et les réponses rédigées restent confiés au modèle textuel.</p>
       {!apiCompatible ? (
         <p className="review-alert review-alert-warning" role="status">Cette analyse nécessite un endpoint API compatible OpenAI. Activez ce fournisseur dans les réglages de l’IA avant de continuer.</p>
       ) : !model.trim() ? (
         <p className="review-alert review-alert-warning" role="status">Aucun modèle Vision n’est configuré dans les réglages de l’IA.</p>
       ) : (
         <>
-          <p className="hint">Les pages originales sont analysées par le serveur Vision configuré dans vos réglages. L’analyse démarre lorsque vous cliquez sur le bouton ci-dessous.</p>
+          <p className="hint">Seuls les schémas scientifiques dessinés sont notés par Vision. Les tableaux restent dans le parcours textuel, où ils sont lus en Markdown. L’analyse démarre lorsque vous cliquez sur le bouton ci-dessous.</p>
           <button type="button" className="secondary-button" onClick={() => void analyze()} disabled={loading || diagramImages.length === 0}>
             {loading ? 'Analyse visuelle en cours…' : analysis ? 'Relancer l’analyse des schémas' : 'Analyser les schémas avec Vision'}
           </button>

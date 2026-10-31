@@ -14,6 +14,14 @@ describe('scientific page classification', () => {
     ]);
   });
 
+  it('keeps table-only pages textual and routes mixed table-and-diagram pages to both workflows', () => {
+    const classifications = parseScientificPageClassifications(JSON.stringify({ pages: [
+      { pageNumber: 1, kind: 'text', confidence: 0.99, reason: 'Tableau de résultats biologiques' },
+      { pageNumber: 2, kind: 'mixed', confidence: 0.92, reason: 'Schéma annoté et tableau distinct' },
+    ] }), 2);
+    expect(routeScientificPages(classifications, 2)).toEqual({ textPageNumbers: [1, 2], diagramPageNumbers: [2], ambiguousPageNumbers: [] });
+  });
+
   it('rejects missing pages, duplicate page numbers and invalid confidence', () => {
     expect(() => parseScientificPageClassifications('{"pages":[]}', 1)).toThrow(/exactement toutes les pages/);
     expect(() => parseScientificPageClassifications(JSON.stringify({ pages: [
@@ -38,9 +46,12 @@ describe('scientific page classification', () => {
     expect(() => routeScientificPages([{ pageNumber: 1, kind: 'text', confidence: 1, reason: '' }], 2)).toThrow(/ne correspond pas/);
   });
 
-  it('downgrades low-confidence diagram predictions to ambiguous', () => {
+  it('downgrades low-confidence diagram and mixed predictions to ambiguous', () => {
     expect(parseScientificPageClassifications(JSON.stringify({ pages: [
       { pageNumber: 1, kind: 'scientific-diagram', confidence: 0.61, reason: 'Dessin peu lisible' },
+    ] }), 1)[0].kind).toBe('ambiguous');
+    expect(parseScientificPageClassifications(JSON.stringify({ pages: [
+      { pageNumber: 1, kind: 'mixed', confidence: 0.61, reason: 'Schéma et tableau peu lisibles' },
     ] }), 1)[0].kind).toBe('ambiguous');
   });
 
