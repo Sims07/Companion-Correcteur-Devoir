@@ -94,6 +94,8 @@ export async function rotateLocalImage(image: ImageInput, clockwiseDegrees: 90 |
     canvas.height = quarterTurn ? bitmap.width : bitmap.height;
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Le navigateur ne permet pas de faire pivoter cette image localement.');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
     context.translate(canvas.width / 2, canvas.height / 2);
     context.rotate(clockwiseDegrees * Math.PI / 180);
     context.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2);
