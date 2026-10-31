@@ -26,11 +26,11 @@ const diagramAnalysis = {
 };
 
 describe('scientific rubric routing', () => {
-  it('separates visual criteria from text criteria using rubric wording', () => {
+  it('separates visual criteria from text criteria using rubric wording when no mode is explicitly selected', () => {
     expect(partitionScientificRubric(rubric)).toEqual({ diagramCriteria: [rubric.criteria[0]], textCriteria: [rubric.criteria[1]] });
   });
 
-  it('uses Vision assessment for diagram criteria and text proposal for written criteria', () => {
+  it('routes an explicitly selected scientific-diagram criterion to Vision even when its wording is generic', () => {\n    const explicitlyMarked: Rubric = { title: 'Biologie', criteria: [{ id: 'visual', title: 'Organisation', description: 'Organisation et précision', maxPoints: 4, analysisMode: 'scientific-diagram' }, { id: 'text', title: 'Explication', description: 'Décrire', maxPoints: 6, analysisMode: 'text' }] };\n    expect(partitionScientificRubric(explicitlyMarked)).toEqual({ diagramCriteria: [explicitlyMarked.criteria[0]], textCriteria: [explicitlyMarked.criteria[1]] });\n  });\n\n  it('keeps an explicitly textual criterion out of Vision even when its wording mentions a diagram', () => {\n    const explicitlyTextual: Rubric = { title: 'Biologie', criteria: [{ id: 'diagram-text', title: 'Expliquer le schéma', description: 'Décrire les étapes', maxPoints: 4, analysisMode: 'text' }] };\n    expect(partitionScientificRubric(explicitlyTextual)).toEqual({ diagramCriteria: [], textCriteria: [explicitlyTextual.criteria[0]] });\n  });\n\n  it('uses Vision assessment for diagram criteria and text proposal for written criteria', () => {
     const result = mergeScientificDiagramCriteria(rubric, textProposal, diagramAnalysis);
     expect(result.criteria).toEqual([
       expect.objectContaining({ criterionId: 'diagram', points: 7, confidence: 'high', evidence: expect.stringContaining('Page 2') }),
