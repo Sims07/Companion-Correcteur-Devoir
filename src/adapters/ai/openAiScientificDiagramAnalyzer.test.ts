@@ -53,7 +53,7 @@ describe('OpenAI scientific diagram adapter', () => {
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer secret');
   });
   it('asks Vision for the seven-dimension explanation when a rubric criterion is explicitly marked as a scientific diagram', async () => {
-    const detailedOutput = structuredClone(output);
+    const detailedOutput = structuredClone(output) as { diagrams: Array<{ criteria: Array<{ qualityBreakdown?: Array<{ dimension: string; status: string; evidence: string }> }> }> };
     detailedOutput.diagrams[0].criteria[0].qualityBreakdown = [
       { dimension: 'title', status: 'fulfilled', evidence: 'Titre précis.' },
       { dimension: 'scientific-accuracy', status: 'partial', evidence: 'Une structure est imprécise.' },
