@@ -9,6 +9,7 @@ export interface ScientificDiagramAnalysisRequest {
   model: string;
   endpoint: string;
   apiKey: string;
+  teacherAnnotations?: string;
 }
 
 export interface ScientificDiagramAnalyzer {
