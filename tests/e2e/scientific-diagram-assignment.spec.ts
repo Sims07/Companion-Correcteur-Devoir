@@ -14,6 +14,7 @@ test('a rubric criterion can be explicitly routed to scientific diagram Vision a
   await page.getByLabel('Nom du devoir', { exact: true }).fill('Schéma de cellule');
   await page.getByLabel('Description et objectifs pédagogiques').fill('Évaluer un schéma scientifique.');
   await page.getByRole('button', { name: /Continuer vers le barème/ }).click();
+  await page.getByRole('button', { name: /Ajouter un critère/ }).click();
   const diagramCheckbox = page.getByRole('checkbox', { name: /Analyse de schéma scientifique/ }).first();
   await expect(diagramCheckbox).toBeVisible();
   await diagramCheckbox.check();
