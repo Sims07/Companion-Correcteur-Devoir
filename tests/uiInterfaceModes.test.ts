@@ -131,15 +131,15 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(styles).toContain('@media (max-width: 700px)');
   });
 
-  it('separates model evaluation from raw local debug output', () => {
+  it('replaces the legacy Debug workspace with the live network inspector', () => {
     const text = app();
+    const bootstrap = source('../src/main.tsx');
     expect(text).toContain('>Évaluation des modèles</button>');
-    expect(text).toContain('>Debug</button>');
-    expect(text).toContain('aria-pressed={interfaceMode === \'debug\'}');
-    expect(text).toContain('Debug des appels IA locaux');
-    expect(text).toContain('Sorties brutes des modèles');
-    expect(text).toContain('Transcription actuellement chargée');
-    expect(text).toContain("interfaceMode === 'debug' ? <section className=\"panel diagnostic-results\"");
+    expect(text).toContain('>Inspecteur réseau</button>');
+    expect(text).toContain("if (interfaceMode === 'debug')");
+    expect(text).toContain("import { NetworkInspector } from './NetworkInspector.tsx'");
+    expect(text).toContain('<NetworkInspector />');
+    expect(bootstrap).toContain('installNetworkInspector()');
   });
 
   it('exposes an accessible switch whose buttons reflect the selected mode', () => {
