@@ -579,6 +579,9 @@ export function createOllamaProvider(
               throw new Error(`La lecture de ${pageLabel} n’a pas fourni la transcription structurée attendue pour vérifier les annotations. Relancez la lecture ; aucune notation n’a été lancée.`);
             }
             pageText = cleanTranscription(detection.studentTranscription);
+            for (const annotation of detection.annotations) {
+              if (annotation.confidence === 'high') pageText = removeConfirmedTeacherAnnotation(pageText, annotation.text);
+            }
             if (detection.annotations.length) detectedTeacherAnnotations.push({ page: index + 1, annotations: detection.annotations });
           }
           if (!pageText) throw new Error(`Aucun texte n’a pu être lu sur ${pageLabel}.`);
