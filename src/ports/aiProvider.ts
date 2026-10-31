@@ -86,10 +86,6 @@ export interface OllamaSettings {
   model?: string;
   /** Vision-capable model used only to transcribe each page locally. */
   visionModel?: string;
-  /** Optional second vision pass to locate answer regions; disabled by default. */
-  regionsEnabled?: boolean;
-  /** Optional vision model dedicated to region localization; falls back to visionModel. */
-  regionsModel?: string;
   /** Optional prompt override; auto selects OCR-specialized or general vision instructions. */
   transcriptionPromptMode?: 'auto' | 'ocr' | 'general';
   /** Repetition penalty used for all local document transcription requests. */
