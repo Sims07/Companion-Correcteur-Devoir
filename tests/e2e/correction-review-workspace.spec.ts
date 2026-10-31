@@ -95,7 +95,10 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.getByRole('complementary', { name: 'Copie de référence' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Transport membranaire' })).toHaveCount(0);
-  await expect(page.getByText('Transport membranaire')).toBeVisible();
+  const safeSummary = page.locator('details.review-safe-summary');
+  await expect(safeSummary).toBeVisible();
+  await safeSummary.locator('summary').click();
+  await expect(safeSummary.getByText('Transport membranaire')).toBeVisible();
   const bulkConfirm = page.getByRole('button', { name: 'Confirmer les critères sans alerte (1)' });
   await expect(bulkConfirm).toBeVisible();
   await bulkConfirm.click();
