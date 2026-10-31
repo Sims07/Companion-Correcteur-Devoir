@@ -1,0 +1,162 @@
+export type NetworkRequestState = 'pending' | 'success' | 'error';
+
+export type NetworkRequestRecord = {
+  id: string;
+  method: string;
+  url: string;
+  startedAt: string;
+  durationMs: number | null;
+  state: NetworkRequestState;
+  status: number | null;
+  statusText: string;
+  requestHeaders: Record<string, string>;
+  responseHeaders: Record<string, string>;
+  requestBody: string;
+  responseBody: string;
+  error: string | null;
+};
+
+const STORAGE_KEY = 'companion-correcteur:network-inspector:v1';
+const EVENT_NAME = 'companion-correcteur:network-inspector:update';
+const MAX_RECORDS = 100;
+const MAX_BODY_LENGTH = 20_000;
+const SENSITIVE_KEY = /authorization|api[-_]?key|token|secret|password|base64|image|content[-_]?encoding|cookie/i;
+
+function truncate(value: string): string {
+  return value.length > MAX_BODY_LENGTH ? `${value.slice(0, MAX_BODY_LENGTH)}\n… contenu tronqué dans l’inspecteur` : value;
+}
+
+function sanitizeValue(value: unknown, key = ''): unknown {
+  if (SENSITIVE_KEY.test(key)) return '[masqué]';
+  if (typeof value === 'string') {
+    if (/^data:[^,]*;base64,/i.test(value) || value.length > 20_000 && /^[A-Za-z0-9+/=\s]+$/.test(value)) return '[données binaires masquées]';
+    return value.length > MAX_BODY_LENGTH ? truncate(value) : value;
+  }
+  if (Array.isArray(value)) return value.map((item) => sanitizeValue(item, key));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([childKey, childValue]) => [childKey, sanitizeValue(childValue, childKey)]));
+  }
+  return value;
+}
+
+export function sanitizeUrl(value: string): string {
+  try {
+    const url = new URL(value, window.location?.origin ?? 'http://localhost');
+    for (const key of [...url.searchParams.keys()]) if (SENSITIVE_KEY.test(key)) url.searchParams.set(key, '[masqué]');
+    return url.toString();
+  } catch { return value; }
+}
+
+export function sanitizeRequestBody(body: BodyInit | null | undefined): string {
+  if (typeof body !== 'string') return body == null ? '' : '[corps non textuel masqué]';
+  try {
+    return JSON.stringify(sanitizeValue(JSON.parse(body)), null, 2);
+  } catch {
+    return truncate(body);
+  }
+}
+
+export function sanitizeHeaders(headers: Headers): Record<string, string> {
+  const result: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    result[key] = SENSITIVE_KEY.test(key) ? '[masqué]' : value;
+  });
+  return result;
+}
+
+function readHistory(): NetworkRequestRecord[] {
+  try {
+    const value = window.localStorage.getItem(STORAGE_KEY);
+    const parsed: unknown = value ? JSON.parse(value) : [];
+    return Array.isArray(parsed) ? parsed as NetworkRequestRecord[] : [];
+  } catch {
+    return [];
+  }
+}
+
+function publish(records: NetworkRequestRecord[]): void {
+  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records.slice(0, MAX_RECORDS))); } catch { /* Keep the live inspector usable when storage is full or unavailable. */ }
+  window.dispatchEvent(new CustomEvent(EVENT_NAME));
+}
+
+export function loadNetworkHistory(): NetworkRequestRecord[] {
+  return readHistory();
+}
+
+export function clearNetworkHistory(): void {
+  try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* Ignore unavailable browser storage. */ }
+  window.dispatchEvent(new CustomEvent(EVENT_NAME));
+}
+
+/** Installs a browser-wide fetch observer. It never consumes the response returned to the caller. */
+export function installNetworkInspector(): () => void {
+  const originalFetch = window.fetch.bind(window);
+  let records = readHistory();
+  const observedFetch: typeof window.fetch = async (input, init) => {
+    const request = input instanceof Request ? input : null;
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    const method = (init?.method ?? request?.method ?? 'GET').toUpperCase();
+    const headers = new Headers(init?.headers ?? request?.headers);
+    const id = crypto.randomUUID();
+    const startedAt = new Date().toISOString();
+    const record: NetworkRequestRecord = {
+      id, method, url: sanitizeUrl(url), startedAt, durationMs: null, state: 'pending', status: null, statusText: '',
+      requestHeaders: sanitizeHeaders(headers), responseHeaders: {},
+      requestBody: sanitizeRequestBody(init?.body), responseBody: '', error: null,
+    };
+    records = [record, ...records].slice(0, MAX_RECORDS);
+    publish(records);
+
+    const update = (patch: Partial<NetworkRequestRecord>) => {
+      records = records.map((item) => item.id === id ? { ...item, ...patch } : item);
+      publish(records);
+    };
+
+    const started = performance.now();
+    try {
+      const response = await originalFetch(input, init);
+      update({
+        status: response.status,
+        statusText: response.statusText,
+        responseHeaders: sanitizeHeaders(response.headers),
+        state: response.ok ? 'pending' : 'error',
+      });
+      const clone = response.clone();
+      if (clone.body) {
+        void (async () => {
+          const reader = clone.body!.getReader();
+          const decoder = new TextDecoder();
+          let body = '';
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              body = truncate(body + decoder.decode(value, { stream: true }));
+              update({ responseBody: body });
+            }
+            body += decoder.decode();
+            update({ responseBody: truncate(body), durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error' });
+          } catch (cause) {
+            update({ responseBody: body, durationMs: Math.round(performance.now() - started), state: 'error', error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' });
+          }
+        })();
+      } else {
+        update({ durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error' });
+      }
+      return response;
+    } catch (cause) {
+      update({
+        state: 'error',
+        durationMs: Math.round(performance.now() - started),
+        error: cause instanceof Error ? cause.message : 'Échec réseau.',
+      });
+      throw cause;
+    }
+  };
+  window.fetch = observedFetch;
+  return () => {
+    if (window.fetch === observedFetch) window.fetch = originalFetch;
+  };
+}
+
+export const networkInspectorEvent = EVENT_NAME;

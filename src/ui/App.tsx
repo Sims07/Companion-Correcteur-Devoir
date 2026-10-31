@@ -24,6 +24,7 @@ import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../domain
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
+import { NetworkInspector } from './NetworkInspector.tsx';
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
 
@@ -693,9 +694,9 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     const gradingRubric: Rubric = interfaceMode === 'teacher' ? { ...rubric, criteria: rubricRouting.textCriteria } : rubric;
     const diagramRubric: Rubric = { ...rubric, criteria: rubricRouting.diagramCriteria };
     setBusy(true);
-    if ((interfaceMode === 'diagnostic' || interfaceMode === 'debug') && strategyOverride !== 'arbitrate-only') {
+    if ((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') && strategyOverride !== 'arbitrate-only') {
     }
-    if (interfaceMode === 'diagnostic' || interfaceMode === 'debug') { setCurrentTimingRecordId(null); setReferenceScoreInputs({}); setReferenceMessage(''); }
+    if (interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') { setCurrentTimingRecordId(null); setReferenceScoreInputs({}); setReferenceMessage(''); }
     if (interfaceMode === 'teacher') { setShowAiSettings(false); setTeacherStep('progress'); }
     setIsAnalyzing(true);
     setReadingElapsedMs(null);
@@ -762,7 +763,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         if ((!gradingTranscription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
         await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
         setAnalysisStage('reading');
-        const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || interfaceMode === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
+        const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
         const raw = await provider.generate(
           { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
           (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
@@ -854,7 +855,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         assignmentId: activeAssignmentId,
         assignmentTitle: assignmentTitle.trim() || 'Devoir sans titre',
         rubricSnapshot: structuredClone(rubric),
-        diagnosticStrategy: interfaceMode === 'diagnostic' || interfaceMode === 'debug' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
+        diagnosticStrategy: interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug' ? (strategyOverride === 'arbitrate-only' ? 'arbitrate' : diagnosticStrategy) : 'single',
         diagnosticRuns: diagnosticResultsForHistory,
       };
       setCurrentTimingRecordId(record.id);
@@ -1410,12 +1411,28 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   }
 
 
+  if ((interfaceMode as string) === 'debug') {
+    return <main className="app-shell">
+      <header className="topbar">
+        <div className="brand-mark" aria-hidden="true">CC</div>
+        <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface">
+          <button type="button" className="view-switch-button" onClick={() => setInterfaceMode('teacher')}>Correction</button>
+          <button type="button" className="view-switch-button" onClick={() => { setShowAiSettings(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button>
+          <button type="button" className="view-switch-button active" aria-pressed="true">Inspecteur réseau</button>
+          <button type="button" className="view-switch-button" onClick={() => { setShowAiSettings(false); setInterfaceMode('observability'); }}>Observabilité</button>
+        </div></div>
+      </header>
+      <NetworkInspector />
+    </main>;
+  }
+
   return (
     <main className={interfaceMode === 'teacher' ? "app-shell teacher-flow-shell" : interfaceMode === 'diagnostic' ? "app-shell evaluation-workspace-shell" : "app-shell"}>
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => { setShowAiSettings(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button><button type="button" className={interfaceMode === 'debug' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'debug'} onClick={() => { setShowAiSettings(false); setInterfaceMode('debug'); }}>Debug</button><button type="button" className={interfaceMode === 'observability' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'observability'} onClick={() => { setShowAiSettings(false); setInterfaceMode('observability'); }}>Observabilité</button></div></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => { setShowAiSettings(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button><button type="button" className={(interfaceMode as string) === 'debug' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={(interfaceMode as string) === 'debug'} onClick={() => { setShowAiSettings(false); setInterfaceMode('debug'); }}>Inspecteur réseau</button><button type="button" className={interfaceMode === 'observability' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'observability'} onClick={() => { setShowAiSettings(false); setInterfaceMode('observability'); }}>Observabilité</button></div></div>
       </header>
 
       {interfaceMode === 'teacher' && <aside className="teacher-sidebar" aria-label="Navigation de la correction">
@@ -1607,7 +1624,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         <div className="evaluation-run-actions evaluation-config-launch"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>Le lancement passera à l’espace Exécution pour afficher la progression en direct.</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => { setEvaluationWorkspaceStep('execution'); void startModelEvaluation(); }}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button></div>
         </div>
       </section>}
-      {interfaceMode === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
+      {(interfaceMode as string) === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
         <div className="workspace-heading"><div><p className="eyebrow">OUTILS DE DIAGNOSTIC</p><h2 id="debug-workspace-title">Debug des appels IA locaux</h2><p className="workspace-description">Espace technique séparé : consultez les traces brutes d’une exécution déjà réalisée. Pour créer une expérience ou comparer les résultats, utilisez Évaluation des modèles.</p></div></div>
         <section id="debug-advanced-settings" className="debug-advanced-settings" aria-label="Configuration avancée du diagnostic">
           <div className="workspace-heading"><div><p className="eyebrow">OUTILS AVANCÉS</p><h3>Configuration du diagnostic multi-modèles</h3><p>Ces réglages techniques servent aux essais de diagnostic et restent séparés de l’évaluation indépendante.</p></div></div>
@@ -1669,9 +1686,9 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         <section className="transcription-review"><h3>Dernière réponse reçue en streaming</h3>{streamedOutput ? <pre>{streamedOutput}</pre> : <p className="hint">Aucune réponse en streaming disponible.</p>}</section>
         <section className="transcription-review"><h3>Sorties brutes des modèles ({diagnosticRuns.length})</h3>{diagnosticRuns.length ? diagnosticRuns.map((run, index) => <details key={run.kind + run.model + index} className="rubric-import-raw-response"><summary>{run.model} · {run.kind} · {formatElapsed(Math.round(run.elapsedMs / 1000))}</summary><pre>{run.raw}</pre></details>) : <p className="hint">Aucune trace technique enregistrée. Lancez une expérience dans « Évaluation des modèles » puis revenez ici pour examiner les réponses brutes.</p>}</section>
         <section className="transcription-review debug-evaluation-traces"><h3>Traces des évaluations indépendantes ({modelEvaluationResults.length})</h3>{modelEvaluationResults.length ? modelEvaluationResults.map((result) => <details key={result.profileId} className="rubric-import-raw-response"><summary>{result.profileName} · {result.status} · {formatElapsed(Math.round(result.elapsedMs / 1000))}</summary><p>Lecture : {result.readingMs ? formatElapsed(Math.round(result.readingMs / 1000)) : '—'} · Analyse : {result.analysisMs ? formatElapsed(Math.round(result.analysisMs / 1000)) : '—'} · Tokens : {result.tokens === null ? 'non mesurés' : formatTokenCount(result.tokens)}</p>{result.error && <div className="evaluation-error-panel"><p className="validation" role="alert">{result.error}</p><details className="evaluation-error-details"><summary>Voir les détails de l’erreur</summary><div><p><strong>Configuration :</strong> {result.profileName}</p><p><strong>Étape :</strong> {evaluationStageMode === 'vision' ? 'Vision' : evaluationStageMode === 'analysis' ? 'Analyse' : 'Parcours complet'}</p>{result.diagnosticRuns?.length ? <><h5>Appels terminés avant l’échec</h5><ol>{result.diagnosticRuns.map((run, index) => <li key={index}><strong>{run.model}</strong> · {run.stage === 'reading' ? 'Vision' : run.stage === 'arbitration' ? 'Arbitrage' : 'Analyse'} · {formatElapsed(Math.round(run.elapsedMs / 1000))}{run.doneReason ? ' · fin : ' + run.doneReason : ''}{run.generatedTokens !== undefined ? ' · ' + run.generatedTokens + ' tokens générés' : ''}{run.generationTokenLimit !== undefined ? ' · limite demandée : ' + run.generationTokenLimit : ''}{run.raw && <pre>{run.raw}</pre>}</li>)}</ol></> : <p>Aucun appel n’a pu être enregistré comme terminé avant l’échec.</p>}{result.raw ? <><h5>Dernière réponse brute conservée</h5><pre>{result.raw}</pre></> : <p>Aucune réponse brute complète n’a été conservée pour cet échec.</p>}</div></details></div>}{result.transcription && <><h4>Transcription</h4><pre>{result.transcription}</pre></>}{result.raw && <><h4>Réponse brute</h4><pre>{result.raw}</pre></>}</details>) : <p className="hint">Les réponses brutes des expériences indépendantes apparaîtront ici après un lancement dans Évaluation des modèles.</p>}</section>
-            {interfaceMode === 'debug' && transcription && diagnosticRuns.filter((run) => run.kind === 'model').length === 2 && <button type="button" className="secondary-button full-button" disabled={busy || !arbitratorModel.trim()} onClick={() => void gradeCopies('arbitrate-only')}>Relancer uniquement l’arbitrage avec les deux avis enregistrés</button>}
+            {(interfaceMode as string) === 'debug' && transcription && diagnosticRuns.filter((run) => run.kind === 'model').length === 2 && <button type="button" className="secondary-button full-button" disabled={busy || !arbitratorModel.trim()} onClick={() => void gradeCopies('arbitrate-only')}>Relancer uniquement l’arbitrage avec les deux avis enregistrés</button>}
 
-      {interfaceMode === 'debug' && <section className="panel diagnostic-results" aria-labelledby="diagnostic-results-title">
+      {(interfaceMode as string) === 'debug' && <section className="panel diagnostic-results" aria-labelledby="diagnostic-results-title">
         <div className="panel-heading"><span className="number">IA</span><div><h3 id="diagnostic-results-title">Résultats de l’expérience multi-modèles</h3><p>Notes et temps mesurés sur cette copie. Les sorties sont conservées dans cette vue locale.</p></div></div>
         {diagnosticRuns.length === 0 ? <div className="diagnostic-empty-state">
           <span className="diagnostic-empty-icon" aria-hidden="true">↗</span>

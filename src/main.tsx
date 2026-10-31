@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './ui/App.tsx';
 import { LocalMemoryCompanion } from './ui/LocalMemoryCompanion.tsx';
 import { installLocalMemoryFetchBridge } from './adapters/ai/localMemoryFetchBridge.ts';
+import { installNetworkInspector } from './adapters/network/networkInspector.ts';
 import { loadSalukiModel } from './adapters/ai/modelLoadClient.ts';
 import { IndexedDbLocalCorrectionRepository, IndexedDbModelEvaluationRepository } from './adapters/storage/indexedDbMemory.ts';
 import { createLocalCorrectionService } from './application/localCorrectionService.ts';
@@ -24,6 +25,7 @@ const localCorrectionRepository = new IndexedDbLocalCorrectionRepository();
 const localCorrectionService = createLocalCorrectionService(localCorrectionRepository);
 const modelEvaluationService = createModelEvaluationService(new IndexedDbModelEvaluationRepository());
 installLocalMemoryFetchBridge(localCorrectionRepository);
+installNetworkInspector();
 const scientificDiagramAnalysisService = createScientificDiagramAnalysisService(createOpenAiScientificDiagramAnalyzer());
 const correctionWorkspaceService = createCorrectionWorkspaceService(
   { checkReady: checkOllamaReady, listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, fetch, onProgress, signal) },
