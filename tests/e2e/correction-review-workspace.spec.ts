@@ -57,6 +57,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
         subjectTranscription: null,
         correctionMode: 'integrated',
         maximumPoints: 4,
+        hasScientificDiagrams: true,
+        scientificDiagramAnalysis: { diagrams: [{ id: 'diagram-1', pageNumber: 1, bounds: { x: 0.1, y: 0.2, width: 0.5, height: 0.4 }, diagramType: 'Cellule', summary: 'Schéma de cellule végétale', criteria: [{ criterionId: 'membrane', title: 'Rôle de la membrane', points: 3, maxPoints: 4, evidence: 'La membrane est représentée.', confidence: 0.8, requiresTeacherReview: false }], uncertainties: [] }], overallUncertainties: [] },
       },
     });
     await new Promise<void>((resolve, reject) => {
@@ -65,11 +67,20 @@ test('review workspace keeps original evidence beside grading criteria on deskto
       transaction.onabort = () => reject(transaction.error);
     });
     database.close();
+    localStorage.setItem('companion-correcteur:ollama-configuration:v1', JSON.stringify({ endpoint: 'https://ai.example', apiCompatible: true, apiKey: 'test-token', visionModel: 'vision-model', analysisModel: 'analysis-model' }));
   });
 
   await page.reload();
   await page.getByRole('button', { name: /Corrections enregistrées/ }).click();
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Analyse des schémas scientifiques' })).toBeVisible();
+  const diagramPanel = page.locator('.scientific-diagram-analysis');
+  await expect(diagramPanel.getByRole('checkbox')).toHaveCount(0);
+  const diagramAnalyzeButton = page.getByRole('button', { name: /Analyser les schémas avec Vision|Relancer l’analyse des schémas/ });
+  await expect(diagramAnalyzeButton).toBeEnabled();
+  await expect(page.getByRole('img', { name: 'Page 1 contenant le schéma détecté' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Zone du schéma repérée par Vision' })).toBeVisible();
 
   await expect(page.getByRole('complementary', { name: 'Copie de référence' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
