@@ -65,6 +65,6 @@ export function NetworkInspector() {
         </> : <p className="network-empty">Sélectionnez une requête pour examiner ses détails.</p>}
       </section>
     </div>
-    <p className="network-inspector-footnote">Les corps de requête et réponses peuvent contenir des informations issues des copies. Ils restent dans le stockage local du navigateur. Les clés, tokens et données binaires sont masqués ; l’historique est limité aux 150 dernières requêtes.</p>
+    <p className="network-inspector-footnote">Les corps de requête et réponses peuvent contenir des informations issues des copies. Ils restent dans le stockage local du navigateur. Les clés, tokens et données binaires sont masqués ; l’historique est limité aux 100 dernières requêtes.</p>
   </main>;
 }
