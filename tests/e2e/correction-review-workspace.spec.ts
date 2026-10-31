@@ -60,7 +60,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
           { criterionId: 'transport', points: 2, rationale: 'Le transport sélectif est identifié.', evidence: 'La membrane contrôle les échanges.', pageNumber: 1, confidence: 'high', teacherPoints: 2, teacherComment: '', decision: 'pending' },
         ],
         teacherQuestions: '',
-        images: [{ base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/9ioAAAAASUVORK5CYII=', mimeType: 'image/png', fileName: 'page-1.png' }],
+        images: [{ base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGMQ6dH4DwADSAHIPzDQUwAAAABJRU5ErkJggg==', mimeType: 'image/png', fileName: 'page-1.png' }],
         transcription: 'La membrane plasmique constitue une barrière sélective.',
         subjectImages: [],
         subjectTranscription: null,
