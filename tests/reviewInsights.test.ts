@@ -57,7 +57,7 @@ describe('review insights', () => {
     ]);
 
     expect(focus.reliableCriteriaIds).toEqual(['full-credit']);
-    expect(focus.flaggedCriteriaIds).toEqual(['low-confidence', 'missing-proof', 'teacher-question', 'medium-confidence', 'deduction']);
+    expect(focus.flaggedCriteriaIds).toEqual(['low-confidence', 'missing-proof', 'teacher-question', 'deduction', 'medium-confidence']);
   });
 
   it('signals absent transcription only when a copy image exists', () => {
