@@ -13,6 +13,7 @@ export interface ScientificDiagramAnalysisRequest {
   endpoint: string;
   apiKey: string;
   teacherAnnotations?: string;
+  onDiagnosticResult?: (result: DiagnosticModelResult) => void;
 }
 
 export interface ScientificPageClassificationRequest {
@@ -20,6 +21,7 @@ export interface ScientificPageClassificationRequest {
   model: string;
   endpoint: string;
   apiKey: string;
+  onDiagnosticResult?: (result: DiagnosticModelResult) => void;
 }
 
 export interface ScientificDiagramAnalyzer {
