@@ -622,7 +622,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       setImages((current) => [...current, ...prepared]);
       setOriginalImages((current) => [...current, ...structuredClone(prepared)]);
       setRotationSuggestions({});
-      setManualRotationAngles({});
       setPageClassifications(null);
       setScientificDiagramAnalysis(null);
       setScientificDiagramError('');
@@ -779,7 +778,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
                   images: [suggestion.preview], model: visionModel, endpoint, apiKey,
                   onDiagnosticResult: captureDiagramDiagnostic,
                 });
-                if (verification && getConfidentDiagramRotation(verification) === null) {
+                if (verification?.kind === 'scientific-diagram' && verification.confidence >= 0.9 && verification.suggestedRotation === 0 && (verification.orientationConfidence ?? 0) >= 0.92) {
                   acceptedAutomaticRotations[suggestion.index] = suggestion.preview;
                   continue;
                 }
