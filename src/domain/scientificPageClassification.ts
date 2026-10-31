@@ -33,7 +33,7 @@ export function parseScientificPageClassifications(raw: string, pageCount: numbe
     }
     seen.add(Number(pageNumber));
     const confidence = value.confidence;
-    const kind = value.kind === 'scientific-diagram' && confidence < 0.75 ? 'ambiguous' : value.kind;
+    const kind = (value.kind === 'scientific-diagram' || value.kind === 'mixed') && confidence < 0.75 ? 'ambiguous' : value.kind;
     return { pageNumber: Number(pageNumber), kind, confidence, reason: value.reason };
   });
   return pages.sort((left, right) => left.pageNumber - right.pageNumber);
