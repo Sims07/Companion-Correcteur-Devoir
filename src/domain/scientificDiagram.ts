@@ -55,19 +55,15 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
   const diagrams = parsed.diagrams.map((value, index): ScientificDiagramFinding => {
     if (!isRecord(value)) throw new Error(`Le schéma ${index + 1} est invalide.`);
     const reportedPageNumber = value.pageNumber;
-    if (!Number.isInteger(reportedPageNumber) || Number(reportedPageNumber) < 1) {
-      throw new Error(`Le schéma ${index + 1} référence une page inexistante.`);
+    if (!Number.isInteger(reportedPageNumber) || Number(reportedPageNumber) < 1 || Number(reportedPageNumber) > pageCount) {
+      throw new Error(`Le schéma ${index + 1} référence un index d’image invalide (numéro retourné : ${String(reportedPageNumber)}).`);
     }
-    // Vision sometimes numbers a filtered image batch from 1 instead of using
-    // the original copy page numbers. Resolve that local index only when the
-    // reported number is not already a valid original page number.
-    const pageNumber = allowedPageNumbers.includes(Number(reportedPageNumber))
-      ? Number(reportedPageNumber)
-      : Number(reportedPageNumber) <= pageCount
-        ? allowedPageNumbers[Number(reportedPageNumber) - 1]
-        : undefined;
+    // Vision always returns a 1-based index in the filtered image batch.
+    // Resolve it unconditionally: a local index may coincidentally equal a
+    // different original page number (for example local page 2 vs original page 2).
+    const pageNumber = allowedPageNumbers[Number(reportedPageNumber) - 1];
     if (pageNumber === undefined) {
-      throw new Error(`Le schéma ${index + 1} référence une page inexistante (numéro retourné : ${String(reportedPageNumber)}).`);
+      throw new Error(`Le schéma ${index + 1} ne peut pas être rattaché à une page originale.`);
     }
     if (typeof value.id !== 'string' || !value.id.trim() || ids.has(value.id)) throw new Error('Chaque schéma doit avoir un identifiant unique.');
     ids.add(value.id);
