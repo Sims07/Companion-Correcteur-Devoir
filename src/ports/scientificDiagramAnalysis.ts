@@ -12,7 +12,6 @@ export interface ScientificDiagramAnalysisRequest {
   model: string;
   endpoint: string;
   apiKey: string;
-  teacherAnnotations?: string;
   onDiagnosticResult?: (result: DiagnosticModelResult) => void;
 }
 

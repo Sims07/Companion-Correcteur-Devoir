@@ -2,6 +2,7 @@ import type { GradingProposal, ReviewedCriterion } from './grading.ts';
 import type { Rubric } from './rubric.ts';
 import type { ScientificDiagramAnalysis } from './scientificDiagram.ts';
 import type { ScientificPageClassification } from './scientificPageClassification.ts';
+import type { TeacherAnnotationInkColor } from './teacherAnnotationColor.ts';
 
 export interface ArchivedImage {
   base64: string;
@@ -23,6 +24,10 @@ export interface CorrectionArchiveSnapshot {
   originalImages?: ArchivedImage[];
   /** Whether this individual copy should be scanned for pre-existing teacher marks. */
   detectTeacherAnnotations?: boolean;
+  /** Teacher-only local display data; never sent to grading prompts. */
+  teacherAnnotations?: string;
+  /** Selected professor ink color removed from the working images, if any. */
+  annotationInkColor?: TeacherAnnotationInkColor;
   transcription: string | null;
   subjectImages: ArchivedImage[];
   subjectTranscription: string | null;

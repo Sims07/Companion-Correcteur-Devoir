@@ -44,27 +44,49 @@ describe('teacher annotation separation in the grading pipeline', () => {
     const studentSection = gradingBody.messages[0].content.split('<transcription_etudiant>')[1]?.split('</transcription_etudiant>')[0] ?? '';
     expect(studentSection).not.toContain('Bien vu');
     expect(studentSection).not.toContain('2/3');
-    expect(gradingBody.messages[0].content).toContain('<annotations_professeur>');
-    expect(gradingBody.messages[0].content).toContain('Bien vu');
-    expect(gradingBody.messages[0].content).toContain('2/3');
+    expect(gradingBody.messages[0].content).not.toContain('<annotations_professeur>');
+    expect(gradingBody.messages[0].content).not.toContain('Bien vu');
+    expect(gradingBody.messages[0].content).not.toContain('2/3');
   });
 
-  it('keeps the original transcription when no high-confidence annotation is detected', async () => {
+  it('uses untouched original pages only for annotation detection after reading cleaned working pages', async () => {
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamResponse('Réponse de l’étudiant'))
+      .mockResolvedValueOnce(streamResponse('Réponse étudiante sans marque colorée'))
       .mockResolvedValueOnce(streamResponse(JSON.stringify({
-        studentTranscription: 'Réponse de l’étudiant',
-        annotations: [{ text: 'entouré', kind: 'mark', color: 'bleu', location: 'question 1', confidence: 'medium' }],
+        studentTranscription: 'Réponse étudiante sans marque colorée',
+        annotations: [{ text: 'Très bien', kind: 'comment', color: 'rouge', location: 'marge', confidence: 'high' }],
       })))
       .mockResolvedValueOnce(streamResponse('{"criteria":[]}'));
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'grader' }, fetchMock);
     await provider.generate({
       question: 'Question',
       rubric: '{"criteria":[]}',
-      images: [{ base64: 'aGVsbG8=', mimeType: 'image/png' }],
+      images: [{ base64: 'Y2xlYW5lZA==', mimeType: 'image/png' }],
+      teacherAnnotationImages: [{ base64: 'b3JpZ2luYWw=', mimeType: 'image/png' }],
       detectTeacherAnnotations: true,
     });
-    const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
-    expect(gradingBody.messages[0].content).toContain('Réponse de l’étudiant');
+    const requestBodies = fetchMock.mock.calls.map((call) => JSON.parse(String(call[1]?.body)) as { messages: Array<{ content: string; images?: string[] }> });
+    const readingBody = requestBodies.find((body) => body.messages[0]?.content.includes('Transcris fidèlement'));
+    const annotationBody = requestBodies.find((body) => body.messages[0]?.content.includes('seconde passe de séparation éditoriale'));
+    expect(readingBody?.messages[0].images).toEqual(['Y2xlYW5lZA==']);
+    expect(annotationBody?.messages[0].images).toEqual(['b3JpZ2luYWw=']);
+  });
+
+  it('blocks grading when an annotation is not high-confidence until the teacher confirms it', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamResponse('Réponse de l’étudiant'))
+      .mockResolvedValueOnce(streamResponse(JSON.stringify({
+        studentTranscription: 'Réponse de l’étudiant',
+        annotations: [{ text: 'entouré', kind: 'mark', color: 'bleu', location: 'question 1', confidence: 'medium' }],
+      })));
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'grader' }, fetchMock);
+    await expect(provider.generate({
+      question: 'Question',
+      rubric: '{"criteria":[]}',
+      images: [{ base64: 'aGVsbG8=', mimeType: 'image/png' }],
+      detectTeacherAnnotations: true,
+      teacherAnnotationPageNumbers: [3],
+    })).rejects.toThrow(/page 3.*confirmation de l’enseignant/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

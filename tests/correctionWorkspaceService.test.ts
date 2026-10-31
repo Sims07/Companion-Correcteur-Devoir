@@ -17,6 +17,7 @@ describe('correction workspace service', () => {
     const files = {
       prepareFiles: vi.fn(),
       rotateImage,
+      eraseTeacherAnnotationColor: vi.fn().mockResolvedValue({ ...source, base64: 'Y2xlYW5lZA==' }),
       importRubric: vi.fn(),
     } as unknown as LocalFileGateway;
 
@@ -25,5 +26,7 @@ describe('correction workspace service', () => {
     await expect(service.rotateImage(source, 90)).resolves.toEqual(rotated);
     expect(rotateImage).toHaveBeenCalledWith(source, 90);
     expect(source.base64).toBe('b3JpZ2luYWw=');
+    await expect(service.eraseTeacherAnnotationColor(source, 'red')).resolves.toMatchObject({ base64: 'Y2xlYW5lZA==' });
+    expect(files.eraseTeacherAnnotationColor).toHaveBeenCalledWith(source, 'red');
   });
 });

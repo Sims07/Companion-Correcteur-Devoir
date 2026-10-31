@@ -65,6 +65,16 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('setIsFinalized(false)');
   });
 
+  it('keeps teacher annotations local to the teacher view and resets them between copies', () => {
+    const text = app();
+    expect(text).toContain('teacherAnnotations,');
+    expect(text).toContain('teacherAnnotations?: string;');
+    expect(text).toContain('setTeacherAnnotations(snapshot.teacherAnnotations ?? \'\')');
+    expect(text).toContain('setTeacherAnnotations(draft?.teacherAnnotations ?? \'\')');
+    expect(text).toContain('setTeacherAnnotations(\'\');');
+    expect(text).not.toContain('teacherAnnotations,\\n                rubric: diagramRubric');
+  });
+
   it('requires teacher approval for rotation suggestions and verifies enabled automatic rotations', () => {
     const text = app();
     expect(text).toContain('La page {index + 1} semble tournée de {rotationSuggestions[index].degrees}°');
@@ -377,4 +387,22 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(styles).toContain('@media(max-width:760px)');
   });
 
+
+  it('requires a local preview and explicit approval before grading color-cleaned copy images', () => {
+    const text = app();
+    expect(text).toContain('Couleur des annotations du professeur');
+    expect(text).toContain('y compris une éventuelle écriture de l’étudiant dans la même couleur');
+    expect(text).toContain('Prévisualiser le retrait');
+    expect(text).toContain('Appliquer à toutes les pages');
+    expect(text).toContain('annotationInkColor !== \'none\' && !annotationInkColorApplied');
+    expect(text).toContain('setImages(cleaned)');
+    expect(text).toContain('originalImages');
+    expect(text).toContain('eraseTeacherAnnotationColor(rotated, annotationInkColor)');
+    expect(text).toContain('images: textImages');
+    expect(text).toContain('teacherAnnotationImages');
+    expect(text).toContain('textPageNumbers.map(async (pageNumber)');
+    expect(text).toContain('textPageNumbers = diagramRubric.criteria.length > 0 ? routing.textPageNumbers');
+    expect(text).toContain('teacherAnnotationPageNumbers: textPageNumbers');
+    expect(text).toContain('annotationRotationAngles');
+  });
 });

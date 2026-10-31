@@ -1,6 +1,7 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import type { ImageInput } from '../../ports/aiProvider.ts';
+import { eraseTeacherInkPixels, sampleTeacherPaperColor, type TeacherAnnotationInkColor } from '../../domain/teacherAnnotationColor.ts';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -100,6 +101,32 @@ export async function rotateLocalImage(image: ImageInput, clockwiseDegrees: 90 |
     context.rotate(clockwiseDegrees * Math.PI / 180);
     context.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2);
     return dataUrlToImage(canvas.toDataURL('image/png'), image.fileName ?? 'page tournée');
+  } finally {
+    bitmap.close();
+  }
+}
+
+
+/** Erase selected professor ink locally on a working image; the caller keeps the untouched original. */
+export async function eraseTeacherAnnotationColor(image: ImageInput, color: Exclude<TeacherAnnotationInkColor, 'none'>): Promise<ImageInput> {
+  const decoded = atob(image.base64);
+  const bytes = new Uint8Array(decoded.length);
+  for (let index = 0; index < decoded.length; index += 1) bytes[index] = decoded.charCodeAt(index);
+  const bitmap = await createImageBitmap(new Blob([bytes.buffer as ArrayBuffer], { type: image.mimeType }));
+  try {
+    const canvas = globalThis.document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('Le navigateur ne permet pas de retirer les annotations localement.');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(bitmap, 0, 0);
+    const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+    const paper = sampleTeacherPaperColor(frame.data, canvas.width, canvas.height);
+    frame.data.set(eraseTeacherInkPixels(frame.data, paper, color));
+    context.putImageData(frame, 0, 0);
+    return dataUrlToImage(canvas.toDataURL('image/png'), image.fileName ?? 'page nettoyée');
   } finally {
     bitmap.close();
   }
