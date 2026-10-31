@@ -29,7 +29,8 @@ let storageWarning: string | null = null;
 let initialized = false;
 
 function truncate(value: string, limit = MAX_BODY_LENGTH): string {
-  return value.length > limit ? `${value.slice(0, limit)}\n… contenu tronqué dans l’inspecteur` : value;
+  const suffix = '\\n… contenu tronqué dans l’inspecteur';
+  return value.length > limit ? `${value.slice(0, Math.max(0, limit - suffix.length))}${suffix}` : value;
 }
 
 function sanitizeValue(value: unknown, key = ''): unknown {
