@@ -669,6 +669,15 @@ export function createOllamaProvider(
             onTranscription?.(warning, 'warning');
             throw new Error(warning);
           }
+          const retainedProfessorText = detection.annotations.filter((annotation) =>
+            annotation.text.trim().length > 0
+            && originalPageText.includes(annotation.text)
+            && detection.studentTranscription!.includes(annotation.text));
+          if (retainedProfessorText.length > 0) {
+            const warning = `Une annotation détectée n’a pas été retirée de la transcription de la page ${index + 1}. Aucune note ne peut être calculée tant que le texte du professeur subsiste.`;
+            onTranscription?.(warning, 'warning');
+            throw new Error(warning);
+          }
           if (detection.annotations.length) detectedTeacherAnnotations.push({ page: index + 1, annotations: detection.annotations });
           const uncertainAnnotations = detection.annotations.filter((annotation) => annotation.confidence !== 'high');
           if (uncertainAnnotations.length > 0) {
