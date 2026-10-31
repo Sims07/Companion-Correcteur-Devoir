@@ -1,4 +1,4 @@
-export type ScientificPageKind = 'text' | 'scientific-diagram' | 'ambiguous';
+export type ScientificPageKind = 'text' | 'scientific-diagram' | 'mixed' | 'ambiguous';
 
 export interface ScientificPageClassification {
   pageNumber: number;
@@ -25,7 +25,7 @@ export function parseScientificPageClassifications(raw: string, pageCount: numbe
     if (!Number.isInteger(pageNumber) || Number(pageNumber) < 1 || Number(pageNumber) > pageCount || seen.has(Number(pageNumber))) {
       throw new Error('La classification contient un numéro de page invalide ou répété.');
     }
-    if (value.kind !== 'text' && value.kind !== 'scientific-diagram' && value.kind !== 'ambiguous') {
+    if (value.kind !== 'text' && value.kind !== 'scientific-diagram' && value.kind !== 'mixed' && value.kind !== 'ambiguous') {
       throw new Error(`Le type de page ${String(pageNumber)} n’est pas reconnu.`);
     }
     if (typeof value.confidence !== 'number' || !Number.isFinite(value.confidence) || value.confidence < 0 || value.confidence > 1 || typeof value.reason !== 'string') {
@@ -53,8 +53,8 @@ export function routeScientificPages(classifications: ScientificPageClassificati
     throw new Error('La classification ne couvre pas exactement les pages de la copie.');
   }
   return {
-    textPageNumbers: classifications.filter((page) => page.kind !== 'scientific-diagram').map((page) => page.pageNumber),
-    diagramPageNumbers: classifications.filter((page) => page.kind === 'scientific-diagram').map((page) => page.pageNumber),
+    textPageNumbers: classifications.filter((page) => page.kind === 'text' || page.kind === 'mixed' || page.kind === 'ambiguous').map((page) => page.pageNumber),
+    diagramPageNumbers: classifications.filter((page) => page.kind === 'scientific-diagram' || page.kind === 'mixed').map((page) => page.pageNumber),
     ambiguousPageNumbers: classifications.filter((page) => page.kind === 'ambiguous').map((page) => page.pageNumber),
   };
 }
