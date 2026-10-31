@@ -25,6 +25,7 @@ import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelPro
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
+import { AssignmentsHome } from './AssignmentsHome.tsx';
 
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
@@ -253,6 +254,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
   const [showAssignmentPicker, setShowAssignmentPicker] = useState(false);
+  const [showAssignmentsHome, setShowAssignmentsHome] = useState(false);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, AssignmentDraft>>({});
   const [assignmentTitle, setAssignmentTitle] = useState(() => readActiveAssignmentProfile().title);
   const [assignmentDescription, setAssignmentDescription] = useState(() => readActiveAssignmentProfile().description ?? '');
@@ -1552,10 +1554,10 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
         <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface">
-          <button type="button" className="view-switch-button" onClick={() => setInterfaceMode('teacher')}>Correction</button>
-          <button type="button" className="view-switch-button" onClick={() => { setShowAiSettings(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button>
+          <button type="button" className="view-switch-button" onClick={() => { setShowAssignmentsHome(false); setInterfaceMode('teacher'); }}>Correction</button>
+          <button type="button" className="view-switch-button" onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button>
           <button type="button" className="view-switch-button active" aria-pressed="true">Inspecteur réseau</button>
-          <button type="button" className="view-switch-button" onClick={() => { setShowAiSettings(false); setInterfaceMode('observability'); }}>Observabilité</button>
+          <button type="button" className="view-switch-button" onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('observability'); }}>Observabilité</button>
         </div></div>
       </header>
       <NetworkInspector />
@@ -1563,14 +1565,25 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   }
 
   return (
-    <main className={interfaceMode === 'teacher' ? "app-shell teacher-flow-shell" : interfaceMode === 'diagnostic' ? "app-shell evaluation-workspace-shell" : "app-shell"}>
+    <main className={interfaceMode === 'teacher' ? `app-shell teacher-flow-shell${showAssignmentsHome ? ' teacher-assignments-home' : ''}` : interfaceMode === 'diagnostic' ? 'app-shell evaluation-workspace-shell' : 'app-shell'}>
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => { setShowAiSettings(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button><button type="button" className={(interfaceMode as string) === 'debug' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={(interfaceMode as string) === 'debug'} onClick={() => { setShowAiSettings(false); setInterfaceMode('debug'); }}>Inspecteur réseau</button><button type="button" className={interfaceMode === 'observability' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'observability'} onClick={() => { setShowAiSettings(false); setInterfaceMode('observability'); }}>Observabilité</button></div></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => { setShowAiSettings(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button><button type="button" className={(interfaceMode as string) === 'debug' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={(interfaceMode as string) === 'debug'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('debug'); }}>Inspecteur réseau</button><button type="button" className={interfaceMode === 'observability' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'observability'} onClick={() => { setShowAiSettings(false); setInterfaceMode('observability'); }}>Observabilité</button></div></div>
       </header>
 
-      {interfaceMode === 'teacher' && <aside className="teacher-sidebar" aria-label="Navigation de la correction">
+      {interfaceMode === 'teacher' && showAssignmentsHome && <AssignmentsHome
+        assignments={assignmentProfiles}
+        activeAssignmentId={activeAssignmentId}
+        archivedCorrections={archivedCorrections}
+        onCreate={() => { createNewAssignment(); setShowAssignmentsHome(false); }}
+        onOpen={(profile) => { switchAssignment(profile); setShowAssignmentsHome(false); }}
+        onDelete={deleteAssignment}
+        onReturn={() => setShowAssignmentsHome(false)}
+        disabled={isAnalyzing}
+      />}
+
+      {interfaceMode === 'teacher' && !showAssignmentsHome && <aside className="teacher-sidebar" aria-label="Navigation de la correction">
         <section className="sidebar-assignment-list" aria-label="Mes devoirs">
           <button
             type="button"
@@ -1626,6 +1639,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             <span className="teacher-step-number">3</span><span><strong>{isAnalyzing ? 'Suivi du traitement' : 'Réviser la note'}</strong><small>{isAnalyzing ? `${formatElapsed(elapsedSeconds)} écoulées · ${analysisStage === 'reading' ? 'Lecture en cours' : analysisStage === 'grading' ? 'Analyse en cours' : 'Préparation'}` : proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
           </button>
         </nav>
+        <button type="button" className="sidebar-all-assignments" onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }} disabled={isAnalyzing}><span aria-hidden="true">▦</span><span><strong>Tous mes devoirs</strong><small>{assignmentProfiles.length} devoir(s)</small></span><span aria-hidden="true">→</span></button>
         <button type="button" className={teacherStep === 'archive' && !showAiSettings ? 'sidebar-archive-button active' : 'sidebar-archive-button'} onClick={() => { setShowAiSettings(false); setTeacherStep('archive'); }} disabled={isAnalyzing}><span aria-hidden="true">▤</span><span><strong>Corrections enregistrées</strong><small>{archivedCorrections.length} copie(s) archivée(s)</small></span></button>
         <div className="teacher-sidebar-footer">
           <div className={isAnalyzing ? "sidebar-local-status is-processing" : "sidebar-local-status"} role={isAnalyzing ? "status" : undefined} aria-live={isAnalyzing ? "polite" : undefined}>
@@ -1637,7 +1651,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         </div>
       </aside>}
 
-      <div className={interfaceMode === 'teacher' ? 'teacher-content-column' : 'diagnostic-content-column'}>
+      {!(interfaceMode === 'teacher' && showAssignmentsHome) && <div className={interfaceMode === 'teacher' ? 'teacher-content-column' : 'diagnostic-content-column'}>
       {interfaceMode === 'diagnostic' && <section className="privacy-strip">
         <span className="privacy-icon">⌂</span>
         <div><strong>Traitement local, sans repli cloud</strong><p>Les fichiers sont lus et préparés dans votre navigateur, puis envoyés uniquement à l’adresse Ollama que vous configurez. Aucun stockage distant ni envoi vers un fournisseur cloud n’est prévu.</p></div>
@@ -2576,7 +2590,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
 
       </>}
       {(interfaceMode === 'diagnostic' || !showAiSettings) && <footer><span>Compagnon Correcteur de Devoirs</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>}
-      </div>
+      </div>}
     </main>
   );
 }
