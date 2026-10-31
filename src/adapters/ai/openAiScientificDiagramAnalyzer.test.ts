@@ -20,6 +20,7 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(String(url)).toBe('https://ai.example/v1/chat/completions');
     const body = JSON.parse(String(init?.body));
     expect(body.model).toBe('vision-model');
+    expect(body.max_completion_tokens).toBe(4096);
     expect(body.messages[0].content).toEqual([
       { type: 'text', text: expect.stringContaining('BARÈME') },
       { type: 'image_url', image_url: { url: 'data:image/png;base64,cG5n', detail: 'high' } },
