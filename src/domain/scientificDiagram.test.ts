@@ -19,19 +19,19 @@ describe('parseScientificDiagramAnalysis', () => {
     const result = parseScientificDiagramAnalysis(JSON.stringify(valid), rubric, 2);
     expect(result.diagrams[0].criteria[0]).toMatchObject({ points: 1.5, maxPoints: 2, title: 'Légendes' });
   });
-  it('requires and validates the seven quality dimensions for explicitly visual criteria', () => {
+  it('keeps the global score when the optional quality breakdown is missing or incomplete', () => {\n    const visualRubric: Rubric = { title: 'Schéma', criteria: [{ id: 'labels', title: 'Qualité du schéma', description: '', maxPoints: 10, analysisMode: 'scientific-diagram' }] };\n    const withoutDetails = parseScientificDiagramAnalysis(JSON.stringify(valid), visualRubric, 1);\n    expect(withoutDetails.diagrams[0].criteria[0].points).toBe(1.5);\n    expect(withoutDetails.diagrams[0].criteria[0].qualityBreakdown).toBeUndefined();\n    const partial = structuredClone(valid);\n    (partial.diagrams[0].criteria[0] as { qualityBreakdown?: typeof qualityBreakdown }).qualityBreakdown = [qualityBreakdown[0], { dimension: 'labels', status: 'unknown', evidence: '' }];\n    const parsed = parseScientificDiagramAnalysis(JSON.stringify(partial), visualRubric, 1);\n    expect(parsed.diagrams[0].criteria[0].points).toBe(1.5);\n    expect(parsed.diagrams[0].criteria[0].qualityBreakdown).toHaveLength(7);\n    expect(parsed.diagrams[0].criteria[0].qualityBreakdown?.find((item) => item.dimension === 'labels')).toMatchObject({ status: 'uncertain' });\n  });\n  it('validates a complete seven-dimension explanation when provided', () => {
     const visualRubric: Rubric = { title: 'Schéma', criteria: [{ id: 'labels', title: 'Qualité du schéma', description: '', maxPoints: 10, analysisMode: 'scientific-diagram' }] };
     const detailed = structuredClone(valid);
     (detailed.diagrams[0].criteria[0] as { qualityBreakdown?: typeof qualityBreakdown }).qualityBreakdown = qualityBreakdown;
     expect(parseScientificDiagramAnalysis(JSON.stringify(detailed), visualRubric, 1).diagrams[0].criteria[0].qualityBreakdown).toHaveLength(7);
     const missing = structuredClone(valid);
-    expect(() => parseScientificDiagramAnalysis(JSON.stringify(missing), visualRubric, 1)).toThrow(/détail de qualité.*absent/);
+    expect(parseScientificDiagramAnalysis(JSON.stringify(missing), visualRubric, 1).diagrams[0].criteria[0].points).toBe(1.5);
     const incomplete = structuredClone(detailed);
     (incomplete.diagrams[0].criteria[0] as { qualityBreakdown?: typeof qualityBreakdown }).qualityBreakdown?.pop();
-    expect(() => parseScientificDiagramAnalysis(JSON.stringify(incomplete), visualRubric, 1)).toThrow(/sept dimensions/);
+    expect(parseScientificDiagramAnalysis(JSON.stringify(incomplete), visualRubric, 1).diagrams[0].criteria[0].qualityBreakdown).toHaveLength(7);
     const invalidStatus = structuredClone(detailed);
     ((invalidStatus.diagrams[0].criteria[0] as { qualityBreakdown?: Array<{ dimension: string; status: string; evidence: string }> }).qualityBreakdown![0]).status = 'excellent';
-    expect(() => parseScientificDiagramAnalysis(JSON.stringify(invalidStatus), visualRubric, 1)).toThrow(/évaluation d'une dimension est invalide/);
+    expect(parseScientificDiagramAnalysis(JSON.stringify(invalidStatus), visualRubric, 1).diagrams[0].criteria[0].qualityBreakdown?.[0].status).toBe('uncertain');
   });
   it('rejects malformed JSON and criteria outside the rubric', () => {
     expect(() => parseScientificDiagramAnalysis('not json', rubric, 1)).toThrow(/JSON valide/);
