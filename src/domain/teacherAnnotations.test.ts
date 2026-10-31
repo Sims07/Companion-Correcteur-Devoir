@@ -30,3 +30,15 @@ describe('teacher annotation extraction contract', () => {
     expect(parseTeacherAnnotationDetection(JSON.stringify({ annotations: [{ text: 'x', kind: 'guess', color: 'red', location: 'margin', confidence: 'certain' }] }))).toEqual({ annotations: [] });
   });
 });
+
+describe('confirmed teacher annotation removal', () => {
+  it('removes only the first exact occurrence after teacher confirmation', async () => {
+    const { removeConfirmedTeacherAnnotation } = await import('./teacherAnnotations.ts');
+    expect(removeConfirmedTeacherAnnotation('Réponse entouré puis entouré', 'entouré')).toBe('Réponse puis entouré');
+  });
+
+  it('keeps the transcription unchanged when the annotation text is not present', async () => {
+    const { removeConfirmedTeacherAnnotation } = await import('./teacherAnnotations.ts');
+    expect(removeConfirmedTeacherAnnotation('Réponse de l’étudiant', '2/3')).toBe('Réponse de l’étudiant');
+  });
+});
