@@ -104,15 +104,18 @@ function persist(records: NetworkRequestRecord[]): void {
     storageWarning = null;
     return;
   } catch {
-    try {
-      const older = persistedRecords(records).slice(0, Math.max(1, Math.floor(records.length / 2)));
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(older));
-      storageWarning = 'Historique partiellement enregistré : stockage local presque plein.';
-      return;
-    } catch {
-      try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* Storage may be unavailable. */ }
-      storageWarning = 'Historique non enregistré : stockage local plein.';
+    let retained = Math.floor(records.length / 2);
+    while (retained > 0) {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedRecords(records).slice(0, retained)));
+        storageWarning = 'Historique partiellement enregistré : les requêtes les plus anciennes ont été purgées.';
+        return;
+      } catch {
+        retained = Math.floor(retained / 2);
+      }
     }
+    try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* Storage may be unavailable. */ }
+    storageWarning = 'Historique non enregistré : stockage local plein.';
   }
 }
 
@@ -177,11 +180,11 @@ export function installNetworkInspector(): () => void {
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
-              body = truncate(body + decoder.decode(value, { stream: true }));
+              body += decoder.decode(value, { stream: true });
               update({ responseBody: body });
             }
             body += decoder.decode();
-            update({ responseBody: truncate(body), durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error' }, true);
+            update({ responseBody: body, durationMs: Math.round(performance.now() - started), state: response.ok ? 'success' : 'error' }, true);
           } catch (cause) {
             update({ responseBody: body, durationMs: Math.round(performance.now() - started), state: 'error', error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' }, true);
           }
