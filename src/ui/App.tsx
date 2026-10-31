@@ -757,7 +757,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
               const confidentDiagram = classification.kind === 'scientific-diagram' || classification.kind === 'mixed';
               const confidentOrientation = classification.confidence >= 0.9 && (classification.orientationConfidence ?? 0) >= 0.92;
               const degrees = classification.suggestedRotation;
-              if (!confidentDiagram || !confidentOrientation || !degrees || degrees === 0) return textImages[index];
+              if (!confidentDiagram || !confidentOrientation || !degrees) return textImages[index];
               return service.rotateImage(textImages[index], degrees);
             }));
             const hasAutomaticRotation = classifications.some((classification) =>
