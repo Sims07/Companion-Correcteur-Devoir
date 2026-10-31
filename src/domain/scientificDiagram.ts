@@ -51,14 +51,17 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
     if (typeof value.diagramType !== 'string' || typeof value.summary !== 'string' || !Array.isArray(value.criteria) || !Array.isArray(value.uncertainties)) {
       throw new Error(`Le contenu du schéma ${value.id} est incomplet.`);
     }
+    const criterionIds = new Set<string>();
     const criteria = value.criteria.map((item): DiagramCriterionAssessment => {
       if (!isRecord(item) || typeof item.criterionId !== 'string') throw new Error('Un résultat de critère est invalide.');
+      if (criterionIds.has(item.criterionId)) throw new Error(`Le critère ${item.criterionId} est répété pour le schéma ${value.id}.`);
+      criterionIds.add(item.criterionId);
       const expected = rubricCriteria.get(item.criterionId);
       if (!expected) throw new Error(`Le modèle a retourné un critère absent du barème : ${item.criterionId}.`);
       if (typeof item.points !== 'number' || !Number.isFinite(item.points) || item.points < 0 || item.points > expected.maxPoints) {
         throw new Error(`La note proposée pour « ${expected.title} » dépasse les limites du barème.`);
       }
-      if (typeof item.evidence !== 'string' || typeof item.confidence !== 'number' || item.confidence < 0 || item.confidence > 1 || typeof item.requiresTeacherReview !== 'boolean') {
+      if (typeof item.evidence !== 'string' || typeof item.confidence !== 'number' || !Number.isFinite(item.confidence) || item.confidence < 0 || item.confidence > 1 || typeof item.requiresTeacherReview !== 'boolean') {
         throw new Error(`Les éléments de preuve du critère « ${expected.title} » sont invalides.`);
       }
       return { criterionId: expected.id, title: expected.title, points: item.points, maxPoints: expected.maxPoints, evidence: item.evidence, confidence: item.confidence, requiresTeacherReview: item.requiresTeacherReview };
@@ -70,7 +73,7 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
         throw new Error(`Les coordonnées du schéma ${value.id} sont invalides.`);
       }
       const box = rawBounds as Record<string, number>;
-      if (box.x < 0 || box.y < 0 || box.width <= 0 || box.height <= 0 || box.x + box.width > 1 || box.y + box.height > 1) {
+      if (![box.x, box.y, box.width, box.height].every(Number.isFinite) || box.x < 0 || box.y < 0 || box.width <= 0 || box.height <= 0 || box.x + box.width > 1 || box.y + box.height > 1) {
         throw new Error(`Les coordonnées du schéma ${value.id} sortent de la page.`);
       }
       bounds = { x: box.x, y: box.y, width: box.width, height: box.height };
