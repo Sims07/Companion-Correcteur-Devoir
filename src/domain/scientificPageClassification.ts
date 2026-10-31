@@ -11,9 +11,36 @@ export interface ScientificPageClassification {
   orientationConfidence?: number;
 }
 
+/** Extract one complete JSON object from common local-model wrappers without relaxing schema validation. */
+function extractModelJsonObject(raw: string): string {
+  const withoutThinking = raw.replace(/<think>[\\s\\S]*?<\\/think>/gi, '').trim();
+  const fenced = withoutThinking.replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');
+  const start = fenced.indexOf('{');
+  if (start < 0) return fenced;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < fenced.length; index += 1) {
+    const character = fenced[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character === '\\\\') escaped = true;
+      else if (character === '"') inString = false;
+      continue;
+    }
+    if (character === '"') inString = true;
+    else if (character === '{') depth += 1;
+    else if (character === '}') {
+      depth -= 1;
+      if (depth === 0) return fenced.slice(start, index + 1);
+    }
+  }
+  return fenced;
+}
+
 /** Validate page routing decisions before they influence the correction pipeline. */
 export function parseScientificPageClassifications(raw: string, pageCount: number): ScientificPageClassification[] {
-  const cleaned = raw.trim().replace(/^\x60\x60\x60(?:json)?\s*/i, '').replace(/\s*\x60\x60\x60$/, '');
+  const cleaned = extractModelJsonObject(raw);
   let parsed: unknown;
   try { parsed = JSON.parse(cleaned); }
   catch { throw new Error('La classification Vision des pages n’est pas un JSON valide.'); }
