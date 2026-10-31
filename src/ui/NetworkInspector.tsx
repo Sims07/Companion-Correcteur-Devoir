@@ -13,8 +13,14 @@ function formatDuration(value: number | null): string {
   return value < 1_000 ? `${value} ms` : `${(value / 1_000).toFixed(2)} s`;
 }
 
+function formatDetail(value: unknown): string {
+  if (typeof value !== 'string') return JSON.stringify(value, null, 2);
+  if (!value) return 'Aucune donnée';
+  try { return JSON.stringify(JSON.parse(value), null, 2); } catch { return value; }
+}
+
 function Detail({ title, value }: { title: string; value: unknown }) {
-  return <section className="network-detail-section"><h3>{title}</h3><pre>{typeof value === 'string' ? value || 'Aucune donnée' : JSON.stringify(value, null, 2)}</pre></section>;
+  return <section className="network-detail-section"><h3>{title}</h3><pre>{formatDetail(value)}</pre></section>;
 }
 
 export function NetworkInspector() {
