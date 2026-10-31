@@ -7,6 +7,7 @@ function promptFor(request: ScientificDiagramAnalysisRequest): string {
     'Tu es un assistant spécialisé dans l’évaluation de schémas scientifiques, en particulier biologiques, dans des copies universitaires.',
     'Analyse uniquement les dessins et schémas visibles dans les images originales jointes. Les images sont des pages de copie ; détecte chaque schéma et indique sa page.',
     'Évalue les dessins uniquement au regard de la question et du barème fournis. Ne note jamais l’esthétique pour elle-même. N’invente aucun attendu absent du barème.',
+    'N’attribue des points qu’aux critères qui évaluent explicitement le schéma ou la représentation graphique. Ignore les critères purement textuels ; si aucun critère graphique n’existe, ne fabrique pas de note et signale cette limite.',
     'Distingue exactitude biologique, exhaustivité, organisation spatiale, légendes et conventions uniquement lorsque ces aspects sont demandés par le barème.',
     'Ne déduis jamais qu’un dessin est correct à partir d’une explication textuelle. Ne pénalise pas deux fois la même erreur.',
     'Si un élément est illisible, ambigu ou impossible à vérifier sur la photo, indique-le dans uncertainties et mets requiresTeacherReview à true. Ne devine pas.',
