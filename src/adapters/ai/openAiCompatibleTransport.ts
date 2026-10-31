@@ -202,13 +202,13 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
     }
     if (!response.ok && [400, 422].includes(response.status)) {
       const messages = requestBody.messages;
-      const hasHighDetailImage = Array.isArray(messages) && messages.some((message) =>
+      const hasImageDetail = Array.isArray(messages) && messages.some((message) =>
         message && typeof message === 'object'
         && Array.isArray((message as { content?: unknown }).content)
         && ((message as { content: Array<{ type?: string; image_url?: { detail?: string } }> }).content)
-          .some((part) => part.type === 'image_url' && part.image_url?.detail === 'high'),
+          .some((part) => part.type === 'image_url' && part.image_url?.detail !== undefined),
       );
-      if (hasHighDetailImage && await providerRejectsParameter(response, 'detail')) {
+      if (hasImageDetail && await providerRejectsParameter(response, 'detail')) {
         const fallbackBody = JSON.parse(JSON.stringify(requestBody)) as Record<string, unknown>;
         for (const message of fallbackBody.messages as Array<{ content?: Array<{ type?: string; image_url?: { detail?: string } }> }>) {
           for (const part of message.content ?? []) {
