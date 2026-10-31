@@ -18,10 +18,10 @@ export function buildIncrementalCriterionPrompt(
   const outputExample = {
     criterionId: criterion.id,
     points: 0,
-    rationale: 'Le point décisif est conforme.',
+    rationale: 'L’étape attendue n’est pas démontrée.',
     evidence: 'Fragment exact de la copie.',
     confidence: 'medium',
-    annotationSuggestion: '',
+    annotationSuggestion: 'Précise l’étape manquante.',
     pageNumber: 1,
     locationHint: 'Repère textuel approximatif si identifiable.',
     locationBox: { x: 100, y: 200, width: 400, height: 120 },
