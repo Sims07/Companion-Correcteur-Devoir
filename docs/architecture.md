@@ -2,7 +2,7 @@
 
 ## Objectif et contraintes
 
-L'application aide les enseignants universitaires en biologie à analyser des copies manuscrites à partir d'un barème. La confidentialité est une contrainte d'architecture : les images sont préparées dans le navigateur. Le parcours textuel et la lecture courante utilisent l'endpoint Ollama configuré. Une exception dédiée, facultative et explicitement autorisée par copie permet d'envoyer les pages originales à l'endpoint API compatible OpenAI configuré pour l'analyse spécialisée des schémas scientifiques. Aucun basculement silencieux vers un fournisseur cloud n'est autorisé.
+L'application aide les enseignants universitaires en biologie à analyser des copies manuscrites à partir d'un barème. La confidentialité est une contrainte d'architecture : les images sont préparées dans le navigateur. Le parcours textuel et la lecture courante utilisent l'endpoint Ollama configuré. L'analyse spécialisée des schémas utilise, à la demande de l'enseignant, l'endpoint API compatible OpenAI configuré par l'utilisateur (serveur auto-hébergé dans son installation). L'analyse démarre uniquement au clic sur son bouton ; aucun fournisseur cloud tiers n'est imposé ni utilisé par défaut.
 
 L'application suit une **architecture hexagonale (ports et adaptateurs)** avec dépendances orientées vers le cœur métier. React, IndexedDB, les APIs du navigateur et Ollama sont des détails externes remplaçables.
 
