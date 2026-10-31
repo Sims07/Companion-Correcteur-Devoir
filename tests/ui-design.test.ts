@@ -176,14 +176,16 @@ describe('UI design system', () => {
 
   it('prioritizes actionable review alerts and keeps original copy evidence available during grading', () => {
     expect(appComponent).toContain('review-alerts');
-    expect(appComponent).toContain('getReviewInsights(review)');
-    expect(appComponent).toContain('Afficher les ${reviewInsights.flaggedCriteriaIds.length} critères à vérifier');
+    expect(appComponent).toContain('getReviewFocus(review, rubric.criteria)');
+    expect(appComponent).toContain('flaggedCriteriaIds.size');
+    expect(appComponent).toContain('Synthèse des éléments à examiner');
+    expect(appComponent).not.toContain('Afficher les ${reviewInsights.flaggedCriteriaIds.length} critères à vérifier');
     expect(appComponent).toContain('className="review-workspace"');
     expect(appComponent).toContain('className="review-source-pane"');
     expect(appComponent).toContain('Copie de référence');
     expect(appComponent).toContain('className="review-transcription"');
     expect(appComponent).not.toContain('showSourceEvidence');
-    expect(appComponent).toContain('La transcription est absente');
+    expect(appComponent).toContain('La lecture de la copie mérite une vérification sur l’image originale.');
     expect(appComponent).toContain('correction-batch-progress');
     expect(appComponent).toContain('Ajouter une autre copie');
     expect(appComponent).toContain('Chaque copie enregistrée reste disponible dans « Corrections enregistrées ».');
