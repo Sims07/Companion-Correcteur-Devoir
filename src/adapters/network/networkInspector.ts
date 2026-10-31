@@ -29,7 +29,7 @@ let storageWarning: string | null = null;
 let initialized = false;
 
 function truncate(value: string, limit = MAX_BODY_LENGTH): string {
-  const suffix = '\\n… contenu tronqué dans l’inspecteur';
+  const suffix = '\n… contenu tronqué dans l’inspecteur';
   return value.length > limit ? `${value.slice(0, Math.max(0, limit - suffix.length))}${suffix}` : value;
 }
 
@@ -105,15 +105,19 @@ function persist(records: NetworkRequestRecord[]): void {
     storageWarning = null;
     return;
   } catch {
+    const existing = (() => { try { return window.localStorage.getItem(STORAGE_KEY) ?? ''; } catch { return ''; } })();
+    const otherStorageBytes = Math.max(0, storageBytes() - ((STORAGE_KEY.length + existing.length) * 2));
     let retained = Math.floor(records.length / 2);
     while (retained > 0) {
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedRecords(records).slice(0, retained)));
-        storageWarning = 'Historique partiellement enregistré : les requêtes les plus anciennes ont été purgées.';
-        return;
-      } catch {
-        retained = Math.floor(retained / 2);
+      const smaller = JSON.stringify(persistedRecords(records).slice(0, retained));
+      if (otherStorageBytes + (STORAGE_KEY.length + smaller.length) * 2 <= MAX_STORAGE_BYTES) {
+        try {
+          window.localStorage.setItem(STORAGE_KEY, smaller);
+          storageWarning = 'Historique partiellement enregistré : les requêtes les plus anciennes ont été purgées.';
+          return;
+        } catch { /* Continue purging older entries before giving up. */ }
       }
+      retained = Math.floor(retained / 2);
     }
     try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* Storage may be unavailable. */ }
     storageWarning = 'Historique non enregistré : stockage local plein.';
