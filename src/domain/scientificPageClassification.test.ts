@@ -76,6 +76,17 @@ describe('scientific page classification', () => {
     ] }), 1)).toThrow(/confiance d’orientation/);
   });
 
+  it('ignores partial or invalid orientation metadata and normalizes -90 degrees', () => {
+    const parsed = parseScientificPageClassifications(JSON.stringify({ pages: [
+      { pageNumber: 1, kind: 'scientific-diagram', confidence: 0.98, reason: 'Schéma', suggestedRotation: -90, orientationConfidence: 0.96 },
+      { pageNumber: 2, kind: 'text', confidence: 0.99, reason: 'Texte', suggestedRotation: 90 },
+      { pageNumber: 3, kind: 'text', confidence: 0.99, reason: 'Texte', suggestedRotation: 45, orientationConfidence: 0.9 },
+      { pageNumber: 4, kind: 'text', confidence: 0.99, reason: 'Texte', suggestedRotation: 180, orientationConfidence: 2 },
+    ] }), 4);
+    expect(parsed[0]).toMatchObject({ suggestedRotation: 270, orientationConfidence: 0.96 });
+    expect(parsed.slice(1).every((page) => page.suggestedRotation === undefined && page.orientationConfidence === undefined)).toBe(true);
+  });
+
   it('rejects unsupported page kinds and malformed JSON', () => {
     expect(() => parseScientificPageClassifications('{bad', 1)).toThrow(/JSON valide/);
     expect(() => parseScientificPageClassifications(JSON.stringify({ pages: [
