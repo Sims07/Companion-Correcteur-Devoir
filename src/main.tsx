@@ -16,6 +16,7 @@ import { eraseTeacherAnnotationColor, prepareLocalFiles, rotateLocalImage } from
 import { importRubricFile } from './adapters/files/rubricImport.ts';
 import './ui/styles.css';
 import './ui/correctionFlow.css';
+import './ui/annotationInk.css';
 import './ui/modelSelect.css';
 import './ui/observability.css';
 import './ui/design-system/tokens.css';
