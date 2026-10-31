@@ -542,6 +542,7 @@ export function createOllamaProvider(
 
       let transcription = request.transcription;
       const detectedTeacherAnnotations: Array<{ page: number; annotations: ReturnType<typeof parseTeacherAnnotationDetection>['annotations'] }> = [];
+      const confirmedTeacherAnnotationIds = new Set<string>();
       const pageTranscriptions: Array<{ pageLabel: string; pageText: string; doubtfulMarker: string }> = [];
       const shouldReadCopyImages = !transcription || (request.detectTeacherAnnotations && !request.visionOnly && !request.teacherAnnotations && Boolean(request.images?.length));
       if (shouldReadCopyImages) {
@@ -582,7 +583,12 @@ export function createOllamaProvider(
             for (const annotation of detection.annotations) {
               if (annotation.confidence === 'high') pageText = removeConfirmedTeacherAnnotation(pageText, annotation.text);
             }
-            if (detection.annotations.length) detectedTeacherAnnotations.push({ page: index + 1, annotations: detection.annotations });
+            if (detection.annotations.length) {
+              detectedTeacherAnnotations.push({ page: index + 1, annotations: detection.annotations });
+              detection.annotations.forEach((annotation, annotationIndex) => {
+                if (annotation.confidence === 'high') confirmedTeacherAnnotationIds.add(`page-${index + 1}-annotation-${annotationIndex + 1}`);
+              });
+            }
           }
           if (!pageText) throw new Error(`Aucun texte n’a pu être lu sur ${pageLabel}.`);
           const doubtfulMarker = transcriptionTruncated ? ' [LECTURE DOUTEUSE : transcription possiblement interrompue par une longue zone blanche ou la limite de génération]' : '';
@@ -603,6 +609,7 @@ export function createOllamaProvider(
           const confirmedIds = new Set(decisions.filter((decision) => decision.confirmed).map((decision) => decision.id));
           for (const candidate of candidates) {
             if (!confirmedIds.has(candidate.id)) continue;
+            confirmedTeacherAnnotationIds.add(candidate.id);
             const page = pageTranscriptions[candidate.page - 1];
             if (page) page.pageText = removeConfirmedTeacherAnnotation(page.pageText, candidate.text);
           }
@@ -620,9 +627,14 @@ export function createOllamaProvider(
       // This keeps the two model roles independently measurable.
       if (request.visionOnly) return transcription ?? '';
 
+      const confirmedTeacherAnnotations = detectedTeacherAnnotations.flatMap((page) =>
+        page.annotations.flatMap((annotation, index) => confirmedTeacherAnnotationIds.has(`page-${page.page}-annotation-${index + 1}`)
+          ? [{ ...annotation, location: `Page ${page.page} · ${annotation.location}` }]
+          : []),
+      );
       const teacherAnnotationsText = request.detectTeacherAnnotations && request.teacherAnnotations
         ? request.teacherAnnotations
-        : detectedTeacherAnnotations.length ? formatTeacherAnnotations(detectedTeacherAnnotations.flatMap((page) => page.annotations.map((annotation) => ({ ...annotation, location: `Page ${page.page} · ${annotation.location}` })))) : '';
+        : confirmedTeacherAnnotations.length ? formatTeacherAnnotations(confirmedTeacherAnnotations) : '';
       if (request.detectTeacherAnnotations) onTranscription?.(teacherAnnotationsText, 'annotations');
       else if (teacherAnnotationsText) onTranscription?.(teacherAnnotationsText, 'annotations');
       onStage?.('grading');
