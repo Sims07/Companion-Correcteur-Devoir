@@ -118,7 +118,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(explanation).not.toHaveAttribute('open', '');
   await explanation.locator('summary').click();
   await expect(explanation.getByText('La réponse mentionne la membrane.')).toBeVisible();
-  await expect(page.getByRole('img', { name: 'Page originale 1 de la copie' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Page de travail 1 de la copie' })).toBeVisible();
   await expect(page.getByText('Texte reconnu par l’IA')).toBeVisible();
   const locateEvidence = page.getByRole('button', { name: 'Repérer la preuve du critère Rôle de la membrane sur la page 1' });
   await expect(locateEvidence).toBeVisible();
