@@ -18,12 +18,18 @@ describe('AI model configuration persistence', () => {
     const legacy = parseAiModelConfiguration(JSON.stringify({ endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'analysis' }));
     expect(legacy.criterionByCriterion).toBe(true);
   });
-  it('keeps optional region localization disabled by default and clamps transcription limits', () => {
-    expect(defaultAiModelConfiguration.regionsEnabled).toBe(false);
-    expect(parseAiModelConfiguration(JSON.stringify({ ...defaultAiModelConfiguration, regionsEnabled: true, regionsModel: 'locator', transcriptionTokenLimit: 4096 }))).toMatchObject({
-      regionsEnabled: true, regionsModel: 'locator', transcriptionTokenLimit: 2048,
-    });
+  it('ignores retired region-localization settings and clamps transcription limits', () => {
+    const legacy = parseAiModelConfiguration(JSON.stringify({ ...defaultAiModelConfiguration, regionsEnabled: true, regionsModel: 'locator', transcriptionTokenLimit: 4096 }));
+    expect(legacy).toMatchObject({ transcriptionTokenLimit: 2048 });
+    expect(legacy).not.toHaveProperty('regionsEnabled');
+    expect(legacy).not.toHaveProperty('regionsModel');
     expect(parseAiModelConfiguration(JSON.stringify({ ...defaultAiModelConfiguration, transcriptionTokenLimit: 32 })).transcriptionTokenLimit).toBe(128);
+  });
+  it('removes retired localization settings from saved model profiles', () => {
+    const legacyProfile = { ...profile, configuration: { ...profile.configuration, regionsEnabled: true, regionsModel: 'locator' } };
+    const [restored] = parseAiModelProfiles(JSON.stringify([legacyProfile]));
+    expect(restored.configuration).not.toHaveProperty('regionsEnabled');
+    expect(restored.configuration).not.toHaveProperty('regionsModel');
   });
   it('persists model-aware transcription prompt mode and clamps repetition penalty', () => {
     expect(defaultAiModelConfiguration.transcriptionPromptMode).toBe('auto');

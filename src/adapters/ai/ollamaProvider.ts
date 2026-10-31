@@ -142,15 +142,6 @@ async function readOllamaStream(response: Response, onChunk?: (chunk: string) =>
   };
 }
 
-function isValidLocationBox(value: unknown): value is { x: number; y: number; width: number; height: number } {
-  if (typeof value !== 'object' || value === null) return false;
-  const box = value as Record<string, unknown>;
-  return ['x', 'y', 'width', 'height'].every((key) => typeof box[key] === 'number' && Number.isInteger(box[key])) &&
-    Number(box.x) >= 0 && Number(box.y) >= 0 && Number(box.width) > 0 && Number(box.height) > 0 &&
-    Number(box.x) + Number(box.width) <= 1000 && Number(box.y) + Number(box.height) <= 1000;
-}
-
-
 function cleanTranscription(raw: string): string {
   return raw.replace(/(?:\r?\n){2,}\s*$/g, '').trimEnd();
 }
@@ -175,22 +166,6 @@ export function buildTranscriptionPrompt(model: string, mode: 'auto' | 'ocr' | '
     'Ne répète aucun passage. N’ajoute aucun préambule, commentaire ni conclusion.',
     'Réduis les zones blanches à au plus deux lignes vides consécutives afin de ne pas interrompre la transcription.',
   ].join('\n');
-}
-
-function normalizeRegions(raw: string, pageNumber: number, transcription: string): string[] {
-  try {
-    const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-    const parsed: unknown = JSON.parse(cleaned);
-    if (typeof parsed !== 'object' || parsed === null || !('regions' in parsed) || !Array.isArray(parsed.regions)) return [];
-    return parsed.regions.filter((item): item is { id: string; text: string; x: number; y: number; width: number; height: number } => {
-      if (typeof item !== 'object' || item === null) return false;
-      const region = item as Record<string, unknown>;
-      return typeof region.id === 'string' && typeof region.text === 'string' && region.text.length > 0 && transcription.includes(region.text) && isValidLocationBox(region);
-    }).map((region) =>
-      `[ANCRE_VISUELLE page=${pageNumber} id=${region.id} x=${region.x} y=${region.y} width=${region.width} height=${region.height}] ${region.text}`);
-  } catch {
-    return [];
-  }
 }
 
 interface OllamaTagsResponse {
@@ -317,17 +292,14 @@ export function createOllamaProvider(
         'LONGUEUR DES CHAMPS : summary en 15 mots maximum ; rationale en une phrase de 18 mots maximum ; evidence en 12 mots maximum ; annotationSuggestion en 12 mots maximum. Le professeur lit déjà la copie : ne la paraphrase pas, ne répète pas le barème et ne raconte pas ton raisonnement. Donne uniquement le fait décisif qui explique les points attribués ou retirés. Si points atteint maxPoints et confidence vaut high, rationale peut être une chaîne vide.',
         'PREUVES : evidence est toujours obligatoire et non vide : fournis un fragment court, fidèle et localisable de la réponse (12 mots maximum). Ne recopie pas une phrase entière si quelques mots suffisent. Ne fabrique jamais de citation. Si aucune preuve fiable n’est disponible, indique explicitement « preuve non disponible » et demande une vérification.',
         'REPÉRAGE DE PAGE : si tu peux associer evidence à une page de la copie de façon fiable, ajoute pageNumber avec son numéro à partir de 1, selon l’ordre des pages importées. Les transcriptions marquent chaque page par [ nom de page ]. Si la page n’est pas identifiable avec suffisamment de confiance, omets pageNumber. Ce champ identifie une page, pas une zone exacte.',
-'COMMENTAIRE À REPORTER SUR LA COPIE : lorsque le critère n’obtient pas tous ses points, propose annotationSuggestion, sauf si aucune remarque manuscrite ne peut être formulée sans inventer un fait. Si le maximum est attribué avec confidence high, annotationSuggestion doit être une chaîne vide. C’est une phrase courte, concrète, directement réutilisable par l’enseignant au stylo et adressée à l’étudiant (par exemple « Précise le rôle de la membrane plasmique » ou « Attention : la mitose ne produit pas quatre cellules »). Elle doit nommer l’erreur, l’élément manquant ou la précision attendue à partir de la preuve et du barème ; ne donne ni une consigne vague (« à revoir »), ni la note, ni une explication générale destinée au professeur. Si le critère est pleinement satisfait, ne propose un commentaire que s’il apporte une vraie valeur pédagogique. N’utilise jamais locationHint à la place du commentaire : locationHint indique seulement où écrire, annotationSuggestion indique quoi écrire.',
-        'ZONE VISUELLE APPROXIMATIVE : lorsque tu analyses directement les images originales et peux localiser un passage avec une confiance raisonnable, ajoute locationBox avec x, y, width et height en coordonnées entières de 0 à 1000, origine en haut à gauche, rapportées à la page entière (x/y = coin supérieur gauche, width/height = taille). Le rectangle doit englober le passage utile, pas toute la page. N’invente jamais une zone à partir du seul texte transcrit : dans ce cas, omets locationBox. Si tu n’es pas sûr, préfère un rectangle large approximatif ou omets-le. Les coordonnées sont indicatives et seront vérifiées par l’enseignant.',
-        'REPÈRE TEXTUEL APPROXIMATIF : ajoute locationHint uniquement si tu peux aider l’enseignant à retrouver le passage, par exemple « deuxième phrase de la réponse à la question 2 » ou « légende du schéma en bas de page ». Ne prétends jamais fournir des coordonnées exactes. Si tu ne peux pas identifier le repère de manière fiable, omets le champ. Si tu ne reçois qu’une transcription et non l’image originale, fonde ce repère uniquement sur les repères explicitement présents dans le texte.',
-        'ANCRES ISSUES DE LA LECTURE : la transcription peut contenir des lignes [ANCRE_VISUELLE page=N id=... x=X y=Y width=W height=H] suivies du texte visible correspondant. Si evidence correspond à une de ces lignes, recopie exactement ses coordonnées dans locationBox et N dans pageNumber. Ne modifie jamais les valeurs et ne crée aucune coordonnée. Si aucune ancre ne correspond clairement, omets locationBox.',
+'COMMENTAIRE À REPORTER SUR LA COPIE : lorsque le critère n’obtient pas tous ses points, propose annotationSuggestion, sauf si aucune remarque manuscrite ne peut être formulée sans inventer un fait. Si le maximum est attribué avec confidence high, annotationSuggestion doit être une chaîne vide. C’est une phrase courte, concrète, directement réutilisable par l’enseignant au stylo et adressée à l’étudiant (par exemple « Précise le rôle de la membrane plasmique » ou « Attention : la mitose ne produit pas quatre cellules »). Elle doit nommer l’erreur, l’élément manquant ou la précision attendue à partir de la preuve et du barème ; ne donne ni une consigne vague (« à revoir »), ni la note, ni une explication générale destinée au professeur. Si le critère est pleinement satisfait, ne propose un commentaire que s’il apporte une vraie valeur pédagogique.',
         'ATTRIBUTION DES POINTS : points doit être un nombre entre 0 et maxPoints du critère. Le maximum n’est justifié que si tous les attendus essentiels explicitement décrits sont démontrés. Accorde les points partiels selon les éléments effectivement établis ; n’invente pas de sous-points si le barème ne les prévoit pas. Zéro signifie que la réponse observable ne répond pas aux attendus ou qu’aucune réponse n’est présente, pas une valeur par défaut.',
         'DISTINCTIONS OBLIGATOIRES : distingue (a) réponse absente, (b) réponse présente mais scientifiquement incorrecte, (c) passage marqué [illisible] ou non transcrit de façon fiable, et (d) réponse ambiguë dont plusieurs interprétations plausibles changeraient la note. Ne transforme jamais une incertitude de transcription en erreur scientifique. Ne devine jamais le contenu illisible.',
         'CONFIANCE : confidence mesure la solidité de l’interprétation des éléments disponibles, pas le niveau de maîtrise scientifique ni la note. Une réponse lisible peut mériter zéro ou une note partielle. Utilise low, medium ou high ; réserve low aux critères réellement incertains et explique pourquoi.',
         'QUESTION À L’ENSEIGNANT : pose une question uniquement si tu peux nommer une ambiguïté concrète dont la résolution pourrait changer la note. La question doit expliquer les interprétations possibles. N’écris aucune question générique. Une confiance faible seule n’impose pas de question ; sinon questionForTeacher doit être une chaîne vide et questionsForTeacher un tableau vide.',
         'EXHAUSTIVITÉ : en correction complète, retourne exactement une entrée par critère du barème, sans doublon ni critère inconnu. En mode incrémental, retourne uniquement le critère explicitement demandé pour cet appel. Si une réponse semble présente mais est illisible, ne la traite pas comme absente ; signale la limite et demande une précision uniquement si elle peut changer la note.',
         'AUTO-CONTRÔLE : avant de répondre, vérifie les identifiants, l’unicité, la présence de tous les critères en correction complète (ou du seul critère cible en mode incrémental), les limites de points, la cohérence entre points/rationale/evidence et le fait que chaque note maximale est soutenue par tous les attendus essentiels. Le code validera également la structure et les limites mécaniques ; ne remplace pas le jugement pédagogique par une somme inventée.',
-        `SCHÉMA JSON ATTENDU : ${JSON.stringify({ summary: 'synthèse prudente indiquant que la proposition doit être vérifiée', criteria: [{ criterionId: exampleCriterionId, points: 0, rationale: 'éléments démontrés, partiels, manquants ou incorrects reliés au barème', evidence: 'preuve fidèle ou limite explicite', pageNumber: 1, annotationSuggestion: 'commentaire court à éventuellement reporter au stylo', locationHint: 'repère textuel approximatif, si fiable', locationBox: { x: 100, y: 200, width: 500, height: 100 }, confidence: 'low', questionForTeacher: '' }], questionsForTeacher: [] })}. L’identifiant montré est un exemple : utilise pour chaque entrée son propre identifiant exact. summary doit rester prudent.`,
+        `SCHÉMA JSON ATTENDU : ${JSON.stringify({ summary: 'synthèse prudente indiquant que la proposition doit être vérifiée', criteria: [{ criterionId: exampleCriterionId, points: 0, rationale: 'éléments démontrés, partiels, manquants ou incorrects reliés au barème', evidence: 'preuve fidèle ou limite explicite', pageNumber: 1, annotationSuggestion: 'commentaire court à éventuellement reporter au stylo', confidence: 'low', questionForTeacher: '' }], questionsForTeacher: [] })}. L’identifiant montré est un exemple : utilise pour chaque entrée son propre identifiant exact. summary doit rester prudent.`,
         'La correction produite est une proposition de travail et non une validation définitive.',
         `BARÈME ACTUEL (JSON, référence de notation) :\n<barème>\n${request.rubric}\n</barème>`,
         `CONSIGNE DE L’ENSEIGNANT :\n<consigne_enseignant>\n${request.question}\n</consigne_enseignant>`,
@@ -556,7 +528,7 @@ export function createOllamaProvider(
 
       let transcription = request.transcription;
       const detectedTeacherAnnotations: Array<{ page: number; annotations: ReturnType<typeof parseTeacherAnnotationDetection>['annotations'] }> = [];
-      const pageTranscriptions: Array<{ pageLabel: string; pageText: string; doubtfulMarker: string; regionAnchors: string[] }> = [];
+      const pageTranscriptions: Array<{ pageLabel: string; pageText: string; doubtfulMarker: string }> = [];
       if (!transcription) {
         onStage?.('reading');
         
@@ -578,60 +550,17 @@ export function createOllamaProvider(
               repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
               allowTruncated: true,
               onDoneReason: (reason) => { transcriptionTruncated = reason === 'length'; },
-              keepAlive: settings.regionsEnabled
-                ? (settings.regionsModel?.trim() || visionModel) === visionModel ? '30s' : 0
-                : index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
+              keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
               onSuspiciousStop: () => { transcriptionTruncated = true; },
             },
           );
           if (/(?:\r?\n){4}$/.test(pageTranscription)) transcriptionTruncated = true;
           const pageText = cleanTranscription(pageTranscription);
           if (!pageText) throw new Error(`Aucun texte n’a pu être lu sur ${pageLabel}.`);
-          const regionModelForPage = settings.regionsModel?.trim() || visionModel;
-          const isLastPage = index === (request.images?.length ?? 0) - 1;
-          if (isLastPage && settings.regionsEnabled && regionModelForPage === visionModel && transcriptionTruncated) {
-            // Localization was planned with the same resident model, but the page is doubtful:
-            // explicitly release it because the localization call will be skipped.
-            await providerFetch(`${endpoint}/api/chat`, annotateNetworkRequest({
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                model: visionModel,
-                stream: false,
-                think: false,
-                keep_alive: 0,
-                options: { num_predict: 1, temperature: 0 },
-                messages: [{ role: 'user', content: ' ' }],
-              }),
-            }, 'Libérer le modèle de vision', `Modèle ${visionModel} après lecture de ${pageLabel}`)).catch(() => undefined);
-          }
-          let regionAnchors: string[] = [];
-          if (settings.regionsEnabled && !transcriptionTruncated) {
-            const regionModel = settings.regionsModel?.trim() || visionModel;
-            const regionResult = await sendStream(
-              regionModel,
-              [
-                'Locate the answer regions on this page. Return only a JSON object with this exact shape:',
-                '{ "regions": [{ "id": "r1", "text": "exact visible excerpt", "x": 120, "y": 240, "width": 280, "height": 90 }] }',
-                'If no region can be located, return {"regions":[]}. Coordinates must be integers from 0 to 1000 relative to the full page, origin top-left. Include only regions whose text exactly matches the transcription. Do not transcribe again, grade, or infer uncertain coordinates.',
-                `TRANSCRIPTION (reference only):\n${pageText}`,
-              ].join('\n\n'),
-              [providerImage(image)],
-              undefined,
-              true,
-              false,
-              {
-                kind: 'vision', stage: 'reading', temperature: 0,
-                generationTokenLimit: 1024,
-                keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
-              },
-            ).catch(() => '');
-            regionAnchors = normalizeRegions(regionResult, index + 1, pageText);
-          }
           const doubtfulMarker = transcriptionTruncated ? ' [LECTURE DOUTEUSE : transcription possiblement interrompue par une longue zone blanche ou la limite de génération]' : '';
-          pageTranscriptions.push({ pageLabel, pageText, doubtfulMarker, regionAnchors });
+          pageTranscriptions.push({ pageLabel, pageText, doubtfulMarker });
         }
-        transcription = pageTranscriptions.map(({ pageLabel, pageText, doubtfulMarker, regionAnchors }) => [`[ ${pageLabel} ]`, pageText + doubtfulMarker, ...regionAnchors].join('\n')).join('\n\n');
+        transcription = pageTranscriptions.map(({ pageLabel, pageText, doubtfulMarker }) => [`[ ${pageLabel} ]`, pageText + doubtfulMarker].join('\n')).join('\n\n');
       }
 
       if (request.detectTeacherAnnotations && !request.visionOnly) {
@@ -659,8 +588,8 @@ export function createOllamaProvider(
       }
 
       if (pageTranscriptions.length > 0) {
-        transcription = pageTranscriptions.map(({ pageLabel, pageText, doubtfulMarker, regionAnchors }) => [
-          `[ ${pageLabel} ]`, pageText + doubtfulMarker, ...regionAnchors,
+        transcription = pageTranscriptions.map(({ pageLabel, pageText, doubtfulMarker }) => [
+          `[ ${pageLabel} ]`, pageText + doubtfulMarker,
         ].join('\n')).join('\n\n');
         onTranscription?.(transcription, 'copy');
       }
@@ -795,9 +724,6 @@ export function createOllamaProvider(
                 evidence: typeof candidate.evidence === 'string' ? candidate.evidence.trim() : '',
                 ...(typeof candidate.annotationSuggestion === 'string' && candidate.annotationSuggestion.trim() ? { annotationSuggestion: candidate.annotationSuggestion.trim() } : {}),
                 ...(typeof candidate.pageNumber === 'number' && Number.isInteger(candidate.pageNumber) && candidate.pageNumber >= 1 ? { pageNumber: candidate.pageNumber } : {}),
-                ...(typeof candidate.locationHint === 'string' && candidate.locationHint.trim() ? { locationHint: candidate.locationHint.trim() } : {}),
-                ...(isValidLocationBox(candidate.locationBox) ? { locationBox: candidate.locationBox } : {}),
-                ...(isValidLocationBox(candidate.locationBox) ? { locationBox: candidate.locationBox } : {}),
                 ...(typeof candidate.questionForTeacher === 'string' && candidate.questionForTeacher.trim() ? { questionForTeacher: candidate.questionForTeacher.trim() } : {}),
               };
               completed.push(proposal);
