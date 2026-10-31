@@ -86,7 +86,7 @@ test('opens the local observability workspace and explores a trace without expos
   await expect(page.getByText('Exécutions observées')).toBeVisible();
   await expect(page.getByText('1 résultat(s) de modèle · 1 correction(s)')).toBeVisible();
   await expect(page.getByText('Qwen 3.5 · test comparatif').first()).toBeVisible();
-  await expect(page.getByText('SCHÉMA SCIENTIFIQUE')).toBeVisible();
+  await expect(page.getByText('SCHÉMA SCIENTIFIQUE', { exact: true })).toBeVisible();
   await expect(page.getByText('TRANSCRIPTION PRIVÉE ÉVALUATION')).toHaveCount(0);
   await expect(page.getByText('SORTIE PRIVÉE ÉVALUATION')).toHaveCount(0);
   await expect(page.locator('.observability-model-list').getByText('qwen3.5:4b')).toBeVisible();
