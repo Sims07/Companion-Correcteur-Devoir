@@ -553,7 +553,8 @@ export function createOllamaProvider(
       if (!transcription) {
         onStage?.('reading');
         
-        for (const [index, image] of (request.images ?? []).entries()) {
+        const annotationImages = request.teacherAnnotationImages ?? request.images ?? [];
+        for (const [index, image] of annotationImages.entries()) {
           const pageLabel = image.fileName || `page ${index + 1}`;
           let transcriptionTruncated = false;
           const transcriptionLimit = Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048)));
@@ -616,7 +617,7 @@ export function createOllamaProvider(
               {
                 kind: 'vision', stage: 'reading', temperature: 0,
                 generationTokenLimit: 1024,
-                keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
+                keepAlive: index < annotationImages.length - 1 ? '30s' : 0,
               },
             ).catch(() => '');
             regionAnchors = normalizeRegions(regionResult, index + 1, pageText);
