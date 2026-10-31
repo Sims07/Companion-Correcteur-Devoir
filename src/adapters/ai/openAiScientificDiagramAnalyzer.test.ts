@@ -20,10 +20,13 @@ describe('OpenAI scientific diagram adapter', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(pageOne) } }] }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(pageTwo) } }] }), { status: 200 }));
     const analyzer = createOpenAiScientificDiagramAnalyzer(fetchMock);
-    await expect(analyzer.classifyPages({ ...request, images: [...request.images, { base64: 'cG5nMg==', mimeType: 'image/png' }] })).resolves.toMatchObject([
+    const diagnostic = vi.fn();
+    await expect(analyzer.classifyPages({ ...request, onDiagnosticResult: diagnostic, images: [...request.images, { base64: 'cG5nMg==', mimeType: 'image/png' }] })).resolves.toMatchObject([
       { pageNumber: 1, kind: 'text' }, { pageNumber: 2, kind: 'mixed' },
     ]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(diagnostic).toHaveBeenCalledTimes(2);
+    expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'scientific-diagram-classification', model: 'vision-model' }));
     for (const [index, [url, init]] of fetchMock.mock.calls.entries()) {
       expect(String(url)).toBe('https://ai.example/v1/chat/completions');
       const body = JSON.parse(String(init?.body));
