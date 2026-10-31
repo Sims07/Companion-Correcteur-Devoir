@@ -1832,3 +1832,11 @@
 }
 .review-focus-overview strong { color: var(--flow-text); }
 .review-focus-overview span { color: #9a5a17; }
+
+.review-alert-summary { display: grid; gap: 7px; margin-top: 12px; }
+.review-alert-reasons { display: flex; flex-wrap: wrap; gap: 6px; }
+.review-alert-reason { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 8px; background: var(--flow-surface-soft); color: var(--flow-text); font-size: 11px; font-weight: 750; }
+.review-alert-summary .rationale { margin: 0; color: var(--flow-text); font-size: 13px; line-height: 1.45; }
+.review-alert-summary .annotation-suggestion { margin: 0; }
+.review-safe-summary li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.review-safe-summary li small { flex: 1 1 100%; color: var(--flow-muted); font-size: 12px; line-height: 1.4; }
