@@ -47,8 +47,15 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
   let parsed: unknown;
   try { parsed = JSON.parse(cleaned); }
   catch { throw new Error('La réponse du modèle Vision n’est pas un JSON valide.'); }
-  if (!isRecord(parsed) || !Array.isArray(parsed.diagrams) || !Array.isArray(parsed.overallUncertainties)) {
-    throw new Error('La réponse Vision ne respecte pas le contrat d’analyse des schémas.');
+  if (!isRecord(parsed) || !Array.isArray(parsed.diagrams)) {
+    const receivedKeys = isRecord(parsed) ? Object.keys(parsed).join(', ') || 'aucune' : Array.isArray(parsed) ? 'tableau JSON' : typeof parsed;
+    throw new Error(`La réponse Vision ne contient pas la liste obligatoire "diagrams" (clés reçues : ${receivedKeys}). Consultez la réponse brute dans les diagnostics.`);
+  }
+  // Global uncertainties are helpful context, but they must not invalidate
+  // otherwise usable diagram scores when a Vision model omits this optional field.
+  const overallUncertainties = parsed.overallUncertainties ?? [];
+  if (!Array.isArray(overallUncertainties) || !overallUncertainties.every((item) => typeof item === 'string')) {
+    throw new Error('Les incertitudes globales de Vision doivent être une liste de textes.');
   }
   const rubricCriteria = new Map(rubric.criteria.map((criterion) => [criterion.id, criterion]));
   const ids = new Set<string>();
@@ -121,6 +128,5 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
     if (!value.uncertainties.every((item) => typeof item === 'string')) throw new Error('Les incertitudes doivent être des textes.');
     return { id: value.id, pageNumber, ...(bounds ? { bounds } : {}), diagramType: value.diagramType, summary: value.summary, criteria, uncertainties: value.uncertainties as string[] };
   });
-  if (!parsed.overallUncertainties.every((item) => typeof item === 'string')) throw new Error('Les incertitudes globales doivent être des textes.');
-  return { diagrams, overallUncertainties: parsed.overallUncertainties as string[] };
+  return { diagrams, overallUncertainties: overallUncertainties as string[] };
 }
