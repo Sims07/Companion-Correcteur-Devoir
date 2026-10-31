@@ -1,6 +1,6 @@
 import type { GradingProposal, CriterionProposal } from './grading.ts';
 import type { Rubric, RubricCriterion } from './rubric.ts';
-import type { ScientificDiagramAnalysis } from './scientificDiagram.ts';
+import type { ScientificDiagramAnalysis, ScientificDiagramQualityStatus } from './scientificDiagram.ts';
 
 export interface ScientificRubricPartition {
   textCriteria: RubricCriterion[];
@@ -17,7 +17,7 @@ export function partitionScientificRubric(rubric: Rubric): ScientificRubricParti
 
   for (const criterion of rubric.criteria) {
     const wording = `${criterion.title} ${criterion.description}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const isVisual = visualPattern.test(wording) || (legendPattern.test(wording) && diagramContextPattern.test(wording));
+    const isVisual = criterion.analysisMode === 'scientific-diagram' || (criterion.analysisMode !== 'text' && (visualPattern.test(wording) || (legendPattern.test(wording) && diagramContextPattern.test(wording))));
     (isVisual ? diagramCriteria : textCriteria).push(criterion);
   }
   return { textCriteria, diagramCriteria };
@@ -55,11 +55,27 @@ export function mergeScientificDiagramCriteria(
     const confidence = Math.min(...assessments.map((item) => item.confidence));
     const requiresTeacherReview = assessments.some((item) => item.requiresTeacherReview);
     const evidence = assessments.map((item) => `Page ${item.pageNumber} (${item.diagramType}) : ${item.evidence}`).join(' · ');
+    const qualityBreakdown = criterion.analysisMode === 'scientific-diagram'
+      ? (assessments[0].qualityBreakdown ?? []).map((dimension) => {
+        const matching = assessments.flatMap((assessment) => (assessment.qualityBreakdown ?? []).filter((entry) => entry.dimension === dimension.dimension));
+        const statuses = matching.map((entry) => entry.status);
+        const status: ScientificDiagramQualityStatus = statuses.length === 0 ? 'uncertain'
+          : statuses.every((value) => value === 'not-applicable') ? 'not-applicable'
+          : statuses.includes('uncertain') ? 'uncertain'
+          : statuses.every((value) => value === 'fulfilled') ? 'fulfilled'
+          : statuses.every((value) => value === 'missing') ? 'missing'
+          : statuses.every((value) => value === 'partial') ? 'partial'
+          : statuses.includes('missing') || statuses.includes('partial') ? 'partial'
+          : 'fulfilled';
+        return { ...dimension, status, evidence: matching.map((entry, index) => `Page ${assessments[index]?.pageNumber ?? '?'} : ${entry.evidence}`).join(' · ') };
+      })
+      : undefined;
     diagramProposals.set(criterion.id, {
       criterionId: criterion.id,
       points,
       rationale: `Évaluation réalisée sur le ou les schémas visibles, conformément au critère « ${criterion.title} ».`,
       evidence,
+      ...(qualityBreakdown ? { qualityBreakdown } : {}),
       confidence: confidence < 0.5 ? 'low' : confidence < 0.8 ? 'medium' : 'high',
       ...(requiresTeacherReview ? { questionForTeacher: 'Un point de l’évaluation visuelle nécessite votre vérification sur la copie.' } : {}),
     });

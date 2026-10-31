@@ -1,4 +1,5 @@
 import type { Rubric } from './rubric.ts';
+import type { ScientificDiagramQualityAssessment } from './scientificDiagram.ts';
 
 export type Confidence = 'low' | 'medium' | 'high';
 
@@ -7,6 +8,8 @@ export interface CriterionProposal {
   points: number;
   rationale: string;
   evidence: string;
+  /** Visual quality evidence returned by Vision for scientific-diagram rubric criteria. */
+  qualityBreakdown?: ScientificDiagramQualityAssessment[];
   /** One-based source page when the model can identify it reliably. */
   pageNumber?: number;
   /** Short teacher-facing comment that can be copied by hand onto the paper copy. */

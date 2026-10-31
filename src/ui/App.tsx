@@ -2050,6 +2050,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
               <label><span className="field-label">Description / attendus</span><input value={criterion.description} onChange={(event) => updateCriterion(criterion.id, { description: event.target.value })} /></label>
             </div>
             <label className="points-field"><span className="field-label">Points max.</span><input type="number" min="0" step="0.5" value={criterion.maxPoints} onChange={(event) => updateCriterion(criterion.id, { maxPoints: Number(event.target.value) })} /></label>
+            <label className="criterion-visual-toggle"><input type="checkbox" checked={partitionScientificRubric({ title: rubric.title, criteria: [criterion] }).diagramCriteria.length > 0} onChange={(event) => updateCriterion(criterion.id, { analysisMode: event.target.checked ? 'scientific-diagram' : 'text' })} /><span><strong>Analyse de schéma scientifique</strong><small>Évaluer ce critère sur l’image avec Vision, jamais sur la transcription.</small></span></label>
             <button className="icon-button" type="button" aria-label={`Supprimer ${criterion.title}`} onClick={() => setRubric((current) => ({ ...current, criteria: current.criteria.filter((item) => item.id !== criterion.id) }))}>×</button>
           </div>)}
         </div>
@@ -2376,6 +2377,19 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
               {item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Afficher la page ${item.pageNumber} pour le commentaire proposé`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Afficher la page liée</button>}
             </section>}
             <p className="rationale">{item.rationale}</p>
+            {item.qualityBreakdown && (
+              <details className="scientific-diagram-quality-details review-quality-details">
+                <summary>Pourquoi cette note ? · Détail du schéma</summary>
+                <ul>
+                  {item.qualityBreakdown.map((dimension) => (
+                    <li key={dimension.dimension}>
+                      <div><strong>{({ title: 'Titre et identification', 'scientific-accuracy': 'Exactitude scientifique', completeness: 'Exhaustivité et pertinence', labels: 'Légendes et annotations', 'arrows-relations': 'Flèches et relations', 'organization-conventions': 'Organisation et conventions', legibility: 'Lisibilité et soin' })[dimension.dimension]}</strong><span className={`quality-status quality-status-${dimension.status}`}>{({ fulfilled: 'Conforme', partial: 'Partiel', missing: 'Manquant', 'not-applicable': 'Non applicable', uncertain: 'Incertain' })[dimension.status]}</span></div>
+                      <p>{dimension.evidence}</p>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
             {item.confidence === 'low' && <p className="teacher-question"><strong>Lecture à vérifier :</strong> {item.questionForTeacher || 'Le modèle est incertain sur ce critère. Vérifiez la preuve citée et la note proposée ; aucune question précise ne peut être formulée automatiquement.'}</p>}
             <div className="review-controls">
               <label><span className="field-label">Votre note</span><input type="number" min="0" max={criterion?.maxPoints ?? 0} step="0.5" value={item.teacherPoints} onChange={(event) => updateReview(item.criterionId, { teacherPoints: Number(event.target.value), decision: 'adjusted' })} /></label>

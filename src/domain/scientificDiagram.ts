@@ -1,5 +1,15 @@
 import type { Rubric } from './rubric.ts';
 
+export const SCIENTIFIC_DIAGRAM_QUALITY_DIMENSIONS = ['title', 'scientific-accuracy', 'completeness', 'labels', 'arrows-relations', 'organization-conventions', 'legibility'] as const;
+export type ScientificDiagramQualityDimension = typeof SCIENTIFIC_DIAGRAM_QUALITY_DIMENSIONS[number];
+export type ScientificDiagramQualityStatus = 'fulfilled' | 'partial' | 'missing' | 'not-applicable' | 'uncertain';
+
+export interface ScientificDiagramQualityAssessment {
+  dimension: ScientificDiagramQualityDimension;
+  status: ScientificDiagramQualityStatus;
+  evidence: string;
+}
+
 export interface DiagramCriterionAssessment {
   criterionId: string;
   title: string;
@@ -8,6 +18,8 @@ export interface DiagramCriterionAssessment {
   evidence: string;
   confidence: number;
   requiresTeacherReview: boolean;
+  /** Detailed explanation for criteria explicitly marked as scientific-diagram. */
+  qualityBreakdown?: ScientificDiagramQualityAssessment[];
 }
 
 export interface ScientificDiagramFinding {
@@ -64,7 +76,25 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
       if (typeof item.evidence !== 'string' || typeof item.confidence !== 'number' || !Number.isFinite(item.confidence) || item.confidence < 0 || item.confidence > 1 || typeof item.requiresTeacherReview !== 'boolean') {
         throw new Error(`Les éléments de preuve du critère « ${expected.title} » sont invalides.`);
       }
-      return { criterionId: expected.id, title: expected.title, points: item.points, maxPoints: expected.maxPoints, evidence: item.evidence, confidence: item.confidence, requiresTeacherReview: item.requiresTeacherReview };
+      let qualityBreakdown: ScientificDiagramQualityAssessment[] | undefined;
+      if (item.qualityBreakdown !== undefined || expected.analysisMode === 'scientific-diagram') {
+        if (!Array.isArray(item.qualityBreakdown)) throw new Error(`Le détail de qualité du schéma est absent pour « ${expected.title} ».`);
+        const seenDimensions = new Set<string>();
+        qualityBreakdown = item.qualityBreakdown.map((entry): ScientificDiagramQualityAssessment => {
+          if (!isRecord(entry) || typeof entry.dimension !== 'string' || !SCIENTIFIC_DIAGRAM_QUALITY_DIMENSIONS.includes(entry.dimension as ScientificDiagramQualityDimension) || seenDimensions.has(entry.dimension)) {
+            throw new Error(`Une dimension de qualité est invalide ou répétée pour « ${expected.title} ».`);
+          }
+          seenDimensions.add(entry.dimension);
+          if (!['fulfilled', 'partial', 'missing', 'not-applicable', 'uncertain'].includes(String(entry.status)) || typeof entry.evidence !== 'string') {
+            throw new Error(`L'évaluation d'une dimension est invalide pour « ${expected.title} ».`);
+          }
+          return { dimension: entry.dimension as ScientificDiagramQualityDimension, status: entry.status as ScientificDiagramQualityStatus, evidence: entry.evidence };
+        });
+        if (qualityBreakdown.length !== SCIENTIFIC_DIAGRAM_QUALITY_DIMENSIONS.length || SCIENTIFIC_DIAGRAM_QUALITY_DIMENSIONS.some((dimension) => !seenDimensions.has(dimension))) {
+          throw new Error(`Le détail de qualité doit couvrir les sept dimensions pour « ${expected.title} ».`);
+        }
+      }
+      return { criterionId: expected.id, title: expected.title, points: item.points, maxPoints: expected.maxPoints, evidence: item.evidence, confidence: item.confidence, requiresTeacherReview: item.requiresTeacherReview, ...(qualityBreakdown ? { qualityBreakdown } : {}) };
     });
     let bounds: ScientificDiagramFinding['bounds'];
     if (value.bounds !== undefined) {
