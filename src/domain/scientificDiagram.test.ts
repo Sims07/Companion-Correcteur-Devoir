@@ -20,7 +20,7 @@ describe('parseScientificDiagramAnalysis', () => {
     expect(result.diagrams[0].criteria[0]).toMatchObject({ points: 1.5, maxPoints: 2, title: 'Légendes' });
   });
   it('extracts strict JSON from reasoning, prose and markdown wrappers', () => {
-    const wrapped = `<think>Je vérifie le schéma avant de répondre.</think>\\nVoici le résultat :\\n`` `` `json\\n${JSON.stringify(valid)}\\n`` `` `\\nFin de réponse.`;
+    const wrapped = '<think>Je vérifie le schéma avant de répondre.</think> Voici le résultat : ' + JSON.stringify(valid) + ' fin de réponse.';
     expect(parseScientificDiagramAnalysis(wrapped, rubric, 1).diagrams[0].criteria[0].points).toBe(1.5);
   });
   it('accepts valid diagram scores when Vision omits optional global uncertainties', () => {
