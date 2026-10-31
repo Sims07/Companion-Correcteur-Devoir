@@ -9,7 +9,7 @@ import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationReco
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
 import { routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
-import { getConfidentDiagramRotation } from '../domain/scientificPageOrientation.ts';
+import { accumulateClockwiseRotation, getConfidentDiagramRotation } from '../domain/scientificPageOrientation.ts';
 import { mergeScientificDiagramCriteria, partitionScientificRubric } from '../domain/scientificRubricRouting.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
@@ -658,7 +658,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     const original = originalImages[pageIndex] ?? images[pageIndex];
     if (!original || isAnalyzing) return;
     try {
-      const nextAngle = ((manualRotationAngles[pageIndex] ?? 0) + clockwiseDegrees) % 360;
+      const nextAngle = accumulateClockwiseRotation(manualRotationAngles[pageIndex] ?? 0, clockwiseDegrees);
       const rotated = nextAngle === 0 ? original : await service.rotateImage(original, nextAngle as 90 | 180 | 270);
       setImages((current) => current.map((entry, index) => index === pageIndex ? rotated : entry));
       setManualRotationAngles((current) => ({ ...current, [pageIndex]: nextAngle }));
@@ -784,7 +784,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, onDiagnosticResult: captureDiagramDiagnostic });
             classificationWasJustCreated = true;
             const suggestions = await Promise.all(classifications.map(async (classification, index) => {
-              const degrees = getConfidentDiagramRotation(classification);
+              const degrees = getConfidentDiagramRotation(classification, manualRotationAngles[index] !== undefined);
               const source = originalImages[index] ?? images[index];
               if (!degrees || manualRotationAngles[index] !== undefined || !source) return null;
               return { index, degrees, preview: await service.rotateImage(source, degrees) };
