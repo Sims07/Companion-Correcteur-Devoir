@@ -1,6 +1,6 @@
 import type { GradingProposal, CriterionProposal } from './grading.ts';
 import type { Rubric, RubricCriterion } from './rubric.ts';
-import type { ScientificDiagramAnalysis } from './scientificDiagram.ts';
+import type { ScientificDiagramAnalysis, ScientificDiagramQualityStatus } from './scientificDiagram.ts';
 
 export interface ScientificRubricPartition {
   textCriteria: RubricCriterion[];
@@ -59,7 +59,7 @@ export function mergeScientificDiagramCriteria(
       ? (assessments[0].qualityBreakdown ?? []).map((dimension) => {
         const matching = assessments.flatMap((assessment) => (assessment.qualityBreakdown ?? []).filter((entry) => entry.dimension === dimension.dimension));
         const statuses = matching.map((entry) => entry.status);
-        const status = statuses.length === 0 ? 'uncertain'
+        const status: ScientificDiagramQualityStatus = statuses.length === 0 ? 'uncertain'
           : statuses.every((value) => value === 'not-applicable') ? 'not-applicable'
           : statuses.includes('uncertain') ? 'uncertain'
           : statuses.every((value) => value === 'fulfilled') ? 'fulfilled'
