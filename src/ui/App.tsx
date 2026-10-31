@@ -2360,7 +2360,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         <div className="review-criteria-toolbar">
           <span>{flaggedCriteriaIds.size > 0 ? `${flaggedCriteriaIds.size} critère(s) à examiner · ${reliableCriteriaCount} sans alerte` : `Aucun signal particulier · ${review.length} critère(s)`}</span>
           <div className="review-criteria-toolbar-actions">
-            {reliableCriteriaCount > 0 && <button type="button" className="text-action" onClick={() => { const reliableIds = new Set(reviewFocus.reliableCriteriaIds); setReview((current) => current.map((item) => reliableIds.has(item.criterionId) ? { ...item, decision: 'accepted' } : item)); setReviewMessage(`${reliableCriteriaCount} critère(s) sans alerte confirmé(s). Les points retirés et les incertitudes restent à examiner.`); }}>Confirmer les {reliableCriteriaCount} critères sans alerte</button>}
+            {reliableCriteriaCount > 0 && <button type="button" className="text-action" onClick={() => { const reliableIds = new Set(reviewFocus.reliableCriteriaIds); setIsFinalized(false); setReview((current) => current.map((item) => reliableIds.has(item.criterionId) ? { ...item, decision: 'accepted' } : item)); setReviewMessage(`${reliableCriteriaCount} critère(s) sans alerte confirmé(s). Les points retirés et les incertitudes restent à examiner.`); }}>Confirmer les {reliableCriteriaCount} critères sans alerte</button>}
             {flaggedCriteriaIds.size > 0 && <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>}
           </div>
         </div>
