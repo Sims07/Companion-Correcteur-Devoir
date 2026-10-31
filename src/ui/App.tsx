@@ -9,6 +9,7 @@ import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationReco
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
 import { routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
+import { getConfidentDiagramRotation } from '../domain/scientificPageOrientation.ts';
 import { mergeScientificDiagramCriteria, partitionScientificRubric } from '../domain/scientificRubricRouting.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
@@ -754,17 +755,11 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, onDiagnosticResult: captureDiagramDiagnostic });
             classificationWasJustCreated = true;
             const safelyRotated = await Promise.all(classifications.map(async (classification, index) => {
-              const confidentDiagram = classification.kind === 'scientific-diagram' || classification.kind === 'mixed';
-              const confidentOrientation = classification.confidence >= 0.9 && (classification.orientationConfidence ?? 0) >= 0.92;
-              const degrees = classification.suggestedRotation;
-              if (!confidentDiagram || !confidentOrientation || !degrees) return textImages[index];
+              const degrees = getConfidentDiagramRotation(classification);
+              if (!degrees) return textImages[index];
               return service.rotateImage(textImages[index], degrees);
             }));
-            const hasAutomaticRotation = classifications.some((classification) =>
-              (classification.kind === 'scientific-diagram' || classification.kind === 'mixed') &&
-              classification.confidence >= 0.9 && (classification.orientationConfidence ?? 0) >= 0.92 &&
-              Boolean(classification.suggestedRotation),
-            );
+            const hasAutomaticRotation = classifications.some((classification) => getConfidentDiagramRotation(classification) !== null);
             if (hasAutomaticRotation) {
               textImages = safelyRotated;
               setImages((current) => current.map((image, index) => safelyRotated[index] ?? image));
