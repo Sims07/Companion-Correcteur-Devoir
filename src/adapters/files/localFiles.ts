@@ -1,7 +1,7 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import type { ImageInput } from '../../ports/aiProvider.ts';
-import { eraseTeacherInkPixels, type TeacherAnnotationInkColor } from '../../domain/teacherAnnotationColor.ts';
+import { eraseTeacherInkPixels, sampleTeacherPaperColor, type TeacherAnnotationInkColor } from '../../domain/teacherAnnotationColor.ts';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -123,12 +123,8 @@ export async function eraseTeacherAnnotationColor(image: ImageInput, color: Excl
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(bitmap, 0, 0);
     const frame = context.getImageData(0, 0, canvas.width, canvas.height);
-    const samplePoints = [[0, 0], [canvas.width - 1, 0], [0, canvas.height - 1], [canvas.width - 1, canvas.height - 1]];
-    const paper = samplePoints.reduce(([red, green, blue], [x, y]) => {
-      const offset = (y * canvas.width + x) * 4;
-      return [red + frame.data[offset] / 4, green + frame.data[offset + 1] / 4, blue + frame.data[offset + 2] / 4];
-    }, [0, 0, 0] as [number, number, number]);
-    frame.data.set(eraseTeacherInkPixels(frame.data, paper.map(Math.round) as [number, number, number], color));
+    const paper = sampleTeacherPaperColor(frame.data, canvas.width, canvas.height);
+    frame.data.set(eraseTeacherInkPixels(frame.data, paper, color));
     context.putImageData(frame, 0, 0);
     return dataUrlToImage(canvas.toDataURL('image/png'), image.fileName ?? 'page nettoyée');
   } finally {
