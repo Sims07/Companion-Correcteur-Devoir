@@ -2,7 +2,6 @@ import { useState } from 'react';
 import type { Rubric } from '../../domain/rubric.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import type { ScientificDiagramAnalysisService } from '../../application/scientificDiagramAnalysisService.ts';
-import { Checkbox } from '../design-system/components/Checkbox.tsx';
 
 export function ScientificDiagramAnalysisPanel({
   enabled,
@@ -31,7 +30,6 @@ export function ScientificDiagramAnalysisPanel({
   analysis: Awaited<ReturnType<ScientificDiagramAnalysisService['analyze']>> | null;
   onAnalysisChange: (analysis: Awaited<ReturnType<ScientificDiagramAnalysisService['analyze']>> | null) => void;
 }) {
-  const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -67,14 +65,8 @@ export function ScientificDiagramAnalysisPanel({
         <p className="review-alert review-alert-warning" role="status">Aucun modèle Vision n’est configuré dans les réglages de l’IA.</p>
       ) : (
         <>
-          <div className="review-alert review-alert-warning">
-            <strong>Transmission externe des images</strong>
-            <p>Les pages originales de cette copie seront envoyées au fournisseur API configuré pour l’analyse Vision. Cette opération est distincte du traitement Ollama local et ne démarre qu’après votre autorisation explicite.</p>
-          </div>
-          <Checkbox checked={consent} onChange={(event) => setConsent(event.target.checked)}>
-            J’autorise l’envoi des images de cette copie au fournisseur API configuré pour analyser les schémas scientifiques.
-          </Checkbox>
-          <button type="button" className="secondary-button" onClick={() => void analyze()} disabled={!consent || loading || images.length === 0}>
+          <p className="hint">Les pages originales sont analysées par le serveur Vision configuré dans vos réglages. L’analyse démarre lorsque vous cliquez sur le bouton ci-dessous.</p>
+          <button type="button" className="secondary-button" onClick={() => void analyze()} disabled={loading || images.length === 0}>
             {loading ? 'Analyse visuelle en cours…' : analysis ? 'Relancer l’analyse des schémas' : 'Analyser les schémas avec Vision'}
           </button>
         </>
