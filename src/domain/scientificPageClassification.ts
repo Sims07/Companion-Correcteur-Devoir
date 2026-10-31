@@ -32,7 +32,9 @@ export function parseScientificPageClassifications(raw: string, pageCount: numbe
       throw new Error(`Les éléments de classification de la page ${String(pageNumber)} sont invalides.`);
     }
     seen.add(Number(pageNumber));
-    return { pageNumber: Number(pageNumber), kind: value.kind, confidence: value.confidence, reason: value.reason };
+    const confidence = value.confidence;
+    const kind = value.kind === 'scientific-diagram' && confidence < 0.75 ? 'ambiguous' : value.kind;
+    return { pageNumber: Number(pageNumber), kind, confidence, reason: value.reason };
   });
   return pages.sort((left, right) => left.pageNumber - right.pageNumber);
 }
