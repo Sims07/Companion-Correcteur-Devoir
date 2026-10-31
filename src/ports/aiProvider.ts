@@ -9,6 +9,10 @@ export interface GradingRequest {
   question: string;
   rubric: string;
   images?: ImageInput[];
+  /** Untouched/original pages used only to identify teacher marks; never used for student grading. */
+  teacherAnnotationImages?: ImageInput[];
+  /** Original page numbers corresponding to teacherAnnotationImages after diagram/text routing. */
+  teacherAnnotationPageNumbers?: number[];
   /** Reference subject pages, distinct from the student's handwritten answer pages. */
   subjectImages?: ImageInput[];
   /** Reuse the locally extracted reference subject when grading again. */

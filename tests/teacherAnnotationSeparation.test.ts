@@ -49,6 +49,29 @@ describe('teacher annotation separation in the grading pipeline', () => {
     expect(gradingBody.messages[0].content).not.toContain('2/3');
   });
 
+  it('uses untouched original pages only for annotation detection after reading cleaned working pages', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamResponse('Réponse étudiante sans marque colorée'))
+      .mockResolvedValueOnce(streamResponse(JSON.stringify({
+        studentTranscription: 'Réponse étudiante sans marque colorée',
+        annotations: [{ text: 'Très bien', kind: 'comment', color: 'rouge', location: 'marge', confidence: 'high' }],
+      })))
+      .mockResolvedValueOnce(streamResponse('{"criteria":[]}'));
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision', analysisModel: 'grader' }, fetchMock);
+    await provider.generate({
+      question: 'Question',
+      rubric: '{"criteria":[]}',
+      images: [{ base64: 'Y2xlYW5lZA==', mimeType: 'image/png' }],
+      teacherAnnotationImages: [{ base64: 'b3JpZ2luYWw=', mimeType: 'image/png' }],
+      detectTeacherAnnotations: true,
+    });
+    const requestBodies = fetchMock.mock.calls.map((call) => JSON.parse(String(call[1]?.body)) as { messages: Array<{ content: string; images?: string[] }> });
+    const readingBody = requestBodies.find((body) => body.messages[0]?.content.includes('Transcris fidèlement'));
+    const annotationBody = requestBodies.find((body) => body.messages[0]?.content.includes('seconde passe de séparation éditoriale'));
+    expect(readingBody?.messages[0].images).toEqual(['Y2xlYW5lZA==']);
+    expect(annotationBody?.messages[0].images).toEqual(['b3JpZ2luYWw=']);
+  });
+
   it('blocks grading when an annotation is not high-confidence until the teacher confirms it', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamResponse('Réponse de l’étudiant'))
@@ -62,7 +85,8 @@ describe('teacher annotation separation in the grading pipeline', () => {
       rubric: '{"criteria":[]}',
       images: [{ base64: 'aGVsbG8=', mimeType: 'image/png' }],
       detectTeacherAnnotations: true,
-    })).rejects.toThrow(/confirmation de l’enseignant/);
+      teacherAnnotationPageNumbers: [3],
+    })).rejects.toThrow(/page 3.*confirmation de l’enseignant/);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

@@ -10,7 +10,7 @@ vi.mock('pdfjs-dist', () => ({
   getDocument: (...args: unknown[]) => getDocumentMock(...args),
 }));
 
-import { prepareLocalFiles, rotateLocalImage } from '../src/adapters/files/localFiles.ts';
+import { eraseTeacherAnnotationColor, prepareLocalFiles, rotateLocalImage } from '../src/adapters/files/localFiles.ts';
 
 describe('prepareLocalFiles', () => {
   beforeEach(() => {
@@ -130,6 +130,27 @@ describe('prepareLocalFiles', () => {
     expect(rotate).toHaveBeenCalledWith(degrees * Math.PI / 180);
     expect(fillRect).toHaveBeenCalledWith(0, 0, degrees === 180 ? 1200 : 800, degrees === 180 ? 800 : 1200);
     expect(bitmap.close).toHaveBeenCalledOnce();
+  });
+
+  it('removes selected professor ink locally while preserving black student handwriting', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 3, height: 3, close: vi.fn() }));
+    const pixels = new Uint8ClampedArray(3 * 3 * 4);
+    for (let index = 0; index < pixels.length; index += 4) {
+      pixels[index] = 255; pixels[index + 1] = 255; pixels[index + 2] = 255; pixels[index + 3] = 255;
+    }
+    pixels.set([255, 0, 0, 255], 16);
+    pixels.set([0, 0, 0, 255], 28);
+    const putImageData = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      fillRect: vi.fn(), drawImage: vi.fn(), getImageData: vi.fn(() => ({ data: pixels })), putImageData,
+    } as unknown as CanvasRenderingContext2D);
+    const original = { mimeType: 'image/jpeg', base64: 'b3JpZ2luYWw=', fileName: 'copy.jpg' };
+    const cleaned = await eraseTeacherAnnotationColor(original, 'red');
+    expect(cleaned).toMatchObject({ mimeType: 'image/png', fileName: 'copy.jpg' });
+    const processed = (putImageData.mock.calls[0][0] as { data: Uint8ClampedArray }).data;
+    expect([...processed.slice(16, 20)]).toEqual([255, 255, 255, 255]);
+    expect([...processed.slice(28, 32)]).toEqual([0, 0, 0, 255]);
+    expect(original).toEqual({ mimeType: 'image/jpeg', base64: 'b3JpZ2luYWw=', fileName: 'copy.jpg' });
   });
 
   it('renders each PDF page to a lossless PNG payload and cleans up the loading task', async () => {
