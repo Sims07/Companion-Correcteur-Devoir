@@ -58,7 +58,7 @@ export function ScientificDiagramAnalysisPanel({
       <div className="panel-heading">
         <div>
           <h3 id="scientific-diagram-title">Analyse des schémas scientifiques</h3>
-          <p>Correction scientifique distincte du parcours rédactionnel.</p>
+          <p>Correction visuelle des critères graphiques du barème.</p>
         </div>
         <span className="step-count">PAGES DÉTECTÉES</span>
       </div>
@@ -101,7 +101,7 @@ export function ScientificDiagramAnalysisPanel({
             </article>
           ))}
           {analysis.overallUncertainties.map((item, index) => <p className="review-alert review-alert-warning" key={index}>{item}</p>)}
-          <p className="hint">Ces propositions restent indépendantes de la note textuelle et doivent être vérifiées sur les images originales. Les notes ne sont pas ajoutées automatiquement au total.</p>
+          <p className="hint">Les notes visuelles sont rattachées aux critères graphiques du barème et intégrées à la proposition globale. Vérifiez les preuves sur les images originales avant de valider.</p>
         </div>
       )}
     </section>
