@@ -25,7 +25,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Confirmer et poursuivre');
     expect(text).toContain('teacherAnnotationReviewResolver.current = resolve');
     expect(text).toContain('confirmed: teacherAnnotationReviewDecisions[candidate.id] === true');
-    expect(text).toContain('Retirées du texte noté');
+    expect(text).toContain('retirées du texte noté');
   });
 
   it('keeps the normal correction view concise and exposes explanations only on demand', () => {
