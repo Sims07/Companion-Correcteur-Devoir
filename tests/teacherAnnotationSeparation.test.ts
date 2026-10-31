@@ -65,10 +65,11 @@ describe('teacher annotation separation in the grading pipeline', () => {
       teacherAnnotationImages: [{ base64: 'b3JpZ2luYWw=', mimeType: 'image/png' }],
       detectTeacherAnnotations: true,
     });
-    const readingBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { messages: Array<{ images: string[] }> };
-    const annotationBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { messages: Array<{ images: string[] }> };
-    expect(readingBody.messages[0].images).toEqual(['Y2xlYW5lZA==']);
-    expect(annotationBody.messages[0].images).toEqual(['b3JpZ2luYWw=']);
+    const requestBodies = fetchMock.mock.calls.map((call) => JSON.parse(String(call[1]?.body)) as { messages: Array<{ content: string; images?: string[] }> });
+    const readingBody = requestBodies.find((body) => body.messages[0]?.content.includes('Transcris fidèlement'));
+    const annotationBody = requestBodies.find((body) => body.messages[0]?.content.includes('seconde passe de séparation éditoriale'));
+    expect(readingBody?.messages[0].images).toEqual(['Y2xlYW5lZA==']);
+    expect(annotationBody?.messages[0].images).toEqual(['b3JpZ2luYWw=']);
   });
 
   it('blocks grading when an annotation is not high-confidence until the teacher confirms it', async () => {
