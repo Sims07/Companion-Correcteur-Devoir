@@ -14,6 +14,7 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
   const request = page.getByRole('listitem').filter({ hasText: 'network-inspector-probe' });
   await expect(request).toBeVisible();
   await expect(request).toContainText('200');
+  await expect(request).toContainText('Intention non renseignée');
   await request.click();
   await page.getByRole('button', { name: 'Response' }).click();
   await expect(page.getByText(/"observed": true/)).toBeVisible();

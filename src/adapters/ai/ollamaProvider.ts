@@ -4,6 +4,7 @@ import { buildIncrementalCriterionPrompt } from './gradingPrompts.ts';
 import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
+import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 import { formatTeacherAnnotations, parseTeacherAnnotationDetection } from '../../domain/teacherAnnotations.ts';
 import { buildRubricStructuringPrompt, formatRubricTranscriptionChunk, RUBRIC_STRUCTURING_CHUNK_OUTPUT_TOKENS, RUBRIC_STRUCTURING_MAX_OUTPUT_TOKENS, splitRubricTranscriptions } from './rubricStructuring.ts';
 
@@ -226,7 +227,7 @@ export async function checkOllamaReady(
   const requestFetch = settings.apiCompatible
     ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter, frequencyPenalty: settings.transcriptionFrequencyPenalty }, fetchImpl)
     : fetchImpl;
-  const response = await requestFetch(`${endpoint}/api/chat`, {
+  const response = await requestFetch(`${endpoint}/api/chat`, annotateNetworkRequest({
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -236,7 +237,7 @@ export async function checkOllamaReady(
       keep_alive: 0,
       messages: [{ role: 'user', content: 'Ceci est un test de disponibilité, aucune copie à analyser. Réponds uniquement par le mot PRÊT.' }],
     }),
-  });
+  }, 'Vérifier la disponibilité du modèle', `Modèle ${model}`));
   if (!response.ok) throw new Error(`Le test de disponibilité ${settings.apiCompatible ? 'de l’API compatible OpenAI' : 'Ollama'} a échoué (HTTP ${response.status}). Vérifiez l’URL, le token et le modèle.`);
   const data = await response.json() as OllamaChatResponse;
   if (data.error) throw new Error('Ollama signale une erreur pendant le test de disponibilité.');
@@ -244,7 +245,7 @@ export async function checkOllamaReady(
 }
 
 export async function listOllamaModels(endpoint: string, fetchImpl: typeof fetch = fetch): Promise<OllamaModel[]> {
-  const response = await fetchImpl(`${normalizedEndpoint(endpoint)}/api/tags`);
+  const response = await fetchImpl(`${normalizedEndpoint(endpoint)}/api/tags`, annotateNetworkRequest({}, 'Lister les modèles disponibles', 'Serveur Ollama configuré'));
   if (!response.ok) throw new Error(`Connexion Ollama impossible (HTTP ${response.status}). Vérifiez Ollama et ses autorisations CORS.`);
   const data = await response.json() as OllamaTagsResponse;
   return (data.models ?? []).map((model) => model.name).filter((name): name is string => Boolean(name)).map((name) => ({ name }));
@@ -358,7 +359,7 @@ export function createOllamaProvider(
         streamChunk?: (chunk: string) => void,
         json = false,
         think = false,
-        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage'> & { deferResult?: boolean; keepAlive?: string | number; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void },
+        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage'> & { deferResult?: boolean; keepAlive?: string | number; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void },
       ): Promise<string> {
         const startedAt = Date.now();
         activeRequestPayloads = [];
@@ -427,11 +428,13 @@ export function createOllamaProvider(
             if (preview.messages[0].images) preview.messages[0].images = preview.messages[0].images.map((image) => `[IMAGE REDACTED · ${image.startsWith('data:') ? image.slice(5, image.indexOf(';')) : 'base64'}]`);
             activeRequestPayloads?.push(preview);
           }
-          response = await providerFetch(`${endpoint}/api/chat`, {
+          const intent = tracking?.intent ?? (tracking?.kind === 'vision' ? 'Lire et transcrire une page' : tracking?.kind === 'arbitrator' ? 'Arbitrer les propositions de correction' : tracking?.stage === 'analysis' ? 'Évaluer la copie selon le barème' : 'Analyser une demande de correction');
+          const context = tracking?.context ?? (request.images?.length ? `Copie · ${request.images.map((image) => image.fileName).filter(Boolean).join(', ') || `${request.images.length} page(s)`}` : 'Analyse sans relecture des images');
+          response = await providerFetch(`${endpoint}/api/chat`, annotateNetworkRequest({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody),
-          });
+          }, intent, `Modèle ${model} · ${context}`));
         } catch (cause) {
           publishFailedCall(cause);
           const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';
@@ -535,7 +538,7 @@ export function createOllamaProvider(
             'Renvoie uniquement une transcription structurée, sans préambule ni réponse aux exercices.',
             `ÉTIQUETTE DE PAGE (métadonnée) : ${JSON.stringify(pageLabel)}`,
           ].join('\n\n'), [providerImage(image)], onChunk, false, false, {
-            kind: 'vision', stage: 'reading', temperature: 0,
+            kind: 'vision', stage: 'reading', intent: 'Lire et transcrire une page du sujet', context: `${pageLabel} · page ${index + 1}/${subjectImages.length}`, temperature: 0,
             generationTokenLimit: Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048))),
             stop: ['\n\n\n\n'], repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
             allowTruncated: true,
@@ -569,7 +572,7 @@ export function createOllamaProvider(
             false,
             false,
             {
-              kind: 'vision', stage: 'reading', temperature: 0,
+              kind: 'vision', stage: 'reading', intent: 'Lire et transcrire une page de copie', context: `${pageLabel} · page ${index + 1}/${request.images?.length ?? 0}`, temperature: 0,
               generationTokenLimit: transcriptionLimit,
               stop: ['\n\n\n\n'],
               repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
@@ -589,7 +592,7 @@ export function createOllamaProvider(
           if (isLastPage && settings.regionsEnabled && regionModelForPage === visionModel && transcriptionTruncated) {
             // Localization was planned with the same resident model, but the page is doubtful:
             // explicitly release it because the localization call will be skipped.
-            await providerFetch(`${endpoint}/api/chat`, {
+            await providerFetch(`${endpoint}/api/chat`, annotateNetworkRequest({
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -600,7 +603,7 @@ export function createOllamaProvider(
                 options: { num_predict: 1, temperature: 0 },
                 messages: [{ role: 'user', content: ' ' }],
               }),
-            }).catch(() => undefined);
+            }, 'Libérer le modèle de vision', `Modèle ${visionModel} après lecture de ${pageLabel}`)).catch(() => undefined);
           }
           let regionAnchors: string[] = [];
           if (settings.regionsEnabled && !transcriptionTruncated) {
@@ -922,7 +925,7 @@ export async function importRubricImageWithOllama(
     const visionStartedAt = Date.now();
     let response: Response;
     try {
-      response = await requestFetch(`${endpoint}/api/chat`, {
+      response = await requestFetch(`${endpoint}/api/chat`, annotateNetworkRequest({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal,
@@ -953,7 +956,7 @@ export async function importRubricImageWithOllama(
             images: [settings.apiCompatible ? `data:${image.mimeType};base64,${image.base64}` : image.base64],
           }],
         }),
-      });
+      }, 'Lire et transcrire une page du barème', `${image.fileName ?? 'Barème'} · page ${page}/${images.length}`));
     } catch (cause) {
       if (signal?.aborted) throw new Error('Import du barème interrompu par l’enseignant.');
       const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';
@@ -1035,7 +1038,7 @@ export async function importRubricImageWithOllama(
     });
     let response: Response;
     try {
-      response = await requestFetch(`${endpoint}/api/chat`, {
+      response = await requestFetch(`${endpoint}/api/chat`, annotateNetworkRequest({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal,
@@ -1052,7 +1055,7 @@ export async function importRubricImageWithOllama(
             content: buildRubricStructuringPrompt(mode, source, fileName),
           }],
         }),
-      });
+      }, mode === 'extract' ? 'Structurer le barème transcrit' : 'Consolider les critères du barème', `${fileName} · bloc ${requestNumber}/${chunks.length}`));
     } catch (cause) {
       if (signal?.aborted) throw new Error('Import du barème interrompu par l’enseignant.');
       const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';

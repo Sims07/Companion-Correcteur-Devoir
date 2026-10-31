@@ -181,6 +181,35 @@ describe('network inspector fetch integration', () => {
     restore();
   });
 
+
+  it('records an explicit intent and context without sending them over HTTP', async () => {
+    const values = new Map<string, string>();
+    const underlyingFetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.headers).toBeUndefined();
+      return new Response('{"ok":true}', { status: 200 });
+    });
+    const fakeWindow = {
+      fetch: underlyingFetch,
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => { values.set(key, value); },
+        removeItem: (key: string) => { values.delete(key); },
+      },
+      dispatchEvent: vi.fn(),
+      location: { origin: 'http://localhost' },
+    };
+    vi.stubGlobal('window', fakeWindow);
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    clearNetworkHistory();
+    const restore = installNetworkInspector();
+    const { annotateNetworkRequest } = await import('../../../src/ports/networkRequestMetadata.ts');
+    await window.fetch('/api/chat', annotateNetworkRequest({ method: 'POST', body: '{"model":"qwen3.5:4b"}' }, 'Lire et transcrire une page de copie', 'Copie TP1 · page 2/4'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(loadNetworkHistory()[0]).toMatchObject({ intent: 'Lire et transcrire une page de copie', context: 'Copie TP1 · page 2/4', state: 'success' });
+    expect(underlyingFetch).toHaveBeenCalledTimes(1);
+    restore();
+  });
+
   it('clears both the in-memory records and persisted history', async () => {
     const values = new Map<string, string>();
     const fakeWindow = {

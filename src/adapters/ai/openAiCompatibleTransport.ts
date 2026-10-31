@@ -1,3 +1,5 @@
+import { copyNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
+
 /** Browser-side transport adapter for OpenAI Chat Completions compatible endpoints.
  * It translates the existing Ollama-shaped requests/responses so grading orchestration stays unchanged.
  */
@@ -184,7 +186,8 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
     const headers = { 'Content-Type': 'application/json', ...(settings.apiKey.trim() ? { Authorization: `Bearer ${settings.apiKey.trim()}` } : {}) };
     const send = (requestBody: Record<string, unknown>) => {
       settings.onRequest?.(safeRequestPreview(requestBody));
-      return fetchImpl(url, { ...init, headers, body: JSON.stringify(requestBody) });
+      const outboundInit = copyNetworkRequestMetadata(init, { ...init, headers, body: JSON.stringify(requestBody) });
+      return fetchImpl(url, outboundInit);
     };
     let requestBody: Record<string, unknown> = body;
     let response = await send(requestBody);
