@@ -162,7 +162,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(incompleteBulkConfirm).toBeVisible();
   await expect(incompleteBulkConfirm).toBeDisabled();
 
-  const sourcePage = page.getByRole('img', { name: 'Page originale 1 de la copie' });
+  const sourcePage = page.getByRole('img', { name: 'Page de travail 1 de la copie' });
   const sourceImageBeforeRotation = await sourcePage.getAttribute('src');
   await page.getByRole('button', { name: 'Réorienter la page 1 à droite de 90 degrés' }).click();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
