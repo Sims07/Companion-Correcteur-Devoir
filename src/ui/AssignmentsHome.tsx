@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Rubric } from '../domain/rubric.ts';
+import { getAssignmentOverview } from '../domain/assignmentOverview.ts';
 
 type AssignmentCardProfile = {
   id: string;
@@ -27,18 +28,8 @@ type Filter = 'all' | 'with-corrections' | 'to-prepare';
 export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorrections, onCreate, onOpen, onDelete, onReturn, disabled }: Props) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const cards = useMemo(() => assignments.map((profile) => {
-    const archivedCount = archivedCorrections.filter((item) => item.assignmentTitle === profile.title).length;
-    const maximumPoints = profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
-    const ready = profile.rubric.criteria.length > 0 && maximumPoints > 0;
-    return { profile, archivedCount, maximumPoints, ready };
-  }).filter(({ profile, archivedCount, ready }) => {
-    const normalizedQuery = query.trim().toLocaleLowerCase('fr-FR');
-    const matchesQuery = [profile.title, profile.description ?? '', profile.educationLevel ?? ''].some((value) => value.toLocaleLowerCase('fr-FR').includes(normalizedQuery));
-    return matchesQuery && (filter === 'all' || (filter === 'with-corrections' ? archivedCount > 0 : !ready));
-  }), [assignments, archivedCorrections, filter, query]);
-  const correctionCount = assignments.filter((profile) => archivedCorrections.some((item) => item.assignmentTitle === profile.title)).length;
-  const preparationCount = assignments.filter((profile) => profile.rubric.criteria.length === 0).length;
+  const overview = useMemo(() => getAssignmentOverview(assignments, archivedCorrections, query, filter), [assignments, archivedCorrections, filter, query]);
+  const { cards, correctionCount, preparationCount } = overview;
 
   return <section className="assignments-home" aria-labelledby="assignments-home-title">
     <div className="assignments-home-heading">
