@@ -58,9 +58,9 @@ export function ScientificDiagramAnalysisPanel({
       <div className="panel-heading">
         <div>
           <h3 id="scientific-diagram-title">Analyse des schémas scientifiques</h3>
-          <p>Analyse visuelle distincte de la transcription et de la notation textuelle.</p>
+          <p>Correction scientifique distincte du parcours rédactionnel.</p>
         </div>
-        <span className="step-count">VISION · OPTIONNEL</span>
+        <span className="step-count">PAGES DÉTECTÉES</span>
       </div>
       <p>Les pages ont été classées automatiquement. Seules les pages identifiées comme schémas sont envoyées à cette correction scientifique spécialisée. Elle reste indépendante de la note textuelle.</p>
       {!apiCompatible ? (
