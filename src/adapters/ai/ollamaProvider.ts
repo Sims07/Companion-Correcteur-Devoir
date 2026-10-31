@@ -528,7 +528,7 @@ export function createOllamaProvider(
 
       let transcription = request.transcription;
       const detectedTeacherAnnotations: Array<{ page: number; annotations: ReturnType<typeof parseTeacherAnnotationDetection>['annotations'] }> = [];
-      const pageTranscriptions: Array<{ pageLabel: string; pageText: string; doubtfulMarker: string }> = []
+      const pageTranscriptions: Array<{ pageLabel: string; pageText: string; doubtfulMarker: string }> = [];
       if (!transcription) {
         onStage?.('reading');
         
