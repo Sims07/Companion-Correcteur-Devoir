@@ -136,7 +136,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     const bootstrap = source('../src/main.tsx');
     expect(text).toContain('>Évaluation des modèles</button>');
     expect(text).toContain('>Inspecteur réseau</button>');
-    expect(text).toContain("if (interfaceMode === 'debug')");
+    expect(text).toContain("if ((interfaceMode as string) === 'debug')");
     expect(text).toContain("import { NetworkInspector } from './NetworkInspector.tsx'");
     expect(text).toContain('<NetworkInspector />');
     expect(bootstrap).toContain('installNetworkInspector()');
