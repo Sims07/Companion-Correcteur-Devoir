@@ -30,7 +30,9 @@ describe('OpenAI scientific diagram adapter', () => {
       expect(body.max_tokens).toBe(256);
       expect(body.max_completion_tokens).toBeUndefined();
       expect(body.messages[0].content).toHaveLength(2);
-      expect(body.messages[0].content[0].text).toContain(`NUMÉRO DE PAGE ORIGINAL : ${index + 1}`);\n      expect(body.messages[0].content[0].text).toContain('Les tableaux de données');\n      expect(body.messages[0].content[0].text).toContain('kind=mixed');
+      expect(body.messages[0].content[0].text).toContain(`NUMÉRO DE PAGE ORIGINAL : ${index + 1}`);
+      expect(body.messages[0].content[0].text).toContain('Les tableaux de données');
+      expect(body.messages[0].content[0].text).toContain('kind=mixed');
       expect(body.messages[0].content[1].image_url.url).toContain(index === 0 ? 'cG5n' : 'cG5nMg==');
     }
   });
@@ -38,7 +40,9 @@ describe('OpenAI scientific diagram adapter', () => {
   it('sends the original page image and rubric to the configured OpenAI-compatible Vision endpoint', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
     const analyzer = createOpenAiScientificDiagramAnalyzer(fetchMock);
-    const diagnostic = vi.fn();\n    await expect(analyzer.analyze({ ...request, onDiagnosticResult: diagnostic })).resolves.toMatchObject({ diagrams: [{ pageNumber: 1, criteria: [{ points: 2, maxPoints: 2 }] }] });\n    expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'scientific-diagram-analysis', model: 'vision-model', raw: JSON.stringify(output), requestPayload: expect.stringContaining('images') }));
+    const diagnostic = vi.fn();
+    await expect(analyzer.analyze({ ...request, onDiagnosticResult: diagnostic })).resolves.toMatchObject({ diagrams: [{ pageNumber: 1, criteria: [{ points: 2, maxPoints: 2 }] }] });
+    expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'scientific-diagram-analysis', model: 'vision-model', raw: JSON.stringify(output), requestPayload: expect.stringContaining('images') }));
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe('https://ai.example/v1/chat/completions');
     const body = JSON.parse(String(init?.body));
