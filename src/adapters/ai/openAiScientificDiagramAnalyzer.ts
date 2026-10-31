@@ -35,7 +35,7 @@ function classificationPrompt(originalPageNumber: number): string {
   ].join('\n\n');
 }
 
-function promptFor(request: ScientificDiagramAnalysisRequest): string {
+export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisRequest): string {
   return [
     'Tu es un assistant spécialisé dans l’évaluation de schémas scientifiques, en particulier biologiques, dans des copies universitaires.',
     'Analyse uniquement les dessins et schémas visibles dans les images originales jointes. Les images sont des pages de copie ; détecte chaque schéma et indique sa page.',
@@ -110,7 +110,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
     },
     async analyze(request) {
       const compatibleFetch = createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey }, fetchImpl);
-      const prompt = promptFor(request);
+      const prompt = buildScientificDiagramPrompt(request);
       const startedAt = Date.now();
       let raw = '';
       try {
