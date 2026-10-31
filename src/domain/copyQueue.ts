@@ -1,4 +1,5 @@
 import type { ImageInput } from '../ports/aiProvider.ts';
+import type { TeacherAnnotationInkColor } from './teacherAnnotationColor.ts';
 
 export interface QueuedCopy {
   id: string;
@@ -6,6 +7,8 @@ export interface QueuedCopy {
   images: ImageInput[];
   originalImages?: ImageInput[];
   detectTeacherAnnotations?: boolean;
+  annotationInkColor?: TeacherAnnotationInkColor;
+  annotationInkColorApplied?: boolean;
 }
 
 export function appendQueuedCopy(queue: readonly QueuedCopy[], copy: QueuedCopy): QueuedCopy[] {
