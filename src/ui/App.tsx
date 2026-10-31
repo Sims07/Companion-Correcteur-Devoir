@@ -1131,6 +1131,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     const id = currentCorrectionId ?? `correction-${crypto.randomUUID()}`;
     const previous = archivedCorrections.find((item) => item.id === id);
     const snapshot: CorrectionArchiveSnapshot = {
+      ...(currentTimingRecordId ? { timingTraceId: currentTimingRecordId } : {}),
       assignmentTitle: assignmentTitle.trim() || 'Devoir de biologie',
       question,
       rubric: structuredClone(rubric),
@@ -1428,6 +1429,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setCorrectionMode(snapshot.correctionMode);
     setHasScientificDiagrams(snapshot.hasScientificDiagrams ?? matchingAssignment.hasScientificDiagrams ?? false);
     setCurrentCorrectionId(correction.id);
+    setCurrentTimingRecordId(snapshot.timingTraceId ?? null);
     setIsFinalized(true);
     setReviewMessage('Correction enregistrée ouverte en lecture et révision locale.');
     setArchiveMessage('');
