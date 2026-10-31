@@ -46,16 +46,18 @@ describe('review insights', () => {
       criterion({ criterionId: 'low-confidence', confidence: 'low' }),
       criterion({ criterionId: 'missing-proof', evidence: '' }),
       criterion({ criterionId: 'teacher-question', questionForTeacher: 'La formulation est ambiguë.' }),
+      criterion({ criterionId: 'medium-confidence', confidence: 'medium' }),
     ], [
       { id: 'full-credit', maxPoints: 1 },
       { id: 'deduction', maxPoints: 1 },
       { id: 'low-confidence', maxPoints: 1 },
       { id: 'missing-proof', maxPoints: 1 },
       { id: 'teacher-question', maxPoints: 1 },
+      { id: 'medium-confidence', maxPoints: 1 },
     ]);
 
     expect(focus.reliableCriteriaIds).toEqual(['full-credit']);
-    expect(focus.flaggedCriteriaIds).toEqual(['low-confidence', 'missing-proof', 'teacher-question', 'deduction']);
+    expect(focus.flaggedCriteriaIds).toEqual(['low-confidence', 'missing-proof', 'teacher-question', 'medium-confidence', 'deduction']);
   });
 
   it('signals absent transcription only when a copy image exists', () => {
