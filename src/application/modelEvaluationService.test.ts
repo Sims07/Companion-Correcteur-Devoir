@@ -15,6 +15,8 @@ describe('model evaluation application service', () => {
       save: vi.fn(async () => undefined),
       list: vi.fn(async () => [record]),
       delete: vi.fn(async () => undefined),
+      saveDiagnosticHistory: vi.fn(async () => undefined),
+      listDiagnosticHistory: vi.fn(async () => []),
     };
     const service = createModelEvaluationService(repository);
     await service.save(record);
