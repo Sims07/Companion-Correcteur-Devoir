@@ -10,7 +10,7 @@ vi.mock('pdfjs-dist', () => ({
   getDocument: (...args: unknown[]) => getDocumentMock(...args),
 }));
 
-import { prepareLocalFiles } from '../src/adapters/files/localFiles.ts';
+import { prepareLocalFiles, rotateLocalImage } from '../src/adapters/files/localFiles.ts';
 
 describe('prepareLocalFiles', () => {
   beforeEach(() => {
@@ -70,6 +70,29 @@ describe('prepareLocalFiles', () => {
     expect(images[0]).toMatchObject({ mimeType: 'image/jpeg', fileName: 'large.png' });
     expect(drawImage).toHaveBeenCalledWith(expect.objectContaining({ width: 4000, height: 3000 }), 0, 0, 1300, 975);
     expect(HTMLCanvasElement.prototype.toDataURL).toHaveBeenCalledWith('image/jpeg', 0.85);
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it('rotates a working image clockwise and preserves its dimensions after a quarter turn', async () => {
+    const close = vi.fn();
+    const bitmap = { width: 1200, height: 800, close };
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue(bitmap));
+    const translate = vi.fn();
+    const rotate = vi.fn();
+    const drawImage = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ translate, rotate, drawImage } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/jpeg;base64,dHVybmVk');
+
+    const original = { mimeType: 'image/jpeg', base64: 'b3JpZ2luYWw=', fileName: 'diagram.jpg' };
+    const rotated = await rotateLocalImage(original, 90);
+
+    expect(rotated).toEqual({ mimeType: 'image/jpeg', base64: 'dHVybmVk', fileName: 'diagram.jpg' });
+    expect(original.base64).toBe('b3JpZ2luYWw=');
+    expect(HTMLCanvasElement.prototype.width).toBe(800);
+    expect(HTMLCanvasElement.prototype.height).toBe(1200);
+    expect(translate).toHaveBeenCalledWith(400, 600);
+    expect(rotate).toHaveBeenCalledWith(Math.PI / 2);
+    expect(drawImage).toHaveBeenCalledWith(bitmap, -600, -400);
     expect(close).toHaveBeenCalledOnce();
   });
 
