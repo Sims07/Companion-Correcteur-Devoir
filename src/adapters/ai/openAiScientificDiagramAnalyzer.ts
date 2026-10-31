@@ -11,6 +11,7 @@ function diagnosticResult(request: { model: string; endpoint: string; images: Im
     purpose,
     model: request.model,
     requestPrompt: prompt,
+    requestMetadata: { provider: 'openai-compatible', endpoint: request.endpoint, stream: false, think: false, format: 'json', imageCount: request.images.length, keepAlive: 0, options: { contextTokens: 0, generationTokenLimit: purpose === 'scientific-diagram-classification' ? 256 : 2048 } },
     requestPayload: JSON.stringify({ attempts: [{ messages: [{ role: 'user', content: prompt }] }], imageCount: request.images.length, images: '[masquées]' }),
     raw,
     ...(error ? { error } : {}),
@@ -28,7 +29,7 @@ function classificationPrompt(originalPageNumber: number): string {
     'Ne confonds jamais un tableau, une liste, une formule isolée, des cases à compléter, un dessin décoratif ou une illustration imprimée du sujet avec un schéma scientifique produit par l’étudiant.',
     'Ne juge pas la qualité scientifique et n’attribue aucun point à cette étape. Cette étape sert uniquement à router cette page vers le bon parcours.',
     'Retourne exactement une entrée pour l’unique image jointe. Le champ pageNumber doit toujours valoir 1 dans cette réponse isolée.',
-    'Retourne exclusivement un JSON valide : {"pages":[{"pageNumber":1,"kind":"text|scientific-diagram|mixed|ambiguous","confidence":0.0,"reason":"..."}]}',
+    'Les seules valeurs autorisées pour kind sont text, scientific-diagram, mixed ou ambiguous. Exemple de JSON valide : {"pages":[{"pageNumber":1,"kind":"text","confidence":0.0,"reason":"..."}]}',
     `NUMÉRO DE PAGE ORIGINAL : ${originalPageNumber}`,
   ].join('\\n\\n');
 }
