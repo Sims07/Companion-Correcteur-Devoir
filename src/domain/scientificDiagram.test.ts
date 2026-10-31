@@ -19,6 +19,17 @@ describe('parseScientificDiagramAnalysis', () => {
     const result = parseScientificDiagramAnalysis(JSON.stringify(valid), rubric, 2);
     expect(result.diagrams[0].criteria[0]).toMatchObject({ points: 1.5, maxPoints: 2, title: 'Légendes' });
   });
+  it('accepts valid diagram scores when Vision omits optional global uncertainties', () => {
+    const outputWithoutGlobalUncertainties = { ...valid };
+    delete (outputWithoutGlobalUncertainties as { overallUncertainties?: string[] }).overallUncertainties;
+    const result = parseScientificDiagramAnalysis(JSON.stringify(outputWithoutGlobalUncertainties), rubric, 1);
+    expect(result.diagrams).toHaveLength(1);
+    expect(result.overallUncertainties).toEqual([]);
+  });
+  it('explains when Vision omits the mandatory diagrams collection', () => {
+    expect(() => parseScientificDiagramAnalysis(JSON.stringify({ result: 'no diagram list' }), rubric, 1))
+      .toThrow(/ne contient pas la liste obligatoire "diagrams".*result/);
+  });
   it('keeps the global score when the optional quality breakdown is missing or incomplete', () => {
     const visualRubric: Rubric = { title: 'Schéma', criteria: [{ id: 'labels', title: 'Qualité du schéma', description: '', maxPoints: 10, analysisMode: 'scientific-diagram' }] };
     const withoutDetails = parseScientificDiagramAnalysis(JSON.stringify(valid), visualRubric, 1);
