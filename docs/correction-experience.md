@@ -22,8 +22,8 @@ Une déduction n'est jamais masquée comme un résultat banal : tout critère no
 
 ## Trois niveaux d'information
 
-1. **Lecture immédiate (par défaut)** : note proposée, points par critère, nombre de critères à examiner, alertes concrètes. Les critères sans alerte sont synthétisés et peuvent être confirmés ensemble par une action explicite de l'enseignant.
-2. **Détail à la demande** : preuve courte issue de la copie, justification concise, commentaire éventuellement reportable, repère de page et détail de qualité des schémas scientifiques. Le détail doit être ouvert volontairement.
+1. **Lecture immédiate (par défaut)** : note proposée, points par critère, raison courte de chaque alerte, justification en une phrase et commentaire à reporter lorsqu'il existe. Les critères sans alerte restent regroupés avec leur preuve courte (12 mots maximum).
+2. **Détail à la demande** : preuve complète, ventilation des schémas, repère de page et question ou texte long. Ces détails restent repliés.
 3. **Diagnostic IA** : sorties brutes, prompts, confiance, comparaison de modèles, timings, stratégies expérimentales et arbitrage. Ces informations restent dans les espaces de diagnostic/observabilité et ne polluent pas l'interface enseignante.
 
 ## Règles de rédaction des résultats
@@ -37,7 +37,9 @@ Une déduction n'est jamais masquée comme un résultat banal : tout critère no
 - Pour une absence, signaler ce qui manque sans inventer de preuve.
 - Pour une ambiguïté, formuler une question concrète dont la réponse peut modifier la note.
 - Pour une confiance faible ou une lecture illisible, demander une vérification humaine ; ne jamais transformer un doute de lecture en erreur scientifique.
-- Un commentaire pédagogique destiné à être reporté sur la copie est distinct de la justification et reste facultatif.
+- Un commentaire pédagogique destiné à être reporté sur la copie est distinct de la justification. Il est attendu lorsqu'une remarque concrète est utile ; il peut rester vide pour une note maximale de confiance élevée.
+- Pour une note maximale avec confiance élevée, rationale peut être une chaîne vide ; evidence reste obligatoire et non vide.
+- Les limites 18/12/12 mots sont mesurées sur le texte original du modèle, sans troncature ; les dépassements doivent rester visibles dans les diagnostics.
 
 Ces limites de longueur sont des objectifs de lisibilité, pas une autorisation de supprimer une nuance nécessaire à la décision. La fidélité à la copie et au barème prime toujours.
 
@@ -46,7 +48,10 @@ Ces limites de longueur sont des objectifs de lisibilité, pas une autorisation 
 - L'IA propose ; elle ne valide jamais une note définitive.
 - La confirmation groupée ne concerne que les critères à note maximale, preuve présente, confiance élevée et sans question ni signal d'incertitude.
 - Les points retirés, les preuves manquantes et les cas ambigus nécessitent une revue individuelle.
-- L'enseignant peut toujours afficher tous les critères, modifier les points, saisir un commentaire et revenir sur une confirmation.
+- L'enseignant peut toujours afficher tous les critères, modifier les points, saisir un commentaire et annuler une confirmation groupée.
+- La confirmation groupée est désactivée tant que tous les critères n'ont pas été analysés ; elle ne compte que les critères encore en attente.
+- Une confirmation groupée affiche son nombre et une action « Annuler » qui remet les critères concernés en attente.
+- Une correction active privilégie les exceptions ; une correction archivée ou finalisée affiche tous les critères par défaut.
 - Aucun critère ne doit être automatiquement accepté à la réception d'une réponse du modèle.
 - Le calcul des totaux, plafonds et cohérences reste déterministe côté application, jamais délégué au texte explicatif du modèle.
 
@@ -65,7 +70,8 @@ Ces limites de longueur sont des objectifs de lisibilité, pas une autorisation 
 Une évolution de la correction doit être évaluée selon :
 - le temps nécessaire pour comprendre la proposition et finaliser une copie ;
 - le nombre de mots affichés avant interaction, comparé au volume de la copie ;
-- le nombre de critères nécessitant réellement une intervention ;
+- le nombre de critères, le nombre de critères à examiner, le nombre confirmés en groupe et le nombre ensuite modifiés par l'enseignant ;
+- le taux de modification des critères confirmés en groupe ;
 - le taux de corrections humaines des propositions et les erreurs détectées ;
 - la capacité à retrouver rapidement la preuve originale d'une décision.
 
