@@ -1,9 +1,13 @@
+import { getNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
+
 export type NetworkRequestState = 'pending' | 'success' | 'error';
 
 export type NetworkRequestRecord = {
   id: string;
   method: string;
   url: string;
+  intent: string;
+  context: string;
   startedAt: string;
   durationMs: number | null;
   state: NetworkRequestState;
@@ -68,7 +72,7 @@ function readPersistedHistory(): NetworkRequestRecord[] {
   try {
     const value = window.localStorage.getItem(STORAGE_KEY);
     const parsed: unknown = value ? JSON.parse(value) : [];
-    return Array.isArray(parsed) ? parsed as NetworkRequestRecord[] : [];
+    return Array.isArray(parsed) ? (parsed as NetworkRequestRecord[]).map((record) => ({ ...record, intent: typeof record.intent === 'string' ? record.intent : 'Intention non renseignée', context: typeof record.context === 'string' ? record.context : '' })) : [];
   } catch { return []; }
 }
 
@@ -158,8 +162,9 @@ export function installNetworkInspector(): () => void {
     const headers = new Headers(init?.headers ?? request?.headers);
     const id = crypto.randomUUID();
     const startedAt = new Date().toISOString();
+    const metadata = getNetworkRequestMetadata(init);
     const record: NetworkRequestRecord = {
-      id, method, url: sanitizeUrl(url), startedAt, durationMs: null, state: 'pending', status: null, statusText: '',
+      id, method, url: sanitizeUrl(url), intent: metadata?.intent ?? 'Intention non renseignée', context: metadata?.context ?? '', startedAt, durationMs: null, state: 'pending', status: null, statusText: '',
       requestHeaders: sanitizeHeaders(headers), responseHeaders: {},
       requestBody: sanitizeRequestBody(init?.body), responseBody: '', error: null,
     };

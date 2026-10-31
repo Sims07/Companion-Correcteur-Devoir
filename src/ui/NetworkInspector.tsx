@@ -39,7 +39,7 @@ export function NetworkInspector() {
 
   const filtered = useMemo(() => records.filter((record) => {
     const matchesFilter = filter === 'all' || record.state === filter;
-    const matchesQuery = `${record.method} ${record.url} ${record.status ?? ''} ${record.responseBody}`.toLocaleLowerCase('fr-FR').includes(query.trim().toLocaleLowerCase('fr-FR'));
+    const matchesQuery = `${record.method} ${record.url} ${record.intent} ${record.context} ${record.status ?? ''} ${record.responseBody}`.toLocaleLowerCase('fr-FR').includes(query.trim().toLocaleLowerCase('fr-FR'));
     return matchesFilter && matchesQuery;
   }), [records, filter, query]);
   const selected = filtered.find((record) => record.id === selectedId) ?? filtered[0] ?? null;
@@ -55,10 +55,11 @@ export function NetworkInspector() {
     {storageStatus.storageWarning && <p className="network-error" role="alert">{storageStatus.storageWarning}</p>}
     <div className="network-inspector-layout">
       <section className="network-request-list" aria-label="Liste des requêtes">
-        <div className="network-request-toolbar"><input aria-label="Rechercher une requête" placeholder="Filtrer par URL, méthode, réponse…" value={query} onChange={(event) => setQuery(event.target.value)} /><div className="network-filter-buttons" role="group" aria-label="Filtrer par statut">{(['all','pending','error','success'] as Filter[]).map((item) => <button key={item} type="button" className={filter === item ? 'active' : ''} aria-pressed={filter === item} onClick={() => setFilter(item)}>{item === 'all' ? 'Toutes' : item === 'pending' ? 'En cours' : item === 'error' ? 'Erreurs' : 'Terminées'}</button>)}</div></div>
+        <div className="network-request-toolbar"><input aria-label="Rechercher une requête" placeholder="Filtrer par intention, contexte, URL…" value={query} onChange={(event) => setQuery(event.target.value)} /><div className="network-filter-buttons" role="group" aria-label="Filtrer par statut">{(['all','pending','error','success'] as Filter[]).map((item) => <button key={item} type="button" className={filter === item ? 'active' : ''} aria-pressed={filter === item} onClick={() => setFilter(item)}>{item === 'all' ? 'Toutes' : item === 'pending' ? 'En cours' : item === 'error' ? 'Erreurs' : 'Terminées'}</button>)}</div></div>
         <div className="network-request-table" role="list" aria-label="Requêtes HTTP">
+          <div className="network-request-columns" aria-hidden="true"><span>Méthode</span><span>URL</span><span>Intention</span><span>HTTP</span><span>Durée</span></div>
           {filtered.map((record) => <button type="button" role="listitem" key={record.id} className={selected?.id === record.id ? 'network-request-row selected' : 'network-request-row'} onClick={() => setSelectedId(record.id)}>
-            <span className="network-method">{record.method}</span><span className="network-url" title={record.url}>{record.url}</span><span className={`network-state ${record.state}`}>{record.state === 'pending' ? '…' : record.status ?? 'ERR'}</span><span className="network-duration">{formatDuration(record.durationMs)}</span>
+            <span className="network-method">{record.method}</span><span className="network-url" title={record.url}>{record.url}</span><span className="network-intent" title={record.context ? `${record.intent} · ${record.context}` : record.intent}><strong>{record.intent}</strong>{record.context && <small>{record.context}</small>}</span><span className={`network-state ${record.state}`}>{record.state === 'pending' ? '…' : record.status ?? 'ERR'}</span><span className="network-duration">{formatDuration(record.durationMs)}</span>
           </button>)}
           {!filtered.length && <p className="network-empty">Aucune requête. Les prochains appels HTTP apparaîtront ici.</p>}
         </div>
@@ -67,7 +68,7 @@ export function NetworkInspector() {
         {selected ? <>
           <div className="network-selected-heading"><div><span className="network-method">{selected.method}</span><strong>{selected.url}</strong></div><span>{formatTime(selected.startedAt)} · {formatDuration(selected.durationMs)}</span></div>
           <nav className="network-detail-tabs" aria-label="Détails réseau">{(['headers','request','response'] as const).map((item) => <button type="button" key={item} className={tab === item ? 'active' : ''} aria-pressed={tab === item} onClick={() => setTab(item)}>{item === 'headers' ? 'Headers' : item === 'request' ? 'Payload' : 'Response'}</button>)}</nav>
-          {tab === 'headers' && <><Detail title="General" value={{ url: selected.url, method: selected.method, status: selected.status ? `${selected.status} ${selected.statusText}` : 'En attente' }} /><Detail title="Request headers" value={selected.requestHeaders} /><Detail title="Response headers" value={selected.responseHeaders} /></>}
+          {tab === 'headers' && <><Detail title="General" value={{ url: selected.url, method: selected.method, status: selected.status ? `${selected.status} ${selected.statusText}` : 'En attente' }} /><Detail title="Intention" value={{ intention: selected.intent, contexte: selected.context || 'Non précisé' }} /><Detail title="Request headers" value={selected.requestHeaders} /><Detail title="Response headers" value={selected.responseHeaders} /></>}
           {tab === 'request' && <Detail title="Request payload" value={selected.requestBody} />}
           {tab === 'response' && <><Detail title="Response body" value={selected.responseBody} />{selected.error && <p className="network-error">{selected.error}</p>}</>}
         </> : <p className="network-empty">Sélectionnez une requête pour examiner ses détails.</p>}
