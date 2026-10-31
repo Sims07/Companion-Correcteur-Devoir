@@ -154,6 +154,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
     });
     database.close();
   });
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.reload();
   await page.getByRole('button', { name: /Corrections enregistrées/ }).click();
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
