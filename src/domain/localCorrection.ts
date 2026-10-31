@@ -1,6 +1,7 @@
 import type { GradingProposal, ReviewedCriterion } from './grading.ts';
 import type { Rubric } from './rubric.ts';
 import type { ScientificDiagramAnalysis } from './scientificDiagram.ts';
+import type { ScientificPageClassification } from './scientificPageClassification.ts';
 
 export interface ArchivedImage {
   base64: string;
@@ -25,6 +26,7 @@ export interface CorrectionArchiveSnapshot {
   maximumPoints: number;
   hasScientificDiagrams?: boolean;
   scientificDiagramAnalysis?: ScientificDiagramAnalysis | null;
+  scientificPageClassifications?: ScientificPageClassification[];
 }
 
 export interface LocalCorrection {
