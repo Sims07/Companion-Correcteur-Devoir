@@ -339,7 +339,7 @@ describe('Ollama adapter', () => {
 
   it('marks a page doubtful when the four-newline stop is reached without an extra localization request', async () => {
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamingResponse('Réponse avant le grand blanc.\\n\\n\\n\\n'))
+      .mockResolvedValueOnce(streamingResponse('Réponse avant le grand blanc.\n\n\n\n'))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const transcriptions: string[] = [];
     const provider = createOllamaProvider({
