@@ -20,7 +20,10 @@ describe('teacher and AI diagnostic interface modes', () => {
     const text = app();
     expect(text).toContain('Voir la preuve et la justification');
     expect(text).toContain('review-explanation');
-    expect(text).toContain('Confirmer les critères sans alerte ({reliableCriteriaCount})');
+    expect(text).toContain('Confirmer les critères sans alerte ({pendingReliableCriterionIds.length})');
+    expect(text).toContain('disabled={!criterionProgress.isComplete || isAnalyzing}');
+    expect(text).toContain('undoGroupConfirmation');
+    expect(text).toContain('Aucun signal automatique. La vérification humaine reste nécessaire.');
     expect(text).toContain('Les points retirés et les incertitudes restent à examiner.');
     expect(text).toContain('Afficher tous les critères');
     expect(text).toContain('Voir les {reliableCriteriaCount} critères sans alerte');
