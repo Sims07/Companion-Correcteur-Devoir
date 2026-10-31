@@ -26,7 +26,7 @@ export interface ReviewTraceMetrics {
 
 function wordCount(value: string): number {
   const trimmed = value.trim();
-  return trimmed ? trimmed.split(/\\s+/u).length : 0;
+  return trimmed ? trimmed.split(/\s+/u).length : 0;
 }
 
 function measureField(values: string[], limit: number): WordLimitFieldMetric {
