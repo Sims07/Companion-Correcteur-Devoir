@@ -17,7 +17,7 @@ export function partitionScientificRubric(rubric: Rubric): ScientificRubricParti
 
   for (const criterion of rubric.criteria) {
     const wording = `${criterion.title} ${criterion.description}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const isVisual = visualPattern.test(wording) || (legendPattern.test(wording) && diagramContextPattern.test(wording));
+    const isVisual = criterion.analysisMode === 'scientific-diagram' || (criterion.analysisMode !== 'text' && (visualPattern.test(wording) || (legendPattern.test(wording) && diagramContextPattern.test(wording))));
     (isVisual ? diagramCriteria : textCriteria).push(criterion);
   }
   return { textCriteria, diagramCriteria };
