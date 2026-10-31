@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { installNetworkInspector, loadNetworkHistory } from '../../../src/adapters/network/networkInspector.ts';
+import { installLocalMemoryFetchBridge } from '../../../src/adapters/ai/localMemoryFetchBridge.ts';
+import type { LocalCorrectionRepository } from '../../../src/ports/localCorrectionRepository.ts';
 
 describe('network inspector fetch integration', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -39,6 +41,37 @@ describe('network inspector fetch integration', () => {
     expect(record.responseBody).toContain('"answer":"42"');
     expect(record.state).toBe('success');
     restore();
+  });
+
+  it('observes requests when the local-memory fetch bridge is installed afterwards', async () => {
+    const values = new Map<string, string>();
+    const fakeWindow = {
+      fetch: vi.fn(async () => new Response('{"ok":true}', { status: 200 })),
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => { values.set(key, value); },
+        removeItem: (key: string) => { values.delete(key); },
+      },
+      dispatchEvent: vi.fn(),
+      location: { origin: 'http://localhost' },
+    };
+    vi.stubGlobal('window', fakeWindow);
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    const restoreInspector = installNetworkInspector();
+    const restoreMemoryBridge = installLocalMemoryFetchBridge({} as LocalCorrectionRepository);
+
+    await window.fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'simple probe' }] }),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(loadNetworkHistory()).toHaveLength(1);
+    expect(loadNetworkHistory()[0].url).toContain('/api/chat');
+    expect(loadNetworkHistory()[0].state).toBe('success');
+    restoreMemoryBridge();
+    restoreInspector();
   });
 
   it('records HTTP failures and network errors', async () => {
