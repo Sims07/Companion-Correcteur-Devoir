@@ -6,14 +6,16 @@ const source = (path: string) => readFileSync(new URL(path, import.meta.url), 'u
 describe('teacher and AI diagnostic interface modes', () => {
   const app = () => source('../src/ui/App.tsx');
 
-  it('shows optional teacher-facing annotation suggestions linked to the source page', () => {
+  it('shows optional teacher-facing annotation suggestions linked to the source page without region localization', () => {
     const text = app();
     expect(text).toContain('COMMENTAIRE ÉVENTUEL À REPORTER AU STYLO');
     expect(text).toContain('Suggestion IA');
-    expect(text).toContain('Repère indicatif');
     expect(text).toContain('Afficher la page liée');
     expect(text).toContain('item.annotationSuggestion');
-    expect(text).toContain('item.locationHint');
+    expect(text).toContain('item.pageNumber');
+    expect(text).not.toContain('Repère indicatif');
+    expect(text).not.toContain('item.locationHint');
+    expect(text).not.toContain('item.locationBox');
   });
 
   it('keeps the normal correction view concise and exposes explanations only on demand', () => {
