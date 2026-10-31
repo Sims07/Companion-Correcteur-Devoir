@@ -5,7 +5,7 @@ import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolutio
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
-import { formatTeacherAnnotations, parseTeacherAnnotationDetection } from '../../domain/teacherAnnotations.ts';
+import { formatTeacherAnnotations, parseTeacherAnnotationDetection, removeConfirmedTeacherAnnotation, type TeacherAnnotationReviewCandidate, type TeacherAnnotationReviewDecision } from '../../domain/teacherAnnotations.ts';
 import { buildRubricStructuringPrompt, formatRubricTranscriptionChunk, RUBRIC_STRUCTURING_CHUNK_OUTPUT_TOKENS, RUBRIC_STRUCTURING_MAX_OUTPUT_TOKENS, splitRubricTranscriptions } from './rubricStructuring.ts';
 
 interface OllamaChatResponse {
@@ -168,6 +168,20 @@ export function buildTranscriptionPrompt(model: string, mode: 'auto' | 'ocr' | '
   ].join('\n');
 }
 
+
+/** One-pass image reading and professor-annotation detection. */
+export function buildTeacherAnnotationTranscriptionPrompt(model: string, mode: 'auto' | 'ocr' | 'general' = 'auto'): string {
+  return [
+    buildTranscriptionPrompt(model, mode),
+    'En plus de la transcription, identifie les annotations possiblement ajoutées par le professeur : commentaires en marge, corrections, coches, croix, cercles et notes déjà attribuées.',
+    'Une couleur différente est un indice, jamais une preuve. Un étudiant peut utiliser plusieurs couleurs et un professeur peut écrire dans la même couleur. Distingue comment, correction, score, mark et unknown.',
+    'Ne confonds jamais une réponse, une rature, un schéma ou une autocorrection de l’étudiant avec une annotation professorale. Une réponse erronée reste une réponse de l’étudiant.',
+    'RÈGLE ABSOLUE : studentTranscription reprend fidèlement tout le travail de l’étudiant. Retire uniquement les annotations dont l’origine professorale est certaine (confidence high). Toute annotation medium ou low, ou dont l’auteur est ambigu, doit rester dans studentTranscription.',
+    'Retourne toutes les annotations repérées avec leur texte exact, leur type, leur couleur, leur emplacement et une confiance low, medium ou high. points est facultatif et réservé aux notes numériques explicitement visibles.',
+    'Retourne uniquement un JSON valide de la forme : {"studentTranscription":"transcription fidèle, sans les seules annotations professorales certaines","annotations":[{"text":"2/3","kind":"score","points":2,"color":"rouge","location":"marge droite, question 2","confidence":"high"}]}. studentTranscription et annotations sont obligatoires. Si aucune annotation n’est visible, retourne {"studentTranscription":"transcription intégrale de la page","annotations":[]}. N’invente rien.',
+  ].join('\n\n');
+}
+
 interface OllamaTagsResponse {
   models?: Array<{ name?: string }>;
 }
@@ -243,7 +257,7 @@ export function createOllamaProvider(
     : fetchImpl;
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
-    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void): Promise<string> {
+    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
       const providerName = settings.apiCompatible ? 'API compatible OpenAI' : 'Ollama';
       const visionOnly = request.visionOnly === true;
@@ -529,60 +543,65 @@ export function createOllamaProvider(
       let transcription = request.transcription;
       const detectedTeacherAnnotations: Array<{ page: number; annotations: ReturnType<typeof parseTeacherAnnotationDetection>['annotations'] }> = [];
       const pageTranscriptions: Array<{ pageLabel: string; pageText: string; doubtfulMarker: string }> = [];
-      if (!transcription) {
+      const shouldReadCopyImages = !transcription || (request.detectTeacherAnnotations && !request.visionOnly && !request.teacherAnnotations && Boolean(request.images?.length));
+      if (shouldReadCopyImages) {
         onStage?.('reading');
-        
         for (const [index, image] of (request.images ?? []).entries()) {
           const pageLabel = image.fileName || `page ${index + 1}`;
           let transcriptionTruncated = false;
           const transcriptionLimit = Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048)));
+          const annotationAware = request.detectTeacherAnnotations === true && !request.visionOnly;
           const pageTranscription = await sendStream(
             visionModel,
-            buildTranscriptionPrompt(visionModel, settings.transcriptionPromptMode),
+            annotationAware
+              ? buildTeacherAnnotationTranscriptionPrompt(visionModel, settings.transcriptionPromptMode)
+              : buildTranscriptionPrompt(visionModel, settings.transcriptionPromptMode),
             [providerImage(image)],
             undefined,
-            false,
+            annotationAware,
             false,
             {
-              kind: 'vision', stage: 'reading', intent: 'Lire et transcrire une page de copie', context: `${pageLabel} · page ${index + 1}/${request.images?.length ?? 0}`, temperature: 0,
+              kind: 'vision', stage: 'reading', intent: annotationAware ? 'Lire la page et repérer les annotations du professeur' : 'Lire et transcrire une page de copie', context: `${pageLabel} · page ${index + 1}/${request.images?.length ?? 0}`, temperature: 0,
               generationTokenLimit: transcriptionLimit,
-              stop: ['\n\n\n\n'],
+              stop: annotationAware ? undefined : ['\\n\\n\\n\\n'],
               repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
-              allowTruncated: true,
+              allowTruncated: !annotationAware,
               onDoneReason: (reason) => { transcriptionTruncated = reason === 'length'; },
               keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
               onSuspiciousStop: () => { transcriptionTruncated = true; },
             },
           );
-          if (/(?:\r?\n){4}$/.test(pageTranscription)) transcriptionTruncated = true;
-          const pageText = cleanTranscription(pageTranscription);
+          if (/(?:\\r?\\n){4}$/.test(pageTranscription)) transcriptionTruncated = true;
+          let pageText = cleanTranscription(pageTranscription);
+          if (annotationAware) {
+            const detection = parseTeacherAnnotationDetection(pageTranscription);
+            if (!detection.studentTranscription) {
+              throw new Error(`La lecture de ${pageLabel} n’a pas fourni la transcription structurée attendue pour vérifier les annotations. Relancez la lecture ; aucune notation n’a été lancée.`);
+            }
+            pageText = cleanTranscription(detection.studentTranscription);
+            if (detection.annotations.length) detectedTeacherAnnotations.push({ page: index + 1, annotations: detection.annotations });
+          }
           if (!pageText) throw new Error(`Aucun texte n’a pu être lu sur ${pageLabel}.`);
           const doubtfulMarker = transcriptionTruncated ? ' [LECTURE DOUTEUSE : transcription possiblement interrompue par une longue zone blanche ou la limite de génération]' : '';
           pageTranscriptions.push({ pageLabel, pageText, doubtfulMarker });
         }
-        transcription = pageTranscriptions.map(({ pageLabel, pageText, doubtfulMarker }) => [`[ ${pageLabel} ]`, pageText + doubtfulMarker].join('\n')).join('\n\n');
       }
 
-      if (request.detectTeacherAnnotations && !request.visionOnly) {
-        for (const [index, image] of (request.images ?? []).entries()) {
-          const originalPageText = pageTranscriptions[index]?.pageText ?? '';
-          const annotationResponse = await sendStream(visionModel, [
-            'Tu réalises une seconde passe de séparation éditoriale sur cette page déjà transcrite. Identifie les annotations possiblement ajoutées par le professeur et produis une transcription fidèle du seul travail de l’étudiant.',
-            'Repère les commentaires en marge, corrections, coches, croix, cercles, soulignements de correction et notes déjà attribuées. Une couleur différente est un indice, jamais une preuve : un étudiant peut utiliser plusieurs couleurs et un professeur peut écrire dans la même couleur.',
-            'Distingue comment, correction, score (note/points déjà inscrits), mark (coche, croix, cercle) et unknown. Ne confonds jamais une réponse de l’étudiant, une rature ou une autocorrection de l’étudiant avec une annotation professorale.',
-            'RÈGLE DE CONSERVATION : studentTranscription doit reprendre fidèlement le texte étudiant initial, sans reformulation, correction orthographique, résumé ni omission. Retire uniquement le texte/les marques dont l’origine professorale est identifiable avec une confiance high. Pour toute annotation de confiance medium ou low, ou dont l’auteur est ambigu, conserve le contenu correspondant dans studentTranscription et signale-le dans annotations. Si aucune annotation certaine n’est visible, recopie intégralement la transcription initiale.',
-            'Ne supprime jamais une réponse, un mot barré, une rature, un schéma ou une tentative de l’étudiant au seul motif qu’il est corrigé, entouré, souligné ou écrit dans une autre couleur. Une réponse erronée reste une réponse de l’étudiant.',
-            'Retourne uniquement un JSON : {"studentTranscription":"transcription fidèle sans les seules annotations professorales certaines","annotations":[{"text":"2/3","kind":"score","points":2,"color":"rouge","location":"marge droite, question 2","confidence":"high"}]}. studentTranscription est obligatoire et doit être une chaîne. kind doit être exactement comment, correction, score, mark ou unknown ; confidence doit être exactement low, medium ou high. points est facultatif et réservé aux notes numériques explicitement visibles. Sans annotation repérable, retourne {"studentTranscription":"transcription initiale recopiée fidèlement","annotations":[]}. N’invente rien.',
-            'Analyse l’image entière, y compris les marges, les corrections superposées et les notes manuscrites. Utilise la transcription initiale comme aide pour préserver exactement les réponses de l’étudiant.',
-            `TRANSCRIPTION INITIALE DE LA PAGE (référence fidèle à préserver) :\n<transcription_initiale>\n${originalPageText}\n</transcription_initiale>`,
-          ].join('\n\n'), [providerImage(image)], undefined, true, false, {
-            kind: 'vision', stage: 'reading', temperature: 0, generationTokenLimit: 2048,
-            keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
-          }).catch(() => '');
-          const detection = parseTeacherAnnotationDetection(annotationResponse);
-          if (detection.annotations.length) detectedTeacherAnnotations.push({ page: index + 1, annotations: detection.annotations });
-          if (detection.annotations.some((annotation) => annotation.confidence === 'high') && detection.studentTranscription && pageTranscriptions[index]) {
-            pageTranscriptions[index].pageText = detection.studentTranscription;
+      if (request.detectTeacherAnnotations && !request.visionOnly && detectedTeacherAnnotations.length > 0) {
+        const candidates: TeacherAnnotationReviewCandidate[] = detectedTeacherAnnotations.flatMap(({ page, annotations }) =>
+          annotations.flatMap((annotation, index) => annotation.confidence === 'high' ? [] : [{
+            ...annotation,
+            id: `page-${page}-annotation-${index + 1}`,
+            page,
+          }]),
+        );
+        if (candidates.length > 0 && onTeacherAnnotationReview) {
+          const decisions = await onTeacherAnnotationReview(candidates);
+          const confirmedIds = new Set(decisions.filter((decision) => decision.confirmed).map((decision) => decision.id));
+          for (const candidate of candidates) {
+            if (!confirmedIds.has(candidate.id)) continue;
+            const page = pageTranscriptions[candidate.page - 1];
+            if (page) page.pageText = removeConfirmedTeacherAnnotation(page.pageText, candidate.text);
           }
         }
       }
@@ -590,7 +609,7 @@ export function createOllamaProvider(
       if (pageTranscriptions.length > 0) {
         transcription = pageTranscriptions.map(({ pageLabel, pageText, doubtfulMarker }) => [
           `[ ${pageLabel} ]`, pageText + doubtfulMarker,
-        ].join('\n')).join('\n\n');
+        ].join('\\n')).join('\\n\\n');
         onTranscription?.(transcription, 'copy');
       }
 
@@ -598,7 +617,9 @@ export function createOllamaProvider(
       // This keeps the two model roles independently measurable.
       if (request.visionOnly) return transcription ?? '';
 
-      const teacherAnnotationsText = detectedTeacherAnnotations.length ? formatTeacherAnnotations(detectedTeacherAnnotations.flatMap((page) => page.annotations.map((annotation) => ({ ...annotation, location: `Page ${page.page} · ${annotation.location}` })))) : '';
+      const teacherAnnotationsText = request.detectTeacherAnnotations && request.teacherAnnotations
+        ? request.teacherAnnotations
+        : detectedTeacherAnnotations.length ? formatTeacherAnnotations(detectedTeacherAnnotations.flatMap((page) => page.annotations.map((annotation) => ({ ...annotation, location: `Page ${page.page} · ${annotation.location}` })))) : '';
       if (teacherAnnotationsText) onTranscription?.(teacherAnnotationsText, 'annotations');
       onStage?.('grading');
       const gradingPrompt = buildPrompt(transcription, subjectTranscription, teacherAnnotationsText);
