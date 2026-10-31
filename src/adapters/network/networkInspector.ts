@@ -39,7 +39,15 @@ function sanitizeValue(value: unknown, key = ''): unknown {
   return value;
 }
 
-export function sanitizeUrl(value: string): string {\n  try {\n    const url = new URL(value, window.location?.origin ?? 'http://localhost');\n    for (const key of [...url.searchParams.keys()]) if (SENSITIVE_KEY.test(key)) url.searchParams.set(key, '[masqué]');\n    return url.toString();\n  } catch { return value; }\n}\n\nexport function sanitizeRequestBody(body: BodyInit | null | undefined): string {
+export function sanitizeUrl(value: string): string {
+  try {
+    const url = new URL(value, window.location?.origin ?? 'http://localhost');
+    for (const key of [...url.searchParams.keys()]) if (SENSITIVE_KEY.test(key)) url.searchParams.set(key, '[masqué]');
+    return url.toString();
+  } catch { return value; }
+}
+
+export function sanitizeRequestBody(body: BodyInit | null | undefined): string {
   if (typeof body !== 'string') return body == null ? '' : '[corps non textuel masqué]';
   try {
     return JSON.stringify(sanitizeValue(JSON.parse(body)), null, 2);
