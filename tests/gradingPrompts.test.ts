@@ -31,8 +31,8 @@ describe('incremental grading prompt contract', () => {
     for (const field of ['criterionId', 'points', 'rationale', 'evidence', 'confidence', 'annotationSuggestion']) {
       expect(prompt).toContain(field);
     }
-    expect(prompt).toContain('même lorsque le maximum de points est attribué');
-    expect(prompt).toContain('si la note est inférieure au maximum');
+    expect(prompt).toContain('18 mots maximum');
+    expect(prompt).toContain('12 mots maximum');
   });
 
   it('reuses only coordinates explicitly extracted by the document-reading stage', () => {
