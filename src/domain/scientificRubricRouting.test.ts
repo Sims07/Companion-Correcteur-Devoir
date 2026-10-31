@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mergeScientificDiagramCriteria, partitionScientificRubric } from './scientificRubricRouting.ts';
 import type { GradingProposal } from './grading.ts';
 import type { Rubric } from './rubric.ts';
+import type { ScientificDiagramAnalysis } from './scientificDiagram.ts';
 
 const rubric: Rubric = {
   title: 'Biologie cellulaire',
@@ -16,7 +17,7 @@ const textProposal: GradingProposal = {
   questionsForTeacher: [],
   finalScore: 9,
 };
-const diagramAnalysis = {
+const diagramAnalysis: ScientificDiagramAnalysis = {
   diagrams: [{
     id: 'd1', pageNumber: 2, diagramType: 'Cellule', summary: 'Schéma de cellule.',
     criteria: [{ criterionId: 'diagram', title: 'Schéma scientifique', points: 7, maxPoints: 8, evidence: 'Membrane et organites correctement légendés.', confidence: 0.94, requiresTeacherReview: false, qualityBreakdown: [{ dimension: 'title', status: 'fulfilled', evidence: 'Titre présent.' }, { dimension: 'scientific-accuracy', status: 'fulfilled', evidence: 'Structures exactes.' }, { dimension: 'completeness', status: 'partial', evidence: 'Un élément manque.' }, { dimension: 'labels', status: 'fulfilled', evidence: 'Légendes correctes.' }, { dimension: 'arrows-relations', status: 'not-applicable', evidence: 'Pas de relation à flécher.' }, { dimension: 'organization-conventions', status: 'fulfilled', evidence: 'Organisation claire.' }, { dimension: 'legibility', status: 'fulfilled', evidence: 'Lisible.' }] }],
