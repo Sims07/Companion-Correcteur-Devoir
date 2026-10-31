@@ -787,6 +787,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
     const captureDiagramDiagnostic = (result: DiagnosticModelResult) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); };
     let textImages = images;
+    let textPageNumbers = images.map((_, index) => index + 1);
     let annotationRotationAngles = manualRotationAngles;
     let diagramImages: ImageInput[] = [];
     let diagramPageNumbers: number[] = [];
@@ -872,7 +873,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
           const routing = routeScientificPages(classifications, textImages.length);
           diagramPageNumbers = routing.diagramPageNumbers;
           diagramImages = diagramPageNumbers.map((pageNumber) => textImages[pageNumber - 1]);
-          textImages = (diagramRubric.criteria.length > 0 ? routing.textPageNumbers : textImages.map((_, index) => index + 1)).map((pageNumber) => textImages[pageNumber - 1]);
+          textPageNumbers = diagramRubric.criteria.length > 0 ? routing.textPageNumbers : textImages.map((_, index) => index + 1);
+          textImages = textPageNumbers.map((pageNumber) => textImages[pageNumber - 1]);
           if (diagramImages.length > 0 && diagramRubric.criteria.length > 0 && !scientificDiagramAnalysis) {
             setCriterionProgressMessage(`${diagramImages.length} page(s) de schéma détectée(s) · correction scientifique spécialisée…`);
             setScientificDiagramError('');
@@ -910,8 +912,10 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         setAnalysisStage('reading');
         const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, regionsEnabled, regionsModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
         const teacherAnnotationImages = detectTeacherAnnotations
-          ? await Promise.all(originalImages.map(async (image, index) => {
-            const degrees = annotationRotationAngles[index] ?? 0;
+          ? await Promise.all(textPageNumbers.map(async (pageNumber) => {
+            const pageIndex = pageNumber - 1;
+            const image = originalImages[pageIndex] ?? images[pageIndex];
+            const degrees = annotationRotationAngles[pageIndex] ?? 0;
             return degrees === 0 ? image : service.rotateImage(image, degrees as 90 | 180 | 270);
           }))
           : undefined;
