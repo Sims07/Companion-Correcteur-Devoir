@@ -1,8 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('opens the local observability workspace and explores a trace without exposing copy content', async ({ page }) => {
-  await page.goto('/');
-  await page.evaluate(async () => {
+  await page.addInitScript(() => {
     localStorage.setItem('companion-correcteur:timing-history:v1', JSON.stringify([{
       id: 'trace-e2e-1',
       completedAt: '2026-10-30T08:00:00.000Z',
@@ -24,6 +23,10 @@ test('opens the local observability workspace and explores a trace without expos
         { model: 'gemma3:4b', kind: 'model', stage: 'analysis', elapsedMs: 92000, promptTokens: 220, generatedTokens: 180, requestPrompt: 'PROMPT ANALYSE ENVOYÉ', requestMetadata: { stream: true, think: false, format: 'json', imageCount: 0, keepAlive: 0, options: { contextTokens: 8192, generationTokenLimit: 2048 } }, raw: 'RÉPONSE ANALYSE BRUTE' },
       ],
     }]));
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => localStorage.getItem('companion-correcteur:timing-history:v1') === null);
+  await page.evaluate(async () => {
     const request = indexedDB.open('companion-correcteur-devoir', 4);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
