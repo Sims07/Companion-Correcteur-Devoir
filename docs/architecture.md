@@ -2,7 +2,7 @@
 
 ## Objectif et contraintes
 
-L'application aide les enseignants universitaires en biologie à analyser des copies manuscrites à partir d'un barème. La confidentialité est une contrainte d'architecture : les images sont préparées dans le navigateur. Le parcours textuel et la lecture courante utilisent l'endpoint Ollama configuré. L'analyse spécialisée des schémas utilise, à la demande de l'enseignant, l'endpoint API compatible OpenAI configuré par l'utilisateur (serveur auto-hébergé dans son installation). L'analyse démarre uniquement au clic sur son bouton ; aucun fournisseur cloud tiers n'est imposé ni utilisé par défaut.
+L'application aide les enseignants universitaires en biologie à analyser des copies manuscrites à partir d'un barème. La confidentialité est une contrainte d'architecture : les images sont préparées dans le navigateur. Le parcours textuel utilise l'endpoint Ollama configuré. Dans le parcours enseignant, le modèle Vision classe d'abord les pages (réponse rédigée, schéma scientifique ou ambiguë) via l'endpoint API compatible OpenAI configuré par l'utilisateur, qui peut être auto-hébergé. Seules les pages reconnues comme schémas sont transmises ensuite à la correction scientifique spécialisée ; les pages ambiguës restent dans le parcours textuel avec un signalement. Aucun fournisseur cloud tiers n'est imposé ni utilisé par défaut.
 
 L'application suit une **architecture hexagonale (ports et adaptateurs)** avec dépendances orientées vers le cœur métier. React, IndexedDB, les APIs du navigateur et Ollama sont des détails externes remplaçables.
 
@@ -75,7 +75,7 @@ Seul point d'assemblage des adaptateurs concrets, services applicatifs et compos
 
 ## Flux principaux
 
-1. L'enseignant crée ou sélectionne un devoir, ajuste son barème, choisit entre questions intégrées à la copie ou sujet de référence séparé, et peut activer la modalité « schémas scientifiques ».
+1. L'enseignant crée ou sélectionne un devoir, ajuste son barème et choisit entre questions intégrées à la copie ou sujet de référence séparé.
 2. Les fichiers sont préparés localement. Les PDF sont rendus en images dans le navigateur ; aucun téléversement de fichier n'est effectué par l'application.
 3. L'enseignant configure un modèle de lecture (vision) et un modèle d'analyse/notation. Pour un barème importé depuis une image, le modèle de vision demande une sortie structurée qui est validée et présentée à l'enseignant pour vérification.
 4. Le modèle de vision lit les images de la copie. Le texte extrait reste consultable et peut être réutilisé lors d'une nouvelle analyse sans rappeler le modèle de vision. En mode sujet séparé, la transcription du sujet est conservée en mémoire de la session et réutilisée pour les copies suivantes.
@@ -83,7 +83,7 @@ Seul point d'assemblage des adaptateurs concrets, services applicatifs et compos
 6. Une correction finalisée peut être archivée dans IndexedDB avec son instantané de révision, ses images, ses transcriptions, le barème, la proposition et l'éventuelle analyse visuelle des schémas. Elle peut ensuite être rouverte pour consultation. Les données restent dans le profil de navigateur ; elles ne sont pas synchronisées entre appareils.
 7. Les écarts entre les notes proposées et les décisions de l'enseignant, ainsi que les commentaires explicites, peuvent être mémorisés localement. Le contexte récupéré est consultatif et ne remplace jamais la décision enseignante.
 8. La file de copies facilite le passage à la copie suivante pendant une session. Elle ne doit pas être confondue avec un traitement serveur en lot ni avec un service cloud.
-9. Lorsque la modalité « schémas scientifiques » est activée, un panneau indépendant propose une analyse visuelle à la demande. Les images originales sont envoyées à l'endpoint API compatible OpenAI configuré lorsque l'enseignant lance l'analyse depuis ce panneau. Le résultat est validé contre les identifiants et maxima du barème ; les incertitudes sont conservées, et les résultats visuels sont archivés avec la correction, mais les points ne sont pas ajoutés automatiquement au total textuel.
+9. Avant la correction textuelle, le parcours enseignant classe les pages de la copie en une passe Vision. Les pages reconnues comme schémas sont retirées du lot transmis au parcours textuel, puis seules ces pages sont envoyées à la correction scientifique spécialisée ; les pages ambiguës restent dans le lot textuel et sont signalées. La classification et les résultats sont archivés avec la correction.
 10. Le Diagnostic IA permet d'évaluer séparément les modèles et stratégies expérimentales, sans changer le comportement par défaut du parcours de correction enseignant.
 
 ## Confidentialité et limites
