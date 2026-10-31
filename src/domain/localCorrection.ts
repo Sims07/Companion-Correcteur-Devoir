@@ -10,6 +10,8 @@ export interface ArchivedImage {
 }
 
 export interface CorrectionArchiveSnapshot {
+  /** Local observability trace linked to this correction, when available. */
+  timingTraceId?: string;
   assignmentTitle: string;
   question: string;
   rubric: Rubric;
