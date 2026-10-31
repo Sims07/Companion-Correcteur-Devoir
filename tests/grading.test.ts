@@ -27,6 +27,23 @@ describe('parseGradingProposal', () => {
     expect(toReviewedCriteria(proposal)[0].decision).toBe('pending');
   });
 
+  it('allows empty rationale and annotation for confident full-credit criteria while requiring evidence', () => {
+    const proposal = parseGradingProposal(JSON.stringify({
+      criteria: [
+        { criterionId: 'knowledge', points: 8, rationale: '', evidence: 'Membrane plasmique', confidence: 'high', annotationSuggestion: '' },
+        validCriteria[1],
+      ],
+    }), rubric);
+    expect(proposal.criteria[0]).toMatchObject({ points: 8, rationale: '', evidence: 'Membrane plasmique', confidence: 'high' });
+    expect(proposal.criteria[0].annotationSuggestion).toBeUndefined();
+    expect(() => parseGradingProposal(JSON.stringify({
+      criteria: [
+        { criterionId: 'knowledge', points: 8, rationale: '', evidence: '', confidence: 'high', annotationSuggestion: '' },
+        validCriteria[1],
+      ],
+    }), rubric)).toThrow(/preuve.*obligatoire/i);
+  });
+
   it('flags a score outside the rubric instead of silently correcting it', () => {
     expect(() => parseGradingProposal(JSON.stringify({
       criteria: [{ ...validCriteria[0], points: 9 }, validCriteria[1]],
