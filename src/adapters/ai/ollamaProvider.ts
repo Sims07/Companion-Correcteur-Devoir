@@ -637,6 +637,7 @@ export function createOllamaProvider(
           throw new Error(warning);
         }
         for (const [index, image] of annotationImages.entries()) {
+          const pageNumber = request.teacherAnnotationPageNumbers?.[index] ?? index + 1;
           const originalPageText = pageTranscriptions[index]?.pageText ?? '';
           let annotationResponse: string;
           try {
@@ -655,18 +656,18 @@ export function createOllamaProvider(
             });
           } catch (cause) {
             const detail = cause instanceof Error ? cause.message : 'erreur inconnue du modèle de lecture';
-            const warning = `Détection des annotations non effectuée sur la page ${index + 1} : elles n'ont pas été retirées. ${detail}`;
+            const warning = `Détection des annotations non effectuée sur la page ${pageNumber} : elles n'ont pas été retirées. ${detail}`;
             onTranscription?.(warning, 'warning');
             throw new Error(warning);
           }
           const detection = parseTeacherAnnotationDetection(annotationResponse);
           if (detection.invalidAnnotationCount > 0 || !detection.studentTranscription) {
-            const warning = `Détection des annotations non exploitable sur la page ${index + 1} : données invalides ou transcription nettoyée absente. Les annotations n'ont pas été retirées ; aucune note ne peut être calculée.`;
+            const warning = `Détection des annotations non exploitable sur la page ${pageNumber} : données invalides ou transcription nettoyée absente. Les annotations n'ont pas été retirées ; aucune note ne peut être calculée.`;
             onTranscription?.(warning, 'warning');
             throw new Error(warning);
           }
           if (!isDeletionOnlyTranscription(originalPageText, detection.studentTranscription)) {
-            const warning = `Transcription nettoyée rejetée sur la page ${index + 1} : le modèle a ajouté, reformulé ou réordonné du texte. Les annotations n'ont pas été retirées ; aucune note ne peut être calculée.`;
+            const warning = `Transcription nettoyée rejetée sur la page ${pageNumber} : le modèle a ajouté, reformulé ou réordonné du texte. Les annotations n'ont pas été retirées ; aucune note ne peut être calculée.`;
             onTranscription?.(warning, 'warning');
             throw new Error(warning);
           }
@@ -675,15 +676,15 @@ export function createOllamaProvider(
             && originalPageText.includes(annotation.text)
             && detection.studentTranscription!.includes(annotation.text));
           if (retainedProfessorText.length > 0) {
-            const warning = `Une annotation détectée n’a pas été retirée de la transcription de la page ${index + 1}. Aucune note ne peut être calculée tant que le texte du professeur subsiste.`;
+            const warning = `Une annotation détectée n’a pas été retirée de la transcription de la page ${pageNumber}. Aucune note ne peut être calculée tant que le texte du professeur subsiste.`;
             onTranscription?.(warning, 'warning');
             throw new Error(warning);
           }
-          if (detection.annotations.length) detectedTeacherAnnotations.push({ page: index + 1, annotations: detection.annotations });
+          if (detection.annotations.length) detectedTeacherAnnotations.push({ page: pageNumber, annotations: detection.annotations });
           const uncertainAnnotations = detection.annotations.filter((annotation) => annotation.confidence !== 'high');
           if (uncertainAnnotations.length > 0) {
             onTranscription?.(formatTeacherAnnotations(uncertainAnnotations), 'annotations');
-            const warning = `La page ${index + 1} contient ${uncertainAnnotations.length} annotation(s) de confiance moyenne ou faible. Une confirmation de l’enseignant est nécessaire avant toute notation.`;
+            const warning = `La page ${pageNumber} contient ${uncertainAnnotations.length} annotation(s) de confiance moyenne ou faible. Une confirmation de l’enseignant est nécessaire avant toute notation.`;
             onTranscription?.(warning, 'warning');
             throw new Error(warning);
           }
