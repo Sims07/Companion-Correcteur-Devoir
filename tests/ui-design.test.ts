@@ -210,6 +210,16 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('@media (max-width: 720px)');
   });
 
+  it('provides a full-width searchable assignment library with responsive cards', () => {
+    expect(appComponent).toContain('showAssignmentsHome');
+    expect(appComponent).toContain('<AssignmentsHome');
+    expect(appComponent).toContain('className="sidebar-all-assignments"');
+    expect(correctionFlowStylesheet).toContain('.teacher-flow-shell.teacher-assignments-home');
+    expect(correctionFlowStylesheet).toContain('.assignments-card-grid');
+    expect(correctionFlowStylesheet).toContain('.assignments-filters');
+    expect(correctionFlowStylesheet).toContain('@media(max-width:600px)');
+  });
+
   it('keeps assignment management compact and reveals its actions on demand', () => {
     expect(appComponent).toContain('className="sidebar-assignment-current"');
     expect(appComponent).toContain('aria-expanded={showAssignmentPicker}');
