@@ -1048,6 +1048,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       subjectTranscription,
       correctionMode,
       maximumPoints: validation.maximumPoints,
+      hasScientificDiagrams,
       ...(scientificDiagramAnalysis ? { scientificDiagramAnalysis: structuredClone(scientificDiagramAnalysis) } : {}),
     };
     const correction: LocalCorrection = {
@@ -1292,6 +1293,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         rubric: snapshot.rubric,
         question: snapshot.question,
         correctionMode: snapshot.correctionMode,
+        hasScientificDiagrams: snapshot.hasScientificDiagrams ?? false,
       };
       setAssignmentProfiles((current) => [...current, matchingAssignment!]);
     }
@@ -1312,6 +1314,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setSubjectImages(snapshot.subjectImages);
     setSubjectTranscription(snapshot.subjectTranscription);
     setCorrectionMode(snapshot.correctionMode);
+    setHasScientificDiagrams(snapshot.hasScientificDiagrams ?? matchingAssignment.hasScientificDiagrams ?? false);
     setCurrentCorrectionId(correction.id);
     setIsFinalized(true);
     setReviewMessage('Correction enregistrée ouverte en lecture et révision locale.');
