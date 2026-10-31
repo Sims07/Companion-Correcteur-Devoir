@@ -77,6 +77,7 @@ describe('prepareLocalFiles', () => {
     const close = vi.fn();
     const bitmap = { width: 1200, height: 800, close };
     vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue(bitmap));
+    const createCanvas = vi.spyOn(document, 'createElement');
     const translate = vi.fn();
     const rotate = vi.fn();
     const drawImage = vi.fn();
@@ -88,8 +89,9 @@ describe('prepareLocalFiles', () => {
 
     expect(rotated).toEqual({ mimeType: 'image/jpeg', base64: 'dHVybmVk', fileName: 'diagram.jpg' });
     expect(original.base64).toBe('b3JpZ2luYWw=');
-    expect(HTMLCanvasElement.prototype.width).toBe(800);
-    expect(HTMLCanvasElement.prototype.height).toBe(1200);
+    const canvas = createCanvas.mock.results[0].value as HTMLCanvasElement;
+    expect(canvas.width).toBe(800);
+    expect(canvas.height).toBe(1200);
     expect(translate).toHaveBeenCalledWith(400, 600);
     expect(rotate).toHaveBeenCalledWith(Math.PI / 2);
     expect(drawImage).toHaveBeenCalledWith(bitmap, -600, -400);
