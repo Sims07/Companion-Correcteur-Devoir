@@ -83,3 +83,17 @@ export function getReviewFocus(
 
   return { flaggedCriteriaIds: [...flagged], reliableCriteriaIds };
 }
+
+export function getReviewAlertReasons(
+  criterion: ReviewedCriterion,
+  maxPoints: number,
+): string[] {
+  const reasons: string[] = [];
+  if (criterion.points < maxPoints) reasons.push('Point retiré');
+  if (!criterion.evidence.trim() || missingEvidencePattern.test(criterion.evidence)) reasons.push('Preuve manquante');
+  if (criterion.confidence === 'low') reasons.push('Confiance faible');
+  else if (criterion.confidence === 'medium') reasons.push('Confiance à vérifier');
+  if (criterion.questionForTeacher?.trim()) reasons.push('Question pour vous');
+  if (unreadablePattern.test([criterion.evidence, criterion.rationale, criterion.questionForTeacher ?? ''].join(' '))) reasons.push('Lecture difficile');
+  return reasons.length ? reasons : ['À vérifier'];
+}
