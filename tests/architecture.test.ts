@@ -14,6 +14,7 @@ describe('hexagonal architecture boundaries', () => {
       '../src/domain/rubric.ts',
       '../src/domain/observability.ts',
       '../src/domain/teacherAnnotations.ts',
+      '../src/domain/scientificDiagram.ts',
     ];
     for (const file of files) {
       const text = source(file);
@@ -23,7 +24,7 @@ describe('hexagonal architecture boundaries', () => {
   });
 
   it('keeps application use cases dependent only on domain and ports', () => {
-    for (const file of ['../src/application/localCorrectionService.ts', '../src/application/correctionWorkspaceService.ts', '../src/application/modelEvaluationService.ts']) {
+    for (const file of ['../src/application/localCorrectionService.ts', '../src/application/correctionWorkspaceService.ts', '../src/application/modelEvaluationService.ts', '../src/application/scientificDiagramAnalysisService.ts']) {
       const text = source(file);
       expect(imports(text).every((path) => path.startsWith('../domain/') || path.startsWith('../ports/')), file).toBe(true);
       expect(text, file).not.toMatch(/\\b(window|document|indexedDB|React)\\b/);
@@ -40,6 +41,7 @@ describe('hexagonal architecture boundaries', () => {
     for (const file of [
       '../src/adapters/storage/indexedDbMemory.ts',
       '../src/adapters/ai/localMemoryFetchBridge.ts',
+      '../src/adapters/ai/openAiScientificDiagramAnalyzer.ts',
     ]) {
       expect(imports(source(file)).some((path) => /(^|\/)ui\//.test(path)), file).toBe(false);
       expect(imports(source(file)).some((path) => /(^|\/)application\//.test(path)), file).toBe(false);
@@ -52,6 +54,12 @@ describe('hexagonal architecture boundaries', () => {
     expect(port).toContain('signal?: AbortSignal');
     const service = source('../src/application/correctionWorkspaceService.ts');
     expect(service).toContain('ollama.importRubricImage(images, settings, onProgress, signal)');
+  });
+
+  it('keeps the scientific diagram analysis port independent from adapters', () => {
+    const port = source('../src/ports/scientificDiagramAnalysis.ts');
+    expect(imports(port).some((path) => path.includes('/adapters/'))).toBe(false);
+    expect(imports(source('../src/application/scientificDiagramAnalysisService.ts')).some((path) => path.includes('/adapters/'))).toBe(false);
   });
 
   it('uses main as the composition root for concrete dependencies', () => {
