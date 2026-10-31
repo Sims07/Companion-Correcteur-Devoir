@@ -5,8 +5,8 @@ export interface ModelEvaluationService {
   save(record: ModelEvaluationRecord): Promise<void>;
   list(): Promise<ModelEvaluationRecord[]>;
   delete(id: string): Promise<void>;
-  saveDiagnosticHistory<T extends { id: string }>(records: T[]): Promise<void>;
-  listDiagnosticHistory<T extends { id: string }>(): Promise<T[]>;
+  saveDiagnosticHistory(records: Array<{ id: string }>): Promise<void>;
+  listDiagnosticHistory(): Promise<Array<{ id: string }>>;
 }
 
 export function createModelEvaluationService(repository: ModelEvaluationRepository): ModelEvaluationService {
@@ -15,6 +15,6 @@ export function createModelEvaluationService(repository: ModelEvaluationReposito
     list: () => repository.list(),
     delete: (id) => repository.delete(id),
     saveDiagnosticHistory: (records) => repository.saveDiagnosticHistory(records),
-    listDiagnosticHistory: <T extends { id: string }>() => repository.listDiagnosticHistory<T>(),
+    listDiagnosticHistory: () => repository.listDiagnosticHistory(),
   };
 }
