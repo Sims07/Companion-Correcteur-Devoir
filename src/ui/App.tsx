@@ -313,6 +313,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [hasScientificDiagrams, setHasScientificDiagrams] = useState(() => readActiveAssignmentProfile().hasScientificDiagrams ?? false);
   const [scientificDiagramAnalysis, setScientificDiagramAnalysis] = useState<ScientificDiagramAnalysis | null>(null);
   const [pageClassifications, setPageClassifications] = useState<ScientificPageClassification[] | null>(null);
+  const [rotationSuggestions, setRotationSuggestions] = useState<Record<number, { degrees: 90 | 180 | 270; preview: ImageInput }>>({});
+  const [manualRotationAngles, setManualRotationAngles] = useState<Record<number, number>>({});
   const [scientificDiagramError, setScientificDiagramError] = useState('');
   const [subjectImages, setSubjectImages] = useState<ImageInput[]>([]);
   const [subjectTranscription, setSubjectTranscription] = useState<string | null>(null);
@@ -629,13 +631,15 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     }
   }
 
-  async function rotateCopyPage(pageIndex: number, clockwiseDegrees: 90 | 270) {
-    const image = images[pageIndex];
-    if (!image || isAnalyzing) return;
+  async function rotateCopyPage(pageIndex: number, clockwiseDegrees: 90 | 180 | 270) {
+    const original = originalImages[pageIndex] ?? images[pageIndex];
+    if (!original || isAnalyzing) return;
     try {
-      const rotated = await service.rotateImage(image, clockwiseDegrees);
+      const nextAngle = ((manualRotationAngles[pageIndex] ?? 0) + clockwiseDegrees) % 360;
+      const rotated = nextAngle === 0 ? original : await service.rotateImage(original, nextAngle as 90 | 180 | 270);
       setImages((current) => current.map((entry, index) => index === pageIndex ? rotated : entry));
-      setPageClassifications(null);
+      setManualRotationAngles((current) => ({ ...current, [pageIndex]: nextAngle }));
+      setRotationSuggestions((current) => { const next = { ...current }; delete next[pageIndex]; return next; });
       setScientificDiagramAnalysis(null);
       setScientificDiagramError('');
       setTranscription(null);
@@ -644,7 +648,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       setTeacherQuestions('');
       setIsFinalized(false);
       setTeacherStep('copy');
-      setReviewMessage('Orientation modifiée sur la copie de travail. L’image originale reste conservée. Relancez la lecture et la correction.');
+      setReviewMessage('Orientation modifiée depuis l’image originale. Les rotations successives ne dégradent plus la copie de travail.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La rotation locale de cette page a échoué.');
     }
@@ -756,19 +760,15 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             setCriterionProgressMessage('Détection du type et de l’orientation des pages…');
             classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, onDiagnosticResult: captureDiagramDiagnostic });
             classificationWasJustCreated = true;
-            const safelyRotated = await Promise.all(classifications.map(async (classification, index) => {
+            const suggestions = await Promise.all(classifications.map(async (classification, index) => {
               const degrees = getConfidentDiagramRotation(classification);
-              if (!degrees) return textImages[index];
-              return service.rotateImage(textImages[index], degrees);
+              const source = originalImages[index] ?? images[index];
+              if (!degrees || manualRotationAngles[index] !== undefined || !source) return null;
+              return { index, degrees, preview: await service.rotateImage(source, degrees) };
             }));
-            const hasAutomaticRotation = classifications.some((classification) => getConfidentDiagramRotation(classification) !== null);
-            if (hasAutomaticRotation) {
-              textImages = safelyRotated;
-              setImages((current) => current.map((image, index) => safelyRotated[index] ?? image));
-              setReviewMessage('Orientation d’un ou plusieurs schémas corrigée automatiquement avec une confiance élevée. Les originaux restent disponibles.');
-            } else {
-              textImages = images;
-            }
+            setRotationSuggestions(Object.fromEntries(suggestions.filter((item): item is NonNullable<typeof item> => item !== null).map((item) => [item.index, { degrees: item.degrees, preview: item.preview }])));
+            // A model suggestion is never applied without the teacher's explicit approval.
+            textImages = images;
             setPageClassifications(classifications);
           }
           const routing = routeScientificPages(classifications, textImages.length);
@@ -2160,7 +2160,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
           <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
           <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
           {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>
-             {interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="copy-has-teacher-annotations"><input id="copy-has-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient déjà des annotations du professeur</strong><small>À activer uniquement pour cette copie si elle comporte des remarques, corrections, coches ou notes déjà inscrites. Leur détection reste locale et les points existants ne sont jamais additionnés automatiquement.</small></span></label>}{images.map((image, index) => <div className="file-row copy-image-row" key={`${image.fileName}-${index}`}><div className="copy-image-row-preview"><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Aperçu de la page ${index + 1}`} /><span>{image.fileName || `Page ${index + 1}`}</span></div>{originalImages[index] && originalImages[index].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non modifiée</summary><img src={`data:${originalImages[index].mimeType};base64,${originalImages[index].base64}`} alt={`Image originale non modifiée de la page ${index + 1}`} /></details>}<div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button><button type="button" className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setOriginalImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setPageClassifications(null); setScientificDiagramAnalysis(null); setTranscription(null); }}>Retirer</button></div></div>)}<p className="copy-image-original-note">Les rotations s’appliquent uniquement à la copie de travail. Les images originales non modifiées sont conservées localement avec la correction.</p><div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie</button></div></div>}
+             {interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="copy-has-teacher-annotations"><input id="copy-has-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient déjà des annotations du professeur</strong><small>À activer uniquement pour cette copie si elle comporte des remarques, corrections, coches ou notes déjà inscrites. Leur détection reste locale et les points existants ne sont jamais additionnés automatiquement.</small></span></label>}{images.map((image, index) => <div className="file-row copy-image-row" key={`${image.fileName}-${index}`}><div className="copy-image-row-preview"><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Aperçu de la page ${index + 1}`} /><span>{image.fileName || `Page ${index + 1}`}</span></div>{originalImages[index] && originalImages[index].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non modifiée</summary><img src={`data:${originalImages[index].mimeType};base64,${originalImages[index].base64}`} alt={`Image originale non modifiée de la page ${index + 1}`} /></details>}{rotationSuggestions[index] && <div className="copy-rotation-suggestion" role="group" aria-label={`Suggestion de rotation pour la page ${index + 1}`}><strong>La page {index + 1} semble tournée de {rotationSuggestions[index].degrees}°</strong><div className="copy-rotation-suggestion-previews"><figure><img src={`data:${(originalImages[index] ?? image).mimeType};base64,${(originalImages[index] ?? image).base64}`} alt={`Page ${index + 1} avant rotation`} /><figcaption>Avant</figcaption></figure><figure><img src={`data:${rotationSuggestions[index].preview.mimeType};base64,${rotationSuggestions[index].preview.base64}`} alt={`Page ${index + 1} après rotation proposée`} /><figcaption>Après</figcaption></figure></div><div><button type="button" className="secondary-button" onClick={() => { void rotateCopyPage(index, rotationSuggestions[index].degrees); }}>Appliquer</button><button type="button" className="text-button" onClick={() => setRotationSuggestions((current) => { const next = { ...current }; delete next[index]; return next; })}>Ignorer</button></div></div>}<div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button><button type="button" className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setOriginalImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setPageClassifications(null); setScientificDiagramAnalysis(null); setTranscription(null); }}>Retirer</button></div></div>)}<p className="copy-image-original-note">Les rotations s’appliquent uniquement à la copie de travail. Les images originales non modifiées sont conservées localement avec la correction.</p><div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie</button></div></div>}
           {copyQueue.length > 0 && <section className="copy-queue" aria-label="File des copies à corriger"><div className="copy-queue-heading"><div><span className="eyebrow">FILE LOCALE</span><h4>{copyQueue.length} copie(s) à traiter</h4></div><button type="button" className="primary-button" onClick={loadNextQueuedCopy} disabled={isAnalyzing}>Charger la prochaine copie</button></div><p>Les copies en attente restent sur cet appareil et réutilisent le barème de ce devoir. La file est conservée en mémoire pendant cette session.</p><ol>{copyQueue.map((copy, index) => <li key={copy.id}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{copy.label}</strong><small>{copy.images.length} page(s) · À traiter{copy.detectTeacherAnnotations ? ' · annotations à détecter' : ''}</small></span><button type="button" className="text-button" onClick={() => setCopyQueue((current) => current.filter((item) => item.id !== copy.id))} disabled={isAnalyzing}>Retirer</button></li>)}</ol></section>}
         </article>
 
