@@ -18,8 +18,8 @@ export type NetworkRequestRecord = {
 
 const STORAGE_KEY = 'companion-correcteur:network-inspector:v1';
 const EVENT_NAME = 'companion-correcteur:network-inspector:update';
-const MAX_RECORDS = 150;
-const MAX_BODY_LENGTH = 80_000;
+const MAX_RECORDS = 100;
+const MAX_BODY_LENGTH = 20_000;
 const SENSITIVE_KEY = /authorization|api[-_]?key|token|secret|password|base64|image|content[-_]?encoding|cookie/i;
 
 function truncate(value: string): string {
