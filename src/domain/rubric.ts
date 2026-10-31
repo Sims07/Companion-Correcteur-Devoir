@@ -3,6 +3,8 @@ export interface RubricCriterion {
   title: string;
   description: string;
   maxPoints: number;
+  /** Explicitly route this criterion to image-based scientific diagram analysis. */
+  analysisMode?: 'text' | 'scientific-diagram';
 }
 
 export interface Rubric {
