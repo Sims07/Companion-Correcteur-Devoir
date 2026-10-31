@@ -548,13 +548,13 @@ export function createOllamaProvider(
       }
 
       let transcription = request.transcription;
+      const annotationImages = request.teacherAnnotationImages ?? request.images ?? [];
       const detectedTeacherAnnotations: Array<{ page: number; annotations: ReturnType<typeof parseTeacherAnnotationDetection>['annotations'] }> = [];
       const pageTranscriptions: Array<{ pageLabel: string; pageText: string; doubtfulMarker: string; regionAnchors: string[] }> = [];
       if (!transcription) {
         onStage?.('reading');
         
-        const annotationImages = request.teacherAnnotationImages ?? request.images ?? [];
-        for (const [index, image] of annotationImages.entries()) {
+        for (const [index, image] of (request.images ?? []).entries()) {
           const pageLabel = image.fileName || `page ${index + 1}`;
           let transcriptionTruncated = false;
           const transcriptionLimit = Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048)));
@@ -617,7 +617,7 @@ export function createOllamaProvider(
               {
                 kind: 'vision', stage: 'reading', temperature: 0,
                 generationTokenLimit: 1024,
-                keepAlive: index < annotationImages.length - 1 ? '30s' : 0,
+                keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
               },
             ).catch(() => '');
             regionAnchors = normalizeRegions(regionResult, index + 1, pageText);
@@ -636,7 +636,7 @@ export function createOllamaProvider(
           onTranscription?.(warning, 'warning');
           throw new Error(warning);
         }
-        for (const [index, image] of (request.images ?? []).entries()) {
+        for (const [index, image] of annotationImages.entries()) {
           const originalPageText = pageTranscriptions[index]?.pageText ?? '';
           let annotationResponse: string;
           try {
@@ -651,7 +651,7 @@ export function createOllamaProvider(
               `TRANSCRIPTION INITIALE DE LA PAGE :\\n<transcription_initiale>\\n${originalPageText}\\n</transcription_initiale>`,
             ].join('\\n\\n'), [providerImage(image)], undefined, true, false, {
               kind: 'vision', stage: 'reading', temperature: 0, generationTokenLimit: 2048,
-              keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
+              keepAlive: index < annotationImages.length - 1 ? '30s' : 0,
             });
           } catch (cause) {
             const detail = cause instanceof Error ? cause.message : 'erreur inconnue du modèle de lecture';
