@@ -482,6 +482,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       const imported = await service.importRubric(file);
       const total = imported.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
       setRubric(imported.rubric);
+      setScientificDiagramAnalysis(null);
       setProposal(null);
       setReview([]);
       setTeacherQuestions('');
@@ -542,6 +543,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       }, abortController.signal);
       const total = imported.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
       setRubric(imported.rubric);
+      setScientificDiagramAnalysis(null);
       setProposal(null);
       setReview([]);
       setTeacherQuestions('');
