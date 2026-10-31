@@ -169,6 +169,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   const workingPage = page.getByRole('img', { name: 'Aperçu de la page 1' });
   await expect(workingPage).toBeVisible();
   await expect.poll(() => workingPage.getAttribute('src')).not.toBe(sourceImageBeforeRotation);
-  await expect(page.getByText('Voir l’image originale non modifiée')).toBeVisible();
+  const originalImageDetails = page.locator('.original-image-details');
+  await expect(originalImageDetails).toBeVisible();
+  await originalImageDetails.locator('summary').click();
   await expect(page.getByRole('img', { name: 'Image originale non modifiée de la page 1' })).toBeVisible();
 });
