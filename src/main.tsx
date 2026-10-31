@@ -24,8 +24,9 @@ import './ui/design-system/controls.css';
 const localCorrectionRepository = new IndexedDbLocalCorrectionRepository();
 const localCorrectionService = createLocalCorrectionService(localCorrectionRepository);
 const modelEvaluationService = createModelEvaluationService(new IndexedDbModelEvaluationRepository());
-installLocalMemoryFetchBridge(localCorrectionRepository);
+// Install the observer first so subsequent fetch wrappers delegate through it.
 installNetworkInspector();
+installLocalMemoryFetchBridge(localCorrectionRepository);
 const scientificDiagramAnalysisService = createScientificDiagramAnalysisService(createOpenAiScientificDiagramAnalyzer());
 const correctionWorkspaceService = createCorrectionWorkspaceService(
   { checkReady: checkOllamaReady, listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, fetch, onProgress, signal) },
