@@ -24,6 +24,11 @@ describe('parseScientificDiagramAnalysis', () => {
     wrongPage.diagrams[0].pageNumber = 2;
     expect(() => parseScientificDiagramAnalysis(JSON.stringify(wrongPage), rubric, 1)).toThrow(/page inexistante/);
   });
+  it('rejects duplicated criteria within one diagram', () => {
+    const duplicated = structuredClone(valid);
+    duplicated.diagrams[0].criteria.push({ ...duplicated.diagrams[0].criteria[0] });
+    expect(() => parseScientificDiagramAnalysis(JSON.stringify(duplicated), rubric, 1)).toThrow(/est répété/);
+  });
   it('rejects out-of-page coordinates and confidence outside the unit interval', () => {
     const wrongBounds = structuredClone(valid);
     wrongBounds.diagrams[0].bounds.x = 0.8;
