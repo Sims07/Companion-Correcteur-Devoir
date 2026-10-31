@@ -676,7 +676,10 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     try {
       const nextAngle = accumulateClockwiseRotation(manualRotationAngles[pageIndex] ?? 0, clockwiseDegrees);
       const rotated = nextAngle === 0 ? original : await service.rotateImage(original, nextAngle as 90 | 180 | 270);
-      setImages((current) => current.map((entry, index) => index === pageIndex ? rotated : entry));
+      const workingImage = annotationInkColor !== 'none' && annotationInkColorApplied
+        ? await service.eraseTeacherAnnotationColor(rotated, annotationInkColor)
+        : rotated;
+      setImages((current) => current.map((entry, index) => index === pageIndex ? workingImage : entry));
       setManualRotationAngles((current) => ({ ...current, [pageIndex]: nextAngle }));
       setAnnotationInkColorPreview(null);
       setRotationSuggestions((current) => { const next = { ...current }; delete next[pageIndex]; return next; });
@@ -826,7 +829,11 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
               const degrees = getConfidentDiagramRotation(classification, manualRotationAngles[index] !== undefined);
               const source = originalImages[index] ?? images[index];
               if (!degrees || manualRotationAngles[index] !== undefined || !source) return null;
-              return { index, degrees, preview: await service.rotateImage(source, degrees) };
+              const rotated = await service.rotateImage(source, degrees);
+              const preview = annotationInkColor !== 'none' && annotationInkColorApplied
+                ? await service.eraseTeacherAnnotationColor(rotated, annotationInkColor)
+                : rotated;
+              return { index, degrees, preview };
             }));
             const pendingSuggestions = suggestions.filter((item): item is NonNullable<typeof item> => item !== null);
             const acceptedAutomaticRotations: Record<number, ImageInput> = {};
