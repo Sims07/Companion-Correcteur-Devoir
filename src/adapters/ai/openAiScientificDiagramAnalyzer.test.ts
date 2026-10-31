@@ -32,7 +32,7 @@ describe('OpenAI scientific diagram adapter', () => {
       expect(body.messages[0].content).toHaveLength(2);
       expect(body.messages[0].content[0].text).toContain(`NUMÉRO DE PAGE ORIGINAL : ${index + 1}`);
       expect(body.messages[0].content[0].text).toContain('Les tableaux de données');
-      expect(body.messages[0].content[0].text).toContain('kind=mixed');
+      expect(body.messages[0].content[0].text).toContain('Les seules valeurs autorisées pour kind sont text, scientific-diagram, mixed ou ambiguous');
       expect(body.messages[0].content[1].image_url.url).toContain(index === 0 ? 'cG5n' : 'cG5nMg==');
     }
   });
@@ -56,7 +56,7 @@ describe('OpenAI scientific diagram adapter', () => {
     ]);
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer secret');
   });
-  it('asks Vision for the seven-dimension explanation when a rubric criterion is explicitly marked as a scientific diagram', async () => {
+  it('asks Vision for one global score per selected diagram criterion and makes the seven-dimension explanation optional when explicitly marked', async () => {
     const detailedOutput = structuredClone(output) as { diagrams: Array<{ criteria: Array<{ qualityBreakdown?: Array<{ dimension: string; status: string; evidence: string }> }> }> };
     detailedOutput.diagrams[0].criteria[0].qualityBreakdown = [
       { dimension: 'title', status: 'fulfilled', evidence: 'Titre précis.' },
