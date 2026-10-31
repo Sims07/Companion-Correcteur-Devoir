@@ -133,6 +133,7 @@ describe('prepareLocalFiles', () => {
   });
 
   it('removes selected professor ink locally while preserving black student handwriting', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 3, height: 3, close: vi.fn() }));
     const pixels = new Uint8ClampedArray(3 * 3 * 4);
     for (let index = 0; index < pixels.length; index += 4) {
       pixels[index] = 255; pixels[index + 1] = 255; pixels[index + 2] = 255; pixels[index + 3] = 255;
