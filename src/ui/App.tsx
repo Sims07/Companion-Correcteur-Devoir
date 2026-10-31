@@ -650,7 +650,12 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       const prepared = await service.prepareFiles(files);
       setAnnotationInkColorPreview(null);
       setAnnotationInkColorApplied(annotationInkColor === 'none');
-      setImages((current) => [...current, ...prepared]);
+      if (annotationInkColorApplied && annotationInkColor !== 'none') {
+        setImages([...originalImages, ...prepared]);
+        setManualRotationAngles({});
+      } else {
+        setImages((current) => [...current, ...prepared]);
+      }
       setOriginalImages((current) => [...current, ...structuredClone(prepared)]);
       setRotationSuggestions({});
       setPageClassifications(null);
