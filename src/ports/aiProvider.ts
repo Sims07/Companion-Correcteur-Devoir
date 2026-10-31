@@ -25,7 +25,7 @@ export interface DiagnosticModelResult {
   kind: 'vision' | 'model' | 'arbitrator';
   stage?: 'reading' | 'analysis' | 'arbitration';
   /** Identifies specialist Vision calls in observability without changing the normal stage metrics. */
-  purpose: 'scientific-diagram-classification' | 'scientific-diagram-analysis';
+  purpose?: 'scientific-diagram-classification' | 'scientific-diagram-analysis';
   model: string;
   /** Legacy standalone prompt preview. New traces keep the full sanitized request in requestPayload. */
   requestPrompt?: string;
