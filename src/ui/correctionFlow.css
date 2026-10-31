@@ -1838,5 +1838,6 @@
 .review-alert-reason { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 8px; background: var(--flow-surface-soft); color: var(--flow-text); font-size: 11px; font-weight: 750; }
 .review-alert-summary .rationale { margin: 0; color: var(--flow-text); font-size: 13px; line-height: 1.45; }
 .review-alert-summary .annotation-suggestion { margin: 0; }
-.review-safe-summary li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
-.review-safe-summary li small { flex: 1 1 100%; color: var(--flow-muted); font-size: 12px; line-height: 1.4; }
+.review-safe-summary li { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,2fr); align-items: baseline; gap: 6px 12px; }
+.review-safe-summary li small { color: var(--flow-muted); font-size: 12px; line-height: 1.4; }
+@media (max-width: 720px) { .review-safe-summary li { grid-template-columns: minmax(0,1fr) auto; } .review-safe-summary li small { grid-column: 1 / -1; } }
