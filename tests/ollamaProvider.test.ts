@@ -220,35 +220,46 @@ describe('Ollama adapter', () => {
     await expect(listOllamaModels('http://localhost:11434', fetchMock)).resolves.toEqual([{ name: 'llava:latest' }, { name: 'qwen2.5vl:7b' }]);
   });
 
-  it('extracts existing teacher annotations in a separate local vision pass', async () => {
+  it('extracts existing teacher annotations during the single local vision reading pass', async () => {
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamingResponse('Réponse de l’étudiant'))
-      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ annotations: [{ text: '2/3', kind: 'score', points: 2, color: 'rouge', location: 'marge droite', confidence: 'high' }] })))
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({
+        studentTranscription: 'Réponse de l’étudiant',
+        annotations: [{ text: '2/3', kind: 'score', points: 2, color: 'rouge', location: 'marge droite', confidence: 'high' }],
+      })))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const annotations: string[] = [];
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
     await provider.generate({ ...request, detectTeacherAnnotations: true }, undefined, undefined, (value, kind) => { if (kind === 'annotations') annotations.push(value); });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    const detectionRequest = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
-    expect(detectionRequest.messages[0].content).toContain('Une couleur différente');
-    expect(detectionRequest.messages[0].images).toEqual(['aGVsbG8=']);
-    const gradingRequest = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const readingRequest = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(readingRequest.format).toBe('json');
+    expect(readingRequest.messages[0].content).toContain('Une couleur différente');
+    expect(readingRequest.messages[0].content).toContain('studentTranscription');
+    expect(readingRequest.messages[0].images).toEqual(['aGVsbG8=']);
+    const gradingRequest = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
     expect(gradingRequest.messages[0].content).toContain('<annotations_professeur>');
     expect(gradingRequest.messages[0].content).toContain('2/3');
     expect(annotations).toHaveLength(1);
     expect(annotations[0]).toContain('"kind": "score"');
   });
 
-  it('does not bypass annotation detection in legacy single-model mode', async () => {
+  it('does not bypass integrated annotation detection in legacy single-model mode', async () => {
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamingResponse('Réponse de l’étudiant'))
-      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ annotations: [{ text: '1/2', kind: 'score', points: 1, color: 'rouge', location: 'marge', confidence: 'medium' }] })))
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({
+        studentTranscription: 'Réponse de l’étudiant 1/2',
+        annotations: [{ text: '1/2', kind: 'score', points: 1, color: 'rouge', location: 'marge', confidence: 'medium' }],
+      })))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock);
-    await provider.generate({ ...request, detectTeacherAnnotations: true });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    const gradingRequest = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
+    await provider.generate({ ...request, detectTeacherAnnotations: true }, undefined, undefined, undefined, undefined, undefined, async (candidates) => [
+      { id: candidates[0].id, confirmed: true },
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const readingRequest = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(readingRequest.format).toBe('json');
+    const gradingRequest = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
     expect(gradingRequest.messages[0].content).toContain('<annotations_professeur>');
+    expect(gradingRequest.messages[0].content).toContain('1/2');
   });
 
   it('does not add an annotation vision request when the option is disabled', async () => {
