@@ -97,4 +97,85 @@ describe('network inspector fetch integration', () => {
     expect(loadNetworkHistory()[0].state).toBe('error');
     restore();
   });
+  it('keeps streaming response chunks in the in-memory history until completion', async () => {
+    const values = new Map<string, string>();
+    const setItem = vi.fn((key: string, value: string) => { values.set(key, value); });
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"part":'));
+        controller.enqueue(new TextEncoder().encode('"one"}'));
+        controller.close();
+      },
+    });
+    const fakeWindow = {
+      fetch: vi.fn(async () => new Response(stream, { status: 200 })),
+      localStorage: { getItem: (key: string) => values.get(key) ?? null, setItem, removeItem: (key: string) => { values.delete(key); } },
+      dispatchEvent: vi.fn(),
+      location: { origin: 'http://localhost' },
+    };
+    vi.stubGlobal('window', fakeWindow);
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    const restore = installNetworkInspector();
+
+    const response = await window.fetch('/api/stream');
+    await response.text();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(loadNetworkHistory()[0].responseBody).toContain('"part"');
+    expect(loadNetworkHistory()[0].state).toBe('success');
+    expect(setItem).toHaveBeenCalled();
+    restore();
+  });
+
+  it('keeps live records available and exposes a warning when local storage quota is full', async () => {
+    const fakeWindow = {
+      fetch: vi.fn(async () => new Response('ok', { status: 200 })),
+      localStorage: {
+        getItem: () => null,
+        setItem: () => { throw new DOMException('Quota exceeded', 'QuotaExceededError'); },
+        removeItem: vi.fn(),
+      },
+      dispatchEvent: vi.fn(),
+      location: { origin: 'http://localhost' },
+    };
+    vi.stubGlobal('window', fakeWindow);
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    const restore = installNetworkInspector();
+
+    await window.fetch('/api/quota');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(loadNetworkHistory()[0].url).toContain('/api/quota');
+    const { getNetworkInspectorStatus } = await import('../../../src/adapters/network/networkInspector.ts');
+    expect(getNetworkInspectorStatus().storageWarning).toContain('stockage local plein');
+    expect(fakeWindow.localStorage.removeItem).toHaveBeenCalled();
+    restore();
+  });
+
+  it('clears both the in-memory records and persisted history', async () => {
+    const values = new Map<string, string>();
+    const fakeWindow = {
+      fetch: vi.fn(async () => new Response('ok', { status: 200 })),
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => { values.set(key, value); },
+        removeItem: (key: string) => { values.delete(key); },
+      },
+      dispatchEvent: vi.fn(),
+      location: { origin: 'http://localhost' },
+    };
+    vi.stubGlobal('window', fakeWindow);
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    const inspector = await import('../../../src/adapters/network/networkInspector.ts');
+    const restore = inspector.installNetworkInspector();
+    await window.fetch('/api/clear');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    inspector.clearNetworkHistory();
+
+    expect(inspector.loadNetworkHistory()).toEqual([]);
+    expect(values.size).toBe(0);
+    restore();
+  });
+
 });
