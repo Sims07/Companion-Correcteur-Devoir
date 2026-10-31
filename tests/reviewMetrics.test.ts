@@ -52,6 +52,6 @@ describe('local teacher review metrics', () => {
       evidence: { checked: 1, exceeded: 1 },
       annotationSuggestion: { checked: 1, exceeded: 1 },
     });
-    expect(long.split(/\\s+/u)).toHaveLength(19);
+    expect(long.split(/\s+/u)).toHaveLength(19);
   });
 });
