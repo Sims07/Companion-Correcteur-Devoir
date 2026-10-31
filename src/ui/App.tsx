@@ -688,6 +688,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setCriterionStatuses({});
     setActiveCriterionId(null);
     setProposal(null);
+    setScientificDiagramAnalysis(null);
     setReview([]);
     setStreamedOutput('');
     setDiagnosticRuns(previousModelResults);
@@ -1872,7 +1873,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
           <p className="hint">Le niveau sert à calibrer les attentes : vocabulaire, profondeur du raisonnement et précision scientifique. Il ne remplace pas les critères explicites du barème.</p>
           <section className="assignment-modalities" aria-labelledby="assignment-modalities-title">
             <div className="panel-heading"><div><h3 id="assignment-modalities-title">Modalités d’évaluation</h3><p>Activez les analyses spécifiques réellement nécessaires pour ce devoir.</p></div></div>
-            <Checkbox checked={hasScientificDiagrams} onChange={(event) => setHasScientificDiagrams(event.target.checked); if (!event.target.checked) setScientificDiagramAnalysis(null);}>
+            <Checkbox checked={hasScientificDiagrams} onChange={(event) => { setHasScientificDiagrams(event.target.checked); if (!event.target.checked) setScientificDiagramAnalysis(null); }}>
               <strong>Ce devoir comporte des schémas scientifiques à évaluer</strong>
               <small>Une analyse visuelle dédiée sera proposée pendant la révision. Elle restera séparée de la correction textuelle.</small>
             </Checkbox>
