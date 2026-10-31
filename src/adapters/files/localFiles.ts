@@ -6,29 +6,15 @@ GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const MAX_PDF_PAGES = 10;
-const MAX_IMAGE_SIDE = 1300;
-const JPEG_QUALITY = 0.85;
 
-function canvasToJpeg(canvas: HTMLCanvasElement, fileName: string): ImageInput {
-  return dataUrlToImage(canvas.toDataURL('image/jpeg', JPEG_QUALITY), fileName);
-}
-
-async function prepareImage(file: File): Promise<ImageInput> {
-  const bitmap = await createImageBitmap(file);
-  try {
-    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height));
-    const canvas = globalThis.document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Le navigateur ne permet pas de préparer les images localement.');
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    return canvasToJpeg(canvas, file.name);
-  } finally {
-    bitmap.close();
+/** Encode bytes without changing the original image data or its dimensions. */
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length)));
   }
+  return btoa(binary);
 }
 
 function dataUrlToImage(dataUrl: string, fileName: string): ImageInput {
@@ -37,6 +23,29 @@ function dataUrlToImage(dataUrl: string, fileName: string): ImageInput {
   return { mimeType, base64: dataUrl.slice(separator + 1), fileName };
 }
 
+/**
+ * Keep JPEG and PNG files byte-for-byte unchanged. WebP is converted to PNG
+ * because Ollama image support is more consistent for PNG/JPEG; PNG encoding
+ * preserves every decoded source pixel and never applies lossy compression.
+ */
+async function prepareImage(file: File): Promise<ImageInput> {
+  if (file.type === 'image/jpeg' || file.type === 'image/png') {
+    return { mimeType: file.type, base64: bytesToBase64(new Uint8Array(await file.arrayBuffer())), fileName: file.name };
+  }
+
+  const bitmap = await createImageBitmap(file);
+  try {
+    const canvas = globalThis.document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Le navigateur ne permet pas de préparer les images localement.');
+    context.drawImage(bitmap, 0, 0);
+    return dataUrlToImage(canvas.toDataURL('image/png'), file.name);
+  } finally {
+    bitmap.close();
+  }
+}
 
 async function renderPdf(file: File): Promise<ImageInput[]> {
   const loadingTask = getDocument({ data: await file.arrayBuffer() });
@@ -51,7 +60,7 @@ async function renderPdf(file: File): Promise<ImageInput[]> {
     for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber += 1) {
       const page = await pdfDocument.getPage(pageNumber);
       const initialViewport = page.getViewport({ scale: 1 });
-      const scale = Math.min(1.6, MAX_IMAGE_SIDE / Math.max(initialViewport.width, initialViewport.height));
+      const scale = Math.min(1.6, 1300 / Math.max(initialViewport.width, initialViewport.height));
       const viewport = page.getViewport({ scale });
       const canvas = globalThis.document.createElement('canvas');
       canvas.width = Math.ceil(viewport.width);
@@ -59,7 +68,7 @@ async function renderPdf(file: File): Promise<ImageInput[]> {
       const context = canvas.getContext('2d');
       if (!context) throw new Error('Le navigateur ne permet pas de préparer les pages PDF localement.');
       await page.render({ canvas, canvasContext: context, viewport }).promise;
-      images.push(canvasToJpeg(canvas, `${file.name} · page ${pageNumber}`));
+      images.push(dataUrlToImage(canvas.toDataURL('image/png'), `${file.name} · page ${pageNumber}`));
       page.cleanup();
     }
   } finally {
@@ -68,7 +77,10 @@ async function renderPdf(file: File): Promise<ImageInput[]> {
   return images;
 }
 
-/** Rotate only the working copy. The caller keeps its original ImageInput unchanged. */
+/**
+ * Rotate only the working copy. PNG encoding is lossless: no JPEG recompression,
+ * no resizing, and no change to the source ImageInput kept by the caller.
+ */
 export async function rotateLocalImage(image: ImageInput, clockwiseDegrees: 90 | 180 | 270): Promise<ImageInput> {
   const decoded = atob(image.base64);
   const binary = new Uint8Array(decoded.length);
@@ -85,7 +97,7 @@ export async function rotateLocalImage(image: ImageInput, clockwiseDegrees: 90 |
     context.translate(canvas.width / 2, canvas.height / 2);
     context.rotate(clockwiseDegrees * Math.PI / 180);
     context.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2);
-    return canvasToJpeg(canvas, image.fileName ?? 'page tournée');
+    return dataUrlToImage(canvas.toDataURL('image/png'), image.fileName ?? 'page tournée');
   } finally {
     bitmap.close();
   }
