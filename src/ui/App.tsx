@@ -687,6 +687,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     let textImages = images;
     let diagramImages: ImageInput[] = [];
     let diagramPageNumbers: number[] = [];
+    let diagramAnalysisResult = scientificDiagramAnalysis;
     let classificationWasJustCreated = false;
     const rubricRouting = partitionScientificRubric(rubric);
     const gradingRubric: Rubric = interfaceMode === 'teacher' ? { ...rubric, criteria: rubricRouting.textCriteria } : rubric;
@@ -740,6 +741,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
                 endpoint,
                 apiKey,
               });
+              diagramAnalysisResult = diagramResult;
               setScientificDiagramAnalysis(diagramResult);
             } catch (cause) {
               setScientificDiagramError(cause instanceof Error ? cause.message : 'La correction des schémas a échoué.');
@@ -816,7 +818,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         setCriterionProgressMessage('Les critères graphiques sont évalués directement sur les schémas ; les critères textuels sans page rédigée restent à vérifier.');
       }
       const parsed = interfaceMode === 'teacher'
-        ? mergeScientificDiagramCriteria(rubric, textProposal, scientificDiagramAnalysis)
+        ? mergeScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult)
         : textProposal;
       if (!parsed) throw new Error('Aucune proposition de correction exploitable n’a été produite.');
       diagnosticProposal = parsed;
@@ -2294,7 +2296,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{isAnalyzing && criterionProgress.completedCount < criterionProgress.totalCount ? `${criterionProgress.totalCount - criterionProgress.completedCount} EN ATTENTE` : `${pendingCount} À VÉRIFIER`}</span></div>{isAnalyzing && <p className="criterion-live-progress" role="status" aria-live="polite">{criterionProgress.completedCount} / {criterionProgress.totalCount} critère(s) évalué(s) · {criterionProgressMessage || 'Analyse progressive en cours'}. La note affichée est provisoire et évoluera à mesure des résultats.</p>}{(readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
         {pageClassifications && <section className="panel scientific-page-routing" aria-label="Détection des types de page"><div className="panel-heading"><div><h3>Pages identifiées</h3><p>Les pages de schéma suivent une correction scientifique distincte ; les pages ambiguës restent dans le parcours textuel.</p></div><span className="step-count">{pageClassifications.length} PAGE(S)</span></div><ul>{pageClassifications.map((page) => <li key={page.pageNumber}><strong>Page {page.pageNumber}</strong> · {page.kind === 'scientific-diagram' ? 'Schéma scientifique' : page.kind === 'ambiguous' ? 'À vérifier' : 'Réponse rédigée'} <small>({Math.round(page.confidence * 100)} % · {page.reason})</small></li>)}</ul></section>}
         {scientificDiagramError && <p className="review-alert review-alert-warning" role="alert">{scientificDiagramError}</p>}
-        {pageClassifications?.some((page) => page.kind === 'scientific-diagram') && <ScientificDiagramAnalysisPanel enabled={true} images={images} diagramImages={pageClassifications.filter((page) => page.kind === 'scientific-diagram').map((page) => images[page.pageNumber - 1])} pageNumbers={pageClassifications.filter((page) => page.kind === 'scientific-diagram').map((page) => page.pageNumber)} question={buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question })} teacherAnnotations={teacherAnnotations} rubric={rubric} model={visionModel} endpoint={endpoint} apiKey={apiKey} apiCompatible={apiCompatible} service={diagramAnalysisService} analysis={scientificDiagramAnalysis} onAnalysisChange={(analysis) => { setScientificDiagramAnalysis(analysis); setIsFinalized(false); setReviewMessage('L’analyse visuelle a changé. Enregistrez à nouveau la correction pour conserver ce résultat.'); }} />}
+        {pageClassifications?.some((page) => page.kind === 'scientific-diagram') && <ScientificDiagramAnalysisPanel enabled={true} images={images} diagramImages={pageClassifications.filter((page) => page.kind === 'scientific-diagram').map((page) => images[page.pageNumber - 1])} pageNumbers={pageClassifications.filter((page) => page.kind === 'scientific-diagram').map((page) => page.pageNumber)} question={buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question })} teacherAnnotations={teacherAnnotations} rubric={{ ...rubric, criteria: partitionScientificRubric(rubric).diagramCriteria }} model={visionModel} endpoint={endpoint} apiKey={apiKey} apiCompatible={apiCompatible} service={diagramAnalysisService} analysis={scientificDiagramAnalysis} onAnalysisChange={(analysis) => { setScientificDiagramAnalysis(analysis); if (analysis) { const merged = mergeScientificDiagramCriteria(rubric, proposal, analysis); setProposal(merged); setReview((current) => toReviewedCriteria(merged).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item)); setTeacherQuestions(merged.questionsForTeacher.join('\\n')); } setIsFinalized(false); setReviewMessage('L’analyse visuelle a changé. Enregistrez à nouveau la correction pour conserver ce résultat.'); }} />}
         {teacherAnnotations && <section className="panel teacher-annotations-review" aria-label="Annotations préexistantes détectées"><div className="panel-heading"><span className="number">✎</span><div><h3>Annotations déjà présentes sur la copie</h3><p>Détections locales à vérifier : elles ne sont pas considérées comme de nouvelles notes.</p></div></div><pre>{teacherAnnotations}</pre></section>}
         <section className="review-alerts" aria-label="Points nécessitant votre attention">
           <div className="review-alerts-heading"><div><span className="eyebrow">CONTRÔLE CIBLÉ</span><h3>Vérifications prioritaires</h3></div><span className="review-alert-count">{reviewInsights.flaggedCriteriaIds.length} critère(s)</span></div>
