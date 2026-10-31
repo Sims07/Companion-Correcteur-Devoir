@@ -51,7 +51,7 @@ function promptFor(request: ScientificDiagramAnalysisRequest): string {
     request.teacherAnnotations?.trim() || 'Aucune annotation préexistante transmise. En cas de marque manuscrite ambiguë, signale une incertitude plutôt que de l’attribuer à l’étudiant.',
     'Si un élément est illisible, ambigu ou impossible à vérifier sur la photo, indique-le dans uncertainties et mets requiresTeacherReview à true. Ne devine pas.',
     'Les coordonnées bounds sont normalisées entre 0 et 1 par rapport à la page entière. Omet bounds si tu ne peux pas les estimer correctement.',
-    'Les numéros de page correspondent aux numéros d’origine fournis ci-dessous, et non à l’index des images filtrées.',
+    'Le champ pageNumber doit obligatoirement être l’index de l’image dans le lot transmis, à partir de 1 (1 = première image jointe, 2 = deuxième image jointe, etc.). Ne retourne jamais le numéro de page original : l’application fera elle-même la correspondance avec la copie.',
     'Pour chaque critère noté, utilise exclusivement un criterionId existant et respecte son maximum de points.',
     `CRITÈRES VISUELS À NOTER (liste exhaustive, une note globale par critère) : ${JSON.stringify(request.rubric.criteria.map((criterion) => ({ criterionId: criterion.id, title: criterion.title, description: criterion.description, maxPoints: criterion.maxPoints })))}`,
     'Retourne exclusivement un JSON valide de la forme : {"diagrams":[{"id":"diagram-1","pageNumber":1,"bounds":{"x":0.1,"y":0.2,"width":0.5,"height":0.4},"diagramType":"...","summary":"...","criteria":[{"criterionId":"ID_EXISTANT","points":0,"evidence":"preuve visuelle précise","confidence":0.0,"requiresTeacherReview":true,"qualityBreakdown":[{"dimension":"title","status":"fulfilled","evidence":"..."}]}],"uncertainties":[]}],"overallUncertainties":[]}. qualityBreakdown peut être absent ou partiel ; criterionId, points, evidence, confidence et requiresTeacherReview sont obligatoires pour chaque critère.',
@@ -59,7 +59,7 @@ function promptFor(request: ScientificDiagramAnalysisRequest): string {
     request.question,
     'BARÈME (source de vérité, ne pas modifier) :',
     JSON.stringify(request.rubric),
-    `PAGES ORIGINALES DES IMAGES JOINTES : ${(request.pageNumbers ?? request.images.map((_, index) => index + 1)).join(', ')}`,
+    `CORRESPONDANCE INDEX LOCAL → PAGE ORIGINALE : ${(request.pageNumbers ?? request.images.map((_, index) => index + 1)).map((pageNumber, index) => `${index + 1} → ${pageNumber}`).join(', ')}`,
   ].join('\n\n');
 }
 
