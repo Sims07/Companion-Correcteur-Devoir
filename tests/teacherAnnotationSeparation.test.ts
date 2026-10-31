@@ -10,7 +10,7 @@ function streamResponse(content: string): Response {
 
 const image = { base64: 'aGVsbG8=', mimeType: 'image/png', fileName: 'copie.png' };
 const structuredReading = JSON.stringify({
-  studentTranscription: 'La mitose produit deux cellules filles. entouré',
+  studentTranscription: 'La mitose produit deux cellules filles. Bien vu entouré',
   annotations: [
     { text: 'Bien vu', kind: 'comment', color: 'rouge', location: 'marge droite', confidence: 'high' },
     { text: 'entouré', kind: 'mark', color: 'bleu', location: 'question 1', confidence: 'medium' },
