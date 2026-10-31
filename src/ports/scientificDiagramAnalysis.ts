@@ -5,6 +5,8 @@ import type { ScientificPageClassification } from '../domain/scientificPageClass
 
 export interface ScientificDiagramAnalysisRequest {
   images: ImageInput[];
+  /** Original page numbers for filtered diagram images. */
+  pageNumbers?: number[];
   question: string;
   rubric: Rubric;
   model: string;
