@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { installNetworkInspector, loadNetworkHistory } from '../../../src/adapters/network/networkInspector.ts';
+import { clearNetworkHistory, getNetworkInspectorStatus, installNetworkInspector, loadNetworkHistory } from '../../../src/adapters/network/networkInspector.ts';
 import { installLocalMemoryFetchBridge } from '../../../src/adapters/ai/localMemoryFetchBridge.ts';
 import type { LocalCorrectionRepository } from '../../../src/ports/localCorrectionRepository.ts';
 
@@ -21,6 +21,7 @@ describe('network inspector fetch integration', () => {
     };
     vi.stubGlobal('window', fakeWindow);
     vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    clearNetworkHistory();
 
     const restore = installNetworkInspector();
     const response = await window.fetch('/api/chat?token=do-not-store', {
@@ -146,7 +147,6 @@ describe('network inspector fetch integration', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(loadNetworkHistory()[0].url).toContain('/api/quota');
-    const { getNetworkInspectorStatus } = await import('../../../src/adapters/network/networkInspector.ts');
     expect(getNetworkInspectorStatus().storageWarning).toContain('stockage local plein');
     expect(fakeWindow.localStorage.removeItem).toHaveBeenCalled();
     restore();
@@ -166,14 +166,13 @@ describe('network inspector fetch integration', () => {
     };
     vi.stubGlobal('window', fakeWindow);
     vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
-    const inspector = await import('../../../src/adapters/network/networkInspector.ts');
-    const restore = inspector.installNetworkInspector();
+    const restore = installNetworkInspector();
     await window.fetch('/api/clear');
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    inspector.clearNetworkHistory();
+    clearNetworkHistory();
 
-    expect(inspector.loadNetworkHistory()).toEqual([]);
+    expect(loadNetworkHistory()).toEqual([]);
     expect(values.size).toBe(0);
     restore();
   });
