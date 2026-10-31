@@ -32,9 +32,14 @@ describe('teacher annotation extraction contract', () => {
 });
 
 describe('confirmed teacher annotation removal', () => {
-  it('removes only the first exact occurrence after teacher confirmation', async () => {
+  it('removes a unique exact occurrence after teacher confirmation', async () => {
     const { removeConfirmedTeacherAnnotation } = await import('./teacherAnnotations.ts');
-    expect(removeConfirmedTeacherAnnotation('Réponse entouré puis entouré', 'entouré')).toBe('Réponse puis entouré');
+    expect(removeConfirmedTeacherAnnotation('Réponse entouré', 'entouré')).toBe('Réponse');
+  });
+
+  it('preserves repeated text when removal could erase a student answer', async () => {
+    const { removeConfirmedTeacherAnnotation } = await import('./teacherAnnotations.ts');
+    expect(removeConfirmedTeacherAnnotation('Réponse entouré puis entouré', 'entouré')).toBe('Réponse entouré puis entouré');
   });
 
   it('keeps the transcription unchanged when the annotation text is not present', async () => {
