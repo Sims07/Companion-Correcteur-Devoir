@@ -389,6 +389,7 @@ describe('teacher and AI diagnostic interface modes', () => {
   it('requires a local preview and explicit approval before grading color-cleaned copy images', () => {
     const text = app();
     expect(text).toContain('Couleur des annotations du professeur');
+    expect(text).toContain('y compris une éventuelle écriture de l’étudiant dans la même couleur');
     expect(text).toContain('Prévisualiser le retrait');
     expect(text).toContain('Appliquer à toutes les pages');
     expect(text).toContain('annotationInkColor !== \'none\' && !annotationInkColorApplied');
