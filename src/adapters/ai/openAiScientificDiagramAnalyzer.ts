@@ -30,7 +30,7 @@ function classificationPrompt(originalPageNumber: number): string {
     'Ne confonds jamais un tableau, une liste, une formule isolée, des cases à compléter, un dessin décoratif ou une illustration imprimée du sujet avec un schéma scientifique produit par l’étudiant.',
     'Ne juge pas la qualité scientifique et n’attribue aucun point à cette étape. Cette étape sert uniquement à router cette page vers le bon parcours.',
     'Retourne exactement une entrée pour l’unique image jointe. Le champ pageNumber doit toujours valoir 1 dans cette réponse isolée.',
-    'Les seules valeurs autorisées pour kind sont text, scientific-diagram, mixed ou ambiguous. Exemple de JSON valide : {"pages":[{"pageNumber":1,"kind":"text","confidence":0.0,"reason":"..."}]}',
+    'Les seules valeurs autorisées pour kind sont text, scientific-diagram, mixed ou ambiguous. Retourne toujours suggestedRotation (0, 90, 180 ou 270) et orientationConfidence (0 à 1), même si tu ne proposes aucune rotation. Exemple : {"pages":[{"pageNumber":1,"kind":"scientific-diagram","confidence":0.98,"reason":"...","suggestedRotation":90,"orientationConfidence":0.96}]}',
     `NUMÉRO DE PAGE ORIGINAL : ${originalPageNumber}`,
   ].join('\n\n');
 }
