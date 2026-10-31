@@ -1113,7 +1113,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   function updateReview(id: string, patch: Partial<ReviewedCriterion>) {
     setIsFinalized(false);
     setReviewMessage('');
-    if ((patch.teacherPoints !== undefined || patch.teacherComment !== undefined || patch.decision !== undefined) && bulkConfirmedCriterionIds.includes(id)) {
+    if (patch.teacherPoints !== undefined || patch.teacherComment !== undefined || patch.decision !== undefined) {
       updateCurrentReviewTraceMetrics((metrics) => markGroupConfirmedCriterionModified(metrics, id));
       setBulkConfirmedCriterionIds((current) => current.filter((criterionId) => criterionId !== id));
     }
