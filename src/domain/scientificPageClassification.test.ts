@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseScientificPageClassifications } from './scientificPageClassification.ts';
+import { parseScientificPageClassifications, routeScientificPages } from './scientificPageClassification.ts';
 
 describe('scientific page classification', () => {
   it('accepts a complete ordered classification and preserves ambiguous pages', () => {
@@ -23,6 +23,19 @@ describe('scientific page classification', () => {
     expect(() => parseScientificPageClassifications(JSON.stringify({ pages: [
       { pageNumber: 1, kind: 'text', confidence: 1.2, reason: '' },
     ] }), 1)).toThrow(/invalides/);
+  });
+
+  it('routes only scientific diagrams to the dedicated correction and keeps ambiguous pages in text', () => {
+    const classifications = parseScientificPageClassifications(JSON.stringify({ pages: [
+      { pageNumber: 1, kind: 'text', confidence: 0.99, reason: 'Texte' },
+      { pageNumber: 2, kind: 'scientific-diagram', confidence: 0.95, reason: 'Schéma' },
+      { pageNumber: 3, kind: 'ambiguous', confidence: 0.55, reason: 'Dessin incertain' },
+    ] }), 3);
+    expect(routeScientificPages(classifications, 3)).toEqual({ textPageNumbers: [1, 3], diagramPageNumbers: [2], ambiguousPageNumbers: [3] });
+  });
+
+  it('rejects incomplete routing input', () => {
+    expect(() => routeScientificPages([{ pageNumber: 1, kind: 'text', confidence: 1, reason: '' }], 2)).toThrow(/ne correspond pas/);
   });
 
   it('rejects unsupported page kinds and malformed JSON', () => {
