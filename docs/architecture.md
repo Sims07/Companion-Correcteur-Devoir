@@ -89,7 +89,7 @@ Seul point d'assemblage des adaptateurs concrets, services applicatifs et compos
 ## Confidentialité et limites
 
 - Le parcours courant transmet les données au seul endpoint Ollama configuré par l'utilisateur. Si cet endpoint est distant, les requêtes et images qu'il reçoit sortent de l'appareil.
-- L'analyse dédiée des schémas est une analyse visuelle à la demande, activée devoir par devoir. Elle utilise l'endpoint API compatible OpenAI configuré par l'utilisateur, qui peut être auto-hébergé ; les images originales y sont envoyées au lancement de l'analyse.
+- La classification des pages et la correction spécialisée des schémas utilisent l'endpoint API compatible OpenAI configuré par l'utilisateur, qui peut être auto-hébergé. La classification légère examine les pages de la copie ; seules les pages reconnues comme schémas sont ensuite transmises à la correction graphique.
 - Les archives, images et retours sont stockés dans IndexedDB du navigateur et peuvent être supprimés avec les données du site. Ce stockage n'est ni chiffré par l'application ni synchronisé.
 - La transcription du sujet de référence est en mémoire de page et n'est pas un dossier persistant partagé entre appareils.
 - La confiance déclarée par un modèle n'est pas calibrée statistiquement. Les preuves et justifications générées doivent être comparées à la copie originale.

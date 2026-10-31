@@ -30,7 +30,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** Parse and constrain model output against the teacher's actual rubric. */
-export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, pageCount: number): ScientificDiagramAnalysis {
+export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, pageCount: number, allowedPageNumbers: number[] = Array.from({ length: pageCount }, (_, index) => index + 1)): ScientificDiagramAnalysis {
   const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   let parsed: unknown;
   try { parsed = JSON.parse(cleaned); }
@@ -43,7 +43,7 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
   const diagrams = parsed.diagrams.map((value, index): ScientificDiagramFinding => {
     if (!isRecord(value)) throw new Error(`Le schéma ${index + 1} est invalide.`);
     const pageNumber = value.pageNumber;
-    if (!Number.isInteger(pageNumber) || Number(pageNumber) < 1 || Number(pageNumber) > pageCount) {
+    if (!Number.isInteger(pageNumber) || !allowedPageNumbers.includes(Number(pageNumber))) {
       throw new Error(`Le schéma ${index + 1} référence une page inexistante.`);
     }
     if (typeof value.id !== 'string' || !value.id.trim() || ids.has(value.id)) throw new Error('Chaque schéma doit avoir un identifiant unique.');

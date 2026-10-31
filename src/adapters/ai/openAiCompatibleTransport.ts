@@ -16,13 +16,13 @@ function completionUrl(endpoint: string): string {
   return value.endsWith('/chat/completions') ? value : `${value}/v1/chat/completions`;
 }
 
-function openAiMessages(messages: Array<{ role: string; content: string; images?: string[] }>) {
-  return messages.map(({ role, content, images }) => ({
+function openAiMessages(messages: Array<{ role: string; content: string; images?: string[]; imageDetail?: 'low' | 'high' }>) {
+  return messages.map(({ role, content, images, imageDetail }) => ({
     role,
     content: images?.length
       ? [{ type: 'text', text: content }, ...images.map((image) => ({
           type: 'image_url',
-          image_url: { url: image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`, detail: 'high' },
+          image_url: { url: image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`, detail: imageDetail ?? 'high' },
         }))]
       : content,
   }));
@@ -152,7 +152,7 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     if (!requestUrl.endsWith('/api/chat')) return fetchImpl(input, init);
-    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[] }>; options?: { temperature?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number; frequency_penalty?: number }; generation_token_parameter?: 'max_tokens' | 'max_completion_tokens'; format?: unknown } =
+    const source: { model?: string; stream?: boolean; messages?: Array<{ role: string; content: string; images?: string[]; imageDetail?: 'low' | 'high' }>; options?: { temperature?: number; num_predict?: number; stop?: string[]; repeat_penalty?: number; frequency_penalty?: number }; generation_token_parameter?: 'max_tokens' | 'max_completion_tokens'; format?: unknown } =
       typeof init?.body === 'string' ? JSON.parse(init.body) : {};
     const body = {
       model: source.model ?? '',
@@ -202,13 +202,13 @@ export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, 
     }
     if (!response.ok && [400, 422].includes(response.status)) {
       const messages = requestBody.messages;
-      const hasHighDetailImage = Array.isArray(messages) && messages.some((message) =>
+      const hasImageDetail = Array.isArray(messages) && messages.some((message) =>
         message && typeof message === 'object'
         && Array.isArray((message as { content?: unknown }).content)
         && ((message as { content: Array<{ type?: string; image_url?: { detail?: string } }> }).content)
-          .some((part) => part.type === 'image_url' && part.image_url?.detail === 'high'),
+          .some((part) => part.type === 'image_url' && part.image_url?.detail !== undefined),
       );
-      if (hasHighDetailImage && await providerRejectsParameter(response, 'detail')) {
+      if (hasImageDetail && await providerRejectsParameter(response, 'detail')) {
         const fallbackBody = JSON.parse(JSON.stringify(requestBody)) as Record<string, unknown>;
         for (const message of fallbackBody.messages as Array<{ content?: Array<{ type?: string; image_url?: { detail?: string } }> }>) {
           for (const part of message.content ?? []) {

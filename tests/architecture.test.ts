@@ -15,6 +15,7 @@ describe('hexagonal architecture boundaries', () => {
       '../src/domain/observability.ts',
       '../src/domain/teacherAnnotations.ts',
       '../src/domain/scientificDiagram.ts',
+      '../src/domain/scientificPageClassification.ts',
     ];
     for (const file of files) {
       const text = source(file);
