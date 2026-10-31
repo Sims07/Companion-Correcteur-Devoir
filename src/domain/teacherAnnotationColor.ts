@@ -14,6 +14,33 @@ function hueDistance(left: number, right: number): number {
   return Math.min(distance, 360 - distance);
 }
 
+
+/** Robustly sample the paper tone from corner patches, ignoring dark handwriting and colored marks. */
+export function sampleTeacherPaperColor(pixels: Uint8ClampedArray, width: number, height: number): [number, number, number] {
+  if (width <= 0 || height <= 0 || pixels.length < width * height * 4) return [255, 255, 255];
+  const patchWidth = Math.max(2, Math.ceil(width * 0.025));
+  const patchHeight = Math.max(2, Math.ceil(height * 0.025));
+  const samples: Array<[number, number, number, number]> = [];
+  for (const [startX, startY] of [[0, 0], [width - patchWidth, 0], [0, height - patchHeight], [width - patchWidth, height - patchHeight]]) {
+    for (let y = Math.max(0, startY); y < Math.min(height, startY + patchHeight); y += 1) {
+      for (let x = Math.max(0, startX); x < Math.min(width, startX + patchWidth); x += 1) {
+        const offset = (y * width + x) * 4;
+        const red = pixels[offset], green = pixels[offset + 1], blue = pixels[offset + 2];
+        const brightness = (Math.max(red, green, blue) + Math.min(red, green, blue)) / 2;
+        const saturation = Math.max(red, green, blue) - Math.min(red, green, blue);
+        samples.push([red, green, blue, brightness >= 150 && saturation <= 90 ? 1 : 0]);
+      }
+    }
+  }
+  let candidates = samples.filter((sample) => sample[3] === 1);
+  if (candidates.length === 0) candidates = [...samples].sort((left, right) => (right[0] + right[1] + right[2]) - (left[0] + left[1] + left[2])).slice(0, Math.max(1, Math.ceil(samples.length * 0.25)));
+  const median = (values: number[]) => {
+    values.sort((left, right) => left - right);
+    return values[Math.floor(values.length / 2)] ?? 255;
+  };
+  return [0, 1, 2].map((channel) => median(candidates.map((sample) => sample[channel]))) as [number, number, number];
+}
+
 /** Replace saturated pixels matching the professor's selected ink with the sampled paper tone. */
 export function eraseTeacherInkPixels(pixels: Uint8ClampedArray, paper: readonly [number, number, number], color: Exclude<TeacherAnnotationInkColor, 'none'>): Uint8ClampedArray {
   const result = new Uint8ClampedArray(pixels);
