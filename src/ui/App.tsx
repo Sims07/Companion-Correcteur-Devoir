@@ -24,6 +24,7 @@ import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '
 import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../domain/copyQueue.ts';
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
+import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/teacherAnnotations.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
 import { AssignmentsHome } from './AssignmentsHome.tsx';
@@ -333,6 +334,9 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [copyQueue, setCopyQueue] = useState<QueuedCopy[]>([]);
   const [transcription, setTranscription] = useState<string | null>(null);
   const [teacherAnnotations, setTeacherAnnotations] = useState('');
+  const [pendingTeacherAnnotationReview, setPendingTeacherAnnotationReview] = useState<TeacherAnnotationReviewCandidate[]>([]);
+  const [teacherAnnotationReviewDecisions, setTeacherAnnotationReviewDecisions] = useState<Record<string, boolean>>({});
+  const teacherAnnotationReviewResolver = useRef<((decisions: TeacherAnnotationReviewDecision[]) => void) | null>(null);
   const [busy, setBusy] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
@@ -495,6 +499,18 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     }, 1000);
     return () => window.clearInterval(timer);
   }, [isAnalyzing]);
+
+  function finishTeacherAnnotationReview() {
+    const decisions = pendingTeacherAnnotationReview.map((candidate) => ({
+      id: candidate.id,
+      confirmed: teacherAnnotationReviewDecisions[candidate.id] === true,
+    }));
+    const resolve = teacherAnnotationReviewResolver.current;
+    teacherAnnotationReviewResolver.current = null;
+    setPendingTeacherAnnotationReview([]);
+    setTeacherAnnotationReviewDecisions({});
+    resolve?.(decisions);
+  }
 
   function updateCriterion(id: string, patch: Partial<RubricCriterion>) {
     setRubric((current) => ({ ...current, criteria: current.criteria.map((criterion) => criterion.id === id ? { ...criterion, ...patch } : criterion) }));
@@ -966,6 +982,11 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
               if (interfaceMode === 'teacher') setTeacherStep('review');
             }
           },
+          (candidates) => new Promise<TeacherAnnotationReviewDecision[]>((resolve) => {
+            teacherAnnotationReviewResolver.current = resolve;
+            setTeacherAnnotationReviewDecisions(Object.fromEntries(candidates.map((candidate) => [candidate.id, false])));
+            setPendingTeacherAnnotationReview(candidates);
+          }),
         );
         if (analysisStartedAt !== null) { analysisDurationMs = Math.max(0, Date.now() - analysisStartedAt); setAnalysisElapsedMs(analysisDurationMs); }
         textProposal = parseGradingProposal(raw, gradingRubric);
@@ -2648,6 +2669,19 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       </section>}
 
       </>}
+      {pendingTeacherAnnotationReview.length > 0 && <div className="copy-image-viewer annotation-review-overlay" role="dialog" aria-modal="true" aria-labelledby="teacher-annotation-review-title">
+        <div className="copy-image-viewer-panel annotation-review-panel">
+          <header className="copy-image-viewer-header"><strong id="teacher-annotation-review-title">Vérifier les annotations incertaines</strong><span>{pendingTeacherAnnotationReview.length} élément(s) à confirmer</span></header>
+          <div className="annotation-review-content">
+            <p>Le modèle a repéré des marques dont l’origine n’est pas certaine. Par défaut, elles restent dans la transcription et peuvent être prises en compte dans la correction. Cochez uniquement celles qui ont bien été ajoutées par le professeur : elles seront retirées du texte noté.</p>
+            {pendingTeacherAnnotationReview.map((candidate) => <label className="analysis-thinking-option annotation-review-option" key={candidate.id}>
+              <input type="checkbox" checked={teacherAnnotationReviewDecisions[candidate.id] === true} onChange={(event) => setTeacherAnnotationReviewDecisions((current) => ({ ...current, [candidate.id]: event.target.checked }))} />
+              <span><strong>{candidate.text}</strong><small>Page {candidate.page} · {candidate.location || 'Emplacement non précisé'} · Confiance {candidate.confidence === 'medium' ? 'moyenne' : 'faible'}</small><small>Cocher si cette marque provient du professeur et non de l’étudiant.</small></span>
+            </label>)}
+          </div>
+          <footer className="copy-image-viewer-navigation annotation-review-actions"><span>La décision reste la vôtre ; aucune note n’est validée automatiquement.</span><button type="button" className="primary-button" onClick={finishTeacherAnnotationReview}>Confirmer et poursuivre</button></footer>
+        </div>
+      </div>}
       {copyViewerPage !== null && images[copyViewerPage] && <div className="copy-image-viewer" role="dialog" aria-modal="true" aria-label={`Visualiseur de la page ${copyViewerPage + 1}`} onClick={() => setCopyViewerPage(null)} onKeyDown={(event) => { if (event.key === 'Escape') setCopyViewerPage(null); }}><div className="copy-image-viewer-panel" onClick={(event) => event.stopPropagation()}><header className="copy-image-viewer-header"><strong>Page {copyViewerPage + 1} / {images.length}</strong><span>{images[copyViewerPage].fileName || `Page ${copyViewerPage + 1}`}</span><button type="button" aria-label="Fermer le visualiseur" onClick={() => setCopyViewerPage(null)}>×</button></header><div className="copy-image-viewer-toolbar"><button type="button" onClick={() => setCopyViewerZoom((zoom) => Math.max(1, Number((zoom - 0.25).toFixed(2))))} disabled={copyViewerZoom <= 1} aria-label="Dézoomer">−</button><span>{Math.round(copyViewerZoom * 100)} %</span><button type="button" onClick={() => setCopyViewerZoom((zoom) => Math.min(4, Number((zoom + 0.25).toFixed(2))))} disabled={copyViewerZoom >= 4} aria-label="Zoomer">+</button><button type="button" onClick={() => setCopyViewerZoom(1)}>Réinitialiser</button></div><div className="copy-image-viewer-stage"><img src={`data:${images[copyViewerPage].mimeType};base64,${images[copyViewerPage].base64}`} alt={`Page ${copyViewerPage + 1} agrandie`} style={{ transform: `scale(${copyViewerZoom})` }} /></div><footer className="copy-image-viewer-navigation"><button type="button" onClick={() => { setCopyViewerPage((page) => Math.max(0, (page ?? 0) - 1)); setCopyViewerZoom(1); }} disabled={copyViewerPage === 0}>← Page précédente</button><button type="button" onClick={() => { setCopyViewerPage((page) => Math.min(images.length - 1, (page ?? 0) + 1)); setCopyViewerZoom(1); }} disabled={copyViewerPage === images.length - 1}>Page suivante →</button></footer></div></div>}
       {(interfaceMode === 'diagnostic' || !showAiSettings) && <footer><span>Compagnon Correcteur de Devoirs</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>}
       </div>}

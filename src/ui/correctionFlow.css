@@ -1968,3 +1968,16 @@
 @media(max-width:850px) { .assignments-home-toolbar { align-items:stretch; flex-direction:column; } .assignments-search { max-width:none; } .assignments-filters { overflow-x:auto; flex-wrap:nowrap; } .assignments-filters button { white-space:nowrap; } }
 @media(max-width:600px) { .teacher-flow-shell.teacher-assignments-home { padding:0 16px 24px; } .assignments-home { padding-top:25px; } .assignments-home-heading { align-items:stretch; flex-direction:column; gap:18px; margin-bottom:22px; } .assignments-create-button { width:100%; } .assignments-home-toolbar { padding:10px; } .assignments-card-grid { grid-template-columns:1fr; } .assignment-overview-card { min-height:210px; padding:17px; } .assignments-home-footer { align-items:flex-start; flex-direction:column; } }
 @media(prefers-reduced-motion:reduce) { .assignment-overview-card { transition:none; } .assignment-overview-card:hover { transform:none; } }
+
+
+/* Explicit teacher confirmation for uncertain pre-existing annotations. */
+.annotation-review-panel { height: min(82vh, 760px); }
+.annotation-review-content { flex: 1; min-height: 0; overflow: auto; display: grid; align-content: start; gap: 14px; padding: 22px; }
+.annotation-review-content > p { margin: 0 0 4px; color: var(--flow-muted); line-height: 1.55; }
+.annotation-review-option { margin: 0; align-items: flex-start; }
+.annotation-review-option > span { display: grid; gap: 5px; min-width: 0; }
+.annotation-review-option > span > strong { overflow-wrap: anywhere; }
+.annotation-review-option small { line-height: 1.45; }
+.annotation-review-actions { align-items: center; justify-content: space-between; gap: 16px; }
+.annotation-review-actions > span { color: var(--flow-muted); font-size: 12px; }
+@media (max-width: 600px) { .annotation-review-panel { height: 100%; } .annotation-review-actions { align-items: stretch; flex-direction: column; } .annotation-review-actions .primary-button { width: 100%; } }

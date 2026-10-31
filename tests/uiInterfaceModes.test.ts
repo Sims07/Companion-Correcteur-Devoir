@@ -405,4 +405,15 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('teacherAnnotationPageNumbers: textPageNumbers');
     expect(text).toContain('annotationRotationAngles');
   });
+
+  it('pauses grading for teacher confirmation of uncertain pre-existing annotations', () => {
+    const text = app();
+    expect(text).toContain('Vérifier les annotations incertaines');
+    expect(text).toContain('Par défaut, elles restent dans la transcription');
+    expect(text).toContain('Confirmer et poursuivre');
+    expect(text).toContain('teacherAnnotationReviewResolver.current = resolve');
+    expect(text).toContain('confirmed: teacherAnnotationReviewDecisions[candidate.id] === true');
+    expect(text).toContain('retirées du texte noté');
+  });
+
 });
