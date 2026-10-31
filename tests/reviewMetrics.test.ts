@@ -22,7 +22,7 @@ describe('local teacher review metrics', () => {
       groupConfirmedCount: 0,
       groupConfirmedThenModifiedCount: 0,
     });
-    expect(metrics.visibleWordCount).toBeGreaterThan(0);
+    expect(metrics.visibleWordCount).toBe(28);
     expect(metrics.wordLimits).toMatchObject({
       rationale: { checked: 1, exceeded: 0 },
       evidence: { checked: 2, exceeded: 0 },
