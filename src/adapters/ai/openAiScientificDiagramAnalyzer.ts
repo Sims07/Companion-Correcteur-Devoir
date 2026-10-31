@@ -87,7 +87,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
               messages: [{
                 role: 'user',
                 content: prompt,
-                imageDetail: 'low',
+                imageDetail: 'high',
                 images: [`data:${image.mimeType};base64,${image.base64}`],
               }],
             }),
