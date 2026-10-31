@@ -35,6 +35,13 @@ describe('incremental grading prompt contract', () => {
     expect(prompt).toContain('12 mots maximum');
   });
 
+  it('allows empty rationale and annotation for confident maximum score while keeping evidence required', () => {
+    const prompt = buildIncrementalCriterionPrompt('Contexte', criterion);
+    expect(prompt).toContain('rationale et annotationSuggestion peuvent être des chaînes vides uniquement lorsque points atteint maxPoints et confidence vaut high');
+    expect(prompt).toContain('evidence reste toujours obligatoire et non vide');
+    expect(prompt).toContain('confidence high');
+  });
+
   it('reuses only coordinates explicitly extracted by the document-reading stage', () => {
     const prompt = buildIncrementalCriterionPrompt('Contexte issu de transcription', criterion);
 
