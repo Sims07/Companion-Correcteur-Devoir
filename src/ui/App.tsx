@@ -2419,7 +2419,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
           <summary>Voir les {reliableCriteriaCount} critères sans alerte</summary>
           <ul>{review.filter((item) => reviewFocus.reliableCriteriaIds.includes(item.criterionId)).map((item) => {
             const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
-            return <li key={item.criterionId}><strong>{criterion?.title ?? item.criterionId}</strong><span>{item.teacherPoints} / {criterion?.maxPoints ?? 0} points</span><small>{item.evidence.trim().split(/\s+/u).slice(0, 12).join(' ')}</small></li>;
+            return <li key={item.criterionId}><strong>{criterion?.title ?? item.criterionId}</strong><span>{item.teacherPoints} / {criterion?.maxPoints ?? 0} points</span><small>{item.evidence.trim().split(/\s+/u).slice(0, 12).join(' ')}{item.evidence.trim().split(/\s+/u).length > 12 ? '…' : ''}</small></li>;
           })}</ul>
         </details>}
         {shouldFocusExceptions && <p className="review-focus-hint">Les critères sans alerte sont regroupés pour accélérer la lecture. Vous pouvez les afficher à tout moment.</p>}
