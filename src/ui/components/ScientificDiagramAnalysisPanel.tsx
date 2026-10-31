@@ -64,7 +64,7 @@ export function ScientificDiagramAnalysisPanel({
         </div>
         <span className="step-count">PAGES DÉTECTÉES</span>
       </div>
-      <p>Les pages ont été classées automatiquement. Seules les pages identifiées comme schémas sont envoyées à cette correction scientifique spécialisée. Elle reste indépendante de la note textuelle.</p>
+      <p>Les schémas sont évalués séparément sur l’image. Les tableaux et les réponses rédigées restent confiés au modèle textuel.</p>
       {!apiCompatible ? (
         <p className="review-alert review-alert-warning" role="status">Cette analyse nécessite un endpoint API compatible OpenAI. Activez ce fournisseur dans les réglages de l’IA avant de continuer.</p>
       ) : !model.trim() ? (
