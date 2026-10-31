@@ -70,8 +70,10 @@ async function renderPdf(file: File): Promise<ImageInput[]> {
 
 /** Rotate only the working copy. The caller keeps its original ImageInput unchanged. */
 export async function rotateLocalImage(image: ImageInput, clockwiseDegrees: 90 | 180 | 270): Promise<ImageInput> {
-  const binary = Uint8Array.from(atob(image.base64), (character) => character.charCodeAt(0));
-  const blob = new Blob([binary], { type: image.mimeType });
+  const decoded = atob(image.base64);
+  const binary = new Uint8Array(decoded.length);
+  for (let index = 0; index < decoded.length; index += 1) binary[index] = decoded.charCodeAt(index);
+  const blob = new Blob([binary.buffer as ArrayBuffer], { type: image.mimeType });
   const bitmap = await createImageBitmap(blob);
   try {
     const quarterTurn = clockwiseDegrees === 90 || clockwiseDegrees === 270;
