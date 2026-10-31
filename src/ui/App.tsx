@@ -19,7 +19,7 @@ import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/local
 import type { RubricImportProgress } from '../ports/correctionWorkspace.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
-import { getReviewFocus, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
+import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
 import { appendQueuedCopy, takeNextQueuedCopy, type QueuedCopy } from '../domain/copyQueue.ts';
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
@@ -342,6 +342,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [archivedCorrections, setArchivedCorrections] = useState<LocalCorrection[]>([]);
   const [archiveMessage, setArchiveMessage] = useState('');
   const [review, setReview] = useState<ReviewedCriterion[]>([]);
+  const [bulkConfirmedCriterionIds, setBulkConfirmedCriterionIds] = useState<string[]>([]);
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(true);
   const [focusedEvidencePage, setFocusedEvidencePage] = useState<number | null>(null);
   const [focusedEvidenceCriterionId, setFocusedEvidenceCriterionId] = useState<string | null>(null);
@@ -355,9 +356,12 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
   const reviewFocus = useMemo(() => getReviewFocus(review, rubric.criteria), [review, rubric.criteria]);
   const flaggedCriteriaIds = useMemo(() => new Set(reviewFocus.flaggedCriteriaIds), [reviewFocus]);
+  const pendingReliableCriterionIds = reviewFocus.reliableCriteriaIds.filter((id) => review.find((item) => item.criterionId === id)?.decision === 'pending');
   const reliableCriteriaCount = reviewFocus.reliableCriteriaIds.length;
+  const bulkConfirmedCount = bulkConfirmedCriterionIds.filter((id) => review.find((item) => item.criterionId === id)?.decision === 'accepted').length;
   const shouldFocusExceptions = showOnlyFlagged && flaggedCriteriaIds.size > 0;
   const unreadableCopySignal = hasUnreadableCopySignal(transcription, images.length > 0);
+  useEffect(() => { setShowOnlyFlagged(!isFinalized); }, [isFinalized]);
   const completedForAssignment = archivedCorrections.filter((item) => item.assignmentTitle === (assignmentTitle.trim() || 'Devoir de biologie')).length;
   const subjectReady = correctionMode === 'integrated' || subjectImages.length > 0 || Boolean(subjectTranscription);
   const setupChecks = [
@@ -1093,6 +1097,9 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   function updateReview(id: string, patch: Partial<ReviewedCriterion>) {
     setIsFinalized(false);
     setReviewMessage('');
+    if (patch.teacherPoints !== undefined || patch.teacherComment !== undefined || patch.decision !== undefined) {
+      setBulkConfirmedCriterionIds((current) => current.filter((criterionId) => criterionId !== id));
+    }
     setReview((current) => current.map((item) => item.criterionId === id ? { ...item, ...patch } : item));
   }
 
@@ -2379,15 +2386,18 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         <div className="review-criteria-toolbar">
           <span>{flaggedCriteriaIds.size > 0 ? `${flaggedCriteriaIds.size} critère(s) à examiner · ${reliableCriteriaCount} sans alerte` : `Aucun signal particulier · ${review.length} critère(s)`}</span>
           <div className="review-criteria-toolbar-actions">
-            {reliableCriteriaCount > 0 && <button type="button" className="text-action" onClick={() => { const reliableIds = new Set(reviewFocus.reliableCriteriaIds); setIsFinalized(false); setReview((current) => current.map((item) => reliableIds.has(item.criterionId) ? { ...item, decision: 'accepted' } : item)); setReviewMessage(`${reliableCriteriaCount} critère(s) sans alerte confirmé(s). Les points retirés et les incertitudes restent à examiner.`); }}>Confirmer les critères sans alerte ({reliableCriteriaCount})</button>}
+            {bulkConfirmedCount > 0 && <span role="status">{bulkConfirmedCount} critère(s) confirmé(s)</span>}
+            {bulkConfirmedCount > 0 && <button type="button" className="text-action" onClick={() => { const confirmedIds = new Set(bulkConfirmedCriterionIds); setReview((current) => current.map((item) => confirmedIds.has(item.criterionId) && item.decision === 'accepted' ? { ...item, decision: 'pending' } : item)); setBulkConfirmedCriterionIds([]); setReviewMessage('Confirmation groupée annulée. Les critères sont de nouveau en attente.'); }}>Annuler</button>}
+            {pendingReliableCriterionIds.length > 0 && <button type="button" className="text-action" disabled={!criterionProgress.isComplete || isAnalyzing} onClick={() => { const reliableIds = new Set(pendingReliableCriterionIds); setIsFinalized(false); setBulkConfirmedCriterionIds(pendingReliableCriterionIds); setReview((current) => current.map((item) => reliableIds.has(item.criterionId) ? { ...item, decision: 'accepted' } : item)); setReviewMessage(`${pendingReliableCriterionIds.length} critère(s) sans alerte confirmé(s). Les points retirés et les incertitudes restent à examiner.`); }}>Confirmer les critères sans alerte ({pendingReliableCriterionIds.length})</button>}
             {flaggedCriteriaIds.size > 0 && <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>}
           </div>
         </div>
+        {flaggedCriteriaIds.size === 0 && <p className="review-focus-hint" role="note">Aucun signal automatique. La vérification humaine reste nécessaire.</p>}
         {shouldFocusExceptions && <details className="review-safe-summary">
           <summary>Voir les {reliableCriteriaCount} critères sans alerte</summary>
           <ul>{review.filter((item) => reviewFocus.reliableCriteriaIds.includes(item.criterionId)).map((item) => {
             const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
-            return <li key={item.criterionId}><strong>{criterion?.title ?? item.criterionId}</strong><span>{item.teacherPoints} / {criterion?.maxPoints ?? 0} points</span></li>;
+            return <li key={item.criterionId}><strong>{criterion?.title ?? item.criterionId}</strong><span>{item.teacherPoints} / {criterion?.maxPoints ?? 0} points</span><small>{item.evidence}</small></li>;
           })}</ul>
         </details>}
         {shouldFocusExceptions && <p className="review-focus-hint">Les critères sans alerte sont regroupés pour accélérer la lecture. Vous pouvez les afficher à tout moment.</p>}
@@ -2402,6 +2412,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
               <div className="review-pending-content"><span className="live-score-placeholder" aria-hidden="true" /><div className="review-pending-skeleton" aria-hidden="true"><span /><span /><span /></div></div>
             </article>;
           }
+          const isFlagged = flaggedCriteriaIds.has(item.criterionId);
+          const alertReasons = getReviewAlertReasons(item, criterion?.maxPoints ?? 0);
           return <article className="panel review-card" key={item.criterionId}>
             <div className="review-card-heading">
               <div><h3>{criterion.title}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div>
@@ -2410,17 +2422,23 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
                 <span className={flaggedCriteriaIds.has(item.criterionId) ? 'review-result-status needs-review' : 'review-result-status'}>{flaggedCriteriaIds.has(item.criterionId) ? 'À examiner' : 'Sans alerte'}</span>
               </div>
             </div>
-            {item.confidence === 'low' && <p className="teacher-question review-compact-warning"><strong>Confiance faible.</strong> Une vérification humaine est nécessaire.</p>}
+            {isFlagged && <div className="review-alert-summary">
+              <div className="review-alert-reasons">{alertReasons.map((reason) => <span className="review-alert-reason" key={reason}>{reason}</span>)}</div>
+              <p className="rationale">{item.rationale || 'Justification non fournie.'}</p>
+              {item.annotationSuggestion && <section className="annotation-suggestion" aria-label={`Commentaire à reporter pour le critère ${criterion?.title ?? item.criterionId}`}>
+                <div className="annotation-suggestion-heading"><span className="eyebrow">COMMENTAIRE À REPORTER SUR LA COPIE</span><span className="annotation-suggestion-status">Suggestion IA</span></div>
+                <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>
+              </section>}
+            </div>}
             <details className="review-explanation">
-              <summary>Voir la preuve et la justification</summary>
+              <summary>Voir la preuve et la justification détaillées</summary>
             <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p>{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); setFocusedEvidenceCriterionId(item.criterionId); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>
-            {item.annotationSuggestion && <section className="annotation-suggestion" aria-label={`Suggestion d’annotation pour le critère ${criterion?.title ?? item.criterionId}`}>
+            {!isFlagged && item.annotationSuggestion && <section className="annotation-suggestion" aria-label={`Suggestion d’annotation pour le critère ${criterion?.title ?? item.criterionId}`}>
               <div className="annotation-suggestion-heading"><span className="eyebrow">COMMENTAIRE ÉVENTUEL À REPORTER AU STYLO</span><span className="annotation-suggestion-status">Suggestion IA</span></div>
-              {item.annotationSuggestion && <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>}
+              <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>
               {item.locationHint && <p className="annotation-location"><strong>Repère indicatif :</strong> {item.locationHint}</p>}
-              {item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Afficher la page ${item.pageNumber} pour le commentaire proposé`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Afficher la page liée</button>}
             </section>}
-            <p className="rationale">{item.rationale}</p>
+            {!isFlagged && <p className="rationale">{item.rationale}</p>}
             {item.qualityBreakdown && (
               <details className="scientific-diagram-quality-details review-quality-details">
                 <summary>Pourquoi cette note ? · Détail du schéma</summary>
@@ -2435,7 +2453,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
               </details>
             )}
 
-              {item.confidence === 'low' && <p className="teacher-question"><strong>Lecture à vérifier :</strong> {item.questionForTeacher || 'Le modèle est incertain sur ce critère. Vérifiez la preuve citée et la note proposée.'}</p>}
+              {item.questionForTeacher && <p className="teacher-question"><strong>Question pour vous :</strong> {item.questionForTeacher}</p>}
             </details>
             <div className="review-controls">
               <label><span className="field-label">Votre note</span><input type="number" min="0" max={criterion?.maxPoints ?? 0} step="0.5" value={item.teacherPoints} onChange={(event) => updateReview(item.criterionId, { teacherPoints: Number(event.target.value), decision: 'adjusted' })} /></label>
