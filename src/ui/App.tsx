@@ -25,6 +25,7 @@ import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelPro
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
+import { listDiagnosticHistory, saveDiagnosticHistory } from '../adapters/storage/indexedDbMemory.ts';
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
 import { confirmReviewCriteriaInGroup, createReviewTraceMetrics, markGroupConfirmedCriterionModified, undoGroupConfirmation, type ReviewTraceMetrics } from '../domain/reviewMetrics.ts';
@@ -335,6 +336,26 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [readingElapsedMs, setReadingElapsedMs] = useState<number | null>(null);
   const [analysisElapsedMs, setAnalysisElapsedMs] = useState<number | null>(null);
   const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
+  const diagnosticHistoryReady = useRef(false);
+  useEffect(() => {
+    let active = true;
+    void listDiagnosticHistory<TimingRecord>().then(async (stored) => {
+      if (!active) return;
+      const history = stored.length > 0 ? stored : readTimingHistory();
+      if (stored.length === 0 && history.length > 0) await saveDiagnosticHistory(history);
+      if (!active) return;
+      setTimingHistory(history);
+      try { window.localStorage.removeItem(timingHistoryKey); } catch { /* IndexedDB remains the source of truth after migration. */ }
+      diagnosticHistoryReady.current = true;
+    }).catch(() => {
+      if (active) diagnosticHistoryReady.current = true;
+    });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    if (!diagnosticHistoryReady.current) return;
+    void saveDiagnosticHistory(timingHistory).catch(() => { /* Keep the current session usable if IndexedDB is unavailable. */ });
+  }, [timingHistory]);
   const observabilityRecords = useMemo(() => [...timingHistory, ...toModelEvaluationObservabilityTraces(savedModelEvaluations)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)).slice(0, timingHistoryLimit), [timingHistory, savedModelEvaluations]);
   const [currentTimingRecordId, setCurrentTimingRecordId] = useState<string | null>(null);
   const [referenceScoreInputs, setReferenceScoreInputs] = useState<Record<string, string>>({});
@@ -603,7 +624,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         };
         setTimingHistory((current) => {
           const next = [record, ...current].slice(0, timingHistoryLimit);
-          try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); } catch { /* Keep the trace visible for this session. */ }
           return next;
         });
       }
@@ -935,7 +955,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       setCurrentTimingRecordId(record.id);
       setTimingHistory((current) => {
         const next = [record, ...current].slice(0, timingHistoryLimit);
-        try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); } catch { /* Keep timings visible for this session if local storage is unavailable. */ }
         return next;
       });
       setIsAnalyzing(false);
@@ -1138,11 +1157,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     }
     const next = timingHistory.map((record) => record.id === currentTimingRecordId ? { ...record, referenceScores: scores } : record);
     setTimingHistory(next);
-    try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); }
-    catch {
-      setReferenceMessage('La référence est utilisable dans cette session, mais le navigateur n’a pas pu la conserver localement.');
-      return;
-    }
     setReferenceMessage('Correction de référence enregistrée sur cet appareil. Les écarts par modèle sont maintenant calculés.');
   }
 
@@ -1154,7 +1168,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         const { referenceScores: _referenceScores, ...withoutReference } = record;
         return withoutReference;
       });
-      try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); } catch { /* The reference is cleared in the current view. */ }
       return next;
     });
     setReferenceScoreInputs({});
@@ -1167,7 +1180,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       const next = current.map((record) => record.id === currentTimingRecordId && record.reviewMetrics
         ? { ...record, reviewMetrics: update(record.reviewMetrics) }
         : record);
-      try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); } catch { /* Keep local observability available for this session. */ }
       return next;
     });
   }
