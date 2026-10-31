@@ -53,6 +53,7 @@ function promptFor(request: ScientificDiagramAnalysisRequest): string {
     'Les coordonnées bounds sont normalisées entre 0 et 1 par rapport à la page entière. Omet bounds si tu ne peux pas les estimer correctement.',
     'Les numéros de page correspondent aux numéros d’origine fournis ci-dessous, et non à l’index des images filtrées.',
     'Pour chaque critère noté, utilise exclusivement un criterionId existant et respecte son maximum de points.',
+    `CRITÈRES VISUELS À NOTER (liste exhaustive, une note globale par critère) : ${JSON.stringify(request.rubric.criteria.map((criterion) => ({ criterionId: criterion.id, title: criterion.title, description: criterion.description, maxPoints: criterion.maxPoints })))}`,
     'Retourne exclusivement un JSON valide de la forme : {"diagrams":[{"id":"diagram-1","pageNumber":1,"bounds":{"x":0.1,"y":0.2,"width":0.5,"height":0.4},"diagramType":"...","summary":"...","criteria":[{"criterionId":"ID_EXISTANT","points":0,"evidence":"preuve visuelle précise","confidence":0.0,"requiresTeacherReview":true,"qualityBreakdown":[{"dimension":"title","status":"fulfilled","evidence":"..."}]}],"uncertainties":[]}],"overallUncertainties":[]}. qualityBreakdown peut être absent ou partiel ; criterionId, points, evidence, confidence et requiresTeacherReview sont obligatoires pour chaque critère.',
     'QUESTION :',
     request.question,
