@@ -129,6 +129,34 @@ describe('network inspector fetch integration', () => {
     restore();
   });
 
+  it('keeps the complete response in memory but persists at most 4000 characters', async () => {
+    const values = new Map<string, string>();
+    const largeBody = 'response-'.repeat(800);
+    const fakeWindow = {
+      fetch: vi.fn(async () => new Response(largeBody, { status: 200 })),
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => { values.set(key, value); },
+        removeItem: (key: string) => { values.delete(key); },
+      },
+      dispatchEvent: vi.fn(),
+      location: { origin: 'http://localhost' },
+    };
+    vi.stubGlobal('window', fakeWindow);
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    clearNetworkHistory();
+    const restore = installNetworkInspector();
+
+    const response = await window.fetch('/api/large-response');
+    await response.text();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(loadNetworkHistory()[0].responseBody).toBe(largeBody);
+    const persisted = JSON.parse(values.values().next().value as string) as Array<{ responseBody: string }>;
+    expect(persisted[0].responseBody.length).toBeLessThanOrEqual(4_000);
+    restore();
+  });
+
   it('keeps live records available and exposes a warning when local storage quota is full', async () => {
     const fakeWindow = {
       fetch: vi.fn(async () => new Response('ok', { status: 200 })),
