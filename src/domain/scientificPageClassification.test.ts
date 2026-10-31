@@ -38,6 +38,12 @@ describe('scientific page classification', () => {
     expect(() => routeScientificPages([{ pageNumber: 1, kind: 'text', confidence: 1, reason: '' }], 2)).toThrow(/ne correspond pas/);
   });
 
+  it('downgrades low-confidence diagram predictions to ambiguous', () => {
+    expect(parseScientificPageClassifications(JSON.stringify({ pages: [
+      { pageNumber: 1, kind: 'scientific-diagram', confidence: 0.61, reason: 'Dessin peu lisible' },
+    ] }), 1)[0].kind).toBe('ambiguous');
+  });
+
   it('rejects unsupported page kinds and malformed JSON', () => {
     expect(() => parseScientificPageClassifications('{bad', 1)).toThrow(/JSON valide/);
     expect(() => parseScientificPageClassifications(JSON.stringify({ pages: [
