@@ -1005,3 +1005,7 @@ footer { padding-top: 24px; line-height: 1.6; }
 .saluki-feedback{padding:10px 12px;border:1px solid #f2d5a2;border-radius:9px;background:#fff9ed;color:#895b12;font-size:11px;line-height:1.5}.saluki-feedback.is-loaded{border-color:#a7e4cc;background:#effcf6;color:#087c5b}
 .saluki-load-card details{padding-top:9px;border-top:1px solid #dce3fa;color:#53617f;font-size:11px}.saluki-load-card summary{cursor:pointer;font-weight:700}.saluki-load-card details p{margin:8px 0}
 @media(max-width:560px){.saluki-load-heading{align-items:flex-start;flex-direction:column}}
+
+
+/* Explicit routing control for visual criteria in the rubric editor. */
+.criterion-visual-toggle{display:flex;align-items:flex-start;gap:8px;min-width:190px;max-width:250px;padding:8px 10px;border:1px solid #dce5dc;border-radius:8px;background:#f7faf6;cursor:pointer;font-size:11px;color:#36523d}.criterion-visual-toggle input{width:15px;height:15px;flex-shrink:0;margin:1px 0 0;accent-color:#477f54}.criterion-visual-toggle span{display:flex;flex-direction:column;gap:3px}.criterion-visual-toggle strong{font-size:11px}.criterion-visual-toggle small{font-size:10px;line-height:1.35;color:#718174}
