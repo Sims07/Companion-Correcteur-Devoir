@@ -623,7 +623,8 @@ export function createOllamaProvider(
       const teacherAnnotationsText = request.detectTeacherAnnotations && request.teacherAnnotations
         ? request.teacherAnnotations
         : detectedTeacherAnnotations.length ? formatTeacherAnnotations(detectedTeacherAnnotations.flatMap((page) => page.annotations.map((annotation) => ({ ...annotation, location: `Page ${page.page} · ${annotation.location}` })))) : '';
-      if (teacherAnnotationsText) onTranscription?.(teacherAnnotationsText, 'annotations');
+      if (request.detectTeacherAnnotations) onTranscription?.(teacherAnnotationsText, 'annotations');
+      else if (teacherAnnotationsText) onTranscription?.(teacherAnnotationsText, 'annotations');
       onStage?.('grading');
       const gradingPrompt = buildPrompt(transcription, subjectTranscription, teacherAnnotationsText);
       const strategy = settings.diagnosticStrategy ?? 'single';
