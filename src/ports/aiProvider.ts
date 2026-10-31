@@ -9,6 +9,10 @@ export interface GradingRequest {
   question: string;
   rubric: string;
   images?: ImageInput[];
+  /** Untouched/original pages used only to identify teacher marks; never used for student grading. */
+  teacherAnnotationImages?: ImageInput[];
+  /** Original page numbers corresponding to teacherAnnotationImages after diagram/text routing. */
+  teacherAnnotationPageNumbers?: number[];
   /** Reference subject pages, distinct from the student's handwritten answer pages. */
   subjectImages?: ImageInput[];
   /** Reuse the locally extracted reference subject when grading again. */
@@ -73,7 +77,7 @@ export interface CriterionAnalysisUpdate {
 
 export interface GradingProvider {
   readonly id: string;
-  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void): Promise<string>;
+  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void): Promise<string>;
 }
 
 export interface OllamaSettings {

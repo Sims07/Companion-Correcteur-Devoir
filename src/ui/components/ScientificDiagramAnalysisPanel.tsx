@@ -9,7 +9,6 @@ export function ScientificDiagramAnalysisPanel({
   diagramImages,
   pageNumbers,
   question,
-  teacherAnnotations,
   rubric,
   model,
   endpoint,
@@ -25,7 +24,6 @@ export function ScientificDiagramAnalysisPanel({
   diagramImages: ImageInput[];
   pageNumbers: number[];
   question: string;
-  teacherAnnotations: string;
   rubric: Rubric;
   model: string;
   endpoint: string;
@@ -46,7 +44,7 @@ export function ScientificDiagramAnalysisPanel({
     setError('');
     onAnalysisChange(null);
     try {
-      const result = await service.analyze({ images: diagramImages, pageNumbers, question, teacherAnnotations, rubric, model, endpoint, apiKey, onDiagnosticResult });
+      const result = await service.analyze({ images: diagramImages, pageNumbers, question, rubric, model, endpoint, apiKey, onDiagnosticResult });
       onAnalysisChange(result);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'L’analyse des schémas a échoué.');

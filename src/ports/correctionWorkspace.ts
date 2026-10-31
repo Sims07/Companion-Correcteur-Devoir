@@ -1,5 +1,6 @@
 import type { ImageInput, GradingProvider, OllamaModel, OllamaSettings } from './aiProvider.ts';
 import type { Rubric } from '../domain/rubric.ts';
+import type { TeacherAnnotationInkColor } from '../domain/teacherAnnotationColor.ts';
 
 export type RubricImportProgress = {
   stage: 'preparing' | 'sending' | 'vision-reading' | 'structuring' | 'response' | 'parsing' | 'page-complete' | 'complete' | 'cancelled' | 'error';
@@ -42,5 +43,6 @@ export interface LocalFileGateway {
   prepareFiles(files: FileList | File[]): Promise<ImageInput[]>;
   /** Rotate a working image locally; callers retain the untouched source image separately. */
   rotateImage(image: ImageInput, clockwiseDegrees: 90 | 180 | 270): Promise<ImageInput>;
+  eraseTeacherAnnotationColor(image: ImageInput, color: Exclude<TeacherAnnotationInkColor, 'none'>): Promise<ImageInput>;
   importRubric(file: File): Promise<ImportedRubric>;
 }
