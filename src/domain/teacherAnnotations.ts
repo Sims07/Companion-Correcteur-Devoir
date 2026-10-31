@@ -5,6 +5,14 @@ export interface TeacherAnnotationDetection {
   studentTranscription?: string;
   annotations: TeacherAnnotation[];
 }
+export interface TeacherAnnotationReviewCandidate extends TeacherAnnotation {
+  id: string;
+  page: number;
+}
+export interface TeacherAnnotationReviewDecision {
+  id: string;
+  confirmed: boolean;
+}
 export function parseTeacherAnnotationDetection(raw: string): TeacherAnnotationDetection {
   try {
     const cleaned = raw.trim().replace(/^\x60\x60\x60(?:json)?\s*/i, '').replace(/\s*\x60\x60\x60$/, '');
@@ -33,3 +41,15 @@ export function parseTeacherAnnotations(raw: string): TeacherAnnotation[] {
   return parseTeacherAnnotationDetection(raw).annotations;
 }
 export function formatTeacherAnnotations(annotations: TeacherAnnotation[]): string { return JSON.stringify({ annotations }, null, 2); }
+
+/** Removes one exact annotation occurrence only after an explicit teacher confirmation. */
+export function removeConfirmedTeacherAnnotation(transcription: string, annotationText: string): string {
+  const target = annotationText.trim();
+  if (!target) return transcription;
+  const index = transcription.indexOf(target);
+  if (index < 0) return transcription;
+  return `${transcription.slice(0, index)}${transcription.slice(index + target.length)}`
+    .replace(/[\t ]{2,}/g, ' ')
+    .replace(/[\t ]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n');
+}
