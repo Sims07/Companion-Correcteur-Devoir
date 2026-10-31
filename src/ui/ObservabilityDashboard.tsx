@@ -39,6 +39,13 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
         <span><small>Analyse</small><strong>{duration(trace.analysisSeconds)}</strong></span>
         <span><small>Note proposée</small><strong>{trace.modelScore === null ? 'Non disponible' : `${number(trace.modelScore)} pts`}</strong></span>
       </div>
+      {trace.reviewMetrics && <div className="observability-trace-review-metrics">
+        <strong>Mesures de correction</strong>
+        <span>{trace.reviewMetrics.criterionCount} critère(s) · {trace.reviewMetrics.criteriaToReviewCount} à examiner</span>
+        <span>{trace.reviewMetrics.groupConfirmedCount} confirmé(s) en groupe · {trace.reviewMetrics.groupConfirmedThenModifiedCount} ensuite modifié(s)</span>
+        <span>{trace.reviewMetrics.visibleWordCount} mot(s) affiché(s) avant interaction</span>
+        <span>Dépassements des limites : {trace.reviewMetrics.wordLimits.rationale.exceeded}/{trace.reviewMetrics.wordLimits.rationale.checked} justifications · {trace.reviewMetrics.wordLimits.evidence.exceeded}/{trace.reviewMetrics.wordLimits.evidence.checked} preuves · {trace.reviewMetrics.wordLimits.annotationSuggestion.exceeded}/{trace.reviewMetrics.wordLimits.annotationSuggestion.checked} commentaires</span>
+      </div>}
       <div className="observability-span-heading"><div><span className="observability-eyebrow">DÉROULÉ TECHNIQUE</span><h4>Étapes de cette trace</h4></div><span>{spans.length} appel(s) détaillé(s)</span></div>
       {spans.length ? <ol className="observability-span-list">{spans.map((span, index) => {
         const stage = span.stage ?? (span.kind === 'vision' ? 'reading' : span.kind === 'arbitrator' ? 'arbitration' : span.kind === 'model' ? 'analysis' : 'other');
@@ -128,6 +135,19 @@ export function ObservabilityDashboard({ records }: Props) {
       <article className="observability-kpi"><span className="observability-kpi-icon">◎</span><div><small>Taux de réussite</small><strong>{summary.successRatePercent === null ? '—' : `${summary.successRatePercent} %`}</strong><span>Sur les traces conservées</span></div></article>
       <article className="observability-kpi"><span className="observability-kpi-icon">◈</span><div><small>Tokens mesurés</small><strong>{summary.totalTokens === null ? '—' : number(summary.totalTokens)}</strong><span>{summary.measuredCalls}/{summary.totalCalls} appels mesurés par Ollama</span></div></article>
     </div>
+
+    <section className="observability-panel observability-review-metrics" aria-label="Mesures de la correction par exceptions">
+      <div className="observability-panel-heading"><div><p className="observability-eyebrow">EXPÉRIENCE ENSEIGNANT</p><h3>Lecture par exceptions</h3><p>Mesures locales issues des traces de correction, sans données de copie supplémentaires.</p></div></div>
+      <div className="observability-review-metric-grid">
+        <span><small>Critères évalués</small><strong>{number(summary.reviewedCriteriaCount)}</strong></span>
+        <span><small>Critères à examiner</small><strong>{number(summary.criteriaToReviewCount)}</strong></span>
+        <span><small>Confirmés en groupe</small><strong>{number(summary.groupConfirmedCount)}</strong></span>
+        <span><small>Confirmés puis modifiés</small><strong>{number(summary.groupConfirmedThenModifiedCount)}</strong></span>
+        <span><small>Taux de modification après confirmation groupée</small><strong>{summary.groupModificationRatePercent === null ? '—' : `${summary.groupModificationRatePercent} %`}</strong></span>
+        <span><small>Mots visibles avant interaction</small><strong>{number(summary.visibleWordCount)}</strong></span>
+        <span><small>Dépassements des limites 18/12/12 mots</small><strong>{summary.wordLimitExceededRatePercent === null ? '—' : `${summary.wordLimitExceededRatePercent} %`}</strong><small>{summary.wordLimitExceededCount}/{summary.wordLimitCheckedCount} champs mesurés</small></span>
+      </div>
+    </section>
 
     <div className="observability-chart-grid">
       <article className="observability-panel observability-activity-panel">
