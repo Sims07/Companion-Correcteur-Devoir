@@ -218,35 +218,67 @@ describe('Ollama adapter', () => {
     await expect(listOllamaModels('http://localhost:11434', fetchMock)).resolves.toEqual([{ name: 'llava:latest' }, { name: 'qwen2.5vl:7b' }]);
   });
 
-  it('extracts existing teacher annotations in a separate local vision pass', async () => {
+  it('keeps detected teacher annotations out of the grading prompt', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse('Réponse de l’étudiant'))
-      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ annotations: [{ text: '2/3', kind: 'score', points: 2, color: 'rouge', location: 'marge droite', confidence: 'high' }] })))
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({
+        studentTranscription: 'Réponse de l’étudiant',
+        annotations: [{ text: '2/3', kind: 'score', points: 2, color: 'rouge', location: 'marge droite', confidence: 'high' }],
+      })))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const annotations: string[] = [];
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
     await provider.generate({ ...request, detectTeacherAnnotations: true }, undefined, undefined, (value, kind) => { if (kind === 'annotations') annotations.push(value); });
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    const detectionRequest = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
-    expect(detectionRequest.messages[0].content).toContain('Une couleur différente');
-    expect(detectionRequest.messages[0].images).toEqual(['aGVsbG8=']);
     const gradingRequest = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
-    expect(gradingRequest.messages[0].content).toContain('<annotations_professeur>');
-    expect(gradingRequest.messages[0].content).toContain('2/3');
+    expect(gradingRequest.messages[0].content).not.toContain('ANNOTATIONS PRÉEXISTANTES');
+    expect(gradingRequest.messages[0].content).not.toContain('<annotations_professeur>');
+    expect(gradingRequest.messages[0].content).not.toContain('2/3');
+    expect(gradingRequest.messages[0].content).toContain('Réponse de l’étudiant');
     expect(annotations).toHaveLength(1);
     expect(annotations[0]).toContain('"kind": "score"');
   });
 
-  it('does not bypass annotation detection in legacy single-model mode', async () => {
+  it('blocks grading until medium or low confidence annotations are confirmed by the teacher', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse('Réponse de l’étudiant'))
-      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ annotations: [{ text: '1/2', kind: 'score', points: 1, color: 'rouge', location: 'marge', confidence: 'medium' }] })))
-      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({
+        studentTranscription: 'Réponse de l’étudiant',
+        annotations: [{ text: '1/2', kind: 'score', points: 1, color: 'rouge', location: 'marge', confidence: 'medium' }],
+      })));
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock);
-    await provider.generate({ ...request, detectTeacherAnnotations: true });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    const gradingRequest = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
-    expect(gradingRequest.messages[0].content).toContain('<annotations_professeur>');
+    await expect(provider.generate({ ...request, detectTeacherAnnotations: true })).rejects.toThrow(/confirmation de l’enseignant/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not grade when annotation detection fails and reports the page', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse('Réponse de l’étudiant'))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const warnings: string[] = [];
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
+    await expect(provider.generate({ ...request, detectTeacherAnnotations: true }, undefined, undefined, (value, kind) => { if (kind === 'warning') warnings.push(value); })).rejects.toThrow(/page 1.*elles n'ont pas été retirées/i);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(warnings[0]).toContain('page 1');
+  });
+
+  it('rejects a cleaned transcription that adds or reformulates student words', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse('Réponse de l’étudiant'))
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ studentTranscription: 'Une réponse de l’étudiant', annotations: [] })));
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
+    await expect(provider.generate({ ...request, detectTeacherAnnotations: true })).rejects.toThrow(/ajouté, reformulé ou réordonné/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('reuses a cached cleaned transcription without repeating annotation detection', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
+    await expect(provider.generate({ ...request, transcription: 'Réponse de l’étudiant', detectTeacherAnnotations: true })).resolves.toBe('{"criteria":[]}');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const gradingRequest = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(gradingRequest.messages[0].content).toContain('Réponse de l’étudiant');
+    expect(gradingRequest.messages[0].content).not.toContain('<annotations_professeur>');
   });
 
   it('does not add an annotation vision request when the option is disabled', async () => {
