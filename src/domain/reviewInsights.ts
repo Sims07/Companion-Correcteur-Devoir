@@ -62,7 +62,7 @@ export function getReviewFocus(
 
   for (const criterion of criteria) {
     const rubricCriterion = rubricById.get(criterion.criterionId);
-    if (!rubricCriterion || criterion.points < rubricCriterion.maxPoints) {
+    if (!rubricCriterion || criterion.points < rubricCriterion.maxPoints || criterion.confidence !== 'high') {
       flagged.add(criterion.criterionId);
     }
   }
