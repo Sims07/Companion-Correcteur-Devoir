@@ -84,13 +84,13 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.getByRole('button', { name: /Corrections enregistrées/ }).click();
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Analyse des schémas scientifiques' })).toBeVisible();
-  const diagramPanel = page.locator('.scientific-diagram-analysis');
-  await expect(diagramPanel.getByRole('checkbox')).toHaveCount(0);
-  const diagramAnalyzeButton = page.getByRole('button', { name: /Analyser les schémas avec Vision|Relancer l’analyse des schémas/ });
-  await expect(diagramAnalyzeButton).toBeEnabled();
-  await expect(page.getByRole('img', { name: 'Page 1 contenant le schéma détecté' })).toBeVisible();
-  await expect(page.getByRole('img', { name: 'Zone du schéma repérée par Vision' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Analyse des schémas scientifiques' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Pages identifiées' })).toHaveCount(0);
+  const diagramDetails = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Rôle de la membrane' }) }).locator('details.scientific-diagram-criterion-details');
+  await expect(diagramDetails).toBeVisible();
+  await diagramDetails.locator('summary').click();
+  await expect(diagramDetails.getByText('Schéma de cellule végétale')).toBeVisible();
+  await expect(diagramDetails.getByText('La membrane est représentée.')).toBeVisible();
 
   await expect(page.getByRole('complementary', { name: 'Copie de référence' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
