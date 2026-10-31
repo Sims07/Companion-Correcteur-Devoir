@@ -52,7 +52,7 @@ describe('scientific rubric routing', () => {
     expect(result.criteria[0].qualityBreakdown).toHaveLength(7);
   });
 
-  it('asks the teacher to review a visual criterion when Vision has no matching assessment', () => {
+  it('preserves one global visual score when Vision omits the optional quality breakdown', () => {\n    const withoutBreakdown: ScientificDiagramAnalysis = { ...diagramAnalysis, diagrams: diagramAnalysis.diagrams.map((diagram) => ({ ...diagram, criteria: diagram.criteria.map(({ qualityBreakdown: _qualityBreakdown, ...criterion }) => criterion) })) };\n    const visualRubric: Rubric = { ...rubric, criteria: rubric.criteria.map((criterion) => criterion.id === 'diagram' ? { ...criterion, analysisMode: 'scientific-diagram' } : criterion) };\n    const result = mergeScientificDiagramCriteria(visualRubric, textProposal, withoutBreakdown);\n    expect(result.criteria[0]).toMatchObject({ criterionId: 'diagram', points: 7, maxPoints: undefined });\n    expect(result.finalScore).toBe(16);\n    expect(result.criteria[0].qualityBreakdown).toBeUndefined();\n  });\n\n  it('asks the teacher to review a visual criterion when Vision has no matching assessment', () => {
     const result = mergeScientificDiagramCriteria(rubric, textProposal, { diagrams: [], overallUncertainties: [] });
     expect(result.criteria[0]).toMatchObject({ criterionId: 'diagram', points: 0, confidence: 'low', questionForTeacher: expect.stringContaining('Vérifiez le schéma') });
     expect(result.questionsForTeacher).toContain('Vérifiez le schéma sur la copie et attribuez les points de ce critère.');
