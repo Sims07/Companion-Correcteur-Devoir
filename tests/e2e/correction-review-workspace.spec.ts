@@ -60,7 +60,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
           { criterionId: 'transport', points: 2, rationale: 'Le transport sélectif est identifié.', evidence: 'La membrane contrôle les échanges.', pageNumber: 1, confidence: 'high', teacherPoints: 2, teacherComment: '', decision: 'pending' },
         ],
         teacherQuestions: '',
-        images: [{ base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/9ioAAAAASUVORK5CYII=', mimeType: 'image/png', fileName: 'page-1.png' }],
+        images: [{ base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGMQ6dH4DwADSAHIPzDQUwAAAABJRU5ErkJggg==', mimeType: 'image/png', fileName: 'page-1.png' }],
         transcription: 'La membrane plasmique constitue une barrière sélective.',
         subjectImages: [],
         subjectTranscription: null,
@@ -84,13 +84,13 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.getByRole('button', { name: /Corrections enregistrées/ }).click();
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Analyse des schémas scientifiques' })).toBeVisible();
-  const diagramPanel = page.locator('.scientific-diagram-analysis');
-  await expect(diagramPanel.getByRole('checkbox')).toHaveCount(0);
-  const diagramAnalyzeButton = page.getByRole('button', { name: /Analyser les schémas avec Vision|Relancer l’analyse des schémas/ });
-  await expect(diagramAnalyzeButton).toBeEnabled();
-  await expect(page.getByRole('img', { name: 'Page 1 contenant le schéma détecté' })).toBeVisible();
-  await expect(page.getByRole('img', { name: 'Zone du schéma repérée par Vision' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Analyse des schémas scientifiques' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Pages identifiées' })).toHaveCount(0);
+  const diagramDetails = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Rôle de la membrane' }) }).locator('details.scientific-diagram-criterion-details');
+  await expect(diagramDetails).toBeVisible();
+  await diagramDetails.locator('summary').click();
+  await expect(diagramDetails.getByText('Schéma de cellule végétale')).toBeVisible();
+  await expect(diagramDetails.getByText('La membrane est représentée.')).toBeVisible();
 
   await expect(page.getByRole('complementary', { name: 'Copie de référence' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
@@ -118,7 +118,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(explanation).not.toHaveAttribute('open', '');
   await explanation.locator('summary').click();
   await expect(explanation.getByText('La réponse mentionne la membrane.')).toBeVisible();
-  await expect(page.getByRole('img', { name: 'Page originale 1 de la copie' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Page de travail 1 de la copie' })).toBeVisible();
   await expect(page.getByText('Texte reconnu par l’IA')).toBeVisible();
   const locateEvidence = page.getByRole('button', { name: 'Repérer la preuve du critère Rôle de la membrane sur la page 1' });
   await expect(locateEvidence).toBeVisible();
@@ -161,4 +161,16 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   const incompleteBulkConfirm = page.getByRole('button', { name: 'Confirmer les critères sans alerte (1)' });
   await expect(incompleteBulkConfirm).toBeVisible();
   await expect(incompleteBulkConfirm).toBeDisabled();
+
+  const sourcePage = page.getByRole('img', { name: 'Page de travail 1 de la copie' });
+  const sourceImageBeforeRotation = await sourcePage.getAttribute('src');
+  await page.getByRole('button', { name: 'Réorienter la page 1 à droite de 90 degrés' }).click();
+  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
+  const workingPage = page.getByRole('img', { name: 'Aperçu de la page 1' });
+  await expect(workingPage).toBeVisible();
+  await expect.poll(() => workingPage.getAttribute('src')).not.toBe(sourceImageBeforeRotation);
+  const originalImageDetails = page.locator('.original-image-details');
+  await expect(originalImageDetails).toBeVisible();
+  await originalImageDetails.locator('summary').click();
+  await expect(page.getByRole('img', { name: 'Image originale non modifiée de la page 1' })).toBeVisible();
 });

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FilePicker } from './components/FilePicker.tsx';
-import { ScientificDiagramAnalysisPanel } from './components/ScientificDiagramAnalysisPanel.tsx';
 import type { ScientificDiagramAnalysisService } from '../application/scientificDiagramAnalysisService.ts';
 import { DesignSystemSelect } from './components/DesignSystemSelect.tsx';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
@@ -10,6 +9,7 @@ import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationReco
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import type { ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
 import { routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
+import { getConfidentDiagramRotation } from '../domain/scientificPageOrientation.ts';
 import { mergeScientificDiagramCriteria, partitionScientificRubric } from '../domain/scientificRubricRouting.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
@@ -58,6 +58,7 @@ type AssignmentProfile = {
 type AssignmentDraft = {
   copyQueue: QueuedCopy[];
   images: ImageInput[];
+  originalImages: ImageInput[];
   transcription: string | null;
   subjectImages: ImageInput[];
   subjectTranscription: string | null;
@@ -316,6 +317,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [subjectImages, setSubjectImages] = useState<ImageInput[]>([]);
   const [subjectTranscription, setSubjectTranscription] = useState<string | null>(null);
   const [images, setImages] = useState<ImageInput[]>([]);
+  const [originalImages, setOriginalImages] = useState<ImageInput[]>([]);
   const [copyQueue, setCopyQueue] = useState<QueuedCopy[]>([]);
   const [transcription, setTranscription] = useState<string | null>(null);
   const [teacherAnnotations, setTeacherAnnotations] = useState('');
@@ -614,6 +616,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     try {
       const prepared = await service.prepareFiles(files);
       setImages((current) => [...current, ...prepared]);
+      setOriginalImages((current) => [...current, ...structuredClone(prepared)]);
       setPageClassifications(null);
       setScientificDiagramAnalysis(null);
       setScientificDiagramError('');
@@ -623,6 +626,27 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       setReview([]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Échec de préparation des fichiers en local.');
+    }
+  }
+
+  async function rotateCopyPage(pageIndex: number, clockwiseDegrees: 90 | 270) {
+    const image = images[pageIndex];
+    if (!image || isAnalyzing) return;
+    try {
+      const rotated = await service.rotateImage(image, clockwiseDegrees);
+      setImages((current) => current.map((entry, index) => index === pageIndex ? rotated : entry));
+      setPageClassifications(null);
+      setScientificDiagramAnalysis(null);
+      setScientificDiagramError('');
+      setTranscription(null);
+      setProposal(null);
+      setReview([]);
+      setTeacherQuestions('');
+      setIsFinalized(false);
+      setTeacherStep('copy');
+      setReviewMessage('Orientation modifiée sur la copie de travail. L’image originale reste conservée. Relancez la lecture et la correction.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'La rotation locale de cette page a échoué.');
     }
   }
 
@@ -729,15 +753,28 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         try {
           let classifications = pageClassifications;
           if (!classifications || classifications.length !== images.length) {
-            setCriterionProgressMessage('Détection du type de chaque page…');
-            classifications = await diagramAnalysisService.classifyPages({ images, model: visionModel, endpoint, apiKey, onDiagnosticResult: captureDiagramDiagnostic });
+            setCriterionProgressMessage('Détection du type et de l’orientation des pages…');
+            classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, onDiagnosticResult: captureDiagramDiagnostic });
             classificationWasJustCreated = true;
+            const safelyRotated = await Promise.all(classifications.map(async (classification, index) => {
+              const degrees = getConfidentDiagramRotation(classification);
+              if (!degrees) return textImages[index];
+              return service.rotateImage(textImages[index], degrees);
+            }));
+            const hasAutomaticRotation = classifications.some((classification) => getConfidentDiagramRotation(classification) !== null);
+            if (hasAutomaticRotation) {
+              textImages = safelyRotated;
+              setImages((current) => current.map((image, index) => safelyRotated[index] ?? image));
+              setReviewMessage('Orientation d’un ou plusieurs schémas corrigée automatiquement avec une confiance élevée. Les originaux restent disponibles.');
+            } else {
+              textImages = images;
+            }
             setPageClassifications(classifications);
           }
-          const routing = routeScientificPages(classifications, images.length);
+          const routing = routeScientificPages(classifications, textImages.length);
           diagramPageNumbers = routing.diagramPageNumbers;
-          diagramImages = diagramPageNumbers.map((pageNumber) => images[pageNumber - 1]);
-          textImages = (diagramRubric.criteria.length > 0 ? routing.textPageNumbers : images.map((_, index) => index + 1)).map((pageNumber) => images[pageNumber - 1]);
+          diagramImages = diagramPageNumbers.map((pageNumber) => textImages[pageNumber - 1]);
+          textImages = (diagramRubric.criteria.length > 0 ? routing.textPageNumbers : textImages.map((_, index) => index + 1)).map((pageNumber) => textImages[pageNumber - 1]);
           if (diagramImages.length > 0 && diagramRubric.criteria.length > 0 && !scientificDiagramAnalysis) {
             setCriterionProgressMessage(`${diagramImages.length} page(s) de schéma détectée(s) · correction scientifique spécialisée…`);
             setScientificDiagramError('');
@@ -1141,6 +1178,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       review: structuredClone(review),
       teacherQuestions,
       images: structuredClone(images),
+      originalImages: structuredClone(originalImages),
       detectTeacherAnnotations,
       transcription,
       subjectImages: structuredClone(subjectImages),
@@ -1207,7 +1245,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
 
   function captureActiveDraft(): AssignmentDraft {
     return {
-      copyQueue, images, transcription, subjectImages, subjectTranscription, proposal, review,
+      copyQueue, images, originalImages, transcription, subjectImages, subjectTranscription, proposal, review,
       teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
     };
   }
@@ -1229,6 +1267,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setScientificDiagramError('');
     setCopyQueue(draft?.copyQueue ?? []);
     setImages(draft?.images ?? []);
+    setOriginalImages(draft?.originalImages ?? draft?.images ?? []);
     setTranscription(draft?.transcription ?? null);
     setSubjectImages(draft?.subjectImages ?? []);
     setSubjectTranscription(draft?.subjectTranscription ?? null);
@@ -1303,6 +1342,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setScientificDiagramError('');
     setCopyQueue([]);
     setImages([]);
+    setOriginalImages([]);
     setPageClassifications(null);
     setScientificDiagramAnalysis(null);
     setScientificDiagramError('');
@@ -1330,12 +1370,14 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       id: `queued-copy-${crypto.randomUUID()}`,
       label: studentLabel.trim() || images[0]?.fileName || `Copie ${copyQueue.length + 1}`,
       images: structuredClone(images),
+      originalImages: structuredClone(originalImages),
       detectTeacherAnnotations,
     };
     setCopyQueue((current) => appendQueuedCopy(current, queued));
     setStudentLabel('');
     setDetectTeacherAnnotations(false);
     setImages([]);
+    setOriginalImages([]);
     setTranscription(null);
     setScientificDiagramAnalysis(null);
     setPageClassifications(null);
@@ -1355,6 +1397,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setStudentLabel(next.label);
     setDetectTeacherAnnotations(next.detectTeacherAnnotations ?? false);
     setImages(next.images);
+    setOriginalImages(next.originalImages ?? next.images);
     setTranscription(null);
     setScientificDiagramAnalysis(null);
     setPageClassifications(null);
@@ -1375,6 +1418,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     if (copyQueue.length > 0) { loadNextQueuedCopy(); return; }
     setStudentLabel('');
     setImages([]);
+    setOriginalImages([]);
     setDetectTeacherAnnotations(false);
     setTranscription(null);
     setScientificDiagramAnalysis(null);
@@ -1426,6 +1470,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setShowOnlyFlagged(true);
     setTeacherQuestions(snapshot.teacherQuestions);
     setImages(snapshot.images);
+    setOriginalImages(snapshot.originalImages ?? snapshot.images);
     setDetectTeacherAnnotations(snapshot.detectTeacherAnnotations ?? false);
     setTranscription(snapshot.transcription);
     setSubjectImages(snapshot.subjectImages);
@@ -2115,7 +2160,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
           <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
           <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
           {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>
-             {interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="copy-has-teacher-annotations"><input id="copy-has-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient déjà des annotations du professeur</strong><small>À activer uniquement pour cette copie si elle comporte des remarques, corrections, coches ou notes déjà inscrites. Leur détection reste locale et les points existants ne sont jamais additionnés automatiquement.</small></span></label>}{images.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName}</span><button type="button" className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setPageClassifications(null); setScientificDiagramAnalysis(null); setTranscription(null); }}>Retirer</button></div>)}<div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie</button></div></div>}
+             {interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="copy-has-teacher-annotations"><input id="copy-has-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient déjà des annotations du professeur</strong><small>À activer uniquement pour cette copie si elle comporte des remarques, corrections, coches ou notes déjà inscrites. Leur détection reste locale et les points existants ne sont jamais additionnés automatiquement.</small></span></label>}{images.map((image, index) => <div className="file-row copy-image-row" key={`${image.fileName}-${index}`}><div className="copy-image-row-preview"><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Aperçu de la page ${index + 1}`} /><span>{image.fileName || `Page ${index + 1}`}</span></div>{originalImages[index] && originalImages[index].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non modifiée</summary><img src={`data:${originalImages[index].mimeType};base64,${originalImages[index].base64}`} alt={`Image originale non modifiée de la page ${index + 1}`} /></details>}<div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button><button type="button" className="text-button" onClick={() => { setImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setOriginalImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setPageClassifications(null); setScientificDiagramAnalysis(null); setTranscription(null); }}>Retirer</button></div></div>)}<p className="copy-image-original-note">Les rotations s’appliquent uniquement à la copie de travail. Les images originales non modifiées sont conservées localement avec la correction.</p><div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie</button></div></div>}
           {copyQueue.length > 0 && <section className="copy-queue" aria-label="File des copies à corriger"><div className="copy-queue-heading"><div><span className="eyebrow">FILE LOCALE</span><h4>{copyQueue.length} copie(s) à traiter</h4></div><button type="button" className="primary-button" onClick={loadNextQueuedCopy} disabled={isAnalyzing}>Charger la prochaine copie</button></div><p>Les copies en attente restent sur cet appareil et réutilisent le barème de ce devoir. La file est conservée en mémoire pendant cette session.</p><ol>{copyQueue.map((copy, index) => <li key={copy.id}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{copy.label}</strong><small>{copy.images.length} page(s) · À traiter{copy.detectTeacherAnnotations ? ' · annotations à détecter' : ''}</small></span><button type="button" className="text-button" onClick={() => setCopyQueue((current) => current.filter((item) => item.id !== copy.id))} disabled={isAnalyzing}>Retirer</button></li>)}</ol></section>}
         </article>
 
@@ -2344,32 +2389,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
 
       {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section">
         <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 3</p><h2>Réviser la proposition de correction</h2></div><span className="step-count">{isAnalyzing && criterionProgress.completedCount < criterionProgress.totalCount ? `${criterionProgress.totalCount - criterionProgress.completedCount} EN ATTENTE` : `${pendingCount} À VÉRIFIER`}</span></div>{isAnalyzing && <p className="criterion-live-progress" role="status" aria-live="polite">{criterionProgress.completedCount} / {criterionProgress.totalCount} critère(s) évalué(s) · {criterionProgressMessage || 'Analyse progressive en cours'}. La note affichée est provisoire et évoluera à mesure des résultats.</p>}{(readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? "non mesurée" : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
-        {pageClassifications && <section className="panel scientific-page-routing" aria-label="Détection des types de page"><div className="panel-heading"><div><h3>Pages identifiées</h3><p>Les pages de schéma suivent une correction scientifique distincte ; les pages ambiguës restent dans le parcours textuel.</p></div><span className="step-count">{pageClassifications.length} PAGE(S)</span></div><ul>{pageClassifications.map((page) => <li key={page.pageNumber}><strong>Page {page.pageNumber}</strong> · {page.kind === 'scientific-diagram' ? 'Schéma scientifique' : page.kind === 'mixed' ? 'Texte + schéma' : page.kind === 'ambiguous' ? 'À vérifier' : 'Réponse rédigée'} <small>({Math.round(page.confidence * 100)} % · {page.reason})</small></li>)}</ul></section>}
         {scientificDiagramError && <p className="review-alert review-alert-warning" role="alert">{scientificDiagramError}</p>}
-        {pageClassifications?.some((page) => page.kind === 'scientific-diagram' || page.kind === 'mixed') && partitionScientificRubric(rubric).diagramCriteria.length > 0 && <ScientificDiagramAnalysisPanel enabled={true} images={images} diagramImages={pageClassifications.filter((page) => page.kind === 'scientific-diagram' || page.kind === 'mixed').map((page) => images[page.pageNumber - 1])} pageNumbers={pageClassifications.filter((page) => page.kind === 'scientific-diagram' || page.kind === 'mixed').map((page) => page.pageNumber)} question={buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question })} teacherAnnotations={teacherAnnotations} rubric={{ ...rubric, criteria: partitionScientificRubric(rubric).diagramCriteria }} model={visionModel} endpoint={endpoint} apiKey={apiKey} apiCompatible={apiCompatible} service={diagramAnalysisService} analysis={scientificDiagramAnalysis} onDiagnosticResult={(result) => {
-          const record: TimingRecord = {
-            id: `scientific-diagram-${crypto.randomUUID()}`,
-            completedAt: new Date().toISOString(),
-            visionModel,
-            analysisModel,
-            thinking: analysisThinking,
-            correctionMode,
-            pageCount: pageClassifications?.filter((page) => page.kind === 'scientific-diagram' || page.kind === 'mixed').length ?? 0,
-            readingSeconds: result.elapsedMs / 1000,
-            analysisSeconds: null,
-            totalSeconds: result.elapsedMs / 1000,
-            outcome: result.error ? 'error' : 'success',
-            source: 'scientific-diagram',
-            modelScore: null,
-            criterionScores: [],
-            assignmentId: activeAssignmentId,
-            assignmentTitle: assignmentTitle.trim() || 'Devoir sans titre',
-            rubricSnapshot: structuredClone(rubric),
-            diagnosticRuns: [result],
-          };
-          setTimingHistory((current) => { const next = [record, ...current].slice(0, timingHistoryLimit); try { window.localStorage.setItem(timingHistoryKey, JSON.stringify(next)); } catch { /* Keep the trace available for this session. */ } return next; });
-          setDiagnosticRuns((current) => [...current, result]);
-        }} onAnalysisChange={(analysis) => { setScientificDiagramAnalysis(analysis); if (analysis) { const merged = mergeScientificDiagramCriteria(rubric, proposal, analysis); setProposal(merged); setReview((current) => toReviewedCriteria(merged).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item)); setTeacherQuestions(merged.questionsForTeacher.join('\\n')); } setIsFinalized(false); setReviewMessage('L’analyse visuelle a changé. Enregistrez à nouveau la correction pour conserver ce résultat.'); }} />}
+
         {teacherAnnotations && <section className="panel teacher-annotations-review" aria-label="Annotations préexistantes détectées"><div className="panel-heading"><span className="number">✎</span><div><h3>Annotations déjà présentes sur la copie</h3><p>Détections locales à vérifier : elles ne sont pas considérées comme de nouvelles notes.</p></div></div><pre>{teacherAnnotations}</pre></section>}
         {(flaggedCriteriaIds.size > 0 || unreadableCopySignal) && <section className="review-alerts review-focus-overview" aria-label="Synthèse des éléments à examiner">
           <strong>{flaggedCriteriaIds.size} critère(s) à examiner</strong>
@@ -2378,14 +2399,16 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         <div className="correction-batch-progress" aria-label="Progression des corrections pour ce devoir"><div><span className="eyebrow">CORRECTION EN SÉRIE</span><strong>{completedForAssignment} copie(s) enregistrée(s) pour ce devoir</strong><p>Chaque copie enregistrée reste disponible dans « Corrections enregistrées ».</p></div></div>
         <div className="review-workspace">
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
-            <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de référence</h3><p>Gardez les pages originales sous les yeux pendant que vous vérifiez les points et les preuves.</p></div>
+            <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de référence</h3><p>Consultez l’orientation utilisée pour l’analyse. Si une rotation a été appliquée, l’image originale reste accessible sous la page.</p></div>
             <div className="review-source-pages" aria-label="Pages originales de la copie">
               {images.length > 0 ? images.map((image, index) => {
                 const pageNumber = index + 1;
                 const pageAnchors = review.filter((item) => item.pageNumber === pageNumber && item.locationBox);
                 return <figure id={`review-copy-page-${pageNumber}`} className={focusedEvidencePage === pageNumber ? 'live-copy-page evidence-page-focused' : 'live-copy-page'} key={image.fileName + '-review-' + index}>
                   <div className="evidence-image-stage">
-                    <img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page originale ${pageNumber} de la copie`} />
+                    <img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page de travail ${pageNumber} de la copie`} />
+                    <div className="copy-image-rotation-controls review-image-rotation-controls"><button type="button" className="text-button" aria-label={`Réorienter la page ${pageNumber} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Réorienter la page ${pageNumber} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button></div>
+                    {originalImages[pageNumber - 1] && originalImages[pageNumber - 1].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non tournée</summary><img src={`data:${originalImages[pageNumber - 1].mimeType};base64,${originalImages[pageNumber - 1].base64}`} alt={`Image originale non modifiée de la page ${pageNumber}`} /></details>}
                     {pageAnchors.length > 0 && <svg className="evidence-region-overlay" viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label={`Repères de localisation des commentaires sur la page ${pageNumber}`}>
                       {pageAnchors.map((anchor, anchorIndex) => <g key={anchor.criterionId} className={focusedEvidenceCriterionId === anchor.criterionId ? 'evidence-region evidence-region-active' : 'evidence-region'}>
                         <rect x={anchor.locationBox!.x} y={anchor.locationBox!.y} width={anchor.locationBox!.width} height={anchor.locationBox!.height} rx="8" />
@@ -2476,8 +2499,10 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
               </details>
             )}
 
-              {item.questionForTeacher && <p className="teacher-question"><strong>Question pour vous :</strong> {item.questionForTeacher}</p>}
+
+            {item.questionForTeacher && <p className="teacher-question"><strong>Question pour vous :</strong> {item.questionForTeacher}</p>}
             </details>
+            {scientificDiagramAnalysis?.diagrams.some((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)) && <details className="scientific-diagram-criterion-details"><summary>Analyse du schéma scientifique · {scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).length} résultat(s)</summary>{scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).map((diagram) => { const result = diagram.criteria.find((entry) => entry.criterionId === item.criterionId)!; return <article key={diagram.id}><strong>{diagram.diagramType || 'Schéma'} · page {diagram.pageNumber}</strong><p>{diagram.summary}</p><p>{result.evidence}</p><small>Confiance indicative : {Math.round(result.confidence * 100)} %{result.requiresTeacherReview ? ' · Vérification requise' : ''}</small>{diagram.uncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</article>; })}{scientificDiagramAnalysis.overallUncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</details>}
             <div className="review-controls">
               <label><span className="field-label">Votre note</span><input type="number" min="0" max={criterion?.maxPoints ?? 0} step="0.5" value={item.teacherPoints} onChange={(event) => updateReview(item.criterionId, { teacherPoints: Number(event.target.value), decision: 'adjusted' })} /></label>
               <label className="comment-field"><span className="field-label">Commentaire enseignant</span><input value={item.teacherComment} onChange={(event) => updateReview(item.criterionId, { teacherComment: event.target.value })} placeholder="Précision ou correction éventuelle" /></label>

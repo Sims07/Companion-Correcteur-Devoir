@@ -12,7 +12,7 @@ import { createCorrectionWorkspaceService } from './application/correctionWorksp
 import { createScientificDiagramAnalysisService } from './application/scientificDiagramAnalysisService.ts';
 import { createOpenAiScientificDiagramAnalyzer } from './adapters/ai/openAiScientificDiagramAnalyzer.ts';
 import { checkOllamaReady, createOllamaProvider, importRubricImageWithOllama, listOllamaModels } from './adapters/ai/ollamaProvider.ts';
-import { prepareLocalFiles } from './adapters/files/localFiles.ts';
+import { prepareLocalFiles, rotateLocalImage } from './adapters/files/localFiles.ts';
 import { importRubricFile } from './adapters/files/rubricImport.ts';
 import './ui/styles.css';
 import './ui/correctionFlow.css';
@@ -29,7 +29,7 @@ installNetworkInspector();
 const scientificDiagramAnalysisService = createScientificDiagramAnalysisService(createOpenAiScientificDiagramAnalyzer());
 const correctionWorkspaceService = createCorrectionWorkspaceService(
   { checkReady: checkOllamaReady, listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, fetch, onProgress, signal) },
-  { prepareFiles: prepareLocalFiles, importRubric: importRubricFile },
+  { prepareFiles: prepareLocalFiles, rotateImage: rotateLocalImage, importRubric: importRubricFile },
 );
 
 createRoot(document.getElementById('root')!).render(

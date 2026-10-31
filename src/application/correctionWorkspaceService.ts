@@ -18,6 +18,7 @@ export function createCorrectionWorkspaceService(
     createProvider: (settings) => ollama.createProvider(settings),
     importRubricImage: (images, settings, onProgress?: (progress: RubricImportProgress) => void, signal?: AbortSignal) => ollama.importRubricImage(images, settings, onProgress, signal),
     prepareFiles: (selected) => files.prepareFiles(selected),
+    rotateImage: (image, degrees) => files.rotateImage(image, degrees),
     importRubric: (file) => files.importRubric(file),
   };
 }

@@ -15,14 +15,14 @@ const output = { diagrams: [{ id: 'd1', pageNumber: 1, diagramType: 'Cellule', s
 describe('OpenAI scientific diagram adapter', () => {
   it('classifies every page in an isolated low-detail request and preserves the original page index', async () => {
     const pageOne = { pages: [{ pageNumber: 1, kind: 'text', confidence: 0.98, reason: 'Réponse manuscrite' }] };
-    const pageTwo = { pages: [{ pageNumber: 1, kind: 'mixed', confidence: 0.96, reason: 'Schéma biologique et tableau distinct' }] };
+    const pageTwo = { pages: [{ pageNumber: 1, kind: 'mixed', confidence: 0.96, reason: 'Schéma biologique et tableau distinct', suggestedRotation: 90, orientationConfidence: 0.97 }] };
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(pageOne) } }] }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(pageTwo) } }] }), { status: 200 }));
     const analyzer = createOpenAiScientificDiagramAnalyzer(fetchMock);
     const diagnostic = vi.fn();
     await expect(analyzer.classifyPages({ ...request, onDiagnosticResult: diagnostic, images: [...request.images, { base64: 'cG5nMg==', mimeType: 'image/png' }] })).resolves.toMatchObject([
-      { pageNumber: 1, kind: 'text' }, { pageNumber: 2, kind: 'mixed' },
+      { pageNumber: 1, kind: 'text' }, { pageNumber: 2, kind: 'mixed', suggestedRotation: 90, orientationConfidence: 0.97 },
     ]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(diagnostic).toHaveBeenCalledTimes(2);
@@ -30,12 +30,13 @@ describe('OpenAI scientific diagram adapter', () => {
     for (const [index, [url, init]] of fetchMock.mock.calls.entries()) {
       expect(String(url)).toBe('https://ai.example/v1/chat/completions');
       const body = JSON.parse(String(init?.body));
-      expect(body.max_tokens).toBe(256);
+      expect(body.max_tokens).toBe(320);
       expect(body.max_completion_tokens).toBeUndefined();
       expect(body.messages[0].content).toHaveLength(2);
       expect(body.messages[0].content[0].text).toContain(`NUMÉRO DE PAGE ORIGINAL : ${index + 1}`);
       expect(body.messages[0].content[0].text).toContain('Les tableaux de données');
       expect(body.messages[0].content[0].text).toContain('Les seules valeurs autorisées pour kind sont text, scientific-diagram, mixed ou ambiguous');
+      expect(body.messages[0].content[0].text).toContain('orientationConfidence');
       expect(body.messages[0].content[1].image_url.url).toContain(index === 0 ? 'cG5n' : 'cG5nMg==');
     }
   });

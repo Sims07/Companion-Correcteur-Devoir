@@ -11,7 +11,7 @@ function diagnosticResult(request: { model: string; endpoint: string; images: Im
     purpose,
     model: request.model,
     requestPrompt: prompt,
-    requestMetadata: { provider: 'openai-compatible', endpoint: request.endpoint, stream: false, think: false, format: 'json', imageCount: request.images.length, keepAlive: 0, options: { contextTokens: 0, generationTokenLimit: purpose === 'scientific-diagram-classification' ? 256 : 2048 } },
+    requestMetadata: { provider: 'openai-compatible', endpoint: request.endpoint, stream: false, think: false, format: 'json', imageCount: request.images.length, keepAlive: 0, options: { contextTokens: 0, generationTokenLimit: purpose === 'scientific-diagram-classification' ? 320 : 2048 } },
     requestPayload: JSON.stringify({ attempts: [{ messages: [{ role: 'user', content: prompt }] }], imageCount: request.images.length, images: '[masquées]' }),
     raw,
     ...(error ? { error } : {}),
@@ -23,13 +23,14 @@ function classificationPrompt(originalPageNumber: number): string {
   return [
     'Tu es chargé de classer UNE SEULE page d’une copie universitaire de biologie avant toute correction.',
     'L’image jointe est la page indiquée ci-dessous. Ne fais aucune hypothèse sur les autres pages de la copie.',
+    'Détermine aussi l’orientation de lecture de la page : suggestedRotation est la rotation horaire à appliquer à l’image reçue (0, 90, 180 ou 270) pour rendre le contenu droit. Ne propose une rotation non nulle que si toute la page (texte, légendes et dessin) est clairement tournée ; ne tourne jamais une page portrait simplement parce qu’un dessin isolé est en paysage. Ne propose une rotation non nulle que si tu es très sûr que la page entière est de travers ; sinon retourne 0. orientationConfidence est une confiance indépendante, entre 0 et 1. En cas de doute, utilise 0 et une confiance faible.',
     'Classe cette page selon son contenu réellement produit par l’étudiant. Les tableaux de données ou de comparaison structurés en lignes et colonnes ne sont PAS des schémas scientifiques : classe un tableau seul en text, même s’il contient des notions de biologie. Le modèle textuel sait exploiter les tableaux transcrits en Markdown.',
     'Un schéma scientifique est un dessin ou une représentation visuelle porteuse d’information scientifique : cellule dessinée, tissu, anatomie, coupe, cycle, voie métabolique dessinée, graphique avec axes/courbes, arbre phylogénétique, montage expérimental annoté.',
     'Si la page contient uniquement du texte et/ou un tableau, retourne kind=text. Si elle contient un véritable schéma scientifique sans tableau, retourne kind=scientific-diagram. Si elle contient à la fois un vrai schéma scientifique distinct ET un tableau ou une réponse rédigée, retourne kind=mixed : cette page sera envoyée au modèle textuel pour le texte/tableau ET à Vision pour le schéma uniquement. Si tu ne peux pas décider, retourne ambiguous.',
     'Ne confonds jamais un tableau, une liste, une formule isolée, des cases à compléter, un dessin décoratif ou une illustration imprimée du sujet avec un schéma scientifique produit par l’étudiant.',
     'Ne juge pas la qualité scientifique et n’attribue aucun point à cette étape. Cette étape sert uniquement à router cette page vers le bon parcours.',
     'Retourne exactement une entrée pour l’unique image jointe. Le champ pageNumber doit toujours valoir 1 dans cette réponse isolée.',
-    'Les seules valeurs autorisées pour kind sont text, scientific-diagram, mixed ou ambiguous. Exemple de JSON valide : {"pages":[{"pageNumber":1,"kind":"text","confidence":0.0,"reason":"..."}]}',
+    'Les seules valeurs autorisées pour kind sont text, scientific-diagram, mixed ou ambiguous. Retourne toujours suggestedRotation (0, 90, 180 ou 270) et orientationConfidence (0 à 1), même si tu ne proposes aucune rotation. La rotation automatique ne sera appliquée qu’aux pages classées scientific-diagram, jamais aux pages mixed ou text. Exemple : {"pages":[{"pageNumber":1,"kind":"scientific-diagram","confidence":0.98,"reason":"...","suggestedRotation":90,"orientationConfidence":0.96}]}',
     `NUMÉRO DE PAGE ORIGINAL : ${originalPageNumber}`,
   ].join('\n\n');
 }
@@ -82,7 +83,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
               stream: false,
               format: 'json',
               generation_token_parameter: 'max_tokens',
-              options: { num_predict: 256 },
+              options: { num_predict: 320 },
               messages: [{
                 role: 'user',
                 content: prompt,

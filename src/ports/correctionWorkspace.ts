@@ -40,5 +40,7 @@ export interface OllamaGateway {
 
 export interface LocalFileGateway {
   prepareFiles(files: FileList | File[]): Promise<ImageInput[]>;
+  /** Rotate a working image locally; callers retain the untouched source image separately. */
+  rotateImage(image: ImageInput, clockwiseDegrees: 90 | 180 | 270): Promise<ImageInput>;
   importRubric(file: File): Promise<ImportedRubric>;
 }
