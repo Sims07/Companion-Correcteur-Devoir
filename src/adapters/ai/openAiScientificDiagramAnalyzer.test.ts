@@ -24,7 +24,6 @@ describe('OpenAI scientific diagram adapter', () => {
       { type: 'text', text: expect.stringContaining('BARÈME') },
       { type: 'image_url', image_url: { url: 'data:image/png;base64,cG5n', detail: 'high' } },
     ]);
-    expect(String(init?.headers)).not.toContain('secret');
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer secret');
   });
   it('does not retry authentication and server errors', async () => {
