@@ -14,6 +14,8 @@ export function ScientificDiagramAnalysisPanel({
   apiKey,
   apiCompatible,
   service,
+  analysis,
+  onAnalysisChange,
 }: {
   enabled: boolean;
   images: ImageInput[];
@@ -24,21 +26,22 @@ export function ScientificDiagramAnalysisPanel({
   apiKey: string;
   apiCompatible: boolean;
   service: ScientificDiagramAnalysisService;
+  analysis: Awaited<ReturnType<ScientificDiagramAnalysisService['analyze']>> | null;
+  onAnalysisChange: (analysis: Awaited<ReturnType<ScientificDiagramAnalysisService['analyze']>> | null) => void;
 }) {
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [analysis, setAnalysis] = useState<Awaited<ReturnType<ScientificDiagramAnalysisService['analyze']>> | null>(null);
 
   if (!enabled) return null;
 
   async function analyze() {
     setLoading(true);
     setError('');
-    setAnalysis(null);
+    onAnalysisChange(null);
     try {
       const result = await service.analyze({ images, question, rubric, model, endpoint, apiKey });
-      setAnalysis(result);
+      onAnalysisChange(result);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'L’analyse des schémas a échoué.');
     } finally {
