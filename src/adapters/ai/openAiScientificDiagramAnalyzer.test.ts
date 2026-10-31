@@ -13,7 +13,7 @@ const request = {
 const output = { diagrams: [{ id: 'd1', pageNumber: 1, diagramType: 'Cellule', summary: 'Schéma de cellule', criteria: [{ criterionId: 'labels', points: 2, evidence: 'Légendes présentes', confidence: 0.9, requiresTeacherReview: false }], uncertainties: [] }], overallUncertainties: [] };
 
 describe('OpenAI scientific diagram adapter', () => {
-  it('classifies every page in an isolated low-detail request and preserves the original page index', async () => {
+  it('classifies every page in an isolated high-detail request and preserves the original page index', async () => {
     const pageOne = { pages: [{ pageNumber: 1, kind: 'text', confidence: 0.98, reason: 'Réponse manuscrite' }] };
     const pageTwo = { pages: [{ pageNumber: 1, kind: 'mixed', confidence: 0.96, reason: 'Schéma biologique et tableau distinct', suggestedRotation: 90, orientationConfidence: 0.97 }] };
     const fetchMock = vi.fn<typeof fetch>()
@@ -38,6 +38,7 @@ describe('OpenAI scientific diagram adapter', () => {
       expect(body.messages[0].content[0].text).toContain('Les seules valeurs autorisées pour kind sont text, scientific-diagram, mixed ou ambiguous');
       expect(body.messages[0].content[0].text).toContain('orientationConfidence');
       expect(body.messages[0].content[1].image_url.url).toContain(index === 0 ? 'cG5n' : 'cG5nMg==');
+      expect(body.messages[0].content[1].image_url.detail).toBe('high');
     }
   });
 
