@@ -54,9 +54,20 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
   const ids = new Set<string>();
   const diagrams = parsed.diagrams.map((value, index): ScientificDiagramFinding => {
     if (!isRecord(value)) throw new Error(`Le schéma ${index + 1} est invalide.`);
-    const pageNumber = value.pageNumber;
-    if (!Number.isInteger(pageNumber) || !allowedPageNumbers.includes(Number(pageNumber))) {
+    const reportedPageNumber = value.pageNumber;
+    if (!Number.isInteger(reportedPageNumber) || Number(reportedPageNumber) < 1) {
       throw new Error(`Le schéma ${index + 1} référence une page inexistante.`);
+    }
+    // Vision sometimes numbers a filtered image batch from 1 instead of using
+    // the original copy page numbers. Resolve that local index only when the
+    // reported number is not already a valid original page number.
+    const pageNumber = allowedPageNumbers.includes(Number(reportedPageNumber))
+      ? Number(reportedPageNumber)
+      : Number(reportedPageNumber) <= pageCount
+        ? allowedPageNumbers[Number(reportedPageNumber) - 1]
+        : undefined;
+    if (pageNumber === undefined) {
+      throw new Error(`Le schéma ${index + 1} référence une page inexistante (numéro retourné : ${String(reportedPageNumber)}).`);
     }
     if (typeof value.id !== 'string' || !value.id.trim() || ids.has(value.id)) throw new Error('Chaque schéma doit avoir un identifiant unique.');
     ids.add(value.id);
@@ -112,7 +123,7 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
       bounds = { x: box.x, y: box.y, width: box.width, height: box.height };
     }
     if (!value.uncertainties.every((item) => typeof item === 'string')) throw new Error('Les incertitudes doivent être des textes.');
-    return { id: value.id, pageNumber: Number(pageNumber), ...(bounds ? { bounds } : {}), diagramType: value.diagramType, summary: value.summary, criteria, uncertainties: value.uncertainties as string[] };
+    return { id: value.id, pageNumber, ...(bounds ? { bounds } : {}), diagramType: value.diagramType, summary: value.summary, criteria, uncertainties: value.uncertainties as string[] };
   });
   if (!parsed.overallUncertainties.every((item) => typeof item === 'string')) throw new Error('Les incertitudes globales doivent être des textes.');
   return { diagrams, overallUncertainties: parsed.overallUncertainties as string[] };
