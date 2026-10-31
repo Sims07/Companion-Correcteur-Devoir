@@ -115,21 +115,23 @@ export function installNetworkInspector(): () => void {
       });
       const clone = response.clone();
       if (clone.body) {
-        const reader = clone.body.getReader();
-        const decoder = new TextDecoder();
-        let body = '';
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            body = truncate(body + decoder.decode(value, { stream: true }));
-            update({ responseBody: body });
+        void (async () => {
+          const reader = clone.body!.getReader();
+          const decoder = new TextDecoder();
+          let body = '';
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              body = truncate(body + decoder.decode(value, { stream: true }));
+              update({ responseBody: body });
+            }
+            body += decoder.decode();
+            update({ responseBody: truncate(body), durationMs: Math.round(performance.now() - started) });
+          } catch (cause) {
+            update({ responseBody: body, durationMs: Math.round(performance.now() - started), error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' });
           }
-          body += decoder.decode();
-          update({ responseBody: truncate(body), durationMs: Math.round(performance.now() - started) });
-        } catch (cause) {
-          update({ responseBody: body, durationMs: Math.round(performance.now() - started), error: cause instanceof Error ? cause.message : 'Lecture de la réponse impossible.' });
-        }
+        })();
       } else {
         update({ durationMs: Math.round(performance.now() - started) });
       }
