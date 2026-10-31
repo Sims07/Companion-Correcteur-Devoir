@@ -72,17 +72,19 @@ describe('prepareLocalFiles', () => {
     const close = vi.fn();
     vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 4000, height: 3000, close }));
     const drawImage = vi.fn();
+    const createCanvas = vi.spyOn(document, 'createElement');
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D);
     vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,cG5n');
 
     const images = await prepareLocalFiles([new File(['webp'], 'large.webp', { type: 'image/webp' })]);
 
     expect(images[0]).toMatchObject({ mimeType: 'image/png', fileName: 'large.webp', base64: 'cG5n' });
-    const canvas = document.createElement('canvas');
     expect(drawImage).toHaveBeenCalledWith(expect.objectContaining({ width: 4000, height: 3000 }), 0, 0);
+    const canvas = createCanvas.mock.results[0].value as HTMLCanvasElement;
+    expect(canvas.width).toBe(4000);
+    expect(canvas.height).toBe(3000);
     expect(HTMLCanvasElement.prototype.toDataURL).toHaveBeenCalledWith('image/png');
     expect(close).toHaveBeenCalledOnce();
-    expect(canvas.width).toBe(300);
   });
 
   it('rotates a working image clockwise to lossless PNG without resizing or mutating the source', async () => {
