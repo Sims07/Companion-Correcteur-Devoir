@@ -3,13 +3,7 @@ import { expect, test } from '@playwright/test';
 test('opens the local observability workspace and explores a trace without exposing copy content', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(async () => {
-    const request = indexedDB.open('companion-correcteur-devoir', 4);
-    const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const transaction = database.transaction(['diagnostic-history', 'model-evaluations'], 'readwrite');
-    transaction.objectStore('diagnostic-history').put({
+    localStorage.setItem('companion-correcteur:timing-history:v1', JSON.stringify([{
       id: 'trace-e2e-1',
       completedAt: '2026-10-30T08:00:00.000Z',
       visionModel: 'qwen3.5:4b',
@@ -29,7 +23,13 @@ test('opens the local observability workspace and explores a trace without expos
         { model: 'qwen3.5:4b', kind: 'vision', stage: 'reading', purpose: 'scientific-diagram-analysis', elapsedMs: 48000, promptTokens: 80, generatedTokens: 120, requestPayload: JSON.stringify({ attempts: [{ messages: [{ role: 'system', content: 'SYSTEM PROMPT VISION ENVOYÉ' }, { role: 'user', content: 'USER PROMPT VISION ENVOYÉ' }] }] }), requestMetadata: { stream: true, think: false, imageCount: 1, keepAlive: 0, options: { contextTokens: 4096, generationTokenLimit: 2048 } }, raw: 'RÉPONSE VISION BRUTE' },
         { model: 'gemma3:4b', kind: 'model', stage: 'analysis', elapsedMs: 92000, promptTokens: 220, generatedTokens: 180, requestPrompt: 'PROMPT ANALYSE ENVOYÉ', requestMetadata: { stream: true, think: false, format: 'json', imageCount: 0, keepAlive: 0, options: { contextTokens: 8192, generationTokenLimit: 2048 } }, raw: 'RÉPONSE ANALYSE BRUTE' },
       ],
+    }]));
+    const request = indexedDB.open('companion-correcteur-devoir', 4);
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
     });
+    const transaction = database.transaction('model-evaluations', 'readwrite');
     transaction.objectStore('model-evaluations').put({
       id: 'evaluation-e2e-1',
       completedAt: '2026-10-30T09:00:00.000Z',
