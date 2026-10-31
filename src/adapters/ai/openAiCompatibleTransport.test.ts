@@ -35,6 +35,17 @@ describe('OpenAI-compatible chat transport', () => {
     expect(body.messages[0].content[1].image_url.detail).toBe('low');
   });
 
+  it('falls back when a compatible server rejects low image detail', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('unsupported detail', { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }), { status: 200 }));
+    const request = createOpenAiCompatibleFetch({ endpoint: 'https://ai.example', apiKey: '' }, fetchMock);
+    const response = await request('http://localhost:11434/api/chat', { method: 'POST', body: JSON.stringify({ model: 'vision', stream: false, messages: [{ role: 'user', content: 'Classifie', imageDetail: 'low', images: ['data:image/png;base64,abc'] }] }) });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).messages[0].content[1].image_url).toEqual({ url: 'data:image/png;base64,abc' });
+    expect(response.ok).toBe(true);
+  });
+
   it('maps transcription stop sequences, token limits, repetition penalties and usage metadata', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('data: [DONE]\n\n', {
       status: 200, headers: { 'Content-Type': 'text/event-stream' },
