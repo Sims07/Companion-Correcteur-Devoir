@@ -14,6 +14,11 @@ describe('scientific page classification', () => {
     ]);
   });
 
+  it('extracts the JSON object when Vision adds reasoning or explanatory text', () => {
+    const response = '<think>Je classe la page.</think>\\nClassification : {"pages":[{"pageNumber":1,"kind":"text","confidence":0.99,"reason":"Réponse rédigée avec accolade { dans le texte"}]}\\nFin.';
+    expect(parseScientificPageClassifications(response, 1)[0].kind).toBe('text');
+  });
+
   it('keeps table-only pages textual and routes mixed table-and-diagram pages to both workflows', () => {
     const classifications = parseScientificPageClassifications(JSON.stringify({ pages: [
       { pageNumber: 1, kind: 'text', confidence: 0.99, reason: 'Tableau de résultats biologiques' },
