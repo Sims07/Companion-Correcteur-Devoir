@@ -356,6 +356,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [backgroundCopyLabel, setBackgroundCopyLabel] = useState('');
   const [seriesPickerVersion, setSeriesPickerVersion] = useState(0);
   const [isPreparingSeriesCopies, setIsPreparingSeriesCopies] = useState(false);
+  const [isStartingSeriesCorrections, setIsStartingSeriesCorrections] = useState(false);
+  const isStartingSeriesCorrectionsRef = useRef(false);
   const [seriesGroupingMode, setSeriesGroupingMode] = useState<'each-file' | 'group-files'>('each-file');
   const [correctionSessionMode, setCorrectionSessionMode] = useState<'individual' | 'series'>('individual');
   const [backgroundCopyDetectTeacherAnnotations, setBackgroundCopyDetectTeacherAnnotations] = useState(false);
@@ -1726,6 +1728,23 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
+  async function startSeriesCorrections() {
+    if (isStartingSeriesCorrectionsRef.current) return;
+    const pendingCount = backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').length;
+    if (!pendingCount) return;
+    isStartingSeriesCorrectionsRef.current = true;
+    setIsStartingSeriesCorrections(true);
+    setReviewMessage(`Démarrage de la correction de ${pendingCount} copie(s)…`);
+    try {
+      await backgroundService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de démarrer les corrections.');
+    } finally {
+      isStartingSeriesCorrectionsRef.current = false;
+      setIsStartingSeriesCorrections(false);
+    }
+  }
+
   async function loadNextQueuedCopy(jobId?: string) {
     if (isAnalyzing) return;
     const next = jobId
@@ -2555,7 +2574,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         {isPreparingSeriesCopies && <p className="correction-series-feedback" role="status">Préparation des fichiers et constitution des copies…</p>}
         {!autoBackgroundCorrection && backgroundJobs.some((job) => job.status === 'pending') && <div className="correction-series-launch">
           <p><strong>{backgroundJobs.filter((job) => job.status === 'pending').length} copie(s) en attente.</strong> Le lancement enverra chaque copie au modèle l’une après l’autre. Vous pourrez suivre leur progression ici.</p>
-          <button type="button" className="primary-button" onClick={() => { void backgroundService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Démarrer les corrections ({backgroundJobs.filter((job) => job.status === 'pending').length})</button>
+          <button type="button" className="primary-button" disabled={isStartingSeriesCorrections || backgroundJobs.some((job) => job.status === 'processing')} onClick={() => { void startSeriesCorrections(); }}>{isStartingSeriesCorrections ? 'Démarrage des corrections…' : `Démarrer les corrections (${backgroundJobs.filter((job) => job.status === 'pending').length})`}</button>
         </div>}
         <div className="correction-series-list-heading"><div><h4>Copies ajoutées à la session</h4><p>Vérifiez les pages et l’ordre avant ou pendant le traitement.</p></div><span>{backgroundJobs.length} copie(s)</span></div>
         {backgroundJobs.length === 0 ? <p className="correction-series-empty">Aucune copie dans la session. Ajoutez les pages de la première copie ci-dessus.</p> : <ol className="correction-series-list">{backgroundJobs.map((job, index) => <li key={job.id} className={job.status === 'processing' ? 'is-processing' : ''}>
