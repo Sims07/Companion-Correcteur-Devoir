@@ -2725,3 +2725,84 @@
   border-color: var(--flow-border-strong);
   box-shadow: 0 3px 14px rgb(20 35 25 / 5%);
 }
+
+
+/* Batch cards: keep copy identity and actions in separate, predictable rows. */
+.correction-series-list > li.correction-series-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+}
+.correction-series-copy-top {
+  display: grid;
+  grid-template-columns: 1.8rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.55rem;
+  min-width: 0;
+}
+.correction-series-copy-top .correction-series-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.correction-series-actions {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  min-width: 0;
+}
+.correction-series-actions > button {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0.35rem 0.45rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  text-align: center;
+}
+.correction-series-list > li > .correction-series-pages,
+.correction-series-list > li > .correction-series-live-details {
+  min-width: 0;
+  max-width: 100%;
+}
+.correction-series-list > li.is-active .correction-series-copy-top {
+  grid-template-columns: 1.8rem minmax(0, 1fr);
+}
+.correction-series-error {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 0.25rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #dfc99f;
+  border-radius: 8px;
+  background: #fffaf0;
+  color: #715526;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+.correction-series-error strong { color: #715526; }
+.correction-series-error details { margin-top: 0.25rem; }
+.correction-series-error summary { cursor: pointer; font-weight: 650; }
+.correction-series-error pre {
+  max-width: 100%;
+  margin: 0.35rem 0 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.7rem;
+}
+.correction-series-overview-metrics {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.correction-series-overview-metrics article.has-failure { background: #f8eeee; }
+.correction-series-overview-metrics article.has-failure strong { color: #a33d36; }
+@media (max-width: 900px) {
+  .correction-series-overview-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .correction-series-overview-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .correction-series-copy-top { flex-wrap: initial; }
+  .correction-series-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
