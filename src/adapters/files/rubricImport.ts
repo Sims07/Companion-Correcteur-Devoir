@@ -17,7 +17,7 @@ function rubricFromJson(value: unknown, fileName: string): ImportedRubric {
     const criterion = item as Record<string, unknown>;
     const title = String(criterion.title ?? criterion.titre ?? criterion.name ?? '').trim();
     const points = Number(criterion.maxPoints ?? criterion.max_points ?? criterion.points ?? criterion.maximum);
-    if (!title || !Number.isFinite(points) || points < 0) throw new Error(`Le critère ${index + 1} doit avoir un titre et un maximum de points valide.`);
+    if (!title || !Number.isFinite(points)) throw new Error(`Le critère ${index + 1} doit avoir un titre et un maximum de points valide.`);
     return { id: String(criterion.id ?? slugify(title, index)), title, description: String(criterion.description ?? criterion.attendus ?? criterion.details ?? ''), maxPoints: points };
   });
   const rubric: Rubric = { title: String(source.title ?? source.titre ?? fileName.replace(/\.[^.]+$/, '')).trim(), criteria };
@@ -54,7 +54,7 @@ function rubricFromRows(rows: string[][], title: string): ImportedRubric {
     const criterionTitle = row[nameCol]?.trim();
     const pointsText = row[pointsCol]?.replace(',', '.').replace(/\s*(?:pts?|points?)\s*$/i, '').trim();
     const points = Number(pointsText);
-    if (!criterionTitle || !pointsText || !Number.isFinite(points) || points < 0) continue;
+    if (!criterionTitle || !pointsText || !Number.isFinite(points)) continue;
     criteria.push({ id: slugify(criterionTitle, criteria.length), title: criterionTitle, description: descCol >= 0 ? row[descCol] ?? '' : '', maxPoints: points });
   }
   if (!criteria.length) throw new Error('Aucun critère valide trouvé. Vérifiez les colonnes « Critère » et « Points max ».');
@@ -67,7 +67,7 @@ function rubricFromText(text: string, title: string): ImportedRubric {
     if (!match) continue;
     const criterionTitle = match[1].trim().replace(/^[-•*\d.)\s]+/, '');
     const points = Number(match[2].replace(',', '.'));
-    if (criterionTitle && Number.isFinite(points) && points >= 0) criteria.push({ id: slugify(criterionTitle, criteria.length), title: criterionTitle, description: '', maxPoints: points });
+    if (criterionTitle && Number.isFinite(points)) criteria.push({ id: slugify(criterionTitle, criteria.length), title: criterionTitle, description: '', maxPoints: points });
   }
   if (!criteria.length) throw new Error('Aucun critère détecté dans ce fichier texte. Pour un barème PDF, utilisez le modèle de vision local.');
   return { rubric: { title, criteria }, warnings: ['Import du texte : vérifiez les critères et les points avant utilisation.'] };

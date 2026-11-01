@@ -104,4 +104,28 @@ describe('parseGradingProposal', () => {
     }), rubric);
     expect(toReviewedCriteria(proposal).map((item) => item.decision)).toEqual(['accepted', 'accepted']);
   });
+  it('supports a negative penalty criterion and validates its signed score range', () => {
+    const rubricWithPenalty: Rubric = {
+      ...rubric,
+      criteria: [...rubric.criteria, { id: 'penalty', title: 'Malus', description: 'Mauvais placement', maxPoints: -0.25 }],
+    };
+    const proposal = parseGradingProposal(JSON.stringify({
+      criteria: [
+        validCriteria[0],
+        validCriteria[1],
+        { criterionId: 'penalty', points: -0.25, rationale: 'Légende mal placée.', evidence: 'Flèche vers le mauvais élément.', confidence: 'high' },
+      ],
+      finalScore: 8.75,
+    }), rubricWithPenalty);
+    expect(proposal.criteria[2].points).toBe(-0.25);
+    expect(proposal.finalScore).toBe(8.75);
+    expect(() => parseGradingProposal(JSON.stringify({
+      criteria: [
+        validCriteria[0],
+        validCriteria[1],
+        { criterionId: 'penalty', points: -0.5, rationale: 'Malus excessif.', evidence: 'Preuve.', confidence: 'high' },
+      ],
+    }), rubricWithPenalty)).toThrow(/hors barème/);
+  });
+
 });

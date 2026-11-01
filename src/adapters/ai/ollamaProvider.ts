@@ -8,6 +8,7 @@ import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 import { formatTeacherAnnotations, isDeletionOnlyTranscription, parseTeacherAnnotationDetection, removeConfirmedTeacherAnnotation, type TeacherAnnotationReviewCandidate, type TeacherAnnotationReviewDecision } from '../../domain/teacherAnnotations.ts';
 import { buildRubricStructuringPrompt, formatRubricTranscriptionChunk, RUBRIC_STRUCTURING_CHUNK_OUTPUT_TOKENS, RUBRIC_STRUCTURING_MAX_OUTPUT_TOKENS, splitRubricTranscriptions } from './rubricStructuring.ts';
+import { recoverRubricResponse } from './rubricResponseRecovery.ts';
 
 interface OllamaChatResponse {
   message?: { content?: string; thinking?: string };
@@ -1094,6 +1095,7 @@ export async function importRubricImageWithOllama(
     additionalProperties: false,
   };
   let analysisRequestCount = 0;
+  const recoveryWarnings: string[] = [];
   const runStructuringRequest = async (mode: 'extract' | 'merge', source: string, outputTokens: number): Promise<string> => {
     if (signal?.aborted) throw new Error('Import du barème interrompu par l’enseignant.');
     analysisRequestCount += 1;
@@ -1191,13 +1193,9 @@ export async function importRubricImageWithOllama(
       diagnosticRun: trace,
     });
     if (!result) throw new Error('Le modèle d’analyse n’a retourné aucun barème structuré.');
-    let parsed: unknown;
-    try { parsed = JSON.parse(result); }
-    catch { throw new Error('La sortie du modèle d’analyse n’est pas un JSON valide. Réduisez la taille du bloc ou essayez un autre modèle.'); }
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !('title' in parsed) || typeof (parsed as { title?: unknown }).title !== 'string' || !('criteria' in parsed) || !Array.isArray((parsed as { criteria?: unknown }).criteria)) {
-      throw new Error('Le modèle d’analyse n’a pas retourné un objet de barème valide.');
-    }
-    return JSON.stringify(parsed);
+    const recovered = recoverRubricResponse(result, fileName);
+    recoveryWarnings.push(...recovered.warnings);
+    return JSON.stringify({ title: recovered.title, criteria: recovered.criteria });
   };
 
   const partialRubrics: string[] = [];
@@ -1228,21 +1226,10 @@ export async function importRubricImageWithOllama(
     currentLevel = nextLevel;
   }
   const content = currentLevel[0];
-  let parsed: unknown;
-  try { parsed = JSON.parse(content); }
-  catch { throw new Error('La sortie du modèle d’analyse n’est pas un JSON valide. Vérifiez la transcription ou essayez un autre modèle d’analyse.'); }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Le modèle d’analyse n’a pas retourné un objet de barème valide.');
-  const source = parsed as Record<string, unknown>;
-  if (typeof source.title !== 'string' || !Array.isArray(source.criteria)) throw new Error('Le JSON du modèle d’analyse doit contenir un titre et une liste de critères.');
+  const recovered = recoverRubricResponse(content, fileName);
+  recoveryWarnings.push(...recovered.warnings);
   const seenIds = new Set<string>();
-  const criteria: RubricCriterion[] = source.criteria.map((item, index) => {
-    if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error(`Le critère ${index + 1} retourné par le modèle d’analyse est invalide.`);
-    const criterion = item as Record<string, unknown>;
-    if (typeof criterion.title !== 'string' || !criterion.title.trim() ||
-        typeof criterion.description !== 'string' || !criterion.description.trim() ||
-        typeof criterion.maxPoints !== 'number' || !Number.isFinite(criterion.maxPoints) || criterion.maxPoints < 0) {
-      throw new Error(`Le critère ${index + 1} doit avoir un titre, une description textuelle et un maximum de points positif ou nul.`);
-    }
+  const criteria: RubricCriterion[] = recovered.criteria.map((criterion, index) => {
     const baseId = rubricSlug(criterion.title.trim(), index);
     let id = baseId;
     let suffix = 2;
@@ -1250,7 +1237,7 @@ export async function importRubricImageWithOllama(
     seenIds.add(id);
     return { id, title: criterion.title.trim(), description: criterion.description.trim(), maxPoints: criterion.maxPoints };
   });
-  const rubric: Rubric = { title: source.title.trim() || 'Barème importé', criteria };
+  const rubric: Rubric = { title: recovered.title, criteria };
   const validation = validateRubric(rubric);
   if (!validation.valid) throw new Error(`Le barème extrait doit être vérifié : ${validation.errors.join(' ')}`);
   onProgress?.({ stage: 'complete', page: images.length, totalPages: images.length, message: `Barème structuré : ${criteria.length} critère(s) à vérifier dans l’éditeur.` });
@@ -1259,6 +1246,7 @@ export async function importRubricImageWithOllama(
     warnings: [
       `Barème lu par le modèle de vision local « ${visionModel} », puis structuré par le modèle d’analyse local « ${analysisModel} ».`,
       'Vérifiez chaque intitulé, description, sous-critère et maximum de points sur les pages originales avant utilisation.',
+      ...new Set(recoveryWarnings),
     ],
   };
 }

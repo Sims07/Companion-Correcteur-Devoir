@@ -32,8 +32,8 @@ export function validateRubric(rubric: Rubric): RubricValidation {
     ids.add(criterion.id);
 
     if (!criterion.title.trim()) errors.push(`Le critère ${criterion.id || '(sans identifiant)'} doit avoir un titre.`);
-    if (!Number.isFinite(criterion.maxPoints) || criterion.maxPoints < 0) {
-      errors.push(`Le maximum de points du critère ${criterion.id || '(sans identifiant)'} doit être positif ou nul.`);
+    if (!Number.isFinite(criterion.maxPoints)) {
+      errors.push(`Le maximum de points du critère ${criterion.id || '(sans identifiant)'} doit être un nombre fini (un malus peut être négatif).`);
     }
     if (criterion.expectedElements) {
       const labels = new Set<string>();

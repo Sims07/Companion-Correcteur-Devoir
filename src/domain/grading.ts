@@ -105,7 +105,9 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     seenIds.add(item.criterionId);
 
     const points = typeof item.points === 'number' ? item.points : Number.NaN;
-    if (!Number.isFinite(points) || points < 0 || points > rubricCriterion.maxPoints) {
+    const minimumPoints = Math.min(0, rubricCriterion.maxPoints);
+    const maximumPoints = Math.max(0, rubricCriterion.maxPoints);
+    if (!Number.isFinite(points) || points < minimumPoints || points > maximumPoints) {
       throw new Error(`La proposition pour « ${rubricCriterion.title} » est hors barème. Vérifiez la réponse du modèle.`);
     }
     const confidence: Confidence = item.confidence === 'low' || item.confidence === 'medium' || item.confidence === 'high'
@@ -114,7 +116,7 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     const evidence = text(item.evidence);
     if (!evidence) throw new Error(`La preuve du critère « ${rubricCriterion.title} » est obligatoire, même lorsque le maximum de points est attribué.`);
     const rationale = text(item.rationale);
-    if ((points < rubricCriterion.maxPoints || confidence !== 'high') && !rationale) {
+    if (((rubricCriterion.maxPoints < 0 ? points < 0 : points < rubricCriterion.maxPoints) || confidence !== 'high') && !rationale) {
       throw new Error(`La justification du critère « ${rubricCriterion.title} » est obligatoire lorsque la note est partielle ou la confiance n’est pas élevée.`);
     }
     criteria.push({
