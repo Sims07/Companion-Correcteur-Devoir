@@ -23,6 +23,8 @@ test('teacher can sample an annotation color from the original image and inspect
   if (!bounds) throw new Error('L’image originale doit être visible dans la visionneuse.');
   await image.click({ position: { x: bounds.width / 2, y: bounds.height / 2 } });
   await expect(page.getByText('Couleur sélectionnée : #00A6A6')).toBeVisible();
+  await expect(beforeViewer.getByRole('status')).toContainText('Couleur active : #00A6A6');
+  await expect(beforeViewer.locator('.annotation-ink-picked-swatch')).toHaveCSS('background-color', 'rgb(0, 166, 166)');
   await beforeViewer.getByRole('button', { name: 'Terminer la sélection' }).click();
 
   await page.getByRole('button', { name: 'Prévisualiser le retrait' }).click();
