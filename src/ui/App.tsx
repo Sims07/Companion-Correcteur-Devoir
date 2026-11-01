@@ -284,8 +284,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   };
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
-  const [showAssignmentPicker, setShowAssignmentPicker] = useState(false);
-  const [showAssignmentsHome, setShowAssignmentsHome] = useState(false);
+  const [showAssignmentsHome, setShowAssignmentsHome] = useState(true);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, AssignmentDraft>>({});
   const [assignmentTitle, setAssignmentTitle] = useState(() => readActiveAssignmentProfile().title);
   const [assignmentDescription, setAssignmentDescription] = useState(() => readActiveAssignmentProfile().description ?? '');
@@ -1988,40 +1987,17 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       />}
 
       {interfaceMode === 'teacher' && !showAssignmentsHome && <aside className="teacher-sidebar" aria-label="Navigation de la correction">
-        <section className="sidebar-assignment-list" aria-label="Mes devoirs">
-          <button
-            type="button"
-            className="sidebar-assignment-current"
-            aria-expanded={showAssignmentPicker}
-            aria-controls="assignment-picker-options"
-            onClick={() => setShowAssignmentPicker((open) => !open)}
-            disabled={isAnalyzing}
-          >
+        <button type="button" className="sidebar-back-to-assignments" onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }} disabled={isAnalyzing}>
+          <span aria-hidden="true">←</span> Mes devoirs
+        </button>
+        <section className="sidebar-assignment-list" aria-label="Devoir actif">
+          <div className="sidebar-assignment-current">
             <span className="sidebar-assignment-current-copy">
-              <span className="field-label">DEVOIR ACTUEL</span>
+              <span className="field-label">DEVOIR SÉLECTIONNÉ</span>
               <strong>{assignmentTitle.trim() || 'Devoir sans titre'}</strong>
               <small>{rubric.criteria.length} critères · {validation.maximumPoints} points</small>
             </span>
-            <span className={showAssignmentPicker ? 'sidebar-assignment-chevron is-open' : 'sidebar-assignment-chevron'} aria-hidden="true">⌄</span>
-          </button>
-          {showAssignmentPicker && <div className="sidebar-assignment-menu" id="assignment-picker-options">
-            <div className="sidebar-assignment-list-heading"><span className="eyebrow">CHANGER DE DEVOIR</span><span>{assignmentProfiles.length}</span></div>
-            <div className="sidebar-assignment-items">
-              {assignmentProfiles.map((profile) => <div key={profile.id} className="sidebar-assignment-row">
-                <button type="button" className={profile.id === activeAssignmentId ? 'sidebar-assignment-item active' : 'sidebar-assignment-item'} aria-current={profile.id === activeAssignmentId ? 'page' : undefined} onClick={() => { switchAssignment(profile); setShowAssignmentPicker(false); }} disabled={isAnalyzing}>
-                  <span className="sidebar-assignment-dot" aria-hidden="true" />
-                  <span><strong>{profile.title.trim() || 'Devoir sans titre'}</strong><small>{profile.rubric.criteria.length} critères · {profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)} points</small></span>
-                </button>
-                <details className="sidebar-assignment-actions">
-                  <summary aria-label={`Actions pour ${profile.title.trim() || 'devoir sans titre'}`} title="Actions du devoir">···</summary>
-                  <div className="sidebar-assignment-actions-menu">
-                    <button type="button" onClick={() => deleteAssignment(profile)} disabled={isAnalyzing || assignmentProfiles.length <= 1}>Supprimer</button>
-                  </div>
-                </details>
-              </div>)}
-            </div>
-            <button type="button" className="sidebar-new-assignment" onClick={() => { createNewAssignment(); setShowAssignmentPicker(false); }} disabled={isAnalyzing}><span aria-hidden="true">＋</span> Nouveau devoir</button>
-          </div>}
+          </div>
         </section>
         {(!visionModel.trim() || !analysisModel.trim()) && <section className="sidebar-ai-setup" aria-label="Configuration nécessaire de l’IA locale">
           <span className="sidebar-ai-setup-icon" aria-hidden="true">⚙</span>
@@ -2040,7 +2016,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <span className="teacher-step-number">3</span><span><strong>{isAnalyzing ? 'Correction en cours' : 'Révision'} </strong><small>{isAnalyzing ? analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length}/${images.length}` : analysisStage === 'grading' ? `Correction · critère ${criterionProgressPosition?.index ?? Object.values(criterionStatuses).filter((status) => status === 'completed').length}/${criterionProgressPosition?.total ?? rubric.criteria.length}` : 'Préparation' : proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
           </button>
         </nav>
-        <button type="button" className="sidebar-all-assignments" onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }} disabled={isAnalyzing}><span aria-hidden="true">▦</span><span><strong>Tous mes devoirs</strong><small>{assignmentProfiles.length} devoir(s)</small></span><span aria-hidden="true">→</span></button>
         <button type="button" className={teacherStep === 'archive' && !showAiSettings ? 'sidebar-archive-button active' : 'sidebar-archive-button'} onClick={() => { setShowAiSettings(false); setTeacherStep('archive'); }} disabled={isAnalyzing}><span aria-hidden="true">▤</span><span><strong>Corrections enregistrées</strong><small>{archivedCorrections.length} copie(s) archivée(s)</small></span></button>
         <div className="teacher-sidebar-footer">
           <div className={isAnalyzing ? "sidebar-local-status is-processing" : "sidebar-local-status"} role={isAnalyzing ? "status" : undefined} aria-live={isAnalyzing ? "polite" : undefined}>
