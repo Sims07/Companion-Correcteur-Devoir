@@ -201,7 +201,7 @@ export function createBackgroundCorrectionService(
     },
     listJobs: (assignmentId) => repository.listJobs(assignmentId),
     async prewarm(settings) {
-      if (foregroundPriority) return;
+      if (foregroundPriority || activeLoop) return;
       const key = [settings.endpoint, settings.apiCompatible ? 'api' : 'ollama', settings.visionModel, settings.analysisModel].join('|');
       if (key === prewarmKey && Date.now() < prewarmUntil) return;
       if (prewarmPromise) {
