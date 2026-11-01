@@ -4,7 +4,7 @@ import type { ScientificDiagramAnalyzer, ScientificDiagramAnalysisRequest, Scien
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
 import type { DiagnosticModelResult, ImageInput } from '../../ports/aiProvider.ts';
 
-function diagnosticResult(request: { model: string; endpoint: string; images: ImageInput[]; onDiagnosticResult?: (result: DiagnosticModelResult) => void }, purpose: DiagnosticModelResult['purpose'], prompt: string, raw: string, startedAt: number, error?: string): void {
+function diagnosticResult(request: { model: string; endpoint: string; images: ImageInput[]; onDiagnosticResult?: (result: DiagnosticModelResult) => void }, purpose: DiagnosticModelResult['purpose'], prompt: string, raw: string, startedAt: number, error?: string, requestPayload = ''): void {
   request.onDiagnosticResult?.({
     kind: 'vision',
     stage: 'reading',
@@ -12,7 +12,7 @@ function diagnosticResult(request: { model: string; endpoint: string; images: Im
     model: request.model,
     requestPrompt: prompt,
     requestMetadata: { provider: 'openai-compatible', endpoint: request.endpoint, stream: false, think: false, format: 'json', imageCount: request.images.length, keepAlive: 0, options: { contextTokens: 0, generationTokenLimit: purpose === 'scientific-diagram-classification' ? 320 : 2048 } },
-    requestPayload: JSON.stringify({ attempts: [{ messages: [{ role: 'user', content: prompt }] }], imageCount: request.images.length, images: '[masquées]' }),
+    requestPayload,
     raw,
     ...(error ? { error } : {}),
     elapsedMs: Math.max(0, Date.now() - startedAt),
@@ -44,6 +44,7 @@ function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequ
       properties: {
         diagrams: {
           type: 'array',
+          minItems: 1,
           items: {
             type: 'object',
             additionalProperties: false,
@@ -70,6 +71,8 @@ function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequ
         },
         criteria: {
           type: 'array',
+          minItems: request.rubric.criteria.length,
+          maxItems: request.rubric.criteria.length,
           items: {
             type: 'object',
             additionalProperties: false,
@@ -125,12 +128,13 @@ export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisR
   }));
   const subject = request.subjectTranscription?.trim();
   return [
-    'Tu évalues des schémas scientifiques universitaires. Un schéma est une preuve, jamais une unité de notation.',
-    'Retourne diagrams : tous les schémas détectés, avec id neutre, pageNumber (index local 1-based), diagramType, summary court, bounds et uncertainties (tableau). Le champ bounds est obligatoire : retourne null si la localisation est incertaine.',
-    'Retourne criteria : UNE seule évaluation par critère du barème, portant sur l’ensemble des schémas pertinents. Ne note jamais un critère séparément par schéma et ne répartis pas son maximum entre les schémas.',
-    'Le maximum n’est justifié que si tous les attendus essentiels sont démontrés sur l’ensemble des schémas concernés. Si un élément essentiel est partiel ou manquant, attribue des points partiels.',
+    'Tu évalues les schémas scientifiques d’UNE SEULE PAGE universitaire. Une requête correspond toujours à une seule image ; un schéma est une preuve, jamais une unité de notation.',
+    'OBLIGATION : cette image provient d’une page déjà classée comme contenant un schéma scientifique. Ne retourne JAMAIS diagrams: [] ni criteria: []. Analyse cette page uniquement ; au moins un schéma doit être décrit. Si la page est réellement illisible, crée une entrée avec uncertainties explicites et requiresTeacherReview à true au lieu de l’omettre.',
+    'Retourne diagrams : tous les schémas détectés sur cette page, avec id neutre, pageNumber = 1, diagramType, summary court, bounds et uncertainties (tableau). Le champ bounds est obligatoire : retourne null si la localisation est incertaine.',
+    'Retourne criteria : exactement UNE évaluation pour CHAQUE critère du barème, portant sur l’ensemble des schémas pertinents de CETTE PAGE uniquement. Ne note jamais un critère séparément par schéma et ne répartis pas son maximum entre les schémas. Aucun critère ne doit être omis.',
+    'Le maximum n’est justifié que si tous les attendus essentiels sont démontrés sur l’ensemble des schémas de cette page. Si un élément essentiel est partiel ou manquant, attribue des points partiels.',
     'Le champ elements est toujours présent : si expectedElements est non vide, retourne chaque élément avec son label exact, status parmi present/partial/absent/uncertain et une preuve courte ; sinon retourne null. L’application calcule les points (present 100 %, partial 50 %, absent 0 %, uncertain 0 % et vérification enseignante).',
-    'Sans expectedElements, retourne une seule note points sur le maximum du critère, evidence, confidence, requiresTeacherReview et diagramIds. Ne retourne jamais de critère absent du barème.',
+    'Sans expectedElements, retourne une seule note points sur le maximum du critère, evidence, confidence, requiresTeacherReview et diagramIds pour cette page. Ne retourne jamais de critère absent du barème.',
     'Ne pénalise pas deux fois la même erreur. Ne note jamais l’esthétique. N’invente aucun attendu absent de la consigne ou du barème.',
     'Ne juge jamais un dessin correct à partir d’une explication textuelle. Si un élément est illisible ou ambigu, signale-le dans uncertainties et mets requiresTeacherReview à true.',
     'Ne pénalise pas l’absence d’une flèche, d’un titre ou d’une légende qui ne sont pas exigés par la consigne ou le barème.',
@@ -153,7 +157,7 @@ function buildScientificDiagramRepairPrompt(
 ): string {
   return [
     buildScientificDiagramPrompt(request, true),
-    'CORRECTION OBLIGATOIRE : la réponse précédente est invalide.',
+    'CORRECTION OBLIGATOIRE : la réponse précédente est invalide. Les listes diagrams et criteria ne peuvent pas être vides : cette image provient d’une page déjà classée comme contenant un schéma scientifique. Retourne au moins un schéma sur cette page et une évaluation pour chaque critère du barème.',
     'Corrige précisément ce champ : ' + reason + '.',
     'Réponse précédente (extrait) : ' + previousRaw.slice(0, 3000),
     'Retourne le JSON complet, sans qualityBreakdown.',
@@ -163,7 +167,8 @@ function buildScientificDiagramRepairPrompt(
 export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = fetch): ScientificDiagramAnalyzer {
   return {
     async classifyPages(request: ScientificPageClassificationRequest) {
-      const compatibleFetch = createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey }, fetchImpl);
+      let requestPayload = '';
+      const compatibleFetch = createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey, onRequest: (payload) => { requestPayload = payload; } }, fetchImpl);
       const classifications = [];
       // Keep one image per request: this prevents cross-page attribution and makes page identity explicit.
       for (const [index, image] of request.images.entries()) {
@@ -198,19 +203,21 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           if (!raw.trim()) throw new Error(`Le modèle Vision n’a retourné aucune classification pour la page ${index + 1}.`);
           const [classification] = parseScientificPageClassifications(raw, 1);
           classifications.push({ ...classification, pageNumber: index + 1 });
-          diagnosticResult(request, 'scientific-diagram-classification', prompt, raw, startedAt);
+          diagnosticResult(request, 'scientific-diagram-classification', prompt, raw, startedAt, undefined, requestPayload);
         } catch (cause) {
-          diagnosticResult(request, 'scientific-diagram-classification', prompt, raw, startedAt, cause instanceof Error ? cause.message : String(cause));
+          diagnosticResult(request, 'scientific-diagram-classification', prompt, raw, startedAt, cause instanceof Error ? cause.message : String(cause), requestPayload);
           throw cause;
         }
       }
       return classifications;
     },
     async analyze(request) {
+      let requestPayload = '';
       const compatibleFetch = createOpenAiCompatibleFetch(
-        { endpoint: request.endpoint, apiKey: request.apiKey },
+        { endpoint: request.endpoint, apiKey: request.apiKey, onRequest: (payload) => { requestPayload = payload; } },
         fetchImpl,
       );
+      if (request.images.length !== 1) throw new Error('L’analyse Vision des schémas attend une seule image par requête. Les pages doivent être traitées séquentiellement.');
       const startedAt = Date.now();
       let raw = '';
       let prompt = buildScientificDiagramPrompt(request);
@@ -280,7 +287,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           result = parseScientificDiagramAnalysis(raw, request.rubric, request.images.length, request.pageNumbers);
         } catch (firstError) {
           const reason = firstError instanceof Error ? firstError.message : String(firstError);
-          diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt, reason);
+          diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt, reason, requestPayload);
           const repairPrompt = buildScientificDiagramRepairPrompt(request, reason, raw);
           const repair = await send(true, repairPrompt);
           if (repair.truncated) throw new Error('Réponse tronquée lors de la tentative de réparation.');
@@ -293,7 +300,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           }
         }
 
-        diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt);
+        diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt, undefined, requestPayload);
         return result;
       } catch (cause) {
         diagnosticResult(
@@ -303,6 +310,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           raw,
           startedAt,
           cause instanceof Error ? cause.message : String(cause),
+          requestPayload,
         );
         throw cause;
       }

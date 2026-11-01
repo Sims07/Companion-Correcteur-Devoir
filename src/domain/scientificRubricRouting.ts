@@ -32,11 +32,12 @@ export function mergeScientificDiagramCriteria(
   const { textCriteria, diagramCriteria } = partitionScientificRubric(rubric);
   const textById = new Map((textProposal?.criteria ?? []).map((criterion) => [criterion.criterionId, criterion]));
   const diagramProposals = new Map<string, CriterionProposal>();
-  const legacyAnalysis = Boolean(analysis && (!analysis.criteria || (analysis.warnings ?? []).some((warning) => warning.includes('Ancien format'))));
+  const legacyAnalysis = Boolean(analysis && (analysis.warnings ?? []).some((warning) => warning.includes('Ancien format')));
+  const pageLevelAnalysis = Boolean(analysis && !analysis.criteria && (analysis.warnings ?? []).some((warning) => warning.startsWith('Évaluations page par page')));
 
   for (const criterion of diagramCriteria) {
     const legacy = legacyAnalysis;
-    const assessments = legacy
+    const assessments = legacy || pageLevelAnalysis
       ? (analysis?.diagrams ?? []).flatMap((diagram) => (diagram.criteria ?? []).filter((assessment) => assessment.criterionId === criterion.id).map((assessment) => ({ ...assessment, pageNumber: diagram.pageNumber, diagramType: diagram.diagramType })))
       : (analysis?.criteria ?? []).filter((assessment) => assessment.criterionId === criterion.id);
     if (assessments.length === 0) {
@@ -52,10 +53,10 @@ export function mergeScientificDiagramCriteria(
       continue;
     }
 
-    const points = legacy ? Math.min(criterion.maxPoints, assessments.reduce((sum, item) => sum + item.points, 0) / assessments.length) : assessments[0].points;
+    const points = legacy || pageLevelAnalysis ? Math.min(criterion.maxPoints, assessments.reduce((sum, item) => sum + item.points, 0) / assessments.length) : assessments[0].points;
     const confidence = Math.min(...assessments.map((item) => item.confidence));
-    const requiresTeacherReview = legacy || assessments.some((item) => item.requiresTeacherReview);
-    const evidence = assessments.map((item) => item.evidence).join(' · ') + (legacy ? ' · Ancien format, vérifier la note.' : ` · Pages concernées : ${(analysis?.diagrams ?? []).filter((diagram) => (assessments[0].diagramIds ?? []).includes(diagram.id)).map((diagram) => diagram.pageNumber).join(', ')}`);
+    const requiresTeacherReview = legacy || pageLevelAnalysis || assessments.some((item) => item.requiresTeacherReview);
+    const evidence = assessments.map((item) => item.evidence).join(' · ') + (legacy ? ' · Ancien format, vérifier la note.' : pageLevelAnalysis ? ' · Moyenne des évaluations page par page, à confirmer.' : ` · Pages concernées : ${(analysis?.diagrams ?? []).filter((diagram) => (assessments[0].diagramIds ?? []).includes(diagram.id)).map((diagram) => diagram.pageNumber).join(', ')}`);
     const qualityBreakdown = criterion.analysisMode === 'scientific-diagram'
       ? (assessments[0].qualityBreakdown ?? []).map((dimension) => {
         const matching = assessments.flatMap((assessment) => (assessment.qualityBreakdown ?? []).filter((entry) => entry.dimension === dimension.dimension));
