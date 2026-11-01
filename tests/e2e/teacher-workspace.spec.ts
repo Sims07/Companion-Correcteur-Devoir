@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('teacher can edit the collapsed assignment and rubric as one Devoir step', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
-  await page.getByRole('button', { name: /^Devoir/ }).click();
+  await page.locator('.teacher-step-nav .teacher-step').first().click();
 
   const assignment = page.locator('.assignment-details-collapsible');
   await expect(assignment).toBeVisible();
@@ -27,7 +27,7 @@ test('teacher can edit the collapsed assignment and rubric as one Devoir step', 
 
   await page.locator('.sidebar-assignment-current').click();
   await page.locator('.sidebar-assignment-item').filter({ hasText: 'Biologie cellulaire — partiel S1' }).click();
-  await page.getByRole('button', { name: /^Devoir/ }).click();
+  await page.locator('.teacher-step-nav .teacher-step').first().click();
   await expect(page.getByLabel('Nom du barème (distinct du devoir)')).toHaveValue('Barème cellulaire');
   await page.locator('.assignment-details-collapsible > summary').click();
   await expect(page.getByLabel('Nom du devoir', { exact: true })).toHaveValue('Biologie cellulaire — partiel S1');
@@ -66,7 +66,7 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
   await expect(page.getByLabel('Adresse du serveur Ollama')).toHaveCount(0);
 
-  await page.getByRole('button', { name: /^Devoir/ }).click();
+  await page.locator('.teacher-step-nav .teacher-step').first().click();
   await expect(page.locator('.assignment-details-collapsible')).toBeVisible();
   await expect(page.locator('.assignment-details-collapsible')).not.toHaveAttribute('open', '');
   await expect(page.getByRole('button', { name: /^Copies/ })).toBeVisible();
