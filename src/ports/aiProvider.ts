@@ -1,10 +1,6 @@
 import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/teacherAnnotations.ts';
-export interface ImageInput {
-  /** Base64 image bytes without a data-URL prefix. Keep this value local. */
-  base64: string;
-  mimeType: string;
-  fileName?: string;
-}
+import type { ImageInput } from '../domain/imageInput.ts';
+export type { ImageInput } from '../domain/imageInput.ts';
 
 export interface GradingRequest {
   question: string;
