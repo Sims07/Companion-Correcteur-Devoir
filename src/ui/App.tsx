@@ -352,6 +352,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
   const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
   const [backgroundCopyLabel, setBackgroundCopyLabel] = useState('');
+  const [seriesGroupingMode, setSeriesGroupingMode] = useState<'each-file' | 'group-files'>('each-file');
   const [correctionSessionMode, setCorrectionSessionMode] = useState<'individual' | 'series'>('individual');
   const [backgroundCopyDetectTeacherAnnotations, setBackgroundCopyDetectTeacherAnnotations] = useState(false);
   const [autoBackgroundCorrection, setAutoBackgroundCorrection] = useState(() => { try { return window.localStorage.getItem('companion-correcteur:auto-background-correction:v1') !== 'false'; } catch { return true; } });
@@ -1588,14 +1589,17 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant d’ajouter des copies.'); return; }
     try {
       const selectedFiles = Array.from(files);
+      const fileGroups = seriesGroupingMode === 'group-files' ? [selectedFiles] : selectedFiles.map((file) => [file]);
       const now = new Date().toISOString();
       const jobs = await prepareBatchCopies(
-        selectedFiles,
+        fileGroups,
         (selected) => service.prepareFiles(selected),
-        (file, prepared) => {
-          const label = selectedFiles.length === 1 && backgroundCopyLabel.trim()
+        (group, prepared, index) => {
+          const label = backgroundCopyLabel.trim() && (seriesGroupingMode === 'group-files' || group.length === 1 && selectedFiles.length === 1)
             ? backgroundCopyLabel.trim()
-            : file.name || `Copie ${backgroundJobs.length + 1}`;
+            : seriesGroupingMode === 'group-files'
+              ? `Copie ${backgroundJobs.length + index + 1}`
+              : group[0].name || `Copie ${backgroundJobs.length + index + 1}`;
           return createBackgroundCorrection({
             id: `queued-copy-${crypto.randomUUID()}`,
             assignmentId: activeAssignmentId,
@@ -2513,9 +2517,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <article><strong>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').length}</strong><span>En attente</span></article>
           <article><strong>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && (job.status === 'needs-review' || job.status === 'failed')).length}</strong><span>À vérifier</span></article>
         </div>
+        <div className="correction-series-grouping" role="group" aria-label="Organisation des fichiers en copies">
+          <label className={seriesGroupingMode === 'each-file' ? 'correction-series-grouping-option is-selected' : 'correction-series-grouping-option'}>
+            <input type="radio" name="series-grouping-mode" value="each-file" checked={seriesGroupingMode === 'each-file'} onChange={() => setSeriesGroupingMode('each-file')} />
+            <span><strong>Un fichier = une copie</strong><small>Chaque image ou PDF sélectionné crée une copie indépendante.</small></span>
+          </label>
+          <label className={seriesGroupingMode === 'group-files' ? 'correction-series-grouping-option is-selected' : 'correction-series-grouping-option'}>
+            <input type="radio" name="series-grouping-mode" value="group-files" checked={seriesGroupingMode === 'group-files'} onChange={() => setSeriesGroupingMode('group-files')} />
+            <span><strong>Regrouper les fichiers dans une copie</strong><small>Sélectionnez plusieurs photos ou fichiers : ils deviennent les pages d’un même étudiant.</small></span>
+          </label>
+        </div>
         <div className="correction-series-import">
-          <div><strong>Ajouter des copies à la session</strong><p>Formats acceptés : JPG, PNG, WebP et PDF. Sélectionnez un fichier par étudiant.</p></div>
-          <FilePicker id="series-copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void enqueueBackgroundCopy(files); }} title="Sélectionner plusieurs copies" description="Chaque fichier devient une copie ; les PDF multipages restent groupés." actionLabel="Ajouter les copies" />
+          <div><strong>{seriesGroupingMode === 'group-files' ? 'Ajouter les pages d’une copie' : 'Ajouter des copies à la session'}</strong><p>{seriesGroupingMode === 'group-files' ? 'Chaque sélection constitue une nouvelle copie. Vous pourrez recommencer pour ajouter l’étudiant suivant.' : 'Sélectionnez un ou plusieurs fichiers ; chacun constituera une copie distincte.'} Formats acceptés : JPG, PNG, WebP et PDF.</p></div>
+          <FilePicker id="series-copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void enqueueBackgroundCopy(files); }} title={seriesGroupingMode === 'group-files' ? 'Sélectionner les pages de cette copie' : 'Sélectionner les copies'} description={seriesGroupingMode === 'group-files' ? 'Tous les fichiers sélectionnés seront regroupés dans une seule copie.' : 'Un fichier sélectionné correspond à une copie ; les PDF multipages restent groupés.'} actionLabel={seriesGroupingMode === 'group-files' ? 'Ajouter cette copie' : 'Ajouter les copies'} />
         </div>
         <label className="analysis-thinking-option copy-annotation-option correction-series-auto"><input type="checkbox" checked={backgroundCopyDetectTeacherAnnotations} onChange={(event) => setBackgroundCopyDetectTeacherAnnotations(event.target.checked)} /><span><strong>Les copies contiennent des annotations du professeur</strong><small>Appliquez cette consigne à toutes les copies ajoutées lors de cette sélection.</small></span></label>
         <label className="analysis-thinking-option copy-annotation-option correction-series-auto"><input type="checkbox" checked={autoBackgroundCorrection} onChange={(event) => { const enabled = event.target.checked; setAutoBackgroundCorrection(enabled); try { window.localStorage.setItem('companion-correcteur:auto-background-correction:v1', String(enabled)); } catch { /* Keep the current session preference if storage is unavailable. */ } void backgroundService.setAutomatic(enabled, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: enabled, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }} /><span><strong>Démarrer automatiquement la correction</strong><small>Les copies sont traitées une par une pendant que vous consultez les résultats déjà prêts.</small></span></label>

@@ -12,27 +12,44 @@ function job(label: string, images: ImageInput[]): BackgroundCorrectionJob {
 }
 
 describe('prepareBatchCopies', () => {
-  it('creates one correction job per selected file and keeps each file pages together', async () => {
-    const first = new File(['pdf'], 'copie-a.pdf', { type: 'application/pdf' });
-    const second = new File(['image'], 'copie-b.png', { type: 'image/png' });
-    const prepareFiles = vi.fn(async (files: File[]) => files[0].name.endsWith('.pdf')
-      ? [image('copie-a-page-1.png'), image('copie-a-page-2.png')]
-      : [image(files[0].name)]);
-    const jobs = await prepareBatchCopies([first, second], prepareFiles, (file, images) => job(file.name, images));
+  it('creates one correction job per explicit group and keeps all selected pages together', async () => {
+    const first = new File(['photo 1'], 'copie-a-page-1.png', { type: 'image/png' });
+    const second = new File(['photo 2'], 'copie-a-page-2.png', { type: 'image/png' });
+    const third = new File(['pdf'], 'copie-b.pdf', { type: 'application/pdf' });
+    const prepareFiles = vi.fn(async (files: File[]) => files.flatMap((file) => file.name.endsWith('.pdf')
+      ? [image('copie-b-page-1.png'), image('copie-b-page-2.png')]
+      : [image(file.name)]));
+    const groups = [[first, second], [third]];
+    const jobs = await prepareBatchCopies(groups, prepareFiles, (files, images, index) => job(`Copie ${index + 1}: ${files.map((file) => file.name).join(' + ')}`, images));
 
-    expect(prepareFiles).toHaveBeenNthCalledWith(1, [first]);
-    expect(prepareFiles).toHaveBeenNthCalledWith(2, [second]);
+    expect(prepareFiles).toHaveBeenNthCalledWith(1, [first, second]);
+    expect(prepareFiles).toHaveBeenNthCalledWith(2, [third]);
     expect(jobs).toHaveLength(2);
-    expect(jobs.map((item) => item.label)).toEqual(['copie-a.pdf', 'copie-b.png']);
-    expect(jobs[0].images).toHaveLength(2);
-    expect(jobs[1].images).toHaveLength(1);
+    expect(jobs[0].images.map((page) => page.fileName)).toEqual(['copie-a-page-1.png', 'copie-a-page-2.png']);
+    expect(jobs[1].images).toHaveLength(2);
   });
 
-  it('does not create a job when a selected file has no usable page', async () => {
-    const file = new File(['empty'], 'vide.png', { type: 'image/png' });
+  it('supports one file per copy by passing one-file groups', async () => {
+    const first = new File(['1'], 'a.png', { type: 'image/png' });
+    const second = new File(['2'], 'b.png', { type: 'image/png' });
+    const jobs = await prepareBatchCopies([[first], [second]], async (files) => [image(files[0].name)], (files, images) => job(files[0].name, images));
+    expect(jobs.map((item) => item.label)).toEqual(['a.png', 'b.png']);
+  });
+
+  it('does not create a job when a group has no usable page', async () => {
+    const first = new File(['1'], 'page-1.png', { type: 'image/png' });
+    const second = new File(['2'], 'page-2.png', { type: 'image/png' });
     const createJob = vi.fn();
-    await expect(prepareBatchCopies([file], async () => [], createJob))
-      .rejects.toThrow('Aucune page exploitable dans « vide.png ».');
+    await expect(prepareBatchCopies([[first, second]], async () => [], createJob))
+      .rejects.toThrow('Aucune page exploitable dans « page-1.png, page-2.png ».');
     expect(createJob).not.toHaveBeenCalled();
+  });
+
+  it('prepares groups sequentially in their insertion order', async () => {
+    const first = new File(['1'], 'a.png', { type: 'image/png' });
+    const second = new File(['2'], 'b.png', { type: 'image/png' });
+    const order: string[] = [];
+    await prepareBatchCopies([[first], [second]], async (files) => { order.push(files[0].name); return [image(files[0].name)]; }, (files, images) => job(files[0].name, images));
+    expect(order).toEqual(['a.png', 'b.png']);
   });
 });

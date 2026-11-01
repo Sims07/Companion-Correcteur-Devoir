@@ -2215,3 +2215,40 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.correction-series-grouping {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+.correction-series-grouping-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border: 1px solid var(--flow-border);
+  border-radius: 10px;
+  background: var(--flow-subtle);
+  cursor: pointer;
+}
+.correction-series-grouping-option.is-selected {
+  border-color: var(--flow-accent);
+  background: var(--flow-accent-soft);
+}
+.correction-series-grouping-option input {
+  margin-top: 0.2rem;
+  accent-color: var(--flow-accent);
+}
+.correction-series-grouping-option strong,
+.correction-series-grouping-option small {
+  display: block;
+}
+.correction-series-grouping-option small {
+  margin-top: 0.25rem;
+  color: var(--flow-muted);
+  line-height: 1.4;
+}
+@media (max-width: 700px) {
+  .correction-series-grouping { grid-template-columns: 1fr; }
+}

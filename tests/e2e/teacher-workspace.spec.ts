@@ -112,3 +112,21 @@ test('teacher can choose clearly distinct individual and series correction workf
   await expect(page.getByRole('region', { name: 'Session de correction en série' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Corriger' })).toBeVisible();
 });
+
+
+test('series mode groups several selected pages into one copy or keeps one file per copy', async ({ page }) => {
+  await page.goto('/');
+  const modeChooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
+  await modeChooser.getByRole('button', { name: /Correction en série/ }).click();
+  const series = page.getByRole('region', { name: 'Session de correction en série' });
+
+  await expect(series.getByRole('radio', { name: /Un fichier = une copie/ })).toBeChecked();
+  await expect(series.getByRole('radio', { name: /Regrouper les fichiers dans une copie/ })).toBeVisible();
+  await series.getByRole('radio', { name: /Regrouper les fichiers dans une copie/ }).check();
+  await expect(series.getByRole('button', { name: 'Ajouter cette copie' })).toBeVisible();
+  await expect(series.getByText(/Chaque sélection constitue une nouvelle copie/)).toBeVisible();
+
+  await series.getByRole('radio', { name: /Un fichier = une copie/ }).check();
+  await expect(series.getByRole('button', { name: 'Ajouter les copies' })).toBeVisible();
+  await expect(series.getByText(/Un fichier sélectionné correspond à une copie/)).toBeVisible();
+});
