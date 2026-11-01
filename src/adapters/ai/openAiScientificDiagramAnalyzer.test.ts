@@ -157,7 +157,7 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ raw: JSON.stringify(invalid), error: expect.stringContaining('points hors barème') }));
   });
 
-  it('rejects an empty multi-page response after a targeted repair instead of inventing a per-page aggregate score', async () => {
+  it('rejects an empty single-page response after a targeted repair', async () => {
     const empty = { diagrams: [], criteria: [], overallUncertainties: [] };
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(empty) } }] }), { status: 200 }))
@@ -165,19 +165,19 @@ describe('OpenAI scientific diagram adapter', () => {
     const diagnostic = vi.fn();
     await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({
       ...request,
-      images: [...request.images, { base64: 'cG5nMg==', mimeType: 'image/png' }],
-      pageNumbers: [2, 4],
+      pageNumbers: [4],
       onDiagnosticResult: diagnostic,
     })).rejects.toThrow(/Aucun schéma exploitable/);
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const initialBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     const repairBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
-    expect(initialBody.messages[0].content).toHaveLength(3);
+    expect(initialBody.messages[0].content).toHaveLength(2);
     expect(initialBody.messages[0].content[1].image_url.detail).toBe('high');
-    expect(initialBody.messages[0].content[2].image_url.detail).toBe('high');
+    expect(initialBody.messages[0].content[0].text).toContain('UNE SEULE PAGE');
+    expect(initialBody.messages[0].content[0].text).toContain('CORRESPONDANCE DES PAGES : 1 → 4');
     expect(initialBody.max_tokens).toBe(2048);
-    expect(repairBody.messages[0].content[0].text).toContain('Les listes diagrams et criteria ne peuvent pas être vides');
+    expect(repairBody.messages[0].content[0].text).toContain('cette image provient d’une page déjà classée');
     expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({
       purpose: 'scientific-diagram-analysis',
       raw: JSON.stringify(empty),
@@ -189,9 +189,18 @@ describe('OpenAI scientific diagram adapter', () => {
     const effectivePayload = JSON.parse(lastDiagnostic?.requestPayload ?? '{}');
     expect(effectivePayload.model).toBe('vision-model');
     expect(effectivePayload.max_tokens).toBe(2048);
-    expect(effectivePayload.messages[0].content).toHaveLength(3);
+    expect(effectivePayload.messages[0].content).toHaveLength(2);
     expect(effectivePayload.messages[0].content[1].image_url.detail).toBe('high');
     expect(JSON.stringify(effectivePayload)).not.toContain('cG5n');
+  });
+
+  it('refuses multi-image analysis so callers must use the sequential application workflow', async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({
+      ...request,
+      images: [...request.images, { base64: 'cG5nMg==', mimeType: 'image/png' }],
+    })).rejects.toThrow(/une seule image par requête/);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('uses the supplied subject transcription and sends the rubric only once', async () => {
