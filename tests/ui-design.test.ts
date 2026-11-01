@@ -221,8 +221,9 @@ describe('UI design system', () => {
     expect(appComponent).toContain('assignmentProfilesKey');
     expect(appComponent).toContain('function createNewAssignment()');
     expect(appComponent).toContain('function switchAssignment(profile: AssignmentProfile)');
-    expect(appComponent).toContain('aria-label="Mes devoirs"');
-    expect(appComponent).toContain('className="sidebar-new-assignment"');
+    expect(appComponent).toContain('assignments={assignmentProfiles}');
+    expect(appComponent).toContain('onCreate={() => { createNewAssignment(); setShowAssignmentsHome(false); }}');
+    expect(appComponent).toContain('onOpen={(profile) => { switchAssignment(profile); setShowAssignmentsHome(false); }}');
     expect(appComponent).toContain('setRubric(profile.rubric)');
     expect(appComponent).toContain('setQuestion(profile.question)');
     expect(correctionFlowStylesheet).toContain('.assignments-card');
