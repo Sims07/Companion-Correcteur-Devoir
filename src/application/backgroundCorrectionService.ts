@@ -85,6 +85,7 @@ export function createBackgroundCorrectionService(
         if (!job) break;
         const fingerprint = job.imageFingerprint ?? await repository.fingerprintImages(job.images);
         const cachedTranscription = job.transcription ?? await repository.getCachedTranscription(fingerprint);
+        let transcriptionFingerprint = fingerprint;
         let current: BackgroundCorrectionJob = {
           ...job,
           imageFingerprint: fingerprint,
@@ -113,6 +114,15 @@ export function createBackgroundCorrectionService(
             }
             const routing = routeScientificPages(classifications, current.images.length);
             textPageNumbers = routing.textPageNumbers;
+            transcriptionFingerprint = await repository.fingerprintImages(textPageNumbers.map((pageNumber) => current.images[pageNumber - 1]));
+            const transcriptionPageNumbersKey = textPageNumbers.join('|');
+            if (current.transcriptionPageNumbers?.join('|') !== transcriptionPageNumbersKey) {
+              current = {
+                ...current,
+                transcription: await repository.getCachedTranscription(transcriptionFingerprint),
+                transcriptionPageNumbers: textPageNumbers,
+              };
+            }
             let visualAnalysis = current.scientificDiagramAnalysis ?? null;
             if (routing.diagramPageNumbers.length > 0 && !visualAnalysis) {
               visualAnalysis = await diagramAnalysis.analyze({
@@ -164,7 +174,7 @@ export function createBackgroundCorrectionService(
               current = { ...current, ...patch, updatedAt: new Date().toISOString() };
               const snapshot = structuredClone(current);
               progressWrites = progressWrites.then(async () => {
-                if (cachedText !== undefined) await repository.saveCachedTranscription(fingerprint, cachedText);
+                if (cachedText !== undefined) await repository.saveCachedTranscription(transcriptionFingerprint, cachedText);
                 await persist(snapshot);
               }).catch((cause: unknown) => { progressWriteError = cause; });
             };
@@ -198,7 +208,7 @@ export function createBackgroundCorrectionService(
                         ...(studentIdentity.confidence === 'high' && suggestedLabel && fallbackLabel ? { label: suggestedLabel } : {}),
                       });
                     } catch { /* Invalid identity metadata never changes the queued copy label. */ }
-                  } else if (kind !== 'annotations' && kind !== 'warning') queueProgress({ transcription: text, phase: 'grading', completedPages: textPageNumbers.length }, text);
+                  } else if (kind !== 'annotations' && kind !== 'warning') queueProgress({ transcription: text, transcriptionPageNumbers: textPageNumbers, phase: 'grading', completedPages: textPageNumbers.length }, text);
                 },
                 undefined,
                 (update) => {
@@ -369,6 +379,7 @@ export function createBackgroundCorrectionService(
         scientificPageClassifications: undefined,
         scientificDiagramAnalysis: null,
         transcription: null,
+        transcriptionPageNumbers: undefined,
         partialCriteria: [],
         completedPages: 0,
         completedCriteria: 0,
