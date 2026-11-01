@@ -160,6 +160,15 @@ test('series session previews added pages, resets the picker and allows removing
   await expect(series.getByRole('heading', { name: 'Copies ajoutées à la session' })).toBeVisible();
   await expect(series.getByText('Copie 1')).toBeVisible();
   await expect(series.getByText('2 page(s) · En attente')).toBeVisible();
+  await expect(series.locator('.correction-series-actions')).toBeVisible();
+  const identity = series.locator('.correction-series-copy-top');
+  const actionRow = series.locator('.correction-series-actions');
+  const identityBox = await identity.boundingBox();
+  const actionsBox = await actionRow.boundingBox();
+  expect(identityBox).not.toBeNull();
+  expect(actionsBox).not.toBeNull();
+  expect(actionsBox!.y).toBeGreaterThanOrEqual(identityBox!.y + identityBox!.height - 1);
+
   await series.getByRole('button', { name: 'Voir les pages et la correction' }).click();
   await expect(series.getByRole('img', { name: 'Page 1 de Copie 1' })).toBeVisible();
   await expect(series.getByRole('img', { name: 'Page 2 de Copie 1' })).toBeVisible();
