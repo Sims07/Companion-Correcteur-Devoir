@@ -246,6 +246,19 @@ describe('background correction service', () => {
     expect(f.createProvider).not.toHaveBeenCalled();
   });
 
+
+  it('allows rotation after the processing loop has been safely paused', async () => {
+    const f = fixture();
+    f.jobs.set('copy-1', { ...f.job, status: 'processing' });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.pauseAndWait();
+    const rotated = [{ base64: 'c2FmZWx5LXBhdXNlZA==', mimeType: 'image/png', fileName: 'page.png' }];
+    await expect(service.updateImages('copy-1', rotated, { 0: 270 }, {
+      endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b', autoBackgroundCorrection: false,
+    })).resolves.toBeUndefined();
+    expect(f.jobs.get('copy-1')).toMatchObject({ images: rotated, rotationAngles: { 0: 270 }, status: 'pending' });
+  });
+
   it('refuses to rotate a page while its copy is processing', async () => {
     const f = fixture();
     f.jobs.set('copy-1', { ...f.job, status: 'processing' });
