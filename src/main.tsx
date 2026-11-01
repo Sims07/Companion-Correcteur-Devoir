@@ -11,7 +11,7 @@ import { createModelEvaluationService } from './application/modelEvaluationServi
 import { createCorrectionWorkspaceService } from './application/correctionWorkspaceService.ts';
 import { createScientificDiagramAnalysisService } from './application/scientificDiagramAnalysisService.ts';
 import { createOpenAiScientificDiagramAnalyzer } from './adapters/ai/openAiScientificDiagramAnalyzer.ts';
-import { checkOllamaReady, createOllamaProvider, importRubricImageWithOllama, listOllamaModels } from './adapters/ai/ollamaProvider.ts';
+import { checkOllamaReady, createOllamaProvider, importRubricImageWithOllama, listOllamaModels, prewarmOllamaModel } from './adapters/ai/ollamaProvider.ts';
 import { eraseTeacherAnnotationColor, prepareLocalFiles, rotateLocalImage } from './adapters/files/localFiles.ts';
 import { importRubricFile } from './adapters/files/rubricImport.ts';
 import './ui/styles.css';
@@ -30,7 +30,7 @@ installNetworkInspector();
 installLocalMemoryFetchBridge(localCorrectionRepository);
 const scientificDiagramAnalysisService = createScientificDiagramAnalysisService(createOpenAiScientificDiagramAnalyzer());
 const correctionWorkspaceService = createCorrectionWorkspaceService(
-  { checkReady: checkOllamaReady, listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, fetch, onProgress, signal) },
+  { checkReady: checkOllamaReady, prewarmModel: prewarmOllamaModel, listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, fetch, onProgress, signal) },
   { prepareFiles: prepareLocalFiles, rotateImage: rotateLocalImage, eraseTeacherAnnotationColor, importRubric: importRubricFile },
 );
 
