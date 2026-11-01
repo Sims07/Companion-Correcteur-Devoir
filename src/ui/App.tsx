@@ -350,11 +350,6 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [readingElapsedMs, setReadingElapsedMs] = useState<number | null>(null);
   const [analysisElapsedMs, setAnalysisElapsedMs] = useState<number | null>(null);
   const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
-  useEffect(() => {
-    const completed = Object.values(criterionStatuses).filter((status) => status === 'completed').length;
-    document.title = isAnalyzing ? analysisStage === 'grading' ? `(${completed}/${rubric.criteria.length}) Correction…` : 'Correction en cours…' : proposal ? '✓ Correction prête' : initialDocumentTitle.current;
-  }, [isAnalyzing, analysisStage, criterionStatuses, rubric.criteria.length, proposal]);
-  useEffect(() => () => { document.title = initialDocumentTitle.current; }, []);
   const diagnosticHistoryReady = useRef(false);
   useEffect(() => {
     let active = true;
@@ -384,6 +379,11 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [connectionMessage, setConnectionMessage] = useState('');
   const [error, setError] = useState('');
   const [proposal, setProposal] = useState<GradingProposal | null>(null);
+  useEffect(() => {
+    const completed = Object.values(criterionStatuses).filter((status) => status === 'completed').length;
+    document.title = isAnalyzing ? analysisStage === 'grading' ? `(${completed}/${rubric.criteria.length}) Correction…` : 'Correction en cours…' : proposal ? '✓ Correction prête' : initialDocumentTitle.current;
+  }, [isAnalyzing, analysisStage, criterionStatuses, rubric.criteria.length, proposal]);
+  useEffect(() => () => { document.title = initialDocumentTitle.current; }, []);
   const [studentLabel, setStudentLabel] = useState('');
   const [detectTeacherAnnotations, setDetectTeacherAnnotations] = useState(false);
   const [annotationInkColor, setAnnotationInkColor] = useState<TeacherAnnotationInkColor>('none');
