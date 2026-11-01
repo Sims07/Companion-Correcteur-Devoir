@@ -10,6 +10,10 @@ export interface GradingRequest {
   question: string;
   rubric: string;
   images?: ImageInput[];
+  /** Original copy page numbers represented by images after routing. */
+  pageNumbers?: number[];
+  /** Total number of pages in the original copy, including pages routed elsewhere. */
+  totalPageCount?: number;
   /** Untouched/original pages used only to identify teacher marks; never used for student grading. */
   teacherAnnotationImages?: ImageInput[];
   /** Original page numbers corresponding to teacherAnnotationImages after diagram/text routing. */
