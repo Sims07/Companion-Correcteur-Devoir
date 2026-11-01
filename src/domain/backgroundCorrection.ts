@@ -2,6 +2,8 @@ import type { ImageInput } from './imageInput.ts';
 import type { GradingProposal, CriterionProposal } from './grading.ts';
 import type { Rubric } from './rubric.ts';
 import type { TeacherAnnotationInkColor } from './teacherAnnotationColor.ts';
+import type { ScientificPageClassification } from './scientificPageClassification.ts';
+import type { ScientificDiagramAnalysis } from './scientificDiagram.ts';
 
 export type BackgroundCorrectionStatus = 'pending' | 'processing' | 'ready' | 'needs-review' | 'reviewing' | 'completed' | 'failed';
 
@@ -16,6 +18,8 @@ export interface BackgroundCorrectionJob {
   originalImages: ImageInput[];
   subjectImages: ImageInput[];
   subjectTranscription?: string;
+  scientificPageClassifications?: ScientificPageClassification[];
+  scientificDiagramAnalysis?: ScientificDiagramAnalysis | null;
   detectTeacherAnnotations: boolean;
   annotationInkColor: TeacherAnnotationInkColor;
   annotationInkColorApplied: boolean;
