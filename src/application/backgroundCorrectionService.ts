@@ -144,8 +144,8 @@ export function createBackgroundCorrectionService(
             });
           }
           if (paused) {
-            if (activeAnalysisModel) await workspace.unloadModel?.(settings, activeAnalysisModel).catch(() => undefined);
-            activeAnalysisModel = null;
+            if (activeModelToUnload) await workspace.unloadModel?.(settings, activeModelToUnload).catch(() => undefined);
+            activeModelToUnload = null;
             await persist({ ...current, status: 'pending', updatedAt: new Date().toISOString() });
             break;
           }
