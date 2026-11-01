@@ -142,4 +142,17 @@ describe('parseScientificDiagramAnalysis', () => {
     expect(parseScientificDiagramAnalysis(JSON.stringify(raw), rubric, 1).diagrams[0].criteria[0].confidence).toBe(0.8);
   });
 
+  it('normalizes partially-fulfilled element statuses and keeps whole-criterion scoring without expected elements', () => {
+    const noElementsRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 4 }] };
+    const raw = { diagrams: [{ pageNumber: 1 }, { pageNumber: 2 }], criteria: [{ criterionId: 'cell', points: 3, evidence: 'Les structures sont globalement visibles.', confidence: 0.9, requiresTeacherReview: false, diagramIds: [] }] };
+    const parsed = parseScientificDiagramAnalysis(JSON.stringify(raw), noElementsRubric, 2);
+    expect(parsed.criteria?.[0]).toMatchObject({ points: 3, diagramIds: ['diagram-1', 'diagram-2'] });
+    expect(parsed.criteria?.[0].elements).toBeUndefined();
+  });
+  it('maps partially-fulfilled expected elements to the partial status', () => {
+    const elementRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 2, expectedElements: [{ label: 'Membrane', points: 2 }] }] };
+    const raw = { diagrams: [{ pageNumber: 1 }], criteria: [{ criterionId: 'cell', elements: [{ label: 'Membrane', status: 'partially-fulfilled', evidence: 'Contour incomplet.' }] }] };
+    expect(parseScientificDiagramAnalysis(JSON.stringify(raw), elementRubric, 1).criteria?.[0].elements?.[0]).toMatchObject({ status: 'partial', points: 1 });
+  });
+
 });
