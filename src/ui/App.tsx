@@ -749,6 +749,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setScientificDiagramError('');
       setFocusedEvidencePage(null);
       setTranscription(null);
+      setStudentIdentity(null);
       setProposal(null);
       setReview([]);
     } catch (cause) {
@@ -774,6 +775,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setScientificDiagramAnalysis(null);
       setScientificDiagramError('');
       setTranscription(null);
+      setStudentIdentity(null);
       setProposal(null);
       setReview([]);
       setTeacherQuestions('');
@@ -798,6 +800,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setPageClassifications(null);
     setScientificDiagramAnalysis(null);
     setTranscription(null);
+    setStudentIdentity(null);
     setProposal(null);
   }
 
