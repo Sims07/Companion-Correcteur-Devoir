@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { openActiveAssignment } from './helpers/teacher-workspace';
 
 test('teacher can open an imported copy page in a fullscreen viewer and zoom it', async ({ page }) => {
   await page.goto('/');
+  await openActiveAssignment(page);
   await page.locator('#copy-files').setInputFiles({
     name: 'page-1.png',
     mimeType: 'image/png',
