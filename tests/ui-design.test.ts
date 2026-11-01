@@ -164,6 +164,20 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('.review-card-pending.is-active');
     expect(correctionFlowStylesheet).toContain('@media(prefers-reduced-motion:reduce)');
   });
+  it('keeps the teacher entry journey focused on Devoir, Copies and Révision', () => {
+    expect(appComponent).toContain("getTeacherEntryStep(readActiveAssignmentProfile().rubric)");
+    expect(appComponent).toContain("teacherStep === 'rubric' && <>");
+    expect(appComponent).toContain('className="assignment-details-collapsible"');
+    expect(appComponent).toContain('className="copy-advanced-options"');
+    expect(appComponent).toContain("interfaceMode === 'teacher' ? 'Corriger'");
+    expect(appComponent).toContain('Enregistrer et passer à la copie suivante');
+    expect(appComponent).toContain("event.key === 'ArrowDown' || event.key === 'ArrowUp'");
+    expect(appComponent).toContain("event.key === 'Enter'");
+    expect(stylesheet).toContain('.assignment-details-collapsible');
+    expect(stylesheet).toContain('.copy-advanced-options');
+    expect(stylesheet).toContain('.review-card[tabindex="0"]:focus-visible');
+  });
+
   it('provides an explicit local copy queue for serial grading', () => {
     expect(appComponent).toContain('function queueCurrentCopy()');
     expect(appComponent).toContain('function loadNextQueuedCopy(jobId?: string)');
