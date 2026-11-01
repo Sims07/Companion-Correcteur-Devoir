@@ -11,7 +11,7 @@ function diagnosticResult(request: { model: string; endpoint: string; images: Im
     purpose,
     model: request.model,
     requestPrompt: prompt,
-    requestMetadata: { provider: 'openai-compatible', endpoint: request.endpoint, stream: false, think: false, format: 'json', imageDetail: 'high', imageCount: request.images.length, keepAlive: 0, options: { contextTokens: 0, generationTokenLimit: purpose === 'scientific-diagram-classification' ? 320 : 2048 } },
+    requestMetadata: { provider: 'openai-compatible', endpoint: request.endpoint, stream: false, think: false, format: 'json', imageCount: request.images.length, keepAlive: 0, options: { contextTokens: 0, generationTokenLimit: purpose === 'scientific-diagram-classification' ? 320 : 2048 } },
     requestPayload: JSON.stringify({ attempts: [{ messages: [{ role: 'user', content: prompt }] }], imageCount: request.images.length, images: '[masquées]' }),
     raw,
     ...(error ? { error } : {}),
