@@ -272,6 +272,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     subscribe: () => () => undefined,
     markForReview: async () => undefined,
     markCompleted: async () => undefined,
+    remove: async () => undefined,
     retry: async () => undefined,
     setAutomatic: async () => undefined,
   };
