@@ -76,6 +76,39 @@ describe('Ollama adapter', () => {
     expect(parseStudentIdentityResponse('Je pense que le nom est Alice Martin.')).toBeNull();
   });
 
+  it('uses the same dedicated first-page identity request with the OpenAI-compatible transport', async () => {
+    const sse = (content: string) => new Response([
+      ...content.split('').map((character) => `data: ${JSON.stringify({ choices: [{ delta: { content: character } }] })}\\n\\n`),
+      `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] })}\\n\\n`,
+      'data: [DONE]\\n\\n',
+    ].join(''), { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+    const identity = JSON.stringify({ firstName: 'Alice', lastName: 'Martin', studentNumber: null, confidence: 'high' });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(sse(identity))
+      .mockResolvedValueOnce(sse('Transcription lue'));
+    const onTranscription = vi.fn();
+    const onDiagnosticResult = vi.fn();
+    const provider = createOllamaProvider({
+      endpoint: 'https://api.example',
+      apiCompatible: true,
+      apiKey: 'secret-token',
+      visionModel: 'vision-model',
+      analysisModel: 'analysis-model',
+    }, fetchMock);
+
+    await expect(provider.generate({ ...request, identifyStudent: true, visionOnly: true }, undefined, undefined, onTranscription, onDiagnosticResult))
+      .resolves.toBe('[ copie.png ]\\nTranscription lue');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenNthCalledWith(1, 'https://api.example/v1/chat/completions', expect.anything());
+    const identityRequest = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(identityRequest.response_format).toEqual({ type: 'json_object' });
+    expect(identityRequest.messages[0].content[0].text).toContain('uniquement la bande supérieure');
+    expect(identityRequest.messages[0].content[1].image_url.url).toContain('base64,aGVsbG8=');
+    expect(onTranscription).toHaveBeenCalledWith(identity, 'identity');
+    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ purpose: 'student-identity' });
+  });
+
   it('checks that the selected model responds to a text-only readiness request', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ message: { content: 'PRÊT' } }), { status: 200 }));
     await expect(checkOllamaReady({ endpoint: 'http://localhost:11434/', model: 'llava' }, fetchMock)).resolves.toBeUndefined();
