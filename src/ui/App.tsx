@@ -2842,6 +2842,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>
             </section>}
             {!isFlagged && <p className="rationale">{item.rationale}</p>}
+            {item.scientificDiagramElements && <details className="scientific-diagram-quality-details review-quality-details" open={isFlagged}>
+              <summary>Éléments évalués · {(item.scientificDiagramPages ?? []).length ? 'pages ' + item.scientificDiagramPages?.join(', ') : 'pages concernées'}</summary>
+              <ul>{item.scientificDiagramElements.map((element) => <li key={element.label}>
+                <div><strong>{element.label}</strong><span className={`quality-status quality-status-${element.status}`}>{({ present: 'Présent', partial: 'Partiel', absent: 'Absent', uncertain: 'Incertain' })[element.status]} · {element.points} / {element.maxPoints} pt</span></div>
+                <p>{element.evidence}</p>
+              </li>)}</ul>
+            </details>}
             {item.qualityBreakdown && (
               <details className="scientific-diagram-quality-details review-quality-details">
                 <summary>Pourquoi cette note ? · Détail du schéma</summary>
