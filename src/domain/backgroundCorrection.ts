@@ -67,6 +67,23 @@ export function nextBackgroundCorrection(jobs: readonly BackgroundCorrectionJob[
     .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0] ?? null;
 }
 
+/** Selects a queued correction to open. An explicit request must also reopen the currently active job. */
+export function findBackgroundCorrectionToOpen(
+  jobs: readonly BackgroundCorrectionJob[],
+  assignmentId: string,
+  currentJobId: string | null,
+  requestedJobId?: string,
+): BackgroundCorrectionJob | null {
+  if (requestedJobId) {
+    return jobs.find((job) => job.id === requestedJobId && job.assignmentId === assignmentId) ?? null;
+  }
+  return jobs
+    .filter((job) => job.assignmentId === assignmentId &&
+      (job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)) &&
+      job.id !== currentJobId)
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0] ?? null;
+}
+
 export function backgroundCorrectionStatusLabel(status: BackgroundCorrectionStatus): string {
   switch (status) {
     case 'pending': return 'En attente';
