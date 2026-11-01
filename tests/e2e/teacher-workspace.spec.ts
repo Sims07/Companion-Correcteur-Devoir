@@ -161,7 +161,7 @@ test('series session previews added pages, resets the picker and allows removing
   await expect(series.getByText('Copie 1')).toBeVisible();
   await expect(series.getByText('2 page(s) · En attente')).toBeVisible();
   await expect(series.locator('.correction-series-actions')).toBeVisible();
-  const identity = series.locator('.correction-series-copy-top');
+  const identity = series.locator('.correction-series-copy');
   const actionRow = series.locator('.correction-series-actions');
   const identityBox = await identity.boundingBox();
   const actionsBox = await actionRow.boundingBox();
