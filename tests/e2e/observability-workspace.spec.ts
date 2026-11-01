@@ -27,7 +27,7 @@ test('opens the local observability workspace and explores a trace without expos
   await page.goto('/');
   await page.waitForFunction(() => localStorage.getItem('companion-correcteur:timing-history:v1') === null);
   await page.evaluate(async () => {
-    const request = indexedDB.open('companion-correcteur-devoir', 4);
+    const request = indexedDB.open('companion-correcteur-devoir', 5);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
