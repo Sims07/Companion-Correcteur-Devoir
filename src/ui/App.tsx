@@ -2385,7 +2385,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </>}
 
       {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration') || (interfaceMode === 'teacher' && teacherStep === 'rubric')) && <>
-      <div id={interfaceMode === 'diagnostic' ? 'evaluation-rubric' : undefined} className="workspace-heading diagnostic-setup-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 · DEVOIR' : 'EXPÉRIENCE · ÉTAPE 1'}</p><h2>Préparer le barème de correction</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
+      <div id={interfaceMode === 'diagnostic' ? 'evaluation-rubric' : undefined} className="workspace-heading diagnostic-setup-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 · DEVOIR' : 'EXPÉRIENCE · ÉTAPE 1'}</p><h2>{interfaceMode === 'teacher' ? 'Devoir et barème' : 'Préparer le barème de correction'}</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
       <section className="panel rubric-editor">
         <div className="rubric-assignment-context"><span className="eyebrow">BARÈME ASSOCIÉ AU DEVOIR</span><strong>{assignmentTitle.trim() || 'Devoir sans titre'}</strong><p>Vous pouvez donner au barème un nom différent de celui du devoir.</p></div>
         <label className="field-label" htmlFor="rubric-title">Nom du barème (distinct du devoir)</label>
