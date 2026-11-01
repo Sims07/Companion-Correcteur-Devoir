@@ -36,25 +36,34 @@ function classificationPrompt(originalPageNumber: number): string {
 }
 
 export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisRequest, compact = false): string {
- const criteria=request.rubric.criteria.map(c=>({criterionId:c.id,title:c.title,description:c.description,maxPoints:c.maxPoints,expectedElements:c.expectedElements??[]}));
- return [
- 'Tu évalues des schémas scientifiques universitaires. Un schéma est une preuve, jamais une unité de notation.',
- 'Retourne d’abord diagrams : tous les schémas détectés avec id neutre, pageNumber (index local 1-based), diagramType, summary court, bounds optionnels et uncertainties (toujours un tableau, vide si aucune). diagramType, summary et uncertainties doivent toujours être présents.',
- 'Retourne ensuite criteria : UNE seule évaluation par critère du barème, portant sur l’ensemble des schémas pertinents. Ne note jamais un critère séparément par schéma et ne répartis pas son maximum entre les schémas.',
- 'Si un élément essentiel du critère est partiel ou manquant, attribue des points partiels ; le maximum n’est justifié que si tous les attendus essentiels sont démontrés pour l’ensemble des schémas concernés.',
- 'Si expectedElements est non vide, n’invente aucune note chiffrée : retourne chaque élément avec son label exact, status parmi present/partial/absent/uncertain et une preuve courte. L’application calcule les points (present 100 %, partial 50 %, absent 0 %, uncertain 0 % et vérification enseignante).',
- 'Sans expectedElements, retourne une seule note points sur le maximum du critère, evidence, confidence, requiresTeacherReview et diagramIds. Ne retourne jamais de critère absent du barème.',
- 'qualityBreakdown est facultatif et très court : uniquement les dimensions non satisfaites, avec status et 12 mots maximum. Dimensions : title, scientific-accuracy, completeness, labels, arrows-relations, organization-conventions, legibility. N’inclus aucune dimension satisfaisante.',
- 'Les bounds sont normalisées de 0 à 1. Omet-les si incertain. Ne considère pas les tableaux de données comme des schémas.',
- 'Ignore les marques de correction manuscrites préexistantes (commentaires, coches, cercles, notes et traits) : elles ne font jamais partie de la production de l’étudiant. Si une marque recouvre ou touche un élément du schéma, mets requiresTeacherReview à true.',
- 'CRITÈRES VISUELS (liste exhaustive) : '+JSON.stringify(criteria),
- 'QUESTION : '+(request.question.trim()||'Aucune question de référence fournie.'),
- 'SUJET DE RÉFÉRENCE : '+(request.question.trim()||'Non fourni.'),
- 'BARÈME : '+JSON.stringify(request.rubric),
- 'CORRESPONDANCE DES PAGES : '+(request.pageNumbers??request.images.map((_,i)=>i+1)).map((p,i)=>(i+1)+' → '+p).join(', '),
- compact?'Réponse compacte obligatoire : aucun qualityBreakdown.':'',
- 'JSON attendu : {"diagrams":[{"id":"diagram-x","pageNumber":1,"diagramType":"schéma","summary":"","uncertainties":[]}],"criteria":[{"criterionId":"id-réel","points":0,"evidence":"","confidence":0,"requiresTeacherReview":true,"diagramIds":[]}],"overallUncertainties":[]}'
- ].filter(Boolean).join('\n\n');
+  const criteria = request.rubric.criteria.map((criterion) => ({
+    criterionId: criterion.id,
+    title: criterion.title,
+    description: criterion.description,
+    maxPoints: criterion.maxPoints,
+    expectedElements: criterion.expectedElements ?? [],
+  }));
+  const subject = request.subjectTranscription?.trim();
+  return [
+    'Tu évalues des schémas scientifiques universitaires. Un schéma est une preuve, jamais une unité de notation.',
+    'Retourne diagrams : tous les schémas détectés, avec id neutre, pageNumber (index local 1-based), diagramType, summary court, bounds optionnels et uncertainties (tableau).',
+    'Retourne criteria : UNE seule évaluation par critère du barème, portant sur l’ensemble des schémas pertinents. Ne note jamais un critère séparément par schéma et ne répartis pas son maximum entre les schémas.',
+    'Le maximum n’est justifié que si tous les attendus essentiels sont démontrés sur l’ensemble des schémas concernés. Si un élément essentiel est partiel ou manquant, attribue des points partiels.',
+    'Si expectedElements est non vide, retourne chaque élément avec son label exact, status parmi present/partial/absent/uncertain et une preuve courte. L’application calcule les points (present 100 %, partial 50 %, absent 0 %, uncertain 0 % et vérification enseignante).',
+    'Sans expectedElements, retourne une seule note points sur le maximum du critère, evidence, confidence, requiresTeacherReview et diagramIds. Ne retourne jamais de critère absent du barème.',
+    'Ne pénalise pas deux fois la même erreur. Ne note jamais l’esthétique. N’invente aucun attendu absent de la consigne ou du barème.',
+    'Ne juge jamais un dessin correct à partir d’une explication textuelle. Si un élément est illisible ou ambigu, signale-le dans uncertainties et mets requiresTeacherReview à true.',
+    'Ne pénalise pas l’absence d’une flèche, d’un titre ou d’une légende qui ne sont pas exigés par la consigne ou le barème.',
+    'qualityBreakdown est facultatif et très court : uniquement les dimensions non satisfaites, avec status et 12 mots maximum. Dimensions : title, scientific-accuracy, completeness, labels, arrows-relations, organization-conventions, legibility.',
+    'Les bounds sont normalisées de 0 à 1. Omet-les si incertain. Ne considère pas les tableaux de données comme des schémas.',
+    'Ignore les marques de correction manuscrites préexistantes (commentaires, coches, cercles, notes et traits) : elles ne font jamais partie de la production de l’étudiant. Si une marque recouvre ou touche un élément du schéma, mets requiresTeacherReview à true.',
+    'CRITÈRES VISUELS (liste exhaustive) : ' + JSON.stringify(criteria),
+    'QUESTION : ' + (request.question.trim() || 'Aucune question de référence fournie.'),
+    ...(subject ? ['SUJET DE RÉFÉRENCE (transcription fournie) : ' + subject] : []),
+    'CORRESPONDANCE DES PAGES : ' + (request.pageNumbers ?? request.images.map((_, index) => index + 1)).map((page, index) => (index + 1) + ' → ' + page).join(', '),
+    compact ? 'Réponse compacte obligatoire : aucun qualityBreakdown.' : '',
+    'JSON attendu : {"diagrams":[{"id":"diagram-1","pageNumber":1,"diagramType":"cellule","summary":"Membrane et noyau visibles","uncertainties":[]}],"criteria":[{"criterionId":"' + (criteria[0]?.criterionId ?? 'id-réel') + '","points":2,"evidence":"Deux structures attendues sont visibles","confidence":0.85,"requiresTeacherReview":false,"diagramIds":["diagram-1"],"elements":[{"label":"Noyau","status":"present","evidence":"Structure centrale identifiable"}]}],"overallUncertainties":[]}',
+  ].filter(Boolean).join('\n\n');
 }
 
 export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = fetch): ScientificDiagramAnalyzer {
@@ -133,7 +142,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
         catch(first){
           const reason=first instanceof Error?first.message:String(first);
           diagnosticResult(request,'scientific-diagram-analysis',prompt,raw,startedAt,reason);
-          prompt=buildScientificDiagramPrompt(request,true)+'\\n\\nCORRECTION OBLIGATOIRE : la réponse précédente est invalide. Corrige précisément ce champ : '+reason+'. Retourne le JSON complet, sans qualityBreakdown.';
+          prompt=buildScientificDiagramPrompt(request,true)+'\n\nCORRECTION OBLIGATOIRE : la réponse précédente est invalide. Corrige précisément ce champ : '+reason+'. Réponse précédente (extrait) : '+raw.slice(0,3000)+'. Retourne le JSON complet, sans qualityBreakdown.';
           const retry=await compatibleFetch(request.endpoint.replace(/\/+$/,'')+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:request.model,stream:false,format:schema,generation_token_parameter:'max_tokens',options:{num_predict:4096},messages:[{role:'user',content:prompt,images:request.images.map(image=>'data:'+image.mimeType+';base64,'+image.base64)}]})});
           if(!retry.ok)throw first;
           const payload=await retry.json() as {message?:{content?:string};done_reason?:string;error?:string};
