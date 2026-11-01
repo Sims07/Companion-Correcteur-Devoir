@@ -128,4 +128,26 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ raw: JSON.stringify(invalid), error: expect.stringContaining('points hors barème') }));
   });
 
+  it('uses the supplied subject transcription and sends the rubric only once', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
+    await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({ ...request, subjectTranscription: 'La cellule possède une membrane et un noyau.' });
+    const prompt = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).messages[0].content[0].text as string;
+    expect(prompt).toContain('SUJET DE RÉFÉRENCE (transcription fournie) : La cellule possède une membrane et un noyau.');
+    expect(prompt.match(/CRITÈRES VISUELS/g)).toHaveLength(1);
+    expect(prompt).not.toContain('BARÈME :');
+    expect(prompt).toContain('"diagramIds":["diagram-1"]');
+    expect(prompt).toContain('"elements"');
+  });
+  it('includes the previous invalid response in the repair prompt', async () => {
+    const invalid = { diagrams: [{ pageNumber: 1, diagramType: 'schéma', summary: '', uncertainties: [] }], criteria: [{ criterionId: 'labels', points: 3, evidence: 'Preuve', confidence: 0.8, requiresTeacherReview: false, diagramIds: ['diagram-1'] }], overallUncertainties: [] };
+    const validGlobal = { ...invalid, criteria: [{ ...invalid.criteria[0], points: 1 }] };
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(invalid) }, finish_reason: 'stop' }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(validGlobal) }, finish_reason: 'stop' }] }), { status: 200 }));
+    await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request);
+    const repairPrompt = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).messages[0].content[0].text as string;
+    expect(repairPrompt).toContain('CORRECTION OBLIGATOIRE');
+    expect(repairPrompt).toContain(JSON.stringify(invalid));
+  });
+
 });
