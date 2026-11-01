@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { backgroundCorrectionStatusLabel, createBackgroundCorrection, nextBackgroundCorrection } from '../src/domain/backgroundCorrection.ts';
-import type { BackgroundCorrectionJob } from '../src/domain/backgroundCorrection.ts';
 
 const base = {
   id: 'copy-1',
