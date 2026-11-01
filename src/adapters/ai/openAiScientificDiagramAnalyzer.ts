@@ -167,7 +167,8 @@ function buildScientificDiagramRepairPrompt(
 export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = fetch): ScientificDiagramAnalyzer {
   return {
     async classifyPages(request: ScientificPageClassificationRequest) {
-      let requestPayload = '';\n      const compatibleFetch = createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey, onRequest: (payload) => { requestPayload = payload; } }, fetchImpl);
+      let requestPayload = '';
+      const compatibleFetch = createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey, onRequest: (payload) => { requestPayload = payload; } }, fetchImpl);
       const classifications = [];
       // Keep one image per request: this prevents cross-page attribution and makes page identity explicit.
       for (const [index, image] of request.images.entries()) {
