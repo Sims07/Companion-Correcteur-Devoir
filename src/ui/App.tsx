@@ -1593,6 +1593,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setReview([]);
     setTeacherQuestions('');
     setStudentLabel('');
+    setStudentIdentity(null);
     setCurrentCorrectionId(null);
     setReviewMessage('');
     setError('');
@@ -1717,6 +1718,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
       });
       setStudentLabel('');
+    setStudentIdentity(null);
       setDetectTeacherAnnotations(false);
       setAnnotationInkColor('none');
       setAnnotationInkColorApplied(true);
@@ -1805,6 +1807,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (readyExists) { void loadNextQueuedCopy(); return; }
     setCurrentBackgroundJobId(null);
     setStudentLabel('');
+    setStudentIdentity(null);
     setImages([]);
     setOriginalImages([]);
     setDetectTeacherAnnotations(false);
