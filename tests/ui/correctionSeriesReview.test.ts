@@ -83,15 +83,23 @@ describe('correction en série — espace de révision', () => {
     expect(app).toContain('className="correction-series-actions"');
     expect(app).toContain("job.status === 'failed' ? 'Réessayer' : 'Reprendre'");
     expect(app).toContain('L’analyse n’a pas abouti.');
+    expect(app).toContain('relancer la correction');
+    expect(app).not.toContain('réessayer le traitement');
     expect(app).toContain("const reviewCount = backgroundJobs.filter((job) => job.status === 'needs-review').length");
     expect(app).toContain("const failedCount = backgroundJobs.filter((job) => job.status === 'failed').length");
     expect(styles).toContain('.correction-series-actions');
-    expect(styles).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
+    expect(styles).toContain('grid-column: 1 / -1');
+    expect(styles).toContain('flex: 1 1 100%');
+    expect(styles).toContain('margin-left: 2.35rem');
     expect(styles).toContain('.correction-series-overview-metrics article.has-failure');
   });
 
   it('uses teacher-friendly language for the copy correction overview', () => {
     expect(app).toContain('AVANCEMENT DES CORRECTIONS');
+    expect(app).toContain('copies prêtes');
+    expect(app).toContain('À corriger');
+    expect(app).toContain('À relancer');
+    expect(app).not.toContain('notes disponibles');
     expect(app).toContain('Correction des copies');
     expect(app).toContain('Corriger plusieurs copies');
     expect(app).toContain('aria-label="Copies du devoir"');
