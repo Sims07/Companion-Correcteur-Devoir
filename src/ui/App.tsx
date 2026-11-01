@@ -1606,6 +1606,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         originalImages: structuredClone(originalImages),
         subjectImages: structuredClone(subjectImages),
         ...(subjectTranscription ? { subjectTranscription } : {}),
+        scientificPageClassifications: pageClassifications ?? undefined,
+        scientificDiagramAnalysis,
         detectTeacherAnnotations,
         annotationInkColor,
         annotationInkColorApplied,
@@ -1673,8 +1675,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setSubjectTranscription(next.subjectTranscription ?? null);
     setCorrectionMode(next.correctionMode);
     setTranscription(next.transcription);
-    setScientificDiagramAnalysis(null);
-    setPageClassifications(null);
+    setScientificDiagramAnalysis(next.scientificDiagramAnalysis ?? null);
+    setPageClassifications(next.scientificPageClassifications ?? null);
     setScientificDiagramError('');
     setProposal(canReview && next.proposal ? structuredClone(next.proposal) : null);
     setReview(canReview && next.proposal ? toReviewedCriteria(next.proposal) : []);
