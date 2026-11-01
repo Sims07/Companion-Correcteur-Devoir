@@ -15,7 +15,7 @@ test('teacher can sample an annotation color from the original image and inspect
 
   const beforeViewer = page.getByRole('dialog', { name: 'Visualiseur de l’image avant traitement' });
   await expect(beforeViewer).toBeVisible();
-  await beforeViewer.getByRole('button', { name: 'Zoomer' }).click();
+  await beforeViewer.getByRole('button', { name: 'Zoomer', exact: true }).click();
   await expect(beforeViewer.getByText('125 %')).toBeVisible();
 
   const image = beforeViewer.locator('.annotation-ink-sample-image');
