@@ -43,7 +43,7 @@ describe('Ollama adapter', () => {
     const onTranscription = vi.fn();
     const onDiagnosticResult = vi.fn();
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
-    await expect(provider.generate({ ...request, visionOnly: true }, undefined, undefined, onTranscription, onDiagnosticResult)).resolves.toBe('[ copie.png ]\\nRéponse manuscrite lisible.');
+    await expect(provider.generate({ ...request, identifyStudent: true, visionOnly: true }, undefined, undefined, onTranscription, onDiagnosticResult)).resolves.toBe('[ copie.png ]\\nRéponse manuscrite lisible.');
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const identityBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(identityBody.messages[0].content).toContain('uniquement la bande supérieure');
@@ -651,6 +651,7 @@ describe('Ollama adapter', () => {
     }, fetchMock);
     await expect(provider.generate({
       ...request,
+      identifyStudent: true,
       images: [
         { base64: 'cGFnZTE=', mimeType: 'image/png', fileName: 'page-1.png' },
         { base64: 'cGFnZTI=', mimeType: 'image/png', fileName: 'page-2.png' },
