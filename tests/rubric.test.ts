@@ -20,9 +20,13 @@ describe('validateRubric', () => {
     expect(result.errors.join(' ')).toContain('dupliqué');
   });
 
-  it('rejects negative maximum points', () => {
-    const result = validateRubric({ ...validRubric, criteria: [{ ...validRubric.criteria[0], maxPoints: -1 }] });
+  it('accepts negative maximum points for an explicit penalty criterion', () => {
+    const result = validateRubric({ ...validRubric, criteria: [{ ...validRubric.criteria[0], title: 'Malus', maxPoints: -0.25 }] });
+    expect(result).toEqual({ valid: true, errors: [], maximumPoints: -0.25 });
+  });
+
+  it('still rejects non-finite maximum points', () => {
+    const result = validateRubric({ ...validRubric, criteria: [{ ...validRubric.criteria[0], maxPoints: Number.NaN }] });
     expect(result.valid).toBe(false);
-    expect(result.errors.join(' ')).toContain('positif ou nul');
   });
 });
