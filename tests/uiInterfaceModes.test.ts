@@ -199,8 +199,10 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Configurer maintenant');
     expect(text).toContain('setShowAiSettings(true)');
     expect(text).toContain('is-processing');
-    expect(text).toContain('Lecture des copies en cours');
-    expect(text).toContain('Analyse et notation en cours');
+    expect(text).toContain('Lecture de la copie');
+    expect(text).toContain('Correction des réponses');
+    expect(text).not.toContain('Lecture des copies en cours');
+    expect(text).not.toContain('Analyse et notation en cours');
   });
 
   it('keeps model evaluation configuration in its own workspace and advanced diagnostic settings in Debug', () => {
@@ -270,7 +272,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Préparer le barème');
     expect(text).toContain('Ajouter une copie');
     expect(text).toContain('Réviser la note');
-    expect(text).toContain('Suivi du traitement');
+    expect(text).toContain('Correction en cours');
+    expect(text).not.toContain('Suivi du traitement');
     expect(text).toContain("setTeacherStep('progress')");
     expect(text).toContain("(interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration')");
     expect(text).toContain("(interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration')");
