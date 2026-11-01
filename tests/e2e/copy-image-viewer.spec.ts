@@ -70,10 +70,11 @@ test('teacher can rotate each batch page manually before starting the series', a
 
   await series.getByRole('button', { name: 'Voir la copie' }).click();
 
-  const preview = series.getByRole('img', { name: 'Page 1 de schema-cellule.png' });
+  const previewPanel = series.getByRole('region', { name: 'Aperçu de schema-cellule.png' });
+  const preview = previewPanel.getByRole('img', { name: 'Page 1 de schema-cellule.png' });
   await expect(preview).toBeVisible();
   await expect.poll(() => preview.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([8, 4]);
-  await series.getByRole('button', { name: 'Tourner la page 1 de schema-cellule.png à droite de 90 degrés' }).click();
+  await previewPanel.getByRole('button', { name: 'Tourner la page 1 de schema-cellule.png à droite de 90 degrés' }).click();
 
   await expect(series.getByText(/Page 1 · tournée de 90°/)).toBeVisible();
   await expect.poll(() => preview.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([4, 8]);
