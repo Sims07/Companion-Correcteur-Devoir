@@ -3,7 +3,7 @@ import type { GradingProposal, CriterionProposal } from './grading.ts';
 import type { Rubric } from './rubric.ts';
 import type { TeacherAnnotationInkColor } from './teacherAnnotationColor.ts';
 
-export type BackgroundCorrectionStatus = 'pending' | 'processing' | 'ready' | 'needs-review' | 'failed';
+export type BackgroundCorrectionStatus = 'pending' | 'processing' | 'ready' | 'needs-review' | 'reviewing' | 'completed' | 'failed';
 
 export interface BackgroundCorrectionJob {
   id: string;
@@ -67,6 +67,8 @@ export function backgroundCorrectionStatusLabel(status: BackgroundCorrectionStat
     case 'processing': return 'En cours';
     case 'ready': return 'Prête à réviser';
     case 'needs-review': return 'À vérifier';
+    case 'reviewing': return 'Révision en cours';
+    case 'completed': return 'Archivée';
     case 'failed': return 'Échec';
   }
 }
