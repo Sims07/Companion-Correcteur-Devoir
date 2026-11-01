@@ -66,6 +66,20 @@ export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisR
   ].filter(Boolean).join('\n\n');
 }
 
+function buildScientificDiagramRepairPrompt(
+  request: ScientificDiagramAnalysisRequest,
+  reason: string,
+  previousRaw: string,
+): string {
+  return [
+    buildScientificDiagramPrompt(request, true),
+    'CORRECTION OBLIGATOIRE : la réponse précédente est invalide.',
+    'Corrige précisément ce champ : ' + reason + '.',
+    'Réponse précédente (extrait) : ' + previousRaw.slice(0, 3000),
+    'Retourne le JSON complet, sans qualityBreakdown.',
+  ].join('\n\n');
+}
+
 export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = fetch): ScientificDiagramAnalyzer {
   return {
     async classifyPages(request: ScientificPageClassificationRequest) {
@@ -113,16 +127,91 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       return classifications;
     },
     async analyze(request) {
-      const compatibleFetch=createOpenAiCompatibleFetch({endpoint:request.endpoint,apiKey:request.apiKey},fetchImpl);
-      const startedAt=Date.now();let raw='';let prompt=buildScientificDiagramPrompt(request);
-      const schema={
-        type:'object',additionalProperties:false,required:['diagrams','criteria','overallUncertainties'],
-        properties:{
-          diagrams:{type:'array',items:{type:'object',additionalProperties:false,required:['id','pageNumber','diagramType','summary','uncertainties','bounds'],properties:{id:{type:'string'},pageNumber:{type:'integer',minimum:1},diagramType:{type:'string'},summary:{type:'string'},uncertainties:{type:'array',items:{type:'string'}},bounds:{type:['object','null'],additionalProperties:false,required:['x','y','width','height'],properties:{x:{type:'number'},y:{type:'number'},width:{type:'number'},height:{type:'number'}}}}}},
-          criteria:{type:'array',items:{type:'object',additionalProperties:false,required:['criterionId','points','evidence','confidence','requiresTeacherReview','diagramIds','elements','qualityBreakdown'],properties:{criterionId:{type:'string',enum:request.rubric.criteria.map(c=>c.id)},points:{type:['number','null']},evidence:{type:'string'},confidence:{type:'number',minimum:0,maximum:1},requiresTeacherReview:{type:'boolean'},diagramIds:{type:'array',items:{type:'string'}},elements:{type:['array','null'],items:{type:'object',additionalProperties:false,required:['label','status','evidence'],properties:{label:{type:'string'},status:{type:'string',enum:['present','partial','absent','uncertain']},evidence:{type:'string'}}}},qualityBreakdown:{type:['array','null'],items:{type:'object',additionalProperties:false,required:['dimension','status'],properties:{dimension:{type:'string'},status:{type:'string'},evidence:{type:'string'}}}}}}},
-          overallUncertainties:{type:'array',items:{type:'string'}}
-        }
+      const compatibleFetch = createOpenAiCompatibleFetch(
+        { endpoint: request.endpoint, apiKey: request.apiKey },
+        fetchImpl,
+      );
+      const startedAt = Date.now();
+      let raw = '';
+      let prompt = buildScientificDiagramPrompt(request);
+
+      const schema = {
+        type: 'object',
+        additionalProperties: false,
+        required: ['diagrams', 'criteria', 'overallUncertainties'],
+        properties: {
+          diagrams: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['id', 'pageNumber', 'diagramType', 'summary', 'uncertainties', 'bounds'],
+              properties: {
+                id: { type: 'string' },
+                pageNumber: { type: 'integer', minimum: 1 },
+                diagramType: { type: 'string' },
+                summary: { type: 'string' },
+                uncertainties: { type: 'array', items: { type: 'string' } },
+                bounds: {
+                  type: ['object', 'null'],
+                  additionalProperties: false,
+                  required: ['x', 'y', 'width', 'height'],
+                  properties: {
+                    x: { type: 'number' },
+                    y: { type: 'number' },
+                    width: { type: 'number' },
+                    height: { type: 'number' },
+                  },
+                },
+              },
+            },
+          },
+          criteria: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['criterionId', 'points', 'evidence', 'confidence', 'requiresTeacherReview', 'diagramIds', 'elements', 'qualityBreakdown'],
+              properties: {
+                criterionId: { type: 'string', enum: request.rubric.criteria.map((criterion) => criterion.id) },
+                points: { type: ['number', 'null'] },
+                evidence: { type: 'string' },
+                confidence: { type: 'number', minimum: 0, maximum: 1 },
+                requiresTeacherReview: { type: 'boolean' },
+                diagramIds: { type: 'array', items: { type: 'string' } },
+                elements: {
+                  type: ['array', 'null'],
+                  items: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['label', 'status', 'evidence'],
+                    properties: {
+                      label: { type: 'string' },
+                      status: { type: 'string', enum: ['present', 'partial', 'absent', 'uncertain'] },
+                      evidence: { type: 'string' },
+                    },
+                  },
+                },
+                qualityBreakdown: {
+                  type: ['array', 'null'],
+                  items: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['dimension', 'status'],
+                    properties: {
+                      dimension: { type: 'string' },
+                      status: { type: 'string' },
+                      evidence: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          overallUncertainties: { type: 'array', items: { type: 'string' } },
+        },
       };
+
       const send = async (compact: boolean, promptOverride?: string) => {
         prompt = promptOverride ?? buildScientificDiagramPrompt(request, compact);
         const payload = {
@@ -130,13 +219,21 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           stream: false,
           generation_token_parameter: 'max_tokens',
           options: { num_predict: 4096 },
-          messages: [{ role: 'user', content: prompt, images: request.images.map((image) => 'data:' + image.mimeType + ';base64,' + image.base64) }],
+          messages: [{
+            role: 'user',
+            content: prompt,
+            images: request.images.map((image) => 'data:' + image.mimeType + ';base64,' + image.base64),
+          }],
         };
-        const post = (format: unknown) => compatibleFetch(request.endpoint.replace(/\/+$/, '') + '/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...payload, format }),
-        });
+        const post = (format: unknown) => compatibleFetch(
+          request.endpoint.replace(/\\/+$/, '') + '/api/chat',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...payload, format }),
+          },
+        );
+
         let response = await post(schema);
         if (!response.ok && response.status === 400) {
           const detail = (await response.text()).slice(0, 500);
@@ -146,31 +243,62 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
             throw new Error('L’analyse Vision des schémas a échoué (HTTP ' + response.status + '). ' + detail);
           }
         }
-        if (!response.ok) throw new Error('L’analyse Vision des schémas a échoué (HTTP ' + response.status + '). ' + (await response.text()).slice(0, 500));
-        const result = await response.json() as { message?: { content?: string }; error?: string; done_reason?: string };
-        if (result.error) throw new Error(result.error);
-        raw = result.message?.content ?? '';
-        if (result.done_reason === 'length') return { truncated: true };
+        if (!response.ok) {
+          throw new Error('L’analyse Vision des schémas a échoué (HTTP ' + response.status + '). ' + (await response.text()).slice(0, 500));
+        }
+
+        const payloadResult = await response.json() as {
+          message?: { content?: string };
+          error?: string;
+          done_reason?: string;
+        };
+        if (payloadResult.error) throw new Error(payloadResult.error);
+        raw = payloadResult.message?.content ?? '';
+        if (payloadResult.done_reason === 'length') return { truncated: true };
         if (!raw.trim()) throw new Error('Le modèle Vision n’a retourné aucune analyse.');
         return { truncated: false };
       };
-      try{
-        let sent=await send(false);
-        if(sent.truncated){sent=await send(true);if(sent.truncated)throw new Error('Réponse tronquée : la seconde tentative compacte a également atteint la limite de génération.');}
-        let result: ReturnType<typeof parseScientificDiagramAnalysis>;
-        try{result=parseScientificDiagramAnalysis(raw,request.rubric,request.images.length,request.pageNumbers);}
-        catch(first){
-          const reason=first instanceof Error?first.message:String(first);
-          diagnosticResult(request,'scientific-diagram-analysis',prompt,raw,startedAt,reason);
-          prompt=buildScientificDiagramPrompt(request,true)+'\n\nCORRECTION OBLIGATOIRE : la réponse précédente est invalide. Corrige précisément ce champ : '+reason+'. Réponse précédente (extrait) : '+raw.slice(0,3000)+'. Retourne le JSON complet, sans qualityBreakdown.';
-          const retry = await send(true, prompt);
-          if (retry.truncated) throw new Error('Réponse tronquée lors de la tentative de réparation.');
-          try{result=parseScientificDiagramAnalysis(raw,request.rubric,request.images.length,request.pageNumbers);}
-          catch(second){throw new Error((second instanceof Error?second.message:String(second))+' Extrait de la réponse brute : '+raw.slice(0,500));}
+
+      try {
+        let attempt = await send(false);
+        if (attempt.truncated) {
+          attempt = await send(true);
+          if (attempt.truncated) {
+            throw new Error('Réponse tronquée : la seconde tentative compacte a également atteint la limite de génération.');
+          }
         }
-        diagnosticResult(request,'scientific-diagram-analysis',prompt,raw,startedAt);
+
+        let result: ReturnType<typeof parseScientificDiagramAnalysis>;
+        try {
+          result = parseScientificDiagramAnalysis(raw, request.rubric, request.images.length, request.pageNumbers);
+        } catch (firstError) {
+          const reason = firstError instanceof Error ? firstError.message : String(firstError);
+          diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt, reason);
+          const repairPrompt = buildScientificDiagramRepairPrompt(request, reason, raw);
+          const repair = await send(true, repairPrompt);
+          if (repair.truncated) throw new Error('Réponse tronquée lors de la tentative de réparation.');
+
+          try {
+            result = parseScientificDiagramAnalysis(raw, request.rubric, request.images.length, request.pageNumbers);
+          } catch (secondError) {
+            const detail = secondError instanceof Error ? secondError.message : String(secondError);
+            throw new Error(detail + ' Extrait de la réponse brute : ' + raw.slice(0, 500));
+          }
+        }
+
+        diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt);
         return result;
-      }catch(cause){diagnosticResult(request,'scientific-diagram-analysis',prompt,raw,startedAt,cause instanceof Error?cause.message:String(cause));throw cause;}
+      } catch (cause) {
+        diagnosticResult(
+          request,
+          'scientific-diagram-analysis',
+          prompt,
+          raw,
+          startedAt,
+          cause instanceof Error ? cause.message : String(cause),
+        );
+        throw cause;
+      }
     }
   };
 }
