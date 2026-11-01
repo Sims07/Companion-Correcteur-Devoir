@@ -55,7 +55,7 @@ describe('Ollama adapter', () => {
     expect(onTranscription).toHaveBeenCalledWith(identity, 'identity');
     expect(onTranscription).toHaveBeenCalledWith('[ copie.png ]\nRéponse manuscrite lisible.', 'copy');
     expect(onDiagnosticResult).toHaveBeenCalledTimes(2);
-    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ purpose: 'student-identity', stage: 'reading', kind: 'vision' });
+    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ stage: 'reading', kind: 'vision', requestMetadata: { format: 'json', imageCount: 1 } });
   });
 
   it('continues transcription when the dedicated identity request fails or finds no identity', async () => {
@@ -64,7 +64,7 @@ describe('Ollama adapter', () => {
       .mockResolvedValueOnce(streamingResponse('Réponse manuscrite lisible.'));
     const onTranscription = vi.fn();
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
-    await expect(provider.generate({ ...request, visionOnly: true }, undefined, undefined, onTranscription)).resolves.toBe('[ copie.png ]\nRéponse manuscrite lisible.');
+    await expect(provider.generate({ ...request, identifyStudent: true, visionOnly: true }, undefined, undefined, onTranscription)).resolves.toBe('[ copie.png ]\nRéponse manuscrite lisible.');
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(onTranscription).not.toHaveBeenCalledWith(expect.any(String), 'identity');
   });
@@ -106,7 +106,7 @@ describe('Ollama adapter', () => {
     expect(identityRequest.messages[0].content[0].text).toContain('uniquement la bande supérieure');
     expect(identityRequest.messages[0].content[1].image_url.url).toContain('base64,aGVsbG8=');
     expect(onTranscription).toHaveBeenCalledWith(identity, 'identity');
-    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ purpose: 'student-identity' });
+    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ stage: 'reading', requestMetadata: { provider: 'openai-compatible', format: 'json', imageCount: 1 } });
   });
 
   it('checks that the selected model responds to a text-only readiness request', async () => {
