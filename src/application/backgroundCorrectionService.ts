@@ -12,6 +12,8 @@ export interface BackgroundCorrectionService {
   pauseAndWait(): Promise<void>;
   resume(): void;
   processPending(settings: OllamaSettings): Promise<void>;
+  subscribe(listener: (jobs: BackgroundCorrectionJob[]) => void): () => void;
+  markForReview(jobId: string): Promise<void>;
 }
 
 function mergeCriteria(previous: BackgroundCorrectionJob['partialCriteria'], next: BackgroundCorrectionJob['partialCriteria']) {
@@ -44,6 +46,12 @@ export function createBackgroundCorrectionService(
   let activeLoop: Promise<void> | null = null;
   let lastSettings: OllamaSettings | null = null;
   let prewarmUntil = 0;
+  const listeners = new Set<(jobs: BackgroundCorrectionJob[]) => void>();
+  async function persist(job: BackgroundCorrectionJob): Promise<void> {
+    await repository.saveJob(job);
+    const jobs = await repository.listJobs();
+    for (const listener of listeners) listener(jobs);
+  }
 
   async function run(settings: OllamaSettings): Promise<void> {
     lastSettings = settings;
@@ -66,7 +74,7 @@ export function createBackgroundCorrectionService(
           updatedAt: new Date().toISOString(),
           error: null,
         };
-        await repository.saveJob(current);
+        await persist(current);
         try {
           while (!paused) {
             const remaining = remainingRubric(current.rubric, current.partialCriteria);
@@ -124,12 +132,12 @@ export function createBackgroundCorrectionService(
             });
           }
           if (paused) {
-            await repository.saveJob({ ...current, status: 'pending', updatedAt: new Date().toISOString() });
+            await persist({ ...current, status: 'pending', updatedAt: new Date().toISOString() });
             break;
           }
           const proposal = createProposal(current.rubric, current.partialCriteria);
           const complete = current.partialCriteria.length === current.rubric.criteria.length;
-          await repository.saveJob({
+          await persist({
             ...current,
             status: complete ? 'ready' : 'needs-review',
             phase: 'complete',
@@ -138,7 +146,7 @@ export function createBackgroundCorrectionService(
             error: complete ? null : 'Certains critères restent à vérifier.',
           });
         } catch (cause) {
-          await repository.saveJob({
+          await persist({
             ...current,
             status: current.partialCriteria.length ? 'needs-review' : 'failed',
             updatedAt: new Date().toISOString(),
@@ -155,7 +163,7 @@ export function createBackgroundCorrectionService(
       autoEnabled = settings.autoBackgroundCorrection !== false;
       const fingerprint = await repository.fingerprintImages(job.images);
       const cached = await repository.getCachedTranscription(fingerprint);
-      await repository.saveJob({ ...job, imageFingerprint: fingerprint, transcription: cached, updatedAt: new Date().toISOString() });
+      await persist({ ...job, imageFingerprint: fingerprint, transcription: cached, updatedAt: new Date().toISOString() });
       await this.prewarm(settings);
       if (autoEnabled) void run(settings);
     },
@@ -175,5 +183,10 @@ export function createBackgroundCorrectionService(
       if (autoEnabled && lastSettings) void run(lastSettings);
     },
     processPending: run,
+    subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+    async markForReview(jobId) {
+      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      if (job) await persist({ ...job, status: 'needs-review', updatedAt: new Date().toISOString() });
+    },
   };
 }
