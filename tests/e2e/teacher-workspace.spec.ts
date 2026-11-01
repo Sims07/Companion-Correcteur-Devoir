@@ -84,3 +84,31 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await expect(page.getByLabel('Modèle de lecture des images')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Évaluer cette configuration' })).toBeDisabled();
 });
+
+
+test('teacher can choose clearly distinct individual and series correction workflows', async ({ page }) => {
+  await page.goto('/');
+  const modeChooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
+  await expect(modeChooser).toBeVisible();
+  await expect(modeChooser.getByRole('button', { name: /Correction individuelle/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(modeChooser.getByRole('button', { name: /Correction en série/ })).toHaveAttribute('aria-pressed', 'false');
+
+  await expect(page.locator('.copy-panel')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Session de correction en série' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Corriger' })).toBeVisible();
+
+  await modeChooser.getByRole('button', { name: /Correction en série/ }).click();
+  const series = page.getByRole('region', { name: 'Session de correction en série' });
+  await expect(series).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
+  await expect(page.locator('.copy-panel')).toHaveCount(0);
+  await expect(series.getByText('Aucune copie ajoutée pour le moment.')).toBeVisible();
+  await expect(series.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
+  await expect(series.getByText('Traitement séquentiel')).toBeVisible();
+  await expect(modeChooser.getByRole('button', { name: /Correction en série/ })).toHaveAttribute('aria-pressed', 'true');
+
+  await modeChooser.getByRole('button', { name: /Correction individuelle/ }).click();
+  await expect(page.locator('.copy-panel')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Session de correction en série' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Corriger' })).toBeVisible();
+});
