@@ -50,11 +50,17 @@ describe('scientific diagram analysis use case', () => {
 
   it('runs each page sequentially through the individual one-image analyzer and preserves original page numbers', async () => {
     const calls: string[] = [];
+    let activeCalls = 0;
+    let maxConcurrentCalls = 0;
     const analyzer: ScientificDiagramAnalyzer = {
       classifyPages: vi.fn(),
       analyze: vi.fn(async (pageRequest) => {
+        activeCalls += 1;
+        maxConcurrentCalls = Math.max(maxConcurrentCalls, activeCalls);
         expect(pageRequest.images).toHaveLength(1);
         calls.push(pageRequest.images[0].base64);
+        await Promise.resolve();
+        activeCalls -= 1;
         return pageResult(pageRequest.pageNumbers?.[0] ?? 0);
       }),
     };
@@ -63,6 +69,7 @@ describe('scientific diagram analysis use case', () => {
     const result = await service.analyze(request);
 
     expect(calls).toEqual(['page-1', 'page-2', 'page-3']);
+    expect(maxConcurrentCalls).toBe(1);
     expect(analyzer.analyze).toHaveBeenCalledTimes(3);
     expect(analyzer.analyze).toHaveBeenNthCalledWith(1, expect.objectContaining({ images: [request.images[0]], pageNumbers: [2] }));
     expect(analyzer.analyze).toHaveBeenNthCalledWith(2, expect.objectContaining({ images: [request.images[1]], pageNumbers: [4] }));
