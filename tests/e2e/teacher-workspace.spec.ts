@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { openActiveAssignment } from './helpers/teacher-workspace';
 
 test('teacher can edit the collapsed assignment and rubric as one Devoir step', async ({ page }) => {
   await page.goto('/');
+  await openActiveAssignment(page);
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
   await page.locator('.teacher-step-nav .teacher-step').first().click();
 
@@ -33,6 +35,7 @@ test('teacher can edit the collapsed assignment and rubric as one Devoir step', 
   await expect(page.getByLabel('Nom du devoir', { exact: true })).toHaveValue('Biologie cellulaire — partiel S1');
 
   await page.reload();
+  await openActiveAssignment(page);
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
   await page.locator('.sidebar-assignment-current').click();
   await expect(page.locator('.sidebar-assignment-item').filter({ hasText: 'Génétique moléculaire' })).toBeVisible();
@@ -40,6 +43,7 @@ test('teacher can edit the collapsed assignment and rubric as one Devoir step', 
 
 test('the teacher journey starts with Copies, keeps advanced options collapsed and isolates AI settings', async ({ page }) => {
   await page.goto('/');
+  await openActiveAssignment(page);
   await expect(page.getByRole('navigation', { name: 'Étapes du devoir' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
   await expect(page.getByText('IA locale à configurer')).toBeVisible();
@@ -88,6 +92,7 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
 
 test('teacher can choose clearly distinct individual and series correction workflows', async ({ page }) => {
   await page.goto('/');
+  await openActiveAssignment(page);
   const modeChooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
   await expect(modeChooser).toBeVisible();
   await expect(modeChooser.getByRole('button', { name: /Correction individuelle/ })).toHaveAttribute('aria-pressed', 'true');
@@ -121,6 +126,7 @@ test('teacher can choose clearly distinct individual and series correction workf
 
 test('series mode groups several selected pages into one copy or keeps one file per copy', async ({ page }) => {
   await page.goto('/');
+  await openActiveAssignment(page);
   const modeChooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
   await modeChooser.getByRole('button', { name: /Correction en série/ }).click();
   const series = page.getByRole('region', { name: 'Session de correction en série' });
@@ -139,6 +145,7 @@ test('series mode groups several selected pages into one copy or keeps one file 
 
 test('series session previews added pages, resets the picker and allows removing a queued copy', async ({ page }) => {
   await page.goto('/');
+  await openActiveAssignment(page);
   const chooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
   await chooser.getByRole('button', { name: /Correction en série/ }).click();
   const series = page.getByRole('region', { name: 'Session de correction en série' });
