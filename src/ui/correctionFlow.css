@@ -2315,6 +2315,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.correction-series-pages .batch-copy-page-full-preview summary { color: var(--flow-accent); cursor: pointer; font-size: 0.68rem; }
+.correction-series-pages .batch-copy-page-full-preview img { width: min(70vw, 520px); height: auto; max-height: 70vh; object-fit: contain; }
 .correction-series-feedback {
   margin: 0;
   color: var(--flow-muted);
