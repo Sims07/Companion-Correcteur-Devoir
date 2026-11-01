@@ -30,7 +30,7 @@ describe('correction en série — espace de révision', () => {
 
   it('exposes per-page rotation controls in the batch queue and pauses safely during processing', () => {
     expect(app).toContain('batch-copy-page-previews');
-    expect(app).toContain('job.images.map((page, pageIndex)');
+    expect(app).toContain('job.images.map((image, pageIndex)');
     expect(app).toContain('Tourner la page ${pageIndex + 1} de ${job.label} à gauche de 90 degrés');
     expect(app).toContain('Tourner la page ${pageIndex + 1} de ${job.label} à droite de 90 degrés');
     expect(app).toContain('await backgroundService.pauseAndWait()');
@@ -52,8 +52,8 @@ describe('correction en série — espace de révision', () => {
     expect(app).toContain('Consulter la correction');
     expect(app).not.toContain('Voir les pages et la correction');
     expect(app).not.toContain('Masquer les pages et la correction');
-    expect(app).toContain('correction-series-provisional-score');
-    expect(app).toContain('Note provisoire ·');
+    expect(app).toContain('Note provisoire');
+    expect(app).toContain('provisionalScore.toLocaleString');
     expect(styles).toContain('grid-template-columns: repeat(auto-fit, minmax(min(100%, 255px), 1fr))');
     expect(styles).toContain('.correction-series-list > li.is-processing');
     expect(styles).toContain('.correction-series-list > li.is-pending');
@@ -83,7 +83,7 @@ describe('correction en série — espace de révision', () => {
 
   it('keeps batch actions in their own responsive row and separates failures from teacher review', () => {
     expect(app).toContain('className="correction-series-actions"');
-    expect(app).toContain("job.status === 'failed' ? 'Réessayer' : 'Reprendre'");
+    expect(app).toContain("job.status === 'failed' ? 'Relancer' : 'Reprendre'");
     expect(app).toContain('L’analyse n’a pas abouti.');
     expect(app).toContain('relancer la correction');
     expect(app).not.toContain('réessayer le traitement');
