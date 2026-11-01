@@ -212,8 +212,9 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       return classifications;
     },
     async analyze(request) {
+      let requestPayload = '';
       const compatibleFetch = createOpenAiCompatibleFetch(
-        { endpoint: request.endpoint, apiKey: request.apiKey },
+        { endpoint: request.endpoint, apiKey: request.apiKey, onRequest: (payload) => { requestPayload = payload; } },
         fetchImpl,
       );
       const startedAt = Date.now();
