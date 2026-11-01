@@ -123,6 +123,8 @@ export interface OllamaSettings {
   diagnosticSecondResult?: string;
   secondAnalysisModel?: string;
   arbitratorModel?: string;
+  /** Automatically process queued copies after import; enabled by default. */
+  autoBackgroundCorrection?: boolean;
 }
 
 export interface OllamaModel {
