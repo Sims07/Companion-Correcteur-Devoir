@@ -2434,3 +2434,77 @@
 .student-identity-edit { display: grid; gap: 0.35rem; color: var(--flow-muted); font-size: 0.8rem; font-weight: 650; }
 .student-identity-edit input { width: 100%; min-width: 0; padding: 0.65rem 0.75rem; border: 1px solid var(--flow-border-strong); border-radius: 8px; background: var(--flow-surface); color: var(--flow-text); font: inherit; }
 @media (max-width: 680px) { .student-identity-review { grid-template-columns: 1fr; } }
+
+
+/* The assignment library is the entry point; the active workspace is not a switcher. */
+.teacher-sidebar {
+  gap: 0;
+  padding: 20px 18px 18px 22px;
+}
+.sidebar-back-to-assignments {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 9px;
+  margin: 0 0 18px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--flow-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.sidebar-back-to-assignments:hover:not(:disabled) {
+  background: #edf2ec;
+  color: var(--flow-text);
+}
+.sidebar-back-to-assignments > span {
+  font-size: 17px;
+  line-height: 1;
+}
+.sidebar-back-to-assignments:focus-visible {
+  outline: 3px solid #477b55;
+  outline-offset: 2px;
+}
+.sidebar-back-to-assignments:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.sidebar-assignment-list {
+  margin: 0 0 22px;
+  padding: 0 0 20px;
+}
+.sidebar-assignment-current {
+  display: block;
+  width: 100%;
+  padding: 14px 13px;
+  border: 1px solid var(--flow-border);
+  border-radius: 12px;
+  background: #fff;
+  cursor: default;
+}
+.sidebar-assignment-current-copy {
+  display: grid;
+  gap: 7px;
+}
+.sidebar-assignment-current-copy strong {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.teacher-step-nav {
+  gap: 11px;
+}
+.teacher-step-nav > .eyebrow {
+  margin-bottom: 4px;
+}
+.sidebar-archive-button {
+  margin-top: 16px;
+}
+@media (max-width: 850px) {
+  .teacher-sidebar { padding: 16px; }
+  .sidebar-back-to-assignments { margin-bottom: 12px; }
+}
