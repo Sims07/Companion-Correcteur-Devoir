@@ -23,6 +23,17 @@ describe('teacher annotation color removal', () => {
     expect([...result]).toEqual([0, 0, 0, 255, 0, 0, 255, 255, 250, 248, 240, 255]);
   });
 
+  it('removes a custom sampled color instead of requiring a predefined palette value', () => {
+    const pixels = new Uint8ClampedArray([0, 166, 166, 255, 255, 0, 0, 255, 0, 0, 0, 255]);
+    const result = eraseTeacherInkPixels(pixels, [248, 246, 238], '#00a6a6');
+    expect([...result]).toEqual([248, 246, 238, 255, 255, 0, 0, 255, 0, 0, 0, 255]);
+  });
+
+  it('supports sampling and removing a neutral gray annotation color', () => {
+    const result = eraseTeacherInkPixels(rgba(110, 110, 110), [245, 242, 235], '#6e6e6e');
+    expect([...result]).toEqual([245, 242, 235, 255]);
+  });
+
   it('does not mutate the source pixel buffer', () => {
     const source = rgba(255, 0, 0);
     const before = [...source];
