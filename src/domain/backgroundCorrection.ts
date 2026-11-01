@@ -1,4 +1,4 @@
-import type { ImageInput } from '../ports/aiProvider.ts';
+import type { ImageInput } from './imageInput.ts';
 import type { GradingProposal, CriterionProposal } from './grading.ts';
 import type { Rubric } from './rubric.ts';
 import type { TeacherAnnotationInkColor } from './teacherAnnotationColor.ts';
