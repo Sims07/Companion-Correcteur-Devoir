@@ -154,6 +154,7 @@ export function createBackgroundCorrectionService(
           await persist({
             ...current,
             status: current.partialCriteria.length ? 'needs-review' : 'failed',
+            ...(current.partialCriteria.length ? { proposal: createProposal(current.rubric, current.partialCriteria) } : {}),
             updatedAt: new Date().toISOString(),
             error: cause instanceof Error ? cause.message : 'La correction en arrière-plan a échoué.',
           });
