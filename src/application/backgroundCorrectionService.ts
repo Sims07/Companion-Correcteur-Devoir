@@ -3,7 +3,7 @@ import type { BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts'
 import type { Rubric } from '../domain/rubric.ts';
 import type { BackgroundCorrectionRepository } from '../ports/backgroundCorrectionRepository.ts';
 import type { GradingProgressEvent, OllamaSettings } from '../ports/aiProvider.ts';
-import type { CorrectionWorkspaceService } from './correctionWorkspaceService.ts';
+import type { OllamaGateway } from '../ports/correctionWorkspace.ts';
 
 export interface BackgroundCorrectionService {
   enqueue(job: BackgroundCorrectionJob, settings: OllamaSettings): Promise<void>;
@@ -39,13 +39,14 @@ function createProposal(rubric: Rubric, criteria: BackgroundCorrectionJob['parti
 
 export function createBackgroundCorrectionService(
   repository: BackgroundCorrectionRepository,
-  workspace: CorrectionWorkspaceService,
+  workspace: OllamaGateway,
 ): BackgroundCorrectionService {
   let paused = false;
   let autoEnabled = true;
   let activeLoop: Promise<void> | null = null;
   let lastSettings: OllamaSettings | null = null;
   let prewarmUntil = 0;
+  let prewarmKey = '';
   const listeners = new Set<(jobs: BackgroundCorrectionJob[]) => void>();
   async function persist(job: BackgroundCorrectionJob): Promise<void> {
     await repository.saveJob(job);
@@ -102,11 +103,14 @@ export function createBackgroundCorrectionService(
                 totalPageCount: current.images.length,
                 ...(current.correctionMode === 'separate' ? { subjectImages: current.subjectImages, ...(current.subjectTranscription ? { subjectTranscription: current.subjectTranscription } : {}) } : {}),
                 detectTeacherAnnotations: current.detectTeacherAnnotations,
+                ...(current.detectTeacherAnnotations ? { teacherAnnotationImages: current.originalImages, teacherAnnotationPageNumbers: current.originalImages.map((_, index) => index + 1) } : {}),
               },
               undefined,
               undefined,
               async (text, kind) => {
-                if (kind !== 'subject' && kind !== 'annotations' && kind !== 'warning') {
+                if (kind === 'subject') {
+                  await saveProgress({ subjectTranscription: text });
+                } else if (kind !== 'annotations' && kind !== 'warning') {
                   await repository.saveCachedTranscription(fingerprint, text);
                   await saveProgress({ transcription: text, phase: 'grading', completedPages: current.images.length });
                 }
@@ -169,10 +173,12 @@ export function createBackgroundCorrectionService(
     },
     listJobs: (assignmentId) => repository.listJobs(assignmentId),
     async prewarm(settings) {
-      if (Date.now() < prewarmUntil) return;
+      const key = [settings.endpoint, settings.apiCompatible ? 'api' : 'ollama', settings.visionModel, settings.analysisModel].join('|');
+      if (key === prewarmKey && Date.now() < prewarmUntil) return;
       await workspace.checkReady({ ...settings, model: settings.visionModel });
       if (settings.analysisModel?.trim()) await workspace.checkReady({ ...settings, model: settings.analysisModel });
-      if (!settings.apiCompatible && settings.visionModel?.trim()) await workspace.prewarmModel(settings, settings.visionModel);
+      if (!settings.apiCompatible && settings.visionModel?.trim()) await workspace.prewarmModel?.(settings, settings.visionModel);
+      prewarmKey = key;
       prewarmUntil = Date.now() + 60_000;
     },
     async pauseAndWait() {
