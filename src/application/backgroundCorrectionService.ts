@@ -15,6 +15,7 @@ export interface BackgroundCorrectionService {
   subscribe(listener: (jobs: BackgroundCorrectionJob[]) => void): () => void;
   markForReview(jobId: string): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
+  retry(jobId: string, settings: OllamaSettings): Promise<void>;
   setAutomatic(enabled: boolean, settings: OllamaSettings): Promise<void>;
 }
 
@@ -217,6 +218,14 @@ export function createBackgroundCorrectionService(
     async markCompleted(jobId) {
       const job = (await repository.listJobs()).find((item) => item.id === jobId);
       if (job) await persist({ ...job, status: 'completed', updatedAt: new Date().toISOString() });
+    },
+    async retry(jobId, settings) {
+      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      if (!job || !['failed', 'needs-review', 'reviewing'].includes(job.status)) return;
+      await persist({ ...job, status: 'pending', error: null, updatedAt: new Date().toISOString() });
+      autoEnabled = true;
+      paused = false;
+      await run(settings);
     },
     async setAutomatic(enabled, settings) {
       autoEnabled = enabled;
