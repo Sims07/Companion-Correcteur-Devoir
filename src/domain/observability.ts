@@ -6,7 +6,7 @@ export type ObservabilitySpan = {
   model: string;
   kind?: string;
   stage?: string;
-  purpose?: 'scientific-diagram-classification' | 'scientific-diagram-analysis';
+  purpose?: 'scientific-diagram-classification' | 'scientific-diagram-analysis' | 'student-identity';
   elapsedMs: number;
   promptTokens?: number;
   generatedTokens?: number;
