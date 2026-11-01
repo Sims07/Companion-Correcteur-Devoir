@@ -154,6 +154,40 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ raw: JSON.stringify(invalid), error: expect.stringContaining('points hors barème') }));
   });
 
+  it('retries an empty multi-page diagram response sequentially per page at high detail and requires teacher review', async () => {
+    const empty = { diagrams: [], criteria: [], overallUncertainties: [] };
+    const pageOutput = (pageNumber: number, evidence: string) => ({
+      diagrams: [{ id: 'local-diagram', pageNumber: 1, diagramType: 'Cellule', summary: evidence, uncertainties: [] }],
+      criteria: [{ criterionId: 'labels', points: 1.5, evidence, confidence: 0.9, requiresTeacherReview: false, diagramIds: ['diagram-1'] }],
+      overallUncertainties: [],
+    });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: JSON.stringify(empty) } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: JSON.stringify(empty) } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: JSON.stringify(pageOutput(1, 'Noyau visible')) } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: JSON.stringify(pageOutput(1, 'Membrane visible')) } }), { status: 200 }));
+
+    const result = await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({
+      ...request,
+      images: [...request.images, { base64: 'cG5nMg==', mimeType: 'image/png' }],
+      pageNumbers: [2, 4],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(result.diagrams.map((diagram) => diagram.pageNumber)).toEqual([2, 4]);
+    expect(result.criteria?.[0]).toMatchObject({
+      points: 1.5,
+      requiresTeacherReview: true,
+      confidence: 0.9,
+      diagramIds: ['diagram-1', 'diagram-2'],
+    });
+    expect(result.warnings?.[0]).toContain('reprise page par page');
+    for (const [, init] of fetchMock.mock.calls.slice(2)) {
+      const body = JSON.parse(String(init?.body));
+      expect(body.messages[0].content[0].image_url.detail).toBe('high');
+    }
+  });
+
   it('uses the supplied subject transcription and sends the rubric only once', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
     await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({ ...request, subjectTranscription: 'La cellule possède une membrane et un noyau.' });

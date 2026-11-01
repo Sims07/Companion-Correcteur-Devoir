@@ -289,6 +289,63 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
             result = parseScientificDiagramAnalysis(raw, request.rubric, request.images.length, request.pageNumbers);
           } catch (secondError) {
             const detail = secondError instanceof Error ? secondError.message : String(secondError);
+            // Some local vision models return an empty but valid JSON object when several
+            // page images are sent together. Retry that specific failure one page at a time.
+            if (request.images.length > 1 && detail.includes('Aucun schéma exploitable')) {
+              const pageResults = [];
+              const pageAnalyzer = createOpenAiScientificDiagramAnalyzer(fetchImpl);
+              for (let index = 0; index < request.images.length; index += 1) {
+                pageResults.push(await pageAnalyzer.analyze({
+                  ...request,
+                  images: [request.images[index]],
+                  pageNumbers: [request.pageNumbers?.[index] ?? index + 1],
+                }));
+              }
+
+              const diagrams = [];
+              const assessmentsByCriterion = new Map();
+              for (const pageResult of pageResults) {
+                const idMap = new Map();
+                for (const diagram of pageResult.diagrams) {
+                  const id = 'diagram-' + (diagrams.length + 1);
+                  idMap.set(diagram.id, id);
+                  diagrams.push({ ...diagram, id, criteria: [] });
+                }
+                for (const assessment of pageResult.criteria ?? []) {
+                  const mapped = {
+                    ...assessment,
+                    diagramIds: (assessment.diagramIds ?? []).map((id) => idMap.get(id)).filter((id) => id !== undefined),
+                  };
+                  const existing = assessmentsByCriterion.get(assessment.criterionId) ?? [];
+                  existing.push(mapped);
+                  assessmentsByCriterion.set(assessment.criterionId, existing);
+                }
+              }
+
+              const criteria = [...assessmentsByCriterion.entries()].map(([criterionId, assessments]) => {
+                // A per-page score cannot safely be treated as a final global score.
+                // Keep the strongest observed evidence, cap it at the rubric maximum,
+                // and force teacher review rather than silently summing page scores.
+                const strongest = assessments.reduce((best, item) => item.points > best.points ? item : best);
+                return {
+                  ...strongest,
+                  criterionId,
+                  confidence: Math.min(...assessments.map((item) => item.confidence)),
+                  requiresTeacherReview: true,
+                  evidence: assessments.map((item) => item.evidence).join(' · '),
+                  diagramIds: [...new Set(assessments.flatMap((item) => item.diagramIds ?? []))],
+                };
+              });
+              for (const diagram of diagrams) {
+                diagram.criteria = criteria.filter((criterion) => criterion.diagramIds?.includes(diagram.id));
+              }
+              return {
+                diagrams,
+                criteria,
+                overallUncertainties: pageResults.flatMap((item) => item.overallUncertainties),
+                warnings: ['Analyse multi-pages reprise page par page après une réponse Vision vide ; les notes visuelles doivent être vérifiées par le professeur.'],
+              };
+            }
             throw new Error(detail + ' Extrait de la réponse brute : ' + raw.slice(0, 500));
           }
         }
