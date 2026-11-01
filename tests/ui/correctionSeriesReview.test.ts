@@ -30,9 +30,7 @@ describe('correction en série — espace de révision', () => {
 
   it('exposes per-page rotation controls in the batch queue and pauses safely during processing', () => {
     expect(app).toContain('batch-copy-page-previews');
-    expect(app).toContain('correction-series-pages');
     expect(app).toContain('job.images.map((page, pageIndex)');
-    expect(app).toContain('rotationAngles?.[pageIndex]');
     expect(app).toContain('Tourner la page ${pageIndex + 1} de ${job.label} à gauche de 90 degrés');
     expect(app).toContain('Tourner la page ${pageIndex + 1} de ${job.label} à droite de 90 degrés');
     expect(app).toContain('await backgroundService.pauseAndWait()');
@@ -50,16 +48,17 @@ describe('correction en série — espace de révision', () => {
 
   
   it('presents the sequential batch as compact status cards with live provisional scores', () => {
-    expect(app).toContain("isExpanded && !isActive ? 'is-expanded' : ''");
-    expect(app).toContain('Voir les pages et la correction');
-    expect(app).toContain('Masquer les pages et la correction');
+    expect(app).toContain('correction-series-card-score');
+    expect(app).toContain('Consulter la correction');
+    expect(app).not.toContain('Voir les pages et la correction');
+    expect(app).not.toContain('Masquer les pages et la correction');
     expect(app).toContain('correction-series-provisional-score');
     expect(app).toContain('Note provisoire ·');
-    expect(styles).toContain('grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr))');
+    expect(styles).toContain('grid-template-columns: repeat(auto-fit, minmax(min(100%, 255px), 1fr))');
     expect(styles).toContain('.correction-series-list > li.is-processing');
     expect(styles).toContain('.correction-series-list > li.is-pending');
-    expect(styles).toContain('.correction-series-pages figure');
-    expect(styles).toContain('flex: 0 0 54px');
+    expect(styles).toContain('.correction-series-card-heading');
+    expect(styles).toContain('.correction-series-card-footer');
     expect(styles).toContain('.correction-series-card-score');
     expect(styles).toContain('grid-auto-rows: 1fr');
     expect(styles).toContain('min-height: 218px');
@@ -79,7 +78,7 @@ describe('correction en série — espace de révision', () => {
     expect(app).toContain('Note proposée');
     expect(styles).toContain('.correction-series-overview-metrics');
     expect(styles).toContain('.correction-series-list > li.is-active');
-    expect(styles).toContain('grid-column: 1 / -1');
+    expect(styles).toContain('grid-auto-rows: 1fr');
   });
 
   it('keeps batch actions in their own responsive row and separates failures from teacher review', () => {
@@ -91,9 +90,8 @@ describe('correction en série — espace de révision', () => {
     expect(app).toContain("const reviewCount = backgroundJobs.filter((job) => job.status === 'needs-review').length");
     expect(app).toContain("const failedCount = backgroundJobs.filter((job) => job.status === 'failed').length");
     expect(styles).toContain('.correction-series-actions');
-    expect(styles).toContain('grid-column: 1 / -1');
     expect(styles).toContain('flex: 1 1 100%');
-    expect(styles).toContain('margin-left: 2.35rem');
+    expect(styles).not.toContain('margin-left: 2.35rem');
     expect(styles).toContain('.correction-series-overview-metrics article.has-failure');
   });
 
