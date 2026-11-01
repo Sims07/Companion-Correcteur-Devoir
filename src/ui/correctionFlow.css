@@ -2338,3 +2338,29 @@
 .correction-series-question { color: var(--flow-accent); font-weight: 650; }
 .correction-series-partial-score { display: block; margin-top: 0.8rem; }
 @media (max-width: 680px) { .correction-series-live-details { margin-left: 0; } .correction-series-live-heading { align-items: flex-start; flex-direction: column; } }
+
+
+/* Final result is immediately scannable in the series copy list. */
+.correction-series-result {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.15rem;
+}
+.correction-series-result-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  width: fit-content;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  background: var(--flow-success-soft);
+  color: var(--flow-success);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+.correction-series-result > strong {
+  color: var(--flow-text);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
