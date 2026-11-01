@@ -12,6 +12,16 @@ describe('correction en série — espace de révision', () => {
     expect(app).toContain('getBackgroundCorrectionReviewNavigation(backgroundJobs, activeAssignmentId, currentBackgroundJobId).totalCopies');
   });
 
+  it('shows Vision-extracted identity in the copy list and keeps a clear fallback', () => {
+    expect(app).toContain('IDENTITÉ LUE PAR VISION');
+    expect(app).toContain('Étudiant non identifié');
+    expect(app).toContain('job.studentIdentity ? (formatStudentIdentityLabel(job.studentIdentity) ?? job.label) : job.label');
+    expect(app).toContain('studentIdentity.confidence === \'medium\'');
+    expect(app).toContain('setStudentLabel(next.studentIdentity ? (formatStudentIdentityLabel(next.studentIdentity) ?? next.label) : next.label)');
+    expect(app).toContain('Nom et prénom à afficher');
+    expect(app).not.toContain('Nom ou identifiant de l’étudiant <span>(facultatif)</span>');
+  });
+
   it('highlights the active copy in the session list', () => {
     expect(app).toContain('className={job.id === currentBackgroundJobId ? \'is-current-review\' : undefined}');
     expect(app).toContain('En cours de révision · ');

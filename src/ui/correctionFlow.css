@@ -2411,3 +2411,26 @@
   .batch-review-current { align-items: stretch; flex-direction: column; }
   .batch-review-next { min-width: 0; }
 }
+
+
+/* Student identity is presented where the teacher reviews the extracted copy,
+   not as a disconnected field before the image has been read. */
+.student-identity-import-hint { margin: 0 0 0.85rem; }
+.student-identity-review {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.8fr);
+  align-items: center;
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--flow-border);
+  border-left: 4px solid var(--flow-accent);
+  border-radius: 12px;
+  background: var(--flow-subtle);
+}
+.student-identity-review-summary { display: grid; gap: 0.25rem; min-width: 0; }
+.student-identity-review-summary > strong { color: var(--flow-text); font-size: 1.05rem; }
+.student-identity-review-summary > p { margin: 0; color: var(--flow-muted); font-size: 0.84rem; line-height: 1.45; }
+.student-identity-edit { display: grid; gap: 0.35rem; color: var(--flow-muted); font-size: 0.8rem; font-weight: 650; }
+.student-identity-edit input { width: 100%; min-width: 0; padding: 0.65rem 0.75rem; border: 1px solid var(--flow-border-strong); border-radius: 8px; background: var(--flow-surface); color: var(--flow-text); font: inherit; }
+@media (max-width: 680px) { .student-identity-review { grid-template-columns: 1fr; } }
