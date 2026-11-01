@@ -20,6 +20,8 @@ export interface GradingRequest {
   subjectTranscription?: string;
   /** Reuse a previously extracted local transcription to rerun grading without vision inference. */
   transcription?: string;
+  /** Identify the student once from the first-page header before transcribing the copy. */
+  identifyStudent?: boolean;
   /** Stop after local image transcription for an independent Vision benchmark. */
   visionOnly?: boolean;
   detectTeacherAnnotations?: boolean;
@@ -32,7 +34,7 @@ export interface DiagnosticModelResult {
   kind: 'vision' | 'model' | 'arbitrator';
   stage?: 'reading' | 'analysis' | 'arbitration';
   /** Identifies specialist Vision calls in observability without changing the normal stage metrics. */
-  purpose?: 'scientific-diagram-classification' | 'scientific-diagram-analysis';
+  purpose?: 'scientific-diagram-classification' | 'scientific-diagram-analysis' | 'student-identity';
   model: string;
   /** Legacy standalone prompt preview. New traces keep the full sanitized request in requestPayload. */
   requestPrompt?: string;

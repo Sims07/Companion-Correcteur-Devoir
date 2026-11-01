@@ -1032,7 +1032,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           }))
           : undefined;
         const raw = await provider.generate(
-          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, ...(teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
+          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, identifyStudent: !gradingTranscription, ...(teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
           (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
           (stage) => {
             const now = Date.now();
