@@ -25,7 +25,7 @@ function pageResult(pageNumber: number) {
     criteria: [{
       criterionId: 'labels',
       title: 'Légendes',
-      points: pageNumber,
+      points: pageNumber === 2 ? 1 : pageNumber === 4 ? 1.5 : 2,
       maxPoints: 2,
       evidence: 'Preuve page ' + pageNumber,
       confidence: 0.9,
@@ -76,8 +76,8 @@ describe('scientific diagram analysis use case', () => {
       points: diagram.criteria[0].points,
       diagramIds: diagram.criteria[0].diagramIds,
     }))).toEqual([
-      { pageNumber: 2, points: 2, diagramIds: ['diagram-1', 'diagram-2'] },
-      { pageNumber: 4, points: 2, diagramIds: ['diagram-3', 'diagram-4'] },
+      { pageNumber: 2, points: 1, diagramIds: ['diagram-1', 'diagram-2'] },
+      { pageNumber: 4, points: 1.5, diagramIds: ['diagram-3', 'diagram-4'] },
       { pageNumber: 5, points: 2, diagramIds: ['diagram-5', 'diagram-6'] },
     ]);
   });
