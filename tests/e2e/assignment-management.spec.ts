@@ -22,7 +22,7 @@ test('assignment management stays collapsed until requested and supports create,
   await page.getByLabel('Nom du devoir', { exact: true }).fill('Contrôle de biologie');
   await page.getByLabel('Description et objectifs pédagogiques').fill('Vérifier la compréhension des notions du chapitre.');
   await page.getByLabel('Niveau scolaire / universitaire').selectOption('Université — Licence 1');
-  await expect(page.getByRole('heading', { name: 'Préparer le barème de correction' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Devoir et barème' })).toBeVisible();
   await expect(page.getByLabel('Nom du barème (distinct du devoir)')).toHaveValue('Barème à définir');
   await expect(page.getByRole('status').filter({ hasText: 'Le barème n’est pas encore défini' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Continuer vers les copies' })).toBeDisabled();
