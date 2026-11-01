@@ -100,8 +100,8 @@ test('teacher can choose clearly distinct individual and series correction workf
   await expect(page.getByRole('heading', { name: 'Copies du devoir' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Corriger' })).toBeVisible();
 
-  await modeChooser.getByRole('button', { name: /Correction en série/ }).click();
-  const series = page.getByRole('region', { name: 'Session de correction en série' });
+  await modeChooser.getByRole('button', { name: /Corriger plusieurs copies/ }).click();
+  const series = page.getByRole('region', { name: 'Copies du devoir' });
   await expect(series).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
   await expect(page.locator('.copy-panel')).toHaveCount(0);
@@ -113,11 +113,11 @@ test('teacher can choose clearly distinct individual and series correction workf
   await expect(automaticRotation).not.toBeChecked();
   await automaticRotation.check();
   await expect(automaticRotation).toBeChecked();
-  await expect(modeChooser.getByRole('button', { name: /Correction en série/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(modeChooser.getByRole('button', { name: /Corriger plusieurs copies/ })).toHaveAttribute('aria-pressed', 'true');
 
   await modeChooser.getByRole('button', { name: /Correction individuelle/ }).click();
   await expect(page.locator('.copy-panel')).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Session de correction en série' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Copies du devoir' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Corriger' })).toBeVisible();
 });
 
@@ -126,8 +126,8 @@ test('series mode groups several selected pages into one copy or keeps one file 
   await page.goto('/');
   await openActiveAssignment(page);
   const modeChooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
-  await modeChooser.getByRole('button', { name: /Correction en série/ }).click();
-  const series = page.getByRole('region', { name: 'Session de correction en série' });
+  await modeChooser.getByRole('button', { name: /Corriger plusieurs copies/ }).click();
+  const series = page.getByRole('region', { name: 'Copies du devoir' });
 
   await expect(series.getByRole('radio', { name: /Un fichier = une copie/ })).toBeChecked();
   await expect(series.getByRole('radio', { name: /Regrouper les fichiers dans une copie/ })).toBeVisible();
@@ -145,8 +145,8 @@ test('series session previews added pages, resets the picker and allows removing
   await page.goto('/');
   await openActiveAssignment(page);
   const chooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
-  await chooser.getByRole('button', { name: /Correction en série/ }).click();
-  const series = page.getByRole('region', { name: 'Session de correction en série' });
+  await chooser.getByRole('button', { name: /Corriger plusieurs copies/ }).click();
+  const series = page.getByRole('region', { name: 'Copies du devoir' });
   await series.getByRole('radio', { name: /Regrouper les fichiers dans une copie/ }).check();
   await series.getByLabel('Démarrer automatiquement la correction').uncheck();
 
@@ -157,7 +157,7 @@ test('series session previews added pages, resets the picker and allows removing
     { name: 'page-2.png', mimeType: 'image/png', buffer: onePixelPng },
   ]);
 
-  await expect(series.getByRole('heading', { name: 'Copies ajoutées à la session' })).toBeVisible();
+  await expect(series.getByRole('heading', { name: 'Copies à corriger' })).toBeVisible();
   await expect(series.getByText('Copie 1')).toBeVisible();
   await expect(series.getByText('2 page(s) · En attente')).toBeVisible();
   await expect(series.locator('.correction-series-actions')).toBeVisible();
