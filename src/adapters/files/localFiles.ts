@@ -7,6 +7,9 @@ GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const MAX_PDF_PAGES = 10;
+// Render vector PDFs at roughly print quality while bounding per-page memory use.
+const MAX_PDF_RENDER_DIMENSION = 2200;
+const MAX_PDF_RENDER_SCALE = 3;
 
 /** Encode bytes without changing the original image data or its dimensions. */
 function bytesToBase64(bytes: Uint8Array): string {
@@ -61,7 +64,7 @@ async function renderPdf(file: File): Promise<ImageInput[]> {
     for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber += 1) {
       const page = await pdfDocument.getPage(pageNumber);
       const initialViewport = page.getViewport({ scale: 1 });
-      const scale = Math.min(1.6, 1300 / Math.max(initialViewport.width, initialViewport.height));
+      const scale = Math.min(MAX_PDF_RENDER_SCALE, MAX_PDF_RENDER_DIMENSION / Math.max(initialViewport.width, initialViewport.height));
       const viewport = page.getViewport({ scale });
       const canvas = globalThis.document.createElement('canvas');
       canvas.width = Math.ceil(viewport.width);
