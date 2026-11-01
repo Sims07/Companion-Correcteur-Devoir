@@ -10,6 +10,10 @@ export interface GradingRequest {
   question: string;
   rubric: string;
   images?: ImageInput[];
+  /** Original copy page numbers represented by images after routing. */
+  pageNumbers?: number[];
+  /** Total number of pages in the original copy, including pages routed elsewhere. */
+  totalPageCount?: number;
   /** Untouched/original pages used only to identify teacher marks; never used for student grading. */
   teacherAnnotationImages?: ImageInput[];
   /** Original page numbers corresponding to teacherAnnotationImages after diagram/text routing. */
@@ -76,9 +80,15 @@ export interface CriterionAnalysisUpdate {
   error?: string;
 }
 
+export type GradingProgressEvent =
+  | { type: 'phase'; phase: 'preparation' | 'reading' | 'grading' }
+  | { type: 'page'; pageIndex: number; pageTotal: number; status: 'started' | 'completed' | 'doubtful' }
+  | { type: 'criterion'; criterionIndex: number; criterionTotal: number; status: CriterionAnalysisUpdate['status'] }
+  | { type: 'model-load'; role: 'reading' | 'analysis'; durationMs: number };
+
 export interface GradingProvider {
   readonly id: string;
-  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>): Promise<string>;
+  generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>, onProgress?: (event: GradingProgressEvent) => void): Promise<string>;
 }
 
 export interface OllamaSettings {

@@ -1981,3 +1981,30 @@
 .annotation-review-actions { align-items: center; justify-content: space-between; gap: 16px; }
 .annotation-review-actions > span { color: var(--flow-muted); font-size: 12px; }
 @media (max-width: 600px) { .annotation-review-panel { height: 100%; } .annotation-review-actions { align-items: stretch; flex-direction: column; } .annotation-review-actions .primary-button { width: 100%; } }
+
+
+/* Teacher-facing progress: concise phases and real page/criterion counters. */
+.teacher-progress-card { align-items: flex-start; }
+.teacher-progress-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.teacher-progress-heading h2 { margin:0; }
+.teacher-progress-phases { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:18px 0 8px; }
+.teacher-progress-phase { display:flex; align-items:center; gap:10px; min-width:0; padding:12px; border:1px solid var(--flow-border); border-radius:12px; background:var(--flow-panel); }
+.teacher-progress-phase > span { display:grid; place-items:center; flex:0 0 28px; width:28px; height:28px; border-radius:50%; background:var(--flow-surface); font-weight:700; }
+.teacher-progress-phase.current { border-color:var(--flow-accent); background:var(--flow-accent-soft); }
+.teacher-progress-phase.complete > span { background:var(--flow-success-soft); color:var(--flow-success); }
+.teacher-progress-phase > div { display:grid; gap:3px; min-width:0; }
+.teacher-progress-phase strong { font-size:13px; }
+.teacher-progress-phase small { color:var(--flow-muted); font-size:12px; line-height:1.35; }
+.teacher-progress-hint,.teacher-progress-warning { margin:12px 0 0; color:var(--flow-muted); font-size:13px; }
+.teacher-progress-warning { color:var(--flow-warning); }
+.teacher-transcription-details > summary { display:flex; align-items:center; gap:10px; cursor:pointer; list-style:none; padding:12px; }
+.teacher-transcription-details > summary::-webkit-details-marker { display:none; }
+.teacher-transcription-details > summary small { margin-left:auto; color:var(--flow-muted); }
+.teacher-transcription-details[open] .live-transcription-text { max-height:260px; overflow:auto; }
+@media(max-width:650px) { .teacher-progress-phases { grid-template-columns:1fr; } .teacher-progress-heading { align-items:flex-start; flex-direction:column; } }
+
+.teacher-progress-page-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.teacher-progress-page-list > span { padding:5px 9px; border-radius:999px; background:var(--flow-panel); color:var(--flow-muted); font-size:12px; }
+.teacher-progress-page-list > .is-complete { color:var(--flow-success); }
+.teacher-progress-page-list > .is-doubtful { color:var(--flow-warning); background:var(--flow-warning-soft); }
+.teacher-progress-warning .text-button { border:0; padding:0; color:inherit; text-decoration:underline; background:transparent; font:inherit; cursor:pointer; }

@@ -11,7 +11,7 @@ import type { ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
 import { routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
 import { accumulateClockwiseRotation, getConfidentDiagramRotation } from '../domain/scientificPageOrientation.ts';
 import { mergeScientificDiagramCriteria, partitionScientificRubric } from '../domain/scientificRubricRouting.ts';
-import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, ImageInput } from '../ports/aiProvider.ts';
+import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, GradingProgressEvent, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/diagnosticReference.ts';
 import { createDecisionMemoryEntries, fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT } from '../domain/localMemory.ts';
@@ -31,6 +31,7 @@ import { AssignmentsHome } from './AssignmentsHome.tsx';
 
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
+import { estimateRemainingCorrectionSeconds } from '../domain/correctionTimeEstimate.ts';
 import { confirmReviewCriteriaInGroup, createReviewTraceMetrics, markGroupConfirmedCriterionModified, undoGroupConfirmation, type ReviewTraceMetrics } from '../domain/reviewMetrics.ts';
 
 type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
@@ -149,6 +150,7 @@ type TimingRecord = {
   source?: 'rubric-import' | 'scientific-diagram';
   modelScore: number | null;
   criterionScores: DiagnosticCriterionScore[];
+  criterionCount?: number;
   assignmentId?: string;
   assignmentTitle?: string;
   rubricSnapshot?: Rubric;
@@ -341,6 +343,10 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
   const [criterionProgressMessage, setCriterionProgressMessage] = useState('');
+  const [pageProgress, setPageProgress] = useState<Record<number, 'started' | 'completed' | 'doubtful'>>({});
+  const [criterionProgressPosition, setCriterionProgressPosition] = useState<{ index: number; total: number } | null>(null);
+  const [lastModelLoadDurationMs, setLastModelLoadDurationMs] = useState<number | null>(null);
+  const initialDocumentTitle = useRef(document.title);
   const [criterionStatuses, setCriterionStatuses] = useState<Record<string, CriterionAnalysisUpdate['status']>>({});
   const [activeCriterionId, setActiveCriterionId] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -348,6 +354,18 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [analysisElapsedMs, setAnalysisElapsedMs] = useState<number | null>(null);
   const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
   const diagnosticHistoryReady = useRef(false);
+  const completedPageCount = Object.values(pageProgress).filter((status) => status === 'completed' || status === 'doubtful').length;
+  const completedCriterionCount = Object.values(criterionStatuses).filter((status) => status === 'completed').length;
+  const estimatedRemainingSeconds = useMemo(() => estimateRemainingCorrectionSeconds(timingHistory, {
+    visionModel,
+    analysisModel,
+    pageCount: images.length + (correctionMode === 'separate' ? subjectImages.length : 0),
+    completedPages: completedPageCount + (correctionMode === 'separate' && subjectTranscription ? subjectImages.length : 0),
+    criterionCount: criterionProgressPosition?.total ?? rubric.criteria.length,
+    completedCriteria: completedCriterionCount,
+    elapsedSeconds,
+    correctionMode,
+  }), [timingHistory, visionModel, analysisModel, images.length, correctionMode, subjectImages.length, completedPageCount, subjectTranscription, rubric.criteria.length, completedCriterionCount, criterionProgressPosition?.total, elapsedSeconds]);
   useEffect(() => {
     let active = true;
     void evaluationService.listDiagnosticHistory().then((records) => records as TimingRecord[]).then(async (stored) => {
@@ -376,6 +394,11 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [connectionMessage, setConnectionMessage] = useState('');
   const [error, setError] = useState('');
   const [proposal, setProposal] = useState<GradingProposal | null>(null);
+  useEffect(() => {
+    const completed = Object.values(criterionStatuses).filter((status) => status === 'completed').length;
+    document.title = isAnalyzing ? analysisStage === 'grading' ? `(${completed}/${rubric.criteria.length}) Correction…` : 'Correction en cours…' : proposal ? '✓ Correction prête' : initialDocumentTitle.current;
+  }, [isAnalyzing, analysisStage, criterionStatuses, rubric.criteria.length, proposal]);
+  useEffect(() => () => { document.title = initialDocumentTitle.current; }, []);
   const [studentLabel, setStudentLabel] = useState('');
   const [detectTeacherAnnotations, setDetectTeacherAnnotations] = useState(false);
   const [annotationInkColor, setAnnotationInkColor] = useState<TeacherAnnotationInkColor>('none');
@@ -825,6 +848,9 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setCurrentTimingRecordId(null);
     setBulkConfirmedCriterionIds([]);
     setCriterionProgressMessage('');
+    setPageProgress({});
+    setCriterionProgressPosition(null);
+    setLastModelLoadDurationMs(null);
     setCriterionStatuses({});
     setActiveCriterionId(null);
     setProposal(null);
@@ -937,7 +963,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
           }))
           : undefined;
         const raw = await provider.generate(
-          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, ...(teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
+          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, ...(teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
           (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
           (stage) => {
             const now = Date.now();
@@ -987,6 +1013,12 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             setTeacherAnnotationReviewDecisions(Object.fromEntries(candidates.map((candidate) => [candidate.id, false])));
             setPendingTeacherAnnotationReview(candidates);
           }),
+          (event: GradingProgressEvent) => {
+            if (event.type === 'phase') setAnalysisStage(event.phase === 'preparation' ? 'checking' : event.phase);
+            if (event.type === 'page') setPageProgress((current) => ({ ...current, [event.pageIndex]: event.status }));
+            if (event.type === 'criterion') setCriterionProgressPosition({ index: event.criterionIndex, total: event.criterionTotal });
+            if (event.type === 'model-load') setLastModelLoadDurationMs(event.durationMs);
+          },
         );
         if (analysisStartedAt !== null) { analysisDurationMs = Math.max(0, Date.now() - analysisStartedAt); setAnalysisElapsedMs(analysisDurationMs); }
         textProposal = parseGradingProposal(raw, gradingRubric);
@@ -1024,6 +1056,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         thinking: analysisThinking,
         correctionMode,
         pageCount: images.length + (correctionMode === 'separate' ? subjectImages.length : 0),
+        criterionCount: rubric.criteria.length,
         readingSeconds: readingDurationMs === null ? (readingStartedAt === null ? null : Math.round((finishedAt - readingStartedAt) / 1000)) : Math.round(readingDurationMs / 1000),
         analysisSeconds: analysisStartedAt === null ? null : Math.round((finishedAt - analysisStartedAt) / 1000),
         totalSeconds: Math.round((finishedAt - runStartedAt) / 1000),
@@ -1731,7 +1764,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             <span className="teacher-step-number">2</span><span><strong>Ajouter une copie</strong><small>{images.length ? images.length + ' page(s) importée(s)' : 'Sujet et pages étudiant'}</small></span>
           </button>
           <button type="button" className={(teacherStep === 'progress' || teacherStep === 'review') && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={(teacherStep === 'progress' || teacherStep === 'review') && !showAiSettings ? 'step' : undefined} disabled={!proposal && !isAnalyzing} onClick={() => { setShowAiSettings(false); setTeacherStep(isAnalyzing ? 'progress' : 'review'); }}>
-            <span className="teacher-step-number">3</span><span><strong>{isAnalyzing ? 'Suivi du traitement' : 'Réviser la note'}</strong><small>{isAnalyzing ? `${formatElapsed(elapsedSeconds)} écoulées · ${analysisStage === 'reading' ? 'Lecture en cours' : analysisStage === 'grading' ? 'Analyse en cours' : 'Préparation'}` : proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
+            <span className="teacher-step-number">3</span><span><strong>{isAnalyzing ? 'Correction en cours' : 'Réviser la note'}</strong><small>{isAnalyzing ? analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length}/${images.length}` : analysisStage === 'grading' ? `Correction · critère ${criterionProgressPosition?.index ?? Object.values(criterionStatuses).filter((status) => status === 'completed').length}/${criterionProgressPosition?.total ?? rubric.criteria.length}` : 'Préparation' : proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
           </button>
         </nav>
         <button type="button" className="sidebar-all-assignments" onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }} disabled={isAnalyzing}><span aria-hidden="true">▦</span><span><strong>Tous mes devoirs</strong><small>{assignmentProfiles.length} devoir(s)</small></span><span aria-hidden="true">→</span></button>
@@ -1739,8 +1772,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         <div className="teacher-sidebar-footer">
           <div className={isAnalyzing ? "sidebar-local-status is-processing" : "sidebar-local-status"} role={isAnalyzing ? "status" : undefined} aria-live={isAnalyzing ? "polite" : undefined}>
             <span aria-hidden="true">{isAnalyzing ? "◌" : "●"}</span>
-            <span><strong>{isAnalyzing ? analysisStage === 'checking' ? 'Préparation du traitement' : analysisStage === 'reading' ? 'Lecture des copies en cours' : 'Analyse et notation en cours' : 'Traitement local'}</strong>
-            <small>{isAnalyzing ? `${formatElapsed(elapsedSeconds)} écoulées · ${analysisStage === 'checking' ? 'vérification des modèles' : analysisStage === 'reading' ? 'étape 1 sur 2' : 'étape 2 sur 2'}` : 'Vos copies restent sur votre serveur'}</small></span>
+            <span><strong>{isAnalyzing ? analysisStage === 'checking' ? 'Préparation de la correction' : analysisStage === 'reading' ? 'Lecture de la copie' : 'Correction des réponses' : 'Traitement sur cet ordinateur'}</strong>
+            <small>{isAnalyzing ? `${formatElapsed(elapsedSeconds)} écoulées` : apiCompatible ? 'Contenus transmis au fournisseur API configuré' : 'Vos copies restent sur votre serveur'}</small></span>
           </div>
           <button type="button" className={showAiSettings ? 'sidebar-settings active' : 'sidebar-settings'} onClick={() => setShowAiSettings((current) => !current)} aria-expanded={showAiSettings}><span aria-hidden="true">⚙</span> Réglages de l’IA locale</button>
         </div>
@@ -2486,29 +2519,20 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       {interfaceMode === 'teacher' && teacherStep === 'copy' && <div className="teacher-copy-footer"><button type="button" className="secondary-button" onClick={() => setTeacherStep('rubric')}>← Revoir le barème</button><span>Une seule copie à la fois · validation humaine avant finalisation</span></div>}
       
 
-      {interfaceMode === 'teacher' && teacherStep === 'progress' && isAnalyzing && <div className="workspace-heading processing-workspace-heading"><div><p className="eyebrow">ÉTAPE 3 SUR 3</p><h2>Suivi du traitement</h2></div><span className="step-count">{formatElapsed(elapsedSeconds)} ÉCOULÉES</span></div>}
-        {interfaceMode === 'teacher' && isAnalyzing && <section className="analysis-progress" role="status" aria-live="polite" aria-atomic="true">
+      {interfaceMode === 'teacher' && isAnalyzing && <section className="analysis-progress teacher-progress-card" role="status" aria-live="polite" aria-atomic="true">
         <div className="analysis-spinner" aria-hidden="true" />
         <div className="analysis-progress-copy">
-          <p className="eyebrow">TRAITEMENT LOCAL · 2 ÉTAPES</p>
-          <div className="analysis-steps" aria-label="Étapes de la correction">
-            <div className={'analysis-step ' + (analysisStage === 'reading' ? 'current' : analysisStage === 'grading' ? 'complete' : '')} aria-current={analysisStage === 'reading' ? 'step' : undefined}>
-              <span className="analysis-step-number">{analysisStage === 'grading' ? '✓' : '1'}</span>
-              <div><strong>Lire l’image</strong><small>{analysisStage === 'checking' ? 'En attente' : analysisStage === 'reading' ? 'Lecture en cours…' : readingElapsedMs === null ? 'Lecture terminée' : `Lecture terminée · ${formatElapsed(Math.round(readingElapsedMs / 1000))}`}</small></div>
-            </div>
-            <div className={'analysis-step ' + (analysisStage === 'grading' ? 'current' : '')} aria-current={analysisStage === 'grading' ? 'step' : undefined}>
-              <span className="analysis-step-number">2</span>
-              <div><strong>Analyser et noter</strong><small>{analysisStage === 'checking' || analysisStage === 'reading' ? 'À venir' : analysisElapsedMs === null ? 'Analyse en cours…' : `Analyse terminée · ${formatElapsed(Math.round(analysisElapsedMs / 1000))}`}</small></div>
-            </div>
+          <div className="teacher-progress-heading"><div><p className="eyebrow">ESPACE ENSEIGNANT</p><h2>Correction en cours</h2></div><span className="step-count">{estimatedRemainingSeconds === null ? `${formatElapsed(elapsedSeconds)} écoulées` : `Environ ${Math.ceil(estimatedRemainingSeconds / 60)} min restantes · ${formatElapsed(elapsedSeconds)} écoulées`}</span></div>
+          <div className="teacher-progress-phases" aria-label="Progression de la correction">
+            <div className={analysisStage === 'checking' ? 'teacher-progress-phase current' : 'teacher-progress-phase complete'}><span>{analysisStage === 'checking' ? '1' : '✓'}</span><div><strong>Préparation</strong><small>{analysisStage === 'checking' ? 'Préparation du traitement' : 'Terminée'}</small></div></div>
+            <div className={analysisStage === 'reading' ? 'teacher-progress-phase current' : analysisStage === 'grading' ? 'teacher-progress-phase complete' : 'teacher-progress-phase'}><span>{analysisStage === 'grading' ? '✓' : '2'}</span><div><strong>Lecture de la copie</strong><small>{analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length ? Math.max(...Object.keys(pageProgress).map(Number)) : 1}/${images.length}` : analysisStage === 'grading' ? `${Object.values(pageProgress).filter((status) => status === 'completed' || status === 'doubtful').length}/${images.length} pages lues` : 'À venir'}</small></div></div>
+            <div className={analysisStage === 'grading' ? 'teacher-progress-phase current' : 'teacher-progress-phase'}><span>3</span><div><strong>Correction</strong><small>{analysisStage === 'grading' ? `Critère ${criterionProgressPosition?.index ?? Math.min(rubric.criteria.length, Object.values(criterionStatuses).filter((status) => status === 'completed').length + (activeCriterionId ? 1 : 0))}/${criterionProgressPosition?.total ?? rubric.criteria.length}` : 'À venir'}</small></div></div>
           </div>
-          <h3>{analysisStage === 'checking' ? 'Vérification des modèles Ollama…' : analysisStage === 'reading' ? 'Étape 1/2 — Lecture des images et transcription…' : 'Étape 2/2 — Analyse du contenu et attribution des points…'}</h3>
-          <p>{analysisStage === 'checking' ? 'Je vérifie que les deux modèles répondent, sans joindre de copie.' : analysisStage === 'reading' ? 'Le modèle de lecture transcrit chaque page localement. La transcription s’affiche au fil du streaming.' : 'Le modèle d’analyse applique le barème à la transcription. La proposition de correction arrive en streaming.'}</p>
-          {false && interfaceMode === 'diagnostic' && streamedOutput && <div className="streaming-preview" aria-live="polite"><strong>Réponse reçue en streaming</strong><pre>{streamedOutput}</pre></div>}
-          {elapsedSeconds >= 30 && <p className="analysis-long-wait">Cette analyse prend du temps : certains modèles locaux nécessitent plusieurs minutes, notamment avec plusieurs pages. Le temps affiché continue de mesurer l’attente.</p>}
+          {(analysisStage === 'checking' || (analysisStage === 'reading' && lastModelLoadDurationMs === null && Object.keys(pageProgress).length === 1 && pageProgress[Number(Object.keys(pageProgress)[0])] === 'started')) && <p className="teacher-progress-hint">Chargement du modèle, jusqu’à 1 min la première fois.</p>}
+          <div className="teacher-progress-page-list" aria-label="État de lecture des pages">{images.map((image, index) => { const status = pageProgress[index + 1]; return <span className={status === 'doubtful' ? 'is-doubtful' : status === 'completed' ? 'is-complete' : ''} key={`${image.fileName}-${index}`}>{status === 'completed' ? '✓' : status === 'doubtful' ? '!' : '·'} Page {index + 1}</span>; })}</div>
+          {Object.entries(pageProgress).filter(([, status]) => status === 'doubtful').map(([page]) => <p className="teacher-progress-warning" key={page}>Page {page} : lecture douteuse. <button type="button" className="text-button" onClick={() => setCopyViewerPage(Number(page) - 1)}>Voir la page</button> avant de valider la correction.</p>)}
         </div>
-        <div className="analysis-timer" aria-label={`Temps écoulé : ${formatElapsed(elapsedSeconds)}`}>
-          <span>TEMPS ÉCOULÉ</span><strong>{formatElapsed(elapsedSeconds)}</strong>
-        </div>
+        <div className="analysis-timer" aria-label={`Temps écoulé : ${formatElapsed(elapsedSeconds)}`}><span>TEMPS ÉCOULÉ</span><strong>{formatElapsed(elapsedSeconds)}</strong></div>
       </section>}
 
       {isAnalyzing && interfaceMode === 'teacher' && analysisStage === 'reading' && <section className="live-copy-preview panel" aria-labelledby="live-copy-preview-title">
@@ -2520,9 +2544,9 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
               <figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption>
             </figure>)}
           </div>
-          <div className="live-transcription-panel"><div className="live-panel-heading"><span className="live-panel-icon" aria-hidden="true">Aa</span><div><strong>Transcription reconnue</strong><small>{transcription ? 'Texte extrait localement' : 'En attente de lecture'}</small></div></div>
-            {transcription ? <pre className="live-transcription-text">{transcription}</pre> : <div className="live-transcription-placeholder" role="status"><span className="live-text-skeleton" /><span className="live-text-skeleton short" /><span className="live-text-skeleton" /><p>Le texte apparaîtra dès que le modèle aura terminé la lecture.</p></div>}
-          </div>
+          <details className="live-transcription-panel teacher-transcription-details"><summary><span className="live-panel-icon" aria-hidden="true">Aa</span><strong>Afficher la transcription</strong><small>{transcription ? 'Texte disponible' : 'En attente de lecture'}</small></summary>
+            {transcription ? <pre className="live-transcription-text">{transcription}</pre> : <div className="live-transcription-placeholder" role="status"><span className="live-text-skeleton" /><span className="live-text-skeleton short" /><span className="live-text-skeleton" /><p>Le texte apparaîtra après la lecture.</p></div>}
+          </details>
         </div>
       </section>}
 

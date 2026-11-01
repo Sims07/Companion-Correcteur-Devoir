@@ -1,4 +1,4 @@
-import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
+import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
 import { buildIncrementalCriterionPrompt } from './gradingPrompts.ts';
 import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
@@ -243,10 +243,11 @@ export function createOllamaProvider(
     : fetchImpl;
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
-    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>): Promise<string> {
+    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>, onProgress?: (event: GradingProgressEvent) => void): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
       const providerName = settings.apiCompatible ? 'API compatible OpenAI' : 'Ollama';
       const visionOnly = request.visionOnly === true;
+      onProgress?.({ type: 'phase', phase: 'preparation' });
       const hasTranscription = Boolean(request.transcription?.trim());
       if (!visionOnly && !hasTranscription && !(settings.visionModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
       if (!visionOnly && !(settings.analysisModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle d’analyse pour noter la transcription.');
@@ -458,6 +459,9 @@ export function createOllamaProvider(
               generationTokenLimit: tracking.generationTokenLimit ?? 2048,
             };
             lastDiagnosticMetrics = metrics;
+            if (typeof result.loadMs === 'number' && result.loadMs > 0) {
+              onProgress?.({ type: 'model-load', role: tracking.kind === 'vision' ? 'reading' : 'analysis', durationMs: result.loadMs });
+            }
             if (!tracking.deferResult) {
               onDiagnosticResult?.({ ...metrics, raw: result.content });
               diagnosticResultEmitted = true;
@@ -528,8 +532,10 @@ export function createOllamaProvider(
       const pageTranscriptions: Array<{ pageLabel: string; pageText: string; doubtfulMarker: string }> = [];
       if (!transcription) {
         onStage?.('reading');
+        onProgress?.({ type: 'phase', phase: 'reading' });
         
         for (const [index, image] of (request.images ?? []).entries()) {
+          onProgress?.({ type: 'page', pageIndex: request.pageNumbers?.[index] ?? index + 1, pageTotal: request.totalPageCount ?? request.images?.length ?? 0, status: 'started' });
           const pageLabel = image.fileName || `page ${index + 1}`;
           let transcriptionTruncated = false;
           const transcriptionLimit = Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048)));
@@ -556,6 +562,7 @@ export function createOllamaProvider(
           if (!pageText) throw new Error(`Aucun texte n’a pu être lu sur ${pageLabel}.`);
           const doubtfulMarker = transcriptionTruncated ? ' [LECTURE DOUTEUSE : transcription possiblement interrompue par une longue zone blanche ou la limite de génération]' : '';
           pageTranscriptions.push({ pageLabel, pageText, doubtfulMarker });
+          onProgress?.({ type: 'page', pageIndex: request.pageNumbers?.[index] ?? index + 1, pageTotal: request.totalPageCount ?? request.images?.length ?? 0, status: transcriptionTruncated ? 'doubtful' : 'completed' });
         }
         transcription = pageTranscriptions.map(({ pageLabel, pageText, doubtfulMarker }) => [`[ ${pageLabel} ]`, pageText + doubtfulMarker].join('\n')).join('\n\n');
       }
@@ -659,6 +666,7 @@ export function createOllamaProvider(
       const teacherAnnotationsText = detectedTeacherAnnotations.length ? formatTeacherAnnotations(detectedTeacherAnnotations.flatMap((page) => page.annotations.map((annotation) => ({ ...annotation, location: `Page ${page.page} · ${annotation.location}` })))) : '';
       if (teacherAnnotationsText) onTranscription?.(teacherAnnotationsText, 'annotations');
       onStage?.('grading');
+      onProgress?.({ type: 'phase', phase: 'grading' });
       const gradingPrompt = buildPrompt(transcription, subjectTranscription);
       const strategy = settings.diagnosticStrategy ?? 'single';
       const arbitratorModel = settings.arbitratorModel?.trim() || analysisModel;
@@ -750,6 +758,7 @@ export function createOllamaProvider(
           let succeeded = false;
           for (let attempt = 1; attempt <= 2; attempt += 1) {
             onCriterionUpdate?.({ ...baseUpdate, status: attempt === 1 ? 'started' : 'retrying', attempt });
+            onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: attempt === 1 ? 'started' : 'retrying' });
             try {
               const raw = await sendStream(
                 analysisModel,
@@ -786,6 +795,7 @@ export function createOllamaProvider(
               };
               completed.push(proposal);
               onCriterionUpdate?.({ ...baseUpdate, status: 'completed', attempt, proposal });
+              onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'completed' });
               succeeded = true;
               break;
             } catch (cause) {
@@ -798,6 +808,7 @@ export function createOllamaProvider(
           if (!succeeded) {
             failed.push(criterion.title);
             onCriterionUpdate?.({ ...baseUpdate, status: 'failed', attempt: 2, error: lastError });
+            onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'failed' });
           }
         }
 
