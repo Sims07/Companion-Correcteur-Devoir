@@ -15,6 +15,7 @@ export interface BackgroundCorrectionService {
   subscribe(listener: (jobs: BackgroundCorrectionJob[]) => void): () => void;
   markForReview(jobId: string): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
+  remove(jobId: string): Promise<void>;
   retry(jobId: string, settings: OllamaSettings): Promise<void>;
   setAutomatic(enabled: boolean, settings: OllamaSettings): Promise<void>;
 }
@@ -292,6 +293,14 @@ export function createBackgroundCorrectionService(
     async markForReview(jobId) {
       const job = (await repository.listJobs()).find((item) => item.id === jobId);
       if (job) await persist({ ...job, status: 'reviewing', updatedAt: new Date().toISOString() });
+    },
+    async remove(jobId) {
+      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      if (!job) return;
+      if (job.status === 'processing') throw new Error('Cette copie est en cours de correction et ne peut pas être supprimée maintenant.');
+      await repository.deleteJob(jobId);
+      const jobs = await repository.listJobs();
+      for (const listener of listeners) listener(jobs);
     },
     async markCompleted(jobId) {
       const job = (await repository.listJobs()).find((item) => item.id === jobId);
