@@ -283,7 +283,7 @@ export function createOllamaProvider(
     : fetchImpl;
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
-    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>, onProgress?: (event: GradingProgressEvent) => void): Promise<string> {
+    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning' | 'identity') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>, onProgress?: (event: GradingProgressEvent) => void): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
       const providerName = settings.apiCompatible ? 'API compatible OpenAI' : 'Ollama';
       const visionOnly = request.visionOnly === true;
