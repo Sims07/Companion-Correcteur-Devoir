@@ -12,7 +12,10 @@ describe('model-aware transcription prompts', () => {
     expect(prompt).toContain('Ne devine');
     expect(prompt).toContain('ordre de lecture');
     expect(buildTranscriptionPrompt('gemma3:4b', 'general')).toContain('retours à la ligne');
-    expect(buildTranscriptionPrompt('gemma3:4b', 'ocr')).toBe('Text Recognition:');
+    expect(buildTranscriptionPrompt('gemma3:4b', 'ocr')).toContain('Text Recognition:');
+    expect(prompt).toContain('STUDENT_IDENTITY:');
+    expect(prompt).toContain('studentNumber');
+    expect(prompt).toContain('N’utilise jamais un nom cité dans le corps de la réponse');
   });
 });
 
@@ -28,6 +31,16 @@ const request: GradingRequest = {
 };
 
 describe('Ollama adapter', () => {
+  it('extracts student identity during Vision reading and keeps metadata out of the transcription', async () => {
+    const response = 'Réponse manuscrite lisible.\\nSTUDENT_IDENTITY: {"firstName":"Alice","lastName":"Martin","studentNumber":"240018","confidence":"high"}';
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse(response));
+    const onTranscription = vi.fn();
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
+    await expect(provider.generate({ ...request, visionOnly: true }, undefined, undefined, onTranscription)).resolves.toBe('Réponse manuscrite lisible.');
+    expect(onTranscription).toHaveBeenCalledWith(JSON.stringify({ firstName: 'Alice', lastName: 'Martin', studentNumber: '240018', confidence: 'high' }), 'identity');
+    expect(onTranscription).toHaveBeenCalledWith('Réponse manuscrite lisible.', 'copy');
+  });
+
   it('checks that the selected model responds to a text-only readiness request', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ message: { content: 'PRÊT' } }), { status: 200 }));
     await expect(checkOllamaReady({ endpoint: 'http://localhost:11434/', model: 'llava' }, fetchMock)).resolves.toBeUndefined();
