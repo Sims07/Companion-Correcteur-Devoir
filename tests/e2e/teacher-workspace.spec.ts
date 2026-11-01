@@ -8,7 +8,7 @@ test('teacher can edit the collapsed assignment and rubric as one Devoir step', 
   const assignment = page.locator('.assignment-details-collapsible');
   await expect(assignment).toBeVisible();
   await expect(assignment.locator('summary')).toContainText('20 points · 3 critères');
-  await expect(assignment.locator('input#assignment-title-main')).toHaveCount(0);
+  await expect(assignment.locator('input#assignment-title-main')).toBeHidden();
   await assignment.locator('summary').click();
   await page.getByLabel('Nom du devoir', { exact: true }).fill('Biologie cellulaire — partiel S1');
   await page.getByLabel('Nom du barème (distinct du devoir)').fill('Barème cellulaire');
@@ -48,7 +48,9 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await expect(page.getByRole('heading', { name: 'Espace enseignant' })).toHaveCount(0);
 
   const advanced = page.locator('.copy-advanced-options').first();
-  await expect(advanced).toHaveAttribute('open', '');
+  await expect(advanced).not.toHaveAttribute('open', '');
+  await expect(page.getByRole('heading', { name: 'Où se trouvent les questions ?' })).toHaveCount(0);
+  await advanced.locator('summary').click();
   await expect(page.getByRole('heading', { name: 'Où se trouvent les questions ?' })).toBeVisible();
   await advanced.locator('summary').click();
   await expect(page.getByRole('heading', { name: 'Où se trouvent les questions ?' })).toHaveCount(0);
