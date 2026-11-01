@@ -181,6 +181,31 @@ describe('prepareLocalFiles', () => {
     expect(destroy).toHaveBeenCalledOnce();
   });
 
+
+  it('renders vector PDF pages at up to 2200 pixels for legible scientific drawings', async () => {
+    const destroy = vi.fn().mockResolvedValue(undefined);
+    const getViewport = vi.fn((options: { scale: number }) => ({ width: 1000 * options.scale, height: 1600 * options.scale }));
+    getDocumentMock.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 1,
+        getPage: vi.fn().mockResolvedValue({ getViewport, render: vi.fn().mockReturnValue({ promise: Promise.resolve() }), cleanup: vi.fn() }),
+      }),
+      destroy,
+    });
+    const createCanvas = vi.spyOn(document, 'createElement');
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({} as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,aGlnaC1yZXM=');
+
+    await prepareLocalFiles([new File(['pdf'], 'scientific-scheme.pdf', { type: 'application/pdf' })]);
+
+    expect(getViewport).toHaveBeenLastCalledWith({ scale: 1.375 });
+    const canvas = createCanvas.mock.results[0].value as HTMLCanvasElement;
+    expect(canvas.width).toBe(1375);
+    expect(canvas.height).toBe(2200);
+    expect(HTMLCanvasElement.prototype.toDataURL).toHaveBeenCalledWith('image/png');
+    expect(destroy).toHaveBeenCalledOnce();
+  });
+
   it('rejects PDFs that exceed the ten-page limit and cleans up the loading task', async () => {
     const destroy = vi.fn().mockResolvedValue(undefined);
     getDocumentMock.mockReturnValue({

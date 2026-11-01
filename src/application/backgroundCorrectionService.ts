@@ -5,9 +5,13 @@ import type { BackgroundCorrectionRepository } from '../ports/backgroundCorrecti
 import type { GradingProgressEvent, OllamaSettings } from '../ports/aiProvider.ts';
 import type { OllamaGateway } from '../ports/correctionWorkspace.ts';
 import { formatStudentIdentityLabel, type StudentIdentity } from '../domain/studentIdentity.ts';
+import { partitionScientificRubric, mergeScientificDiagramCriteria } from '../domain/scientificRubricRouting.ts';
+import { routeScientificPages } from '../domain/scientificPageClassification.ts';
+import type { ScientificDiagramAnalyzer } from '../ports/scientificDiagramAnalysis.ts';
 
 export interface BackgroundCorrectionService {
   enqueue(job: BackgroundCorrectionJob, settings: OllamaSettings): Promise<void>;
+  updateImages(jobId: string, images: BackgroundCorrectionJob['images'], rotationAngles: NonNullable<BackgroundCorrectionJob['rotationAngles']>, settings: OllamaSettings): Promise<void>;
   listJobs(assignmentId?: string): Promise<BackgroundCorrectionJob[]>;
   prewarm(settings: OllamaSettings): Promise<void>;
   pauseAndWait(): Promise<void>;
@@ -45,6 +49,7 @@ function createProposal(rubric: Rubric, criteria: BackgroundCorrectionJob['parti
 export function createBackgroundCorrectionService(
   repository: BackgroundCorrectionRepository,
   workspace: OllamaGateway,
+  diagramAnalysis?: ScientificDiagramAnalyzer,
 ): BackgroundCorrectionService {
   let paused = false;
   let foregroundPriority = false;
@@ -80,6 +85,7 @@ export function createBackgroundCorrectionService(
         if (!job) break;
         const fingerprint = job.imageFingerprint ?? await repository.fingerprintImages(job.images);
         const cachedTranscription = job.transcription ?? await repository.getCachedTranscription(fingerprint);
+        let transcriptionFingerprint = fingerprint;
         let current: BackgroundCorrectionJob = {
           ...job,
           imageFingerprint: fingerprint,
@@ -91,6 +97,61 @@ export function createBackgroundCorrectionService(
         };
         await persist(current);
         try {
+          let textPageNumbers = current.images.map((_, index) => index + 1);
+          const visualRubric = partitionScientificRubric(current.rubric);
+          if (visualRubric.diagramCriteria.length > 0) {
+            if (!diagramAnalysis) throw new Error('Le parcours de correction des schémas scientifiques n’est pas configuré. Aucune note visuelle ne sera estimée à partir de la seule transcription.');
+            let classifications = current.scientificPageClassifications;
+            if (!classifications || classifications.length !== current.images.length) {
+              // Older cached transcriptions may include pages that must now be assessed visually.
+              current = { ...current, transcription: null, scientificDiagramAnalysis: null, phase: 'preparation' };
+              classifications = await diagramAnalysis.classifyPages({
+                images: current.images,
+                model: current.visionModel,
+                endpoint: settings.endpoint,
+                apiKey: settings.apiKey ?? '',
+              });
+            }
+            const routing = routeScientificPages(classifications, current.images.length);
+            textPageNumbers = routing.textPageNumbers;
+            transcriptionFingerprint = await repository.fingerprintImages(textPageNumbers.map((pageNumber) => current.images[pageNumber - 1]));
+            const transcriptionPageNumbersKey = textPageNumbers.join('|');
+            if (current.transcriptionPageNumbers?.join('|') !== transcriptionPageNumbersKey) {
+              current = {
+                ...current,
+                transcription: await repository.getCachedTranscription(transcriptionFingerprint),
+                transcriptionPageNumbers: textPageNumbers,
+              };
+            }
+            let visualAnalysis = current.scientificDiagramAnalysis ?? null;
+            if (routing.diagramPageNumbers.length > 0 && !visualAnalysis) {
+              visualAnalysis = await diagramAnalysis.analyze({
+                images: routing.diagramPageNumbers.map((pageNumber) => current.images[pageNumber - 1]),
+                pageNumbers: routing.diagramPageNumbers,
+                question: current.question,
+                ...(current.subjectTranscription ? { subjectTranscription: current.subjectTranscription } : {}),
+                rubric: { ...current.rubric, criteria: visualRubric.diagramCriteria },
+                model: current.visionModel,
+                endpoint: settings.endpoint,
+                apiKey: settings.apiKey ?? '',
+              });
+            }
+            const visualProposal = mergeScientificDiagramCriteria(
+              { ...current.rubric, criteria: visualRubric.diagramCriteria },
+              null,
+              visualAnalysis,
+            );
+            current = {
+              ...current,
+              scientificPageClassifications: classifications,
+              scientificDiagramAnalysis: visualAnalysis,
+              partialCriteria: mergeCriteria(current.partialCriteria, visualProposal.criteria),
+              completedCriteria: mergeCriteria(current.partialCriteria, visualProposal.criteria).length,
+              phase: 'grading',
+              updatedAt: new Date().toISOString(),
+            };
+            await persist(current);
+          }
           while (!paused) {
             const remaining = remainingRubric(current.rubric, current.partialCriteria);
             if (!remaining.criteria.length) break;
@@ -113,7 +174,7 @@ export function createBackgroundCorrectionService(
               current = { ...current, ...patch, updatedAt: new Date().toISOString() };
               const snapshot = structuredClone(current);
               progressWrites = progressWrites.then(async () => {
-                if (cachedText !== undefined) await repository.saveCachedTranscription(fingerprint, cachedText);
+                if (cachedText !== undefined) await repository.saveCachedTranscription(transcriptionFingerprint, cachedText);
                 await persist(snapshot);
               }).catch((cause: unknown) => { progressWriteError = cause; });
             };
@@ -124,14 +185,14 @@ export function createBackgroundCorrectionService(
                 {
                   question: current.question,
                   rubric: JSON.stringify({ ...remaining, criteria: [criterion] }),
-                  images: current.transcription ? [] : current.images,
+                  images: current.transcription ? [] : textPageNumbers.map((pageNumber) => current.images[pageNumber - 1]),
                   ...(current.transcription ? { transcription: current.transcription } : {}),
-                  pageNumbers: current.images.map((_, index) => index + 1),
+                  pageNumbers: textPageNumbers,
                   totalPageCount: current.images.length,
                   ...(current.correctionMode === 'separate' ? { subjectImages: current.subjectImages, ...(current.subjectTranscription ? { subjectTranscription: current.subjectTranscription } : {}) } : {}),
                   detectTeacherAnnotations: current.detectTeacherAnnotations,
                   keepAnalysisModelWarm: remaining.criteria.length > 1,
-                  ...(current.detectTeacherAnnotations ? { teacherAnnotationImages: current.originalImages, teacherAnnotationPageNumbers: current.originalImages.map((_, index) => index + 1) } : {}),
+                  ...(current.detectTeacherAnnotations ? { teacherAnnotationImages: textPageNumbers.map((pageNumber) => current.originalImages[pageNumber - 1]), teacherAnnotationPageNumbers: textPageNumbers } : {}),
                 },
                 undefined,
                 undefined,
@@ -147,7 +208,7 @@ export function createBackgroundCorrectionService(
                         ...(studentIdentity.confidence === 'high' && suggestedLabel && fallbackLabel ? { label: suggestedLabel } : {}),
                       });
                     } catch { /* Invalid identity metadata never changes the queued copy label. */ }
-                  } else if (kind !== 'annotations' && kind !== 'warning') queueProgress({ transcription: text, phase: 'grading', completedPages: current.images.length }, text);
+                  } else if (kind !== 'annotations' && kind !== 'warning') queueProgress({ transcription: text, transcriptionPageNumbers: textPageNumbers, phase: 'grading', completedPages: textPageNumbers.length }, text);
                 },
                 undefined,
                 (update) => {
@@ -305,6 +366,39 @@ export function createBackgroundCorrectionService(
       await run(settings);
     },
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+    async updateImages(jobId, images, rotationAngles, settings) {
+      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      if (!job) throw new Error('Cette copie n’existe plus dans la file de correction.');
+      if (job.status === 'processing' && !paused) throw new Error('Attendez la fin du traitement avant de réorienter cette copie.');
+      if (job.status === 'completed') throw new Error('Une copie archivée ne peut plus être réorientée.');
+      if (!images.length || images.length !== job.originalImages.length) throw new Error('La rotation doit conserver toutes les pages de la copie.');
+      const updated: BackgroundCorrectionJob = {
+        ...job,
+        images: structuredClone(images),
+        rotationAngles: { ...rotationAngles },
+        scientificPageClassifications: undefined,
+        scientificDiagramAnalysis: null,
+        transcription: null,
+        transcriptionPageNumbers: undefined,
+        partialCriteria: [],
+        completedPages: 0,
+        completedCriteria: 0,
+        totalCriteria: job.rubric.criteria.length,
+        proposal: null,
+        imageFingerprint: null,
+        status: 'pending',
+        phase: 'preparation',
+        error: null,
+        updatedAt: new Date().toISOString(),
+      };
+      await persist(updated);
+      lastSettings = settings;
+      autoEnabled = settings.autoBackgroundCorrection !== false;
+      if (autoEnabled && !foregroundPriority) {
+        void this.prewarm(settings).catch(() => undefined);
+        void run(settings);
+      }
+    },
     async markForReview(jobId) {
       const job = (await repository.listJobs()).find((item) => item.id === jobId);
       if (job) await persist({ ...job, status: 'reviewing', updatedAt: new Date().toISOString() });
