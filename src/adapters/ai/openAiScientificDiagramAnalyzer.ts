@@ -62,7 +62,7 @@ export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisR
     ...(subject ? ['SUJET DE RÉFÉRENCE (transcription fournie) : ' + subject] : []),
     'CORRESPONDANCE DES PAGES : ' + (request.pageNumbers ?? request.images.map((_, index) => index + 1)).map((page, index) => (index + 1) + ' → ' + page).join(', '),
     compact ? 'Réponse compacte obligatoire : aucun qualityBreakdown.' : '',
-    'JSON attendu : {"diagrams":[{"id":"diagram-1","pageNumber":1,"diagramType":"cellule","summary":"Membrane et noyau visibles","uncertainties":[]}],"criteria":[{"criterionId":"' + (criteria[0]?.criterionId ?? 'id-réel') + '","points":2,"evidence":"Deux structures attendues sont visibles","confidence":0.85,"requiresTeacherReview":false,"diagramIds":["diagram-1"],"elements":[{"label":"Noyau","status":"present","evidence":"Structure centrale identifiable"}]}],"overallUncertainties":[]}',
+    'Exemple indicatif de structure JSON (valeurs fictives, à ne pas recopier : adapte les identifiants, notes, preuves et éléments au barème et aux images réellement fournis). La forme de sortie est celle-ci ; elements ne contient des objets que si le critère possède des expectedElements, sinon utilise null : {"diagrams":[{"id":"diagram-1","pageNumber":1,"diagramType":"cellule","summary":"Exemple de résumé","uncertainties":[]}],"criteria":[{"criterionId":"' + (criteria[0]?.criterionId ?? 'id-réel') + '","points":2,"evidence":"Exemple de preuve visuelle","confidence":0.85,"requiresTeacherReview":false,"diagramIds":["diagram-1"],"elements":null}],"overallUncertainties":[]}',
   ].filter(Boolean).join('\n\n');
 }
 
