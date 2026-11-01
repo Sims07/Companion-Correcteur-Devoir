@@ -25,6 +25,7 @@ import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
 import { createBackgroundCorrection, backgroundCorrectionStatusLabel, type BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
 import { prepareBatchCopies } from '../application/prepareBatchCopies.ts';
+import { autoRotateScientificPages } from '../application/autoRotateScientificPages.ts';
 import type { BackgroundCorrectionService } from '../application/backgroundCorrectionService.ts';
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
@@ -1631,20 +1632,45 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           });
         },
       );
+      let preparedJobs = jobs;
+      let automaticRotationCount = 0;
+      let automaticRotationUnavailable = false;
+      if (autoRotateScientificDiagrams) {
+        try {
+          preparedJobs = [];
+          for (const job of jobs) {
+            const rotation = await autoRotateScientificPages(
+              job.images,
+              (pages) => diagramAnalysisService.classifyPages({ images: pages, model: visionModel, endpoint, apiKey }),
+              (image, degrees) => service.rotateImage(image, degrees),
+            );
+            automaticRotationCount += rotation.rotatedPages.length;
+            preparedJobs.push({ ...job, images: rotation.images, originalImages: job.images, scientificPageClassifications: rotation.classifications });
+          }
+        } catch {
+          automaticRotationUnavailable = true;
+          preparedJobs = jobs;
+        }
+      }
       const settings = {
         endpoint, apiCompatible, apiKey, visionModel, analysisModel,
         thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection,
         transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
         transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
       };
-      for (const job of jobs) await backgroundService.enqueue(job, settings);
+      for (const job of preparedJobs) await backgroundService.enqueue(job, settings);
       setBackgroundCopyLabel('');
       setSeriesPickerVersion((version) => version + 1);
       setBackgroundCopyDetectTeacherAnnotations(false);
       setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
-      setReviewMessage(autoBackgroundCorrection
-        ? `${jobs.length} copie(s) ajoutée(s). Le traitement démarre automatiquement, une copie après l’autre.`
-        : `${jobs.length} copie(s) ajoutée(s). Vérifiez la liste ci-dessous, puis démarrez les corrections lorsque vous êtes prêt.`);
+      const rotationMessage = automaticRotationUnavailable
+        ? ' La détection d’orientation a échoué : les images originales sont conservées sans rotation.'
+        : automaticRotationCount > 0
+          ? ` ${automaticRotationCount} page(s) de schéma tournée(s) automatiquement après vérification.`
+          : autoRotateScientificDiagrams ? ' Aucune rotation fiable nécessaire.' : '';
+      setReviewMessage((autoBackgroundCorrection
+        ? `${preparedJobs.length} copie(s) ajoutée(s). Le traitement démarre automatiquement, une copie après l’autre.`
+        : `${preparedJobs.length} copie(s) ajoutée(s). Vérifiez la liste ci-dessous, puis démarrez les corrections lorsque vous êtes prêt.`) + rotationMessage);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible d’ajouter ces copies au traitement en arrière-plan.');
     } finally {
@@ -2569,6 +2595,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <div><strong>{seriesGroupingMode === 'group-files' ? 'Ajouter les pages d’une copie' : 'Ajouter des copies à la session'}</strong><p>{seriesGroupingMode === 'group-files' ? 'Chaque sélection constitue une nouvelle copie. Vous pourrez recommencer pour ajouter l’étudiant suivant.' : 'Sélectionnez un ou plusieurs fichiers ; chacun constituera une copie distincte.'} Formats acceptés : JPG, PNG, WebP et PDF.</p></div>
           <FilePicker key={seriesPickerVersion} id="series-copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple disabled={isPreparingSeriesCopies} onFilesSelected={(files) => { void enqueueBackgroundCopy(files); }} title={seriesGroupingMode === 'group-files' ? 'Sélectionner les pages de cette copie' : 'Sélectionner les copies'} description={seriesGroupingMode === 'group-files' ? 'Tous les fichiers sélectionnés seront regroupés dans une seule copie.' : 'Un fichier sélectionné correspond à une copie ; les PDF multipages restent groupés.'} actionLabel={isPreparingSeriesCopies ? 'Préparation…' : seriesGroupingMode === 'group-files' ? 'Ajouter cette copie' : 'Ajouter les copies'} />
         </div>
+        <label className="analysis-thinking-option copy-annotation-option correction-series-auto" htmlFor="auto-rotate-series-diagrams"><input id="auto-rotate-series-diagrams" type="checkbox" checked={autoRotateScientificDiagrams} onChange={(event) => { setAutoRotateScientificDiagrams(event.target.checked); try { window.localStorage.setItem('companion-correcteur:auto-rotate-diagrams:v1', String(event.target.checked)); } catch { setReviewMessage('Le réglage de rotation automatique ne peut pas être conservé dans le stockage local.'); } }} /><span><strong>Rotation automatique des schémas</strong><small>Désactivée par défaut. Les pages identifiées avec une forte confiance sont tournées puis contrôlées une seconde fois avant d’être ajoutées à la file.</small></span></label>
         <label className="analysis-thinking-option copy-annotation-option correction-series-auto"><input type="checkbox" checked={backgroundCopyDetectTeacherAnnotations} onChange={(event) => setBackgroundCopyDetectTeacherAnnotations(event.target.checked)} /><span><strong>Les copies contiennent des annotations du professeur</strong><small>Appliquez cette consigne à toutes les copies ajoutées lors de cette sélection.</small></span></label>
         <label className="analysis-thinking-option copy-annotation-option correction-series-auto"><input type="checkbox" checked={autoBackgroundCorrection} onChange={(event) => { const enabled = event.target.checked; setAutoBackgroundCorrection(enabled); try { window.localStorage.setItem('companion-correcteur:auto-background-correction:v1', String(enabled)); } catch { /* Keep the current session preference if storage is unavailable. */ } void backgroundService.setAutomatic(enabled, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: enabled, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }} /><span><strong>Démarrer automatiquement la correction</strong><small>Les copies sont traitées une par une pendant que vous consultez les résultats déjà prêts.</small></span></label>
         {isPreparingSeriesCopies && <p className="correction-series-feedback" role="status">Préparation des fichiers et constitution des copies…</p>}
