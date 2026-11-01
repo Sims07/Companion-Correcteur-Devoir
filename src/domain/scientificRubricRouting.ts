@@ -45,6 +45,7 @@ export function mergeScientificDiagramCriteria(
         points: 0,
         rationale: 'Aucune évaluation visuelle exploitable n’a été produite pour ce critère.',
         evidence: 'À évaluer manuellement — aucune évaluation visuelle exploitable. Pages concernées : ' + ((analysis?.diagrams ?? []).map((diagram) => diagram.pageNumber).join(', ') || 'non identifiées') + '.',
+        scientificDiagramPages: [...new Set((analysis?.diagrams ?? []).map((diagram) => diagram.pageNumber))],
         confidence: 'low',
         questionForTeacher: 'Vérifiez le schéma sur la copie et attribuez les points de ce critère.',
       });
