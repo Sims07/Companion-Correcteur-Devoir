@@ -365,7 +365,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const settings = { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection };
     void backgroundService.listJobs().then(async (jobs) => {
       if (!active || !autoBackgroundCorrection || !jobs.some((job) => job.status === 'pending' || job.status === 'processing')) return;
-      await backgroundService.prewarm(settings);
       if (active) await backgroundService.processPending(settings);
     }).catch(() => { /* A later explicit retry will expose any configuration problem. */ });
     return () => { active = false; };
@@ -725,9 +724,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       if (visionModel.trim() && analysisModel.trim()) {
         void backgroundService.prewarm({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking }).catch(() => { /* The teacher can still continue and retry model setup later. */ });
       }
-      if (visionModel.trim() && analysisModel.trim()) {
-        void backgroundService.prewarm({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking }).catch(() => { /* The teacher can still continue and retry model setup later. */ });
-      }
       setAnnotationInkColorPreview(null);
       setAnnotationInkColorApplied(annotationInkColor === 'none');
       if (annotationInkColorApplied && annotationInkColor !== 'none') {
@@ -994,8 +990,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       let textProposal: GradingProposal | null = null;
       if (shouldRunTextGrading) {
         const gradingTranscription = classificationWasJustCreated && diagramImages.length > 0 ? null : transcription;
-        if ((!gradingTranscription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
-        await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
+        // Avoid firing expensive availability generations automatically against remote
+        // OpenAI-compatible providers; the grading request itself checks readiness.
+        if (!apiCompatible) {
+          if ((!gradingTranscription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
+          await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
+        }
         setAnalysisStage('reading');
         const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
         const teacherAnnotationImages = detectTeacherAnnotations

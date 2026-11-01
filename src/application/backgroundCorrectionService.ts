@@ -52,6 +52,10 @@ export function createBackgroundCorrectionService(
   let prewarmUntil = 0;
   let prewarmKey = '';
   let prewarmPromise: Promise<void> | null = null;
+  let prewarmInFlightKey = '';
+  let prewarmFailedKey = '';
+  let prewarmFailureCount = 0;
+  let prewarmRetryAt = 0;
   let prewarmedModel: string | null = null;
   let prewarmSettings: OllamaSettings | null = null;
   let activeModelToUnload: string | null = null;
@@ -216,25 +220,54 @@ export function createBackgroundCorrectionService(
     },
     listJobs: (assignmentId) => repository.listJobs(assignmentId),
     async prewarm(settings) {
-      if (foregroundPriority || activeLoop) return;
-      const key = [settings.endpoint, settings.apiCompatible ? 'api' : 'ollama', settings.visionModel, settings.analysisModel].join('|');
+      // A remote OpenAI-compatible endpoint must not receive background generation
+      // requests just because a copy was imported or the application was opened.
+      // The first real grading request is the availability signal in this mode.
+      if (settings.apiCompatible || foregroundPriority || activeLoop) return;
+      const key = [settings.endpoint, 'ollama', settings.visionModel, settings.analysisModel].join('|');
       if (key === prewarmKey && Date.now() < prewarmUntil) return;
+      if (key === prewarmFailedKey && Date.now() < prewarmRetryAt) return;
+
       if (prewarmPromise) {
-        await prewarmPromise;
-        if (key === prewarmKey && Date.now() < prewarmUntil) return;
+        if (prewarmInFlightKey === key) {
+          // All concurrent callers share the same promise, including its failure.
+          await prewarmPromise;
+          return;
+        }
+        await prewarmPromise.catch(() => undefined);
+        return this.prewarm(settings);
       }
-      prewarmPromise = (async () => {
+
+      prewarmInFlightKey = key;
+      const operation = (async () => {
         await workspace.checkReady({ ...settings, model: settings.visionModel });
         if (settings.analysisModel?.trim()) await workspace.checkReady({ ...settings, model: settings.analysisModel });
-        if (!settings.apiCompatible && settings.visionModel?.trim()) {
+        if (settings.visionModel?.trim()) {
           await workspace.prewarmModel?.(settings, settings.visionModel);
           prewarmedModel = settings.visionModel;
           prewarmSettings = settings;
         }
         prewarmKey = key;
         prewarmUntil = Date.now() + 60_000;
+        prewarmFailedKey = '';
+        prewarmFailureCount = 0;
+        prewarmRetryAt = 0;
       })();
-      try { await prewarmPromise; } finally { prewarmPromise = null; }
+      prewarmPromise = operation;
+      try {
+        await operation;
+      } catch (cause) {
+        prewarmFailureCount = prewarmFailedKey === key ? prewarmFailureCount + 1 : 1;
+        prewarmFailedKey = key;
+        const backoff = [30_000, 60_000, 300_000][Math.min(prewarmFailureCount - 1, 2)];
+        prewarmRetryAt = Date.now() + backoff;
+        throw cause;
+      } finally {
+        if (prewarmPromise === operation) {
+          prewarmPromise = null;
+          prewarmInFlightKey = '';
+        }
+      }
     },
     async pauseAndWait() {
       foregroundPriority = true;
