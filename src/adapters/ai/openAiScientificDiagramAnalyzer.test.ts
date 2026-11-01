@@ -61,6 +61,20 @@ describe('OpenAI scientific diagram adapter', () => {
     ]);
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer secret');
   });
+  it('embeds the exact generated JSON Schema in the prompt so the model knows every required field', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
+    await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request);
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    const prompt = body.messages[0].content[0].text as string;
+    const schema = body.format;
+    expect(prompt).toContain('SCHÉMA JSON À RESPECTER STRICTEMENT');
+    expect(prompt).toContain(JSON.stringify(schema));
+    expect(schema.required).toEqual(['diagrams', 'criteria', 'overallUncertainties']);
+    expect(schema.properties.criteria.items.required).toContain('criterionId');
+    expect(schema.properties.criteria.items.properties.criterionId.enum).toEqual(['labels']);
+    expect(prompt).not.toContain('Exemple indicatif de structure JSON');
+  });
+
   it('accepts a valid Vision diagram response without optional overall uncertainties', async () => {
     const { overallUncertainties: _omitted, ...outputWithoutGlobalUncertainties } = output;
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
