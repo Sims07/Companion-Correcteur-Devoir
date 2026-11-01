@@ -78,9 +78,9 @@ describe('Ollama adapter', () => {
 
   it('uses the same dedicated first-page identity request with the OpenAI-compatible transport', async () => {
     const sse = (content: string) => new Response([
-      ...content.split('').map((character) => `data: ${JSON.stringify({ choices: [{ delta: { content: character } }] })}\\n\\n`),
-      `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] })}\\n\\n`,
-      'data: [DONE]\\n\\n',
+      ...content.split('').map((character) => `data: ${JSON.stringify({ choices: [{ delta: { content: character } }] })}\n\n`),
+      `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] })}\n\n`,
+      'data: [DONE]\n\n',
     ].join(''), { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
     const identity = JSON.stringify({ firstName: 'Alice', lastName: 'Martin', studentNumber: null, confidence: 'high' });
     const fetchMock = vi.fn<typeof fetch>()
@@ -97,7 +97,7 @@ describe('Ollama adapter', () => {
     }, fetchMock);
 
     await expect(provider.generate({ ...request, identifyStudent: true, visionOnly: true }, undefined, undefined, onTranscription, onDiagnosticResult))
-      .resolves.toBe('[ copie.png ]\\nTranscription lue');
+      .resolves.toBe('[ copie.png ]\nTranscription lue');
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenNthCalledWith(1, 'https://api.example/v1/chat/completions', expect.anything());
