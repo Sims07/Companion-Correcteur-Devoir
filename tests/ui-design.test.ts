@@ -167,6 +167,10 @@ describe('UI design system', () => {
   it('provides an explicit local copy queue for serial grading', () => {
     expect(appComponent).toContain('function queueCurrentCopy()');
     expect(appComponent).toContain('function loadNextQueuedCopy()');
+    expect(appComponent).toContain('function enqueueBackgroundCopy(files: FileList | null)');
+    expect(appComponent).toContain('id="background-copy-files"');
+    expect(appComponent).toContain('Copie suivante');
+    expect(appComponent).toContain('backgroundService.retry(job.id');
     expect(appComponent).toContain('Mettre cette copie en file d’attente');
     expect(appComponent).toContain('Corrections en arrière-plan');
     expect(appComponent).toContain('backgroundCorrectionStatusLabel(job.status)');
