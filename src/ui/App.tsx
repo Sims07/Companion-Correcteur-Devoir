@@ -344,6 +344,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
   const [criterionProgressMessage, setCriterionProgressMessage] = useState('');
   const [pageProgress, setPageProgress] = useState<Record<number, 'started' | 'completed' | 'doubtful'>>({});
+  const [criterionProgressPosition, setCriterionProgressPosition] = useState<{ index: number; total: number } | null>(null);
   const [lastModelLoadDurationMs, setLastModelLoadDurationMs] = useState<number | null>(null);
   const initialDocumentTitle = useRef(document.title);
   const [criterionStatuses, setCriterionStatuses] = useState<Record<string, CriterionAnalysisUpdate['status']>>({});
@@ -360,11 +361,11 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     analysisModel,
     pageCount: images.length + (correctionMode === 'separate' ? subjectImages.length : 0),
     completedPages: completedPageCount + (correctionMode === 'separate' && subjectTranscription ? subjectImages.length : 0),
-    criterionCount: rubric.criteria.length,
+    criterionCount: criterionProgressPosition?.total ?? rubric.criteria.length,
     completedCriteria: completedCriterionCount,
     elapsedSeconds,
     correctionMode,
-  }), [timingHistory, visionModel, analysisModel, images.length, correctionMode, subjectImages.length, completedPageCount, subjectTranscription, rubric.criteria.length, completedCriterionCount, elapsedSeconds]);
+  }), [timingHistory, visionModel, analysisModel, images.length, correctionMode, subjectImages.length, completedPageCount, subjectTranscription, rubric.criteria.length, completedCriterionCount, criterionProgressPosition?.total, elapsedSeconds]);
   useEffect(() => {
     let active = true;
     void evaluationService.listDiagnosticHistory().then((records) => records as TimingRecord[]).then(async (stored) => {
@@ -848,6 +849,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
     setBulkConfirmedCriterionIds([]);
     setCriterionProgressMessage('');
     setPageProgress({});
+    setCriterionProgressPosition(null);
     setLastModelLoadDurationMs(null);
     setCriterionStatuses({});
     setActiveCriterionId(null);
@@ -1012,7 +1014,9 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             setPendingTeacherAnnotationReview(candidates);
           }),
           (event: GradingProgressEvent) => {
+            if (event.type === 'phase') setAnalysisStage(event.phase === 'preparation' ? 'checking' : event.phase);
             if (event.type === 'page') setPageProgress((current) => ({ ...current, [event.pageIndex]: event.status }));
+            if (event.type === 'criterion') setCriterionProgressPosition({ index: event.criterionIndex, total: event.criterionTotal });
             if (event.type === 'model-load') setLastModelLoadDurationMs(event.durationMs);
           },
         );
@@ -1760,7 +1764,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             <span className="teacher-step-number">2</span><span><strong>Ajouter une copie</strong><small>{images.length ? images.length + ' page(s) importée(s)' : 'Sujet et pages étudiant'}</small></span>
           </button>
           <button type="button" className={(teacherStep === 'progress' || teacherStep === 'review') && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={(teacherStep === 'progress' || teacherStep === 'review') && !showAiSettings ? 'step' : undefined} disabled={!proposal && !isAnalyzing} onClick={() => { setShowAiSettings(false); setTeacherStep(isAnalyzing ? 'progress' : 'review'); }}>
-            <span className="teacher-step-number">3</span><span><strong>{isAnalyzing ? 'Correction en cours' : 'Réviser la note'}</strong><small>{isAnalyzing ? analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length}/${images.length}` : analysisStage === 'grading' ? `Correction · critère ${Object.values(criterionStatuses).filter((status) => status === 'completed').length}/${rubric.criteria.length}` : 'Préparation' : proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
+            <span className="teacher-step-number">3</span><span><strong>{isAnalyzing ? 'Correction en cours' : 'Réviser la note'}</strong><small>{isAnalyzing ? analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length}/${images.length}` : analysisStage === 'grading' ? `Correction · critère ${criterionProgressPosition?.index ?? Object.values(criterionStatuses).filter((status) => status === 'completed').length}/${criterionProgressPosition?.total ?? rubric.criteria.length}` : 'Préparation' : proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
           </button>
         </nav>
         <button type="button" className="sidebar-all-assignments" onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }} disabled={isAnalyzing}><span aria-hidden="true">▦</span><span><strong>Tous mes devoirs</strong><small>{assignmentProfiles.length} devoir(s)</small></span><span aria-hidden="true">→</span></button>
@@ -2522,7 +2526,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
           <div className="teacher-progress-phases" aria-label="Progression de la correction">
             <div className={analysisStage === 'checking' ? 'teacher-progress-phase current' : 'teacher-progress-phase complete'}><span>{analysisStage === 'checking' ? '1' : '✓'}</span><div><strong>Préparation</strong><small>{analysisStage === 'checking' ? 'Préparation du traitement' : 'Terminée'}</small></div></div>
             <div className={analysisStage === 'reading' ? 'teacher-progress-phase current' : analysisStage === 'grading' ? 'teacher-progress-phase complete' : 'teacher-progress-phase'}><span>{analysisStage === 'grading' ? '✓' : '2'}</span><div><strong>Lecture de la copie</strong><small>{analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length ? Math.max(...Object.keys(pageProgress).map(Number)) : 1}/${images.length}` : analysisStage === 'grading' ? `${Object.values(pageProgress).filter((status) => status === 'completed' || status === 'doubtful').length}/${images.length} pages lues` : 'À venir'}</small></div></div>
-            <div className={analysisStage === 'grading' ? 'teacher-progress-phase current' : 'teacher-progress-phase'}><span>3</span><div><strong>Correction</strong><small>{analysisStage === 'grading' ? `Critère ${Math.min(rubric.criteria.length, Object.values(criterionStatuses).filter((status) => status === 'completed').length + (activeCriterionId ? 1 : 0))}/${rubric.criteria.length}` : 'À venir'}</small></div></div>
+            <div className={analysisStage === 'grading' ? 'teacher-progress-phase current' : 'teacher-progress-phase'}><span>3</span><div><strong>Correction</strong><small>{analysisStage === 'grading' ? `Critère ${criterionProgressPosition?.index ?? Math.min(rubric.criteria.length, Object.values(criterionStatuses).filter((status) => status === 'completed').length + (activeCriterionId ? 1 : 0))}/${criterionProgressPosition?.total ?? rubric.criteria.length}` : 'À venir'}</small></div></div>
           </div>
           {(analysisStage === 'checking' || (analysisStage === 'reading' && lastModelLoadDurationMs === null && Object.keys(pageProgress).length === 1 && pageProgress[Number(Object.keys(pageProgress)[0])] === 'started')) && <p className="teacher-progress-hint">Chargement du modèle, jusqu’à 1 min la première fois.</p>}
           <div className="teacher-progress-page-list" aria-label="État de lecture des pages">{images.map((image, index) => { const status = pageProgress[index + 1]; return <span className={status === 'doubtful' ? 'is-doubtful' : status === 'completed' ? 'is-complete' : ''} key={`${image.fileName}-${index}`}>{status === 'completed' ? '✓' : status === 'doubtful' ? '!' : '·'} Page {index + 1}</span>; })}</div>
