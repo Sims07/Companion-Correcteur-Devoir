@@ -280,7 +280,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [assignmentTitle, setAssignmentTitle] = useState(() => readActiveAssignmentProfile().title);
   const [assignmentDescription, setAssignmentDescription] = useState(() => readActiveAssignmentProfile().description ?? '');
   const [educationLevel, setEducationLevel] = useState(() => readActiveAssignmentProfile().educationLevel ?? '');
-  const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric');
+  const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>(() => {
+    const profile = readActiveAssignmentProfile();
+    const maximumPoints = profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
+    return profile.rubric.criteria.length > 0 && maximumPoints > 0 ? 'copy' : 'rubric';
+  });
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
@@ -1491,7 +1495,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setStreamedOutput('');
     setDiagnosticRuns([]);
     setShowAiSettings(false);
-    setTeacherStep(draft?.proposal ? 'review' : 'rubric');
+    const maximumPoints = profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
+    setTeacherStep(draft?.proposal ? 'review' : profile.rubric.criteria.length > 0 && maximumPoints > 0 ? 'copy' : 'rubric');
   }
 
   function switchAssignment(profile: AssignmentProfile) {
@@ -1572,7 +1577,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setDiagnosticRuns([]);
     setIsFinalized(false);
     setShowAiSettings(false);
-    setTeacherStep('details');
+    setTeacherStep('rubric');
   }
 
   async function enqueueBackgroundCopy(files: FileList | null) {
@@ -1890,17 +1895,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </section>}
         <nav className="teacher-step-nav" aria-label="Étapes du devoir">
           <p className="eyebrow">PARCOURS DE CORRECTION</p>
-          <button type="button" className={teacherStep === 'details' && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'details' && !showAiSettings ? 'step' : undefined} onClick={() => { setShowAiSettings(false); setTeacherStep('details'); }}>
-            <span className="teacher-step-number">0</span><span><strong>Définir le devoir</strong><small>{assignmentTitle.trim() || 'Sans titre'}{educationLevel ? ' · ' + educationLevel : ''}</small></span>
-          </button>
-          <button type="button" className={teacherStep === 'rubric' && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'rubric' && !showAiSettings ? 'step' : undefined} onClick={() => { setShowAiSettings(false); setTeacherStep('rubric'); }}>
-            <span className="teacher-step-number">1</span><span><strong>Préparer le barème</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères</small></span>
+          <button type="button" className={(teacherStep === 'details' || teacherStep === 'rubric') && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={(teacherStep === 'details' || teacherStep === 'rubric') && !showAiSettings ? 'step' : undefined} onClick={() => { setShowAiSettings(false); setTeacherStep('rubric'); }}>
+            <span className="teacher-step-number">1</span><span><strong>Devoir</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères · Modifier</small></span>
           </button>
           <button type="button" className={teacherStep === 'copy' && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'copy' && !showAiSettings ? 'step' : undefined} onClick={() => { setShowAiSettings(false); setTeacherStep('copy'); }}>
-            <span className="teacher-step-number">2</span><span><strong>Ajouter une copie</strong><small>{images.length ? images.length + ' page(s) importée(s)' : 'Sujet et pages étudiant'}</small></span>
+            <span className="teacher-step-number">2</span><span><strong>Copies</strong><small>{images.length ? images.length + ' page(s) importée(s)' : 'Sujet et pages étudiant'}</small></span>
           </button>
           <button type="button" className={(teacherStep === 'progress' || teacherStep === 'review') && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={(teacherStep === 'progress' || teacherStep === 'review') && !showAiSettings ? 'step' : undefined} disabled={!proposal && !isAnalyzing} onClick={() => { setShowAiSettings(false); setTeacherStep(isAnalyzing ? 'progress' : 'review'); }}>
-            <span className="teacher-step-number">3</span><span><strong>{isAnalyzing ? 'Correction en cours' : 'Réviser la note'}</strong><small>{isAnalyzing ? analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length}/${images.length}` : analysisStage === 'grading' ? `Correction · critère ${criterionProgressPosition?.index ?? Object.values(criterionStatuses).filter((status) => status === 'completed').length}/${criterionProgressPosition?.total ?? rubric.criteria.length}` : 'Préparation' : proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
+            <span className="teacher-step-number">3</span><span><strong>{isAnalyzing ? 'Correction en cours' : 'Révision'} </strong><small>{isAnalyzing ? analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length}/${images.length}` : analysisStage === 'grading' ? `Correction · critère ${criterionProgressPosition?.index ?? Object.values(criterionStatuses).filter((status) => status === 'completed').length}/${criterionProgressPosition?.total ?? rubric.criteria.length}` : 'Préparation' : proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
           </button>
         </nav>
         <button type="button" className="sidebar-all-assignments" onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }} disabled={isAnalyzing}><span aria-hidden="true">▦</span><span><strong>Tous mes devoirs</strong><small>{assignmentProfiles.length} devoir(s)</small></span><span aria-hidden="true">→</span></button>
@@ -2367,8 +2369,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         })}</div>}
         <div className="archive-footer"><button type="button" className="primary-button" onClick={startNextCopy}>+ Ajouter une autre copie</button><p>Les copies archivées ne sont pas envoyées dans le cloud. Elles occupent de l’espace dans le stockage local de ce navigateur.</p></div>
       </section>}
-      {interfaceMode === 'teacher' && teacherStep === 'details' && <>
-        <div className="workspace-heading"><div><p className="eyebrow">ÉTAPE 0 · CONTEXTE</p><h2>Définir le devoir</h2><p className="workspace-description">Donnez un nom à l’évaluation et précisez le public visé. Ces informations guideront les modèles pendant la correction ; le barème pourra porter son propre nom.</p></div><span className="step-count">PRÉPARATION</span></div>
+      {interfaceMode === 'teacher' && teacherStep === 'rubric' && <>
+        <details className="assignment-details-collapsible">
+          <summary><span><strong>Devoir</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères</small></span><span className="assignment-details-edit">Modifier</span></summary>
         <section className="panel assignment-details-panel" aria-labelledby="assignment-details-title">
           <div className="panel-heading"><div><h3 id="assignment-details-title">Informations générales</h3><p>Ces informations sont enregistrées avec le devoir sur cet appareil.</p></div></div>
           <label className="field-label" htmlFor="assignment-title-main">Nom du devoir</label>
@@ -2384,12 +2387,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <option value="Autre">Autre</option>
           </DesignSystemSelect>
           <p className="hint">Le niveau sert à calibrer les attentes : vocabulaire, profondeur du raisonnement et précision scientifique. Il ne remplace pas les critères explicites du barème.</p>
-          <div className="teacher-step-footer"><span>Vous pourrez modifier ces informations à tout moment.</span><button type="button" className="primary-button" onClick={() => setTeacherStep('rubric')}>Continuer vers le barème <span aria-hidden="true">→</span></button></div>
         </section>
+        </details>
       </>}
 
       {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration') || (interfaceMode === 'teacher' && teacherStep === 'rubric')) && <>
-      <div id={interfaceMode === 'diagnostic' ? 'evaluation-rubric' : undefined} className="workspace-heading diagnostic-setup-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 SUR 3' : 'EXPÉRIENCE · ÉTAPE 1'}</p><h2>Préparer le barème de correction</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
+      <div id={interfaceMode === 'diagnostic' ? 'evaluation-rubric' : undefined} className="workspace-heading diagnostic-setup-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 · DEVOIR' : 'EXPÉRIENCE · ÉTAPE 1'}</p><h2>Préparer le barème de correction</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
       <section className="panel rubric-editor">
         <div className="rubric-assignment-context"><span className="eyebrow">BARÈME ASSOCIÉ AU DEVOIR</span><strong>{assignmentTitle.trim() || 'Devoir sans titre'}</strong><p>Vous pouvez donner au barème un nom différent de celui du devoir.</p></div>
         <label className="field-label" htmlFor="rubric-title">Nom du barème (distinct du devoir)</label>
@@ -2464,7 +2467,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="rubric-actions"><button className="secondary-button" onClick={addCriterion}>+ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
       </section>
 
-      {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Barème vérifié ? Passez à l’ajout du sujet et d’une copie.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('copy')}>Continuer vers la copie <span aria-hidden="true">→</span></button></div>}
+      {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Le devoir est prêt ? Ajoutez les copies à corriger.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('copy')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
       </>}
 
       {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration') || (interfaceMode === 'teacher' && teacherStep === 'copy')) && <>
