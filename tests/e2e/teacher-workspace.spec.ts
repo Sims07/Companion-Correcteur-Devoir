@@ -12,7 +12,7 @@ test('teacher can edit the collapsed assignment and rubric as one Devoir step', 
   await assignment.locator('summary').click();
   await page.getByLabel('Nom du devoir', { exact: true }).fill('Biologie cellulaire — partiel S1');
   await page.getByLabel('Nom du barème (distinct du devoir)').fill('Barème cellulaire');
-  await expect(page.getByRole('heading', { name: 'Préparer le barème de correction' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Devoir et barème' })).toBeVisible();
   await page.getByRole('button', { name: 'Continuer vers les copies' }).click();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
 
@@ -44,7 +44,7 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
   await expect(page.getByText('IA locale à configurer')).toBeVisible();
   await expect(page.getByRole('button', { name: /Configurer maintenant/ })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Préparer le barème de correction' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Devoir et barème' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Espace enseignant' })).toHaveCount(0);
 
   const advanced = page.locator('.copy-advanced-options').first();
