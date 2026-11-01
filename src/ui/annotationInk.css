@@ -13,3 +13,5 @@
 .annotation-ink-viewer-footer{align-items:center}
 .annotation-ink-viewer-footer span{font-size:10px;color:#657469}
 @media(max-width:520px){.annotation-ink-image-button img{max-height:240px}.annotation-ink-viewer-footer{align-items:flex-start;flex-direction:column}}
+
+.annotation-ink-viewer-color{display:flex;align-items:center;gap:9px;padding:8px 14px;border-bottom:1px solid #e4e9e2;background:#fbfcfa;color:#405747;font-size:12px;font-weight:700}.annotation-ink-viewer-color .annotation-ink-picked-swatch{flex:0 0 24px;width:24px;height:24px;border:1px solid #aebbad;border-radius:6px;box-shadow:0 0 0 1px #fff inset}
