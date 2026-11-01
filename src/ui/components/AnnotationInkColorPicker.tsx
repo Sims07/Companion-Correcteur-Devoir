@@ -24,7 +24,6 @@ export function AnnotationInkColorPicker({ image, preview, selectedColor, onColo
   const [viewer, setViewer] = useState<ViewerImage | null>(null);
   const [zoom, setZoom] = useState(1);
   const sourceCanvas = useRef<HTMLCanvasElement | null>(null);
-  const sourceImage = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,13 +37,11 @@ export function AnnotationInkColorPicker({ image, preview, selectedColor, onColo
       if (!context) return;
       context.drawImage(loadedImage, 0, 0);
       sourceCanvas.current = canvas;
-      sourceImage.current = loadedImage;
     };
     loadedImage.src = imageUrl(image);
     return () => {
       cancelled = true;
       sourceCanvas.current = null;
-      sourceImage.current = null;
     };
   }, [image.base64, image.mimeType]);
 
