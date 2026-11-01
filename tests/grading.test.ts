@@ -24,7 +24,7 @@ describe('parseGradingProposal', () => {
     }), rubric);
     expect(proposal.criteria[0]).toMatchObject({ points: 6, evidence: '« membrane plasmique »', confidence: 'high' });
     expect(proposal.criteria).toHaveLength(2);
-    expect(toReviewedCriteria(proposal)[0].decision).toBe('accepted');
+    expect(toReviewedCriteria(proposal)[0].decision).toBe('pending');
   });
 
   it('allows empty rationale and annotation for confident full-credit criteria while requiring evidence', () => {
@@ -94,14 +94,5 @@ describe('parseGradingProposal', () => {
     }), rubric);
     expect(proposal.criteria[0]).not.toHaveProperty('locationHint');
     expect(proposal.criteria[0]).not.toHaveProperty('locationBox');
-  });
-  it('treats generated proposals as accepted by default without a per-criterion confirmation step', () => {
-    const proposal = parseGradingProposal(JSON.stringify({
-      criteria: [
-        { ...validCriteria[0], confidence: 'low', rationale: 'Lecture incertaine.' },
-        validCriteria[1],
-      ],
-    }), rubric);
-    expect(toReviewedCriteria(proposal).map((item) => item.decision)).toEqual(['accepted', 'accepted']);
   });
 });
