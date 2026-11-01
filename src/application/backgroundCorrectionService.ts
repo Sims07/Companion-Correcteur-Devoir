@@ -7,7 +7,7 @@ import type { OllamaGateway } from '../ports/correctionWorkspace.ts';
 import { formatStudentIdentityLabel, type StudentIdentity } from '../domain/studentIdentity.ts';
 import { partitionScientificRubric, mergeScientificDiagramCriteria } from '../domain/scientificRubricRouting.ts';
 import { routeScientificPages } from '../domain/scientificPageClassification.ts';
-import type { ScientificDiagramAnalysisService } from './scientificDiagramAnalysisService.ts';
+import type { ScientificDiagramAnalyzer } from '../ports/scientificDiagramAnalysis.ts';
 
 export interface BackgroundCorrectionService {
   enqueue(job: BackgroundCorrectionJob, settings: OllamaSettings): Promise<void>;
@@ -49,7 +49,7 @@ function createProposal(rubric: Rubric, criteria: BackgroundCorrectionJob['parti
 export function createBackgroundCorrectionService(
   repository: BackgroundCorrectionRepository,
   workspace: OllamaGateway,
-  diagramAnalysis?: ScientificDiagramAnalysisService,
+  diagramAnalysis?: ScientificDiagramAnalyzer,
 ): BackgroundCorrectionService {
   let paused = false;
   let foregroundPriority = false;
