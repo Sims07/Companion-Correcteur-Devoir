@@ -2315,3 +2315,26 @@
   .correction-series-pages { padding-left: 0; }
   .correction-series-copy-top { flex-wrap: wrap; }
 }
+
+
+/* Expandable, live teacher-facing view of a series correction. */
+.correction-series-view { flex: 0 0 auto; }
+.correction-series-live-details {
+  display: grid; gap: 0.85rem; margin: 0.9rem 0 0 2.5rem; padding: 1rem;
+  border: 1px solid var(--flow-border); border-radius: 12px;
+  background: var(--flow-subtle); color: var(--flow-text);
+}
+.correction-series-live-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.correction-series-live-heading span, .correction-series-live-hint, .correction-series-partial-results li span { color: var(--flow-muted); font-size: 0.86rem; }
+.correction-series-live-hint { margin: 0; line-height: 1.5; }
+.correction-series-transcription summary { cursor: pointer; font-weight: 650; }
+.correction-series-transcription pre { max-height: 18rem; overflow: auto; margin: 0.6rem 0 0; padding: 0.8rem; border-radius: 8px; background: var(--flow-surface); white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 0.88rem; }
+.correction-series-partial-results h5 { margin: 0 0 0.5rem; }
+.correction-series-partial-results ul { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+.correction-series-partial-results li { padding-top: 0.7rem; border-top: 1px solid var(--flow-border); }
+.correction-series-partial-results li > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.4rem; }
+.correction-series-partial-results li p { margin: 0.45rem 0 0; line-height: 1.5; }
+.correction-series-partial-results blockquote { margin: 0.45rem 0 0; padding-left: 0.75rem; border-left: 3px solid var(--flow-accent); color: var(--flow-muted); }
+.correction-series-question { color: var(--flow-accent); font-weight: 650; }
+.correction-series-partial-score { display: block; margin-top: 0.8rem; }
+@media (max-width: 680px) { .correction-series-live-details { margin-left: 0; } .correction-series-live-heading { align-items: flex-start; flex-direction: column; } }
