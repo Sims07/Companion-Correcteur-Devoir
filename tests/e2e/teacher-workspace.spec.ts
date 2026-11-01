@@ -94,10 +94,10 @@ test('teacher can choose clearly distinct individual and series correction workf
   const modeChooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
   await expect(modeChooser).toBeVisible();
   await expect(modeChooser.getByRole('button', { name: /Correction individuelle/ })).toHaveAttribute('aria-pressed', 'true');
-  await expect(modeChooser.getByRole('button', { name: /Correction en série/ })).toHaveAttribute('aria-pressed', 'false');
+  await expect(modeChooser.getByRole('button', { name: /Corriger plusieurs copies/ })).toHaveAttribute('aria-pressed', 'false');
 
   await expect(page.locator('.copy-panel')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Session de correction en série' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Copies du devoir' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Corriger' })).toBeVisible();
 
   await modeChooser.getByRole('button', { name: /Correction en série/ }).click();
@@ -106,7 +106,7 @@ test('teacher can choose clearly distinct individual and series correction workf
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
   await expect(page.locator('.copy-panel')).toHaveCount(0);
   await expect(series.getByText('Aucune copie dans la session.')).toBeVisible();
-  await expect(series.getByRole('heading', { name: 'Copies ajoutées à la session' })).toBeVisible();
+  await expect(series.getByRole('heading', { name: 'Copies à corriger' })).toBeVisible();
   await expect(series.getByText('Traitement séquentiel')).toBeVisible();
   const automaticRotation = series.getByRole('checkbox', { name: /Rotation automatique des schémas/ });
   await expect(automaticRotation).toBeVisible();
@@ -177,7 +177,7 @@ test('series session previews added pages, resets the picker and allows removing
 
   const correctionDetails = series.getByRole('region', { name: 'Correction de Copie 1' });
   await expect(correctionDetails).toBeVisible();
-  await expect(correctionDetails.getByText('La correction démarrera dès que cette copie sera prise en charge.')).toBeVisible();
+  await expect(correctionDetails.getByText('La correction de cette copie commencera dès que possible.')).toBeVisible();
   await expect(series.getByRole('button', { name: 'Masquer les pages et la correction' })).toHaveAttribute('aria-expanded', 'true');
 
   page.once('dialog', (dialog) => dialog.accept());
