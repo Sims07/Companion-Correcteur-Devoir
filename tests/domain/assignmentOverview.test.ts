@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getAssignmentOverview, type AssignmentOverviewProfile } from '../../src/domain/assignmentOverview.ts';
+import { getArchivedCorrectionsForAssignment, getAssignmentOverview, type AssignmentOverviewProfile } from '../../src/domain/assignmentOverview.ts';
 
 const readyAssignment: AssignmentOverviewProfile = {
   id: 'cell-biology',
@@ -25,6 +25,34 @@ describe('getAssignmentOverview', () => {
     expect(overview.correctionCount).toBe(1);
     expect(overview.preparationCount).toBe(1);
     expect(readyAssignment.rubric.criteria).toHaveLength(2);
+  });
+
+  it('counts copies by stable assignment ID instead of editable title', () => {
+    const sameTitleAssignment: AssignmentOverviewProfile = {
+      ...readyAssignment,
+      id: 'cell-biology-resit',
+    };
+    const archived = [
+      { assignmentId: 'cell-biology', assignmentTitle: 'Biologie cellulaire' },
+      { assignmentId: 'cell-biology-resit', assignmentTitle: 'Biologie cellulaire' },
+      { assignmentId: 'cell-biology', assignmentTitle: 'Ancien titre' },
+    ];
+
+    const overview = getAssignmentOverview([readyAssignment, sameTitleAssignment], archived);
+    expect(overview.cards.map((card) => card.archivedCount)).toEqual([2, 1]);
+    expect(overview.correctionCount).toBe(2);
+    expect(getArchivedCorrectionsForAssignment([readyAssignment, sameTitleAssignment], archived, 'cell-biology')).toHaveLength(2);
+    expect(getArchivedCorrectionsForAssignment([readyAssignment, sameTitleAssignment], archived, 'cell-biology-resit')).toHaveLength(1);
+  });
+
+  it('matches legacy archives by title only when the title is unique', () => {
+    const legacy = [{ assignmentTitle: 'Biologie cellulaire' }];
+    expect(getArchivedCorrectionsForAssignment([readyAssignment], legacy, 'cell-biology')).toEqual(legacy);
+    expect(getArchivedCorrectionsForAssignment([readyAssignment, { ...readyAssignment, id: 'another' }], legacy, 'cell-biology')).toEqual([]);
+  });
+
+  it('returns no copies when the selected assignment does not exist', () => {
+    expect(getArchivedCorrectionsForAssignment([readyAssignment], [{ assignmentId: 'cell-biology' }], 'missing')).toEqual([]);
   });
 
   it('searches by title, description and education level without case sensitivity', () => {

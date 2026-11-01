@@ -9,7 +9,30 @@ export interface AssignmentOverviewProfile {
 }
 
 export interface ArchivedAssignmentCopy {
+  /** Stable identity of the devoir; titles are editable and not unique. */
+  assignmentId?: string;
+  /** Kept for archives created before assignment IDs were persisted. */
   assignmentTitle?: string;
+}
+
+/**
+ * Returns only the archived copies belonging to one devoir.
+ * Legacy entries without an ID are matched by title only when that title is unique,
+ * so two devoirs with the same title can never expose each other's copies.
+ */
+export function getArchivedCorrectionsForAssignment<T extends AssignmentOverviewProfile, TCorrection extends ArchivedAssignmentCopy>(
+  assignments: T[],
+  archivedCorrections: TCorrection[],
+  assignmentId: string,
+): TCorrection[] {
+  const assignment = assignments.find((profile) => profile.id === assignmentId);
+  if (!assignment) return [];
+
+  const titleIsUnique = assignments.every((profile) => profile.id === assignmentId || profile.title !== assignment.title);
+  return archivedCorrections.filter((correction) => {
+    if (correction.assignmentId) return correction.assignmentId === assignmentId;
+    return titleIsUnique && correction.assignmentTitle === assignment.title;
+  });
 }
 
 export interface AssignmentOverviewCard<T extends AssignmentOverviewProfile = AssignmentOverviewProfile> {
@@ -33,7 +56,7 @@ export function getAssignmentOverview<T extends AssignmentOverviewProfile>(
 ): AssignmentOverview<T> {
   const normalizedQuery = query.trim().toLocaleLowerCase('fr-FR');
   const cards = assignments.map((profile) => {
-    const archivedCount = archivedCorrections.filter((item) => item.assignmentTitle === profile.title).length;
+    const archivedCount = getArchivedCorrectionsForAssignment(assignments, archivedCorrections, profile.id).length;
     const maximumPoints = profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
     const ready = profile.rubric.criteria.length > 0 && maximumPoints > 0;
     return { profile, archivedCount, maximumPoints, ready };
@@ -49,7 +72,7 @@ export function getAssignmentOverview<T extends AssignmentOverviewProfile>(
   return {
     cards,
     correctionCount: assignments.filter((profile) =>
-      archivedCorrections.some((item) => item.assignmentTitle === profile.title),
+      getArchivedCorrectionsForAssignment(assignments, archivedCorrections, profile.id).length > 0,
     ).length,
     preparationCount: assignments.filter((profile) => profile.rubric.criteria.length === 0).length,
   };
