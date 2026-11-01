@@ -25,6 +25,14 @@ export function createScientificDiagramAnalysisService(analyzer: ScientificDiagr
       if (!request.model.trim()) throw new Error('Choisissez un modèle Vision pour analyser les schémas scientifiques.');
       if (!request.endpoint.trim()) throw new Error('Configurez un endpoint API compatible OpenAI.');
 
+      if (request.images.length === 1) {
+        return analyzer.analyze({
+          ...request,
+          images: [request.images[0]],
+          pageNumbers: [request.pageNumbers?.[0] ?? 1],
+        });
+      }
+
       const diagrams: ScientificDiagramAnalysis['diagrams'] = [];
       const overallUncertainties: string[] = [];
       const warnings: string[] = [];
@@ -67,7 +75,7 @@ export function createScientificDiagramAnalysisService(analyzer: ScientificDiagr
       return {
         diagrams,
         overallUncertainties: [...new Set(overallUncertainties)],
-        ...(warnings.length > 0 ? { warnings: [...new Set(warnings)] } : {}),
+        warnings: [...new Set([...warnings, 'Évaluations page par page : la moyenne des notes constitue une proposition à vérifier par l’enseignant.'])],
       };
     },
   };
