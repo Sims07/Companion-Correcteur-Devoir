@@ -154,7 +154,8 @@ describe('UI design system', () => {
     expect(appComponent).toContain('className="live-copy-preview panel"');
     expect(appComponent).toContain('className="live-copy-layout"');
     expect(appComponent).toContain('Page ${index + 1} de la copie en cours de lecture');
-    expect(appComponent).toContain('className="live-transcription-panel"');
+    expect(appComponent).toContain('className="live-transcription-panel teacher-transcription-details"');
+    expect(appComponent).toContain('Afficher la transcription');
     expect(appComponent).toContain('review-card-pending');
     expect(appComponent).toContain('activeCriterionId === criterion.id');
     expect(appComponent).toContain('review-score-summary');
