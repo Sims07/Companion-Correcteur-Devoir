@@ -68,6 +68,8 @@ test('teacher can rotate each batch page manually before starting the series', a
     buffer: Buffer.from(imageBase64, 'base64'),
   });
 
+  await series.getByRole('button', { name: 'Voir les pages et la correction' }).click();
+
   const preview = series.getByRole('img', { name: 'Page 1 de schema-cellule.png' });
   await expect(preview).toBeVisible();
   await expect.poll(() => preview.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([8, 4]);

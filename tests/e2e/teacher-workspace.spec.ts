@@ -160,16 +160,16 @@ test('series session previews added pages, resets the picker and allows removing
   await expect(series.getByRole('heading', { name: 'Copies ajoutées à la session' })).toBeVisible();
   await expect(series.getByText('Copie 1')).toBeVisible();
   await expect(series.getByText('2 page(s) · En attente')).toBeVisible();
+  await series.getByRole('button', { name: 'Voir les pages et la correction' }).click();
   await expect(series.getByRole('img', { name: 'Page 1 de Copie 1' })).toBeVisible();
   await expect(series.getByRole('img', { name: 'Page 2 de Copie 1' })).toBeVisible();
   await expect(series.locator('.file-picker-selected')).toHaveCount(0);
   await expect(series.getByRole('button', { name: 'Démarrer les corrections (1)' })).toBeVisible();
 
-  await series.getByRole('button', { name: 'Voir la correction' }).click();
   const correctionDetails = series.getByRole('region', { name: 'Correction de Copie 1' });
   await expect(correctionDetails).toBeVisible();
   await expect(correctionDetails.getByText('La correction démarrera dès que cette copie sera prise en charge.')).toBeVisible();
-  await expect(series.getByRole('button', { name: 'Masquer la correction' })).toHaveAttribute('aria-expanded', 'true');
+  await expect(series.getByRole('button', { name: 'Masquer les pages et la correction' })).toHaveAttribute('aria-expanded', 'true');
 
   page.once('dialog', (dialog) => dialog.accept());
   await series.getByRole('button', { name: 'Supprimer' }).click();

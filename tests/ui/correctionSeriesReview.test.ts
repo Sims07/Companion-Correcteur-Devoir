@@ -51,6 +51,8 @@ describe('correction en série — espace de révision', () => {
   
   it('presents the sequential batch as compact status cards with live provisional scores', () => {
     expect(app).toContain("isExpanded && !isActive ? 'is-expanded' : ''");
+    expect(app).toContain('Voir les pages et la correction');
+    expect(app).toContain('Masquer les pages et la correction');
     expect(app).toContain('correction-series-provisional-score');
     expect(app).toContain('Note provisoire ·');
     expect(styles).toContain('grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr))');
