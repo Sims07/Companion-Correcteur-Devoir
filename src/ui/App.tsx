@@ -1044,6 +1044,15 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           },
           (extracted, kind) => {
             if (kind === 'subject') setSubjectTranscription(extracted);
+            else if (kind === 'identity') {
+              try {
+                const identity = JSON.parse(extracted) as StudentIdentity;
+                setStudentIdentity(identity);
+                const suggestedLabel = formatStudentIdentityLabel(identity);
+                if (suggestedLabel && !studentLabel.trim() && identity.confidence !== 'low') setStudentLabel(suggestedLabel);
+                if (identity.confidence === 'medium') setReviewMessage('Identité de l’étudiant détectée avec une incertitude : confirmez le nom ou le numéro avant de finaliser.');
+              } catch { setStudentIdentity(null); }
+            }
             else if (kind === 'annotations') setTeacherAnnotations(extracted);
             else if (kind === 'warning') setError(extracted);
             else setTranscription(extracted);
