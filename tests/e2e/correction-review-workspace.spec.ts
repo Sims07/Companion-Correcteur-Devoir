@@ -30,11 +30,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
       };
     });
     const transaction = database.transaction('local-corrections', 'readwrite');
-    const savedProfiles = JSON.parse(localStorage.getItem('companion-correcteur:assignments:v1') ?? '[]') as Array<{ id?: string }>;
-    const savedActiveAssignmentId = localStorage.getItem('companion-correcteur:active-assignment:v1');
-    const activeAssignmentId = savedProfiles.some((profile) => profile.id === savedActiveAssignmentId)
-      ? savedActiveAssignmentId!
-      : savedProfiles[0]?.id ?? 'assignment-default';
+    const activeAssignmentId = 'assignment-default';
     const activeAssignmentCorrection = {
       id: 'design-review-copy',
       label: 'Copie de test',
@@ -92,6 +88,14 @@ test('review workspace keeps original evidence beside grading criteria on deskto
       transaction.onabort = () => reject(transaction.error);
     });
     database.close();
+    localStorage.setItem('companion-correcteur:assignments:v1', JSON.stringify([{
+      id: activeAssignmentId,
+      title: 'Biologie cellulaire',
+      question: 'Expliquez le rôle de la membrane plasmique.',
+      correctionMode: 'integrated',
+      rubric: { title: 'Barème de membrane', criteria: [{ id: 'membrane', title: 'Rôle de la membrane', description: 'Expliquer la barrière sélective.', maxPoints: 6 }] },
+    }]));
+    localStorage.setItem('companion-correcteur:active-assignment:v1', activeAssignmentId);
     localStorage.setItem('companion-correcteur:ollama-configuration:v1', JSON.stringify({ endpoint: 'https://ai.example', apiCompatible: true, apiKey: 'test-token', visionModel: 'vision-model', analysisModel: 'analysis-model' }));
   });
 
