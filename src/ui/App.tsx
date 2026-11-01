@@ -17,6 +17,7 @@ import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/diagnosticReference.ts';
 import { createDecisionMemoryEntries, fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT } from '../domain/localMemory.ts';
 import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/localCorrection.ts';
+import { formatStudentIdentityLabel, type StudentIdentity } from '../domain/studentIdentity.ts';
 import type { TeacherAnnotationInkColor } from '../domain/teacherAnnotationColor.ts';
 import { AnnotationInkColorPicker } from './components/AnnotationInkColorPicker.tsx';
 import type { RubricImportProgress } from '../ports/correctionWorkspace.ts';
