@@ -28,6 +28,17 @@ describe('correction en série — espace de révision', () => {
     expect(styles).toContain('.copy-queue li.is-current-review');
   });
 
+  it('exposes per-page rotation controls in the batch queue and pauses safely during processing', () => {
+    expect(app).toContain('batch-copy-page-previews');
+    expect(app).toContain('Tourner la page ${pageIndex + 1} de ${job.label} à gauche de 90 degrés');
+    expect(app).toContain('Tourner la page ${pageIndex + 1} de ${job.label} à droite de 90 degrés');
+    expect(app).toContain('await backgroundService.pauseAndWait()');
+    expect(app).toContain('backgroundService.updateImages(job.id, nextImages, nextAngles');
+    expect(app).toContain('backgroundService.resume()');
+    expect(app).toContain('La transcription et les évaluations précédentes ont été invalidées');
+    expect(styles).toContain('.batch-copy-page-preview img');
+  });
+
   it('saves the current review before navigating to the next ready copy', () => {
     expect(app).toContain('onClick={() => { void finalizeReview(true); }}');
     expect(app).toContain('Enregistrer et passer à la copie suivante');
