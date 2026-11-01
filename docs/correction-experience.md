@@ -106,3 +106,13 @@ Les fichiers et images restent préparés et conservés localement ; seul le con
 - Plusieurs fichiers sélectionnés produisent plusieurs jobs indépendants, dans l'ordre de sélection.
 - La préparation des fichiers est séquentielle ; une erreur de préparation ne doit pas créer un job vide.
 - Le traitement des jobs reste séquentiel et la revue humaine d'un job terminé ne bloque pas les suivants.
+
+
+### Choix explicite du parcours enseignant
+
+À l'étape « Ajouter une copie », le professeur choisit explicitement entre deux parcours visuellement distincts :
+
+- **Correction individuelle** : conserve l'écran de préparation d'une seule copie, son aperçu, puis le bouton « Corriger ». Le professeur garde la main sur le passage à la copie suivante.
+- **Correction en série** : remplace cet écran par une session dédiée. Le professeur ajoute plusieurs fichiers, visualise les compteurs (terminées, en cours, en attente, à vérifier), suit l'état de chaque copie et peut ouvrir une correction prête ou reprendre une copie en erreur.
+
+Le choix est réversible à tout moment. Les deux parcours partagent le barème, les réglages du fournisseur et le moteur séquentiel. La correction individuelle n'affiche pas les commandes de mise en file d'arrière-plan ; celles-ci appartiennent au parcours en série.
