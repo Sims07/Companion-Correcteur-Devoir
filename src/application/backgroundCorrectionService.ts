@@ -14,6 +14,7 @@ export interface BackgroundCorrectionService {
   processPending(settings: OllamaSettings): Promise<void>;
   subscribe(listener: (jobs: BackgroundCorrectionJob[]) => void): () => void;
   markForReview(jobId: string): Promise<void>;
+  setAutomatic(enabled: boolean, settings: OllamaSettings): Promise<void>;
 }
 
 function mergeCriteria(previous: BackgroundCorrectionJob['partialCriteria'], next: BackgroundCorrectionJob['partialCriteria']) {
@@ -168,7 +169,7 @@ export function createBackgroundCorrectionService(
       const fingerprint = await repository.fingerprintImages(job.images);
       const cached = await repository.getCachedTranscription(fingerprint);
       await persist({ ...job, imageFingerprint: fingerprint, transcription: cached, updatedAt: new Date().toISOString() });
-      await this.prewarm(settings);
+      try { await this.prewarm(settings); } catch { /* Availability checks never block a teacher from queuing a copy. */ }
       if (autoEnabled) void run(settings);
     },
     listJobs: (assignmentId) => repository.listJobs(assignmentId),
@@ -194,6 +195,16 @@ export function createBackgroundCorrectionService(
     async markForReview(jobId) {
       const job = (await repository.listJobs()).find((item) => item.id === jobId);
       if (job) await persist({ ...job, status: 'needs-review', updatedAt: new Date().toISOString() });
+    },
+    async setAutomatic(enabled, settings) {
+      autoEnabled = enabled;
+      if (enabled) {
+        paused = false;
+        await run(settings);
+      } else {
+        paused = true;
+        if (activeLoop) await activeLoop;
+      }
     },
   };
 }
