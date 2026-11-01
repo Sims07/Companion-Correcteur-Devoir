@@ -117,3 +117,11 @@ Les fichiers et images restent préparés et conservés localement ; seul le con
 - **Correction en série** : remplace cet écran par une session dédiée. Le professeur choisit entre un fichier par copie et un groupe de plusieurs fichiers par copie ; chaque nouvelle sélection groupée ajoute un étudiant distinct. Il visualise les compteurs (terminées, en cours, en attente, à vérifier), suit l'état de chaque copie et peut ouvrir une correction prête ou reprendre une copie en erreur.
 
 Le choix est réversible à tout moment. Les deux parcours partagent le barème, les réglages du fournisseur et le moteur séquentiel. La correction individuelle n'affiche pas les commandes de mise en file d'arrière-plan ; celles-ci appartiennent au parcours en série.
+
+
+### Constitution et suivi des copies en série
+
+- Après chaque ajout, le sélecteur est réinitialisé afin de permettre l'ajout immédiat des pages de la copie suivante.
+- La liste des copies affiche le nom, le nombre de pages, le statut et un aperçu miniature de chaque page.
+- Une copie qui n'est pas en cours de traitement peut être retirée de la session ; une copie en cours est protégée contre la suppression.
+- Le bouton de lancement explicite le nombre de copies en attente et le fait que le traitement est séquentiel.
