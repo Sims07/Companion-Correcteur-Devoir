@@ -23,6 +23,7 @@ import type { LocalCorrectionService } from '../application/localCorrectionServi
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
 import { createBackgroundCorrection, backgroundCorrectionStatusLabel, type BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
+import { prepareBatchCopies } from '../application/prepareBatchCopies.ts';
 import type { BackgroundCorrectionService } from '../application/backgroundCorrectionService.ts';
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
@@ -1591,45 +1592,58 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   async function enqueueBackgroundCopy(files: FileList | null) {
     if (!files?.length || isAnalyzing) return;
     if (!validation.valid) { setError(validation.errors.join(' ')); return; }
-    if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant d’ajouter une copie.'); return; }
+    if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant d’ajouter des copies.'); return; }
     try {
-      const prepared = await service.prepareFiles(files);
+      const selectedFiles = Array.from(files);
       const now = new Date().toISOString();
-      const label = backgroundCopyLabel.trim() || prepared[0]?.fileName || `Copie ${backgroundJobs.length + 1}`;
-      const job = createBackgroundCorrection({
-        id: `queued-copy-${crypto.randomUUID()}`,
-        assignmentId: activeAssignmentId,
-        label,
-        question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
-        rubric: structuredClone(rubric),
-        correctionMode,
-        images: structuredClone(prepared),
-        originalImages: structuredClone(prepared),
-        subjectImages: structuredClone(subjectImages),
-        ...(subjectTranscription ? { subjectTranscription } : {}),
-        detectTeacherAnnotations: backgroundCopyDetectTeacherAnnotations,
-        annotationInkColor: 'none',
-        annotationInkColorApplied: true,
-        visionModel,
-        analysisModel,
-        thinking: analysisThinking,
-        createdAt: now,
-        updatedAt: now,
-      });
-      await backgroundService.enqueue(job, {
+      const jobs = await prepareBatchCopies(
+        selectedFiles,
+        (selected) => service.prepareFiles(selected),
+        (file, prepared) => {
+          const label = selectedFiles.length === 1 && backgroundCopyLabel.trim()
+            ? backgroundCopyLabel.trim()
+            : file.name || `Copie ${backgroundJobs.length + 1}`;
+          return createBackgroundCorrection({
+            id: `queued-copy-${crypto.randomUUID()}`,
+            assignmentId: activeAssignmentId,
+            label,
+            question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+            rubric: structuredClone(rubric),
+            correctionMode,
+            images: structuredClone(prepared),
+            originalImages: structuredClone(prepared),
+            subjectImages: structuredClone(subjectImages),
+            ...(subjectTranscription ? { subjectTranscription } : {}),
+            detectTeacherAnnotations: backgroundCopyDetectTeacherAnnotations,
+            annotationInkColor: 'none',
+            annotationInkColorApplied: true,
+            visionModel,
+            analysisModel,
+            thinking: analysisThinking,
+            createdAt: now,
+            updatedAt: now,
+          });
+        },
+      );
+      const settings = {
         endpoint, apiCompatible, apiKey, visionModel, analysisModel,
         thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection,
         transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
         transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
-      });
+      };
+      for (const job of jobs) await backgroundService.enqueue(job, settings);
       setBackgroundCopyLabel('');
       setBackgroundCopyDetectTeacherAnnotations(false);
       setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
       setReviewMessage(autoBackgroundCorrection
-        ? `${label} ajoutée : sa correction démarre en arrière-plan.`
-        : `${label} ajoutée à la file. Lancez le traitement lorsque vous le souhaitez.`);
+        ? jobs.length === 1
+          ? `${jobs[0].label} ajoutée : sa correction démarre en arrière-plan.`
+          : `${jobs.length} copies ajoutées : elles seront corrigées l’une après l’autre.`
+        : jobs.length === 1
+          ? `${jobs[0].label} ajoutée à la file. Lancez le traitement lorsque vous le souhaitez.`
+          : `${jobs.length} copies ajoutées à la file. Lancez le traitement lorsque vous le souhaitez.`);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible d’ajouter cette copie au traitement en arrière-plan.');
+      setError(cause instanceof Error ? cause.message : 'Impossible d’ajouter ces copies au traitement en arrière-plan.');
     }
   }
 
