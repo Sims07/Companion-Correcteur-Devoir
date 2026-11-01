@@ -265,6 +265,16 @@ export class IndexedDbBackgroundCorrectionRepository implements BackgroundCorrec
     } finally { database.close(); }
   }
 
+  async deleteJob(jobId: string): Promise<void> {
+    const database = await openDatabase();
+    try {
+      const transaction = database.transaction(BACKGROUND_CORRECTION_STORE_NAME, 'readwrite');
+      const completion = transactionToPromise(transaction);
+      transaction.objectStore(BACKGROUND_CORRECTION_STORE_NAME).delete(jobId);
+      await completion;
+    } finally { database.close(); }
+  }
+
   async listJobs(assignmentId?: string): Promise<BackgroundCorrectionJob[]> {
     const database = await openDatabase();
     try {
