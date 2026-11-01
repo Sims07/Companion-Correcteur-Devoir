@@ -45,7 +45,7 @@ describe('correction en série — espace de révision', () => {
   it('saves the current review before navigating to the next ready copy', () => {
     expect(app).toContain('onClick={() => { void finalizeReview(true); }}');
     expect(app).toContain('Enregistrer et passer à la copie suivante');
-    expect(app).toContain('Aucune autre copie prête pour le moment.');
+    expect(app).toContain('Aucune autre copie n’est prête à réviser pour le moment. Les autres corrections se poursuivent.');
   });
 
   
