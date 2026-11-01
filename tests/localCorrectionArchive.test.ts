@@ -8,6 +8,7 @@ const correction: LocalCorrection = {
   label: 'Étudiant 014',
   rubricTitle: 'Biologie cellulaire',
   rubricFingerprint: 'rubric-biology-1',
+  assignmentId: 'assignment-partiel-s1',
   assignmentTitle: 'Partiel S1',
   createdAt: '2026-10-28T10:00:00.000Z',
   updatedAt: '2026-10-28T10:30:00.000Z',
@@ -48,6 +49,7 @@ describe('local correction archive persistence', () => {
     expect(saved[0]).toMatchObject({
       id: correction.id,
       label: 'Étudiant 014',
+      assignmentId: 'assignment-partiel-s1',
       assignmentTitle: 'Partiel S1',
       snapshot: {
         question: 'Expliquez la mitose.',
