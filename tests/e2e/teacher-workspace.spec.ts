@@ -168,6 +168,11 @@ test('series session previews added pages, resets the picker and allows removing
   expect(identityBox).not.toBeNull();
   expect(actionsBox).not.toBeNull();
   expect(actionsBox!.y).toBeGreaterThanOrEqual(identityBox!.y + identityBox!.height - 1);
+  const viewButton = actionRow.getByRole('button', { name: 'Voir les pages et la correction' });
+  const viewButtonBox = await viewButton.boundingBox();
+  expect(viewButtonBox).not.toBeNull();
+  expect(viewButtonBox!.width).toBeGreaterThan(actionsBox!.width * 0.85);
+  expect(viewButtonBox!.height).toBeLessThan(52);
 
   await series.getByRole('button', { name: 'Voir les pages et la correction' }).click();
   await expect(series.getByRole('img', { name: 'Page 1 de Copie 1' })).toBeVisible();
