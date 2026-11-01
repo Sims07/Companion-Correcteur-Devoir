@@ -1739,7 +1739,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   function startNextCopy() {
-    if (copyQueue.length > 0) { void loadNextQueuedCopy(); return; }
+    const readyExists = backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && (job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)) && job.id !== currentBackgroundJobId);
+    if (copyQueue.length > 0 || readyExists) { void loadNextQueuedCopy(); return; }
+    if (backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && ['pending', 'processing', 'needs-review', 'failed'].includes(job.status))) {
+      setReviewMessage('La prochaine copie n’est pas encore prête. Vous pouvez continuer à préparer les copies suivantes pendant son traitement.');
+      return;
+    }
     setCurrentBackgroundJobId(null);
     setStudentLabel('');
     setImages([]);
