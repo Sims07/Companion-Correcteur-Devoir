@@ -141,7 +141,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
         if (!response.ok && response.status === 400) {
           const detail = (await response.text()).slice(0, 500);
           if (/format|schema|json.?schema|unsupported/i.test(detail)) {
-            response = await post('json');
+            response = await post('json_object');
           } else {
             throw new Error('L’analyse Vision des schémas a échoué (HTTP ' + response.status + '). ' + detail);
           }
