@@ -150,4 +150,15 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(repairPrompt).toContain(JSON.stringify(invalid));
   });
 
+  it('falls back to JSON object mode when a provider rejects JSON Schema format', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('unsupported schema format', { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
+    await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request);
+    const firstBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    const secondBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(typeof firstBody.format).toBe('object');
+    expect(secondBody.format).toBe('json_object');
+  });
+
 });
