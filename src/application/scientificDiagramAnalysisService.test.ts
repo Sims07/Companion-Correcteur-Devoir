@@ -48,6 +48,19 @@ describe('scientific diagram analysis use case', () => {
     expect(analyzer.classifyPages).toHaveBeenCalledWith(classificationRequest);
   });
 
+  it('keeps a one-page copy on the exact individual analysis path', async () => {
+    const expected = pageResult(4);
+    const analyzer: ScientificDiagramAnalyzer = {
+      classifyPages: vi.fn(),
+      analyze: vi.fn().mockResolvedValue(expected),
+    };
+    const service = createScientificDiagramAnalysisService(analyzer);
+    const result = await service.analyze({ ...request, images: [request.images[1]], pageNumbers: [4] });
+    expect(result).toBe(expected);
+    expect(analyzer.analyze).toHaveBeenCalledTimes(1);
+    expect(analyzer.analyze).toHaveBeenCalledWith(expect.objectContaining({ images: [request.images[1]], pageNumbers: [4] }));
+  });
+
   it('runs each page sequentially through the individual one-image analyzer and preserves original page numbers', async () => {
     const calls: string[] = [];
     let activeCalls = 0;
