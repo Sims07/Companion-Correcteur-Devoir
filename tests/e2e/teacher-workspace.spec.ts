@@ -105,6 +105,11 @@ test('teacher can choose clearly distinct individual and series correction workf
   await expect(series.getByText('Aucune copie dans la session.')).toBeVisible();
   await expect(series.getByRole('heading', { name: 'Copies ajoutées à la session' })).toBeVisible();
   await expect(series.getByText('Traitement séquentiel')).toBeVisible();
+  const automaticRotation = series.getByRole('checkbox', { name: /Rotation automatique des schémas/ });
+  await expect(automaticRotation).toBeVisible();
+  await expect(automaticRotation).not.toBeChecked();
+  await automaticRotation.check();
+  await expect(automaticRotation).toBeChecked();
   await expect(modeChooser.getByRole('button', { name: /Correction en série/ })).toHaveAttribute('aria-pressed', 'true');
 
   await modeChooser.getByRole('button', { name: /Correction individuelle/ }).click();
