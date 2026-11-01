@@ -535,7 +535,7 @@ export function createOllamaProvider(
         onProgress?.({ type: 'phase', phase: 'reading' });
         
         for (const [index, image] of (request.images ?? []).entries()) {
-          onProgress?.({ type: 'page', pageIndex: index + 1, pageTotal: request.images?.length ?? 0, status: 'started' });
+          onProgress?.({ type: 'page', pageIndex: request.pageNumbers?.[index] ?? index + 1, pageTotal: request.totalPageCount ?? request.images?.length ?? 0, status: 'started' });
           const pageLabel = image.fileName || `page ${index + 1}`;
           let transcriptionTruncated = false;
           const transcriptionLimit = Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048)));
@@ -562,7 +562,7 @@ export function createOllamaProvider(
           if (!pageText) throw new Error(`Aucun texte n’a pu être lu sur ${pageLabel}.`);
           const doubtfulMarker = transcriptionTruncated ? ' [LECTURE DOUTEUSE : transcription possiblement interrompue par une longue zone blanche ou la limite de génération]' : '';
           pageTranscriptions.push({ pageLabel, pageText, doubtfulMarker });
-          onProgress?.({ type: 'page', pageIndex: index + 1, pageTotal: request.images?.length ?? 0, status: transcriptionTruncated ? 'doubtful' : 'completed' });
+          onProgress?.({ type: 'page', pageIndex: request.pageNumbers?.[index] ?? index + 1, pageTotal: request.totalPageCount ?? request.images?.length ?? 0, status: transcriptionTruncated ? 'doubtful' : 'completed' });
         }
         transcription = pageTranscriptions.map(({ pageLabel, pageText, doubtfulMarker }) => [`[ ${pageLabel} ]`, pageText + doubtfulMarker].join('\n')).join('\n\n');
       }
