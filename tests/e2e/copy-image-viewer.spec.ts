@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { openActiveAssignment } from './helpers/teacher-workspace';
+import { openActiveAssignment } from './helpers/teacher-workspace';
 
 test('teacher can open an imported copy page in a fullscreen viewer and zoom it', async ({ page }) => {
   await page.goto('/');
@@ -35,7 +36,8 @@ test('teacher can rotate each batch page manually before or during processing', 
     }));
   });
   await page.reload();
-  await page.getByRole('button', { name: 'Correction en série' }).click();
+  await openActiveAssignment(page);
+  await page.getByRole('button', { name: /Correction en série/ }).click();
   await page.locator('#background-copy-files').setInputFiles({
     name: 'schema-cellule.png',
     mimeType: 'image/png',
