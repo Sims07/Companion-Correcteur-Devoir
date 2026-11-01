@@ -35,6 +35,86 @@ function classificationPrompt(originalPageNumber: number): string {
   ].join('\n\n');
 }
 
+
+function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequest) {
+  return {
+      type: 'object',
+      additionalProperties: false,
+      required: ['diagrams', 'criteria', 'overallUncertainties'],
+      properties: {
+        diagrams: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['id', 'pageNumber', 'diagramType', 'summary', 'uncertainties', 'bounds'],
+            properties: {
+              id: { type: 'string' },
+              pageNumber: { type: 'integer', minimum: 1 },
+              diagramType: { type: 'string' },
+              summary: { type: 'string' },
+              uncertainties: { type: 'array', items: { type: 'string' } },
+              bounds: {
+                type: ['object', 'null'],
+                additionalProperties: false,
+                required: ['x', 'y', 'width', 'height'],
+                properties: {
+                  x: { type: 'number' },
+                  y: { type: 'number' },
+                  width: { type: 'number' },
+                  height: { type: 'number' },
+                },
+              },
+            },
+          },
+        },
+        criteria: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['criterionId', 'points', 'evidence', 'confidence', 'requiresTeacherReview', 'diagramIds', 'elements', 'qualityBreakdown'],
+            properties: {
+              criterionId: { type: 'string', enum: request.rubric.criteria.map((criterion) => criterion.id) },
+              points: { type: ['number', 'null'] },
+              evidence: { type: 'string' },
+              confidence: { type: 'number', minimum: 0, maximum: 1 },
+              requiresTeacherReview: { type: 'boolean' },
+              diagramIds: { type: 'array', items: { type: 'string' } },
+              elements: {
+                type: ['array', 'null'],
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  required: ['label', 'status', 'evidence'],
+                  properties: {
+                    label: { type: 'string' },
+                    status: { type: 'string', enum: ['present', 'partial', 'absent', 'uncertain'] },
+                    evidence: { type: 'string' },
+                  },
+                },
+              },
+              qualityBreakdown: {
+                type: ['array', 'null'],
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  required: ['dimension', 'status'],
+                  properties: {
+                    dimension: { type: 'string' },
+                    status: { type: 'string' },
+                    evidence: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
+        overallUncertainties: { type: 'array', items: { type: 'string' } },
+      },
+    };
+}
+
 export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisRequest, compact = false): string {
   const criteria = request.rubric.criteria.map((criterion) => ({
     criterionId: criterion.id,
@@ -62,7 +142,7 @@ export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisR
     ...(subject ? ['SUJET DE RÉFÉRENCE (transcription fournie) : ' + subject] : []),
     'CORRESPONDANCE DES PAGES : ' + (request.pageNumbers ?? request.images.map((_, index) => index + 1)).map((page, index) => (index + 1) + ' → ' + page).join(', '),
     compact ? 'Réponse compacte obligatoire : aucun qualityBreakdown.' : '',
-    'Exemple indicatif de structure JSON (valeurs fictives, à ne pas recopier : adapte les identifiants, notes, preuves et éléments au barème et aux images réellement fournis). La forme de sortie est celle-ci ; elements ne contient des objets que si le critère possède des expectedElements, sinon utilise null : {"diagrams":[{"id":"diagram-1","pageNumber":1,"diagramType":"cellule","summary":"Exemple de résumé","uncertainties":[]}],"criteria":[{"criterionId":"' + (criteria[0]?.criterionId ?? 'id-réel') + '","points":2,"evidence":"Exemple de preuve visuelle","confidence":0.85,"requiresTeacherReview":false,"diagramIds":["diagram-1"],"elements":null}],"overallUncertainties":[]}',
+    'SCHÉMA JSON À RESPECTER STRICTEMENT (généré depuis le même schéma que celui utilisé pour contraindre la réponse) : ' + JSON.stringify(buildScientificDiagramJsonSchema(request)),
   ].filter(Boolean).join('\n\n');
 }
 
@@ -135,82 +215,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       let raw = '';
       let prompt = buildScientificDiagramPrompt(request);
 
-      const schema = {
-        type: 'object',
-        additionalProperties: false,
-        required: ['diagrams', 'criteria', 'overallUncertainties'],
-        properties: {
-          diagrams: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['id', 'pageNumber', 'diagramType', 'summary', 'uncertainties', 'bounds'],
-              properties: {
-                id: { type: 'string' },
-                pageNumber: { type: 'integer', minimum: 1 },
-                diagramType: { type: 'string' },
-                summary: { type: 'string' },
-                uncertainties: { type: 'array', items: { type: 'string' } },
-                bounds: {
-                  type: ['object', 'null'],
-                  additionalProperties: false,
-                  required: ['x', 'y', 'width', 'height'],
-                  properties: {
-                    x: { type: 'number' },
-                    y: { type: 'number' },
-                    width: { type: 'number' },
-                    height: { type: 'number' },
-                  },
-                },
-              },
-            },
-          },
-          criteria: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['criterionId', 'points', 'evidence', 'confidence', 'requiresTeacherReview', 'diagramIds', 'elements', 'qualityBreakdown'],
-              properties: {
-                criterionId: { type: 'string', enum: request.rubric.criteria.map((criterion) => criterion.id) },
-                points: { type: ['number', 'null'] },
-                evidence: { type: 'string' },
-                confidence: { type: 'number', minimum: 0, maximum: 1 },
-                requiresTeacherReview: { type: 'boolean' },
-                diagramIds: { type: 'array', items: { type: 'string' } },
-                elements: {
-                  type: ['array', 'null'],
-                  items: {
-                    type: 'object',
-                    additionalProperties: false,
-                    required: ['label', 'status', 'evidence'],
-                    properties: {
-                      label: { type: 'string' },
-                      status: { type: 'string', enum: ['present', 'partial', 'absent', 'uncertain'] },
-                      evidence: { type: 'string' },
-                    },
-                  },
-                },
-                qualityBreakdown: {
-                  type: ['array', 'null'],
-                  items: {
-                    type: 'object',
-                    additionalProperties: false,
-                    required: ['dimension', 'status'],
-                    properties: {
-                      dimension: { type: 'string' },
-                      status: { type: 'string' },
-                      evidence: { type: 'string' },
-                    },
-                  },
-                },
-              },
-            },
-          },
-          overallUncertainties: { type: 'array', items: { type: 'string' } },
-        },
-      };
+      const schema = buildScientificDiagramJsonSchema(request);
 
       const send = async (compact: boolean, promptOverride?: string) => {
         prompt = promptOverride ?? buildScientificDiagramPrompt(request, compact);
