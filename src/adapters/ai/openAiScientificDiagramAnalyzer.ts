@@ -1,4 +1,4 @@
-import { parseScientificDiagramAnalysis, type DiagramCriterionAssessment, type ScientificDiagramAnalysis } from '../../domain/scientificDiagram.ts';
+import { parseScientificDiagramAnalysis } from '../../domain/scientificDiagram.ts';
 import { parseScientificPageClassifications } from '../../domain/scientificPageClassification.ts';
 import type { ScientificDiagramAnalyzer, ScientificDiagramAnalysisRequest, ScientificPageClassificationRequest } from '../../ports/scientificDiagramAnalysis.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
