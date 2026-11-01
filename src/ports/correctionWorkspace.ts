@@ -34,6 +34,7 @@ export interface ImportedRubric {
 /** Outbound ports required by the correction workspace. */
 export interface OllamaGateway {
   checkReady(settings: OllamaSettings): Promise<void>;
+  prewarmModel(settings: OllamaSettings, model: string): Promise<void>;
   listModels(endpoint: string): Promise<OllamaModel[]>;
   createProvider(settings: OllamaSettings): GradingProvider;
   importRubricImage(images: ImageInput[], settings: OllamaSettings, onProgress?: (progress: RubricImportProgress) => void, signal?: AbortSignal): Promise<ImportedRubric>;
