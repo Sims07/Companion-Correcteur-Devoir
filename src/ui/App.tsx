@@ -31,6 +31,7 @@ import { AssignmentsHome } from './AssignmentsHome.tsx';
 
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
+import { estimateRemainingCorrectionSeconds } from '../domain/correctionTimeEstimate.ts';
 import { confirmReviewCriteriaInGroup, createReviewTraceMetrics, markGroupConfirmedCriterionModified, undoGroupConfirmation, type ReviewTraceMetrics } from '../domain/reviewMetrics.ts';
 
 type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
@@ -149,6 +150,7 @@ type TimingRecord = {
   source?: 'rubric-import' | 'scientific-diagram';
   modelScore: number | null;
   criterionScores: DiagnosticCriterionScore[];
+  criterionCount?: number;
   assignmentId?: string;
   assignmentTitle?: string;
   rubricSnapshot?: Rubric;
@@ -351,6 +353,18 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [analysisElapsedMs, setAnalysisElapsedMs] = useState<number | null>(null);
   const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
   const diagnosticHistoryReady = useRef(false);
+  const completedPageCount = Object.values(pageProgress).filter((status) => status === 'completed' || status === 'doubtful').length;
+  const completedCriterionCount = Object.values(criterionStatuses).filter((status) => status === 'completed').length;
+  const estimatedRemainingSeconds = useMemo(() => estimateRemainingCorrectionSeconds(timingHistory, {
+    visionModel,
+    analysisModel,
+    pageCount: images.length + (correctionMode === 'separate' ? subjectImages.length : 0),
+    completedPages: completedPageCount + (correctionMode === 'separate' && subjectTranscription ? subjectImages.length : 0),
+    criterionCount: rubric.criteria.length,
+    completedCriteria: completedCriterionCount,
+    elapsedSeconds,
+    correctionMode,
+  }), [timingHistory, visionModel, analysisModel, images.length, correctionMode, subjectImages.length, completedPageCount, subjectTranscription, rubric.criteria.length, completedCriterionCount, elapsedSeconds]);
   useEffect(() => {
     let active = true;
     void evaluationService.listDiagnosticHistory().then((records) => records as TimingRecord[]).then(async (stored) => {
@@ -1038,6 +1052,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
         thinking: analysisThinking,
         correctionMode,
         pageCount: images.length + (correctionMode === 'separate' ? subjectImages.length : 0),
+        criterionCount: rubric.criteria.length,
         readingSeconds: readingDurationMs === null ? (readingStartedAt === null ? null : Math.round((finishedAt - readingStartedAt) / 1000)) : Math.round(readingDurationMs / 1000),
         analysisSeconds: analysisStartedAt === null ? null : Math.round((finishedAt - analysisStartedAt) / 1000),
         totalSeconds: Math.round((finishedAt - runStartedAt) / 1000),
@@ -2503,7 +2518,7 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
       {interfaceMode === 'teacher' && isAnalyzing && <section className="analysis-progress teacher-progress-card" role="status" aria-live="polite" aria-atomic="true">
         <div className="analysis-spinner" aria-hidden="true" />
         <div className="analysis-progress-copy">
-          <div className="teacher-progress-heading"><div><p className="eyebrow">ESPACE ENSEIGNANT</p><h2>Correction en cours</h2></div><span className="step-count">{formatElapsed(elapsedSeconds)} écoulées</span></div>
+          <div className="teacher-progress-heading"><div><p className="eyebrow">ESPACE ENSEIGNANT</p><h2>Correction en cours</h2></div><span className="step-count">{estimatedRemainingSeconds === null ? `${formatElapsed(elapsedSeconds)} écoulées` : `Environ ${Math.ceil(estimatedRemainingSeconds / 60)} min restantes`}</span></div>
           <div className="teacher-progress-phases" aria-label="Progression de la correction">
             <div className={analysisStage === 'checking' ? 'teacher-progress-phase current' : 'teacher-progress-phase complete'}><span>{analysisStage === 'checking' ? '1' : '✓'}</span><div><strong>Préparation</strong><small>{analysisStage === 'checking' ? 'Préparation du traitement' : 'Terminée'}</small></div></div>
             <div className={analysisStage === 'reading' ? 'teacher-progress-phase current' : analysisStage === 'grading' ? 'teacher-progress-phase complete' : 'teacher-progress-phase'}><span>{analysisStage === 'grading' ? '✓' : '2'}</span><div><strong>Lecture de la copie</strong><small>{analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length ? Math.max(...Object.keys(pageProgress).map(Number)) : 1}/${images.length}` : analysisStage === 'grading' ? `${Object.values(pageProgress).filter((status) => status === 'completed' || status === 'doubtful').length}/${images.length} pages lues` : 'À venir'}</small></div></div>
