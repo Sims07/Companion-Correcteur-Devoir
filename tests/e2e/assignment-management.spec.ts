@@ -15,17 +15,17 @@ test('assignment management stays collapsed until requested and supports create,
   await page.getByRole('button', { name: 'Nouveau devoir' }).click();
   await expect(currentAssignment).toContainText('Nouveau devoir');
   await expect(currentAssignment).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByRole('heading', { name: 'Définir le devoir' })).toBeVisible();
+  await expect(page.locator('.assignment-details-collapsible')).toBeVisible();
+  await page.locator('.assignment-details-collapsible > summary').click();
   await expect(page.getByLabel('Description et objectifs pédagogiques')).toBeVisible();
   await expect(page.getByLabel('Niveau scolaire / universitaire')).toBeVisible();
   await page.getByLabel('Nom du devoir', { exact: true }).fill('Contrôle de biologie');
   await page.getByLabel('Description et objectifs pédagogiques').fill('Vérifier la compréhension des notions du chapitre.');
   await page.getByLabel('Niveau scolaire / universitaire').selectOption('Université — Licence 1');
-  await page.getByRole('button', { name: /Continuer vers le barème/ }).click();
   await expect(page.getByRole('heading', { name: 'Préparer le barème de correction' })).toBeVisible();
   await expect(page.getByLabel('Nom du barème (distinct du devoir)')).toHaveValue('Barème à définir');
   await expect(page.getByRole('status').filter({ hasText: 'Le barème n’est pas encore défini' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Continuer vers la copie' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Continuer vers les copies' })).toBeDisabled();
 
   await currentAssignment.click();
   await page.locator('.sidebar-assignment-actions summary[aria-label="Actions pour Contrôle de biologie"]').click();
