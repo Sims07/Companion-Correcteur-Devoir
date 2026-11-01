@@ -47,4 +47,17 @@ describe('correction en série — espace de révision', () => {
     expect(app).toContain('Enregistrer et passer à la copie suivante');
     expect(app).toContain('Aucune autre copie prête pour le moment.');
   });
+
+  
+  it('presents the sequential batch as compact status cards with live provisional scores', () => {
+    expect(app).toContain("['correction-series-card', `is-${job.status}`].join(' ')");
+    expect(app).toContain('correction-series-provisional-score');
+    expect(app).toContain('Note provisoire ·');
+    expect(styles).toContain('grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr))');
+    expect(styles).toContain('.correction-series-list > li.is-processing');
+    expect(styles).toContain('.correction-series-list > li.is-pending');
+    expect(styles).toContain('.correction-series-pages figure');
+    expect(styles).toContain('flex: 0 0 54px');
+    expect(styles).toContain('.correction-series-live-details');
+  });
 });
