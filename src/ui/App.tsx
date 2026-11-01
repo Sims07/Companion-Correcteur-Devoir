@@ -722,6 +722,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       if (visionModel.trim() && analysisModel.trim()) {
         void backgroundService.prewarm({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking }).catch(() => { /* The teacher can still continue and retry model setup later. */ });
       }
+      if (visionModel.trim() && analysisModel.trim()) {
+        void backgroundService.prewarm({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking }).catch(() => { /* The teacher can still continue and retry model setup later. */ });
+      }
       setAnnotationInkColorPreview(null);
       setAnnotationInkColorApplied(annotationInkColor === 'none');
       if (annotationInkColorApplied && annotationInkColor !== 'none') {
