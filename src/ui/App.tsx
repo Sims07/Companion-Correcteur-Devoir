@@ -352,6 +352,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
   const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
   const [backgroundCopyLabel, setBackgroundCopyLabel] = useState('');
+  const [seriesPickerVersion, setSeriesPickerVersion] = useState(0);
+  const [isPreparingSeriesCopies, setIsPreparingSeriesCopies] = useState(false);
   const [seriesGroupingMode, setSeriesGroupingMode] = useState<'each-file' | 'group-files'>('each-file');
   const [correctionSessionMode, setCorrectionSessionMode] = useState<'individual' | 'series'>('individual');
   const [backgroundCopyDetectTeacherAnnotations, setBackgroundCopyDetectTeacherAnnotations] = useState(false);
@@ -1584,13 +1586,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function enqueueBackgroundCopy(files: FileList | null) {
-    if (!files?.length || isAnalyzing) return;
+    if (!files?.length || isAnalyzing || isPreparingSeriesCopies) return;
     if (!validation.valid) { setError(validation.errors.join(' ')); return; }
     if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant d’ajouter des copies.'); return; }
+    setIsPreparingSeriesCopies(true);
+    setError('');
     try {
       const selectedFiles = Array.from(files);
       const fileGroups = seriesGroupingMode === 'group-files' ? [selectedFiles] : selectedFiles.map((file) => [file]);
       const now = new Date().toISOString();
+      const firstCopyNumber = backgroundJobs.length + 1;
       const jobs = await prepareBatchCopies(
         fileGroups,
         (selected) => service.prepareFiles(selected),
@@ -1598,8 +1603,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           const label = backgroundCopyLabel.trim() && (seriesGroupingMode === 'group-files' || group.length === 1 && selectedFiles.length === 1)
             ? backgroundCopyLabel.trim()
             : seriesGroupingMode === 'group-files'
-              ? `Copie ${backgroundJobs.length + index + 1}`
-              : group[0].name || `Copie ${backgroundJobs.length + index + 1}`;
+              ? `Copie ${firstCopyNumber + index}`
+              : group[0].name || `Copie ${firstCopyNumber + index}`;
           return createBackgroundCorrection({
             id: `queued-copy-${crypto.randomUUID()}`,
             assignmentId: activeAssignmentId,
@@ -1630,17 +1635,29 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       };
       for (const job of jobs) await backgroundService.enqueue(job, settings);
       setBackgroundCopyLabel('');
+      setSeriesPickerVersion((version) => version + 1);
       setBackgroundCopyDetectTeacherAnnotations(false);
       setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
       setReviewMessage(autoBackgroundCorrection
-        ? jobs.length === 1
-          ? `${jobs[0].label} ajoutée : sa correction démarre en arrière-plan.`
-          : `${jobs.length} copies ajoutées : elles seront corrigées l’une après l’autre.`
-        : jobs.length === 1
-          ? `${jobs[0].label} ajoutée à la file. Lancez le traitement lorsque vous le souhaitez.`
-          : `${jobs.length} copies ajoutées à la file. Lancez le traitement lorsque vous le souhaitez.`);
+        ? `${jobs.length} copie(s) ajoutée(s). Le traitement démarre automatiquement, une copie après l’autre.`
+        : `${jobs.length} copie(s) ajoutée(s). Vérifiez la liste ci-dessous, puis démarrez les corrections lorsque vous êtes prêt.`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible d’ajouter ces copies au traitement en arrière-plan.');
+    } finally {
+      setIsPreparingSeriesCopies(false);
+    }
+  }
+
+  async function removeSeriesCopy(job: BackgroundCorrectionJob) {
+    if (job.status === 'processing' || job.id === currentBackgroundJobId) return;
+    const confirmed = window.confirm(`Supprimer ${job.label} et ses ${job.images.length} page(s) de cette session ?`);
+    if (!confirmed) return;
+    try {
+      await backgroundService.remove(job.id);
+      setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
+      setReviewMessage(`${job.label} a été retirée de la session.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de supprimer cette copie.');
     }
   }
 
@@ -2529,16 +2546,23 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </div>
         <div className="correction-series-import">
           <div><strong>{seriesGroupingMode === 'group-files' ? 'Ajouter les pages d’une copie' : 'Ajouter des copies à la session'}</strong><p>{seriesGroupingMode === 'group-files' ? 'Chaque sélection constitue une nouvelle copie. Vous pourrez recommencer pour ajouter l’étudiant suivant.' : 'Sélectionnez un ou plusieurs fichiers ; chacun constituera une copie distincte.'} Formats acceptés : JPG, PNG, WebP et PDF.</p></div>
-          <FilePicker id="series-copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void enqueueBackgroundCopy(files); }} title={seriesGroupingMode === 'group-files' ? 'Sélectionner les pages de cette copie' : 'Sélectionner les copies'} description={seriesGroupingMode === 'group-files' ? 'Tous les fichiers sélectionnés seront regroupés dans une seule copie.' : 'Un fichier sélectionné correspond à une copie ; les PDF multipages restent groupés.'} actionLabel={seriesGroupingMode === 'group-files' ? 'Ajouter cette copie' : 'Ajouter les copies'} />
+          <FilePicker key={seriesPickerVersion} id="series-copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple disabled={isPreparingSeriesCopies} onFilesSelected={(files) => { void enqueueBackgroundCopy(files); }} title={seriesGroupingMode === 'group-files' ? 'Sélectionner les pages de cette copie' : 'Sélectionner les copies'} description={seriesGroupingMode === 'group-files' ? 'Tous les fichiers sélectionnés seront regroupés dans une seule copie.' : 'Un fichier sélectionné correspond à une copie ; les PDF multipages restent groupés.'} actionLabel={isPreparingSeriesCopies ? 'Préparation…' : seriesGroupingMode === 'group-files' ? 'Ajouter cette copie' : 'Ajouter les copies'} />
         </div>
         <label className="analysis-thinking-option copy-annotation-option correction-series-auto"><input type="checkbox" checked={backgroundCopyDetectTeacherAnnotations} onChange={(event) => setBackgroundCopyDetectTeacherAnnotations(event.target.checked)} /><span><strong>Les copies contiennent des annotations du professeur</strong><small>Appliquez cette consigne à toutes les copies ajoutées lors de cette sélection.</small></span></label>
         <label className="analysis-thinking-option copy-annotation-option correction-series-auto"><input type="checkbox" checked={autoBackgroundCorrection} onChange={(event) => { const enabled = event.target.checked; setAutoBackgroundCorrection(enabled); try { window.localStorage.setItem('companion-correcteur:auto-background-correction:v1', String(enabled)); } catch { /* Keep the current session preference if storage is unavailable. */ } void backgroundService.setAutomatic(enabled, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: enabled, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }} /><span><strong>Démarrer automatiquement la correction</strong><small>Les copies sont traitées une par une pendant que vous consultez les résultats déjà prêts.</small></span></label>
-        {!autoBackgroundCorrection && backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && job.status === 'pending') && <button type="button" className="primary-button" onClick={() => { void backgroundService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Lancer la session</button>}
-        <div className="correction-series-list-heading"><h4>Suivi des copies</h4><span>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId).length} copie(s) dans cette session</span></div>
-        {backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId).length === 0 ? <p className="correction-series-empty">Aucune copie ajoutée pour le moment. Sélectionnez plusieurs fichiers pour démarrer votre session.</p> : <ol className="correction-series-list">{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId).map((job, index) => <li key={job.id} className={job.status === 'processing' ? 'is-processing' : ''}>
-          <span className="queue-position">{index + 1}</span><div className="correction-series-copy"><strong>{job.label}</strong><span>{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}{job.status === 'processing' ? ` · ${job.phase === 'preparation' ? 'Préparation' : job.phase === 'reading' ? `Lecture ${job.completedPages}/${job.images.length}` : `Correction ${job.completedCriteria}/${job.totalCriteria}`}` : ''}</span>{job.error && <small role="alert">{job.error}</small>}</div>
+        {isPreparingSeriesCopies && <p className="correction-series-feedback" role="status">Préparation des fichiers et constitution des copies…</p>}
+        {!autoBackgroundCorrection && backgroundJobs.some((job) => job.status === 'pending') && <div className="correction-series-launch">
+          <p><strong>{backgroundJobs.filter((job) => job.status === 'pending').length} copie(s) en attente.</strong> Le lancement enverra chaque copie au modèle l’une après l’autre. Vous pourrez suivre leur progression ici.</p>
+          <button type="button" className="primary-button" onClick={() => { void backgroundService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Démarrer les corrections ({backgroundJobs.filter((job) => job.status === 'pending').length})</button>
+        </div>}
+        <div className="correction-series-list-heading"><div><h4>Copies ajoutées à la session</h4><p>Vérifiez les pages et l’ordre avant ou pendant le traitement.</p></div><span>{backgroundJobs.length} copie(s)</span></div>
+        {backgroundJobs.length === 0 ? <p className="correction-series-empty">Aucune copie dans la session. Ajoutez les pages de la première copie ci-dessus.</p> : <ol className="correction-series-list">{backgroundJobs.map((job, index) => <li key={job.id} className={job.status === 'processing' ? 'is-processing' : ''}>
+          <div className="correction-series-copy-top"><span className="queue-position">{index + 1}</span><div className="correction-series-copy"><strong>{job.label}</strong><span>{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}{job.status === 'processing' ? ` · ${job.phase === 'preparation' ? 'Préparation' : job.phase === 'reading' ? `Lecture ${job.completedPages}/${job.images.length}` : `Correction ${job.completedCriteria}/${job.totalCriteria}`}` : ''}</span>{job.error && <small role="alert">{job.error}</small>}</div>
           {(['ready', 'needs-review', 'failed', 'reviewing'].includes(job.status)) && <button type="button" className="secondary-button" disabled={isAnalyzing} onClick={() => { void loadNextQueuedCopy(job.id); }}>{job.status === 'ready' ? 'Réviser' : 'Ouvrir'}</button>}
           {(['needs-review', 'failed'].includes(job.status)) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Reprendre</button>}
+          {job.status !== 'processing' && job.id !== currentBackgroundJobId && <button type="button" className="text-button correction-series-remove" onClick={() => { void removeSeriesCopy(job); }}>Supprimer</button>}
+          </div>
+          <div className="correction-series-pages" aria-label={`Pages de ${job.label}`}>{job.images.map((page, pageIndex) => <figure key={`${job.id}-page-${pageIndex}`}><img src={`data:${page.mimeType};base64,${page.base64}`} alt={`Page ${pageIndex + 1} de ${job.label}`} loading="lazy" /><figcaption>Page {pageIndex + 1}{page.fileName ? ` · ${page.fileName}` : ''}</figcaption></figure>)}</div>
         </li>)}</ol>}
       </section>}
       {(interfaceMode !== 'teacher' || correctionSessionMode === 'individual') && <>
