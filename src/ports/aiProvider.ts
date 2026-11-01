@@ -27,6 +27,8 @@ export interface GradingRequest {
   /** Stop after local image transcription for an independent Vision benchmark. */
   visionOnly?: boolean;
   detectTeacherAnnotations?: boolean;
+  /** Keep the analysis model warm between background criteria; false unloads it after this call. */
+  keepAnalysisModelWarm?: boolean;
 }
 
 export interface DiagnosticModelResult {
