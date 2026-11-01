@@ -76,6 +76,7 @@ type AssignmentDraft = {
   review: ReviewedCriterion[];
   teacherQuestions: string;
   studentLabel: string;
+  studentIdentity: StudentIdentity | null;
   currentCorrectionId: string | null;
   isFinalized: boolean;
   reviewMessage: string;
@@ -446,6 +447,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }, [isAnalyzing, analysisStage, criterionStatuses, rubric.criteria.length, proposal]);
   useEffect(() => () => { document.title = initialDocumentTitle.current; }, []);
   const [studentLabel, setStudentLabel] = useState('');
+  const [studentIdentity, setStudentIdentity] = useState<StudentIdentity | null>(null);
   const [detectTeacherAnnotations, setDetectTeacherAnnotations] = useState(false);
   const [annotationInkColor, setAnnotationInkColor] = useState<TeacherAnnotationInkColor>('none');
   const [annotationInkColorPreview, setAnnotationInkColorPreview] = useState<ImageInput | null>(null);
@@ -1384,6 +1386,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const snapshot: CorrectionArchiveSnapshot = {
       ...(currentTimingRecordId ? { timingTraceId: currentTimingRecordId } : {}),
       assignmentTitle: assignmentTitle.trim() || 'Devoir de biologie',
+      studentIdentity,
       question,
       rubric: structuredClone(rubric),
       proposal: structuredClone(proposal),
@@ -1462,7 +1465,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   function captureActiveDraft(): AssignmentDraft {
     return {
       images, originalImages, transcription, subjectImages, subjectTranscription, proposal, review,
-      teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, teacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
+      teacherQuestions, studentLabel, studentIdentity, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, teacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
       annotationInkColor, annotationInkColorApplied,
     };
   }
@@ -1494,6 +1497,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setReview((draft?.review ?? []).map((item) => item.decision === 'pending' ? { ...item, decision: 'accepted' as const } : item));
     setTeacherQuestions(draft?.teacherQuestions ?? '');
     setStudentLabel(draft?.studentLabel ?? '');
+    setStudentIdentity(draft?.studentIdentity ?? null);
     setDetectTeacherAnnotations(draft?.detectTeacherAnnotations ?? false);
     setAnnotationInkColor(draft?.annotationInkColor ?? profile.annotationInkColor ?? 'none');
     setAnnotationInkColorApplied(draft?.annotationInkColorApplied ?? true);
@@ -1759,6 +1763,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     await backgroundService.markForReview(next.id);
     setCurrentBackgroundJobId(next.id);
     setStudentLabel(next.label);
+    setStudentIdentity(next.studentIdentity ?? null);
     setDetectTeacherAnnotations(next.detectTeacherAnnotations);
     setAnnotationInkColor(next.annotationInkColor);
     setAnnotationInkColorApplied(next.annotationInkColorApplied);
@@ -1837,6 +1842,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setActiveAssignmentId(matchingAssignment.id);
     setAssignmentTitle(archivedTitle);
     setStudentLabel(correction.label);
+    setStudentIdentity(snapshot.studentIdentity ?? null);
     setQuestion(snapshot.question);
     setRubric(snapshot.rubric);
     setProposal(snapshot.proposal);
