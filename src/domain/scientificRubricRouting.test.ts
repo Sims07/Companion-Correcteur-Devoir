@@ -67,7 +67,7 @@ describe('scientific rubric routing', () => {
     expect(result.questionsForTeacher).toContain('Vérifiez le schéma sur la copie et attribuez les points de ce critère.');
   });
 
-  it('averages a criterion assessed across diagrams and propagates uncertainty', () => {
+  it('keeps legacy per-diagram stored results readable and explicitly flags their averaged score for review', () => {
     const result = mergeScientificDiagramCriteria(rubric, textProposal, {
       diagrams: [
         diagramAnalysis.diagrams[0],
@@ -77,6 +77,16 @@ describe('scientific rubric routing', () => {
     });
     expect(result.criteria[0]).toMatchObject({ points: 6, confidence: 'medium', questionForTeacher: expect.any(String) });
     expect(result.questionsForTeacher).toContain('Un schéma est partiellement illisible.');
+    expect(result.questionsForTeacher).toContain('Ancien format d’analyse par schéma : vérifier la note.');
+  });
+
+  it('uses one global score for a criterion spanning several diagrams without averaging per-diagram scores', () => {
+    const global = { diagrams: [1, 2, 3, 4].map((index) => ({ ...diagramAnalysis.diagrams[0], id: 'diagram-' + index, pageNumber: index, criteria: [] })), criteria: [{ ...diagramAnalysis.diagrams[0].criteria[0], points: 2, maxPoints: 8, diagramIds: ['diagram-1', 'diagram-2', 'diagram-3', 'diagram-4'] }], overallUncertainties: [] };
+    const visualRubric: Rubric = { ...rubric, criteria: rubric.criteria.map((criterion) => criterion.id === 'diagram' ? { ...criterion, maxPoints: 10, analysisMode: 'scientific-diagram' } : criterion) };
+    global.criteria[0].maxPoints = 10;
+    const result = mergeScientificDiagramCriteria(visualRubric, textProposal, global);
+    expect(result.criteria[0].points).toBe(2);
+    expect(result.criteria[0].evidence).toContain('Pages concernées');
   });
 
   it('recognizes a legend criterion tied to an anatomical figure', () => {
@@ -90,4 +100,40 @@ describe('scientific rubric routing', () => {
     expect(result.diagramCriteria.map((item) => item.id)).toEqual(['legend']);
     expect(result.textCriteria.map((item) => item.id)).toEqual(['essay']);
   });
+  it('marks failed diagram analysis for manual grading and retains affected pages', () => {
+    const result = mergeScientificDiagramCriteria(rubric, textProposal, {
+      diagrams: [{ ...diagramAnalysis.diagrams[0], id: 'diagram-1', pageNumber: 4, criteria: [] }],
+      criteria: [],
+      overallUncertainties: [],
+      warnings: ['Analyse des schémas indisponible.'],
+    });
+    expect(result.criteria[0]).toMatchObject({ points: 0, confidence: 'low', evidence: expect.stringContaining('Pages concernées') });
+    expect(result.criteria[0].evidence).toContain('4');
+    expect(result.questionsForTeacher).toContain('Analyse des schémas indisponible.');
+    expect(result.questionsForTeacher).not.toContain('Ancien format d’analyse par schéma : vérifier la note.');
+  });
+
+  it('propagates expected element statuses, points, evidence and source pages to teacher review', () => {
+    const visualRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'diagram', title: 'Schéma scientifique', description: '', maxPoints: 4, analysisMode: 'scientific-diagram', expectedElements: [{ label: 'Membrane', points: 2 }, { label: 'Noyau', points: 2 }] }] };
+    const analysis: ScientificDiagramAnalysis = {
+      diagrams: [
+        { id: 'diagram-1', pageNumber: 2, diagramType: 'Cellule', summary: '', criteria: [], uncertainties: [] },
+        { id: 'diagram-2', pageNumber: 4, diagramType: 'Cellule', summary: '', criteria: [], uncertainties: [] },
+      ],
+      criteria: [{ criterionId: 'diagram', title: 'Schéma scientifique', points: 3, maxPoints: 4, evidence: 'Éléments partiellement visibles.', confidence: 0.6, requiresTeacherReview: true, diagramIds: ['diagram-1', 'diagram-2'], elements: [
+        { label: 'Membrane', status: 'present', evidence: 'Contour visible.', points: 2, maxPoints: 2 },
+        { label: 'Noyau', status: 'partial', evidence: 'Structure incomplète.', points: 1, maxPoints: 2 },
+      ] }],
+      overallUncertainties: [],
+    };
+    const result = mergeScientificDiagramCriteria(visualRubric, null, analysis);
+    expect(result.criteria[0]).toMatchObject({
+      scientificDiagramPages: [2, 4],
+      scientificDiagramElements: [
+        { label: 'Membrane', status: 'present', points: 2, evidence: 'Contour visible.' },
+        { label: 'Noyau', status: 'partial', points: 1, evidence: 'Structure incomplète.' },
+      ],
+    });
+  });
+
 });

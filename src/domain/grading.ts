@@ -10,6 +10,8 @@ export interface CriterionProposal {
   evidence: string;
   /** Visual quality evidence returned by Vision for scientific-diagram rubric criteria. */
   qualityBreakdown?: ScientificDiagramQualityAssessment[];
+  scientificDiagramElements?: Array<{ label: string; status: 'present' | 'partial' | 'absent' | 'uncertain'; points: number; maxPoints: number; evidence: string }>;
+  scientificDiagramPages?: number[];
   /** One-based source page when the model can identify it reliably. */
   pageNumber?: number;
   /** Short teacher-facing comment that can be copied by hand onto the paper copy. */

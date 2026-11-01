@@ -32,29 +32,30 @@ export function mergeScientificDiagramCriteria(
   const { textCriteria, diagramCriteria } = partitionScientificRubric(rubric);
   const textById = new Map((textProposal?.criteria ?? []).map((criterion) => [criterion.criterionId, criterion]));
   const diagramProposals = new Map<string, CriterionProposal>();
+  const legacyAnalysis = Boolean(analysis && (!analysis.criteria || (analysis.warnings ?? []).some((warning) => warning.includes('Ancien format'))));
 
   for (const criterion of diagramCriteria) {
-    const assessments = (analysis?.diagrams ?? []).flatMap((diagram) =>
-      diagram.criteria
-        .filter((assessment) => assessment.criterionId === criterion.id)
-        .map((assessment) => ({ ...assessment, pageNumber: diagram.pageNumber, diagramType: diagram.diagramType })),
-    );
+    const legacy = legacyAnalysis;
+    const assessments = legacy
+      ? (analysis?.diagrams ?? []).flatMap((diagram) => (diagram.criteria ?? []).filter((assessment) => assessment.criterionId === criterion.id).map((assessment) => ({ ...assessment, pageNumber: diagram.pageNumber, diagramType: diagram.diagramType })))
+      : (analysis?.criteria ?? []).filter((assessment) => assessment.criterionId === criterion.id);
     if (assessments.length === 0) {
       diagramProposals.set(criterion.id, {
         criterionId: criterion.id,
         points: 0,
         rationale: 'Aucune évaluation visuelle exploitable n’a été produite pour ce critère.',
-        evidence: 'Le critère porte sur un élément graphique ; aucune preuve visuelle fiable ne permet de proposer une note.',
+        evidence: 'À évaluer manuellement — aucune évaluation visuelle exploitable. Pages concernées : ' + ((analysis?.diagrams ?? []).map((diagram) => diagram.pageNumber).join(', ') || 'non identifiées') + '.',
+        scientificDiagramPages: [...new Set((analysis?.diagrams ?? []).map((diagram) => diagram.pageNumber))],
         confidence: 'low',
         questionForTeacher: 'Vérifiez le schéma sur la copie et attribuez les points de ce critère.',
       });
       continue;
     }
 
-    const points = Math.min(criterion.maxPoints, assessments.reduce((sum, item) => sum + item.points, 0) / assessments.length);
+    const points = legacy ? Math.min(criterion.maxPoints, assessments.reduce((sum, item) => sum + item.points, 0) / assessments.length) : assessments[0].points;
     const confidence = Math.min(...assessments.map((item) => item.confidence));
-    const requiresTeacherReview = assessments.some((item) => item.requiresTeacherReview);
-    const evidence = assessments.map((item) => `Page ${item.pageNumber} (${item.diagramType}) : ${item.evidence}`).join(' · ');
+    const requiresTeacherReview = legacy || assessments.some((item) => item.requiresTeacherReview);
+    const evidence = assessments.map((item) => item.evidence).join(' · ') + (legacy ? ' · Ancien format, vérifier la note.' : ` · Pages concernées : ${(analysis?.diagrams ?? []).filter((diagram) => (assessments[0].diagramIds ?? []).includes(diagram.id)).map((diagram) => diagram.pageNumber).join(', ')}`);
     const qualityBreakdown = criterion.analysisMode === 'scientific-diagram'
       ? (assessments[0].qualityBreakdown ?? []).map((dimension) => {
         const matching = assessments.flatMap((assessment) => (assessment.qualityBreakdown ?? []).filter((entry) => entry.dimension === dimension.dimension));
@@ -67,7 +68,7 @@ export function mergeScientificDiagramCriteria(
           : statuses.every((value) => value === 'partial') ? 'partial'
           : statuses.includes('missing') || statuses.includes('partial') ? 'partial'
           : 'fulfilled';
-        return { ...dimension, status, evidence: matching.map((entry, index) => `Page ${assessments[index]?.pageNumber ?? '?'} : ${entry.evidence}`).join(' · ') };
+        return { ...dimension, status, evidence: matching.map((entry) => entry.evidence).join(' · ') };
       })
       : undefined;
     diagramProposals.set(criterion.id, {
@@ -76,6 +77,8 @@ export function mergeScientificDiagramCriteria(
       rationale: `Évaluation réalisée sur le ou les schémas visibles, conformément au critère « ${criterion.title} ».`,
       evidence,
       ...(qualityBreakdown ? { qualityBreakdown } : {}),
+      ...(assessments[0].elements ? { scientificDiagramElements: assessments[0].elements } : {}),
+      scientificDiagramPages: [...new Set(assessments.flatMap((assessment) => (analysis?.diagrams ?? []).filter((diagram) => (assessment.diagramIds ?? []).includes(diagram.id)).map((diagram) => diagram.pageNumber)))],
       confidence: confidence < 0.5 ? 'low' : confidence < 0.8 ? 'medium' : 'high',
       ...(requiresTeacherReview ? { questionForTeacher: 'Un point de l’évaluation visuelle nécessite votre vérification sur la copie.' } : {}),
     });
@@ -102,6 +105,8 @@ export function mergeScientificDiagramCriteria(
     ...(textProposal?.questionsForTeacher ?? []),
     ...orderedCriteria.flatMap((criterion) => criterion.questionForTeacher ? [criterion.questionForTeacher] : []),
     ...(analysis?.overallUncertainties ?? []),
+    ...(analysis?.warnings ?? []),
+    ...(legacyAnalysis ? ['Ancien format d’analyse par schéma : vérifier la note.'] : []),
   ];
   return {
     summary: textProposal?.summary ?? 'Proposition fondée sur l’analyse visuelle des schémas ; vérification enseignante requise.',

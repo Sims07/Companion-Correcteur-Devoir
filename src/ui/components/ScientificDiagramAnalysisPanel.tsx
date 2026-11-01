@@ -90,7 +90,7 @@ export function ScientificDiagramAnalysisPanel({
                 </div>
                 <figcaption>Repère proposé par Vision sur la page originale. Vérifiez la zone avant de retenir le commentaire.</figcaption>
               </figure>}
-              {diagram.criteria.map((criterion) => (
+              {(diagram.criteria ?? []).map((criterion) => (
                 <div className="scientific-diagram-criterion" key={criterion.criterionId}>
                   <div><strong>{criterion.title}</strong><span>{criterion.points} / {criterion.maxPoints} pt</span></div>
                   <p>{criterion.evidence}</p>
@@ -113,6 +113,8 @@ export function ScientificDiagramAnalysisPanel({
               {diagram.uncertainties.map((item, index) => <p className="review-alert review-alert-warning" key={index}>{item}</p>)}
             </article>
           ))}
+          {(analysis.criteria ?? []).map((criterion) => <div className="scientific-diagram-criterion" key={criterion.criterionId}><div><strong>{criterion.title}</strong><span>{criterion.points} / {criterion.maxPoints} pt</span></div><p>{criterion.evidence}</p><small>{criterion.requiresTeacherReview ? 'Vérification enseignante requise' : 'Évaluation proposée'} · Confiance : {Math.round(criterion.confidence * 100)} %</small></div>)}
+          {(analysis.warnings ?? []).map((warning, index) => <p className="review-alert review-alert-warning" key={'warning-' + index}>{warning}</p>)}
           {analysis.overallUncertainties.map((item, index) => <p className="review-alert review-alert-warning" key={index}>{item}</p>)}
           <p className="hint">Les notes visuelles sont rattachées aux critères graphiques du barème et intégrées à la proposition globale. Vérifiez les preuves sur les images originales avant de valider.</p>
         </div>

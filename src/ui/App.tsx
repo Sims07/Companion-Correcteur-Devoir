@@ -8,7 +8,7 @@ import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type Re
 import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationRecords, getModelEvaluationStage, runModelEvaluation, sumReportedTokensForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot } from '../domain/modelEvaluation.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import { getTeacherEntryStep } from '../domain/teacherJourney.ts';
-import type { ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
+import { shouldRunScientificDiagramAnalysis, type ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
 import { routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
 import { accumulateClockwiseRotation, getConfidentDiagramRotation } from '../domain/scientificPageOrientation.ts';
 import { mergeScientificDiagramCriteria, partitionScientificRubric } from '../domain/scientificRubricRouting.ts';
@@ -958,7 +958,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           diagramImages = diagramPageNumbers.map((pageNumber) => textImages[pageNumber - 1]);
           textPageNumbers = diagramRubric.criteria.length > 0 ? routing.textPageNumbers : textImages.map((_, index) => index + 1);
           textImages = textPageNumbers.map((pageNumber) => textImages[pageNumber - 1]);
-          if (diagramImages.length > 0 && diagramRubric.criteria.length > 0 && !scientificDiagramAnalysis) {
+          if (diagramImages.length > 0 && diagramRubric.criteria.length > 0 && shouldRunScientificDiagramAnalysis(scientificDiagramAnalysis)) {
             setCriterionProgressMessage(`${diagramImages.length} page(s) de schéma détectée(s) · correction scientifique spécialisée…`);
             setScientificDiagramError('');
             try {
@@ -966,6 +966,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 images: diagramImages,
                 pageNumbers: diagramPageNumbers,
                 question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+                subjectTranscription: subjectTranscription ?? undefined,
                 rubric: diagramRubric,
                 model: visionModel,
                 endpoint,
@@ -975,7 +976,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               diagramAnalysisResult = diagramResult;
               setScientificDiagramAnalysis(diagramResult);
             } catch (cause) {
-              setScientificDiagramError(cause instanceof Error ? cause.message : 'La correction des schémas a échoué.');
+              const message = cause instanceof Error ? cause.message : 'La correction des schémas a échoué.';
+              setScientificDiagramError(message);
+              const manualFallback: ScientificDiagramAnalysis = {
+                diagrams: diagramPageNumbers.map((pageNumber, index) => ({ id: 'diagram-' + (index + 1), pageNumber, diagramType: 'schéma', summary: '', criteria: [], uncertainties: [] })),
+                criteria: [],
+                overallUncertainties: [],
+                warnings: ['Analyse des schémas indisponible : ' + message + '. Les critères graphiques sont à évaluer manuellement.'],
+              };
+              diagramAnalysisResult = manualFallback;
+              // Keep failed fallback local to this run: a null persisted analysis allows an explicit retry.
             }
           }
           if (classificationWasJustCreated && diagramImages.length > 0 && transcription) setTranscription(null);
@@ -2455,6 +2465,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </div>
             <label className="points-field"><span className="field-label">Points max.</span><input type="number" min="0" step="0.5" value={criterion.maxPoints} onChange={(event) => updateCriterion(criterion.id, { maxPoints: Number(event.target.value) })} /></label>
             <label className="criterion-visual-toggle"><input type="checkbox" checked={partitionScientificRubric({ title: rubric.title, criteria: [criterion] }).diagramCriteria.length > 0} onChange={(event) => updateCriterion(criterion.id, { analysisMode: event.target.checked ? 'scientific-diagram' : 'text' })} /><span><strong>Analyse de schéma scientifique</strong><small>Évaluer ce critère sur l’image avec Vision, jamais sur la transcription.</small></span></label>
+            {partitionScientificRubric({ title: rubric.title, criteria: [criterion] }).diagramCriteria.length > 0 && <div className="expected-elements-editor">
+              <strong>Éléments attendus (facultatif)</strong>
+              {(criterion.expectedElements ?? []).map((element, index) => <div className="criterion-fields" key={index}>
+                <label><span className="field-label">Élément attendu</span><input aria-label={`Élément attendu ${index + 1} — ${criterion.title}`} value={element.label} onChange={(event) => updateCriterion(criterion.id, { expectedElements: (criterion.expectedElements ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item) })} /></label>
+                <label className="points-field"><span className="field-label">Points</span><input type="number" min="0" step="0.25" value={element.points} onChange={(event) => updateCriterion(criterion.id, { expectedElements: (criterion.expectedElements ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, points: Number(event.target.value) } : item) })} /></label>
+                <button type="button" className="icon-button" aria-label={`Supprimer l’élément ${element.label || index + 1}`} onClick={() => updateCriterion(criterion.id, { expectedElements: (criterion.expectedElements ?? []).filter((_, itemIndex) => itemIndex !== index) })}>×</button>
+              </div>)}
+              <div className="rubric-actions">
+                <button type="button" className="secondary-button" onClick={() => updateCriterion(criterion.id, { expectedElements: [...(criterion.expectedElements ?? []), { label: '', points: 0 }] })}>+ Ajouter un élément</button>
+                <button type="button" className="secondary-button" disabled={(criterion.expectedElements ?? []).length === 0} onClick={() => { const elements = criterion.expectedElements ?? []; const count = elements.length; const unit = count ? Math.floor((criterion.maxPoints / count) * 100) / 100 : 0; updateCriterion(criterion.id, { expectedElements: elements.map((item, index) => ({ ...item, points: index === count - 1 ? Number((criterion.maxPoints - unit * (count - 1)).toFixed(2)) : unit })) }); }}>Répartir également</button>
+              </div>
+              {(criterion.expectedElements ?? []).length > 0 && <p className={Math.abs((criterion.expectedElements ?? []).reduce((sum, item) => sum + item.points, 0) - criterion.maxPoints) < 0.0001 ? 'validation valid' : 'validation invalid'}>Total des éléments : {(criterion.expectedElements ?? []).reduce((sum, item) => sum + item.points, 0)} / {criterion.maxPoints} points{Math.abs((criterion.expectedElements ?? []).reduce((sum, item) => sum + item.points, 0) - criterion.maxPoints) >= 0.0001 ? ' · Le total doit correspondre au maximum du critère.' : ''}</p>}
+            </div>}
             <button className="icon-button" type="button" aria-label={`Supprimer ${criterion.title}`} onClick={() => setRubric((current) => ({ ...current, criteria: current.criteria.filter((item) => item.id !== criterion.id) }))}>×</button>
           </div>)}
         </div>
@@ -2836,6 +2859,15 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
             {item.questionForTeacher && <p className="teacher-question"><strong>Question pour vous :</strong> {item.questionForTeacher}</p>}
             </details>
+            {item.scientificDiagramPages && <details className="scientific-diagram-quality-details review-quality-details" open={isFlagged}>
+              <summary>Évaluation du schéma · pages {(item.scientificDiagramPages ?? []).join(', ') || 'à identifier'}</summary>
+              <p>{item.evidence}</p>
+              {item.scientificDiagramElements && <ul>{item.scientificDiagramElements.map((element) => <li key={element.label}>
+                <div><strong>{element.label}</strong><span className={`quality-status quality-status-${element.status}`}>{({ present: 'Présent', partial: 'Partiel', absent: 'Absent', uncertain: 'Incertain' })[element.status]} · {element.points} / {element.maxPoints} pt</span></div>
+                <p>{element.evidence}</p>
+              </li>)}</ul>}
+              {!item.scientificDiagramElements && <p>{item.rationale}</p>}
+            </details>}
             {scientificDiagramAnalysis?.diagrams.some((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)) && <details className="scientific-diagram-criterion-details"><summary>Analyse du schéma scientifique · {scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).length} résultat(s)</summary>{scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).map((diagram) => { const result = diagram.criteria.find((entry) => entry.criterionId === item.criterionId)!; return <article key={diagram.id}><strong>{diagram.diagramType || 'Schéma'} · page {diagram.pageNumber}</strong><p>{diagram.summary}</p><p>{result.evidence}</p><small>Confiance indicative : {Math.round(result.confidence * 100)} %{result.requiresTeacherReview ? ' · Vérification requise' : ''}</small>{diagram.uncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</article>; })}{scientificDiagramAnalysis.overallUncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</details>}
             <div className="review-controls">
               <label><span className="field-label">Votre note</span><input type="number" min="0" max={criterion?.maxPoints ?? 0} step="0.5" value={item.teacherPoints} onChange={(event) => updateReview(item.criterionId, { teacherPoints: Number(event.target.value), decision: 'adjusted' })} /></label>
