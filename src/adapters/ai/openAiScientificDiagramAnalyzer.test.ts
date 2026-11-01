@@ -184,7 +184,9 @@ describe('OpenAI scientific diagram adapter', () => {
       requestPayload: expect.stringContaining('[IMAGE REDACTED'),
       error: expect.stringContaining('Aucun schéma exploitable'),
     }));
-    const effectivePayload = JSON.parse(diagnostic.mock.calls.at(-1)[0].requestPayload);
+    const lastDiagnostic = diagnostic.mock.calls[diagnostic.mock.calls.length - 1]?.[0];
+    expect(lastDiagnostic).toBeDefined();
+    const effectivePayload = JSON.parse(lastDiagnostic?.requestPayload ?? '{}');
     expect(effectivePayload.model).toBe('vision-model');
     expect(effectivePayload.max_tokens).toBe(2048);
     expect(effectivePayload.messages[0].content).toHaveLength(3);
