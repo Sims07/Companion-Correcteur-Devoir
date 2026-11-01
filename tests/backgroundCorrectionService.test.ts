@@ -145,4 +145,42 @@ describe('background correction service', () => {
     expect(completed?.status).toBe('ready');
   });
 
+
+  it('skips automatic availability checks for OpenAI-compatible providers', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.prewarm({ endpoint: 'https://provider.example/v1', apiCompatible: true, apiKey: 'secret', visionModel: 'vision', analysisModel: 'analysis' });
+    expect(f.workspace.checkReady).not.toHaveBeenCalled();
+    expect(f.workspace.prewarmModel).not.toHaveBeenCalled();
+  });
+
+  it('shares a failed local prewarm and applies a retry backoff', async () => {
+    vi.useFakeTimers();
+    try {
+      const f = fixture();
+      let rejectCheck!: (cause: Error) => void;
+      f.workspace.checkReady = vi.fn(() => new Promise<void>((_resolve, reject) => { rejectCheck = reject; }));
+      const service = createBackgroundCorrectionService(f.repository, f.workspace);
+      const settings = { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' };
+      const first = service.prewarm(settings);
+      const second = service.prewarm(settings);
+      await Promise.resolve();
+      rejectCheck(new Error('Ollama indisponible'));
+      await expect(first).rejects.toThrow('Ollama indisponible');
+      await expect(second).rejects.toThrow('Ollama indisponible');
+      expect(f.workspace.checkReady).toHaveBeenCalledTimes(1);
+
+      await service.prewarm(settings);
+      expect(f.workspace.checkReady).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(30_000);
+      const retry = service.prewarm(settings);
+      await Promise.resolve();
+      expect(f.workspace.checkReady).toHaveBeenCalledTimes(2);
+      rejectCheck(new Error('Toujours indisponible'));
+      await expect(retry).rejects.toThrow('Toujours indisponible');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
 });
