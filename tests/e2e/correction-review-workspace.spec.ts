@@ -30,13 +30,14 @@ test('review workspace keeps original evidence beside grading criteria on deskto
       };
     });
     const transaction = database.transaction('local-corrections', 'readwrite');
-    transaction.objectStore('local-corrections').put({
+    const activeAssignmentCorrection = {
       id: 'design-review-copy',
       label: 'Copie de test',
       rubricTitle: 'Barème de membrane',
       rubricFingerprint: 'rubric-design-test',
       createdAt: '2026-10-29T08:00:00.000Z',
       updatedAt: '2026-10-29T08:00:00.000Z',
+      assignmentId: 'assignment-default',
       assignmentTitle: 'Biologie cellulaire',
       snapshot: {
         assignmentTitle: 'Biologie cellulaire',
@@ -72,6 +73,13 @@ test('review workspace keeps original evidence beside grading criteria on deskto
         scientificPageClassifications: [{ pageNumber: 1, kind: 'scientific-diagram', confidence: 0.96, reason: 'Schéma de cellule' }],
         scientificDiagramAnalysis: { diagrams: [{ id: 'diagram-1', pageNumber: 1, bounds: { x: 0.1, y: 0.2, width: 0.5, height: 0.4 }, diagramType: 'Cellule', summary: 'Schéma de cellule végétale', criteria: [{ criterionId: 'membrane', title: 'Rôle de la membrane', points: 3, maxPoints: 4, evidence: 'La membrane est représentée.', confidence: 0.8, requiresTeacherReview: false }], uncertainties: [] }], overallUncertainties: [] },
       },
+    };
+    transaction.objectStore('local-corrections').put(activeAssignmentCorrection);
+    transaction.objectStore('local-corrections').put({
+      ...activeAssignmentCorrection,
+      id: 'other-assignment-copy',
+      label: 'Copie d’un autre devoir',
+      assignmentId: 'assignment-other',
     });
     await new Promise<void>((resolve, reject) => {
       transaction.oncomplete = () => resolve();
@@ -85,6 +93,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.reload();
   await openActiveAssignment(page);
   await page.getByRole('button', { name: /Corrections enregistrées/ }).click();
+  await expect(page.getByRole('button', { name: 'Consulter la correction' })).toHaveCount(1);
+  await expect(page.getByText('Copie d’un autre devoir')).toHaveCount(0);
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
 
   await expect(page.getByRole('heading', { name: 'Analyse des schémas scientifiques' })).toHaveCount(0);
