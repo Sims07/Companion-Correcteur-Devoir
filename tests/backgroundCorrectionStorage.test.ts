@@ -30,6 +30,10 @@ describe('IndexedDB background correction storage', () => {
     expect(saved).toHaveLength(1);
     expect(saved[0]).toMatchObject({ id: job.id, status: 'pending', label: 'Copie en attente' });
 
+    await repository.deleteJob(job.id);
+    await expect(repository.listJobs('assignment-background-test')).resolves.toHaveLength(0);
+    await repository.saveJob(job);
+
     const fingerprint = await repository.fingerprintImages(job.images);
     await repository.saveCachedTranscription(fingerprint, 'Texte extrait');
     await expect(repository.getCachedTranscription(fingerprint)).resolves.toBe('Texte extrait');
