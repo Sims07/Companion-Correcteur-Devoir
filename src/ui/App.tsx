@@ -352,6 +352,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
   const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
   const [backgroundCopyLabel, setBackgroundCopyLabel] = useState('');
+  const [backgroundCopyDetectTeacherAnnotations, setBackgroundCopyDetectTeacherAnnotations] = useState(false);
   const [autoBackgroundCorrection, setAutoBackgroundCorrection] = useState(() => { try { return window.localStorage.getItem('companion-correcteur:auto-background-correction:v1') !== 'false'; } catch { return true; } });
   useEffect(() => backgroundService.subscribe((jobs) => {
     setBackgroundJobs(jobs.filter((job) => job.assignmentId === activeAssignmentId));
@@ -1580,7 +1581,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function enqueueBackgroundCopy(files: FileList | null) {
-    if (!files?.length) return;
+    if (!files?.length || isAnalyzing) return;
     if (!validation.valid) { setError(validation.errors.join(' ')); return; }
     if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant d’ajouter une copie.'); return; }
     try {
@@ -1598,7 +1599,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         originalImages: structuredClone(prepared),
         subjectImages: structuredClone(subjectImages),
         ...(subjectTranscription ? { subjectTranscription } : {}),
-        detectTeacherAnnotations: false,
+        detectTeacherAnnotations: backgroundCopyDetectTeacherAnnotations,
         annotationInkColor: 'none',
         annotationInkColorApplied: true,
         visionModel,
@@ -1614,6 +1615,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
       });
       setBackgroundCopyLabel('');
+      setBackgroundCopyDetectTeacherAnnotations(false);
       setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
       setReviewMessage(autoBackgroundCorrection
         ? `${label} ajoutée : sa correction démarre en arrière-plan.`
@@ -2731,6 +2733,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <section className="copy-queue review-background-queue" aria-label="Copies préparées en arrière-plan">
           <div className="copy-queue-heading"><div><span className="eyebrow">COPIES SUIVANTES</span><h4>{backgroundJobs.filter((job) => job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)).length} prête(s) à réviser · {backgroundJobs.filter((job) => job.status === 'pending' || job.status === 'processing').length} en traitement</h4></div><button type="button" className="primary-button" onClick={() => { void loadNextQueuedCopy(); }} disabled={isAnalyzing || !backgroundJobs.some((job) => job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria))}>Copie suivante</button></div>
           <div className="student-label-field"><label className="field-label" htmlFor="background-copy-label">Étudiant suivant <span>(facultatif)</span></label><input id="background-copy-label" value={backgroundCopyLabel} onChange={(event) => setBackgroundCopyLabel(event.target.value)} placeholder="Nom ou identifiant" /></div>
+          <label className="analysis-thinking-option copy-annotation-option"><input type="checkbox" checked={backgroundCopyDetectTeacherAnnotations} onChange={(event) => setBackgroundCopyDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient des annotations du professeur</strong><small>Les annotations incertaines demanderont une vérification avant la notation.</small></span></label>
           <FilePicker id="background-copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void enqueueBackgroundCopy(files); }} title="Ajouter une copie à la file" description="Les pages sont lues et corrigées pendant votre révision." actionLabel="Ajouter la copie suivante" />
           <ol>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').map((job, index) => <li key={job.id}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{job.label}</strong><small>{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}{job.status === 'processing' ? ` · ${job.phase === 'preparation' ? 'Préparation' : job.phase === 'reading' ? `Lecture ${job.completedPages}/${job.images.length}` : `Correction ${job.completedCriteria}/${job.totalCriteria}`}` : ''}</small>{job.error && <small role="status">{job.error}</small>}</span>{(['needs-review', 'failed'].includes(job.status) || (job.status === 'reviewing' && job.completedCriteria < job.totalCriteria && job.id !== currentBackgroundJobId)) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Reprendre</button>}</li>)}</ol>
         </section>
