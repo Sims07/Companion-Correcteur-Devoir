@@ -30,7 +30,11 @@ test('review workspace keeps original evidence beside grading criteria on deskto
       };
     });
     const transaction = database.transaction('local-corrections', 'readwrite');
-    const activeAssignmentId = localStorage.getItem('companion-correcteur:active-assignment:v1') ?? 'assignment-default';
+    const savedProfiles = JSON.parse(localStorage.getItem('companion-correcteur:assignments:v1') ?? '[]') as Array<{ id?: string }>;
+    const savedActiveAssignmentId = localStorage.getItem('companion-correcteur:active-assignment:v1');
+    const activeAssignmentId = savedProfiles.some((profile) => profile.id === savedActiveAssignmentId)
+      ? savedActiveAssignmentId!
+      : savedProfiles[0]?.id ?? 'assignment-default';
     const activeAssignmentCorrection = {
       id: 'design-review-copy',
       label: 'Copie de test',
