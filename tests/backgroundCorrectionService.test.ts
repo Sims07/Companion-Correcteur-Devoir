@@ -212,6 +212,30 @@ describe('background correction service', () => {
     }
   });
 
+  it('uses a high-confidence Vision identity to name a queued copy and retains its student number', async () => {
+    const f = fixture();
+    f.setGenerateImplementation(async (request, _chunk, _stage, onTranscription, _diagnostic, onCriterionUpdate) => {
+      if (!request.transcription) {
+        await onTranscription?.(JSON.stringify({ firstName: 'Alice', lastName: 'Martin', studentNumber: '240018', confidence: 'high' }), 'identity');
+        await onTranscription?.('Réponse extraite', 'copy');
+      }
+      const rubric = JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> };
+      const criterion = rubric.criteria[0];
+      const proposal = { criterionId: criterion.id, points: criterion.maxPoints, rationale: '', evidence: 'preuve', confidence: 'high' as const };
+      await onCriterionUpdate?.({ criterionId: criterion.id, index: 1, total: 1, attempt: 1, status: 'completed', proposal });
+      return JSON.stringify({ summary: 'OK', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.enqueue(f.job, { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+    for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(f.jobs.get('copy-1')).toMatchObject({
+      label: 'Martin Alice',
+      studentIdentity: { firstName: 'Alice', lastName: 'Martin', studentNumber: '240018', confidence: 'high' },
+    });
+  });
+
   it('removes a queued copy and notifies subscribers', async () => {
     const f = fixture();
     const service = createBackgroundCorrectionService(f.repository, f.workspace);

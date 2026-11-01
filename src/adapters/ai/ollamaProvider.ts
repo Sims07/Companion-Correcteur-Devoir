@@ -1,5 +1,6 @@
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
+import { extractStudentIdentity } from '../../domain/studentIdentity.ts';
 import { buildIncrementalCriterionPrompt } from './gradingPrompts.ts';
 import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
@@ -147,25 +148,32 @@ function cleanTranscription(raw: string): string {
 }
 
 export function buildTranscriptionPrompt(model: string, mode: 'auto' | 'ocr' | 'general' = 'auto'): string {
-  if (mode === 'ocr' || (mode === 'auto' && /(?:glm[-_]?ocr|ocr[-_]?model|paddleocr|dots[-_]?ocr)/i.test(model))) {
-    if (/glm[-_]?ocr/i.test(model)) {
-      return [
-        'Text Recognition:',
-        'For tables, preserve the original row and column structure. Transcribe a table as aligned rows with explicit column separators; keep headers, cell boundaries, empty cells, units and values in their original positions.',
-        'Do not flatten a table into prose or merge adjacent cells. Keep table titles and notes immediately before or after the table.',
-        'If a cell is unreadable, mark only that cell as [illisible] without shifting the other columns.',
+  const dedicatedOcr = mode === 'ocr' || (mode === 'auto' && /(?:glm[-_]?ocr|ocr[-_]?model|paddleocr|dots[-_]?ocr)/i.test(model));
+  const basePrompt = dedicatedOcr
+    ? /glm[-_]?ocr/i.test(model)
+      ? [
+          'Text Recognition:',
+          'For tables, preserve the original row and column structure. Transcribe a table as aligned rows with explicit column separators; keep headers, cell boundaries, empty cells, units and values in their original positions.',
+          'Do not flatten a table into prose or merge adjacent cells. Keep table titles and notes immediately before or after the table.',
+          'If a cell is unreadable, mark only that cell as [illisible] without shifting the other columns.',
+        ].join('\\n')
+      : 'Text Recognition:'
+    : [
+        'Transcris fidèlement tout le contenu visible de cette page, dans son ordre de lecture.',
+        'Conserve les numéros, titres, paragraphes, listes, tableaux, unités, symboles et retours à la ligne utiles.',
+        'Ne résous pas les questions, ne corrige pas les réponses et ne reformule pas le texte.',
+        'Si un passage est réellement illisible, écris [illisible]. Ne devine, ne complète et n’invente aucun mot.',
+        'Ne répète aucun passage. N’ajoute aucun préambule, commentaire ni conclusion.',
+        'Réduis les zones blanches à au plus deux lignes vides consécutives afin de ne pas interrompre la transcription.',
       ].join('\\n');
-    }
-    return 'Text Recognition:';
-  }
   return [
-    'Transcris fidèlement tout le contenu visible de cette page, dans son ordre de lecture.',
-    'Conserve les numéros, titres, paragraphes, listes, tableaux, unités, symboles et retours à la ligne utiles.',
-    'Ne résous pas les questions, ne corrige pas les réponses et ne reformule pas le texte.',
-    'Si un passage est réellement illisible, écris [illisible]. Ne devine, ne complète et n’invente aucun mot.',
-    'Ne répète aucun passage. N’ajoute aucun préambule, commentaire ni conclusion.',
-    'Réduis les zones blanches à au plus deux lignes vides consécutives afin de ne pas interrompre la transcription.',
-  ].join('\n');
+    basePrompt,
+    'IDENTIFICATION DE L’ÉTUDIANT : examine uniquement l’en-tête, la zone d’identité ou les champs administratifs de la copie. N’utilise jamais un nom cité dans le corps de la réponse.',
+    'Repère le prénom, le nom et le numéro étudiant s’ils sont explicitement visibles. Ne devine jamais et n’invente aucune valeur.',
+    'À la toute fin, ajoute exactement une ligne machine au format STUDENT_IDENTITY: {"firstName":null,"lastName":null,"studentNumber":null,"confidence":"low"}. Remplace les null par les valeurs lues.',
+    'confidence vaut high uniquement si les caractères sont nets et non ambigus, medium si une partie est incertaine, low si aucune identité exploitable n’est visible.',
+    'Cette ligne d’identité est une métadonnée et ne fait pas partie de la transcription de la réponse.',
+  ].join('\\n\\n');
 }
 
 interface OllamaTagsResponse {
@@ -275,7 +283,7 @@ export function createOllamaProvider(
     : fetchImpl;
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
-    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>, onProgress?: (event: GradingProgressEvent) => void): Promise<string> {
+    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning' | 'identity') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>, onProgress?: (event: GradingProgressEvent) => void): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
       const providerName = settings.apiCompatible ? 'API compatible OpenAI' : 'Ollama';
       const visionOnly = request.visionOnly === true;
@@ -562,6 +570,7 @@ export function createOllamaProvider(
       const annotationImages = request.teacherAnnotationImages ?? request.images ?? [];
       const detectedTeacherAnnotations: Array<{ page: number; annotations: ReturnType<typeof parseTeacherAnnotationDetection>['annotations'] }> = [];
       const pageTranscriptions: Array<{ pageLabel: string; pageText: string; doubtfulMarker: string }> = [];
+      let bestStudentIdentityConfidence = -1;
       if (!transcription) {
         onStage?.('reading');
         onProgress?.({ type: 'phase', phase: 'reading' });
@@ -590,7 +599,15 @@ export function createOllamaProvider(
             },
           );
           if (/(?:\r?\n){4}$/.test(pageTranscription)) transcriptionTruncated = true;
-          const pageText = cleanTranscription(pageTranscription);
+          const extractedPage = extractStudentIdentity(cleanTranscription(pageTranscription));
+          const pageText = extractedPage.transcription;
+          if (extractedPage.identity) {
+            const confidenceRank = extractedPage.identity.confidence === 'high' ? 2 : extractedPage.identity.confidence === 'medium' ? 1 : 0;
+            if (confidenceRank > bestStudentIdentityConfidence) {
+              bestStudentIdentityConfidence = confidenceRank;
+              onTranscription?.(JSON.stringify(extractedPage.identity), 'identity');
+            }
+          }
           if (!pageText) throw new Error(`Aucun texte n’a pu être lu sur ${pageLabel}.`);
           const doubtfulMarker = transcriptionTruncated ? ' [LECTURE DOUTEUSE : transcription possiblement interrompue par une longue zone blanche ou la limite de génération]' : '';
           pageTranscriptions.push({ pageLabel, pageText, doubtfulMarker });

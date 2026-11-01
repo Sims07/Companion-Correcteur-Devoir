@@ -4,6 +4,7 @@ import type { Rubric } from '../domain/rubric.ts';
 import type { BackgroundCorrectionRepository } from '../ports/backgroundCorrectionRepository.ts';
 import type { GradingProgressEvent, OllamaSettings } from '../ports/aiProvider.ts';
 import type { OllamaGateway } from '../ports/correctionWorkspace.ts';
+import { formatStudentIdentityLabel, type StudentIdentity } from '../domain/studentIdentity.ts';
 
 export interface BackgroundCorrectionService {
   enqueue(job: BackgroundCorrectionJob, settings: OllamaSettings): Promise<void>;
@@ -136,7 +137,17 @@ export function createBackgroundCorrectionService(
                 undefined,
                 (text, kind) => {
                   if (kind === 'subject') queueProgress({ subjectTranscription: text });
-                  else if (kind !== 'annotations' && kind !== 'warning') queueProgress({ transcription: text, phase: 'grading', completedPages: current.images.length }, text);
+                  else if (kind === 'identity') {
+                    try {
+                      const studentIdentity = JSON.parse(text) as StudentIdentity;
+                      const suggestedLabel = formatStudentIdentityLabel(studentIdentity);
+                      const fallbackLabel = current.label === current.images[0]?.fileName || /^Copie \d+$/.test(current.label);
+                      queueProgress({
+                        studentIdentity,
+                        ...(studentIdentity.confidence === 'high' && suggestedLabel && fallbackLabel ? { label: suggestedLabel } : {}),
+                      });
+                    } catch { /* Invalid identity metadata never changes the queued copy label. */ }
+                  } else if (kind !== 'annotations' && kind !== 'warning') queueProgress({ transcription: text, phase: 'grading', completedPages: current.images.length }, text);
                 },
                 undefined,
                 (update) => {

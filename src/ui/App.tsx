@@ -17,6 +17,7 @@ import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/diagnosticReference.ts';
 import { createDecisionMemoryEntries, fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT } from '../domain/localMemory.ts';
 import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/localCorrection.ts';
+import { formatStudentIdentityLabel, type StudentIdentity } from '../domain/studentIdentity.ts';
 import type { TeacherAnnotationInkColor } from '../domain/teacherAnnotationColor.ts';
 import { AnnotationInkColorPicker } from './components/AnnotationInkColorPicker.tsx';
 import type { RubricImportProgress } from '../ports/correctionWorkspace.ts';
@@ -76,6 +77,7 @@ type AssignmentDraft = {
   review: ReviewedCriterion[];
   teacherQuestions: string;
   studentLabel: string;
+  studentIdentity: StudentIdentity | null;
   currentCorrectionId: string | null;
   isFinalized: boolean;
   reviewMessage: string;
@@ -446,6 +448,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }, [isAnalyzing, analysisStage, criterionStatuses, rubric.criteria.length, proposal]);
   useEffect(() => () => { document.title = initialDocumentTitle.current; }, []);
   const [studentLabel, setStudentLabel] = useState('');
+  const [studentIdentity, setStudentIdentity] = useState<StudentIdentity | null>(null);
   const [detectTeacherAnnotations, setDetectTeacherAnnotations] = useState(false);
   const [annotationInkColor, setAnnotationInkColor] = useState<TeacherAnnotationInkColor>('none');
   const [annotationInkColorPreview, setAnnotationInkColorPreview] = useState<ImageInput | null>(null);
@@ -747,6 +750,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setScientificDiagramError('');
       setFocusedEvidencePage(null);
       setTranscription(null);
+      setStudentIdentity(null);
       setProposal(null);
       setReview([]);
     } catch (cause) {
@@ -772,6 +776,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setScientificDiagramAnalysis(null);
       setScientificDiagramError('');
       setTranscription(null);
+      setStudentIdentity(null);
       setProposal(null);
       setReview([]);
       setTeacherQuestions('');
@@ -796,6 +801,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setPageClassifications(null);
     setScientificDiagramAnalysis(null);
     setTranscription(null);
+    setStudentIdentity(null);
     setProposal(null);
   }
 
@@ -1042,6 +1048,15 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           },
           (extracted, kind) => {
             if (kind === 'subject') setSubjectTranscription(extracted);
+            else if (kind === 'identity') {
+              try {
+                const identity = JSON.parse(extracted) as StudentIdentity;
+                setStudentIdentity(identity);
+                const suggestedLabel = formatStudentIdentityLabel(identity);
+                if (suggestedLabel && !studentLabel.trim() && identity.confidence !== 'low') setStudentLabel(suggestedLabel);
+                if (identity.confidence === 'medium') setReviewMessage('Identité de l’étudiant détectée avec une incertitude : confirmez le nom ou le numéro avant de finaliser.');
+              } catch { setStudentIdentity(null); }
+            }
             else if (kind === 'annotations') setTeacherAnnotations(extracted);
             else if (kind === 'warning') setError(extracted);
             else setTranscription(extracted);
@@ -1384,6 +1399,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const snapshot: CorrectionArchiveSnapshot = {
       ...(currentTimingRecordId ? { timingTraceId: currentTimingRecordId } : {}),
       assignmentTitle: assignmentTitle.trim() || 'Devoir de biologie',
+      studentIdentity,
       question,
       rubric: structuredClone(rubric),
       proposal: structuredClone(proposal),
@@ -1462,7 +1478,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   function captureActiveDraft(): AssignmentDraft {
     return {
       images, originalImages, transcription, subjectImages, subjectTranscription, proposal, review,
-      teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, teacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
+      teacherQuestions, studentLabel, studentIdentity, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, teacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
       annotationInkColor, annotationInkColorApplied,
     };
   }
@@ -1494,6 +1510,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setReview((draft?.review ?? []).map((item) => item.decision === 'pending' ? { ...item, decision: 'accepted' as const } : item));
     setTeacherQuestions(draft?.teacherQuestions ?? '');
     setStudentLabel(draft?.studentLabel ?? '');
+    setStudentIdentity(draft?.studentIdentity ?? null);
     setDetectTeacherAnnotations(draft?.detectTeacherAnnotations ?? false);
     setAnnotationInkColor(draft?.annotationInkColor ?? profile.annotationInkColor ?? 'none');
     setAnnotationInkColorApplied(draft?.annotationInkColorApplied ?? true);
@@ -1580,6 +1597,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setReview([]);
     setTeacherQuestions('');
     setStudentLabel('');
+    setStudentIdentity(null);
     setCurrentCorrectionId(null);
     setReviewMessage('');
     setError('');
@@ -1729,6 +1747,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
       });
       setStudentLabel('');
+    setStudentIdentity(null);
       setDetectTeacherAnnotations(false);
       setAnnotationInkColor('none');
       setAnnotationInkColorApplied(true);
@@ -1784,6 +1803,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     await backgroundService.markForReview(next.id);
     setCurrentBackgroundJobId(next.id);
     setStudentLabel(next.label);
+    setStudentIdentity(next.studentIdentity ?? null);
     setDetectTeacherAnnotations(next.detectTeacherAnnotations);
     setAnnotationInkColor(next.annotationInkColor);
     setAnnotationInkColorApplied(next.annotationInkColorApplied);
@@ -1816,6 +1836,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (readyExists) { void loadNextQueuedCopy(); return; }
     setCurrentBackgroundJobId(null);
     setStudentLabel('');
+    setStudentIdentity(null);
     setImages([]);
     setOriginalImages([]);
     setDetectTeacherAnnotations(false);
@@ -1862,6 +1883,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setActiveAssignmentId(matchingAssignment.id);
     setAssignmentTitle(archivedTitle);
     setStudentLabel(correction.label);
+    setStudentIdentity(snapshot.studentIdentity ?? null);
     setQuestion(snapshot.question);
     setRubric(snapshot.rubric);
     setProposal(snapshot.proposal);
@@ -2640,7 +2662,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       <section className="setup-grid">
         <article className={`panel copy-panel ${images.length ? 'setup-complete' : 'setup-needed'}`}>
           <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">03</span>}<div><h3>Copie de l’étudiant</h3><p>Importez les pages d’un seul étudiant à la fois.</p></div></div>
-          {interfaceMode === 'teacher' && <div className="student-label-field"><label className="field-label" htmlFor="student-label">Nom ou identifiant de l’étudiant <span>(facultatif)</span></label><input id="student-label" value={studentLabel} onChange={(event) => setStudentLabel(event.target.value)} placeholder="Ex. Étudiant 014 ou groupe B" /></div>}
+          {interfaceMode === 'teacher' && <div className="student-label-field"><label className="field-label" htmlFor="student-label">Nom ou identifiant de l’étudiant <span>(facultatif)</span></label><input id="student-label" value={studentLabel} onChange={(event) => setStudentLabel(event.target.value)} placeholder="Ex. Étudiant 014 ou groupe B" />{studentIdentity && <p className="hint" role="status">Identité lue par Vision · {studentIdentity.confidence === 'high' ? 'fiabilité élevée' : studentIdentity.confidence === 'medium' ? 'à confirmer' : 'lecture incertaine'}{studentIdentity.studentNumber ? ' · N° étudiant : ' + studentIdentity.studentNumber : ''}</p>}</div>}
           <label className="upload-placeholder" htmlFor="copy-files"><span className="upload-icon">↑</span><strong>Choisir les pages de la copie</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Sélectionner les pages</span><span className="upload-note">Sélectionnez uniquement les pages d’un même étudiant. Les PDF sont convertis en images dans ce navigateur (10 pages max).</span></label>
           <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
           {interfaceMode !== 'teacher' && <label className="analysis-thinking-option copy-annotation-option"><input type="checkbox" checked={autoBackgroundCorrection} onChange={(event) => { const enabled = event.target.checked; setAutoBackgroundCorrection(enabled); try { window.localStorage.setItem('companion-correcteur:auto-background-correction:v1', String(enabled)); } catch { /* Keep the current session preference if storage is unavailable. */ } void backgroundService.setAutomatic(enabled, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: enabled, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }} /><span><strong>Lancer automatiquement la correction des copies mises en file</strong><small>Activé par défaut. Les traitements restent séquentiels et la révision du professeur est prioritaire.</small></span></label>}
