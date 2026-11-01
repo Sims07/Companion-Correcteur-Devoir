@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildTranscriptionPrompt, checkOllamaReady, createOllamaProvider, importRubricImageWithOllama, listOllamaModels } from '../src/adapters/ai/ollamaProvider.ts';
+import { buildStudentIdentityPrompt, buildTranscriptionPrompt, checkOllamaReady, createOllamaProvider, importRubricImageWithOllama, listOllamaModels } from '../src/adapters/ai/ollamaProvider.ts';
 import type { GradingRequest } from '../src/ports/aiProvider.ts';
+import { parseStudentIdentityResponse } from '../src/domain/studentIdentity.ts';
 
 describe('model-aware transcription prompts', () => {
   it('uses Text Recognition for dedicated OCR models and detailed safeguards for general vision models', () => {
@@ -13,9 +14,8 @@ describe('model-aware transcription prompts', () => {
     expect(prompt).toContain('ordre de lecture');
     expect(buildTranscriptionPrompt('gemma3:4b', 'general')).toContain('retours à la ligne');
     expect(buildTranscriptionPrompt('gemma3:4b', 'ocr')).toContain('Text Recognition:');
-    expect(prompt).toContain('STUDENT_IDENTITY:');
-    expect(prompt).toContain('studentNumber');
-    expect(prompt).toContain('N’utilise jamais un nom cité dans le corps de la réponse');
+    expect(prompt).not.toContain('STUDENT_IDENTITY:');
+    expect(prompt).not.toContain('studentNumber');
   });
 });
 
@@ -31,15 +31,45 @@ const request: GradingRequest = {
 };
 
 describe('Ollama adapter', () => {
-  it('extracts student identity during Vision reading and keeps metadata out of the transcription', async () => {
-    const response = `Réponse manuscrite lisible.
-STUDENT_IDENTITY: {"firstName":"Alice","lastName":"Martin","studentNumber":"240018","confidence":"high"}`;
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse(response));
+  it('identifies the student in one dedicated first-page request before transcription', async () => {
+    const identity = JSON.stringify({ firstName: 'Alice', lastName: 'Martin', studentNumber: '240018', confidence: 'high' });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse(identity))
+      .mockResolvedValueOnce(streamingResponse('Réponse manuscrite lisible.'));
+    const onTranscription = vi.fn();
+    const onDiagnosticResult = vi.fn();
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
+    await expect(provider.generate({ ...request, visionOnly: true }, undefined, undefined, onTranscription, onDiagnosticResult)).resolves.toBe('[ copie.png ]\\nRéponse manuscrite lisible.');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const identityBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(identityBody.messages[0].content).toContain('uniquement la bande supérieure');
+    expect(identityBody.messages[0].content).toContain('en-tête en haut à gauche et en haut à droite');
+    expect(identityBody.messages[0].images).toEqual(['aGVsbG8=']);
+    const transcriptionBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(transcriptionBody.messages[0].content).toContain('Transcris fidèlement');
+    expect(transcriptionBody.messages[0].content).not.toContain('STUDENT_IDENTITY');
+    expect(onTranscription).toHaveBeenCalledWith(identity, 'identity');
+    expect(onTranscription).toHaveBeenCalledWith('[ copie.png ]\\nRéponse manuscrite lisible.', 'copy');
+    expect(onDiagnosticResult).toHaveBeenCalledTimes(2);
+    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ purpose: 'student-identity', stage: 'reading', kind: 'vision' });
+  });
+
+  it('continues transcription when the dedicated identity request fails or finds no identity', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('unavailable', { status: 503 }))
+      .mockResolvedValueOnce(streamingResponse('Réponse manuscrite lisible.'));
     const onTranscription = vi.fn();
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
-    await expect(provider.generate({ ...request, visionOnly: true }, undefined, undefined, onTranscription)).resolves.toBe('[ copie.png ]\nRéponse manuscrite lisible.');
-    expect(onTranscription).toHaveBeenCalledWith(JSON.stringify({ firstName: 'Alice', lastName: 'Martin', studentNumber: '240018', confidence: 'high' }), 'identity');
-    expect(onTranscription).toHaveBeenCalledWith('[ copie.png ]\nRéponse manuscrite lisible.', 'copy');
+    await expect(provider.generate({ ...request, visionOnly: true }, undefined, undefined, onTranscription)).resolves.toBe('[ copie.png ]\\nRéponse manuscrite lisible.');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(onTranscription).not.toHaveBeenCalledWith(expect.any(String), 'identity');
+  });
+
+  it('parses only explicit identity fields from a strict JSON response', () => {
+    expect(parseStudentIdentityResponse('{"firstName":" Alice ","lastName":"Martin","studentNumber":null,"confidence":"high"}'))
+      .toEqual({ firstName: 'Alice', lastName: 'Martin', studentNumber: null, confidence: 'high' });
+    expect(parseStudentIdentityResponse('{"firstName":null,"lastName":null,"studentNumber":null,"confidence":"low"}')).toBeNull();
+    expect(parseStudentIdentityResponse('Je pense que le nom est Alice Martin.')).toBeNull();
   });
 
   it('checks that the selected model responds to a text-only readiness request', async () => {
@@ -608,6 +638,7 @@ STUDENT_IDENTITY: {"firstName":"Alice","lastName":"Martin","studentNumber":"2400
 
   it('transcribes multiple pages sequentially without a separate region-localization request', async () => {
     const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse('{"firstName":null,"lastName":null,"studentNumber":null,"confidence":"low"}'))
       .mockResolvedValueOnce(streamingResponse('Transcription page 1'))
       .mockResolvedValueOnce(streamingResponse('Transcription page 2'))
       .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
@@ -621,10 +652,13 @@ STUDENT_IDENTITY: {"firstName":"Alice","lastName":"Martin","studentNumber":"2400
         { base64: 'cGFnZTI=', mimeType: 'image/png', fileName: 'page-2.png' },
       ],
     })).resolves.toBe('{"criteria":[]}');
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    const firstPage = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
-    const lastPage = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
-    const analysis = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    const identityBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    const firstPage = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    const lastPage = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
+    const analysis = JSON.parse(String(fetchMock.mock.calls[3][1]?.body));
+    expect(identityBody.messages[0].content).toContain('uniquement la bande supérieure');
+    expect(identityBody.messages[0].images).toEqual(['cGFnZTE=']);
     expect(firstPage.messages[0].content).toContain('Transcris fidèlement');
     expect(firstPage.messages[0].images).toEqual(['cGFnZTE=']);
     expect(firstPage.keep_alive).toBe('30s');
