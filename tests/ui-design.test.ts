@@ -186,7 +186,9 @@ describe('UI design system', () => {
     expect(appComponent).toContain('Copie suivante');
     expect(appComponent).toContain('backgroundService.retry(job.id');
     expect(appComponent).toContain('Mettre cette copie en file d’attente');
-    expect(appComponent).toContain('Corrections en arrière-plan');
+    expect(appComponent).toContain('Copies du devoir');
+    expect(appComponent).toContain('COPIES À SUIVRE');
+    expect(appComponent).not.toContain('TRAITEMENT EN ARRIÈRE-PLAN');
     expect(appComponent).toContain('backgroundCorrectionStatusLabel(job.status)');
     expect(appComponent).toContain('backgroundService.listJobs');
     expect(appComponent).not.toContain('copyQueue');
