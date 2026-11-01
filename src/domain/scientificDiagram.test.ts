@@ -114,4 +114,32 @@ describe('parseScientificDiagramAnalysis', () => {
     const parsed = parseScientificDiagramAnalysis(JSON.stringify(raw), rubric, 1);
     expect(parsed.diagrams[0].criteria[0]).toMatchObject({ confidence: 0.5, requiresTeacherReview: true });
   });
+  it('matches expected element labels despite accents, case and punctuation differences', () => {
+    const elementRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 2, expectedElements: [{ label: 'Membrane plasmique', points: 2 }] }] };
+    const raw = { diagrams: [{ pageNumber: 1 }], criteria: [{ criterionId: 'cell', elements: [{ label: 'MEMBRANE-plasmique !', status: 'present', evidence: 'Contour cellulaire visible' }] }] };
+    expect(parseScientificDiagramAnalysis(JSON.stringify(raw), elementRubric, 1).criteria?.[0].elements?.[0]).toMatchObject({ status: 'present', points: 2 });
+  });
+  it('falls back to element order when labels differ but the element count matches', () => {
+    const elementRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 2, expectedElements: [{ label: 'Membrane', points: 1 }, { label: 'Noyau', points: 1 }] }] };
+    const raw = { diagrams: [{ pageNumber: 1 }], criteria: [{ criterionId: 'cell', elements: [{ label: 'Contour', status: 'present', evidence: 'Contour visible' }, { label: 'Centre', status: 'partial', evidence: 'Zone centrale visible' }] }] };
+    expect(parseScientificDiagramAnalysis(JSON.stringify(raw), elementRubric, 1).criteria?.[0].points).toBe(1.5);
+  });
+  it('warns and requires review instead of silently assigning zero when an expected element cannot be matched', () => {
+    const elementRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 2, expectedElements: [{ label: 'Membrane', points: 2 }] }] };
+    const raw = { diagrams: [{ pageNumber: 1 }], criteria: [{ criterionId: 'cell', elements: [{ label: 'Noyau', status: 'present', evidence: 'Visible' }, { label: 'Cytoplasme', status: 'present', evidence: 'Visible' }] }] };
+    const parsed = parseScientificDiagramAnalysis(JSON.stringify(raw), elementRubric, 1);
+    expect(parsed.criteria?.[0]).toMatchObject({ points: 0, requiresTeacherReview: true });
+    expect(parsed.warnings?.some((warning) => warning.includes('Membrane'))).toBe(true);
+  });
+  it('uses every detected diagram when diagramIds is empty', () => {
+    const raw = { diagrams: [{ pageNumber: 1 }, { pageNumber: 2 }], criteria: [{ criterionId: 'labels', points: 1, evidence: 'Preuve', confidence: 0.8, requiresTeacherReview: false, diagramIds: [] }] };
+    expect(parseScientificDiagramAnalysis(JSON.stringify(raw), rubric, 2).criteria?.[0].diagramIds).toEqual(['diagram-1', 'diagram-2']);
+  });
+  it('does not cap confidence for a partial non-accuracy dimension when the score is maximal', () => {
+    const raw = structuredClone(valid);
+    raw.diagrams[0].criteria[0].points = 2;
+    (raw.diagrams[0].criteria[0] as { qualityBreakdown?: Array<{ dimension: string; status: string; evidence: string }> }).qualityBreakdown = [{ dimension: 'labels', status: 'partial', evidence: 'Une légende est imprécise.' }];
+    expect(parseScientificDiagramAnalysis(JSON.stringify(raw), rubric, 1).diagrams[0].criteria[0].confidence).toBe(0.8);
+  });
+
 });
