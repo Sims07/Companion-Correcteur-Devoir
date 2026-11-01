@@ -2790,7 +2790,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             const status = criterionStatuses[criterion.id];
             const active = isAnalyzing && activeCriterionId === criterion.id;
             const statusLabel = status === 'failed' ? 'À vérifier' : status === 'retrying' ? 'Nouvel essai en cours' : active ? `Analyse du critère ${criterionIndex + 1} en cours…` : criterionByCriterion ? 'En attente de son analyse' : 'En attente du résultat global';
-            return <article className={`panel review-card review-card-pending ${active ? 'is-active' : ''}`} key={criterion.id} aria-label={`Critère ${criterion.title} : ${statusLabel}`}>
+            return <article tabIndex={0} className={`panel review-card review-card-pending ${active ? 'is-active' : ''}`} key={criterion.id} aria-label={`Critère ${criterion.title} : ${statusLabel}`}>
               <div className="review-card-heading"><div><h3>{criterion.title}</h3><p>Maximum : {criterion.maxPoints} points</p></div><span className="review-pending-status">{statusLabel}</span></div>
               <div className="review-pending-content"><span className="live-score-placeholder" aria-hidden="true" /><div className="review-pending-skeleton" aria-hidden="true"><span /><span /><span /></div></div>
             </article>;
