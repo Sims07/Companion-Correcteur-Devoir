@@ -171,6 +171,7 @@ export function createBackgroundCorrectionService(
     async prewarm(settings) {
       if (Date.now() < prewarmUntil) return;
       await workspace.checkReady({ ...settings, model: settings.visionModel });
+      if (settings.analysisModel?.trim()) await workspace.checkReady({ ...settings, model: settings.analysisModel });
       if (!settings.apiCompatible && settings.visionModel?.trim()) await workspace.prewarmModel(settings, settings.visionModel);
       prewarmUntil = Date.now() + 60_000;
     },
