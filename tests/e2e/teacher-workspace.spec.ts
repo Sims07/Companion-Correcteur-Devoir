@@ -18,8 +18,8 @@ test('teacher can edit the collapsed assignment and rubric as one Devoir step', 
   await page.getByRole('button', { name: 'Continuer vers les copies' }).click();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
 
-  await page.locator('.sidebar-assignment-current').click();
-  await page.getByRole('button', { name: 'Nouveau devoir' }).click();
+  await page.getByRole('button', { name: 'Mes devoirs' }).click();
+  await page.getByRole('button', { name: /Créer un devoir/ }).click();
   await expect(page.locator('.assignment-details-collapsible')).toBeVisible();
   await page.locator('.assignment-details-collapsible > summary').click();
   await page.getByLabel('Nom du devoir', { exact: true }).fill('Génétique moléculaire');
@@ -27,8 +27,8 @@ test('teacher can edit the collapsed assignment and rubric as one Devoir step', 
   await page.getByLabel('Niveau scolaire / universitaire').selectOption({ label: 'Université — Licence 2' });
   await expect(page.getByRole('button', { name: 'Continuer vers les copies' })).toBeDisabled();
 
-  await page.locator('.sidebar-assignment-current').click();
-  await page.locator('.sidebar-assignment-item').filter({ hasText: 'Biologie cellulaire — partiel S1' }).click();
+  await page.getByRole('button', { name: 'Mes devoirs' }).click();
+  await page.locator('.assignment-overview-card').filter({ hasText: 'Biologie cellulaire — partiel S1' }).getByRole('button', { name: /Ouvrir le devoir/ }).click();
   await page.locator('.teacher-step-nav .teacher-step').first().click();
   await expect(page.getByLabel('Nom du barème (distinct du devoir)')).toHaveValue('Barème cellulaire');
   await page.locator('.assignment-details-collapsible > summary').click();
@@ -37,8 +37,8 @@ test('teacher can edit the collapsed assignment and rubric as one Devoir step', 
   await page.reload();
   await openActiveAssignment(page);
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
-  await page.locator('.sidebar-assignment-current').click();
-  await expect(page.locator('.sidebar-assignment-item').filter({ hasText: 'Génétique moléculaire' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
+  await expect(page.locator('.assignment-overview-card').filter({ hasText: 'Génétique moléculaire' })).toBeVisible();
 });
 
 test('the teacher journey starts with Copies, keeps advanced options collapsed and isolates AI settings', async ({ page }) => {
