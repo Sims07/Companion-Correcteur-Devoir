@@ -60,20 +60,23 @@ describe('correction en série — espace de révision', () => {
     expect(styles).toContain('.correction-series-list > li.is-pending');
     expect(styles).toContain('.correction-series-pages figure');
     expect(styles).toContain('flex: 0 0 54px');
-    expect(styles).toContain('.correction-series-live-details');
-    expect(styles).toContain('.correction-series-list > li:not(.is-active):not(.is-expanded) .correction-series-pages');
-    expect(styles).toContain('.correction-series-list > li.is-active {');
-    expect(styles).toContain('order: -1;');
+    expect(styles).toContain('.correction-series-card-score');
+    expect(styles).toContain('grid-auto-rows: 1fr');
+    expect(styles).toContain('min-height: 218px');
+    expect(app).toContain('Consulter la correction');
+    expect(app).not.toContain('correction-details-');
+    expect(app).not.toContain('correction-series-live-details');
+    expect(app).not.toContain('Masquer les pages et la correction');
   });
 
-  it('shows a live batch overview based on actual copy states and expands the active copy', () => {
+  it('shows a live batch overview without expanding copy cards', () => {
     expect(app).toContain('correction-series-overview');
     expect(app).toContain("['ready', 'reviewing', 'completed'].includes(job.status)");
     expect(app).toContain("job.status === 'processing'");
     expect(app).toContain("['needs-review', 'failed'].includes(job.status)");
     expect(app).toContain('Copies dont la correction est disponible');
-    expect(app).toContain('const isExpanded = isActive || expandedBackgroundJobIds.includes(job.id)');
-    expect(app).toContain("isActive ? 'Correction en cours' : isExpanded ? 'Masquer les pages et la correction' : 'Voir les pages et la correction'");
+    expect(app).toContain('Consulter la correction');
+    expect(app).toContain('Note proposée');
     expect(styles).toContain('.correction-series-overview-metrics');
     expect(styles).toContain('.correction-series-list > li.is-active');
     expect(styles).toContain('grid-column: 1 / -1');
