@@ -1446,7 +1446,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   function captureActiveDraft(): AssignmentDraft {
     return {
-      copyQueue, images, originalImages, transcription, subjectImages, subjectTranscription, proposal, review,
+      images, originalImages, transcription, subjectImages, subjectTranscription, proposal, review,
       teacherQuestions, studentLabel, currentCorrectionId, isFinalized, reviewMessage, detectTeacherAnnotations, teacherAnnotations, scientificDiagramAnalysis, scientificPageClassifications: pageClassifications,
       annotationInkColor, annotationInkColorApplied,
     };
