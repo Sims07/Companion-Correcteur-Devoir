@@ -1653,6 +1653,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setReviewMessage('Aucune copie n’est encore prête à réviser. Le traitement continue en arrière-plan.');
       return;
     }
+    const canReview = next.status === 'ready' || (next.status === 'reviewing' && next.completedCriteria === next.totalCriteria && Boolean(next.proposal));
     await backgroundService.markForReview(next.id);
     setCurrentBackgroundJobId(next.id);
     setCopyQueue((current) => current.filter((copy) => copy.id !== next.id));
@@ -1671,15 +1672,15 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setScientificDiagramAnalysis(null);
     setPageClassifications(null);
     setScientificDiagramError('');
-    setProposal((next.status === 'ready' || next.status === 'reviewing') && next.proposal ? structuredClone(next.proposal) : null);
-    setReview((next.status === 'ready' || next.status === 'reviewing') && next.proposal ? toReviewedCriteria(next.proposal) : []);
-    setTeacherQuestions((next.status === 'ready' || next.status === 'reviewing') && next.proposal ? next.proposal.questionsForTeacher.join('\\n') : '');
+    setProposal(canReview && next.proposal ? structuredClone(next.proposal) : null);
+    setReview(canReview && next.proposal ? toReviewedCriteria(next.proposal) : []);
+    setTeacherQuestions(canReview && next.proposal ? next.proposal.questionsForTeacher.join('\\n') : '');
     setShowOnlyFlagged(true);
-    setReviewMessage((next.status === 'ready' || next.status === 'reviewing') && next.proposal ? 'Correction préparée en arrière-plan. Examinez les propositions signalées avant validation.' : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés localement.');
+    setReviewMessage(canReview ? 'Correction préparée en arrière-plan. Examinez les propositions signalées avant validation.' : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés localement.');
     setError(next.error ?? '');
     setCurrentCorrectionId(null);
     setIsFinalized(false);
-    setTeacherStep((next.status === 'ready' || next.status === 'reviewing') && next.proposal ? 'review' : 'copy');
+    setTeacherStep(canReview ? 'review' : 'copy');
     setArchiveMessage('');
     setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
   }
