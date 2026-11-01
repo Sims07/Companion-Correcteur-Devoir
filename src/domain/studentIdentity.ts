@@ -48,3 +48,22 @@ export function formatStudentIdentityLabel(identity: StudentIdentity): string | 
   const name = [identity.lastName, identity.firstName].filter(Boolean).join(' ').trim();
   return name || identity.studentNumber;
 }
+
+
+/** Parses a dedicated, machine-readable Vision response without inferring missing identity fields. */
+export function parseStudentIdentityResponse(raw: string): StudentIdentity | null {
+  try {
+    const normalized = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    const parsed: unknown = JSON.parse(normalized);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const value = parsed as Record<string, unknown>;
+    const firstName = optionalText(value.firstName);
+    const lastName = optionalText(value.lastName);
+    const studentNumber = optionalText(value.studentNumber);
+    if (!firstName && !lastName && !studentNumber) return null;
+    const confidence = value.confidence === 'high' || value.confidence === 'medium' ? value.confidence : 'low';
+    return { firstName, lastName, studentNumber, confidence };
+  } catch {
+    return null;
+  }
+}
