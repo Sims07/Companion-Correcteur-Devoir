@@ -24,6 +24,7 @@ import type { LocalCorrectionService } from '../application/localCorrectionServi
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
 import { createBackgroundCorrection, backgroundCorrectionStatusLabel, type BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
+import { prepareBatchCopies } from '../application/prepareBatchCopies.ts';
 import type { BackgroundCorrectionService } from '../application/backgroundCorrectionService.ts';
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
@@ -1583,45 +1584,58 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   async function enqueueBackgroundCopy(files: FileList | null) {
     if (!files?.length || isAnalyzing) return;
     if (!validation.valid) { setError(validation.errors.join(' ')); return; }
-    if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant d’ajouter une copie.'); return; }
+    if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant d’ajouter des copies.'); return; }
     try {
-      const prepared = await service.prepareFiles(files);
+      const selectedFiles = Array.from(files);
       const now = new Date().toISOString();
-      const label = backgroundCopyLabel.trim() || prepared[0]?.fileName || `Copie ${backgroundJobs.length + 1}`;
-      const job = createBackgroundCorrection({
-        id: `queued-copy-${crypto.randomUUID()}`,
-        assignmentId: activeAssignmentId,
-        label,
-        question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
-        rubric: structuredClone(rubric),
-        correctionMode,
-        images: structuredClone(prepared),
-        originalImages: structuredClone(prepared),
-        subjectImages: structuredClone(subjectImages),
-        ...(subjectTranscription ? { subjectTranscription } : {}),
-        detectTeacherAnnotations: backgroundCopyDetectTeacherAnnotations,
-        annotationInkColor: 'none',
-        annotationInkColorApplied: true,
-        visionModel,
-        analysisModel,
-        thinking: analysisThinking,
-        createdAt: now,
-        updatedAt: now,
-      });
-      await backgroundService.enqueue(job, {
+      const jobs = await prepareBatchCopies(
+        selectedFiles,
+        (selected) => service.prepareFiles(selected),
+        (file, prepared) => {
+          const label = selectedFiles.length === 1 && backgroundCopyLabel.trim()
+            ? backgroundCopyLabel.trim()
+            : file.name || `Copie ${backgroundJobs.length + 1}`;
+          return createBackgroundCorrection({
+            id: `queued-copy-${crypto.randomUUID()}`,
+            assignmentId: activeAssignmentId,
+            label,
+            question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+            rubric: structuredClone(rubric),
+            correctionMode,
+            images: structuredClone(prepared),
+            originalImages: structuredClone(prepared),
+            subjectImages: structuredClone(subjectImages),
+            ...(subjectTranscription ? { subjectTranscription } : {}),
+            detectTeacherAnnotations: backgroundCopyDetectTeacherAnnotations,
+            annotationInkColor: 'none',
+            annotationInkColorApplied: true,
+            visionModel,
+            analysisModel,
+            thinking: analysisThinking,
+            createdAt: now,
+            updatedAt: now,
+          });
+        },
+      );
+      const settings = {
         endpoint, apiCompatible, apiKey, visionModel, analysisModel,
         thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection,
         transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
         transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
-      });
+      };
+      for (const job of jobs) await backgroundService.enqueue(job, settings);
       setBackgroundCopyLabel('');
       setBackgroundCopyDetectTeacherAnnotations(false);
       setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
       setReviewMessage(autoBackgroundCorrection
-        ? `${label} ajoutée : sa correction démarre en arrière-plan.`
-        : `${label} ajoutée à la file. Lancez le traitement lorsque vous le souhaitez.`);
+        ? jobs.length === 1
+          ? `${jobs[0].label} ajoutée : sa correction démarre en arrière-plan.`
+          : `${jobs.length} copies ajoutées : elles seront corrigées l’une après l’autre.`
+        : jobs.length === 1
+          ? `${jobs[0].label} ajoutée à la file. Lancez le traitement lorsque vous le souhaitez.`
+          : `${jobs.length} copies ajoutées à la file. Lancez le traitement lorsque vous le souhaitez.`);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible d’ajouter cette copie au traitement en arrière-plan.');
+      setError(cause instanceof Error ? cause.message : 'Impossible d’ajouter ces copies au traitement en arrière-plan.');
     }
   }
 
@@ -2735,9 +2749,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="correction-batch-progress" aria-label="Progression des corrections pour ce devoir"><div><span className="eyebrow">CORRECTION EN SÉRIE</span><strong>{completedForAssignment} copie(s) enregistrée(s) pour ce devoir</strong><p>Chaque copie enregistrée reste disponible dans « Corrections enregistrées ».</p></div></div>
         <section className="copy-queue review-background-queue" aria-label="Copies préparées en arrière-plan">
           <div className="copy-queue-heading"><div><span className="eyebrow">COPIES SUIVANTES</span><h4>{backgroundJobs.filter((job) => job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)).length} prête(s) à réviser · {backgroundJobs.filter((job) => job.status === 'pending' || job.status === 'processing').length} en traitement</h4></div><button type="button" className="primary-button" onClick={() => { void loadNextQueuedCopy(); }} disabled={isAnalyzing || !backgroundJobs.some((job) => job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria))}>Copie suivante</button></div>
-          <div className="student-label-field"><label className="field-label" htmlFor="background-copy-label">Étudiant suivant <span>(facultatif)</span></label><input id="background-copy-label" value={backgroundCopyLabel} onChange={(event) => setBackgroundCopyLabel(event.target.value)} placeholder="Nom ou identifiant" /></div>
+          <div className="student-label-field"><label className="field-label" htmlFor="background-copy-label">Nom de l’étudiant <span>(facultatif, pour une seule copie)</span></label><input id="background-copy-label" value={backgroundCopyLabel} onChange={(event) => setBackgroundCopyLabel(event.target.value)} placeholder="Nom ou identifiant" /></div>
           <label className="analysis-thinking-option copy-annotation-option"><input type="checkbox" checked={backgroundCopyDetectTeacherAnnotations} onChange={(event) => setBackgroundCopyDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient des annotations du professeur</strong><small>Les annotations incertaines demanderont une vérification avant la notation.</small></span></label>
-          <FilePicker id="background-copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void enqueueBackgroundCopy(files); }} title="Ajouter une copie à la file" description="Les pages sont lues et corrigées pendant votre révision." actionLabel="Ajouter la copie suivante" />
+          <FilePicker id="background-copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void enqueueBackgroundCopy(files); }} title="Ajouter plusieurs copies" description="Chaque fichier sélectionné devient une copie distincte. Les pages d’un même PDF restent regroupées. Les copies sont corrigées l’une après l’autre." actionLabel="Ajouter les copies" />
           <ol>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').map((job, index) => <li key={job.id}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{job.label}</strong><small>{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}{job.status === 'processing' ? ` · ${job.phase === 'preparation' ? 'Préparation' : job.phase === 'reading' ? `Lecture ${job.completedPages}/${job.images.length}` : `Correction ${job.completedCriteria}/${job.totalCriteria}`}` : ''}</small>{job.error && <small role="status">{job.error}</small>}</span>{(['needs-review', 'failed'].includes(job.status) || (job.status === 'reviewing' && job.completedCriteria < job.totalCriteria && job.id !== currentBackgroundJobId)) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Reprendre</button>}</li>)}</ol>
         </section>
         <div className="review-workspace">

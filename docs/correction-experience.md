@@ -84,3 +84,25 @@ Toute modification liée à cette expérience doit couvrir :
 - le parcours navigateur de revue facultative des exceptions et d'ajout immédiat d'une copie suivante, sans confirmation obligatoire.
 
 Respecter la pyramide : tests unitaires du domaine d'abord, intégration des adaptateurs ensuite, puis un nombre ciblé de tests Playwright pour les parcours réels. Les tests ne doivent pas dépendre d'une formulation complète fragile lorsque le comportement sémantique peut être vérifié autrement.
+
+
+## Correction individuelle et correction en série
+
+Le parcours enseignant propose deux façons d'alimenter le même moteur de correction :
+
+- **Correction individuelle** : l'enseignant ajoute une copie, suit sa correction et peut immédiatement passer à une autre copie sans attendre de validation ou de fermeture de la précédente.
+- **Correction en série** : l'enseignant peut sélectionner plusieurs fichiers en une seule fois. Chaque fichier sélectionné constitue une copie indépendante ; les pages d'un même PDF restent regroupées dans cette copie. La préparation des fichiers est séquentielle pour limiter les pics de mémoire dans le navigateur.
+
+Les deux modes utilisent la même file persistée et le même ordonnanceur. Les copies sont traitées séquentiellement, dans leur ordre d'ajout, sans lancer plusieurs générations en parallèle. Une copie prête à réviser ou nécessitant une intervention humaine ne bloque jamais le traitement des suivantes.
+
+Le suivi doit rendre le traitement explicite : nombre de copies terminées, en cours et en attente ; copie active ; étape de lecture ou d'analyse ; progression des pages et critères ; erreurs et action de reprise. La file est un outil de suivi, pas une étape administrative à valider pour autoriser la suite.
+
+Les fichiers et images restent préparés et conservés localement ; seul le contenu nécessaire à l'inférence est transmis au fournisseur configuré par l'enseignant. Le mode série ne doit jamais changer silencieusement la configuration du fournisseur.
+
+### Contrats de tests du mode série
+
+- Un fichier sélectionné produit exactement un job de correction.
+- Les pages issues d'un même PDF restent dans le même job.
+- Plusieurs fichiers sélectionnés produisent plusieurs jobs indépendants, dans l'ordre de sélection.
+- La préparation des fichiers est séquentielle ; une erreur de préparation ne doit pas créer un job vide.
+- Le traitement des jobs reste séquentiel et la revue humaine d'un job terminé ne bloque pas les suivants.
