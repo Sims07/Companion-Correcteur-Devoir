@@ -52,6 +52,8 @@ export function createBackgroundCorrectionService(
   let prewarmUntil = 0;
   let prewarmKey = '';
   let prewarmPromise: Promise<void> | null = null;
+  let prewarmedModel: string | null = null;
+  let prewarmSettings: OllamaSettings | null = null;
   let activeModelToUnload: string | null = null;
   const listeners = new Set<(jobs: BackgroundCorrectionJob[]) => void>();
   async function persist(job: BackgroundCorrectionJob): Promise<void> {
@@ -87,6 +89,10 @@ export function createBackgroundCorrectionService(
             const remaining = remainingRubric(current.rubric, current.partialCriteria);
             if (!remaining.criteria.length) break;
             const criterion = remaining.criteria[0];
+            if (current.transcription && prewarmedModel && prewarmSettings) {
+              await workspace.unloadModel?.(prewarmSettings, prewarmedModel).catch(() => undefined);
+              prewarmedModel = null;
+            }
             const provider = workspace.createProvider({
               ...settings,
               visionModel: current.visionModel,
@@ -133,7 +139,10 @@ export function createBackgroundCorrectionService(
               async (event: GradingProgressEvent) => {
                 if (event.type === 'phase') {
                   if (event.phase === 'reading') activeModelToUnload = current.visionModel;
-                  if (event.phase === 'grading') activeModelToUnload = current.analysisModel;
+                  if (event.phase === 'grading') {
+                    activeModelToUnload = current.analysisModel;
+                    prewarmedModel = null;
+                  }
                   await saveProgress({ phase: event.phase });
                 }
                 if (event.type === 'page' && event.status !== 'started') await saveProgress({ completedPages: Math.max(current.completedPages, event.pageIndex) });
@@ -202,7 +211,11 @@ export function createBackgroundCorrectionService(
       prewarmPromise = (async () => {
         await workspace.checkReady({ ...settings, model: settings.visionModel });
         if (settings.analysisModel?.trim()) await workspace.checkReady({ ...settings, model: settings.analysisModel });
-        if (!settings.apiCompatible && settings.visionModel?.trim()) await workspace.prewarmModel?.(settings, settings.visionModel);
+        if (!settings.apiCompatible && settings.visionModel?.trim()) {
+          await workspace.prewarmModel?.(settings, settings.visionModel);
+          prewarmedModel = settings.visionModel;
+          prewarmSettings = settings;
+        }
         prewarmKey = key;
         prewarmUntil = Date.now() + 60_000;
       })();
@@ -211,7 +224,12 @@ export function createBackgroundCorrectionService(
     async pauseAndWait() {
       foregroundPriority = true;
       paused = true;
+      if (prewarmPromise) await prewarmPromise.catch(() => undefined);
       if (activeLoop) await activeLoop;
+      if (prewarmedModel && prewarmSettings) await workspace.unloadModel?.(prewarmSettings, prewarmedModel).catch(() => undefined);
+      prewarmedModel = null;
+      prewarmKey = '';
+      prewarmUntil = 0;
     },
     resume() {
       foregroundPriority = false;
