@@ -69,6 +69,9 @@ describe('hexagonal architecture boundaries', () => {
     const text = source('../src/main.tsx');
     expect(text).toContain('new IndexedDbLocalCorrectionRepository()');
     expect(text).toContain('new IndexedDbModelEvaluationRepository()');
+    expect(text).toContain('new IndexedDbBackgroundCorrectionRepository()');
+    expect(text).toContain('createBackgroundCorrectionService');
+    expect(text).toContain('backgroundCorrectionService={backgroundCorrectionService}');
     expect(text).toContain('createModelEvaluationService');
     expect(text).toContain('createLocalCorrectionService(localCorrectionRepository)');
     expect(text).toContain('service={localCorrectionService}');
