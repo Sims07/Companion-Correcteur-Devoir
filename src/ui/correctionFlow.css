@@ -932,6 +932,16 @@
 .copy-queue ol { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .copy-queue li { display: flex; align-items: center; gap: 10px; padding: 9px; border: 1px solid var(--flow-border); border-radius: 9px; background: #fff; }
 .queue-position { display: grid; flex: 0 0 26px; width: 26px; height: 26px; place-items: center; border-radius: 7px; background: #e8efe7; color: #345a3d; font-size: 11px; font-weight: 800; }
+
+.batch-copy-queue-list li { align-items: flex-start; }
+.queue-copy-content { display: grid; flex: 1; min-width: 0; gap: 8px; }
+.batch-copy-page-previews { display: flex; align-items: flex-start; gap: 9px; max-width: 100%; overflow-x: auto; padding: 2px 0 5px; }
+.batch-copy-page-preview { display: grid; flex: 0 0 124px; gap: 4px; min-width: 0; margin: 0; padding: 6px; border: 1px solid var(--flow-border); border-radius: 8px; background: var(--flow-surface-soft); }
+.batch-copy-page-preview img { display: block; width: 100%; height: 112px; object-fit: contain; background: #f3f4f2; border-radius: 5px; }
+.batch-copy-page-preview figcaption { color: var(--flow-muted); font-size: 10px; line-height: 1.35; }
+.batch-copy-page-preview .copy-image-rotation-controls { display: flex; gap: 4px; }
+.batch-copy-page-preview .copy-image-rotation-controls button { min-height: 28px; padding: 3px 5px; font-size: 10px; }
+
 .queue-copy-label { display: grid; flex: 1; min-width: 0; gap: 3px; }
 .queue-copy-label strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .queue-copy-label small { color: var(--flow-muted); font-size: 11px; }
