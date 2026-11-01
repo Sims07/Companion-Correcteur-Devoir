@@ -1359,7 +1359,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setReview((current) => current.map((item) => item.criterionId === id ? { ...item, ...patch } : item));
   }
 
-  async function finalizeReview() {
+  async function finalizeReview(advanceToNextCopy = false) {
     if (pendingCount > 0) {
       setReviewMessage(`Il reste ${pendingCount} critère(s) à examiner avant l’enregistrement.`);
       return;
@@ -1442,6 +1442,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setReviewMessage(teacherQuestions.trim()
         ? `Correction enregistrée sur cet appareil.${memoryStatus} Relisez les questions ouvertes avant de communiquer la note.`
         : `Correction enregistrée sur cet appareil.${memoryStatus} Vous pourrez la retrouver dans « Corrections enregistrées ».`);
+      if (advanceToNextCopy) startNextCopy();
     } catch {
       setIsFinalized(false);
       setReviewMessage('La correction n’a pas pu être archivée dans le stockage local. Vérifiez l’espace disponible du navigateur puis réessayez.');
@@ -2754,7 +2755,20 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               {transcription ? <pre className="live-transcription-text">{transcription}</pre> : <p role="status">La note doit être vérifiée directement sur les images.</p>}
             </details>
           </aside>
-          <div className="review-main-column">
+          <div className="review-main-column" onKeyDown={(event) => {
+            const target = event.target as HTMLElement;
+            if (!target.classList.contains('review-card')) return;
+            const cards = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('.review-card[tabindex="0"]'));
+            const currentIndex = cards.indexOf(target);
+            if (currentIndex < 0) return;
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+              event.preventDefault();
+              cards[Math.max(0, Math.min(cards.length - 1, currentIndex + (event.key === 'ArrowDown' ? 1 : -1)))]?.focus();
+            } else if (event.key === 'Enter') {
+              const confirmButton = target.querySelector<HTMLButtonElement>('.decision-button');
+              if (confirmButton && !confirmButton.disabled) { event.preventDefault(); confirmButton.click(); }
+            }
+          }}>
             <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite"><strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : criterionProgress.isComplete ? 'Note proposée · à valider' : 'Note partielle · analyse incomplète'}</strong><span>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente de la première note'} · {criterionProgress.completedCount} / {criterionProgress.totalCount} critères évalués</span>{proposal?.summary && <details className="review-summary-details"><summary>Voir la synthèse de l’analyse</summary><p>{proposal.summary}</p></details>}</div>
         <div className="review-criteria-toolbar">
           <span>{flaggedCriteriaIds.size > 0 ? `${flaggedCriteriaIds.size} critère(s) à examiner · ${reliableCriteriaCount} sans alerte` : `Aucun signal particulier · ${review.length} critère(s)`}</span>
@@ -2787,7 +2801,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           }
           const isFlagged = flaggedCriteriaIds.has(item.criterionId);
           const alertReasons = getReviewAlertReasons(item, criterion?.maxPoints ?? 0);
-          return <article className="panel review-card" key={item.criterionId}>
+          return <article tabIndex={0} className="panel review-card" key={item.criterionId}>
             <div className="review-card-heading">
               <div><h3>{criterion.title}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div>
               <div className="review-card-result">
@@ -2838,7 +2852,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           </article>;
         })}
         {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Cette correction est enregistrée sur cet appareil</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" onClick={startNextCopy}>Ajouter une autre copie</button><button type="button" className="secondary-button" onClick={() => { setTeacherStep('archive'); setShowAiSettings(false); }}>Voir les corrections enregistrées</button></div></div>}
-         <div className="panel final-review"><div><span className="eyebrow">{isAnalyzing ? 'NOTE PROVISOIRE · ANALYSE EN COURS' : criterionProgress.isComplete ? 'NOTE PROPOSÉE · À VALIDER' : 'NOTE PARTIELLE · ANALYSE INCOMPLÈTE'}</span><h3>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente des premiers résultats'}</h3><p>{isAnalyzing ? `${criterionProgress.completedCount} / ${criterionProgress.totalCount} critères évalués. Cette note n’est pas définitive et évoluera avec les prochains critères.` : review.length < rubric.criteria.length ? `${rubric.criteria.length - review.length} critère(s) sans proposition exploitable : l’enregistrement reste bloqué.` : pendingCount === 0 ? 'Tous les critères ont une décision.' : `${pendingCount} critère(s) à examiner avant l’enregistrement.`}</p></div><div className="questions-field"><span className="field-label">Points à vérifier avant de communiquer la note</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question précise n’a été formulée. Vérifiez tout de même les alertes et les preuves ci-dessus.</p>}</div>{!isFinalized && <button type="button" className="primary-button" disabled={pendingCount > 0 || isAnalyzing || review.length !== rubric.criteria.length} onClick={finalizeReview}>{currentCorrectionId ? 'Enregistrer les modifications' : 'Enregistrer la correction'}</button>}<details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Export local pour conserver ou réutiliser les résultats de cette correction.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal?.summary ?? '', criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil.'); }}>{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>{reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}</div>
+         <div className="panel final-review"><div><span className="eyebrow">{isAnalyzing ? 'NOTE PROVISOIRE · ANALYSE EN COURS' : criterionProgress.isComplete ? 'NOTE PROPOSÉE · À VALIDER' : 'NOTE PARTIELLE · ANALYSE INCOMPLÈTE'}</span><h3>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente des premiers résultats'}</h3><p>{isAnalyzing ? `${criterionProgress.completedCount} / ${criterionProgress.totalCount} critères évalués. Cette note n’est pas définitive et évoluera avec les prochains critères.` : review.length < rubric.criteria.length ? `${rubric.criteria.length - review.length} critère(s) sans proposition exploitable : l’enregistrement reste bloqué.` : pendingCount === 0 ? 'Tous les critères ont une décision.' : `${pendingCount} critère(s) à examiner avant l’enregistrement.`}</p></div><div className="questions-field"><span className="field-label">Points à vérifier avant de communiquer la note</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question précise n’a été formulée. Vérifiez tout de même les alertes et les preuves ci-dessus.</p>}</div>{!isFinalized && <button type="button" className="primary-button" disabled={pendingCount > 0 || isAnalyzing || review.length !== rubric.criteria.length} onClick={() => void finalizeReview(true)}>Enregistrer et passer à la copie suivante</button>}<details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Export local pour conserver ou réutiliser les résultats de cette correction.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal?.summary ?? '', criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil.'); }}>{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>{reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}</div>
           </div>
         </div>
       </section>}
