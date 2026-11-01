@@ -183,6 +183,7 @@ describe('background correction service', () => {
       ...f.job,
       images: [diagramPage, textPage],
       originalImages: [diagramPage, textPage],
+      transcription: 'Ancienne transcription incluant le schéma',
       rubric: { title: 'Biologie', criteria: [
         { id: 'c1', title: 'Qualité du schéma', description: 'Évaluer le dessin scientifique et ses légendes.', maxPoints: 2, analysisMode: 'scientific-diagram' as const },
         { id: 'c2', title: 'Connaissances', description: 'Exactitude scientifique.', maxPoints: 2 },
@@ -208,6 +209,7 @@ describe('background correction service', () => {
     expect(diagramAnalysis.analyze).toHaveBeenCalledWith(expect.objectContaining({ images: [diagramPage], pageNumbers: [1], model: 'vision:4b' }));
     expect(f.requests[0].images).toEqual([textPage]);
     expect(f.requests[0].pageNumbers).toEqual([2]);
+    expect(f.requests[0].transcription).toBeUndefined();
     expect(f.jobs.get('copy-1')?.partialCriteria.map((criterion) => criterion.criterionId)).toEqual(['c1', 'c2']);
     expect(f.jobs.get('copy-1')?.status).toBe('ready');
   });
