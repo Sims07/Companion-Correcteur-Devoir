@@ -382,6 +382,7 @@ export function createBackgroundCorrectionService(
       };
       await persist(updated);
       lastSettings = settings;
+      autoEnabled = settings.autoBackgroundCorrection !== false;
       if (autoEnabled && !foregroundPriority) {
         void this.prewarm(settings).catch(() => undefined);
         void run(settings);
