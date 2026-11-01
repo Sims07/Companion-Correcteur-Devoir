@@ -90,7 +90,7 @@ export function createBackgroundCorrectionService(
             });
             const saveProgress = async (patch: Partial<BackgroundCorrectionJob>) => {
               current = { ...current, ...patch, updatedAt: new Date().toISOString() };
-              await repository.saveJob(current);
+              await persist(current);
             };
             const raw = await provider.generate(
               {
