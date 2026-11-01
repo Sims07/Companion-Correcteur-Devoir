@@ -276,9 +276,14 @@ export class IndexedDbBackgroundCorrectionRepository implements BackgroundCorrec
 
   async fingerprintImages(images: ImageInput[]): Promise<string> {
     if (!globalThis.crypto?.subtle) throw new Error('Le navigateur ne permet pas de calculer une empreinte locale des images.');
-    const source = images.map((image) => `${image.mimeType}:${image.base64}`).join('|');
-    const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
-    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    const encoder = new TextEncoder();
+    const imageFingerprints: string[] = [];
+    for (const image of images) {
+      const digest = await globalThis.crypto.subtle.digest('SHA-256', encoder.encode(`${image.mimeType}:${image.base64}`));
+      imageFingerprints.push(Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(''));
+    }
+    const aggregate = await globalThis.crypto.subtle.digest('SHA-256', encoder.encode(imageFingerprints.join('|')));
+    return Array.from(new Uint8Array(aggregate), (byte) => byte.toString(16).padStart(2, '0')).join('');
   }
 
   async getCachedTranscription(fingerprint: string): Promise<string | null> {
