@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test';
 import { openActiveAssignment } from './helpers/teacher-workspace';
-import { openActiveAssignment } from './helpers/teacher-workspace';
 
 test('teacher can open an imported copy page in a fullscreen viewer and zoom it', async ({ page }) => {
   await page.goto('/');
@@ -37,6 +36,7 @@ test('teacher can rotate each batch page manually before starting the series', a
     }));
   });
   await page.reload();
+  await openActiveAssignment(page);
   const chooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
   await chooser.getByRole('button', { name: /Correction en série/ }).click();
   const series = page.getByRole('region', { name: 'Session de correction en série' });
