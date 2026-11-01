@@ -2781,7 +2781,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             {flaggedCriteriaIds.size > 0 && <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>}
           </div>
         </div>
-        {flaggedCriteriaIds.size === 0 && <p className="review-focus-hint" role="note">Aucun signal automatique. La vérification humaine reste nécessaire.</p>}
+        {flaggedCriteriaIds.size === 0 && <p className="review-focus-hint" role="note">Aucun signal automatique. La proposition est retenue par défaut.</p>}
         {shouldFocusExceptions && <details className="review-safe-summary">
           <summary>Voir les {reliableCriteriaCount} critères sans alerte</summary>
           <ul>{review.filter((item) => reviewFocus.reliableCriteriaIds.includes(item.criterionId)).map((item) => {

@@ -43,7 +43,7 @@ Une déduction n'est jamais masquée comme un résultat banal : tout critère no
 
 Ces limites de longueur sont des objectifs de lisibilité, pas une autorisation de supprimer une nuance nécessaire à la décision. La fidélité à la copie et au barème prime toujours.
 
-## Actions humaines et sécurité de notation
+## Actions humaines et sécurité de notat## Actions humaines et sécurité de notation
 
 - La proposition de l'IA est retenue par défaut dès que l'analyse complète est terminée : aucune validation critère par critère ou confirmation groupée n'est requise pour poursuivre.
 - Cette acceptation par défaut est un état de travail, pas une publication ni une communication automatique de la note à l'étudiant. Le professeur reste libre de modifier les points et commentaires avant de reporter la note sur la copie.
@@ -51,10 +51,7 @@ Ces limites de longueur sont des objectifs de lisibilité, pas une autorisation 
 - L'enseignant peut toujours afficher tous les critères, modifier les points et saisir un commentaire ; ces actions ne doivent jamais être imposées.
 - Une correction active privilégie les exceptions ; une correction archivée affiche tous les critères par défaut.
 - Le calcul des totaux, plafonds et cohérences reste déterministe côté application, jamais délégué au texte explicatif du modèle.
-
-## Principes d'interface
-
-- Donner la priorité visuelle à la note et aux décisions en attente, pas aux paragraphes explicatifs.
+riorité visuelle à la note et aux décisions en attente, pas aux paragraphes explicatifs.
 - Ne pas afficher en permanence les preuves, justifications, commentaires suggérés et ventilations détaillées.
 - Conserver la copie originale comme source de vérité et rendre les preuves localisables sur la page.
 - Signaler clairement les critères à examiner et le nombre de critères sans alerte.
@@ -78,7 +75,7 @@ Le succès n'est pas la quantité de texte générée ni le nombre de justificat
 
 Toute modification liée à cette expérience doit couvrir :
 - les règles de domaine qui classent les critères sans alerte et les exceptions ;
-- l'acceptation par défaut des propositions, la conservation des alertes et l'absence de blocage lors du passage à la copie suivante ;
+- la sécurité de la confirmation groupée (jamais de déduction, faible confiance, preuve manquante ou question enseignant dans le groupe confirmable) ;
 - les contrats de prompt et les bornes de concision ;
 - le contrat UI (détails repliés par défaut, alertes visibles, accès à tous les critères) ;
 - le parcours navigateur de revue facultative des exceptions et d'ajout immédiat d'une copie suivante, sans confirmation obligatoire.
