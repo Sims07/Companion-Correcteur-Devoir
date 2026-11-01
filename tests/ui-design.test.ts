@@ -168,8 +168,8 @@ describe('UI design system', () => {
     expect(appComponent).toContain('function queueCurrentCopy()');
     expect(appComponent).toContain('function loadNextQueuedCopy()');
     expect(appComponent).toContain('Mettre cette copie en file d’attente');
-    expect(appComponent).toContain('File des copies à corriger');
-    expect(appComponent).toContain('À traiter');
+    expect(appComponent).toContain('Corrections en arrière-plan');
+    expect(appComponent).toContain('backgroundCorrectionStatusLabel(job.status)');
     expect(appComponent).toContain('copyQueue: QueuedCopy[]');
     expect(correctionFlowStylesheet).toContain('.copy-queue');
     expect(correctionFlowStylesheet).toContain('.queue-position');
