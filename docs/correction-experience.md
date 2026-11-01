@@ -15,7 +15,7 @@ Ce principe s'applique à toutes les disciplines, avec une attention particuliè
 Le parcours normal de correction doit mettre en évidence les éléments qui méritent une attention humaine, plutôt que dérouler toutes les explications produites par le modèle.
 
 - **À examiner en premier :** points retirés, réponse partielle ou incorrecte, preuve absente, transcription incertaine, confiance faible, question explicite à l'enseignant, ambiguïté susceptible de changer la note.
-- **Sans alerte :** résultat complet, étayé et de confiance élevée. Il reste visible dans le récapitulatif et peut être confirmé en une action explicite, sans imposer une lecture détaillée critère par critère.
+- **Sans alerte :** résultat complet, étayé et de confiance élevée. Il est retenu par défaut et reste visible dans le récapitulatif ; aucune confirmation n'est demandée.
 - **Toujours possible :** afficher tous les critères et ouvrir chaque justification, même lorsqu'elle n'est pas présentée par défaut.
 
 Une déduction n'est jamais masquée comme un résultat banal : tout critère noté sous son maximum appartient à la liste des éléments à examiner. Une incertitude ou une preuve manquante reste prioritaire, même si la note proposée est maximale.
@@ -45,14 +45,11 @@ Ces limites de longueur sont des objectifs de lisibilité, pas une autorisation 
 
 ## Actions humaines et sécurité de notation
 
-- L'IA propose ; elle ne valide jamais une note définitive.
-- La confirmation groupée ne concerne que les critères à note maximale, preuve présente, confiance élevée et sans question ni signal d'incertitude.
-- Les points retirés, les preuves manquantes et les cas ambigus nécessitent une revue individuelle.
-- L'enseignant peut toujours afficher tous les critères, modifier les points, saisir un commentaire et annuler une confirmation groupée.
-- La confirmation groupée est désactivée tant que tous les critères n'ont pas été analysés ; elle ne compte que les critères encore en attente.
-- Une confirmation groupée affiche son nombre et une action « Annuler » qui remet les critères concernés en attente.
-- Une correction active privilégie les exceptions ; une correction archivée ou finalisée affiche tous les critères par défaut.
-- Aucun critère ne doit être automatiquement accepté à la réception d'une réponse du modèle.
+- La proposition de l'IA est retenue par défaut dès que l'analyse complète est terminée : aucune validation critère par critère ou confirmation groupée n'est requise pour poursuivre.
+- Cette acceptation par défaut est un état de travail, pas une publication ni une communication automatique de la note à l'étudiant. Le professeur reste libre de modifier les points et commentaires avant de reporter la note sur la copie.
+- Les points retirés, les preuves manquantes, les faibles confiances et les ambiguïtés restent signalés visuellement et prioritaires à la lecture, sans bloquer l'accès à la copie suivante.
+- L'enseignant peut toujours afficher tous les critères, modifier les points et saisir un commentaire ; ces actions ne doivent jamais être imposées.
+- Une correction active privilégie les exceptions ; une correction archivée affiche tous les critères par défaut.
 - Le calcul des totaux, plafonds et cohérences reste déterministe côté application, jamais délégué au texte explicatif du modèle.
 
 ## Principes d'interface
@@ -81,9 +78,9 @@ Le succès n'est pas la quantité de texte générée ni le nombre de justificat
 
 Toute modification liée à cette expérience doit couvrir :
 - les règles de domaine qui classent les critères sans alerte et les exceptions ;
-- la sécurité de la confirmation groupée (jamais de déduction, faible confiance, preuve manquante ou question enseignant dans le groupe confirmable) ;
+- l'acceptation par défaut des propositions, la conservation des alertes et l'absence de blocage lors du passage à la copie suivante ;
 - les contrats de prompt et les bornes de concision ;
 - le contrat UI (détails repliés par défaut, alertes visibles, accès à tous les critères) ;
-- le parcours navigateur de confirmation groupée, de revue des exceptions et de finalisation.
+- le parcours navigateur de revue facultative des exceptions et d'ajout immédiat d'une copie suivante, sans confirmation obligatoire.
 
 Respecter la pyramide : tests unitaires du domaine d'abord, intégration des adaptateurs ensuite, puis un nombre ciblé de tests Playwright pour les parcours réels. Les tests ne doivent pas dépendre d'une formulation complète fragile lorsque le comportement sémantique peut être vérifié autrement.

@@ -170,7 +170,7 @@ describe('UI design system', () => {
     expect(appComponent).toContain('className="assignment-details-collapsible"');
     expect(appComponent).toContain('className="copy-advanced-options"');
     expect(appComponent).toContain("interfaceMode === 'teacher' ? 'Corriger'");
-    expect(appComponent).toContain('Enregistrer et passer à la copie suivante');
+    expect(appComponent).toContain('Ajouter une autre copie');
     expect(appComponent).toContain("event.key === 'ArrowDown' || event.key === 'ArrowUp'");
     expect(appComponent).toContain("event.key === 'Enter'");
     expect(stylesheet).toContain('.assignment-details-collapsible');

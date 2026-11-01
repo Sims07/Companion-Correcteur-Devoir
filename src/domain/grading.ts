@@ -160,6 +160,6 @@ export function toReviewedCriteria(proposal: GradingProposal): ReviewedCriterion
     ...criterion,
     teacherPoints: criterion.points,
     teacherComment: '',
-    decision: 'pending',
+    decision: 'accepted',
   }));
 }
