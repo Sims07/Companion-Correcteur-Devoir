@@ -1,6 +1,6 @@
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
-import { extractStudentIdentity } from '../../domain/studentIdentity.ts';
+import { parseStudentIdentityResponse } from '../../domain/studentIdentity.ts';
 import { buildIncrementalCriterionPrompt } from './gradingPrompts.ts';
 import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
@@ -166,13 +166,20 @@ export function buildTranscriptionPrompt(model: string, mode: 'auto' | 'ocr' | '
         'Ne répète aucun passage. N’ajoute aucun préambule, commentaire ni conclusion.',
         'Réduis les zones blanches à au plus deux lignes vides consécutives afin de ne pas interrompre la transcription.',
       ].join('\\n');
+  return basePrompt;
+}
+
+/** Dedicated first-page-only identity task, deliberately separate from answer transcription. */
+export function buildStudentIdentityPrompt(): string {
   return [
-    basePrompt,
-    'IDENTIFICATION DE L’ÉTUDIANT : examine uniquement l’en-tête, la zone d’identité ou les champs administratifs de la copie. N’utilise jamais un nom cité dans le corps de la réponse.',
-    'Repère le prénom, le nom et le numéro étudiant s’ils sont explicitement visibles. Ne devine jamais et n’invente aucune valeur.',
-    'À la toute fin, ajoute exactement une ligne machine au format STUDENT_IDENTITY: {"firstName":null,"lastName":null,"studentNumber":null,"confidence":"low"}. Remplace les null par les valeurs lues.',
-    'confidence vaut high uniquement si les caractères sont nets et non ambigus, medium si une partie est incertaine, low si aucune identité exploitable n’est visible.',
-    'Cette ligne d’identité est une métadonnée et ne fait pas partie de la transcription de la réponse.',
+    'RÔLE : identifie l’étudiant indiqué sur la première page d’une copie universitaire.',
+    'ZONE À EXAMINER : uniquement la bande supérieure de la page, en particulier l’en-tête en haut à gauche et en haut à droite, ainsi que les champs administratifs immédiatement associés.',
+    'N’examine pas le corps de la copie pour rechercher un nom. Un nom cité dans une réponse, un exemple ou une question ne constitue jamais l’identité de l’étudiant.',
+    'Extrais uniquement les valeurs explicitement lisibles : firstName (prénom), lastName (nom), studentNumber (numéro étudiant). Ne complète pas un champ partiel et ne devine jamais.',
+    'Si un champ est absent ou illisible, retourne null pour ce champ. Si aucun champ d’identité exploitable n’est visible, retourne null pour les trois champs et confidence "low".',
+    'confidence vaut "high" si les champs identifiés sont nets et non ambigus, "medium" si une partie est incertaine, et "low" si aucune identité exploitable n’est visible.',
+    'Réponds exclusivement avec un objet JSON valide contenant firstName, lastName, studentNumber et confidence. Aucun commentaire ni balisage Markdown.',
+    '{"firstName":null,"lastName":null,"studentNumber":null,"confidence":"low"}',
   ].join('\\n\\n');
 }
 
@@ -368,7 +375,7 @@ export function createOllamaProvider(
         streamChunk?: (chunk: string) => void,
         json = false,
         think = false,
-        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage'> & { deferResult?: boolean; keepAlive?: string | number; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void },
+        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; keepAlive?: string | number; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void },
       ): Promise<string> {
         const startedAt = Date.now();
         activeRequestPayloads = [];
@@ -380,6 +387,7 @@ export function createOllamaProvider(
           return {
             kind: tracking.kind,
             stage: tracking.stage,
+            ...(tracking.purpose ? { purpose: tracking.purpose } : {}),
             model,
             ...(activeRequestPayloads?.length ? { requestPayload: JSON.stringify({ attempts: activeRequestPayloads }, null, 2) } : { requestPrompt: content }),
             requestMetadata: {
@@ -570,7 +578,34 @@ export function createOllamaProvider(
       const annotationImages = request.teacherAnnotationImages ?? request.images ?? [];
       const detectedTeacherAnnotations: Array<{ page: number; annotations: ReturnType<typeof parseTeacherAnnotationDetection>['annotations'] }> = [];
       const pageTranscriptions: Array<{ pageLabel: string; pageText: string; doubtfulMarker: string }> = [];
-      let bestStudentIdentityConfidence = -1;
+      if (!transcription && request.images?.[0]) {
+        onStage?.('reading');
+        try {
+          const identityResponse = await sendStream(
+            visionModel,
+            buildStudentIdentityPrompt(),
+            [providerImage(request.images[0])],
+            undefined,
+            true,
+            false,
+            {
+              kind: 'vision',
+              stage: 'reading',
+              purpose: 'student-identity',
+              intent: 'Identifier l’étudiant',
+              context: 'Première page · bande supérieure · en-tête gauche et droit',
+              temperature: 0,
+              generationTokenLimit: 256,
+              keepAlive: '30s',
+            },
+          );
+          const identity = parseStudentIdentityResponse(identityResponse);
+          if (identity) onTranscription?.(JSON.stringify(identity), 'identity');
+        } catch {
+          // Identity is helpful metadata, never a prerequisite for transcribing or grading a copy.
+        }
+      }
+
       if (!transcription) {
         onStage?.('reading');
         onProgress?.({ type: 'phase', phase: 'reading' });
@@ -599,15 +634,7 @@ export function createOllamaProvider(
             },
           );
           if (/(?:\r?\n){4}$/.test(pageTranscription)) transcriptionTruncated = true;
-          const extractedPage = extractStudentIdentity(cleanTranscription(pageTranscription));
-          const pageText = extractedPage.transcription;
-          if (extractedPage.identity) {
-            const confidenceRank = extractedPage.identity.confidence === 'high' ? 2 : extractedPage.identity.confidence === 'medium' ? 1 : 0;
-            if (confidenceRank > bestStudentIdentityConfidence) {
-              bestStudentIdentityConfidence = confidenceRank;
-              onTranscription?.(JSON.stringify(extractedPage.identity), 'identity');
-            }
-          }
+          const pageText = cleanTranscription(pageTranscription);
           if (!pageText) throw new Error(`Aucun texte n’a pu être lu sur ${pageLabel}.`);
           const doubtfulMarker = transcriptionTruncated ? ' [LECTURE DOUTEUSE : transcription possiblement interrompue par une longue zone blanche ou la limite de génération]' : '';
           pageTranscriptions.push({ pageLabel, pageText, doubtfulMarker });
