@@ -21,6 +21,8 @@ export interface BackgroundCorrectionJob {
   subjectImages: ImageInput[];
   subjectTranscription?: string;
   scientificPageClassifications?: ScientificPageClassification[];
+  /** Clockwise quarter-turns applied to each page, always relative to originalImages. */
+  rotationAngles?: Record<number, 0 | 90 | 180 | 270>;
   scientificDiagramAnalysis?: ScientificDiagramAnalysis | null;
   detectTeacherAnnotations: boolean;
   annotationInkColor: TeacherAnnotationInkColor;
