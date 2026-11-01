@@ -162,10 +162,10 @@ describe('OpenAI scientific diagram adapter', () => {
       overallUncertainties: [],
     });
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: JSON.stringify(empty) } }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: JSON.stringify(empty) } }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: JSON.stringify(pageOutput('Noyau visible')) } }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: JSON.stringify(pageOutput('Membrane visible')) } }), { status: 200 }));
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(empty) } }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(empty) } }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(pageOutput('Noyau visible')) } }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(pageOutput('Membrane visible')) } }] }), { status: 200 }));
 
     const result = await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({
       ...request,
