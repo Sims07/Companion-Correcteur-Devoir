@@ -182,8 +182,10 @@ export function createBackgroundCorrectionService(
       const fingerprint = await repository.fingerprintImages(job.images);
       const cached = await repository.getCachedTranscription(fingerprint);
       await persist({ ...job, imageFingerprint: fingerprint, transcription: cached, updatedAt: new Date().toISOString() });
-      try { await this.prewarm(settings); } catch { /* Availability checks never block a teacher from queuing a copy. */ }
-      if (autoEnabled) void run(settings);
+      void (async () => {
+        try { await this.prewarm(settings); } catch { /* Availability checks never block a teacher from queuing a copy. */ }
+        if (autoEnabled) await run(settings);
+      })();
     },
     listJobs: (assignmentId) => repository.listJobs(assignmentId),
     async prewarm(settings) {
