@@ -1864,7 +1864,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setReview(canReview && next.proposal ? toReviewedCriteria(next.proposal) : []);
     setTeacherQuestions(canReview && next.proposal ? next.proposal.questionsForTeacher.join('\\n') : '');
     setShowOnlyFlagged(true);
-    setReviewMessage(canReview ? 'Correction préparée en arrière-plan. Examinez les propositions signalées avant validation.' : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés localement.');
+    setReviewMessage(canReview ? 'Correction prête. Examinez les propositions signalées avant validation. Examinez les propositions signalées avant validation.' : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés localement.');
     setError(next.error ?? '');
     setCurrentCorrectionId(null);
     setIsFinalized(false);
@@ -2937,7 +2937,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           {unreadableCopySignal && <span role="alert">La lecture de la copie mérite une vérification sur l’image originale.</span>}
         </section>}
         <div className="correction-batch-progress" aria-label="Progression des corrections pour ce devoir"><div><span className="eyebrow">CORRECTIONS DU DEVOIR</span><strong>{completedForAssignment} copie(s) enregistrée(s) pour ce devoir</strong><p>Chaque copie enregistrée reste disponible dans « Corrections enregistrées ».</p></div></div>
-        <section className="copy-queue review-background-queue" aria-label="Copies préparées en arrière-plan">
+        <section className="copy-queue review-background-queue" aria-label="Copies suivantes à corriger">
           <div className="copy-queue-heading"><div><span className="eyebrow">COPIES SUIVANTES</span><h4>{backgroundJobs.filter((job) => job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)).length} prête(s) à réviser · {backgroundJobs.filter((job) => job.status === 'pending' || job.status === 'processing').length} en traitement</h4></div><button type="button" className="primary-button" onClick={() => { void loadNextQueuedCopy(); }} disabled={isAnalyzing || !backgroundJobs.some((job) => job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria))}>Copie suivante</button></div>
           <div className="student-label-field"><label className="field-label" htmlFor="background-copy-label">Nom de l’étudiant <span>(facultatif, pour une seule copie)</span></label><input id="background-copy-label" value={backgroundCopyLabel} onChange={(event) => setBackgroundCopyLabel(event.target.value)} placeholder="Nom ou identifiant" /></div>
           <label className="analysis-thinking-option copy-annotation-option"><input type="checkbox" checked={backgroundCopyDetectTeacherAnnotations} onChange={(event) => setBackgroundCopyDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient des annotations du professeur</strong><small>Les annotations incertaines demanderont une vérification avant la notation.</small></span></label>
@@ -2954,7 +2954,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <strong>Copie suivante</strong>
             {getBackgroundCorrectionReviewNavigation(backgroundJobs, activeAssignmentId, currentBackgroundJobId).nextCopy
               ? <span>{getBackgroundCorrectionReviewNavigation(backgroundJobs, activeAssignmentId, currentBackgroundJobId).nextCopy?.label}</span>
-              : <span>Aucune autre copie prête pour le moment. Le traitement continue en arrière-plan.</span>}
+              : <span>Aucune autre copie n’est prête pour le moment. Les autres corrections se poursuivent.</span>}
           </div>
         </section>}
         <div className="review-workspace">
