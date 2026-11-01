@@ -46,6 +46,7 @@ export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisR
  'Sans expectedElements, retourne une seule note points sur le maximum du critère, evidence, confidence, requiresTeacherReview et diagramIds. Ne retourne jamais de critère absent du barème.',
  'qualityBreakdown est facultatif et très court : uniquement les dimensions non satisfaites, avec status et 12 mots maximum. Dimensions : title, scientific-accuracy, completeness, labels, arrows-relations, organization-conventions, legibility. N’inclus aucune dimension satisfaisante.',
  'Les bounds sont normalisées de 0 à 1. Omet-les si incertain. Ne considère pas les tableaux de données comme des schémas.',
+ 'Ignore les marques de correction manuscrites préexistantes (commentaires, coches, cercles, notes et traits) : elles ne font jamais partie de la production de l’étudiant. Si une marque recouvre ou touche un élément du schéma, mets requiresTeacherReview à true.',
  'CRITÈRES VISUELS (liste exhaustive) : '+JSON.stringify(criteria),
  'QUESTION : '+(request.question.trim()||'Aucune question de référence fournie.'),
  'SUJET DE RÉFÉRENCE : '+(request.question.trim()||'Non fourni.'),
