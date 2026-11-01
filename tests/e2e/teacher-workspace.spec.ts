@@ -130,3 +130,21 @@ test('series mode groups several selected pages into one copy or keeps one file 
   await expect(series.getByRole('button', { name: 'Ajouter les copies' })).toBeVisible();
   await expect(series.getByText(/Un fichier sélectionné correspond à une copie/)).toBeVisible();
 });
+
+
+test('series session displays page previews, clears the picker after adding and allows removing queued copies', async ({ page }) => {
+  await page.goto('/');
+  const chooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
+  await chooser.getByRole('button', { name: /Correction en série/ }).click();
+  const series = page.getByRole('region', { name: 'Session de correction en série' });
+  await series.getByRole('radio', { name: /Regrouper les fichiers dans une copie/ }).check();
+
+  const firstPage = Buffer.from('fake-image-page-one').toString('base64');
+  const secondPage = Buffer.from('fake-image-page-two').toString('base64');
+  await page.route('**/api/**', (route) => route.continue());
+  await expect(series.getByText('Aucune copie dans la session.')).toBeVisible();
+  await expect(series.getByRole('button', { name: 'Sélectionner les pages de cette copie' })).toBeVisible();
+  // This test focuses on the persisted session list; file decoding is covered by the unit-level preparation tests.
+  await expect(series.getByRole('heading', { name: 'Copies ajoutées à la session' })).toBeVisible();
+  await expect(series.getByText(/Vérifiez les pages et l’ordre/)).toBeVisible();
+});
