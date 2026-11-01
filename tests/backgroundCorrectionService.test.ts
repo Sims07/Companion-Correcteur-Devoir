@@ -33,6 +33,7 @@ function fixture() {
   const cache = new Map<string, string>();
   const repository: BackgroundCorrectionRepository = {
     saveJob: vi.fn(async (next) => { jobs.set(next.id, structuredClone(next)); }),
+    deleteJob: vi.fn(async (id) => { jobs.delete(id); }),
     listJobs: vi.fn(async (assignmentId) => [...jobs.values()].filter((item) => !assignmentId || item.assignmentId === assignmentId).map((item) => structuredClone(item))),
     fingerprintImages: vi.fn(async () => 'fingerprint-1'),
     getCachedTranscription: vi.fn(async (key) => cache.get(key) ?? null),
@@ -181,6 +182,26 @@ describe('background correction service', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('removes a queued copy and notifies subscribers', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const listener = vi.fn();
+    service.subscribe(listener);
+    await service.remove('copy-1');
+    expect(f.jobs.has('copy-1')).toBe(false);
+    expect(f.repository.deleteJob).toHaveBeenCalledWith('copy-1');
+    expect(listener).toHaveBeenCalledWith([]);
+  });
+
+  it('does not remove a copy while it is processing', async () => {
+    const f = fixture();
+    const processing = { ...f.job, status: 'processing' as const };
+    f.jobs.set(processing.id, processing);
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await expect(service.remove('copy-1')).rejects.toThrow('Cette copie est en cours de correction');
+    expect(f.repository.deleteJob).not.toHaveBeenCalled();
   });
 
 });

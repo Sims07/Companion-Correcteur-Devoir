@@ -102,8 +102,8 @@ test('teacher can choose clearly distinct individual and series correction workf
   await expect(series).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
   await expect(page.locator('.copy-panel')).toHaveCount(0);
-  await expect(series.getByText('Aucune copie ajoutée pour le moment.')).toBeVisible();
-  await expect(series.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
+  await expect(series.getByText('Aucune copie dans la session.')).toBeVisible();
+  await expect(series.getByRole('heading', { name: 'Copies ajoutées à la session' })).toBeVisible();
   await expect(series.getByText('Traitement séquentiel')).toBeVisible();
   await expect(modeChooser.getByRole('button', { name: /Correction en série/ })).toHaveAttribute('aria-pressed', 'true');
 
@@ -129,4 +129,34 @@ test('series mode groups several selected pages into one copy or keeps one file 
   await series.getByRole('radio', { name: /Un fichier = une copie/ }).check();
   await expect(series.getByRole('button', { name: 'Ajouter les copies' })).toBeVisible();
   await expect(series.getByText(/Un fichier sélectionné correspond à une copie/)).toBeVisible();
+});
+
+
+test('series session previews added pages, resets the picker and allows removing a queued copy', async ({ page }) => {
+  await page.goto('/');
+  const chooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
+  await chooser.getByRole('button', { name: /Correction en série/ }).click();
+  const series = page.getByRole('region', { name: 'Session de correction en série' });
+  await series.getByRole('radio', { name: /Regrouper les fichiers dans une copie/ }).check();
+  await series.getByLabel('Démarrer automatiquement la correction').uncheck();
+
+  await expect(series.getByText('Aucune copie dans la session.')).toBeVisible();
+  const onePixelPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jxioAAAAASUVORK5CYII=', 'base64');
+  await series.locator('#series-copy-files').setInputFiles([
+    { name: 'page-1.png', mimeType: 'image/png', buffer: onePixelPng },
+    { name: 'page-2.png', mimeType: 'image/png', buffer: onePixelPng },
+  ]);
+
+  await expect(series.getByRole('heading', { name: 'Copies ajoutées à la session' })).toBeVisible();
+  await expect(series.getByText('Copie 1')).toBeVisible();
+  await expect(series.getByText('2 page(s) · En attente')).toBeVisible();
+  await expect(series.getByRole('img', { name: 'Page 1 de Copie 1' })).toBeVisible();
+  await expect(series.getByRole('img', { name: 'Page 2 de Copie 1' })).toBeVisible();
+  await expect(series.locator('.file-picker-selected')).toHaveCount(0);
+  await expect(series.getByRole('button', { name: 'Démarrer les corrections (1)' })).toBeVisible();
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await series.getByRole('button', { name: 'Supprimer' }).click();
+  await expect(series.getByText('Aucune copie dans la session.')).toBeVisible();
+  await expect(series.getByRole('button', { name: 'Démarrer les corrections (1)' })).toHaveCount(0);
 });

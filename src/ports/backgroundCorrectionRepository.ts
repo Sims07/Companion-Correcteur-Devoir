@@ -3,6 +3,7 @@ import type { ImageInput } from '../domain/imageInput.ts';
 
 export interface BackgroundCorrectionRepository {
   saveJob(job: BackgroundCorrectionJob): Promise<void>;
+  deleteJob(jobId: string): Promise<void>;
   listJobs(assignmentId?: string): Promise<BackgroundCorrectionJob[]>;
   fingerprintImages(images: ImageInput[]): Promise<string>;
   getCachedTranscription(fingerprint: string): Promise<string | null>;
