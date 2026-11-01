@@ -47,8 +47,8 @@ test('teacher can rotate each batch page manually before starting the series', a
   await page.reload();
   await openActiveAssignment(page);
   const chooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
-  await chooser.getByRole('button', { name: /Correction en série/ }).click();
-  const series = page.getByRole('region', { name: 'Session de correction en série' });
+  await chooser.getByRole('button', { name: /Corriger plusieurs copies/ }).click();
+  const series = page.getByRole('region', { name: 'Copies du devoir' });
   await series.getByLabel('Démarrer automatiquement la correction').uncheck();
   const imageBase64 = await page.evaluate(() => {
     const canvas = document.createElement('canvas');
