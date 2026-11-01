@@ -4,6 +4,7 @@ import type { Rubric } from './rubric.ts';
 import type { TeacherAnnotationInkColor } from './teacherAnnotationColor.ts';
 import type { ScientificPageClassification } from './scientificPageClassification.ts';
 import type { ScientificDiagramAnalysis } from './scientificDiagram.ts';
+import type { StudentIdentity } from './studentIdentity.ts';
 
 export type BackgroundCorrectionStatus = 'pending' | 'processing' | 'ready' | 'needs-review' | 'reviewing' | 'completed' | 'failed';
 
@@ -11,6 +12,7 @@ export interface BackgroundCorrectionJob {
   id: string;
   assignmentId: string;
   label: string;
+  studentIdentity?: StudentIdentity | null;
   question: string;
   rubric: Rubric;
   correctionMode: 'integrated' | 'separate';
