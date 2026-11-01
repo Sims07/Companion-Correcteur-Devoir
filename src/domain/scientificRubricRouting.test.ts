@@ -77,6 +77,7 @@ describe('scientific rubric routing', () => {
     });
     expect(result.criteria[0]).toMatchObject({ points: 6, confidence: 'medium', questionForTeacher: expect.any(String) });
     expect(result.questionsForTeacher).toContain('Un schéma est partiellement illisible.');
+    expect(result.questionsForTeacher).toContain('Ancien format d’analyse par schéma : vérifier la note.');
   });
 
   it('uses one global score for a criterion spanning several diagrams without averaging per-diagram scores', () => {
@@ -99,4 +100,17 @@ describe('scientific rubric routing', () => {
     expect(result.diagramCriteria.map((item) => item.id)).toEqual(['legend']);
     expect(result.textCriteria.map((item) => item.id)).toEqual(['essay']);
   });
+  it('marks failed diagram analysis for manual grading and retains affected pages', () => {
+    const result = mergeScientificDiagramCriteria(rubric, textProposal, {
+      diagrams: [{ ...diagramAnalysis.diagrams[0], id: 'diagram-1', pageNumber: 4, criteria: [] }],
+      criteria: [],
+      overallUncertainties: [],
+      warnings: ['Analyse des schémas indisponible.'],
+    });
+    expect(result.criteria[0]).toMatchObject({ points: 0, confidence: 'low', evidence: expect.stringContaining('Pages concernées') });
+    expect(result.criteria[0].evidence).toContain('4');
+    expect(result.questionsForTeacher).toContain('Analyse des schémas indisponible.');
+    expect(result.questionsForTeacher).not.toContain('Ancien format d’analyse par schéma : vérifier la note.');
+  });
+
 });

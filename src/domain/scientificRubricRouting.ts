@@ -32,9 +32,10 @@ export function mergeScientificDiagramCriteria(
   const { textCriteria, diagramCriteria } = partitionScientificRubric(rubric);
   const textById = new Map((textProposal?.criteria ?? []).map((criterion) => [criterion.criterionId, criterion]));
   const diagramProposals = new Map<string, CriterionProposal>();
+  const legacyAnalysis = Boolean(analysis && (!analysis.criteria || (analysis.warnings ?? []).some((warning) => warning.includes('Ancien format'))));
 
   for (const criterion of diagramCriteria) {
-    const legacy = !analysis?.criteria?.length || (analysis.warnings ?? []).some((warning) => warning.includes('Ancien format'));
+    const legacy = legacyAnalysis;
     const assessments = legacy
       ? (analysis?.diagrams ?? []).flatMap((diagram) => (diagram.criteria ?? []).filter((assessment) => assessment.criterionId === criterion.id).map((assessment) => ({ ...assessment, pageNumber: diagram.pageNumber, diagramType: diagram.diagramType })))
       : (analysis?.criteria ?? []).filter((assessment) => assessment.criterionId === criterion.id);
@@ -102,6 +103,7 @@ export function mergeScientificDiagramCriteria(
     ...orderedCriteria.flatMap((criterion) => criterion.questionForTeacher ? [criterion.questionForTeacher] : []),
     ...(analysis?.overallUncertainties ?? []),
     ...(analysis?.warnings ?? []),
+    ...(legacyAnalysis ? ['Ancien format d’analyse par schéma : vérifier la note.'] : []),
   ];
   return {
     summary: textProposal?.summary ?? 'Proposition fondée sur l’analyse visuelle des schémas ; vérification enseignante requise.',
