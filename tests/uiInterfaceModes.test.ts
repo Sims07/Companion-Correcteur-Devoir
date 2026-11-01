@@ -49,22 +49,16 @@ describe('teacher and AI diagnostic interface modes', () => {
   });
 
 
-  it('keeps one clear primary action to save a reviewed correction', () => {
+  it('keeps correction proposals accepted by default and lets teachers move directly to another copy', () => {
     const text = app();
-    expect(text).toContain("item.decision === 'pending' ? 'accepted' : 'pending'");
-    expect(text).toContain('Confirmer ce critère');
-    expect(text).toContain('✓ Critère confirmé');
-    expect(text).toContain('Enregistrer et passer à la copie suivante');
-    expect(text).toContain('Enregistrer et passer à la copie suivante');
+    expect(text).toContain('Ajouter une autre copie');
+    expect(text).toContain('La proposition est retenue par défaut');
+    expect(text).not.toContain('Confirmer ce critère');
+    expect(text).not.toContain('Confirmer les critères sans alerte');
     expect(text).toContain('Exporter le récapitulatif (JSON)');
-    expect(text).not.toContain('function decideAll()');
     expect(text).not.toContain('Accepter les propositions non modifiées');
     expect(text).not.toContain('Finaliser la correction');
-    expect(text).not.toContain('Correction finalisée localement');
-    expect(text).toContain('Chaque copie enregistrée reste disponible dans « Corrections enregistrées ».');
-    expect(text).toContain('setIsFinalized(false)');
   });
-
   it('keeps teacher annotations local to the teacher view and resets them between copies', () => {
     const text = app();
     expect(text).toContain('teacherAnnotations,');
