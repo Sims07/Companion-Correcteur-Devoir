@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createOllamaProvider } from '../src/adapters/ai/ollamaProvider.ts';
-import type { GradingRequest } from '../src/ports/aiProvider.ts';
+import type { GradingProgressEvent, GradingRequest } from '../src/ports/aiProvider.ts';
 
 function streamingResponse(content: string): Response {
   const lines = [...content.split('').map((character) => JSON.stringify({ message: { content: character }, done: false })), JSON.stringify({ message: {}, done: true })];
@@ -30,7 +30,7 @@ describe('teacher progress events', () => {
       analysisModel: 'analysis-model',
       criterionByCriterion: true,
     }, fetchMock);
-    const events: Array<{ type: string; [key: string]: unknown }> = [];
+    const events: GradingProgressEvent[] = [];
 
     await provider.generate(
       request,
