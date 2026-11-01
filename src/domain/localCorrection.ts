@@ -3,6 +3,7 @@ import type { Rubric } from './rubric.ts';
 import type { ScientificDiagramAnalysis } from './scientificDiagram.ts';
 import type { ScientificPageClassification } from './scientificPageClassification.ts';
 import type { TeacherAnnotationInkColor } from './teacherAnnotationColor.ts';
+import type { StudentIdentity } from './studentIdentity.ts';
 
 export interface ArchivedImage {
   base64: string;
@@ -14,6 +15,7 @@ export interface CorrectionArchiveSnapshot {
   /** Local observability trace linked to this correction, when available. */
   timingTraceId?: string;
   assignmentTitle: string;
+  studentIdentity?: StudentIdentity | null;
   question: string;
   rubric: Rubric;
   proposal: GradingProposal;
