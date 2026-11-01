@@ -147,30 +147,35 @@ test('series session keeps copy cards uniform and opens the correction separatel
   const chooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
   await chooser.getByRole('button', { name: /Corriger plusieurs copies/ }).click();
   const series = page.getByRole('region', { name: 'Copies du devoir' });
-  await series.getByRole('radio', { name: /Regrouper les fichiers dans une copie/ }).check();
+  await series.getByRole('radio', { name: /Un fichier = une copie/ }).check();
   await series.getByLabel('Démarrer automatiquement la correction').uncheck();
 
   const onePixelPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jxioAAAAASUVORK5CYII=', 'base64');
   await series.locator('#series-copy-files').setInputFiles([
-    { name: 'page-1.png', mimeType: 'image/png', buffer: onePixelPng },
-    { name: 'page-2.png', mimeType: 'image/png', buffer: onePixelPng },
+    { name: 'copie-a.png', mimeType: 'image/png', buffer: onePixelPng },
+    { name: 'copie-b.png', mimeType: 'image/png', buffer: onePixelPng },
   ]);
   await expect(series.getByRole('heading', { name: 'Copies à corriger' })).toBeVisible();
-  await expect(series.getByText('Copie 1')).toBeVisible();
-  await expect(series.getByText('2 page(s)')).toBeVisible();
 
-  const card = series.locator('.correction-series-card');
-  await expect(card).toHaveCount(1);
-  await expect(card.getByText('Note à venir')).toBeVisible();
-  await expect(card.getByText('À corriger')).toBeVisible();
-  await expect(card.getByRole('button', { name: 'Voir les pages et la correction' })).toHaveCount(0);
-  await expect(card.locator('.correction-series-pages')).toHaveCount(0);
-  await expect(card.locator('.correction-series-live-details')).toHaveCount(0);
-  await expect(card.getByRole('button', { name: 'Supprimer' })).toBeVisible();
-  await expect(series.getByRole('button', { name: 'Démarrer les corrections (1)' })).toBeVisible();
+  const cards = series.locator('.correction-series-card');
+  await expect(cards).toHaveCount(2);
+  for (const card of await cards.all()) {
+    await expect(card.getByText('Note à venir')).toBeVisible();
+    await expect(card.getByText('À corriger')).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Voir les pages et la correction' })).toHaveCount(0);
+    await expect(card.locator('.correction-series-pages')).toHaveCount(0);
+    await expect(card.locator('.correction-series-live-details')).toHaveCount(0);
+    await expect(card.getByRole('button', { name: 'Supprimer' })).toBeVisible();
+  }
+  const firstBox = await cards.nth(0).boundingBox();
+  const secondBox = await cards.nth(1).boundingBox();
+  expect(firstBox).not.toBeNull();
+  expect(secondBox).not.toBeNull();
+  expect(Math.abs(firstBox!.height - secondBox!.height)).toBeLessThanOrEqual(1);
+  await expect(series.getByRole('button', { name: 'Démarrer les corrections (2)' })).toBeVisible();
 
   page.once('dialog', (dialog) => dialog.accept());
-  await card.getByRole('button', { name: 'Supprimer' }).click();
-  await expect(series.getByText('Aucune copie dans la session.')).toBeVisible();
-  await expect(series.getByRole('button', { name: 'Démarrer les corrections (1)' })).toHaveCount(0);
+  await cards.nth(0).getByRole('button', { name: 'Supprimer' }).click();
+  await expect(cards).toHaveCount(1);
+  await expect(series.getByRole('button', { name: 'Démarrer les corrections (2)' })).toHaveCount(0);
 });
