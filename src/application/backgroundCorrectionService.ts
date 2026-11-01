@@ -286,6 +286,10 @@ export function createBackgroundCorrectionService(
       if (autoEnabled && lastSettings) void run(lastSettings);
     },
     async processPending(settings) {
+      // Manual launch must resume a queue explicitly paused by disabling automatic
+      // processing. run() is idempotent while a loop is already active, preventing
+      // repeated clicks from issuing duplicate model requests.
+      paused = false;
       try { await this.prewarm(settings); } catch { /* The correction itself will expose a configuration error if needed. */ }
       await run(settings);
     },

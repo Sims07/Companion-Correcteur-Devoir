@@ -352,9 +352,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [originalImages, setOriginalImages] = useState<ImageInput[]>([]);
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
   const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
+  const [expandedBackgroundJobIds, setExpandedBackgroundJobIds] = useState<string[]>([]);
   const [backgroundCopyLabel, setBackgroundCopyLabel] = useState('');
   const [seriesPickerVersion, setSeriesPickerVersion] = useState(0);
   const [isPreparingSeriesCopies, setIsPreparingSeriesCopies] = useState(false);
+  const [isStartingSeriesCorrections, setIsStartingSeriesCorrections] = useState(false);
+  const isStartingSeriesCorrectionsRef = useRef(false);
   const [seriesGroupingMode, setSeriesGroupingMode] = useState<'each-file' | 'group-files'>('each-file');
   const [correctionSessionMode, setCorrectionSessionMode] = useState<'individual' | 'series'>('individual');
   const [backgroundCopyDetectTeacherAnnotations, setBackgroundCopyDetectTeacherAnnotations] = useState(false);
@@ -1725,6 +1728,23 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
+  async function startSeriesCorrections() {
+    if (isStartingSeriesCorrectionsRef.current) return;
+    const pendingCount = backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').length;
+    if (!pendingCount) return;
+    isStartingSeriesCorrectionsRef.current = true;
+    setIsStartingSeriesCorrections(true);
+    setReviewMessage(`Démarrage de la correction de ${pendingCount} copie(s)…`);
+    try {
+      await backgroundService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de démarrer les corrections.');
+    } finally {
+      isStartingSeriesCorrectionsRef.current = false;
+      setIsStartingSeriesCorrections(false);
+    }
+  }
+
   async function loadNextQueuedCopy(jobId?: string) {
     if (isAnalyzing) return;
     const next = jobId
@@ -2554,16 +2574,23 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         {isPreparingSeriesCopies && <p className="correction-series-feedback" role="status">Préparation des fichiers et constitution des copies…</p>}
         {!autoBackgroundCorrection && backgroundJobs.some((job) => job.status === 'pending') && <div className="correction-series-launch">
           <p><strong>{backgroundJobs.filter((job) => job.status === 'pending').length} copie(s) en attente.</strong> Le lancement enverra chaque copie au modèle l’une après l’autre. Vous pourrez suivre leur progression ici.</p>
-          <button type="button" className="primary-button" onClick={() => { void backgroundService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Démarrer les corrections ({backgroundJobs.filter((job) => job.status === 'pending').length})</button>
+          <button type="button" className="primary-button" disabled={isStartingSeriesCorrections || backgroundJobs.some((job) => job.status === 'processing')} onClick={() => { void startSeriesCorrections(); }}>{isStartingSeriesCorrections ? 'Démarrage des corrections…' : `Démarrer les corrections (${backgroundJobs.filter((job) => job.status === 'pending').length})`}</button>
         </div>}
         <div className="correction-series-list-heading"><div><h4>Copies ajoutées à la session</h4><p>Vérifiez les pages et l’ordre avant ou pendant le traitement.</p></div><span>{backgroundJobs.length} copie(s)</span></div>
         {backgroundJobs.length === 0 ? <p className="correction-series-empty">Aucune copie dans la session. Ajoutez les pages de la première copie ci-dessus.</p> : <ol className="correction-series-list">{backgroundJobs.map((job, index) => <li key={job.id} className={job.status === 'processing' ? 'is-processing' : ''}>
           <div className="correction-series-copy-top"><span className="queue-position">{index + 1}</span><div className="correction-series-copy"><strong>{job.label}</strong><span>{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}{job.status === 'processing' ? ` · ${job.phase === 'preparation' ? 'Préparation' : job.phase === 'reading' ? `Lecture ${job.completedPages}/${job.images.length}` : `Correction ${job.completedCriteria}/${job.totalCriteria}`}` : ''}</span>{job.error && <small role="alert">{job.error}</small>}</div>
+          <button type="button" className="secondary-button correction-series-view" aria-expanded={expandedBackgroundJobIds.includes(job.id)} aria-controls={`correction-details-${job.id}`} onClick={() => setExpandedBackgroundJobIds((current) => current.includes(job.id) ? current.filter((id) => id !== job.id) : [...current, job.id])}>{expandedBackgroundJobIds.includes(job.id) ? 'Masquer la correction' : 'Voir la correction'}</button>
           {(['ready', 'needs-review', 'failed', 'reviewing'].includes(job.status)) && <button type="button" className="secondary-button" disabled={isAnalyzing} onClick={() => { void loadNextQueuedCopy(job.id); }}>{job.status === 'ready' ? 'Réviser' : 'Ouvrir'}</button>}
           {(['needs-review', 'failed'].includes(job.status)) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Reprendre</button>}
           {job.status !== 'processing' && job.id !== currentBackgroundJobId && <button type="button" className="text-button correction-series-remove" onClick={() => { void removeSeriesCopy(job); }}>Supprimer</button>}
           </div>
           <div className="correction-series-pages" aria-label={`Pages de ${job.label}`}>{job.images.map((page, pageIndex) => <figure key={`${job.id}-page-${pageIndex}`}><img src={`data:${page.mimeType};base64,${page.base64}`} alt={`Page ${pageIndex + 1} de ${job.label}`} loading="lazy" /><figcaption>Page {pageIndex + 1}{page.fileName ? ` · ${page.fileName}` : ''}</figcaption></figure>)}</div>
+          {expandedBackgroundJobIds.includes(job.id) && <section id={`correction-details-${job.id}`} className="correction-series-live-details" aria-label={`Correction de ${job.label}`}>
+            <div className="correction-series-live-heading"><strong>Correction de {job.label}</strong><span>{job.completedCriteria}/{job.totalCriteria} critère(s) analysé(s)</span></div>
+            {job.transcription ? <details className="correction-series-transcription"><summary>Voir la transcription de la copie</summary><pre>{job.transcription}</pre></details> : <p className="correction-series-live-hint">{job.status === 'pending' ? 'La correction démarrera dès que cette copie sera prise en charge.' : job.phase === 'reading' || job.phase === 'preparation' ? 'Lecture de la copie en cours. La transcription apparaîtra ici dès qu’elle sera disponible.' : 'L’analyse est en cours. Les premiers résultats apparaîtront ici dès qu’un critère sera évalué.'}</p>}
+            {job.partialCriteria.length > 0 ? <div className="correction-series-partial-results"><h5>Résultats déjà proposés</h5><ul>{job.partialCriteria.map((criterion) => { const rubricCriterion = job.rubric.criteria.find((item) => item.id === criterion.criterionId); return <li key={criterion.criterionId}><div><strong>{rubricCriterion?.title ?? criterion.criterionId}</strong><span>{criterion.points}/{rubricCriterion?.maxPoints ?? '—'} point(s) · confiance {criterion.confidence === 'high' ? 'élevée' : criterion.confidence === 'medium' ? 'moyenne' : 'faible'}</span></div><p>{criterion.rationale}</p>{criterion.evidence && <blockquote>{criterion.evidence}</blockquote>}{criterion.questionForTeacher && <p className="correction-series-question">À vérifier : {criterion.questionForTeacher}</p>}</li>; })}</ul><strong className="correction-series-partial-score">Total provisoire : {job.partialCriteria.reduce((sum, criterion) => sum + criterion.points, 0)}/{job.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)} points</strong></div> : job.status === 'processing' && <p className="correction-series-live-hint">Aucun critère terminé pour le moment. Le résultat s’affichera ici progressivement.</p>}
+            {job.proposal && <p className="correction-series-live-hint">{job.proposal.summary}</p>}
+          </section>}
         </li>)}</ol>}
       </section>}
       {(interfaceMode !== 'teacher' || correctionSessionMode === 'individual') && <>

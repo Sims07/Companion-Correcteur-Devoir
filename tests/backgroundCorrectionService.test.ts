@@ -123,6 +123,34 @@ describe('background correction service', () => {
     expect(call).toBe(2);
   });
 
+  it('starts manually after automatic processing was disabled and coalesces repeated launches', async () => {
+    const f = fixture();
+    let release!: () => void;
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    let calls = 0;
+    f.setGenerateImplementation(async (request) => {
+      calls += 1;
+      await blocked;
+      const rubric = JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> };
+      const criterion = rubric.criteria[0];
+      const proposal = { criterionId: criterion.id, points: criterion.maxPoints, rationale: 'Justification', evidence: 'preuve', confidence: 'high' as const };
+      return JSON.stringify({ summary: 'OK', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'https://provider.example/v1', apiCompatible: true, apiKey: 'secret', visionModel: 'vision', analysisModel: 'analysis' };
+    await service.enqueue(f.job, { ...settings, autoBackgroundCorrection: false });
+    await service.setAutomatic(false, settings);
+    const firstLaunch = service.processPending(settings);
+    for (let attempt = 0; attempt < 50 && calls === 0; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+    const secondLaunch = service.processPending(settings);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(1);
+    release();
+    await Promise.all([firstLaunch, secondLaunch]);
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+    expect(calls).toBe(2);
+  });
+
   it('retries only unfinished criteria and reuses the saved transcription', async () => {
     const f = fixture();
     const partial = {

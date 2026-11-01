@@ -155,6 +155,12 @@ test('series session previews added pages, resets the picker and allows removing
   await expect(series.locator('.file-picker-selected')).toHaveCount(0);
   await expect(series.getByRole('button', { name: 'Démarrer les corrections (1)' })).toBeVisible();
 
+  await series.getByRole('button', { name: 'Voir la correction' }).click();
+  const correctionDetails = series.getByRole('region', { name: 'Correction de Copie 1' });
+  await expect(correctionDetails).toBeVisible();
+  await expect(correctionDetails.getByText('La correction démarrera dès que cette copie sera prise en charge.')).toBeVisible();
+  await expect(series.getByRole('button', { name: 'Masquer la correction' })).toHaveAttribute('aria-expanded', 'true');
+
   page.once('dialog', (dialog) => dialog.accept());
   await series.getByRole('button', { name: 'Supprimer' }).click();
   await expect(series.getByText('Aucune copie dans la session.')).toBeVisible();
