@@ -44,6 +44,7 @@ export function createBackgroundCorrectionService(
   workspace: OllamaGateway,
 ): BackgroundCorrectionService {
   let paused = false;
+  let foregroundPriority = false;
   let autoEnabled = true;
   let activeLoop: Promise<void> | null = null;
   let lastSettings: OllamaSettings | null = null;
@@ -198,10 +199,12 @@ export function createBackgroundCorrectionService(
       prewarmUntil = Date.now() + 60_000;
     },
     async pauseAndWait() {
+      foregroundPriority = true;
       paused = true;
       if (activeLoop) await activeLoop;
     },
     resume() {
+      foregroundPriority = false;
       paused = false;
       if (autoEnabled && lastSettings) void run(lastSettings);
     },
@@ -218,6 +221,7 @@ export function createBackgroundCorrectionService(
     async setAutomatic(enabled, settings) {
       autoEnabled = enabled;
       if (enabled) {
+        if (foregroundPriority) return;
         paused = false;
         await run(settings);
       } else {
