@@ -49,6 +49,7 @@ export function createBackgroundCorrectionService(
   let lastSettings: OllamaSettings | null = null;
   let prewarmUntil = 0;
   let prewarmKey = '';
+  let activeAnalysisModel: string | null = null;
   const listeners = new Set<(jobs: BackgroundCorrectionJob[]) => void>();
   async function persist(job: BackgroundCorrectionJob): Promise<void> {
     await repository.saveJob(job);
@@ -83,6 +84,7 @@ export function createBackgroundCorrectionService(
             const remaining = remainingRubric(current.rubric, current.partialCriteria);
             if (!remaining.criteria.length) break;
             const criterion = remaining.criteria[0];
+            activeAnalysisModel = current.analysisModel;
             const provider = workspace.createProvider({
               ...settings,
               visionModel: current.visionModel,
@@ -105,6 +107,7 @@ export function createBackgroundCorrectionService(
                 totalPageCount: current.images.length,
                 ...(current.correctionMode === 'separate' ? { subjectImages: current.subjectImages, ...(current.subjectTranscription ? { subjectTranscription: current.subjectTranscription } : {}) } : {}),
                 detectTeacherAnnotations: current.detectTeacherAnnotations,
+                keepAnalysisModelWarm: remaining.criteria.length > 1,
                 ...(current.detectTeacherAnnotations ? { teacherAnnotationImages: current.originalImages, teacherAnnotationPageNumbers: current.originalImages.map((_, index) => index + 1) } : {}),
               },
               undefined,
@@ -138,9 +141,12 @@ export function createBackgroundCorrectionService(
             });
           }
           if (paused) {
+            if (activeAnalysisModel) await workspace.unloadModel?.(settings, activeAnalysisModel).catch(() => undefined);
+            activeAnalysisModel = null;
             await persist({ ...current, status: 'pending', updatedAt: new Date().toISOString() });
             break;
           }
+          activeAnalysisModel = null;
           const proposal = createProposal(current.rubric, current.partialCriteria);
           const complete = current.partialCriteria.length === current.rubric.criteria.length;
           await persist({
