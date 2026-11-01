@@ -2785,14 +2785,6 @@
 .correction-series-error strong { color: #715526; }
 .correction-series-error details { margin-top: 0.25rem; }
 .correction-series-error summary { cursor: pointer; font-weight: 650; }
-.correction-series-error pre {
-  max-width: 100%;
-  margin: 0.35rem 0 0;
-  overflow: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 0.7rem;
-}
 .correction-series-overview-metrics {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
