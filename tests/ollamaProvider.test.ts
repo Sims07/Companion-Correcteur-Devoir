@@ -14,6 +14,10 @@ describe('model-aware transcription prompts', () => {
     expect(prompt).toContain('ordre de lecture');
     expect(buildTranscriptionPrompt('gemma3:4b', 'general')).toContain('retours à la ligne');
     expect(buildTranscriptionPrompt('gemma3:4b', 'ocr')).toContain('Text Recognition:');
+    const identityPrompt = buildStudentIdentityPrompt();
+    expect(identityPrompt).toContain('uniquement la bande supérieure');
+    expect(identityPrompt).toContain('en-tête en haut à gauche et en haut à droite');
+    expect(identityPrompt).toContain('Réponds exclusivement avec un objet JSON valide');
     expect(prompt).not.toContain('STUDENT_IDENTITY:');
     expect(prompt).not.toContain('studentNumber');
   });
