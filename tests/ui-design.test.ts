@@ -217,7 +217,7 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('.correction-batch-progress');
   });
 
-  it('makes multiple local assignments discoverable and gives each assignment its own saved rubric and question', () => {
+  it('makes multiple local assignments discoverable from the assignment library', () => {
     expect(appComponent).toContain('assignmentProfilesKey');
     expect(appComponent).toContain('function createNewAssignment()');
     expect(appComponent).toContain('function switchAssignment(profile: AssignmentProfile)');
@@ -225,31 +225,31 @@ describe('UI design system', () => {
     expect(appComponent).toContain('className="sidebar-new-assignment"');
     expect(appComponent).toContain('setRubric(profile.rubric)');
     expect(appComponent).toContain('setQuestion(profile.question)');
-    expect(correctionFlowStylesheet).toContain('.sidebar-assignment-item.active');
-    expect(correctionFlowStylesheet).toContain('.sidebar-new-assignment');
+    expect(correctionFlowStylesheet).toContain('.assignments-card');
     expect(correctionFlowStylesheet).toContain('@media (max-width: 720px)');
   });
 
   it('provides a full-width searchable assignment library with responsive cards', () => {
     expect(appComponent).toContain('showAssignmentsHome');
     expect(appComponent).toContain('<AssignmentsHome');
-    expect(appComponent).toContain('className="sidebar-all-assignments"');
+    expect(appComponent).toContain('className="sidebar-back-to-assignments"');
     expect(correctionFlowStylesheet).toContain('.teacher-flow-shell.teacher-assignments-home');
     expect(correctionFlowStylesheet).toContain('.assignments-card-grid');
     expect(correctionFlowStylesheet).toContain('.assignments-filters');
     expect(correctionFlowStylesheet).toContain('@media(max-width:600px)');
   });
 
-  it('keeps assignment management compact and reveals its actions on demand', () => {
+  it('keeps the selected assignment as workspace context instead of a switcher', () => {
     expect(appComponent).toContain('className="sidebar-assignment-current"');
-    expect(appComponent).toContain('aria-expanded={showAssignmentPicker}');
-    expect(appComponent).toContain('aria-controls="assignment-picker-options"');
-    expect(appComponent).toContain('CHANGER DE DEVOIR');
-    expect(appComponent).toContain('className="sidebar-assignment-actions"');
+    expect(appComponent).toContain('aria-label="Devoir actif"');
+    expect(appComponent).toContain('DEVOIR SÉLECTIONNÉ');
+    expect(appComponent).not.toContain('showAssignmentPicker');
+    expect(appComponent).not.toContain('CHANGER DE DEVOIR');
+    expect(appComponent).not.toContain('className="sidebar-assignment-actions"');
     expect(appComponent).not.toContain('htmlFor="assignment-title"');
     expect(correctionFlowStylesheet).toContain('.sidebar-assignment-current {');
-    expect(correctionFlowStylesheet).toContain('.sidebar-assignment-menu {');
-    expect(correctionFlowStylesheet).toContain('.sidebar-assignment-actions-menu {');
+    expect(correctionFlowStylesheet).toContain('.sidebar-back-to-assignments');
+    expect(correctionFlowStylesheet).toContain('.teacher-step-nav');
     expect(correctionFlowStylesheet).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
