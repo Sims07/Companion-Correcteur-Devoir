@@ -1802,7 +1802,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const canReview = next.status === 'ready' || (next.status === 'reviewing' && next.completedCriteria === next.totalCriteria && Boolean(next.proposal));
     await backgroundService.markForReview(next.id);
     setCurrentBackgroundJobId(next.id);
-    setStudentLabel(next.label);
+    setStudentLabel(next.studentIdentity ? (formatStudentIdentityLabel(next.studentIdentity) ?? next.label) : next.label);
     setStudentIdentity(next.studentIdentity ?? null);
     setDetectTeacherAnnotations(next.detectTeacherAnnotations);
     setAnnotationInkColor(next.annotationInkColor);
