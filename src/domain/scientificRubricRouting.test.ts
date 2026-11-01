@@ -67,6 +67,27 @@ describe('scientific rubric routing', () => {
     expect(result.questionsForTeacher).toContain('Vérifiez le schéma sur la copie et attribuez les points de ce critère.');
   });
 
+  it('averages sequential page-level Vision scores and requires review without labelling them as legacy data', () => {
+    const pageLevel: ScientificDiagramAnalysis = {
+      diagrams: [
+        { ...diagramAnalysis.diagrams[0], id: 'diagram-1', pageNumber: 2, criteria: [{ ...diagramAnalysis.diagrams[0].criteria[0], points: 4, diagramIds: ['diagram-1'] }] },
+        { ...diagramAnalysis.diagrams[0], id: 'diagram-2', pageNumber: 4, criteria: [{ ...diagramAnalysis.diagrams[0].criteria[0], points: 6, diagramIds: ['diagram-2'] }] },
+      ],
+      overallUncertainties: [],
+      warnings: ['Évaluations page par page : la moyenne des notes constitue une proposition à vérifier par l’enseignant.'],
+    };
+    const visualRubric: Rubric = { ...rubric, criteria: rubric.criteria.map((criterion) => criterion.id === 'diagram' ? { ...criterion, maxPoints: 10, analysisMode: 'scientific-diagram' } : criterion) };
+    const result = mergeScientificDiagramCriteria(visualRubric, textProposal, pageLevel);
+    expect(result.criteria[0]).toMatchObject({
+      points: 5,
+      confidence: 'high',
+      questionForTeacher: expect.any(String),
+      evidence: expect.stringContaining('Moyenne des évaluations page par page'),
+    });
+    expect(result.questionsForTeacher).toContain('Évaluations page par page : la moyenne des notes constitue une proposition à vérifier par l’enseignant.');
+    expect(result.questionsForTeacher).not.toContain('Ancien format d’analyse par schéma : vérifier la note.');
+  });
+
   it('keeps legacy per-diagram stored results readable and explicitly flags their averaged score for review', () => {
     const result = mergeScientificDiagramCriteria(rubric, textProposal, {
       diagrams: [
