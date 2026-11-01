@@ -869,17 +869,21 @@ describe('Ollama adapter', () => {
     expect(analysis.keep_alive).toBe(0);
   });
 
-  it('rejects invalid structured rubric data and never retries against another service', async () => {
+  it('recovers a penalty criterion with an incomplete description without retrying another service', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: 'Critère : 0 point.' } }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: JSON.stringify({
         title: 'Barème', criteria: [{ title: 'Critère', description: '', maxPoints: -2 }],
       }) } }), { status: 200 }));
-    await expect(importRubricImageWithOllama(
+    const result = await importRubricImageWithOllama(
       { base64: 'aGVsbG8=', mimeType: 'image/jpeg' },
       { endpoint: 'http://localhost:11434', visionModel: 'vision-model', analysisModel: 'analysis-model' },
       fetchMock,
-    )).rejects.toThrow(/maximum de points positif ou nul/);
+    );
+    expect(result.rubric.criteria).toEqual([
+      { id: 'critere', title: 'Critère', description: 'À préciser par l’enseignant.', maxPoints: -2 },
+    ]);
+    expect(result.warnings.join(' ')).toContain('Description à préciser');
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
