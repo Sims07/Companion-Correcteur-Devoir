@@ -219,6 +219,17 @@ export async function checkOllamaReady(
   if (!data.message?.content?.trim()) throw new Error('Le modèle n’a pas répondu au test de disponibilité.');
 }
 
+/** Explicitly unload a local model before handing the machine back to foreground work. */
+export async function unloadOllamaModel(settings: OllamaSettings, model: string, fetchImpl: typeof fetch = fetch): Promise<void> {
+  if (settings.apiCompatible) return;
+  const response = await fetchImpl(`${normalizedEndpoint(settings.endpoint)}/api/generate`, annotateNetworkRequest({
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, prompt: '', stream: false, keep_alive: 0 }),
+  }, 'Libérer le modèle en mémoire', `Modèle ${model}`));
+  if (!response.ok) throw new Error(`Impossible de libérer le modèle ${model} (HTTP ${response.status}).`);
+}
+
 /** Load one local model in the background and keep it warm briefly for the next copy. */
 export async function prewarmOllamaModel(settings: OllamaSettings, model: string, fetchImpl: typeof fetch = fetch): Promise<void> {
   if (settings.apiCompatible) return;
@@ -788,7 +799,7 @@ export function createOllamaProvider(
                 onChunk,
                 true,
                 settings.thinking ?? false,
-                { kind: 'model', stage: 'analysis', generationTokenLimit: 512, keepAlive: index < criteria.length - 1 ? '30s' : 0, deferResult: diagnosticTracking },
+                { kind: 'model', stage: 'analysis', generationTokenLimit: 512, keepAlive: index < criteria.length - 1 || request.keepAnalysisModelWarm ? '30s' : 0, deferResult: diagnosticTracking },
               );
               if (diagnosticTracking && lastDiagnosticMetrics) criterionDiagnosticMetrics.push(lastDiagnosticMetrics);
               let parsed: unknown;
