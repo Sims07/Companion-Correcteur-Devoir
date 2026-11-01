@@ -39,11 +39,12 @@ function fixture() {
     saveCachedTranscription: vi.fn(async (key, value) => { cache.set(key, value); }),
   };
   const requests: GradingRequest[] = [];
-  let generateImplementation: GradingProvider['generate'] = async (request, _chunk, _stage, onTranscription, _diagnostic, onCriterionUpdate) => {
+  let generateImplementation: GradingProvider['generate'] = async (request, _chunk, _stage, onTranscription, _diagnostic, onCriterionUpdate, _annotationReview, onProgress) => {
     requests.push(request);
     const rubric = JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> };
     const criterion = rubric.criteria[0];
-    if (!request.transcription) await onTranscription?.('Texte extrait de la copie', 'copy');
+    if (!request.transcription) { await onProgress?.({ type: 'phase', phase: 'reading' }); await onTranscription?.('Texte extrait de la copie', 'copy'); }
+    await onProgress?.({ type: 'phase', phase: 'grading' });
     const proposal = { criterionId: criterion.id, points: criterion.maxPoints, rationale: '', evidence: 'preuve', confidence: 'high' as const };
     await onCriterionUpdate?.({ criterionId: criterion.id, index: 1, total: 1, attempt: 1, status: 'completed', proposal });
     return JSON.stringify({ summary: 'OK', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
@@ -95,11 +96,12 @@ describe('background correction service', () => {
     let releaseFirst!: () => void;
     const firstCall = new Promise<void>((resolve) => { releaseFirst = resolve; });
     let call = 0;
-    f.setGenerateImplementation(async (request, _chunk, _stage, _transcription, _diagnostic, onCriterionUpdate) => {
+    f.setGenerateImplementation(async (request, _chunk, _stage, _transcription, _diagnostic, onCriterionUpdate, _annotationReview, onProgress) => {
       const rubric = JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> };
       const criterion = rubric.criteria[0];
       call += 1;
       const proposal = { criterionId: criterion.id, points: criterion.maxPoints, rationale: '', evidence: 'preuve', confidence: 'high' as const };
+      await onProgress?.({ type: 'phase', phase: 'grading' });
       await onCriterionUpdate?.({ criterionId: criterion.id, index: 1, total: 1, attempt: 1, status: 'completed', proposal });
       if (call === 1) await firstCall;
       return JSON.stringify({ summary: 'OK', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
