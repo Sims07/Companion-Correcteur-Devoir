@@ -6,7 +6,8 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
   });
   await page.goto('/');
   await page.evaluate(async () => {
-    const { annotateNetworkRequest } = await import('/src/ports/networkRequestMetadata.ts');
+    const metadataModuleUrl = new URL('/src/ports/networkRequestMetadata.ts', window.location.origin).href;
+    const { annotateNetworkRequest } = await import(/* @vite-ignore */ metadataModuleUrl);
     await fetch('/network-inspector-probe', annotateNetworkRequest({ method: 'GET' }, 'Vérifier le détail réseau', 'Test Playwright'));
   });
 
