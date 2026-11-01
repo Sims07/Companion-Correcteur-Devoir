@@ -1648,7 +1648,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const next = backgroundJobs
       .filter((job) => job.assignmentId === activeAssignmentId && (job.status === 'ready' || job.status === 'needs-review' || job.status === 'failed' || (job.status === 'reviewing' && currentBackgroundJobId === null)) && job.id !== currentBackgroundJobId)
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
-    if (!next?.proposal) {
+    if (!next) {
       setReviewMessage('Aucune copie n’est encore prête à réviser. Le traitement continue en arrière-plan.');
       return;
     }
@@ -1671,10 +1671,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setPageClassifications(null);
     setScientificDiagramError('');
     setProposal((next.status === 'ready' || next.status === 'reviewing') && next.proposal ? structuredClone(next.proposal) : null);
-    setReview(next.status === 'ready' && next.proposal ? toReviewedCriteria(next.proposal) : []);
-    setTeacherQuestions(next.status === 'ready' && next.proposal ? next.proposal.questionsForTeacher.join('\\n') : '');
+    setReview((next.status === 'ready' || next.status === 'reviewing') && next.proposal ? toReviewedCriteria(next.proposal) : []);
+    setTeacherQuestions((next.status === 'ready' || next.status === 'reviewing') && next.proposal ? next.proposal.questionsForTeacher.join('\\n') : '');
     setShowOnlyFlagged(true);
-    setReviewMessage(next.status === 'ready' ? 'Correction préparée en arrière-plan. Examinez les propositions signalées avant validation.' : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés localement.');
+    setReviewMessage((next.status === 'ready' || next.status === 'reviewing') && next.proposal ? 'Correction préparée en arrière-plan. Examinez les propositions signalées avant validation.' : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés localement.');
     setError(next.error ?? '');
     setCurrentCorrectionId(null);
     setIsFinalized(false);
