@@ -32,6 +32,7 @@ import { autoRotateScientificPages } from '../application/autoRotateScientificPa
 import type { BackgroundCorrectionService } from '../application/backgroundCorrectionService.ts';
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
+import { getArchivedCorrectionsForAssignment } from '../domain/assignmentOverview.ts';
 import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/teacherAnnotations.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
@@ -457,6 +458,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [annotationInkColorBusy, setAnnotationInkColorBusy] = useState(false);
   const [currentCorrectionId, setCurrentCorrectionId] = useState<string | null>(null);
   const [archivedCorrections, setArchivedCorrections] = useState<LocalCorrection[]>([]);
+  const archivedCorrectionsForActiveAssignment = useMemo(
+    () => getArchivedCorrectionsForAssignment(assignmentProfiles, archivedCorrections, activeAssignmentId),
+    [assignmentProfiles, archivedCorrections, activeAssignmentId],
+  );
   const [archiveMessage, setArchiveMessage] = useState('');
   const [review, setReview] = useState<ReviewedCriterion[]>([]);
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(true);
@@ -475,7 +480,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const shouldFocusExceptions = showOnlyFlagged && flaggedCriteriaIds.size > 0;
   const unreadableCopySignal = hasUnreadableCopySignal(transcription, images.length > 0);
   useEffect(() => { setShowOnlyFlagged(!isFinalized); }, [isFinalized]);
-  const completedForAssignment = archivedCorrections.filter((item) => item.assignmentTitle === (assignmentTitle.trim() || 'Devoir de biologie')).length;
+  const completedForAssignment = archivedCorrectionsForActiveAssignment.length;
   const subjectReady = correctionMode === 'integrated' || subjectImages.length > 0 || Boolean(subjectTranscription);
   const setupChecks = [
     { label: 'Barème vérifié', detail: validation.valid ? `${validation.maximumPoints} points répartis sur ${rubric.criteria.length} critères` : 'Corrigez les points ou les critères signalés', ready: validation.valid },
@@ -1427,6 +1432,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       rubricFingerprint: fingerprintRubric(rubric.title, rubricAsJson(rubric)),
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
+      assignmentId: activeAssignmentId,
       assignmentTitle: snapshot.assignmentTitle,
       snapshot,
     };
@@ -1980,7 +1986,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <span className="teacher-step-number">3</span><span><strong>{isAnalyzing ? 'Correction en cours' : 'Révision'} </strong><small>{isAnalyzing ? analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length}/${images.length}` : analysisStage === 'grading' ? `Correction · critère ${criterionProgressPosition?.index ?? Object.values(criterionStatuses).filter((status) => status === 'completed').length}/${criterionProgressPosition?.total ?? rubric.criteria.length}` : 'Préparation' : proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
           </button>
         </nav>
-        <button type="button" className={teacherStep === 'archive' && !showAiSettings ? 'sidebar-archive-button active' : 'sidebar-archive-button'} onClick={() => { setShowAiSettings(false); setTeacherStep('archive'); }} disabled={isAnalyzing}><span aria-hidden="true">▤</span><span><strong>Corrections enregistrées</strong><small>{archivedCorrections.length} copie(s) archivée(s)</small></span></button>
+        <button type="button" className={teacherStep === 'archive' && !showAiSettings ? 'sidebar-archive-button active' : 'sidebar-archive-button'} onClick={() => { setShowAiSettings(false); setTeacherStep('archive'); }} disabled={isAnalyzing}><span aria-hidden="true">▤</span><span><strong>Corrections enregistrées</strong><small>{archivedCorrectionsForActiveAssignment.length} copie(s) archivée(s)</small></span></button>
         <div className="teacher-sidebar-footer">
           <div className={isAnalyzing ? "sidebar-local-status is-processing" : "sidebar-local-status"} role={isAnalyzing ? "status" : undefined} aria-live={isAnalyzing ? "polite" : undefined}>
             <span aria-hidden="true">{isAnalyzing ? "◌" : "●"}</span>
@@ -2434,9 +2440,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
         </details>
 </section> : (interfaceMode === 'diagnostic' || !showAiSettings) && <>      {interfaceMode === 'teacher' && teacherStep === 'archive' && <section className="correction-archive" aria-labelledby="correction-archive-title">
-        <div className="workspace-heading"><div><p className="eyebrow">HISTORIQUE LOCAL</p><h2 id="correction-archive-title">Corrections enregistrées</h2><p>Retrouvez les copies finalisées, leur note validée et les éléments de preuve. Tout reste stocké dans ce navigateur.</p></div><span className="step-count">{archivedCorrections.length} COPIE(S)</span></div>
+        <div className="workspace-heading"><div><p className="eyebrow">HISTORIQUE LOCAL</p><h2 id="correction-archive-title">Corrections enregistrées</h2><p>Retrouvez les copies finalisées, leur note validée et les éléments de preuve. Tout reste stocké dans ce navigateur.</p></div><span className="step-count">{archivedCorrectionsForActiveAssignment.length} COPIE(S)</span></div>
         {archiveMessage && <p className="validation" role="status">{archiveMessage}</p>}
-        {archivedCorrections.length === 0 ? <div className="panel archive-empty"><span className="archive-empty-icon" aria-hidden="true">▤</span><h3>Aucune correction enregistrée pour le moment</h3><p>Une fois une correction finalisée, elle apparaîtra ici avec sa copie, sa transcription et la note validée.</p><button type="button" className="primary-button" onClick={() => { setTeacherStep('copy'); setShowAiSettings(false); }}>Ajouter une copie</button></div> : <div className="archive-list">{archivedCorrections.map((item) => {
+        {archivedCorrectionsForActiveAssignment.length === 0 ? <div className="panel archive-empty"><span className="archive-empty-icon" aria-hidden="true">▤</span><h3>Aucune correction enregistrée pour le moment</h3><p>Une fois une correction finalisée, elle apparaîtra ici avec sa copie, sa transcription et la note validée.</p><button type="button" className="primary-button" onClick={() => { setTeacherStep('copy'); setShowAiSettings(false); }}>Ajouter une copie</button></div> : <div className="archive-list">{archivedCorrectionsForActiveAssignment.map((item) => {
           const snapshot = item.snapshot!;
           const total = snapshot.review.reduce((sum, criterion) => sum + criterion.teacherPoints, 0);
           return <article className="panel archive-card" key={item.id}><div className="archive-card-main"><div><span className="archive-status">✓ FINALISÉE</span><h3>{item.label}</h3><p>{item.assignmentTitle || snapshot.assignmentTitle} · {snapshot.images.length} page(s)</p><small>Finalisée le {new Date(item.updatedAt).toLocaleString('fr-FR')}</small></div><strong className="archive-score">{total} <span>/ {snapshot.maximumPoints}</span></strong></div><div className="archive-card-actions"><button type="button" className="secondary-button" onClick={() => openArchivedCorrection(item)}>Consulter la correction</button><button type="button" className="text-button" onClick={() => { if (window.confirm('Supprimer définitivement cette correction de cet appareil ?')) { void archiveService.deleteCorrection(item.id).then(() => archiveService.listCorrections()).then((items) => setArchivedCorrections(items.filter((entry) => Boolean(entry.snapshot)))).catch(() => setArchiveMessage('La suppression a échoué. Réessayez.')); } }}>Supprimer</button></div></article>;
