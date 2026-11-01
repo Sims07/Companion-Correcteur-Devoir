@@ -98,7 +98,7 @@ test('teacher can choose clearly distinct individual and series correction workf
 
   await expect(page.locator('.copy-panel')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Copies du devoir' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Corriger' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Corriger', exact: true })).toBeVisible();
 
   await modeChooser.getByRole('button', { name: /Corriger plusieurs copies/ }).click();
   const series = page.getByRole('region', { name: 'Copies du devoir' });
@@ -118,7 +118,7 @@ test('teacher can choose clearly distinct individual and series correction workf
   await modeChooser.getByRole('button', { name: /Correction individuelle/ }).click();
   await expect(page.locator('.copy-panel')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Copies du devoir' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Corriger' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Corriger', exact: true })).toBeVisible();
 });
 
 
