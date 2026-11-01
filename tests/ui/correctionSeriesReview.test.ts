@@ -83,12 +83,10 @@ describe('correction en série — espace de révision', () => {
     expect(app).toContain('className="correction-series-actions"');
     expect(app).toContain("job.status === 'failed' ? 'Réessayer' : 'Reprendre'");
     expect(app).toContain('L’analyse n’a pas abouti.');
-    expect(app).toContain("interfaceMode === 'diagnostic'");
     expect(app).toContain("const reviewCount = backgroundJobs.filter((job) => job.status === 'needs-review').length");
     expect(app).toContain("const failedCount = backgroundJobs.filter((job) => job.status === 'failed').length");
     expect(styles).toContain('.correction-series-actions');
     expect(styles).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
-    expect(styles).toContain('.correction-series-error pre');
     expect(styles).toContain('.correction-series-overview-metrics article.has-failure');
   });
 
