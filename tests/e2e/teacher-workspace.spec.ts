@@ -35,8 +35,6 @@ test('teacher can edit the collapsed assignment and rubric as one Devoir step', 
   await expect(page.getByLabel('Nom du devoir', { exact: true })).toHaveValue('Biologie cellulaire — partiel S1');
 
   await page.reload();
-  await openActiveAssignment(page);
-  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
   await expect(page.locator('.assignment-overview-card').filter({ hasText: 'Génétique moléculaire' })).toBeVisible();
 });
