@@ -24,7 +24,7 @@ import type { RubricImportProgress } from '../ports/correctionWorkspace.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
-import { createBackgroundCorrection, backgroundCorrectionStatusLabel, type BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
+import { createBackgroundCorrection, backgroundCorrectionStatusLabel, findBackgroundCorrectionToOpen, type BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
 import { prepareBatchCopies } from '../application/prepareBatchCopies.ts';
 import { autoRotateScientificPages } from '../application/autoRotateScientificPages.ts';
 import type { BackgroundCorrectionService } from '../application/backgroundCorrectionService.ts';
@@ -1792,9 +1792,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   async function loadNextQueuedCopy(jobId?: string) {
     if (isAnalyzing) return;
-    const next = jobId
-      ? backgroundJobs.find((job) => job.id === jobId && job.assignmentId === activeAssignmentId && job.id !== currentBackgroundJobId)
-      : backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && (job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)) && job.id !== currentBackgroundJobId).sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
+    const next = findBackgroundCorrectionToOpen(backgroundJobs, activeAssignmentId, currentBackgroundJobId, jobId);
     if (!next) {
       setReviewMessage('Aucune copie n’est encore prête à réviser. Le traitement continue en arrière-plan.');
       return;

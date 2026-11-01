@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { backgroundCorrectionStatusLabel, createBackgroundCorrection, nextBackgroundCorrection } from '../src/domain/backgroundCorrection.ts';
+import { backgroundCorrectionStatusLabel, createBackgroundCorrection, findBackgroundCorrectionToOpen, nextBackgroundCorrection } from '../src/domain/backgroundCorrection.ts';
 
 const base = {
   id: 'copy-1',
@@ -41,6 +41,14 @@ describe('background correction jobs', () => {
     const interrupted = { ...createBackgroundCorrection({ ...base, id: 'copy-2' }), status: 'processing' as const };
     const otherAssignment = { ...createBackgroundCorrection({ ...base, id: 'copy-3', assignmentId: 'assignment-2' }) };
     expect(nextBackgroundCorrection([interrupted, otherAssignment, older], 'assignment-1')?.id).toBe('copy-1');
+  });
+
+
+  it('reopens an explicitly selected job even when it is already the active job', () => {
+    const ready = { ...createBackgroundCorrection(base), status: 'ready' as const, completedCriteria: 1, proposal: { summary: 'OK', criteria: [], questionsForTeacher: [], finalScore: 2 } };
+    const reviewing = { ...ready, status: 'reviewing' as const };
+    expect(findBackgroundCorrectionToOpen([reviewing], 'assignment-1', 'copy-1', 'copy-1')?.id).toBe('copy-1');
+    expect(findBackgroundCorrectionToOpen([reviewing], 'assignment-1', 'copy-1', 'unknown')).toBeNull();
   });
 
   it('uses teacher-facing status labels', () => {
