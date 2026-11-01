@@ -850,12 +850,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function gradeCopies(strategyOverride?: 'arbitrate-only') {
-    await backgroundService.pauseAndWait();
     if (annotationInkColor !== 'none' && !annotationInkColorApplied) {
       setError('Prévisualisez puis appliquez le retrait de la couleur des annotations avant de lancer la lecture et la correction.');
       setTeacherStep('copy');
       return;
     }
+    await backgroundService.pauseAndWait();
     const runStartedAt = Date.now();
     let readingStartedAt: number | null = null;
     let readingDurationMs: number | null = null;
