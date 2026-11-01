@@ -332,3 +332,8 @@ export function parseScientificDiagramAnalysis(
     warnings,
   };
 }
+
+/** Failed manual fallbacks are displayable but never reusable as a completed Vision analysis. */
+export function shouldRunScientificDiagramAnalysis(analysis: ScientificDiagramAnalysis | null): boolean {
+  return analysis === null || (analysis.warnings ?? []).some((warning) => warning.startsWith('Analyse des schémas indisponible :'));
+}
