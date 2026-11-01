@@ -93,6 +93,8 @@ describe('correction en série — espace de révision', () => {
   it('uses teacher-friendly language for the copy correction overview', () => {
     expect(app).toContain('AVANCEMENT DES CORRECTIONS');
     expect(app).toContain('Correction des copies');
+    expect(app).toContain('Corriger plusieurs copies');
+    expect(app).toContain('aria-label="Copies du devoir"');
     expect(app).toContain('<h4>Copies à corriger</h4>');
     expect(app).toContain('Les copies seront corrigées l’une après l’autre.');
     expect(app).toContain('Démarrer automatiquement la correction des copies ajoutées');
