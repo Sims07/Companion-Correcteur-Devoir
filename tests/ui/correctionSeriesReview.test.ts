@@ -90,4 +90,16 @@ describe('correction en série — espace de révision', () => {
     expect(styles).toContain('.correction-series-overview-metrics article.has-failure');
   });
 
+  it('uses teacher-friendly language for the copy correction overview', () => {
+    expect(app).toContain('AVANCEMENT DES CORRECTIONS');
+    expect(app).toContain('Correction des copies');
+    expect(app).toContain('<h4>Copies à corriger</h4>');
+    expect(app).toContain('Les copies seront corrigées l’une après l’autre.');
+    expect(app).toContain('Démarrer automatiquement la correction des copies ajoutées');
+    expect(app).toContain('COPIES À SUIVRE');
+    expect(app).not.toContain('TRAITEMENT SÉQUENTIEL');
+    expect(app).not.toContain('TRAITEMENT EN ARRIÈRE-PLAN');
+    expect(app).not.toContain('Traitement séquentiel');
+  });
+
 });
