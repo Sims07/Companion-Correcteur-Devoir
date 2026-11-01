@@ -84,7 +84,7 @@ describe('correction en série — espace de révision', () => {
   it('keeps batch actions in their own responsive row and separates failures from teacher review', () => {
     expect(app).toContain('className="correction-series-actions"');
     expect(app).toContain("job.status === 'failed' ? 'Relancer' : 'Reprendre'");
-    expect(app).toContain('relancer la correction');
+    expect(app).toContain('Correction à relancer');
     expect(app).not.toContain('réessayer le traitement');
     expect(app).toContain("const reviewCount = backgroundJobs.filter((job) => job.status === 'needs-review').length");
     expect(app).toContain("const failedCount = backgroundJobs.filter((job) => job.status === 'failed').length");
