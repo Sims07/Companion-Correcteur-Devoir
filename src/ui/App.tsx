@@ -856,7 +856,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setTeacherStep('copy');
       return;
     }
-    await backgroundService.pauseAndWait();
     const runStartedAt = Date.now();
     let readingStartedAt: number | null = null;
     let readingDurationMs: number | null = null;
@@ -904,6 +903,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setReviewMessage('');
     setIsFinalized(false);
     try {
+      // Show immediate feedback before waiting for background jobs to finish.
+      await backgroundService.pauseAndWait();
       if (!validation.valid) throw new Error(validation.errors.join(' '));
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF de la copie.');
       if (interfaceMode === 'teacher' && apiCompatible) {
@@ -2650,7 +2651,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <label className="field-label" htmlFor="grading-question">Consigne / question de l’exercice</label>
           <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
         </details>
-        <button className="primary-button grade-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? 'Correction locale en cours…' : 'Analyse locale en cours…') : transcription ? 'Relancer l’analyse sans relire les images' : interfaceMode === 'teacher' ? 'Corriger' : 'Lire puis analyser les copies'}</button>
+        <button className="primary-button grade-button" aria-busy={busy} disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? analysisStage === 'checking' ? 'Préparation de la correction…' : analysisStage === 'reading' ? 'Lecture de la copie…' : 'Correction en cours…' : 'Analyse locale en cours…') : transcription ? 'Relancer l’analyse sans relire les images' : interfaceMode === 'teacher' ? 'Corriger' : 'Lire puis analyser les copies'}</button>
         {interfaceMode === 'teacher' && <p className="launch-footnote">Aucune note n’est validée automatiquement. Après l’analyse, vous pourrez vérifier les éléments de preuve, ajuster chaque critère et finaliser la correction.</p>}
       </section>}
       {interfaceMode === 'teacher' && teacherStep === 'copy' && <div className="teacher-copy-footer"><button type="button" className="secondary-button" onClick={() => setTeacherStep('rubric')}>← Revoir le barème</button><span>Une seule copie à la fois · validation humaine avant finalisation</span></div>}
