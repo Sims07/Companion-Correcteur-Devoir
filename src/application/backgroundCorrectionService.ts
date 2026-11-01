@@ -51,6 +51,7 @@ export function createBackgroundCorrectionService(
   let lastSettings: OllamaSettings | null = null;
   let prewarmUntil = 0;
   let prewarmKey = '';
+  let prewarmPromise: Promise<void> | null = null;
   let activeModelToUnload: string | null = null;
   const listeners = new Set<(jobs: BackgroundCorrectionJob[]) => void>();
   async function persist(job: BackgroundCorrectionJob): Promise<void> {
@@ -191,13 +192,21 @@ export function createBackgroundCorrectionService(
     },
     listJobs: (assignmentId) => repository.listJobs(assignmentId),
     async prewarm(settings) {
+      if (foregroundPriority) return;
       const key = [settings.endpoint, settings.apiCompatible ? 'api' : 'ollama', settings.visionModel, settings.analysisModel].join('|');
       if (key === prewarmKey && Date.now() < prewarmUntil) return;
-      await workspace.checkReady({ ...settings, model: settings.visionModel });
-      if (settings.analysisModel?.trim()) await workspace.checkReady({ ...settings, model: settings.analysisModel });
-      if (!settings.apiCompatible && settings.visionModel?.trim()) await workspace.prewarmModel?.(settings, settings.visionModel);
-      prewarmKey = key;
-      prewarmUntil = Date.now() + 60_000;
+      if (prewarmPromise) {
+        await prewarmPromise;
+        if (key === prewarmKey && Date.now() < prewarmUntil) return;
+      }
+      prewarmPromise = (async () => {
+        await workspace.checkReady({ ...settings, model: settings.visionModel });
+        if (settings.analysisModel?.trim()) await workspace.checkReady({ ...settings, model: settings.analysisModel });
+        if (!settings.apiCompatible && settings.visionModel?.trim()) await workspace.prewarmModel?.(settings, settings.visionModel);
+        prewarmKey = key;
+        prewarmUntil = Date.now() + 60_000;
+      })();
+      try { await prewarmPromise; } finally { prewarmPromise = null; }
     },
     async pauseAndWait() {
       foregroundPriority = true;
