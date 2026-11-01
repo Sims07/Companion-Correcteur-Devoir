@@ -60,4 +60,18 @@ describe('correction en série — espace de révision', () => {
     expect(styles).toContain('flex: 0 0 54px');
     expect(styles).toContain('.correction-series-live-details');
   });
+
+  it('shows a live batch overview based on actual copy states and expands the active copy', () => {
+    expect(app).toContain('correction-series-overview');
+    expect(app).toContain("['ready', 'reviewing', 'completed'].includes(job.status)");
+    expect(app).toContain("job.status === 'processing'");
+    expect(app).toContain("['needs-review', 'failed'].includes(job.status)");
+    expect(app).toContain('Copies dont la correction est disponible');
+    expect(app).toContain('const isExpanded = isActive || expandedBackgroundJobIds.includes(job.id)');
+    expect(app).toContain("isActive ? 'Correction en cours' : isExpanded ? 'Masquer la correction' : 'Voir la correction'");
+    expect(styles).toContain('.correction-series-overview-metrics');
+    expect(styles).toContain('.correction-series-list > li.is-active');
+    expect(styles).toContain('grid-column: 1 / -1');
+  });
+
 });
