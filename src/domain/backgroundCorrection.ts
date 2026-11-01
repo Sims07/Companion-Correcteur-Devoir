@@ -38,6 +38,8 @@ export interface BackgroundCorrectionJob {
   completedCriteria: number;
   totalCriteria: number;
   transcription: string | null;
+  /** Page numbers represented by the saved transcription, for safe cache reuse after visual routing. */
+  transcriptionPageNumbers?: number[];
   partialCriteria: CriterionProposal[];
   proposal: GradingProposal | null;
   error: string | null;
