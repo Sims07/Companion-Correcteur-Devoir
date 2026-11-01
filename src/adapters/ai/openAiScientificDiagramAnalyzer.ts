@@ -116,7 +116,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       };
       const send=async(compact:boolean)=>{
         prompt=buildScientificDiagramPrompt(request,compact);
-        const response=await compatibleFetch(request.endpoint.replace(/\\/+$/,'')+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:request.model,stream:false,format:schema,generation_token_parameter:'max_tokens',options:{num_predict:4096},messages:[{role:'user',content:prompt,images:request.images.map(image=>'data:'+image.mimeType+';base64,'+image.base64)}]})});
+        const response=await compatibleFetch(request.endpoint.replace(/\/+$/,'')+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:request.model,stream:false,format:schema,generation_token_parameter:'max_tokens',options:{num_predict:4096},messages:[{role:'user',content:prompt,images:request.images.map(image=>'data:'+image.mimeType+';base64,'+image.base64)}]})});
         if(!response.ok)throw new Error('L’analyse Vision des schémas a échoué (HTTP '+response.status+'). '+(await response.text()).slice(0,500));
         const payload=await response.json() as {message?:{content?:string};error?:string;done_reason?:string};
         if(payload.error)throw new Error(payload.error);
@@ -134,7 +134,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           const reason=first instanceof Error?first.message:String(first);
           diagnosticResult(request,'scientific-diagram-analysis',prompt,raw,startedAt,reason);
           prompt=buildScientificDiagramPrompt(request,true)+'\\n\\nCORRECTION OBLIGATOIRE : la réponse précédente est invalide. Corrige précisément ce champ : '+reason+'. Retourne le JSON complet, sans qualityBreakdown.';
-          const retry=await compatibleFetch(request.endpoint.replace(/\\/+$/,'')+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:request.model,stream:false,format:schema,generation_token_parameter:'max_tokens',options:{num_predict:4096},messages:[{role:'user',content:prompt,images:request.images.map(image=>'data:'+image.mimeType+';base64,'+image.base64)}]})});
+          const retry=await compatibleFetch(request.endpoint.replace(/\/+$/,'')+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:request.model,stream:false,format:schema,generation_token_parameter:'max_tokens',options:{num_predict:4096},messages:[{role:'user',content:prompt,images:request.images.map(image=>'data:'+image.mimeType+';base64,'+image.base64)}]})});
           if(!retry.ok)throw first;
           const payload=await retry.json() as {message?:{content?:string};done_reason?:string;error?:string};
           raw=payload.message?.content??'';
