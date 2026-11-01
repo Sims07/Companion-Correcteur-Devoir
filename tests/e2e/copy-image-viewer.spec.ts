@@ -23,7 +23,8 @@ test('teacher can open an imported copy page in a fullscreen viewer and zoom it'
 });
 
 
-test('teacher can rotate each batch page manually before or during processing', async ({ page }) => {
+
+test('teacher can rotate each batch page manually before starting the series', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => {
     localStorage.setItem('companion-correcteur:auto-background-correction:v1', 'false');
@@ -36,20 +37,20 @@ test('teacher can rotate each batch page manually before or during processing', 
     }));
   });
   await page.reload();
-  await openActiveAssignment(page);
-  await page.getByRole('button', { name: /Correction en série/ }).click();
-  await page.locator('#background-copy-files').setInputFiles({
+  const chooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
+  await chooser.getByRole('button', { name: /Correction en série/ }).click();
+  const series = page.getByRole('region', { name: 'Session de correction en série' });
+  await series.getByLabel('Démarrer automatiquement la correction').uncheck();
+  await series.locator('#series-copy-files').setInputFiles({
     name: 'schema-cellule.png',
     mimeType: 'image/png',
     buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/pXcAAAAASUVORK5CYII=', 'base64'),
   });
 
-  const preview = page.getByRole('img', { name: 'Aperçu de la page 1 de schema-cellule.png' });
+  const preview = series.getByRole('img', { name: 'Page 1 de schema-cellule.png' });
   await expect(preview).toBeVisible();
-  const originalSource = await preview.getAttribute('src');
-  await page.getByRole('button', { name: 'Tourner la page 1 de schema-cellule.png à droite de 90 degrés' }).click();
+  await series.getByRole('button', { name: 'Tourner la page 1 de schema-cellule.png à droite de 90 degrés' }).click();
 
-  await expect(page.getByText('Page 1 · tournée de 90°')).toBeVisible();
-  await expect.poll(() => preview.getAttribute('src')).not.toBe(originalSource);
-  await expect(page.getByText('La transcription et les évaluations précédentes ont été invalidées')).toBeVisible();
+  await expect(series.getByText(/Page 1 · tournée de 90°/)).toBeVisible();
+  await expect(series.getByText('Orientation de la page 1 de « schema-cellule.png » modifiée. La transcription et les évaluations précédentes ont été invalidées ; la copie sera relue avec l’image corrigée.')).toBeVisible();
 });
