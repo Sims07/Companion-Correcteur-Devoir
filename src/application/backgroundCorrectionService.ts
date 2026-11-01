@@ -49,7 +49,7 @@ export function createBackgroundCorrectionService(
   let lastSettings: OllamaSettings | null = null;
   let prewarmUntil = 0;
   let prewarmKey = '';
-  let activeAnalysisModel: string | null = null;
+  let activeModelToUnload: string | null = null;
   const listeners = new Set<(jobs: BackgroundCorrectionJob[]) => void>();
   async function persist(job: BackgroundCorrectionJob): Promise<void> {
     await repository.saveJob(job);
@@ -84,7 +84,6 @@ export function createBackgroundCorrectionService(
             const remaining = remainingRubric(current.rubric, current.partialCriteria);
             if (!remaining.criteria.length) break;
             const criterion = remaining.criteria[0];
-            activeAnalysisModel = current.analysisModel;
             const provider = workspace.createProvider({
               ...settings,
               visionModel: current.visionModel,
@@ -129,7 +128,11 @@ export function createBackgroundCorrectionService(
               },
               undefined,
               async (event: GradingProgressEvent) => {
-                if (event.type === 'phase') await saveProgress({ phase: event.phase });
+                if (event.type === 'phase') {
+                  if (event.phase === 'reading') activeModelToUnload = current.visionModel;
+                  if (event.phase === 'grading') activeModelToUnload = current.analysisModel;
+                  await saveProgress({ phase: event.phase });
+                }
                 if (event.type === 'page' && event.status !== 'started') await saveProgress({ completedPages: Math.max(current.completedPages, event.pageIndex) });
               },
             );
@@ -146,7 +149,7 @@ export function createBackgroundCorrectionService(
             await persist({ ...current, status: 'pending', updatedAt: new Date().toISOString() });
             break;
           }
-          activeAnalysisModel = null;
+          if (remaining.criteria.length === 1) activeModelToUnload = null;
           const proposal = createProposal(current.rubric, current.partialCriteria);
           const complete = current.partialCriteria.length === current.rubric.criteria.length;
           await persist({
@@ -158,6 +161,8 @@ export function createBackgroundCorrectionService(
             error: complete ? null : 'Certains critères restent à vérifier.',
           });
         } catch (cause) {
+          if (activeModelToUnload) await workspace.unloadModel?.(settings, activeModelToUnload).catch(() => undefined);
+          activeModelToUnload = null;
           await persist({
             ...current,
             status: current.partialCriteria.length ? 'needs-review' : 'failed',
