@@ -73,7 +73,7 @@ describe('correction en série — espace de révision', () => {
     expect(app).toContain("['needs-review', 'failed'].includes(job.status)");
     expect(app).toContain('Copies dont la correction est disponible');
     expect(app).toContain('const isExpanded = isActive || expandedBackgroundJobIds.includes(job.id)');
-    expect(app).toContain("isActive ? 'Correction en cours' : isExpanded ? 'Masquer la correction' : 'Voir la correction'");
+    expect(app).toContain("isActive ? 'Correction en cours' : isExpanded ? 'Masquer les pages et la correction' : 'Voir les pages et la correction'");
     expect(styles).toContain('.correction-series-overview-metrics');
     expect(styles).toContain('.correction-series-list > li.is-active');
     expect(styles).toContain('grid-column: 1 / -1');
