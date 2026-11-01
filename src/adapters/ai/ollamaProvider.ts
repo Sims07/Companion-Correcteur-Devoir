@@ -578,7 +578,7 @@ export function createOllamaProvider(
       const annotationImages = request.teacherAnnotationImages ?? request.images ?? [];
       const detectedTeacherAnnotations: Array<{ page: number; annotations: ReturnType<typeof parseTeacherAnnotationDetection>['annotations'] }> = [];
       const pageTranscriptions: Array<{ pageLabel: string; pageText: string; doubtfulMarker: string }> = [];
-      if (!transcription && request.images?.[0]) {
+      if (request.identifyStudent && !transcription && request.images?.[0]) {
         onStage?.('reading');
         try {
           const identityResponse = await sendStream(
