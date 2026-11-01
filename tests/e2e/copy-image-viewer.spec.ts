@@ -15,6 +15,15 @@ test('teacher can open an imported copy page in a fullscreen viewer and zoom it'
   const viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 1' });
   await expect(viewer).toBeVisible();
   await expect(viewer.getByText('100 %')).toBeVisible();
+  const image = viewer.getByRole('img', { name: 'Page 1 agrandie' });
+  await viewer.getByRole('button', { name: 'Tourner l’image à droite de 90 degrés' }).click();
+  await expect(image).toHaveCSS('transform', 'matrix(0, 1, -1, 0, 0, 0)');
+  await viewer.getByRole('button', { name: 'Tourner l’image à gauche de 90 degrés' }).click();
+  await expect(image).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
+  await viewer.getByRole('button', { name: 'Tourner l’image à gauche de 90 degrés' }).click();
+  await expect(image).toHaveCSS('transform', 'matrix(0, -1, 1, 0, 0, 0)');
+  await viewer.getByRole('button', { name: 'Réinitialiser' }).click();
+  await expect(image).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
   await viewer.getByRole('button', { name: 'Zoomer', exact: true }).click();
   await expect(viewer.getByText('125 %')).toBeVisible();
   await viewer.getByRole('button', { name: 'Fermer le visualiseur' }).click();
