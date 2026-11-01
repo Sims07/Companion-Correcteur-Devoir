@@ -1579,6 +1579,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   async function queueCurrentCopy() {
     if (!images.length || isAnalyzing || proposal) return;
+    if (!validation.valid) { setError(validation.errors.join(' ')); setTeacherStep('rubric'); return; }
+    if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant de mettre cette copie en file.'); return; }
+    if (annotationInkColor !== 'none' && !annotationInkColorApplied) { setError('Prévisualisez puis appliquez le retrait de la couleur des annotations avant de mettre cette copie en file.'); return; }
     const now = new Date().toISOString();
     const id = `queued-copy-${crypto.randomUUID()}`;
     const queued: QueuedCopy = {
