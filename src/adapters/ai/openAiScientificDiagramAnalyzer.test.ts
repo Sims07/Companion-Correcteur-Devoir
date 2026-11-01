@@ -56,7 +56,7 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(body.max_tokens).toBe(4096);
     expect(body.max_completion_tokens).toBeUndefined();
     expect(body.messages[0].content).toEqual([
-      { type: 'text', text: expect.stringContaining('BARÈME') },
+      { type: 'text', text: expect.stringContaining('CRITÈRES VISUELS') },
       { type: 'image_url', image_url: { url: 'data:image/png;base64,cG5n', detail: 'high' } },
     ]);
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer secret');
