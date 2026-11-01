@@ -141,7 +141,7 @@ test('series mode groups several selected pages into one copy or keeps one file 
 });
 
 
-test('series session previews added pages, resets the picker and allows removing a queued copy', async ({ page }) => {
+test('series session keeps copy cards uniform and opens the correction separately', async ({ page }) => {
   await page.goto('/');
   await openActiveAssignment(page);
   const chooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
@@ -150,43 +150,27 @@ test('series session previews added pages, resets the picker and allows removing
   await series.getByRole('radio', { name: /Regrouper les fichiers dans une copie/ }).check();
   await series.getByLabel('Démarrer automatiquement la correction').uncheck();
 
-  await expect(series.getByText('Aucune copie dans la session.')).toBeVisible();
   const onePixelPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jxioAAAAASUVORK5CYII=', 'base64');
   await series.locator('#series-copy-files').setInputFiles([
     { name: 'page-1.png', mimeType: 'image/png', buffer: onePixelPng },
     { name: 'page-2.png', mimeType: 'image/png', buffer: onePixelPng },
   ]);
-
   await expect(series.getByRole('heading', { name: 'Copies à corriger' })).toBeVisible();
   await expect(series.getByText('Copie 1')).toBeVisible();
-  await expect(series.getByText('2 page(s) · En attente')).toBeVisible();
-  await expect(series.locator('.correction-series-actions')).toBeVisible();
-  const identity = series.locator('.correction-series-copy');
-  const actionRow = series.locator('.correction-series-actions');
-  const identityBox = await identity.boundingBox();
-  const actionsBox = await actionRow.boundingBox();
-  expect(identityBox).not.toBeNull();
-  expect(actionsBox).not.toBeNull();
-  expect(actionsBox!.y).toBeGreaterThanOrEqual(identityBox!.y + identityBox!.height - 1);
-  const viewButton = actionRow.getByRole('button', { name: 'Voir les pages et la correction' });
-  const viewButtonBox = await viewButton.boundingBox();
-  expect(viewButtonBox).not.toBeNull();
-  expect(viewButtonBox!.width).toBeGreaterThan(actionsBox!.width * 0.85);
-  expect(viewButtonBox!.height).toBeLessThan(52);
+  await expect(series.getByText('2 page(s)')).toBeVisible();
 
-  await series.getByRole('button', { name: 'Voir les pages et la correction' }).click();
-  await expect(series.getByRole('img', { name: 'Page 1 de Copie 1' })).toBeVisible();
-  await expect(series.getByRole('img', { name: 'Page 2 de Copie 1' })).toBeVisible();
-  await expect(series.locator('.file-picker-selected')).toHaveCount(0);
+  const card = series.locator('.correction-series-card');
+  await expect(card).toHaveCount(1);
+  await expect(card.getByText('Note à venir')).toBeVisible();
+  await expect(card.getByText('À corriger')).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Voir les pages et la correction' })).toHaveCount(0);
+  await expect(card.locator('.correction-series-pages')).toHaveCount(0);
+  await expect(card.locator('.correction-series-live-details')).toHaveCount(0);
+  await expect(card.getByRole('button', { name: 'Supprimer' })).toBeVisible();
   await expect(series.getByRole('button', { name: 'Démarrer les corrections (1)' })).toBeVisible();
 
-  const correctionDetails = series.getByRole('region', { name: 'Correction de Copie 1' });
-  await expect(correctionDetails).toBeVisible();
-  await expect(correctionDetails.getByText('La correction de cette copie commencera dès que possible.')).toBeVisible();
-  await expect(series.getByRole('button', { name: 'Masquer les pages et la correction' })).toHaveAttribute('aria-expanded', 'true');
-
   page.once('dialog', (dialog) => dialog.accept());
-  await series.getByRole('button', { name: 'Supprimer' }).click();
+  await card.getByRole('button', { name: 'Supprimer' }).click();
   await expect(series.getByText('Aucune copie dans la session.')).toBeVisible();
   await expect(series.getByRole('button', { name: 'Démarrer les corrections (1)' })).toHaveCount(0);
 });
