@@ -55,7 +55,7 @@ describe('autoRotateScientificPages', () => {
       calls.push(pages[0].base64);
       if (pages[0].base64 === 'original') return [
         classification(),
-        classification({ pageNumber: 2 }),
+        classification({ pageNumber: 2, kind: 'text' }),
       ];
       if (pages[0].base64 === 'rotated') throw new Error('Vision indisponible');
       return [classification({ pageNumber: 1, suggestedRotation: 0 })];
