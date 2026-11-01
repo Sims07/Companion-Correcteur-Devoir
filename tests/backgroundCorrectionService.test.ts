@@ -121,4 +121,28 @@ describe('background correction service', () => {
     expect(f.jobs.get('copy-1')?.status).toBe('ready');
     expect(call).toBe(2);
   });
+
+  it('retries only unfinished criteria and reuses the saved transcription', async () => {
+    const f = fixture();
+    const partial = {
+      ...f.job,
+      status: 'needs-review' as const,
+      transcription: 'Texte déjà extrait',
+      partialCriteria: [{ criterionId: 'c1', points: 2, rationale: '', evidence: 'preuve précédente', confidence: 'high' as const }],
+      completedCriteria: 1,
+      error: 'Interruption après le premier critère.',
+    };
+    f.jobs.set(partial.id, partial);
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.retry('copy-1', { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+    for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+    const completed = f.jobs.get('copy-1');
+    expect(f.createProvider).toHaveBeenCalledTimes(1);
+    expect(f.requests[0].images).toEqual([]);
+    expect(f.requests[0].transcription).toBe('Texte déjà extrait');
+    expect(JSON.parse(f.requests[0].rubric).criteria.map((criterion: { id: string }) => criterion.id)).toEqual(['c2']);
+    expect(completed?.partialCriteria.map((criterion) => criterion.criterionId)).toEqual(['c1', 'c2']);
+    expect(completed?.status).toBe('ready');
+  });
+
 });
