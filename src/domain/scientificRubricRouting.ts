@@ -76,6 +76,8 @@ export function mergeScientificDiagramCriteria(
       rationale: `Évaluation réalisée sur le ou les schémas visibles, conformément au critère « ${criterion.title} ».`,
       evidence,
       ...(qualityBreakdown ? { qualityBreakdown } : {}),
+      ...(assessments[0].elements ? { scientificDiagramElements: assessments[0].elements } : {}),
+      scientificDiagramPages: [...new Set(assessments.flatMap((assessment) => (analysis?.diagrams ?? []).filter((diagram) => (assessment.diagramIds ?? []).includes(diagram.id)).map((diagram) => diagram.pageNumber)))],
       confidence: confidence < 0.5 ? 'low' : confidence < 0.8 ? 'medium' : 'high',
       ...(requiresTeacherReview ? { questionForTeacher: 'Un point de l’évaluation visuelle nécessite votre vérification sur la copie.' } : {}),
     });
