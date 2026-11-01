@@ -3,7 +3,7 @@ import { createBackgroundCorrection } from '../src/domain/backgroundCorrection.t
 import { createBackgroundCorrectionService } from '../src/application/backgroundCorrectionService.ts';
 import type { BackgroundCorrectionJob } from '../src/domain/backgroundCorrection.ts';
 import type { BackgroundCorrectionRepository } from '../src/ports/backgroundCorrectionRepository.ts';
-import type { GradingProvider } from '../src/ports/aiProvider.ts';
+import type { GradingProvider, GradingRequest } from '../src/ports/aiProvider.ts';
 import type { CorrectionWorkspaceService } from '../src/application/correctionWorkspaceService.ts';
 
 function fixture() {
@@ -38,7 +38,9 @@ function fixture() {
     getCachedTranscription: vi.fn(async (key) => cache.get(key) ?? null),
     saveCachedTranscription: vi.fn(async (key, value) => { cache.set(key, value); }),
   };
+  const requests: GradingRequest[] = [];
   let generateImplementation: GradingProvider['generate'] = async (request, _chunk, _stage, onTranscription, _diagnostic, onCriterionUpdate) => {
+    requests.push(request);
     const rubric = JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> };
     const criterion = rubric.criteria[0];
     if (!request.transcription) await onTranscription?.('Texte extrait de la copie', 'copy');
@@ -54,6 +56,7 @@ function fixture() {
   const workspace = {
     checkReady: vi.fn(async () => undefined),
     prewarmModel: vi.fn(async () => undefined),
+    unloadModel: vi.fn(async () => undefined),
     listModels: vi.fn(async () => []),
     createProvider,
     importRubricImage: vi.fn(),
@@ -62,7 +65,7 @@ function fixture() {
     eraseTeacherAnnotationColor: vi.fn(),
     importRubric: vi.fn(),
   } as unknown as CorrectionWorkspaceService;
-  return { job, jobs, cache, repository, workspace, createProvider, setGenerateImplementation: (implementation: GradingProvider['generate']) => { generateImplementation = implementation; } };
+  return { job, jobs, cache, repository, workspace, createProvider, requests, setGenerateImplementation: (implementation: GradingProvider['generate']) => { generateImplementation = implementation; } };
 }
 
 describe('background correction service', () => {
@@ -77,6 +80,8 @@ describe('background correction service', () => {
     expect(f.workspace.checkReady).toHaveBeenCalledTimes(2);
     expect(f.workspace.prewarmModel).toHaveBeenCalledWith(expect.anything(), 'vision:4b');
     expect(f.createProvider).toHaveBeenCalledTimes(2);
+    expect(f.requests[0].keepAnalysisModelWarm).toBe(true);
+    expect(f.requests[1].keepAnalysisModelWarm).toBe(false);
     expect(f.cache.get('fingerprint-1')).toBe('Texte extrait de la copie');
     expect(completed?.status).toBe('ready');
     expect(completed?.partialCriteria).toHaveLength(2);
@@ -108,6 +113,7 @@ describe('background correction service', () => {
     const paused = f.jobs.get('copy-1');
     expect(paused?.status).toBe('pending');
     expect(paused?.partialCriteria.map((item) => item.criterionId)).toContain('c1');
+    expect(f.workspace.unloadModel).toHaveBeenCalledWith(expect.anything(), 'analysis:4b');
     service.resume();
     for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
     expect(f.jobs.get('copy-1')?.status).toBe('ready');
