@@ -236,7 +236,10 @@ export function createBackgroundCorrectionService(
       paused = false;
       if (autoEnabled && lastSettings) void run(lastSettings);
     },
-    processPending: run,
+    async processPending(settings) {
+      try { await this.prewarm(settings); } catch { /* The correction itself will expose a configuration error if needed. */ }
+      await run(settings);
+    },
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     async markForReview(jobId) {
       const job = (await repository.listJobs()).find((item) => item.id === jobId);
@@ -259,6 +262,7 @@ export function createBackgroundCorrectionService(
       autoEnabled = enabled;
       if (enabled) {
         if (foregroundPriority) return;
+        try { await this.prewarm(settings); } catch { /* Keep the action available; inference reports actionable errors. */ }
         paused = false;
         await run(settings);
       } else {
