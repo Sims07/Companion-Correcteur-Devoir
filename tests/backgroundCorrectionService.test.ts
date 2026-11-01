@@ -219,9 +219,11 @@ describe('background correction service', () => {
         await onTranscription?.(JSON.stringify({ firstName: 'Alice', lastName: 'Martin', studentNumber: '240018', confidence: 'high' }), 'identity');
         await onTranscription?.('Réponse extraite', 'copy');
       }
-      const proposal = { criterionId: 'c1', points: 2, rationale: '', evidence: 'preuve', confidence: 'high' as const };
-      await onCriterionUpdate?.({ criterionId: 'c1', index: 1, total: 1, attempt: 1, status: 'completed', proposal });
-      return JSON.stringify({ summary: 'OK', criteria: [proposal], questionsForTeacher: [], finalScore: 2 });
+      const rubric = JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> };
+      const criterion = rubric.criteria[0];
+      const proposal = { criterionId: criterion.id, points: criterion.maxPoints, rationale: '', evidence: 'preuve', confidence: 'high' as const };
+      await onCriterionUpdate?.({ criterionId: criterion.id, index: 1, total: 1, attempt: 1, status: 'completed', proposal });
+      return JSON.stringify({ summary: 'OK', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
     });
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
     await service.enqueue(f.job, { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
