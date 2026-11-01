@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { openActiveAssignment } from './helpers/teacher-workspace';
 
 test('review workspace keeps original evidence beside grading criteria on desktop and stacks on mobile', async ({ page }) => {
   await page.goto('/');
+  await openActiveAssignment(page);
 
   await page.evaluate(async () => {
     const request = indexedDB.open('companion-correcteur-devoir', 5);
@@ -81,6 +83,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   });
 
   await page.reload();
+  await openActiveAssignment(page);
   await page.getByRole('button', { name: /Corrections enregistrées/ }).click();
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
 
@@ -157,6 +160,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.reload();
+  await openActiveAssignment(page);
   await page.getByRole('button', { name: /Corrections enregistrées/ }).click();
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
   await expect(page.getByRole('button', { name: /Confirmer les critères sans alerte/ })).toHaveCount(0);

@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { openActiveAssignment } from './helpers/teacher-workspace';
 
 test('teacher can sample an annotation color from the original image and inspect the before/after result', async ({ page }) => {
   await page.goto('/');
+  await openActiveAssignment(page);
   await page.locator('#copy-files').setInputFiles({
     name: 'annotation-color.png',
     mimeType: 'image/png',

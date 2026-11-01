@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { openActiveAssignment } from './helpers/teacher-workspace';
 
 test('scientific page routing is automatic and is no longer configured per assignment', async ({ page }) => {
   await page.goto('/');
+  await openActiveAssignment(page);
   await page.locator('.teacher-step-nav .teacher-step').first().click();
   await expect(page.getByRole('checkbox', { name: /Ce devoir comporte des schémas scientifiques à évaluer/ })).toHaveCount(0);
 });
@@ -9,8 +11,9 @@ test('scientific page routing is automatic and is no longer configured per assig
 
 test('a rubric criterion can be explicitly routed to scientific diagram Vision analysis', async ({ page }) => {
   await page.goto('/');
-  await page.locator('.sidebar-assignment-current').click();
-  await page.getByRole('button', { name: 'Nouveau devoir' }).click();
+  await openActiveAssignment(page);
+  await page.getByRole('button', { name: 'Mes devoirs' }).click();
+  await page.getByRole('button', { name: /Créer un devoir/ }).click();
   await page.locator('.assignment-details-collapsible > summary').click();
   await page.getByLabel('Nom du devoir', { exact: true }).fill('Schéma de cellule');
   await page.getByLabel('Description et objectifs pédagogiques').fill('Évaluer un schéma scientifique.');
@@ -25,8 +28,9 @@ test('a rubric criterion can be explicitly routed to scientific diagram Vision a
 
 test('scientific diagram criteria expose expected elements with an exact equal distribution', async ({ page }) => {
   await page.goto('/');
-  await page.locator('.sidebar-assignment-current').click();
-  await page.getByRole('button', { name: 'Nouveau devoir' }).click();
+  await openActiveAssignment(page);
+  await page.getByRole('button', { name: 'Mes devoirs' }).click();
+  await page.getByRole('button', { name: /Créer un devoir/ }).click();
   await page.locator('.assignment-details-collapsible > summary').click();
   await page.getByLabel('Nom du devoir', { exact: true }).fill('Schéma avec attendus');
   await page.getByRole('button', { name: /Ajouter un critère/ }).click();
