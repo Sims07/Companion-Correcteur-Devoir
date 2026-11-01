@@ -126,15 +126,15 @@ export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisR
   const subject = request.subjectTranscription?.trim();
   return [
     'Tu évalues des schémas scientifiques universitaires. Un schéma est une preuve, jamais une unité de notation.',
-    'Retourne diagrams : tous les schémas détectés, avec id neutre, pageNumber (index local 1-based), diagramType, summary court, bounds optionnels et uncertainties (tableau).',
+    'Retourne diagrams : tous les schémas détectés, avec id neutre, pageNumber (index local 1-based), diagramType, summary court, bounds et uncertainties (tableau). Le champ bounds est obligatoire : retourne null si la localisation est incertaine.',
     'Retourne criteria : UNE seule évaluation par critère du barème, portant sur l’ensemble des schémas pertinents. Ne note jamais un critère séparément par schéma et ne répartis pas son maximum entre les schémas.',
     'Le maximum n’est justifié que si tous les attendus essentiels sont démontrés sur l’ensemble des schémas concernés. Si un élément essentiel est partiel ou manquant, attribue des points partiels.',
-    'Si expectedElements est non vide, retourne chaque élément avec son label exact, status parmi present/partial/absent/uncertain et une preuve courte. L’application calcule les points (present 100 %, partial 50 %, absent 0 %, uncertain 0 % et vérification enseignante).',
+    'Le champ elements est toujours présent : si expectedElements est non vide, retourne chaque élément avec son label exact, status parmi present/partial/absent/uncertain et une preuve courte ; sinon retourne null. L’application calcule les points (present 100 %, partial 50 %, absent 0 %, uncertain 0 % et vérification enseignante).',
     'Sans expectedElements, retourne une seule note points sur le maximum du critère, evidence, confidence, requiresTeacherReview et diagramIds. Ne retourne jamais de critère absent du barème.',
     'Ne pénalise pas deux fois la même erreur. Ne note jamais l’esthétique. N’invente aucun attendu absent de la consigne ou du barème.',
     'Ne juge jamais un dessin correct à partir d’une explication textuelle. Si un élément est illisible ou ambigu, signale-le dans uncertainties et mets requiresTeacherReview à true.',
     'Ne pénalise pas l’absence d’une flèche, d’un titre ou d’une légende qui ne sont pas exigés par la consigne ou le barème.',
-    'qualityBreakdown est facultatif et très court : uniquement les dimensions non satisfaites, avec status et 12 mots maximum. Dimensions : title, scientific-accuracy, completeness, labels, arrows-relations, organization-conventions, legibility.',
+    'Le champ qualityBreakdown est toujours présent : retourne null si aucune précision utile, sinon uniquement les dimensions non satisfaites, avec status et 12 mots maximum. Dimensions : title, scientific-accuracy, completeness, labels, arrows-relations, organization-conventions, legibility.',
     'Les bounds sont normalisées de 0 à 1. Omet-les si incertain. Ne considère pas les tableaux de données comme des schémas.',
     'Ignore les marques de correction manuscrites préexistantes (commentaires, coches, cercles, notes et traits) : elles ne font jamais partie de la production de l’étudiant. Si une marque recouvre ou touche un élément du schéma, mets requiresTeacherReview à true.',
     'CRITÈRES VISUELS (liste exhaustive) : ' + JSON.stringify(criteria),
