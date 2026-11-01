@@ -11,7 +11,7 @@ function diagnosticResult(request: { model: string; endpoint: string; images: Im
     purpose,
     model: request.model,
     requestPrompt: prompt,
-    requestMetadata: { provider: 'openai-compatible', endpoint: request.endpoint, stream: false, think: false, format: 'json', imageCount: request.images.length, keepAlive: 0, options: { contextTokens: 0, generationTokenLimit: purpose === 'scientific-diagram-classification' ? 320 : 2048 } },
+    requestMetadata: { provider: 'openai-compatible', endpoint: request.endpoint, stream: false, think: false, format: 'json', imageCount: request.images.length, keepAlive: 0, options: { contextTokens: 0, generationTokenLimit: purpose === 'scientific-diagram-classification' ? 320 : 4096 } },
     requestPayload: JSON.stringify({ attempts: [{ messages: [{ role: 'user', content: prompt }] }], imageCount: request.images.length, images: '[masquées]' }),
     raw,
     ...(error ? { error } : {}),
@@ -35,31 +35,25 @@ function classificationPrompt(originalPageNumber: number): string {
   ].join('\n\n');
 }
 
-export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisRequest): string {
-  return [
-    'Tu es un assistant spécialisé dans l’évaluation de schémas scientifiques, en particulier biologiques, dans des copies universitaires.',
-    'Analyse uniquement les dessins et schémas visibles dans les images originales jointes. Les images sont des pages de copie ; détecte chaque schéma et indique sa page.',
-    'Tu reçois uniquement les critères du barème que le professeur a explicitement sélectionnés pour une évaluation visuelle. Leur présence dans ce barème filtré est l’instruction faisant autorité : évalue chacun d’eux sur l’image, même si son intitulé ne contient pas le mot schéma. N’ignore jamais un critère simplement parce que son intitulé est générique.',
-    'Pour CHAQUE schéma détecté et pour CHAQUE critère fourni dans le barème ci-dessous, retourne obligatoirement une seule évaluation avec criterionId, points, evidence, confidence et requiresTeacherReview. Il faut une note globale chiffrée pour chaque critère ; ne retourne jamais criteria: [] lorsqu’un critère est fourni. Si la preuve est insuffisante, retourne 0 point, explique précisément pourquoi et mets requiresTeacherReview à true plutôt que d’omettre le critère.',
-    'Évalue uniquement les dessins et représentations scientifiques réellement produits par l’étudiant. Les tableaux structurés en lignes et colonnes ne sont pas des schémas : ignore-les totalement dans cette analyse, même s’ils figurent sur la même page qu’un schéma. Ils sont traités par le parcours textuel/Markdown. N’évalue pas les tableaux avec Vision.',
-    'Évalue les dessins au regard de la question et du barème fourni. Ne note jamais l’esthétique pour elle-même et n’invente aucun attendu absent de la consigne.',
-    'Pour chaque critère marqué scientific-diagram, ajoute si possible un qualityBreakdown expliquant la note selon sept dimensions : title (titre et identification), scientific-accuracy (exactitude scientifique), completeness (exhaustivité et pertinence), labels (légendes et annotations), arrows-relations (flèches et relations), organization-conventions (organisation et conventions), legibility (lisibilité et soin).',
-    'Le qualityBreakdown est un complément explicatif facultatif : il ne conditionne JAMAIS la validité de la note globale. Si une dimension ne s’applique pas, indique not-applicable ; si tu ne peux pas conclure, indique uncertain. La note points reste une seule note globale comprise entre 0 et le maximum du critère. Ne crée aucune sous-note.',
-    'Ne pénalise pas deux fois la même erreur. Ne pénalise pas l’absence d’une flèche si aucune relation ne doit être représentée, ni l’absence d’un titre ou d’une légende lorsque la consigne ne l’exige pas.',
-    'Ne déduis jamais qu’un dessin est correct à partir d’une explication textuelle. Ne pénalise pas deux fois la même erreur.',
-    'Ignore les marques de correction manuscrites préexistantes (commentaires, coches, cercles, notes et traits) : elles ne font jamais partie de la production de l’étudiant. Si une marque recouvre ou touche un élément du schéma et empêche de l’évaluer indépendamment, mets requiresTeacherReview à true.',
-    'Si un élément est illisible, ambigu ou impossible à vérifier sur la photo, indique-le dans uncertainties et mets requiresTeacherReview à true. Ne devine pas.',
-    'Les coordonnées bounds sont normalisées entre 0 et 1 par rapport à la page entière. Omet bounds si tu ne peux pas les estimer correctement.',
-    'Le champ pageNumber doit obligatoirement être l’index de l’image dans le lot transmis, à partir de 1 (1 = première image jointe, 2 = deuxième image jointe, etc.). Ne retourne jamais le numéro de page original : l’application fera elle-même la correspondance avec la copie.',
-    'Pour chaque critère noté, utilise exclusivement un criterionId existant et respecte son maximum de points.',
-    `CRITÈRES VISUELS À NOTER (liste exhaustive, une note globale par critère) : ${JSON.stringify(request.rubric.criteria.map((criterion) => ({ criterionId: criterion.id, title: criterion.title, description: criterion.description, maxPoints: criterion.maxPoints })))}`,
-    'Retourne exclusivement un JSON valide de la forme : {"diagrams":[{"id":"diagram-1","pageNumber":1,"bounds":{"x":0.1,"y":0.2,"width":0.5,"height":0.4},"diagramType":"...","summary":"...","criteria":[{"criterionId":"ID_EXISTANT","points":0,"evidence":"preuve visuelle précise","confidence":0.0,"requiresTeacherReview":true,"qualityBreakdown":[{"dimension":"title","status":"fulfilled","evidence":"..."}]}],"uncertainties":[]}],"overallUncertainties":[]}. qualityBreakdown peut être absent ou partiel ; criterionId, points, evidence, confidence et requiresTeacherReview sont obligatoires pour chaque critère.',
-    'QUESTION :',
-    request.question,
-    'BARÈME (source de vérité, ne pas modifier) :',
-    JSON.stringify(request.rubric),
-    `CORRESPONDANCE INDEX LOCAL → PAGE ORIGINALE : ${(request.pageNumbers ?? request.images.map((_, index) => index + 1)).map((pageNumber, index) => `${index + 1} → ${pageNumber}`).join(', ')}`,
-  ].join('\n\n');
+export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisRequest, compact = false): string {
+ const criteria=request.rubric.criteria.map(c=>({criterionId:c.id,title:c.title,description:c.description,maxPoints:c.maxPoints,expectedElements:c.expectedElements??[]}));
+ return [
+ 'Tu évalues des schémas scientifiques universitaires. Un schéma est une preuve, jamais une unité de notation.',
+ 'Retourne d’abord diagrams : tous les schémas détectés avec id neutre, pageNumber (index local 1-based), diagramType, summary court, bounds optionnels et uncertainties (toujours un tableau, vide si aucune). diagramType, summary et uncertainties doivent toujours être présents.',
+ 'Retourne ensuite criteria : UNE seule évaluation par critère du barème, portant sur l’ensemble des schémas pertinents. Ne note jamais un critère séparément par schéma et ne répartis pas son maximum entre les schémas.',
+ 'Si un élément essentiel du critère est partiel ou manquant, attribue des points partiels ; le maximum n’est justifié que si tous les attendus essentiels sont démontrés pour l’ensemble des schémas concernés.',
+ 'Si expectedElements est non vide, n’invente aucune note chiffrée : retourne chaque élément avec son label exact, status parmi present/partial/absent/uncertain et une preuve courte. L’application calcule les points (present 100 %, partial 50 %, absent 0 %, uncertain 0 % et vérification enseignante).',
+ 'Sans expectedElements, retourne une seule note points sur le maximum du critère, evidence, confidence, requiresTeacherReview et diagramIds. Ne retourne jamais de critère absent du barème.',
+ 'qualityBreakdown est facultatif et très court : uniquement les dimensions non satisfaites, avec status et 12 mots maximum. N’inclus aucune dimension satisfaisante.',
+ 'Les bounds sont normalisées de 0 à 1. Omet-les si incertain. Ne considère pas les tableaux de données comme des schémas.',
+ 'CRITÈRES VISUELS (liste exhaustive) : '+JSON.stringify(criteria),
+ 'QUESTION : '+(request.question.trim()||'Aucune question de référence fournie.'),
+ 'SUJET DE RÉFÉRENCE : '+(request.question.trim()||'Non fourni.'),
+ 'BARÈME : '+JSON.stringify(request.rubric),
+ 'CORRESPONDANCE DES PAGES : '+(request.pageNumbers??request.images.map((_,i)=>i+1)).map((p,i)=>(i+1)+' → '+p).join(', '),
+ compact?'Réponse compacte obligatoire : aucun qualityBreakdown.':'',
+ 'JSON attendu : {"diagrams":[{"id":"diagram-x","pageNumber":1,"diagramType":"schéma","summary":"","uncertainties":[]}],"criteria":[{"criterionId":"id-réel","points":0,"evidence":"","confidence":0,"requiresTeacherReview":true,"diagramIds":[]}],"overallUncertainties":[]}'
+ ].filter(Boolean).join('\n\n');
 }
 
 export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = fetch): ScientificDiagramAnalyzer {
@@ -109,42 +103,48 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       return classifications;
     },
     async analyze(request) {
-      const compatibleFetch = createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey }, fetchImpl);
-      const prompt = buildScientificDiagramPrompt(request);
-      const startedAt = Date.now();
-      let raw = '';
-      try {
-        const response = await compatibleFetch(`${request.endpoint.replace(/\/+$/, '')}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: request.model,
-            stream: false,
-            format: 'json',
-            generation_token_parameter: 'max_tokens',
-            options: { num_predict: 2048 },
-            messages: [{
-              role: 'user',
-              content: prompt,
-              images: request.images.map((image) => `data:${image.mimeType};base64,${image.base64}`),
-            }],
-          }),
-        });
-        if (!response.ok) {
-          const detail = (await response.text()).slice(0, 500);
-          throw new Error(`L’analyse Vision des schémas a échoué (HTTP ${response.status}). ${detail}`);
+      const compatibleFetch=createOpenAiCompatibleFetch({endpoint:request.endpoint,apiKey:request.apiKey},fetchImpl);
+      const startedAt=Date.now();let raw='';let prompt=buildScientificDiagramPrompt(request);
+      const schema={
+        type:'object',additionalProperties:false,required:['diagrams','criteria','overallUncertainties'],
+        properties:{
+          diagrams:{type:'array',items:{type:'object',additionalProperties:false,required:['id','pageNumber','diagramType','summary','uncertainties','bounds'],properties:{id:{type:'string'},pageNumber:{type:'integer',minimum:1},diagramType:{type:'string'},summary:{type:'string'},uncertainties:{type:'array',items:{type:'string'}},bounds:{type:['object','null'],additionalProperties:false,required:['x','y','width','height'],properties:{x:{type:'number'},y:{type:'number'},width:{type:'number'},height:{type:'number'}}}}}},
+          criteria:{type:'array',items:{type:'object',additionalProperties:false,required:['criterionId','points','evidence','confidence','requiresTeacherReview','diagramIds','elements','qualityBreakdown'],properties:{criterionId:{type:'string',enum:request.rubric.criteria.map(c=>c.id)},points:{type:['number','null']},evidence:{type:'string'},confidence:{type:'number',minimum:0,maximum:1},requiresTeacherReview:{type:'boolean'},diagramIds:{type:'array',items:{type:'string'}},elements:{type:['array','null'],items:{type:'object',required:['label','status','evidence'],properties:{label:{type:'string'},status:{type:'string',enum:['present','partial','absent','uncertain']},evidence:{type:'string'}}}},qualityBreakdown:{type:['array','null'],items:{type:'object',required:['dimension','status'],properties:{dimension:{type:'string'},status:{type:'string'},evidence:{type:'string'}}}}}}},
+          overallUncertainties:{type:'array',items:{type:'string'}}
         }
-        const payload = await response.json() as { message?: { content?: string }; error?: string };
-        if (payload.error) throw new Error(payload.error);
-        raw = payload.message?.content ?? '';
-        if (!raw.trim()) throw new Error('Le modèle Vision n’a retourné aucune analyse.');
-        const result = parseScientificDiagramAnalysis(raw, request.rubric, request.images.length, request.pageNumbers);
-        diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt);
+      };
+      const send=async(compact:boolean)=>{
+        prompt=buildScientificDiagramPrompt(request,compact);
+        const response=await compatibleFetch(request.endpoint.replace(/\\/+$/,'')+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:request.model,stream:false,format:schema,generation_token_parameter:'max_tokens',options:{num_predict:4096},messages:[{role:'user',content:prompt,images:request.images.map(image=>'data:'+image.mimeType+';base64,'+image.base64)}]})});
+        if(!response.ok)throw new Error('L’analyse Vision des schémas a échoué (HTTP '+response.status+'). '+(await response.text()).slice(0,500));
+        const payload=await response.json() as {message?:{content?:string};error?:string;done_reason?:string};
+        if(payload.error)throw new Error(payload.error);
+        raw=payload.message?.content??'';
+        if(payload.done_reason==='length')return {truncated:true};
+        if(!raw.trim())throw new Error('Le modèle Vision n’a retourné aucune analyse.');
+        return {truncated:false};
+      };
+      try{
+        let sent=await send(false);
+        if(sent.truncated){sent=await send(true);if(sent.truncated)throw new Error('Réponse tronquée : la seconde tentative compacte a également atteint la limite de génération.');}
+        let result: ReturnType<typeof parseScientificDiagramAnalysis>;
+        try{result=parseScientificDiagramAnalysis(raw,request.rubric,request.images.length,request.pageNumbers);}
+        catch(first){
+          const reason=first instanceof Error?first.message:String(first);
+          diagnosticResult(request,'scientific-diagram-analysis',prompt,raw,startedAt,reason);
+          prompt=buildScientificDiagramPrompt(request,true)+'\\n\\nCORRECTION OBLIGATOIRE : la réponse précédente est invalide. Corrige précisément ce champ : '+reason+'. Retourne le JSON complet, sans qualityBreakdown.';
+          const retry=await compatibleFetch(request.endpoint.replace(/\\/+$/,'')+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:request.model,stream:false,format:schema,generation_token_parameter:'max_tokens',options:{num_predict:4096},messages:[{role:'user',content:prompt,images:request.images.map(image=>'data:'+image.mimeType+';base64,'+image.base64)}]})});
+          if(!retry.ok)throw first;
+          const payload=await retry.json() as {message?:{content?:string};done_reason?:string;error?:string};
+          raw=payload.message?.content??'';
+          if(payload.done_reason==='length')throw new Error('Réponse tronquée lors de la tentative de réparation.');
+          if(payload.error)throw new Error(payload.error);
+          try{result=parseScientificDiagramAnalysis(raw,request.rubric,request.images.length,request.pageNumbers);}
+          catch(second){throw new Error((second instanceof Error?second.message:String(second))+' Extrait de la réponse brute : '+raw.slice(0,500));}
+        }
+        diagnosticResult(request,'scientific-diagram-analysis',prompt,raw,startedAt);
         return result;
-      } catch (cause) {
-        diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt, cause instanceof Error ? cause.message : String(cause));
-        throw cause;
-      }
-    },
+      }catch(cause){diagnosticResult(request,'scientific-diagram-analysis',prompt,raw,startedAt,cause instanceof Error?cause.message:String(cause));throw cause;}
+    }
   };
 }

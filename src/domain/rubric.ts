@@ -5,6 +5,7 @@ export interface RubricCriterion {
   maxPoints: number;
   /** Explicitly route this criterion to image-based scientific diagram analysis. */
   analysisMode?: 'text' | 'scientific-diagram';
+  expectedElements?: Array<{ label: string; points: number }>; // teacher-defined scoring units
 }
 
 export interface Rubric {
@@ -33,6 +34,17 @@ export function validateRubric(rubric: Rubric): RubricValidation {
     if (!criterion.title.trim()) errors.push(`Le critère ${criterion.id || '(sans identifiant)'} doit avoir un titre.`);
     if (!Number.isFinite(criterion.maxPoints) || criterion.maxPoints < 0) {
       errors.push(`Le maximum de points du critère ${criterion.id || '(sans identifiant)'} doit être positif ou nul.`);
+    }
+    if (criterion.expectedElements) {
+      const labels = new Set<string>();
+      for (const element of criterion.expectedElements) {
+        if (!element.label.trim()) errors.push(`Chaque élément attendu du critère ${criterion.id} doit avoir un libellé.`);
+        if (labels.has(element.label.trim())) errors.push(`Élément attendu dupliqué dans le critère ${criterion.id} : ${element.label}.`);
+        labels.add(element.label.trim());
+        if (!Number.isFinite(element.points) || element.points < 0) errors.push(`Les points de l’élément « ${element.label} » doivent être positifs ou nuls.`);
+      }
+      const expectedTotal = criterion.expectedElements.reduce((sum, element) => sum + element.points, 0);
+      if (Math.abs(expectedTotal - criterion.maxPoints) > 0.0001) errors.push(`Les éléments attendus du critère ${criterion.id} totalisent ${expectedTotal} point(s), au lieu de ${criterion.maxPoints}.`);
     }
   }
 

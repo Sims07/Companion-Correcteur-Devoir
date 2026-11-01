@@ -67,7 +67,7 @@ describe('scientific rubric routing', () => {
     expect(result.questionsForTeacher).toContain('Vérifiez le schéma sur la copie et attribuez les points de ce critère.');
   });
 
-  it('averages a criterion assessed across diagrams and propagates uncertainty', () => {
+  it('keeps legacy per-diagram stored results readable and explicitly flags their averaged score for review', () => {
     const result = mergeScientificDiagramCriteria(rubric, textProposal, {
       diagrams: [
         diagramAnalysis.diagrams[0],
@@ -77,6 +77,15 @@ describe('scientific rubric routing', () => {
     });
     expect(result.criteria[0]).toMatchObject({ points: 6, confidence: 'medium', questionForTeacher: expect.any(String) });
     expect(result.questionsForTeacher).toContain('Un schéma est partiellement illisible.');
+  });
+
+  it('uses one global score for a criterion spanning several diagrams without averaging per-diagram scores', () => {
+    const global = { diagrams: [1, 2, 3, 4].map((index) => ({ ...diagramAnalysis.diagrams[0], id: 'diagram-' + index, pageNumber: index, criteria: [] })), criteria: [{ ...diagramAnalysis.diagrams[0].criteria[0], points: 2, maxPoints: 8, diagramIds: ['diagram-1', 'diagram-2', 'diagram-3', 'diagram-4'] }], overallUncertainties: [] };
+    const visualRubric: Rubric = { ...rubric, criteria: rubric.criteria.map((criterion) => criterion.id === 'diagram' ? { ...criterion, maxPoints: 10, analysisMode: 'scientific-diagram' } : criterion) };
+    global.criteria[0].maxPoints = 10;
+    const result = mergeScientificDiagramCriteria(visualRubric, textProposal, global);
+    expect(result.criteria[0].points).toBe(2);
+    expect(result.criteria[0].evidence).toContain('Pages concernées');
   });
 
   it('recognizes a legend criterion tied to an anatomical figure', () => {
