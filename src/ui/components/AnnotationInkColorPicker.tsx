@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import type { TeacherAnnotationInkColor } from '../../domain/teacherAnnotationColor.ts';
 
@@ -48,7 +48,7 @@ export function AnnotationInkColorPicker({ image, preview, selectedColor, onColo
     };
   }, [image.base64, image.mimeType]);
 
-  const pickColor = (event: React.MouseEvent<HTMLImageElement>) => {
+  const pickColor = (event: MouseEvent<HTMLImageElement>) => {
     const canvas = sourceCanvas.current;
     const displayedImage = event.currentTarget;
     if (!canvas || !displayedImage.naturalWidth) return;
