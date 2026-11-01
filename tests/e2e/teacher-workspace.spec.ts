@@ -56,7 +56,7 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await expect(page.getByRole('heading', { name: 'Où se trouvent les questions ?' })).toBeVisible();
   await advanced.locator('summary').click();
   await expect(page.getByRole('heading', { name: 'Où se trouvent les questions ?' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Corriger' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Corriger', exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Réglages de l’IA locale' }).click();
   await expect(page.getByRole('heading', { name: 'Paramètres de l’IA locale' })).toBeVisible();
