@@ -6,7 +6,8 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
   });
   await page.goto('/');
   await page.evaluate(async () => {
-    await fetch('/network-inspector-probe', { method: 'GET' });
+    const { annotateNetworkRequest } = await import('/src/ports/networkRequestMetadata.ts');
+    await fetch('/network-inspector-probe', annotateNetworkRequest({ method: 'GET' }, 'Vérifier le détail réseau', 'Test Playwright'));
   });
 
   await page.getByRole('button', { name: 'Inspecteur réseau' }).click();
@@ -17,6 +18,9 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
   await expect(request).toContainText('Intention non renseignée');
   await expect(request).toContainText(/\d{2}:\d{2}:\d{2}/);
   await request.click();
+  const details = page.getByRole('region', { name: 'Détail de la requête' });
+  await expect(details.getByRole('region', { name: 'Intention de la requête' })).toContainText('Vérifier le détail réseau');
+  await expect(details.getByRole('region', { name: 'Intention de la requête' })).toContainText('Test Playwright');
   await page.getByRole('button', { name: 'Response' }).click();
   await expect(page.getByText(/"observed": true/)).toBeVisible();
 });
