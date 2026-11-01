@@ -359,7 +359,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [originalImages, setOriginalImages] = useState<ImageInput[]>([]);
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
   const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
-  const [expandedBackgroundJobIds, setExpandedBackgroundJobIds] = useState<string[]>([]);
   const [backgroundCopyLabel, setBackgroundCopyLabel] = useState('');
   const [seriesPickerVersion, setSeriesPickerVersion] = useState(0);
   const [isPreparingSeriesCopies, setIsPreparingSeriesCopies] = useState(false);
