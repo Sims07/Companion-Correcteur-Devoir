@@ -123,16 +123,36 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           overallUncertainties:{type:'array',items:{type:'string'}}
         }
       };
-      const send=async(compact:boolean)=>{
-        prompt=buildScientificDiagramPrompt(request,compact);
-        const response=await compatibleFetch(request.endpoint.replace(/\/+$/,'')+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:request.model,stream:false,format:schema,generation_token_parameter:'max_tokens',options:{num_predict:4096},messages:[{role:'user',content:prompt,images:request.images.map(image=>'data:'+image.mimeType+';base64,'+image.base64)}]})});
-        if(!response.ok)throw new Error('L’analyse Vision des schémas a échoué (HTTP '+response.status+'). '+(await response.text()).slice(0,500));
-        const payload=await response.json() as {message?:{content?:string};error?:string;done_reason?:string};
-        if(payload.error)throw new Error(payload.error);
-        raw=payload.message?.content??'';
-        if(payload.done_reason==='length')return {truncated:true};
-        if(!raw.trim())throw new Error('Le modèle Vision n’a retourné aucune analyse.');
-        return {truncated:false};
+      const send = async (compact: boolean, promptOverride?: string) => {
+        prompt = promptOverride ?? buildScientificDiagramPrompt(request, compact);
+        const payload = {
+          model: request.model,
+          stream: false,
+          generation_token_parameter: 'max_tokens',
+          options: { num_predict: 4096 },
+          messages: [{ role: 'user', content: prompt, images: request.images.map((image) => 'data:' + image.mimeType + ';base64,' + image.base64) }],
+        };
+        const post = (format: unknown) => compatibleFetch(request.endpoint.replace(/\/+$/, '') + '/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, format }),
+        });
+        let response = await post(schema);
+        if (!response.ok && response.status === 400) {
+          const detail = (await response.text()).slice(0, 500);
+          if (/format|schema|json.?schema|unsupported/i.test(detail)) {
+            response = await post('json');
+          } else {
+            throw new Error('L’analyse Vision des schémas a échoué (HTTP ' + response.status + '). ' + detail);
+          }
+        }
+        if (!response.ok) throw new Error('L’analyse Vision des schémas a échoué (HTTP ' + response.status + '). ' + (await response.text()).slice(0, 500));
+        const result = await response.json() as { message?: { content?: string }; error?: string; done_reason?: string };
+        if (result.error) throw new Error(result.error);
+        raw = result.message?.content ?? '';
+        if (result.done_reason === 'length') return { truncated: true };
+        if (!raw.trim()) throw new Error('Le modèle Vision n’a retourné aucune analyse.');
+        return { truncated: false };
       };
       try{
         let sent=await send(false);
@@ -143,12 +163,8 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           const reason=first instanceof Error?first.message:String(first);
           diagnosticResult(request,'scientific-diagram-analysis',prompt,raw,startedAt,reason);
           prompt=buildScientificDiagramPrompt(request,true)+'\n\nCORRECTION OBLIGATOIRE : la réponse précédente est invalide. Corrige précisément ce champ : '+reason+'. Réponse précédente (extrait) : '+raw.slice(0,3000)+'. Retourne le JSON complet, sans qualityBreakdown.';
-          const retry=await compatibleFetch(request.endpoint.replace(/\/+$/,'')+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:request.model,stream:false,format:schema,generation_token_parameter:'max_tokens',options:{num_predict:4096},messages:[{role:'user',content:prompt,images:request.images.map(image=>'data:'+image.mimeType+';base64,'+image.base64)}]})});
-          if(!retry.ok)throw first;
-          const payload=await retry.json() as {message?:{content?:string};done_reason?:string;error?:string};
-          raw=payload.message?.content??'';
-          if(payload.done_reason==='length')throw new Error('Réponse tronquée lors de la tentative de réparation.');
-          if(payload.error)throw new Error(payload.error);
+          const retry = await send(true, prompt);
+          if (retry.truncated) throw new Error('Réponse tronquée lors de la tentative de réparation.');
           try{result=parseScientificDiagramAnalysis(raw,request.rubric,request.images.length,request.pageNumbers);}
           catch(second){throw new Error((second instanceof Error?second.message:String(second))+' Extrait de la réponse brute : '+raw.slice(0,500));}
         }
