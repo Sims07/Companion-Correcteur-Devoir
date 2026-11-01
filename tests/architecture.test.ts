@@ -14,6 +14,8 @@ describe('hexagonal architecture boundaries', () => {
       '../src/domain/rubric.ts',
       '../src/domain/observability.ts',
       '../src/domain/teacherAnnotations.ts',
+      '../src/domain/backgroundCorrection.ts',
+      '../src/domain/imageInput.ts',
       '../src/domain/scientificDiagram.ts',
       '../src/domain/scientificPageClassification.ts',
     ];
@@ -25,7 +27,7 @@ describe('hexagonal architecture boundaries', () => {
   });
 
   it('keeps application use cases dependent only on domain and ports', () => {
-    for (const file of ['../src/application/localCorrectionService.ts', '../src/application/correctionWorkspaceService.ts', '../src/application/modelEvaluationService.ts', '../src/application/scientificDiagramAnalysisService.ts']) {
+    for (const file of ['../src/application/localCorrectionService.ts', '../src/application/correctionWorkspaceService.ts', '../src/application/modelEvaluationService.ts', '../src/application/scientificDiagramAnalysisService.ts', '../src/application/backgroundCorrectionService.ts']) {
       const text = source(file);
       expect(imports(text).every((path) => path.startsWith('../domain/') || path.startsWith('../ports/')), file).toBe(true);
       expect(text, file).not.toMatch(/\\b(window|document|indexedDB|React)\\b/);
