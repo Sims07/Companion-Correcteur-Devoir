@@ -37,9 +37,9 @@ STUDENT_IDENTITY: {"firstName":"Alice","lastName":"Martin","studentNumber":"2400
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse(response));
     const onTranscription = vi.fn();
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
-    await expect(provider.generate({ ...request, visionOnly: true }, undefined, undefined, onTranscription)).resolves.toBe('[ copie.png ]\\nRéponse manuscrite lisible.');
+    await expect(provider.generate({ ...request, visionOnly: true }, undefined, undefined, onTranscription)).resolves.toBe('[ copie.png ]\nRéponse manuscrite lisible.');
     expect(onTranscription).toHaveBeenCalledWith(JSON.stringify({ firstName: 'Alice', lastName: 'Martin', studentNumber: '240018', confidence: 'high' }), 'identity');
-    expect(onTranscription).toHaveBeenCalledWith('[ copie.png ]\\nRéponse manuscrite lisible.', 'copy');
+    expect(onTranscription).toHaveBeenCalledWith('[ copie.png ]\nRéponse manuscrite lisible.', 'copy');
   });
 
   it('checks that the selected model responds to a text-only readiness request', async () => {
