@@ -101,7 +101,7 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
  if(elements?.some(element=>element.status==='partial'||element.status==='absent'||element.status==='uncertain'))review=true;
  if(elements&&elements.some(element=>element.evidence==='Preuve non fournie par le modèle'))review=true;
  if(elements&&points<c.maxPoints*.3&&elements.every(element=>['present','partial'].includes(element.status)))review=true;
- const ids=Array.isArray(v.diagramIds)?v.diagramIds.filter((id):id is string=>typeof id==='string'&&rows.some(r=>r.id===id||r.source.id===id)).map(id=>rows.find(r=>r.id===id||r.source.id===id)!.id):diagramId?[diagramId]:rows.map(r=>r.id);
+ const ids=Array.isArray(v.diagramIds)&&v.diagramIds.length>0?v.diagramIds.filter((id):id is string=>typeof id==='string'&&rows.some(r=>r.id===id||r.source.id===id)).map(id=>rows.find(r=>r.id===id||r.source.id===id)!.id):diagramId?[diagramId]:rows.map(r=>r.id);
  return{criterionId:c.id,title:c.title,points,maxPoints:c.maxPoints,evidence,confidence:points===c.maxPoints&&accuracyOrCompletenessPartial?Math.min(confidence,.5):confidence,requiresTeacherReview:review,diagramIds:ids,...(elements?{elements}:{}),...(qualityBreakdown.length?{qualityBreakdown}:{})};};
  const normalize=(v:unknown):unknown[]|null=>Array.isArray(v)?v:isRecord(v)?Object.entries(v).map(([id,item])=>({... (isRecord(item)?item:{}),criterionId:isRecord(item)&&typeof item.criterionId==='string'?item.criterionId:id})):null;
  const global=normalize(parsed.criteria);if(global)return{diagrams,criteria:global.map(v=>assess(v)).filter((v):v is DiagramCriterionAssessment=>v!==null),overallUncertainties:strings(parsed.overallUncertainties),warnings};
