@@ -307,6 +307,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           raw,
           startedAt,
           cause instanceof Error ? cause.message : String(cause),
+          requestPayload,
         );
         throw cause;
       }
