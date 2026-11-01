@@ -8,7 +8,7 @@ import { parseGradingProposal, toReviewedCriteria, type GradingProposal, type Re
 import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationRecords, getModelEvaluationStage, runModelEvaluation, sumReportedTokensForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot } from '../domain/modelEvaluation.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import { getTeacherEntryStep } from '../domain/teacherJourney.ts';
-import type { ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
+import { shouldRunScientificDiagramAnalysis, type ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
 import { routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
 import { accumulateClockwiseRotation, getConfidentDiagramRotation } from '../domain/scientificPageOrientation.ts';
 import { mergeScientificDiagramCriteria, partitionScientificRubric } from '../domain/scientificRubricRouting.ts';
@@ -958,7 +958,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           diagramImages = diagramPageNumbers.map((pageNumber) => textImages[pageNumber - 1]);
           textPageNumbers = diagramRubric.criteria.length > 0 ? routing.textPageNumbers : textImages.map((_, index) => index + 1);
           textImages = textPageNumbers.map((pageNumber) => textImages[pageNumber - 1]);
-          if (diagramImages.length > 0 && diagramRubric.criteria.length > 0 && !scientificDiagramAnalysis) {
+          if (diagramImages.length > 0 && diagramRubric.criteria.length > 0 && shouldRunScientificDiagramAnalysis(scientificDiagramAnalysis)) {
             setCriterionProgressMessage(`${diagramImages.length} page(s) de schéma détectée(s) · correction scientifique spécialisée…`);
             setScientificDiagramError('');
             try {
