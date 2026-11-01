@@ -369,7 +369,7 @@ export function createBackgroundCorrectionService(
     async updateImages(jobId, images, rotationAngles, settings) {
       const job = (await repository.listJobs()).find((item) => item.id === jobId);
       if (!job) throw new Error('Cette copie n’existe plus dans la file de correction.');
-      if (job.status === 'processing') throw new Error('Attendez la fin du traitement avant de réorienter cette copie.');
+      if (job.status === 'processing' && !paused) throw new Error('Attendez la fin du traitement avant de réorienter cette copie.');
       if (job.status === 'completed') throw new Error('Une copie archivée ne peut plus être réorientée.');
       if (!images.length || images.length !== job.originalImages.length) throw new Error('La rotation doit conserver toutes les pages de la copie.');
       const updated: BackgroundCorrectionJob = {
