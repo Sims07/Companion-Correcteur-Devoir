@@ -68,7 +68,6 @@ export function AnnotationInkColorPicker({ image, preview, selectedColor, onColo
 
   return (
     <div className="annotation-ink-picker">
-      <label className="field-label">Couleur des annotations du professeur</label>
       <p className="annotation-ink-picker-instruction">Cliquez directement sur l’encre à retirer dans l’image originale pour prélever sa couleur.</p>
       <div className="annotation-ink-preview" role="group" aria-label="Comparaison avant et après retrait des annotations">
         <figure>
