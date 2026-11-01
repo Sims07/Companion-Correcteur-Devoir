@@ -30,6 +30,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
       };
     });
     const transaction = database.transaction('local-corrections', 'readwrite');
+    const activeAssignmentId = localStorage.getItem('companion-correcteur:active-assignment:v1') ?? 'assignment-default';
     const activeAssignmentCorrection = {
       id: 'design-review-copy',
       label: 'Copie de test',
@@ -37,7 +38,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
       rubricFingerprint: 'rubric-design-test',
       createdAt: '2026-10-29T08:00:00.000Z',
       updatedAt: '2026-10-29T08:00:00.000Z',
-      assignmentId: 'assignment-default',
+      assignmentId: activeAssignmentId,
       assignmentTitle: 'Biologie cellulaire',
       snapshot: {
         assignmentTitle: 'Biologie cellulaire',
