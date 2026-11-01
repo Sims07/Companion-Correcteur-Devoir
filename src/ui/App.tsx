@@ -343,6 +343,12 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [criterionProgressMessage, setCriterionProgressMessage] = useState('');
   const [pageProgress, setPageProgress] = useState<Record<number, 'started' | 'completed' | 'doubtful'>>({});
   const [lastModelLoadDurationMs, setLastModelLoadDurationMs] = useState<number | null>(null);
+  const initialDocumentTitle = useRef(document.title);
+  useEffect(() => {
+    const completed = Object.values(criterionStatuses).filter((status) => status === 'completed').length;
+    document.title = isAnalyzing ? analysisStage === 'grading' ? `(${completed}/${rubric.criteria.length}) Correction…` : 'Correction en cours…' : proposal ? '✓ Correction prête' : initialDocumentTitle.current;
+  }, [isAnalyzing, analysisStage, criterionStatuses, rubric.criteria.length, proposal]);
+  useEffect(() => () => { document.title = initialDocumentTitle.current; }, []);
   const [criterionStatuses, setCriterionStatuses] = useState<Record<string, CriterionAnalysisUpdate['status']>>({});
   const [activeCriterionId, setActiveCriterionId] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -2504,7 +2510,8 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
             <div className={analysisStage === 'grading' ? 'teacher-progress-phase current' : 'teacher-progress-phase'}><span>3</span><div><strong>Correction</strong><small>{analysisStage === 'grading' ? `Critère ${Math.min(rubric.criteria.length, Object.values(criterionStatuses).filter((status) => status === 'completed').length + (activeCriterionId ? 1 : 0))}/${rubric.criteria.length}` : 'À venir'}</small></div></div>
           </div>
           {analysisStage === 'checking' && lastModelLoadDurationMs === null && <p className="teacher-progress-hint">Chargement du modèle, jusqu’à 1 min la première fois.</p>}
-          {Object.entries(pageProgress).filter(([, status]) => status === 'doubtful').map(([page]) => <p className="teacher-progress-warning" key={page}>Page {page} : lecture douteuse. Vérifiez cette page avant de valider la correction.</p>)}
+          <div className="teacher-progress-page-list" aria-label="État de lecture des pages">{images.map((image, index) => { const status = pageProgress[index + 1]; return <span className={status === 'doubtful' ? 'is-doubtful' : status === 'completed' ? 'is-complete' : ''} key={`${image.fileName}-${index}`}>{status === 'completed' ? '✓' : status === 'doubtful' ? '!' : '·'} Page {index + 1}</span>; })}</div>
+          {Object.entries(pageProgress).filter(([, status]) => status === 'doubtful').map(([page]) => <p className="teacher-progress-warning" key={page}>Page {page} : lecture douteuse. <button type="button" className="text-button" onClick={() => setCopyViewerPage(Number(page) - 1)}>Voir la page</button> avant de valider la correction.</p>)}
         </div>
         <div className="analysis-timer" aria-label={`Temps écoulé : ${formatElapsed(elapsedSeconds)}`}><span>TEMPS ÉCOULÉ</span><strong>{formatElapsed(elapsedSeconds)}</strong></div>
       </section>}
