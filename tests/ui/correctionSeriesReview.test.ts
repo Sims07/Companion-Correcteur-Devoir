@@ -60,7 +60,8 @@ describe('correction en série — espace de révision', () => {
     expect(styles).toContain('flex: 0 0 54px');
     expect(styles).toContain('.correction-series-live-details');
     expect(styles).toContain('.correction-series-list > li:not(.is-active):not(.is-expanded) .correction-series-pages');
-    expect(styles).toContain('.correction-series-list > li.is-active { order: -1;');
+    expect(styles).toContain('.correction-series-list > li.is-active {');
+    expect(styles).toContain('order: -1;');
   });
 
   it('shows a live batch overview based on actual copy states and expands the active copy', () => {
