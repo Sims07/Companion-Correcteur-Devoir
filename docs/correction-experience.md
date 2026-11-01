@@ -91,7 +91,7 @@ Respecter la pyramide : tests unitaires du domaine d'abord, intégration des ada
 Le parcours enseignant propose deux façons d'alimenter le même moteur de correction :
 
 - **Correction individuelle** : l'enseignant ajoute une copie, suit sa correction et peut immédiatement passer à une autre copie sans attendre de validation ou de fermeture de la précédente.
-- **Correction en série** : l'enseignant peut sélectionner plusieurs fichiers en une seule fois. Chaque fichier sélectionné constitue une copie indépendante ; les pages d'un même PDF restent regroupées dans cette copie. La préparation des fichiers est séquentielle pour limiter les pics de mémoire dans le navigateur.
+- **Correction en série** : l'enseignant choisit comment regrouper les fichiers : soit un fichier sélectionné correspond à une copie, soit plusieurs fichiers sélectionnés constituent ensemble les pages d'une seule copie. Dans le second cas, chaque nouvelle sélection ajoute un nouveau groupe (une nouvelle copie). Un PDF multipage reste un seul fichier dont les pages restent groupées. La préparation des groupes est séquentielle pour limiter les pics de mémoire dans le navigateur.
 
 Les deux modes utilisent la même file persistée et le même ordonnanceur. Les copies sont traitées séquentiellement, dans leur ordre d'ajout, sans lancer plusieurs générations en parallèle. Une copie prête à réviser ou nécessitant une intervention humaine ne bloque jamais le traitement des suivantes.
 
@@ -101,9 +101,10 @@ Les fichiers et images restent préparés et conservés localement ; seul le con
 
 ### Contrats de tests du mode série
 
-- Un fichier sélectionné produit exactement un job de correction.
-- Les pages issues d'un même PDF restent dans le même job.
-- Plusieurs fichiers sélectionnés produisent plusieurs jobs indépendants, dans l'ordre de sélection.
+- En mode « un fichier = une copie », chaque fichier sélectionné produit un job distinct.
+- En mode groupé, tous les fichiers d'une même sélection produisent un seul job, avec toutes leurs pages dans l'ordre de sélection.
+- Chaque nouvelle sélection en mode groupé crée un nouveau job indépendant.
+- Les pages issues d'un même PDF restent dans le job correspondant au fichier sélectionné.
 - La préparation des fichiers est séquentielle ; une erreur de préparation ne doit pas créer un job vide.
 - Le traitement des jobs reste séquentiel et la revue humaine d'un job terminé ne bloque pas les suivants.
 
@@ -113,6 +114,6 @@ Les fichiers et images restent préparés et conservés localement ; seul le con
 À l'étape « Ajouter une copie », le professeur choisit explicitement entre deux parcours visuellement distincts :
 
 - **Correction individuelle** : conserve l'écran de préparation d'une seule copie, son aperçu, puis le bouton « Corriger ». Le professeur garde la main sur le passage à la copie suivante.
-- **Correction en série** : remplace cet écran par une session dédiée. Le professeur ajoute plusieurs fichiers, visualise les compteurs (terminées, en cours, en attente, à vérifier), suit l'état de chaque copie et peut ouvrir une correction prête ou reprendre une copie en erreur.
+- **Correction en série** : remplace cet écran par une session dédiée. Le professeur choisit entre un fichier par copie et un groupe de plusieurs fichiers par copie ; chaque nouvelle sélection groupée ajoute un étudiant distinct. Il visualise les compteurs (terminées, en cours, en attente, à vérifier), suit l'état de chaque copie et peut ouvrir une correction prête ou reprendre une copie en erreur.
 
 Le choix est réversible à tout moment. Les deux parcours partagent le barème, les réglages du fournisseur et le moteur séquentiel. La correction individuelle n'affiche pas les commandes de mise en file d'arrière-plan ; celles-ci appartiennent au parcours en série.
