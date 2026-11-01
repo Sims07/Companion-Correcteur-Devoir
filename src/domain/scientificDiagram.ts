@@ -84,7 +84,7 @@ export function parseScientificDiagramAnalysis(raw: string, rubric: Rubric, page
  const diagrams:ScientificDiagramFinding[]=rows.map(r=>({id:r.id,pageNumber:r.pageNumber,...(r.bounds?{bounds:r.bounds}:{}),diagramType:r.diagramType,summary:r.summary,criteria:[],uncertainties:r.uncertainties}));
  const assess=(v:unknown,diagramId?:string):DiagramCriterionAssessment|null=>{if(!isRecord(v)||typeof v.criterionId!=='string'||!v.criterionId.trim()){warnings.push('Élément parasite dans criteria ignoré (criterionId absent ou invalide).');return null;}const c=known.get(v.criterionId);if(!c)throw new Error('Champ criterionId inconnu : '+v.criterionId+'.');const configured=diagramId?[]:known.get(v.criterionId)?.expectedElements??[];
  const returned=Array.isArray(v.elements)?v.elements:[];
- const normalizeLabel=(label:string)=>label.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLocaleLowerCase('fr').replace(/[^a-z0-9]+/g,' ').trim();
+ const normalizeLabel=(label:string)=>label.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr').replace(/[^a-z0-9]+/g,' ').trim();
  const matchedByIndex=returned.length===configured.length;
  const used=new Set<unknown>();
  const elements=configured.length?configured.map((element,index)=>{
