@@ -966,6 +966,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 images: diagramImages,
                 pageNumbers: diagramPageNumbers,
                 question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+                subjectTranscription: subjectTranscription ?? undefined,
                 rubric: diagramRubric,
                 model: visionModel,
                 endpoint,
@@ -984,7 +985,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 warnings: ['Analyse des schémas indisponible : ' + message + '. Les critères graphiques sont à évaluer manuellement.'],
               };
               diagramAnalysisResult = manualFallback;
-              setScientificDiagramAnalysis(manualFallback);
+              // Keep failed fallback local to this run: a null persisted analysis allows an explicit retry.
             }
           }
           if (classificationWasJustCreated && diagramImages.length > 0 && transcription) setTranscription(null);
@@ -2464,6 +2465,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </div>
             <label className="points-field"><span className="field-label">Points max.</span><input type="number" min="0" step="0.5" value={criterion.maxPoints} onChange={(event) => updateCriterion(criterion.id, { maxPoints: Number(event.target.value) })} /></label>
             <label className="criterion-visual-toggle"><input type="checkbox" checked={partitionScientificRubric({ title: rubric.title, criteria: [criterion] }).diagramCriteria.length > 0} onChange={(event) => updateCriterion(criterion.id, { analysisMode: event.target.checked ? 'scientific-diagram' : 'text' })} /><span><strong>Analyse de schéma scientifique</strong><small>Évaluer ce critère sur l’image avec Vision, jamais sur la transcription.</small></span></label>
+            {partitionScientificRubric({ title: rubric.title, criteria: [criterion] }).diagramCriteria.length > 0 && <div className="expected-elements-editor">
+              <strong>Éléments attendus (facultatif)</strong>
+              {(criterion.expectedElements ?? []).map((element, index) => <div className="criterion-fields" key={index}>
+                <label><span className="field-label">Élément attendu</span><input aria-label={`Élément attendu ${index + 1} — ${criterion.title}`} value={element.label} onChange={(event) => updateCriterion(criterion.id, { expectedElements: (criterion.expectedElements ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item) })} /></label>
+                <label className="points-field"><span className="field-label">Points</span><input type="number" min="0" step="0.25" value={element.points} onChange={(event) => updateCriterion(criterion.id, { expectedElements: (criterion.expectedElements ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, points: Number(event.target.value) } : item) })} /></label>
+                <button type="button" className="icon-button" aria-label={`Supprimer l’élément ${element.label || index + 1}`} onClick={() => updateCriterion(criterion.id, { expectedElements: (criterion.expectedElements ?? []).filter((_, itemIndex) => itemIndex !== index) })}>×</button>
+              </div>)}
+              <div className="rubric-actions">
+                <button type="button" className="secondary-button" onClick={() => updateCriterion(criterion.id, { expectedElements: [...(criterion.expectedElements ?? []), { label: '', points: 0 }] })}>+ Ajouter un élément</button>
+                <button type="button" className="secondary-button" disabled={(criterion.expectedElements ?? []).length === 0} onClick={() => { const count = (criterion.expectedElements ?? []).length; const points = count ? criterion.maxPoints / count : 0; updateCriterion(criterion.id, { expectedElements: (criterion.expectedElements ?? []).map((item) => ({ ...item, points: Number(points.toFixed(2)) })) }); }}>Répartir également</button>
+              </div>
+              {(criterion.expectedElements ?? []).length > 0 && <p className={Math.abs((criterion.expectedElements ?? []).reduce((sum, item) => sum + item.points, 0) - criterion.maxPoints) < 0.0001 ? 'validation valid' : 'validation invalid'}>Total des éléments : {(criterion.expectedElements ?? []).reduce((sum, item) => sum + item.points, 0)} / {criterion.maxPoints} points{Math.abs((criterion.expectedElements ?? []).reduce((sum, item) => sum + item.points, 0) - criterion.maxPoints) >= 0.0001 ? ' · Le total doit correspondre au maximum du critère.' : ''}</p>}
+            </div>}
             <button className="icon-button" type="button" aria-label={`Supprimer ${criterion.title}`} onClick={() => setRubric((current) => ({ ...current, criteria: current.criteria.filter((item) => item.id !== criterion.id) }))}>×</button>
           </div>)}
         </div>
