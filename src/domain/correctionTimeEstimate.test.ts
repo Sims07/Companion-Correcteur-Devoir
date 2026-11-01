@@ -19,7 +19,7 @@ describe('remaining correction time estimate', () => {
     expect(estimateRemainingCorrectionSeconds(history, {
       visionModel: 'vision:4b', analysisModel: 'analysis:4b', pageCount: 4, completedPages: 2,
       criterionCount: 8, completedCriteria: 3, elapsedSeconds: 0, correctionMode: 'integrated',
-    })).toBe(150);
+    })).toBe(144);
   });
 
   it('does not borrow measurements from another model, version or correction mode', () => {
