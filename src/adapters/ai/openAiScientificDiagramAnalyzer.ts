@@ -128,13 +128,13 @@ export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisR
   }));
   const subject = request.subjectTranscription?.trim();
   return [
-    'Tu évalues des schémas scientifiques universitaires. Un schéma est une preuve, jamais une unité de notation.',
-    'OBLIGATION : ces images proviennent de pages déjà classées comme contenant un schéma scientifique. Ne retourne JAMAIS diagrams: [] ni criteria: []. Analyse chaque image jointe ; au moins un schéma doit être décrit pour chaque page transmise. Si une page est réellement illisible, crée une entrée avec uncertainties explicites et requiresTeacherReview à true au lieu de l’omettre.',
-    'Retourne diagrams : tous les schémas détectés, avec id neutre, pageNumber (index local 1-based), diagramType, summary court, bounds et uncertainties (tableau). Le champ bounds est obligatoire : retourne null si la localisation est incertaine.',
-    'Retourne criteria : exactement UNE évaluation pour CHAQUE critère du barème, portant sur l’ensemble des schémas pertinents. Ne note jamais un critère séparément par schéma et ne répartis pas son maximum entre les schémas. Aucun critère ne doit être omis.',
-    'Le maximum n’est justifié que si tous les attendus essentiels sont démontrés sur l’ensemble des schémas concernés. Si un élément essentiel est partiel ou manquant, attribue des points partiels.',
+    'Tu évalues les schémas scientifiques d’UNE SEULE PAGE universitaire. Une requête correspond toujours à une seule image ; un schéma est une preuve, jamais une unité de notation.',
+    'OBLIGATION : cette image provient d’une page déjà classée comme contenant un schéma scientifique. Ne retourne JAMAIS diagrams: [] ni criteria: []. Analyse cette page uniquement ; au moins un schéma doit être décrit. Si la page est réellement illisible, crée une entrée avec uncertainties explicites et requiresTeacherReview à true au lieu de l’omettre.',
+    'Retourne diagrams : tous les schémas détectés sur cette page, avec id neutre, pageNumber = 1, diagramType, summary court, bounds et uncertainties (tableau). Le champ bounds est obligatoire : retourne null si la localisation est incertaine.',
+    'Retourne criteria : exactement UNE évaluation pour CHAQUE critère du barème, portant sur l’ensemble des schémas pertinents de CETTE PAGE uniquement. Ne note jamais un critère séparément par schéma et ne répartis pas son maximum entre les schémas. Aucun critère ne doit être omis.',
+    'Le maximum n’est justifié que si tous les attendus essentiels sont démontrés sur l’ensemble des schémas de cette page. Si un élément essentiel est partiel ou manquant, attribue des points partiels.',
     'Le champ elements est toujours présent : si expectedElements est non vide, retourne chaque élément avec son label exact, status parmi present/partial/absent/uncertain et une preuve courte ; sinon retourne null. L’application calcule les points (present 100 %, partial 50 %, absent 0 %, uncertain 0 % et vérification enseignante).',
-    'Sans expectedElements, retourne une seule note points sur le maximum du critère, evidence, confidence, requiresTeacherReview et diagramIds. Ne retourne jamais de critère absent du barème.',
+    'Sans expectedElements, retourne une seule note points sur le maximum du critère, evidence, confidence, requiresTeacherReview et diagramIds pour cette page. Ne retourne jamais de critère absent du barème.',
     'Ne pénalise pas deux fois la même erreur. Ne note jamais l’esthétique. N’invente aucun attendu absent de la consigne ou du barème.',
     'Ne juge jamais un dessin correct à partir d’une explication textuelle. Si un élément est illisible ou ambigu, signale-le dans uncertainties et mets requiresTeacherReview à true.',
     'Ne pénalise pas l’absence d’une flèche, d’un titre ou d’une légende qui ne sont pas exigés par la consigne ou le barème.',
@@ -157,7 +157,7 @@ function buildScientificDiagramRepairPrompt(
 ): string {
   return [
     buildScientificDiagramPrompt(request, true),
-    'CORRECTION OBLIGATOIRE : la réponse précédente est invalide. Les listes diagrams et criteria ne peuvent pas être vides : les pages transmises ont déjà été classées comme contenant des schémas scientifiques. Retourne au moins un schéma pour chaque page et une évaluation pour chaque critère du barème.',
+    'CORRECTION OBLIGATOIRE : la réponse précédente est invalide. Les listes diagrams et criteria ne peuvent pas être vides : cette image provient d’une page déjà classée comme contenant un schéma scientifique. Retourne au moins un schéma sur cette page et une évaluation pour chaque critère du barème.',
     'Corrige précisément ce champ : ' + reason + '.',
     'Réponse précédente (extrait) : ' + previousRaw.slice(0, 3000),
     'Retourne le JSON complet, sans qualityBreakdown.',
@@ -217,6 +217,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
         { endpoint: request.endpoint, apiKey: request.apiKey, onRequest: (payload) => { requestPayload = payload; } },
         fetchImpl,
       );
+      if (request.images.length !== 1) throw new Error('L’analyse Vision des schémas attend une seule image par requête. Les pages doivent être traitées séquentiellement.');
       const startedAt = Date.now();
       let raw = '';
       let prompt = buildScientificDiagramPrompt(request);
