@@ -344,17 +344,17 @@ export function App({ service, archiveService, evaluationService, diagramAnalysi
   const [pageProgress, setPageProgress] = useState<Record<number, 'started' | 'completed' | 'doubtful'>>({});
   const [lastModelLoadDurationMs, setLastModelLoadDurationMs] = useState<number | null>(null);
   const initialDocumentTitle = useRef(document.title);
-  useEffect(() => {
-    const completed = Object.values(criterionStatuses).filter((status) => status === 'completed').length;
-    document.title = isAnalyzing ? analysisStage === 'grading' ? `(${completed}/${rubric.criteria.length}) Correction…` : 'Correction en cours…' : proposal ? '✓ Correction prête' : initialDocumentTitle.current;
-  }, [isAnalyzing, analysisStage, criterionStatuses, rubric.criteria.length, proposal]);
-  useEffect(() => () => { document.title = initialDocumentTitle.current; }, []);
   const [criterionStatuses, setCriterionStatuses] = useState<Record<string, CriterionAnalysisUpdate['status']>>({});
   const [activeCriterionId, setActiveCriterionId] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [readingElapsedMs, setReadingElapsedMs] = useState<number | null>(null);
   const [analysisElapsedMs, setAnalysisElapsedMs] = useState<number | null>(null);
   const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
+  useEffect(() => {
+    const completed = Object.values(criterionStatuses).filter((status) => status === 'completed').length;
+    document.title = isAnalyzing ? analysisStage === 'grading' ? `(${completed}/${rubric.criteria.length}) Correction…` : 'Correction en cours…' : proposal ? '✓ Correction prête' : initialDocumentTitle.current;
+  }, [isAnalyzing, analysisStage, criterionStatuses, rubric.criteria.length, proposal]);
+  useEffect(() => () => { document.title = initialDocumentTitle.current; }, []);
   const diagnosticHistoryReady = useRef(false);
   useEffect(() => {
     let active = true;
