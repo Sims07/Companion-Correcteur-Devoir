@@ -570,6 +570,7 @@ export function createOllamaProvider(
       const annotationImages = request.teacherAnnotationImages ?? request.images ?? [];
       const detectedTeacherAnnotations: Array<{ page: number; annotations: ReturnType<typeof parseTeacherAnnotationDetection>['annotations'] }> = [];
       const pageTranscriptions: Array<{ pageLabel: string; pageText: string; doubtfulMarker: string }> = [];
+      let bestStudentIdentityConfidence = -1;
       if (!transcription) {
         onStage?.('reading');
         onProgress?.({ type: 'phase', phase: 'reading' });
@@ -600,7 +601,13 @@ export function createOllamaProvider(
           if (/(?:\r?\n){4}$/.test(pageTranscription)) transcriptionTruncated = true;
           const extractedPage = extractStudentIdentity(cleanTranscription(pageTranscription));
           const pageText = extractedPage.transcription;
-          if (extractedPage.identity) onTranscription?.(JSON.stringify(extractedPage.identity), 'identity');
+          if (extractedPage.identity) {
+            const confidenceRank = extractedPage.identity.confidence === 'high' ? 2 : extractedPage.identity.confidence === 'medium' ? 1 : 0;
+            if (confidenceRank > bestStudentIdentityConfidence) {
+              bestStudentIdentityConfidence = confidenceRank;
+              onTranscription?.(JSON.stringify(extractedPage.identity), 'identity');
+            }
+          }
           if (!pageText) throw new Error(`Aucun texte n’a pu être lu sur ${pageLabel}.`);
           const doubtfulMarker = transcriptionTruncated ? ' [LECTURE DOUTEUSE : transcription possiblement interrompue par une longue zone blanche ou la limite de génération]' : '';
           pageTranscriptions.push({ pageLabel, pageText, doubtfulMarker });
