@@ -351,6 +351,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [copyQueue, setCopyQueue] = useState<QueuedCopy[]>([]);
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
   const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
+  const [backgroundCopyLabel, setBackgroundCopyLabel] = useState('');
   const [autoBackgroundCorrection, setAutoBackgroundCorrection] = useState(() => { try { return window.localStorage.getItem('companion-correcteur:auto-background-correction:v1') !== 'false'; } catch { return true; } });
   useEffect(() => backgroundService.subscribe((jobs) => {
     setBackgroundJobs(jobs.filter((job) => job.assignmentId === activeAssignmentId));
@@ -1578,6 +1579,50 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setTeacherStep('details');
   }
 
+  async function enqueueBackgroundCopy(files: FileList | null) {
+    if (!files?.length) return;
+    if (!validation.valid) { setError(validation.errors.join(' ')); return; }
+    if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant d’ajouter une copie.'); return; }
+    try {
+      const prepared = await service.prepareFiles(files);
+      const now = new Date().toISOString();
+      const label = backgroundCopyLabel.trim() || prepared[0]?.fileName || `Copie ${backgroundJobs.length + 1}`;
+      const job = createBackgroundCorrection({
+        id: `queued-copy-${crypto.randomUUID()}`,
+        assignmentId: activeAssignmentId,
+        label,
+        question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+        rubric: structuredClone(rubric),
+        correctionMode,
+        images: structuredClone(prepared),
+        originalImages: structuredClone(prepared),
+        subjectImages: structuredClone(subjectImages),
+        ...(subjectTranscription ? { subjectTranscription } : {}),
+        detectTeacherAnnotations: false,
+        annotationInkColor: 'none',
+        annotationInkColorApplied: true,
+        visionModel,
+        analysisModel,
+        thinking: analysisThinking,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await backgroundService.enqueue(job, {
+        endpoint, apiCompatible, apiKey, visionModel, analysisModel,
+        thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection,
+        transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
+        transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
+      });
+      setBackgroundCopyLabel('');
+      setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
+      setReviewMessage(autoBackgroundCorrection
+        ? `${label} ajoutée : sa correction démarre en arrière-plan.`
+        : `${label} ajoutée à la file. Lancez le traitement lorsque vous le souhaitez.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible d’ajouter cette copie au traitement en arrière-plan.');
+    }
+  }
+
   async function queueCurrentCopy() {
     if (!images.length || isAnalyzing || proposal) return;
     if (!validation.valid) { setError(validation.errors.join(' ')); setTeacherStep('rubric'); return; }
@@ -2683,6 +2728,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           {unreadableCopySignal && <span role="alert">La lecture de la copie mérite une vérification sur l’image originale.</span>}
         </section>}
         <div className="correction-batch-progress" aria-label="Progression des corrections pour ce devoir"><div><span className="eyebrow">CORRECTION EN SÉRIE</span><strong>{completedForAssignment} copie(s) enregistrée(s) pour ce devoir</strong><p>Chaque copie enregistrée reste disponible dans « Corrections enregistrées ».</p></div></div>
+        <section className="copy-queue review-background-queue" aria-label="Copies préparées en arrière-plan">
+          <div className="copy-queue-heading"><div><span className="eyebrow">COPIES SUIVANTES</span><h4>{backgroundJobs.filter((job) => job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)).length} prête(s) à réviser · {backgroundJobs.filter((job) => job.status === 'pending' || job.status === 'processing').length} en traitement</h4></div><button type="button" className="primary-button" onClick={() => { void loadNextQueuedCopy(); }} disabled={isAnalyzing || !backgroundJobs.some((job) => job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria))}>Copie suivante</button></div>
+          <div className="student-label-field"><label className="field-label" htmlFor="background-copy-label">Étudiant suivant <span>(facultatif)</span></label><input id="background-copy-label" value={backgroundCopyLabel} onChange={(event) => setBackgroundCopyLabel(event.target.value)} placeholder="Nom ou identifiant" /></div>
+          <FilePicker id="background-copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void enqueueBackgroundCopy(files); }} title="Ajouter une copie à la file" description="Les pages sont lues et corrigées pendant votre révision." actionLabel="Ajouter la copie suivante" />
+          <ol>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').map((job, index) => <li key={job.id}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{job.label}</strong><small>{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}{job.status === 'processing' ? ` · ${job.phase === 'preparation' ? 'Préparation' : job.phase === 'reading' ? `Lecture ${job.completedPages}/${job.images.length}` : `Correction ${job.completedCriteria}/${job.totalCriteria}`}` : ''}</small>{job.error && <small role="status">{job.error}</small>}</span>{(['needs-review', 'failed'].includes(job.status) || (job.status === 'reviewing' && job.completedCriteria < job.totalCriteria && job.id !== currentBackgroundJobId)) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Reprendre</button>}</li>)}</ol>
+        </section>
         <div className="review-workspace">
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
             <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de référence</h3><p>Consultez l’orientation utilisée pour l’analyse. Si une rotation a été appliquée, l’image originale reste accessible sous la page.</p></div>
