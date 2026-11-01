@@ -137,6 +137,7 @@ export function createBackgroundCorrectionService(
                 if (event.type === 'page' && event.status !== 'started') await saveProgress({ completedPages: Math.max(current.completedPages, event.pageIndex) });
               },
             );
+            if (remaining.criteria.length === 1) activeModelToUnload = null;
             const parsed = parseGradingProposal(raw, { ...remaining, criteria: [criterion] });
             await saveProgress({
               partialCriteria: mergeCriteria(current.partialCriteria, parsed.criteria),
@@ -150,7 +151,6 @@ export function createBackgroundCorrectionService(
             await persist({ ...current, status: 'pending', updatedAt: new Date().toISOString() });
             break;
           }
-          if (remaining.criteria.length === 1) activeModelToUnload = null;
           const proposal = createProposal(current.rubric, current.partialCriteria);
           const complete = current.partialCriteria.length === current.rubric.criteria.length;
           await persist({
