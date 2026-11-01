@@ -8,6 +8,7 @@ export interface ScientificDiagramAnalysisRequest {
   /** Original page numbers for filtered diagram images. */
   pageNumbers?: number[];
   question: string;
+  subjectTranscription?: string;
   rubric: Rubric;
   model: string;
   endpoint: string;
