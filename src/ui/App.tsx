@@ -2859,12 +2859,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
             {item.questionForTeacher && <p className="teacher-question"><strong>Question pour vous :</strong> {item.questionForTeacher}</p>}
             </details>
-            {item.scientificDiagramElements && <details className="scientific-diagram-quality-details review-quality-details" open={isFlagged}>
-              <summary>Éléments évalués · {(item.scientificDiagramPages ?? []).length ? 'pages ' + item.scientificDiagramPages?.join(', ') : 'pages concernées'}</summary>
-              <ul>{item.scientificDiagramElements.map((element) => <li key={element.label}>
+            {item.scientificDiagramPages && <details className="scientific-diagram-quality-details review-quality-details" open={isFlagged}>
+              <summary>Évaluation du schéma · pages {(item.scientificDiagramPages ?? []).join(', ') || 'à identifier'}</summary>
+              <p>{item.evidence}</p>
+              {item.scientificDiagramElements && <ul>{item.scientificDiagramElements.map((element) => <li key={element.label}>
                 <div><strong>{element.label}</strong><span className={`quality-status quality-status-${element.status}`}>{({ present: 'Présent', partial: 'Partiel', absent: 'Absent', uncertain: 'Incertain' })[element.status]} · {element.points} / {element.maxPoints} pt</span></div>
                 <p>{element.evidence}</p>
-              </li>)}</ul>
+              </li>)}</ul>}
+              {!item.scientificDiagramElements && <p>{item.rationale}</p>}
             </details>}
             {scientificDiagramAnalysis?.diagrams.some((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)) && <details className="scientific-diagram-criterion-details"><summary>Analyse du schéma scientifique · {scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).length} résultat(s)</summary>{scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).map((diagram) => { const result = diagram.criteria.find((entry) => entry.criterionId === item.criterionId)!; return <article key={diagram.id}><strong>{diagram.diagramType || 'Schéma'} · page {diagram.pageNumber}</strong><p>{diagram.summary}</p><p>{result.evidence}</p><small>Confiance indicative : {Math.round(result.confidence * 100)} %{result.requiresTeacherReview ? ' · Vérification requise' : ''}</small>{diagram.uncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</article>; })}{scientificDiagramAnalysis.overallUncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</details>}
             <div className="review-controls">
