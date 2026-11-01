@@ -39,18 +39,20 @@ export function createScientificDiagramAnalysisService(analyzer: ScientificDiagr
           pageNumbers: [originalPageNumber],
         });
         const idMap = new Map<string, string>();
+        const pageDiagrams: ScientificDiagramAnalysis['diagrams'] = [];
         for (const diagram of pageResult.diagrams) {
-          const id = 'diagram-' + (diagrams.length + 1);
+          const id = 'diagram-' + (diagrams.length + pageDiagrams.length + 1);
           idMap.set(diagram.id, id);
-          diagrams.push({ ...diagram, id, pageNumber: originalPageNumber, criteria: [] });
+          pageDiagrams.push({ ...diagram, id, pageNumber: originalPageNumber, criteria: [] });
         }
+        diagrams.push(...pageDiagrams);
 
         const pageCriteria = pageResult.criteria ?? pageResult.diagrams.flatMap((diagram) => diagram.criteria ?? []);
         // Store one assessment per page (not one per drawing). The existing rubric merge
         // averages page-level assessments and flags them for teacher review rather than
         // inventing a score by summing independent page grades.
-        if (diagrams.length > 0 && pageCriteria.length > 0) {
-          const firstDiagramForPage = diagrams.find((diagram) => diagram.pageNumber === originalPageNumber);
+        if (pageDiagrams.length > 0 && pageCriteria.length > 0) {
+          const firstDiagramForPage = pageDiagrams[0];
           if (firstDiagramForPage) {
             firstDiagramForPage.criteria = pageCriteria.map((criterion) => ({
               ...criterion,
