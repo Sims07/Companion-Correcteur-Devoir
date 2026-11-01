@@ -1,5 +1,5 @@
 import type { BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
-import type { ImageInput } from './aiProvider.ts';
+import type { ImageInput } from '../domain/imageInput.ts';
 
 export interface BackgroundCorrectionRepository {
   saveJob(job: BackgroundCorrectionJob): Promise<void>;
