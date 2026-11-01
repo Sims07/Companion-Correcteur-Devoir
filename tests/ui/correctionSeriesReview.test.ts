@@ -47,4 +47,36 @@ describe('correction en série — espace de révision', () => {
     expect(app).toContain('Enregistrer et passer à la copie suivante');
     expect(app).toContain('Aucune autre copie prête pour le moment.');
   });
+
+  
+  it('presents the sequential batch as compact status cards with live provisional scores', () => {
+    expect(app).toContain("isExpanded && !isActive ? 'is-expanded' : ''");
+    expect(app).toContain('Voir les pages et la correction');
+    expect(app).toContain('Masquer les pages et la correction');
+    expect(app).toContain('correction-series-provisional-score');
+    expect(app).toContain('Note provisoire ·');
+    expect(styles).toContain('grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr))');
+    expect(styles).toContain('.correction-series-list > li.is-processing');
+    expect(styles).toContain('.correction-series-list > li.is-pending');
+    expect(styles).toContain('.correction-series-pages figure');
+    expect(styles).toContain('flex: 0 0 54px');
+    expect(styles).toContain('.correction-series-live-details');
+    expect(styles).toContain('.correction-series-list > li:not(.is-active):not(.is-expanded) .correction-series-pages');
+    expect(styles).toContain('.correction-series-list > li.is-active {');
+    expect(styles).toContain('order: -1;');
+  });
+
+  it('shows a live batch overview based on actual copy states and expands the active copy', () => {
+    expect(app).toContain('correction-series-overview');
+    expect(app).toContain("['ready', 'reviewing', 'completed'].includes(job.status)");
+    expect(app).toContain("job.status === 'processing'");
+    expect(app).toContain("['needs-review', 'failed'].includes(job.status)");
+    expect(app).toContain('Copies dont la correction est disponible');
+    expect(app).toContain('const isExpanded = isActive || expandedBackgroundJobIds.includes(job.id)');
+    expect(app).toContain("isActive ? 'Correction en cours' : isExpanded ? 'Masquer les pages et la correction' : 'Voir les pages et la correction'");
+    expect(styles).toContain('.correction-series-overview-metrics');
+    expect(styles).toContain('.correction-series-list > li.is-active');
+    expect(styles).toContain('grid-column: 1 / -1');
+  });
+
 });

@@ -2522,3 +2522,206 @@
   .teacher-sidebar { padding: 16px; }
   .sidebar-back-to-assignments { margin-bottom: 12px; }
 }
+
+
+/* Batch session: compact cards make sequential progress scannable at a glance. */
+.correction-series-list {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
+  align-items: start;
+  gap: 0.75rem;
+}
+.correction-series-list > li {
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--flow-border);
+  border-radius: 12px;
+  background: #f3f5f2;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.correction-series-list > li.is-pending { background: #f5f6f4; }
+.correction-series-list > li.is-processing {
+  border-color: var(--flow-accent);
+  background: #edf3ed;
+  box-shadow: inset 3px 0 var(--flow-accent);
+}
+.correction-series-list > li.is-ready,
+.correction-series-list > li.is-completed { background: #f0f3f0; }
+.correction-series-list > li.is-needs-review,
+.correction-series-list > li.is-failed {
+  border-color: #dfc99f;
+  background: #f7f3e9;
+}
+.correction-series-copy-top { align-items: flex-start; gap: 0.55rem; }
+.correction-series-copy-top .queue-position { flex: 0 0 1.8rem; width: 1.8rem; height: 1.8rem; }
+.correction-series-copy { gap: 0.2rem; }
+.correction-series-copy > strong { overflow-wrap: anywhere; font-size: 0.9rem; line-height: 1.35; }
+.correction-series-copy span,
+.correction-series-copy small { font-size: 0.75rem; line-height: 1.4; }
+.correction-series-provisional-score {
+  color: var(--flow-accent);
+  font-size: 0.76rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.correction-series-list > li > .correction-series-view,
+.correction-series-list > li > .secondary-button,
+.correction-series-list > li > .text-button {
+  justify-self: start;
+  min-height: 30px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.75rem;
+}
+.correction-series-pages {
+  flex-wrap: nowrap;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.35rem 0 0.1rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.correction-series-pages figure { flex: 0 0 54px; width: 54px; gap: 0.2rem; }
+.correction-series-pages img { width: 54px; height: 68px; border-radius: 6px; }
+.correction-series-pages figcaption,
+.correction-series-pages .batch-copy-page-full-preview summary { font-size: 0.6rem; }
+.correction-series-pages .copy-image-rotation-controls { gap: 0.1rem; }
+.correction-series-pages .copy-image-rotation-controls .text-button { padding: 0.15rem 0.2rem; font-size: 0.62rem; }
+.correction-series-live-details {
+  margin: 0.15rem 0 0;
+  padding: 0.75rem;
+  gap: 0.65rem;
+  background: #fff;
+}
+.correction-series-live-heading { align-items: flex-start; }
+.correction-series-live-heading strong { font-size: 0.82rem; }
+.correction-series-live-heading span,
+.correction-series-live-hint,
+.correction-series-partial-results li span { font-size: 0.72rem; }
+.correction-series-partial-results li p,
+.correction-series-partial-results blockquote { font-size: 0.78rem; }
+.correction-series-partial-score { font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 700px) {
+  .correction-series-list { grid-template-columns: 1fr; }
+  .correction-series-list > li { padding: 0.7rem; }
+  .correction-series-copy-top { flex-wrap: nowrap; }
+  .correction-series-pages { padding-left: 0; }
+}
+
+
+/* Batch overview: report real copy states, not a simulated time estimate. */
+.correction-series-overview {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--flow-border);
+  border-radius: 12px;
+  background: var(--flow-surface, #fff);
+}
+.correction-series-overview-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.correction-series-overview-heading > div {
+  display: grid;
+  gap: 0.2rem;
+}
+.correction-series-overview-heading strong {
+  color: var(--flow-text);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+.correction-series-overview-heading > span {
+  color: var(--flow-muted);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.correction-series-progress-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--flow-subtle);
+}
+.correction-series-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--flow-accent);
+  transition: width 220ms ease;
+}
+.correction-series-overview-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.correction-series-overview-metrics article {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  background: #f3f5f2;
+}
+.correction-series-overview-metrics article strong {
+  color: var(--flow-text);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+.correction-series-overview-metrics article span {
+  color: var(--flow-muted);
+  font-size: 0.7rem;
+}
+.correction-series-overview-metrics article.has-attention {
+  background: #f7f3e9;
+}
+.correction-series-overview-metrics article.has-attention strong {
+  color: #8a642b;
+}
+.correction-series-list > li.is-active {
+  grid-column: 1 / -1;
+  border-color: var(--flow-accent);
+  background: #edf3ed;
+  box-shadow: inset 3px 0 var(--flow-accent);
+}
+.correction-series-list > li.is-active .correction-series-live-details {
+  border-color: var(--flow-border);
+  background: var(--flow-surface, #fff);
+}
+.correction-series-list > li.is-active .correction-series-view {
+  color: var(--flow-accent);
+  font-weight: 750;
+}
+.correction-series-list > li.is-ready,
+.correction-series-list > li.is-reviewing,
+.correction-series-list > li.is-completed {
+  background: #f3f5f2;
+}
+@media (max-width: 700px) {
+  .correction-series-overview-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+/* Keep the queue calm: page previews are contextual, not permanent decoration. */
+.correction-series-list > li.is-active {
+  order: -1;
+}
+.correction-series-list > li:not(.is-active):not(.is-expanded) .correction-series-pages {
+  display: none;
+}
+.correction-series-list > li.is-expanded {
+  border-color: var(--flow-border-strong);
+  background: var(--flow-surface, #fff);
+}
+.correction-series-list > li.is-expanded .correction-series-pages,
+.correction-series-list > li.is-active .correction-series-pages {
+  display: flex;
+}
+.correction-series-list > li.is-active .correction-series-live-details {
+  border-color: var(--flow-border-strong);
+  box-shadow: 0 3px 14px rgb(20 35 25 / 5%);
+}
