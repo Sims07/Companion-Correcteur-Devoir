@@ -2861,3 +2861,22 @@
   .correction-series-overview-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .correction-series-copy-top { flex-wrap: initial; }
 }
+
+.correction-series-preview-panel {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--flow-border);
+  border-radius: 14px;
+  background: var(--flow-subtle);
+}
+.correction-series-preview-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.correction-series-preview-heading h4 { margin: 0; }
+.correction-series-preview-heading p { margin: 0.25rem 0 0; color: var(--flow-muted); font-size: 0.84rem; }
+.correction-series-preview-panel .correction-series-pages { padding: 0; }
