@@ -53,7 +53,7 @@ describe('OpenAI scientific diagram adapter', () => {
     const body = JSON.parse(String(init?.body));
     expect(body.model).toBe('vision-model');
     expect(body.messages[0].content[0].text).toContain('QUESTION : Dessiner une cellule');
-    expect(body.max_tokens).toBe(4096);
+    expect(body.max_tokens).toBe(2048);
     expect(body.max_completion_tokens).toBeUndefined();
     expect(body.messages[0].content).toEqual([
       { type: 'text', text: expect.stringContaining('CRITÈRES VISUELS') },
@@ -119,6 +119,18 @@ describe('OpenAI scientific diagram adapter', () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: '{bad json' } }] }), { status: 200 }));
     await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request)).rejects.toThrow(/JSON valide/);
   });
+  it('never requests more than the 2048-token limit on OpenAI-compatible Vision endpoints', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      message: { content: JSON.stringify(output) },
+      done_reason: 'stop',
+    }), { status: 200 }));
+    await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request);
+    for (const [, init] of fetchMock.mock.calls) {
+      const body = JSON.parse(String(init?.body));
+      expect(body.max_tokens).toBeLessThanOrEqual(2048);
+    }
+  });
+
   it('retries once with a compact response when the provider reports finish_reason length', async () => {
     const globalOutput = { diagrams: [{ pageNumber: 1, diagramType: 'schéma', summary: '', uncertainties: [] }], criteria: [{ criterionId: 'labels', points: 1, evidence: 'Preuve', confidence: 0.8, requiresTeacherReview: false, diagramIds: ['diagram-1'] }], overallUncertainties: [] };
     const fetchMock = vi.fn<typeof fetch>()
@@ -127,7 +139,7 @@ describe('OpenAI scientific diagram adapter', () => {
     const result = await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request);
     expect(result.criteria?.[0].points).toBe(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).max_tokens).toBe(4096);
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).max_tokens).toBe(2048);
   });
   it('repairs one invalid field and keeps the failed raw answer in diagnostics', async () => {
     const invalid = { diagrams: [{ pageNumber: 1, diagramType: 'schéma', summary: '', uncertainties: [] }], criteria: [{ criterionId: 'labels', points: 3, evidence: 'Preuve', confidence: 0.8, requiresTeacherReview: false, diagramIds: ['diagram-1'] }], overallUncertainties: [] };
