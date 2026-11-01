@@ -43,7 +43,7 @@ describe('Ollama adapter', () => {
     const onTranscription = vi.fn();
     const onDiagnosticResult = vi.fn();
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
-    await expect(provider.generate({ ...request, identifyStudent: true, visionOnly: true }, undefined, undefined, onTranscription, onDiagnosticResult)).resolves.toBe('[ copie.png ]\\nRéponse manuscrite lisible.');
+    await expect(provider.generate({ ...request, identifyStudent: true, visionOnly: true }, undefined, undefined, onTranscription, onDiagnosticResult)).resolves.toBe('[ copie.png ]\nRéponse manuscrite lisible.');
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const identityBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(identityBody.messages[0].content).toContain('uniquement la bande supérieure');
@@ -53,7 +53,7 @@ describe('Ollama adapter', () => {
     expect(transcriptionBody.messages[0].content).toContain('Transcris fidèlement');
     expect(transcriptionBody.messages[0].content).not.toContain('STUDENT_IDENTITY');
     expect(onTranscription).toHaveBeenCalledWith(identity, 'identity');
-    expect(onTranscription).toHaveBeenCalledWith('[ copie.png ]\\nRéponse manuscrite lisible.', 'copy');
+    expect(onTranscription).toHaveBeenCalledWith('[ copie.png ]\nRéponse manuscrite lisible.', 'copy');
     expect(onDiagnosticResult).toHaveBeenCalledTimes(2);
     expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ purpose: 'student-identity', stage: 'reading', kind: 'vision' });
   });
@@ -64,7 +64,7 @@ describe('Ollama adapter', () => {
       .mockResolvedValueOnce(streamingResponse('Réponse manuscrite lisible.'));
     const onTranscription = vi.fn();
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
-    await expect(provider.generate({ ...request, visionOnly: true }, undefined, undefined, onTranscription)).resolves.toBe('[ copie.png ]\\nRéponse manuscrite lisible.');
+    await expect(provider.generate({ ...request, visionOnly: true }, undefined, undefined, onTranscription)).resolves.toBe('[ copie.png ]\nRéponse manuscrite lisible.');
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(onTranscription).not.toHaveBeenCalledWith(expect.any(String), 'identity');
   });
