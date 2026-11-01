@@ -2842,13 +2842,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>
             </section>}
             {!isFlagged && <p className="rationale">{item.rationale}</p>}
-            {item.scientificDiagramElements && <details className="scientific-diagram-quality-details review-quality-details" open={isFlagged}>
-              <summary>Éléments évalués · {(item.scientificDiagramPages ?? []).length ? 'pages ' + item.scientificDiagramPages?.join(', ') : 'pages concernées'}</summary>
-              <ul>{item.scientificDiagramElements.map((element) => <li key={element.label}>
-                <div><strong>{element.label}</strong><span className={`quality-status quality-status-${element.status}`}>{({ present: 'Présent', partial: 'Partiel', absent: 'Absent', uncertain: 'Incertain' })[element.status]} · {element.points} / {element.maxPoints} pt</span></div>
-                <p>{element.evidence}</p>
-              </li>)}</ul>
-            </details>}
             {item.qualityBreakdown && (
               <details className="scientific-diagram-quality-details review-quality-details">
                 <summary>Pourquoi cette note ? · Détail du schéma</summary>
@@ -2866,6 +2859,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
             {item.questionForTeacher && <p className="teacher-question"><strong>Question pour vous :</strong> {item.questionForTeacher}</p>}
             </details>
+            {item.scientificDiagramElements && <details className="scientific-diagram-quality-details review-quality-details" open={isFlagged}>
+              <summary>Éléments évalués · {(item.scientificDiagramPages ?? []).length ? 'pages ' + item.scientificDiagramPages?.join(', ') : 'pages concernées'}</summary>
+              <ul>{item.scientificDiagramElements.map((element) => <li key={element.label}>
+                <div><strong>{element.label}</strong><span className={`quality-status quality-status-${element.status}`}>{({ present: 'Présent', partial: 'Partiel', absent: 'Absent', uncertain: 'Incertain' })[element.status]} · {element.points} / {element.maxPoints} pt</span></div>
+                <p>{element.evidence}</p>
+              </li>)}</ul>
+            </details>}
             {scientificDiagramAnalysis?.diagrams.some((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)) && <details className="scientific-diagram-criterion-details"><summary>Analyse du schéma scientifique · {scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).length} résultat(s)</summary>{scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).map((diagram) => { const result = diagram.criteria.find((entry) => entry.criterionId === item.criterionId)!; return <article key={diagram.id}><strong>{diagram.diagramType || 'Schéma'} · page {diagram.pageNumber}</strong><p>{diagram.summary}</p><p>{result.evidence}</p><small>Confiance indicative : {Math.round(result.confidence * 100)} %{result.requiresTeacherReview ? ' · Vérification requise' : ''}</small>{diagram.uncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</article>; })}{scientificDiagramAnalysis.overallUncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</details>}
             <div className="review-controls">
               <label><span className="field-label">Votre note</span><input type="number" min="0" max={criterion?.maxPoints ?? 0} step="0.5" value={item.teacherPoints} onChange={(event) => updateReview(item.criterionId, { teacherPoints: Number(event.target.value), decision: 'adjusted' })} /></label>
