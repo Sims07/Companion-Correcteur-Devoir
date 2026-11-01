@@ -141,7 +141,7 @@ export function createBackgroundCorrectionService(
                     try {
                       const studentIdentity = JSON.parse(text) as StudentIdentity;
                       const suggestedLabel = formatStudentIdentityLabel(studentIdentity);
-                      const fallbackLabel = current.images[0]?.fileName || /^Copie \d+$/.test(current.label);
+                      const fallbackLabel = current.label === current.images[0]?.fileName || /^Copie \d+$/.test(current.label);
                       queueProgress({
                         studentIdentity,
                         ...(studentIdentity.confidence === 'high' && suggestedLabel && fallbackLabel ? { label: suggestedLabel } : {}),
