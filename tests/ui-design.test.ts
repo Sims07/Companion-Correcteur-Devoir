@@ -166,7 +166,7 @@ describe('UI design system', () => {
   });
   it('provides an explicit local copy queue for serial grading', () => {
     expect(appComponent).toContain('function queueCurrentCopy()');
-    expect(appComponent).toContain('function loadNextQueuedCopy()');
+    expect(appComponent).toContain('function loadNextQueuedCopy(jobId?: string)');
     expect(appComponent).toContain('function enqueueBackgroundCopy(files: FileList | null)');
     expect(appComponent).toContain('id="background-copy-files"');
     expect(appComponent).toContain('Copie suivante');
