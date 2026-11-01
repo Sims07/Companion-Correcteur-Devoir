@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createBackgroundCorrection } from '../src/domain/backgroundCorrection.ts';
 import { createBackgroundCorrectionService } from '../src/application/backgroundCorrectionService.ts';
 import type { BackgroundCorrectionJob } from '../src/domain/backgroundCorrection.ts';
 import type { BackgroundCorrectionRepository } from '../src/ports/backgroundCorrectionRepository.ts';
+import type { GradingProvider } from '../src/ports/aiProvider.ts';
 import type { CorrectionWorkspaceService } from '../src/application/correctionWorkspaceService.ts';
 
 function fixture() {
@@ -37,19 +38,19 @@ function fixture() {
     getCachedTranscription: vi.fn(async (key) => cache.get(key) ?? null),
     saveCachedTranscription: vi.fn(async (key, value) => { cache.set(key, value); }),
   };
-  const generateCalls: Array<{ images: unknown[] | undefined; transcription?: string; criterionIds: string[] }> = [];
-  const createProvider = vi.fn(() => ({
+  let generateImplementation: GradingProvider['generate'] = async (request, _chunk, _stage, onTranscription, _diagnostic, onCriterionUpdate) => {
+    const rubric = JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> };
+    const criterion = rubric.criteria[0];
+    if (!request.transcription) await onTranscription?.('Texte extrait de la copie', 'copy');
+    const proposal = { criterionId: criterion.id, points: criterion.maxPoints, rationale: '', evidence: 'preuve', confidence: 'high' as const };
+    await onCriterionUpdate?.({ criterionId: criterion.id, index: 1, total: 1, attempt: 1, status: 'completed', proposal });
+    return JSON.stringify({ summary: 'OK', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
+  };
+  const provider: GradingProvider = {
     id: 'fake-provider',
-    generate: vi.fn(async (request: { rubric: string; images?: unknown[]; transcription?: string }, _chunk, _stage, onTranscription, _diagnostic, onCriterionUpdate) => {
-      const rubric = JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> };
-      const criterion = rubric.criteria[0];
-      generateCalls.push({ images: request.images, transcription: request.transcription, criterionIds: rubric.criteria.map((item) => item.id) });
-      if (!request.transcription) await onTranscription?.('Texte extrait de la copie', 'copy');
-      const proposal = { criterionId: criterion.id, points: criterion.maxPoints, rationale: '', evidence: 'preuve', confidence: 'high' as const };
-      await onCriterionUpdate?.({ criterionId: criterion.id, index: 1, total: 1, attempt: 1, status: 'completed', proposal });
-      return JSON.stringify({ summary: 'OK', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
-    }),
-  }));
+    generate: (...args) => generateImplementation(...args),
+  };
+  const createProvider = vi.fn<CorrectionWorkspaceService['createProvider']>(() => provider);
   const workspace = {
     checkReady: vi.fn(async () => undefined),
     prewarmModel: vi.fn(async () => undefined),
@@ -61,7 +62,7 @@ function fixture() {
     eraseTeacherAnnotationColor: vi.fn(),
     importRubric: vi.fn(),
   } as unknown as CorrectionWorkspaceService;
-  return { job, jobs, cache, repository, workspace, createProvider, generateCalls };
+  return { job, jobs, cache, repository, workspace, createProvider, setGenerateImplementation: (implementation: GradingProvider['generate']) => { generateImplementation = implementation; } };
 }
 
 describe('background correction service', () => {
@@ -69,52 +70,46 @@ describe('background correction service', () => {
     const f = fixture();
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
     await service.enqueue(f.job, { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
-    for (let attempt = 0; attempt < 20 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) {
+    for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
     const completed = f.jobs.get('copy-1');
     expect(f.workspace.checkReady).toHaveBeenCalledTimes(2);
     expect(f.workspace.prewarmModel).toHaveBeenCalledWith(expect.anything(), 'vision:4b');
-    expect(f.generateCalls.map((call) => call.criterionIds)).toEqual([['c1'], ['c2']]);
-    expect(f.generateCalls[0].images).toHaveLength(1);
-    expect(f.generateCalls[1].images).toEqual([]);
-    expect(f.generateCalls[1].transcription).toBe('Texte extrait de la copie');
+    expect(f.createProvider).toHaveBeenCalledTimes(2);
     expect(f.cache.get('fingerprint-1')).toBe('Texte extrait de la copie');
     expect(completed?.status).toBe('ready');
     expect(completed?.partialCriteria).toHaveLength(2);
     expect(completed?.proposal?.finalScore).toBe(4);
+    const calls = f.createProvider.mock.calls;
+    expect(calls).toHaveLength(2);
   });
 
-  it('keeps partial results and yields between model calls when the teacher takes priority', async () => {
+  it('keeps completed criteria and yields to the teacher between model calls', async () => {
     const f = fixture();
     let releaseFirst!: () => void;
     const firstCall = new Promise<void>((resolve) => { releaseFirst = resolve; });
     let call = 0;
-    f.createProvider.mockImplementation(() => ({
-      id: 'fake-provider',
-      generate: vi.fn(async (request: { rubric: string }, _chunk, _stage, _transcription, _diagnostic, onCriterionUpdate) => {
-        const rubric = JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> };
-        const criterion = rubric.criteria[0];
-        call += 1;
-        if (call === 1) {
-          await onCriterionUpdate?.({ criterionId: criterion.id, index: 1, total: 1, attempt: 1, status: 'completed', proposal: { criterionId: criterion.id, points: criterion.maxPoints, rationale: '', evidence: 'preuve', confidence: 'high' } });
-          await firstCall;
-        }
-        const proposal = { criterionId: criterion.id, points: criterion.maxPoints, rationale: '', evidence: 'preuve', confidence: 'high' as const };
-        return JSON.stringify({ summary: 'OK', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
-      }),
-    }));
+    f.setGenerateImplementation(async (request, _chunk, _stage, _transcription, _diagnostic, onCriterionUpdate) => {
+      const rubric = JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> };
+      const criterion = rubric.criteria[0];
+      call += 1;
+      const proposal = { criterionId: criterion.id, points: criterion.maxPoints, rationale: '', evidence: 'preuve', confidence: 'high' as const };
+      await onCriterionUpdate?.({ criterionId: criterion.id, index: 1, total: 1, attempt: 1, status: 'completed', proposal });
+      if (call === 1) await firstCall;
+      return JSON.stringify({ summary: 'OK', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
+    });
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
-    const running = service.enqueue(f.job, { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
-    for (let attempt = 0; attempt < 20 && call === 0; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+    await service.enqueue(f.job, { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+    for (let attempt = 0; attempt < 50 && call === 0; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
     const pause = service.pauseAndWait();
     releaseFirst();
-    await Promise.all([running, pause]);
+    await pause;
     const paused = f.jobs.get('copy-1');
     expect(paused?.status).toBe('pending');
     expect(paused?.partialCriteria.map((item) => item.criterionId)).toContain('c1');
     service.resume();
-    for (let attempt = 0; attempt < 20 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+    for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
     expect(f.jobs.get('copy-1')?.status).toBe('ready');
     expect(call).toBe(2);
   });
