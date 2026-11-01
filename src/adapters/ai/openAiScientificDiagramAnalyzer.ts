@@ -226,7 +226,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           }],
         };
         const post = (format: unknown) => compatibleFetch(
-          request.endpoint.replace(/\\/+$/, '') + '/api/chat',
+          request.endpoint.replace(/\/+$/, '') + '/api/chat',
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
