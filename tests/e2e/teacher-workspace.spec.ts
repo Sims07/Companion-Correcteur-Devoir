@@ -103,7 +103,7 @@ test('teacher can choose clearly distinct individual and series correction workf
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
   await expect(page.locator('.copy-panel')).toHaveCount(0);
   await expect(series.getByText('Aucune copie dans la session.')).toBeVisible();
-  await expect(series.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
+  await expect(series.getByRole('heading', { name: 'Copies ajoutées à la session' })).toBeVisible();
   await expect(series.getByText('Traitement séquentiel')).toBeVisible();
   await expect(modeChooser.getByRole('button', { name: /Correction en série/ })).toHaveAttribute('aria-pressed', 'true');
 
