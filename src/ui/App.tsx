@@ -1453,6 +1453,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   function applyAssignment(profile: AssignmentProfile) {
+    setCurrentBackgroundJobId(null);
     setShowOnlyFlagged(true);
     setFocusedEvidencePage(null);
     setActiveAssignmentId(profile.id);
@@ -1685,6 +1686,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   function startNextCopy() {
     if (copyQueue.length > 0) { void loadNextQueuedCopy(); return; }
+    setCurrentBackgroundJobId(null);
     setStudentLabel('');
     setImages([]);
     setOriginalImages([]);
