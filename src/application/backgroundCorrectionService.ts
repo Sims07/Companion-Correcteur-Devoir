@@ -224,6 +224,7 @@ export function createBackgroundCorrectionService(
       if (!job || !['failed', 'needs-review', 'reviewing'].includes(job.status)) return;
       await persist({ ...job, status: 'pending', error: null, updatedAt: new Date().toISOString() });
       autoEnabled = true;
+      if (foregroundPriority) { lastSettings = settings; return; }
       paused = false;
       await run(settings);
     },
