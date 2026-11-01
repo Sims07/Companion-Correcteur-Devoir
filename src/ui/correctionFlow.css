@@ -2002,3 +2002,9 @@
 .teacher-transcription-details > summary small { margin-left:auto; color:var(--flow-muted); }
 .teacher-transcription-details[open] .live-transcription-text { max-height:260px; overflow:auto; }
 @media(max-width:650px) { .teacher-progress-phases { grid-template-columns:1fr; } .teacher-progress-heading { align-items:flex-start; flex-direction:column; } }
+
+.teacher-progress-page-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.teacher-progress-page-list > span { padding:5px 9px; border-radius:999px; background:var(--flow-panel); color:var(--flow-muted); font-size:12px; }
+.teacher-progress-page-list > .is-complete { color:var(--flow-success); }
+.teacher-progress-page-list > .is-doubtful { color:var(--flow-warning); background:var(--flow-warning-soft); }
+.teacher-progress-warning .text-button { border:0; padding:0; color:inherit; text-decoration:underline; background:transparent; font:inherit; cursor:pointer; }
