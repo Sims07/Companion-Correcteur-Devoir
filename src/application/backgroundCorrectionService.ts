@@ -101,60 +101,75 @@ export function createBackgroundCorrectionService(
               criterionByCriterion: true,
               diagnosticStrategy: 'single',
             });
-            const saveProgress = async (patch: Partial<BackgroundCorrectionJob>) => {
+            let progressWrites = Promise.resolve();
+            let progressWriteError: unknown = null;
+            const queueProgress = (patch: Partial<BackgroundCorrectionJob>, cachedText?: string) => {
               current = { ...current, ...patch, updatedAt: new Date().toISOString() };
-              await persist(current);
+              const snapshot = structuredClone(current);
+              progressWrites = progressWrites.then(async () => {
+                if (cachedText !== undefined) await repository.saveCachedTranscription(fingerprint, cachedText);
+                await persist(snapshot);
+              }).catch((cause: unknown) => { progressWriteError = cause; });
             };
-            const raw = await provider.generate(
-              {
-                question: current.question,
-                rubric: JSON.stringify({ ...remaining, criteria: [criterion] }),
-                images: current.transcription ? [] : current.images,
-                ...(current.transcription ? { transcription: current.transcription } : {}),
-                pageNumbers: current.images.map((_, index) => index + 1),
-                totalPageCount: current.images.length,
-                ...(current.correctionMode === 'separate' ? { subjectImages: current.subjectImages, ...(current.subjectTranscription ? { subjectTranscription: current.subjectTranscription } : {}) } : {}),
-                detectTeacherAnnotations: current.detectTeacherAnnotations,
-                keepAnalysisModelWarm: remaining.criteria.length > 1,
-                ...(current.detectTeacherAnnotations ? { teacherAnnotationImages: current.originalImages, teacherAnnotationPageNumbers: current.originalImages.map((_, index) => index + 1) } : {}),
-              },
-              undefined,
-              undefined,
-              async (text, kind) => {
-                if (kind === 'subject') {
-                  await saveProgress({ subjectTranscription: text });
-                } else if (kind !== 'annotations' && kind !== 'warning') {
-                  await repository.saveCachedTranscription(fingerprint, text);
-                  await saveProgress({ transcription: text, phase: 'grading', completedPages: current.images.length });
-                }
-              },
-              undefined,
-              async (update) => {
-                if (update.status === 'completed' && update.proposal) {
-                  const partialCriteria = mergeCriteria(current.partialCriteria, [update.proposal]);
-                  await saveProgress({ partialCriteria, completedCriteria: partialCriteria.length, phase: 'grading' });
-                }
-              },
-              undefined,
-              async (event: GradingProgressEvent) => {
-                if (event.type === 'phase') {
-                  if (event.phase === 'reading') activeModelToUnload = current.visionModel;
-                  if (event.phase === 'grading') {
-                    activeModelToUnload = current.analysisModel;
-                    prewarmedModel = null;
+            let raw: string | null = null;
+            let generationError: unknown;
+            try {
+              raw = await provider.generate(
+                {
+                  question: current.question,
+                  rubric: JSON.stringify({ ...remaining, criteria: [criterion] }),
+                  images: current.transcription ? [] : current.images,
+                  ...(current.transcription ? { transcription: current.transcription } : {}),
+                  pageNumbers: current.images.map((_, index) => index + 1),
+                  totalPageCount: current.images.length,
+                  ...(current.correctionMode === 'separate' ? { subjectImages: current.subjectImages, ...(current.subjectTranscription ? { subjectTranscription: current.subjectTranscription } : {}) } : {}),
+                  detectTeacherAnnotations: current.detectTeacherAnnotations,
+                  keepAnalysisModelWarm: remaining.criteria.length > 1,
+                  ...(current.detectTeacherAnnotations ? { teacherAnnotationImages: current.originalImages, teacherAnnotationPageNumbers: current.originalImages.map((_, index) => index + 1) } : {}),
+                },
+                undefined,
+                undefined,
+                (text, kind) => {
+                  if (kind === 'subject') queueProgress({ subjectTranscription: text });
+                  else if (kind !== 'annotations' && kind !== 'warning') queueProgress({ transcription: text, phase: 'grading', completedPages: current.images.length }, text);
+                },
+                undefined,
+                (update) => {
+                  if (update.status === 'completed' && update.proposal) {
+                    const partialCriteria = mergeCriteria(current.partialCriteria, [update.proposal]);
+                    queueProgress({ partialCriteria, completedCriteria: partialCriteria.length, phase: 'grading' });
                   }
-                  await saveProgress({ phase: event.phase });
-                }
-                if (event.type === 'page' && event.status !== 'started') await saveProgress({ completedPages: Math.max(current.completedPages, event.pageIndex) });
-              },
-            );
+                },
+                undefined,
+                (event: GradingProgressEvent) => {
+                  if (event.type === 'phase') {
+                    if (event.phase === 'reading') activeModelToUnload = current.visionModel;
+                    if (event.phase === 'grading') {
+                      activeModelToUnload = current.analysisModel;
+                      prewarmedModel = null;
+                    }
+                    queueProgress({ phase: event.phase });
+                  }
+                  if (event.type === 'page' && event.status !== 'started') queueProgress({ completedPages: Math.max(current.completedPages, event.pageIndex) });
+                },
+              );
+            } catch (cause) {
+              generationError = cause;
+            }
+            await progressWrites;
+            if (progressWriteError) throw progressWriteError;
+            if (generationError) throw generationError;
+            if (raw === null) throw new Error('Le modèle n’a retourné aucun résultat pour ce critère.');
             if (remaining.criteria.length === 1) activeModelToUnload = null;
             const parsed = parseGradingProposal(raw, { ...remaining, criteria: [criterion] });
-            await saveProgress({
+            current = {
+              ...current,
               partialCriteria: mergeCriteria(current.partialCriteria, parsed.criteria),
-              completedCriteria: current.partialCriteria.length + parsed.criteria.length,
+              completedCriteria: mergeCriteria(current.partialCriteria, parsed.criteria).length,
               phase: 'grading',
-            });
+              updatedAt: new Date().toISOString(),
+            };
+            await persist(current);
           }
           if (paused) {
             if (activeModelToUnload) await workspace.unloadModel?.(settings, activeModelToUnload).catch(() => undefined);
