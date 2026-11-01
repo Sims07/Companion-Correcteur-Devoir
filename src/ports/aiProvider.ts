@@ -20,6 +20,8 @@ export interface GradingRequest {
   subjectTranscription?: string;
   /** Reuse a previously extracted local transcription to rerun grading without vision inference. */
   transcription?: string;
+  /** Identify the student once from the first-page header before transcribing the copy. */
+  identifyStudent?: boolean;
   /** Stop after local image transcription for an independent Vision benchmark. */
   visionOnly?: boolean;
   detectTeacherAnnotations?: boolean;
