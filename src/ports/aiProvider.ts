@@ -1,10 +1,6 @@
 import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/teacherAnnotations.ts';
-export interface ImageInput {
-  /** Base64 image bytes without a data-URL prefix. Keep this value local. */
-  base64: string;
-  mimeType: string;
-  fileName?: string;
-}
+import type { ImageInput } from '../domain/imageInput.ts';
+export type { ImageInput } from '../domain/imageInput.ts';
 
 export interface GradingRequest {
   question: string;
@@ -27,6 +23,8 @@ export interface GradingRequest {
   /** Stop after local image transcription for an independent Vision benchmark. */
   visionOnly?: boolean;
   detectTeacherAnnotations?: boolean;
+  /** Keep the analysis model warm between background criteria; false unloads it after this call. */
+  keepAnalysisModelWarm?: boolean;
 }
 
 export interface DiagnosticModelResult {
@@ -123,6 +121,8 @@ export interface OllamaSettings {
   diagnosticSecondResult?: string;
   secondAnalysisModel?: string;
   arbitratorModel?: string;
+  /** Automatically process queued copies after import; enabled by default. */
+  autoBackgroundCorrection?: boolean;
 }
 
 export interface OllamaModel {
