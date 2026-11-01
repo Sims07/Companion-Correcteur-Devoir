@@ -38,7 +38,7 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('keeps a local archive and next-copy path after finalization', () => {
     const text = app();
-    expect(text).toContain("useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric')");
+    expect(text).toContain("useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'copy' : 'rubric')");
     expect(text).toContain('Corrections enregistrées');
     expect(text).toContain('Ajouter une autre copie');
     expect(text).toContain('Consulter la correction');
@@ -54,8 +54,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain("item.decision === 'pending' ? 'accepted' : 'pending'");
     expect(text).toContain('Confirmer ce critère');
     expect(text).toContain('✓ Critère confirmé');
-    expect(text).toContain('Enregistrer la correction');
-    expect(text).toContain('Enregistrer les modifications');
+    expect(text).toContain('Enregistrer et passer à la copie suivante');
+    expect(text).toContain('Enregistrer et passer à la copie suivante');
     expect(text).toContain('Exporter le récapitulatif (JSON)');
     expect(text).not.toContain('function decideAll()');
     expect(text).not.toContain('Accepter les propositions non modifiées');
@@ -255,8 +255,8 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('starts new assignments with pedagogical context before the independent rubric', () => {
     const text = app();
-    expect(text).toContain("setTeacherStep('details')");
-    expect(text).toContain('ÉTAPE 0 · CONTEXTE');
+    expect(text).toContain("setTeacherStep('rubric')");
+    expect(text).toContain('className="assignment-details-collapsible"');
     expect(text).toContain('Description et objectifs pédagogiques');
     expect(text).toContain('Niveau scolaire / universitaire');
     expect(text).toContain('id="assignment-education-level"');
@@ -266,12 +266,12 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('provides a teacher-specific three-step navigation and shows only the active task', () => {
     const text = app();
-    expect(text).toContain("useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>('rubric')");
+    expect(text).toContain("useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'copy' : 'rubric')");
     expect(text).toContain('aria-label="Navigation de la correction"');
     expect(text).toContain('aria-label="Étapes du devoir"');
     expect(text).toContain('Préparer le barème');
     expect(text).toContain('Ajouter une copie');
-    expect(text).toContain('Réviser la note');
+    expect(text).toContain('Révision');
     expect(text).toContain('Correction en cours');
     expect(text).not.toContain('Suivi du traitement');
     expect(text).toContain("setTeacherStep('progress')");
