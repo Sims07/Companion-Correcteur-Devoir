@@ -112,12 +112,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await safeSummary.locator('summary').click();
   await expect(safeSummary.getByText('Transport membranaire')).toBeVisible();
   await expect(safeSummary.getByText('La membrane contrôle les échanges.')).toBeVisible();
-  const bulkConfirm = page.getByRole('button', { name: 'Confirmer les critères sans alerte (1)' });
-  await expect(bulkConfirm).toBeVisible();
-  await bulkConfirm.click();
-  await expect(page.getByText('1 critère(s) confirmé(s)')).toBeVisible();
-  await page.getByRole('button', { name: 'Annuler' }).click();
-  await expect(page.getByText('Confirmation groupée annulée. Les critères sont de nouveau en attente.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Confirmer les critères sans alerte/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Confirmer ce critère' })).toHaveCount(0);
   const explanation = page.locator('details.review-explanation');
   await expect(explanation).toHaveCount(1);
   await expect(explanation).not.toHaveAttribute('open', '');
@@ -163,9 +159,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.reload();
   await page.getByRole('button', { name: /Corrections enregistrées/ }).click();
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
-  const incompleteBulkConfirm = page.getByRole('button', { name: 'Confirmer les critères sans alerte (1)' });
-  await expect(incompleteBulkConfirm).toBeVisible();
-  await expect(incompleteBulkConfirm).toBeDisabled();
+  await expect(page.getByRole('button', { name: /Confirmer les critères sans alerte/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Ajouter une autre copie' })).toBeVisible();
 
   const sourcePage = page.getByRole('img', { name: 'Page de travail 1 de la copie' });
   const sourceImageBeforeRotation = await sourcePage.getAttribute('src');
