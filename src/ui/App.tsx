@@ -23,7 +23,7 @@ import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
 import { appendQueuedCopy, type QueuedCopy } from '../domain/copyQueue.ts';
 import { createBackgroundCorrection, backgroundCorrectionStatusLabel, type BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
-import type { BackgroundCorrectionService } from '../application/backgroundCorrectionService.ts';
+import type { BackgroundCorrectionService } from '../application/backgroundService.ts';
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/teacherAnnotations.ts';
@@ -260,7 +260,17 @@ function getLocalMemoryCorrectionId(): string | null {
   }
 }
 
-export function App({ service, archiveService, evaluationService, backgroundCorrectionService, diagramAnalysisService, loadSalukiModel }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; backgroundCorrectionService: BackgroundCorrectionService; diagramAnalysisService: ScientificDiagramAnalysisService; loadSalukiModel: (settings: { endpoint: string; apiKey: string }) => Promise<void> }) {
+export function App({ service, archiveService, evaluationService, backgroundCorrectionService, diagramAnalysisService, loadSalukiModel }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; backgroundCorrectionService?: BackgroundCorrectionService; diagramAnalysisService: ScientificDiagramAnalysisService; loadSalukiModel: (settings: { endpoint: string; apiKey: string }) => Promise<void> }) {
+  const backgroundService: BackgroundCorrectionService = backgroundCorrectionService ?? {
+    enqueue: async () => undefined,
+    listJobs: async () => [],
+    prewarm: async () => undefined,
+    pauseAndWait: async () => undefined,
+    resume: () => undefined,
+    processPending: async () => undefined,
+    subscribe: () => () => undefined,
+    markForReview: async () => undefined,
+  };
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
   const [showAssignmentPicker, setShowAssignmentPicker] = useState(false);
@@ -339,21 +349,21 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
   const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
   const [autoBackgroundCorrection, setAutoBackgroundCorrection] = useState(true);
-  useEffect(() => backgroundCorrectionService.subscribe((jobs) => {
+  useEffect(() => backgroundService.subscribe((jobs) => {
     setBackgroundJobs(jobs.filter((job) => job.assignmentId === activeAssignmentId));
   }), [backgroundCorrectionService, activeAssignmentId]);
   useEffect(() => {
     let active = true;
-    void backgroundCorrectionService.listJobs(activeAssignmentId).then((jobs) => { if (active) setBackgroundJobs(jobs); });
+    void backgroundService.listJobs(activeAssignmentId).then((jobs) => { if (active) setBackgroundJobs(jobs); });
     return () => { active = false; };
   }, [backgroundCorrectionService, activeAssignmentId]);
   useEffect(() => {
     let active = true;
     const settings = { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection };
-    void backgroundCorrectionService.listJobs().then(async (jobs) => {
+    void backgroundService.listJobs().then(async (jobs) => {
       if (!active || !autoBackgroundCorrection || !jobs.some((job) => job.status === 'pending' || job.status === 'processing')) return;
-      await backgroundCorrectionService.prewarm(settings);
-      if (active) await backgroundCorrectionService.processPending(settings);
+      await backgroundService.prewarm(settings);
+      if (active) await backgroundService.processPending(settings);
     }).catch(() => { /* A later explicit retry will expose any configuration problem. */ });
     return () => { active = false; };
   }, []);
@@ -832,7 +842,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function gradeCopies(strategyOverride?: 'arbitrate-only') {
-    await backgroundCorrectionService.pauseAndWait();
+    await backgroundService.pauseAndWait();
     if (annotationInkColor !== 'none' && !annotationInkColorApplied) {
       setError('Prévisualisez puis appliquez le retrait de la couleur des annotations avant de lancer la lecture et la correction.');
       setTeacherStep('copy');
@@ -1101,7 +1111,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       });
       setIsAnalyzing(false);
       setBusy(false);
-      backgroundCorrectionService.resume();
+      backgroundService.resume();
     }
   }
 
@@ -1591,7 +1601,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         createdAt: now,
         updatedAt: now,
       });
-      await backgroundCorrectionService.enqueue(job, {
+      await backgroundService.enqueue(job, {
         endpoint, apiCompatible, apiKey, visionModel, analysisModel,
         thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection,
         transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
@@ -1617,7 +1627,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         ? 'Copie ajoutée. Sa correction démarre en arrière-plan, sans interrompre votre révision.'
         : 'Copie ajoutée à la file locale. Lancez le traitement quand vous le souhaitez.');
       setTeacherStep('copy');
-      const jobs = await backgroundCorrectionService.listJobs(activeAssignmentId);
+      const jobs = await backgroundService.listJobs(activeAssignmentId);
       setBackgroundJobs(jobs);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible de mettre cette copie en file de traitement.');
@@ -1633,7 +1643,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setReviewMessage('Aucune copie n’est encore prête à réviser. Le traitement continue en arrière-plan.');
       return;
     }
-    await backgroundCorrectionService.markForReview(next.id);
+    await backgroundService.markForReview(next.id);
     setCurrentBackgroundJobId(next.id);
     setCopyQueue((current) => current.filter((copy) => copy.id !== next.id));
     setStudentLabel(next.label);
@@ -1658,7 +1668,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setIsFinalized(false);
     setTeacherStep('review');
     setArchiveMessage('');
-    setBackgroundJobs(await backgroundCorrectionService.listJobs(activeAssignmentId));
+    setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
   }
 
   function startNextCopy() {
@@ -2424,7 +2434,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
           {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>
              {interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="copy-has-teacher-annotations"><input id="copy-has-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient déjà des annotations du professeur</strong><small>À activer uniquement pour cette copie si elle comporte des remarques, corrections, coches ou notes déjà inscrites. Leur détection reste locale et les points existants ne sont jamais additionnés automatiquement.</small></span></label>}{interfaceMode === 'teacher' && <div className="annotation-ink-color-control"><label className="field-label" htmlFor="annotation-ink-color">Couleur des annotations du professeur</label><DesignSystemSelect id="annotation-ink-color" value={annotationInkColor} onChange={(event) => { const color = event.target.value as TeacherAnnotationInkColor; if (annotationInkColorApplied && annotationInkColor !== 'none') { setImages(originalImages); setManualRotationAngles({}); setPageClassifications(null); setScientificDiagramAnalysis(null); } setAnnotationInkColor(color); setAnnotationInkColorApplied(color === 'none'); setAnnotationInkColorPreview(null); if (color !== 'none') setDetectTeacherAnnotations(true); }}><option value="none">Aucune couleur</option>{TEACHER_ANNOTATION_INK_COLORS.filter((color) => color.value !== 'none').map((color) => <option key={color.value} value={color.value}>{color.label}</option>)}</DesignSystemSelect><p className="hint">Le retrait est effectué dans le navigateur, sur la copie de travail uniquement. Les originaux restent conservés. Attention : tous les pixels de cette couleur sont concernés, y compris une éventuelle écriture de l’étudiant dans la même couleur. Vérifiez l’aperçu avant validation.</p>{annotationInkColor !== 'none' && !annotationInkColorApplied && <div className="annotation-ink-preview-actions"><button type="button" className="secondary-button" disabled={annotationInkColorBusy || !images.length} onClick={async () => { setAnnotationInkColorBusy(true); setError(''); try { const preview = await service.eraseTeacherAnnotationColor(images[0], annotationInkColor); setAnnotationInkColorPreview(preview); } catch (cause) { setError(cause instanceof Error ? cause.message : 'La prévisualisation du retrait des annotations a échoué.'); } finally { setAnnotationInkColorBusy(false); } }}>{annotationInkColorBusy ? 'Préparation…' : 'Prévisualiser le retrait'}</button>{annotationInkColorPreview && <><div className="annotation-ink-preview" role="group" aria-label="Comparaison avant et après retrait des annotations"><figure><img src={`data:${images[0].mimeType};base64,${images[0].base64}`} alt="Page avant retrait des annotations" /><figcaption>Avant</figcaption></figure><figure><img src={`data:${annotationInkColorPreview.mimeType};base64,${annotationInkColorPreview.base64}`} alt="Exemple après retrait des annotations" /><figcaption>Après</figcaption></figure></div><button type="button" className="primary-button" disabled={annotationInkColorBusy} onClick={async () => { setAnnotationInkColorBusy(true); try { const cleaned = await Promise.all(images.map((image) => service.eraseTeacherAnnotationColor(image, annotationInkColor))); setImages(cleaned); setAnnotationInkColorApplied(true); setAnnotationInkColorPreview(null); setTranscription(null); setPageClassifications(null); setScientificDiagramAnalysis(null); setProposal(null); setReview([]); setReviewMessage('Couleur des annotations retirée localement sur toutes les pages de la copie.'); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Le retrait des annotations a échoué.'); } finally { setAnnotationInkColorBusy(false); } }}>Appliquer à toutes les pages</button></>}</div>}</div>}{interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="auto-rotate-scientific-diagrams"><input id="auto-rotate-scientific-diagrams" type="checkbox" checked={autoRotateScientificDiagrams} onChange={(event) => { setAutoRotateScientificDiagrams(event.target.checked); try { window.localStorage.setItem('companion-correcteur:auto-rotate-diagrams:v1', String(event.target.checked)); } catch { setReviewMessage('Le réglage de rotation automatique ne peut pas être conservé dans le stockage local.'); } }} /><span><strong>Rotation automatique des schémas</strong><small>Désactivée par défaut. Lorsqu’elle est activée, chaque rotation est vérifiée par une seconde analyse d’orientation avant application ; sinon, une suggestion avant/après est proposée.</small></span></label>}{images.map((image, index) => <div className="file-row copy-image-row" key={`${image.fileName}-${index}`}><button type="button" className="copy-image-row-preview copy-image-preview-trigger" onClick={() => { setCopyViewerPage(index); setCopyViewerZoom(1); }} aria-label={`Agrandir la page ${index + 1}`}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Aperçu de la page ${index + 1}`} /><span>{image.fileName || `Page ${index + 1}`} · Agrandir</span></button>{originalImages[index] && originalImages[index].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non modifiée</summary><img src={`data:${originalImages[index].mimeType};base64,${originalImages[index].base64}`} alt={`Image originale non modifiée de la page ${index + 1}`} /></details>}{rotationSuggestions[index] && <div className="copy-rotation-suggestion" role="group" aria-label={`Suggestion de rotation pour la page ${index + 1}`}><strong>La page {index + 1} semble tournée de {rotationSuggestions[index].degrees}°</strong><div className="copy-rotation-suggestion-previews"><figure><img src={`data:${(originalImages[index] ?? image).mimeType};base64,${(originalImages[index] ?? image).base64}`} alt={`Page ${index + 1} avant rotation`} /><figcaption>Avant</figcaption></figure><figure><img src={`data:${rotationSuggestions[index].preview.mimeType};base64,${rotationSuggestions[index].preview.base64}`} alt={`Page ${index + 1} après rotation proposée`} /><figcaption>Après</figcaption></figure></div><div><button type="button" className="secondary-button" onClick={() => { void rotateCopyPage(index, rotationSuggestions[index].degrees); }}>Appliquer</button><button type="button" className="text-button" onClick={() => setRotationSuggestions((current) => { const next = { ...current }; delete next[index]; return next; })}>Ignorer</button></div></div>}<div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button><button type="button" className="text-button" onClick={() => removeCopyPage(index)}>Retirer</button></div></div>)}<p className="copy-image-original-note">Les rotations s’appliquent uniquement à la copie de travail. Les images originales non modifiées sont conservées localement avec la correction.</p><div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie</button></div></div>}
-          {(copyQueue.length > 0 || backgroundJobs.length > 0) && <section className="copy-queue" aria-label="Corrections en arrière-plan"><div className="copy-queue-heading"><div><span className="eyebrow">TRAITEMENT EN ARRIÈRE-PLAN</span><h4>{backgroundJobs.filter((job) => job.status === 'ready' || job.status === 'needs-review').length} copie(s) prête(s) à réviser · {backgroundJobs.filter((job) => job.status === 'pending' || job.status === 'processing').length} en attente ou en cours</h4></div><button type="button" className="primary-button" onClick={() => { void loadNextQueuedCopy(); }} disabled={isAnalyzing || !backgroundJobs.some((job) => (job.status === 'ready' || job.status === 'needs-review') && job.id !== currentBackgroundJobId)}>Copie suivante</button></div><label className="analysis-thinking-option copy-annotation-option"><input type="checkbox" checked={autoBackgroundCorrection} onChange={(event) => setAutoBackgroundCorrection(event.target.checked)} /><span><strong>Lancer automatiquement la correction des copies mises en file</strong><small>Activé par défaut. Les traitements restent séquentiels et la révision du professeur est prioritaire.</small></span></label>{!autoBackgroundCorrection && backgroundJobs.some((job) => job.status === 'pending') && <button type="button" className="secondary-button" onClick={() => { void backgroundCorrectionService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Corriger les copies en attente</button>}<ol>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId).map((job, index) => <li key={job.id}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{job.label}</strong><small>{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}{job.status === 'processing' ? ` · ${job.phase === 'reading' ? `Lecture ${job.completedPages}/${job.images.length}` : `Correction ${job.completedCriteria}/${job.totalCriteria}`}` : ''}</small>{job.error && <small role="status">{job.error}</small>}</span></li>)}</ol></section>}
+          {(copyQueue.length > 0 || backgroundJobs.length > 0) && <section className="copy-queue" aria-label="Corrections en arrière-plan"><div className="copy-queue-heading"><div><span className="eyebrow">TRAITEMENT EN ARRIÈRE-PLAN</span><h4>{backgroundJobs.filter((job) => job.status === 'ready' || job.status === 'needs-review').length} copie(s) prête(s) à réviser · {backgroundJobs.filter((job) => job.status === 'pending' || job.status === 'processing').length} en attente ou en cours</h4></div><button type="button" className="primary-button" onClick={() => { void loadNextQueuedCopy(); }} disabled={isAnalyzing || !backgroundJobs.some((job) => (job.status === 'ready' || job.status === 'needs-review') && job.id !== currentBackgroundJobId)}>Copie suivante</button></div><label className="analysis-thinking-option copy-annotation-option"><input type="checkbox" checked={autoBackgroundCorrection} onChange={(event) => setAutoBackgroundCorrection(event.target.checked)} /><span><strong>Lancer automatiquement la correction des copies mises en file</strong><small>Activé par défaut. Les traitements restent séquentiels et la révision du professeur est prioritaire.</small></span></label>{!autoBackgroundCorrection && backgroundJobs.some((job) => job.status === 'pending') && <button type="button" className="secondary-button" onClick={() => { void backgroundService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Corriger les copies en attente</button>}<ol>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId).map((job, index) => <li key={job.id}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{job.label}</strong><small>{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}{job.status === 'processing' ? ` · ${job.phase === 'reading' ? `Lecture ${job.completedPages}/${job.images.length}` : `Correction ${job.completedCriteria}/${job.totalCriteria}`}` : ''}</small>{job.error && <small role="status">{job.error}</small>}</span></li>)}</ol></section>}
         </article>
 
       </section>
