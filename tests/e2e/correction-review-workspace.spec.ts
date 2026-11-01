@@ -56,7 +56,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
           finalScore: 4,
         },
         review: [
-          { criterionId: 'membrane', points: 2, rationale: 'Le mécanisme est partiellement expliqué.', evidence: 'La réponse mentionne la membrane.', annotationSuggestion: 'Précise le rôle de la membrane.', pageNumber: 1, confidence: 'medium', teacherPoints: 2, teacherComment: '', decision: 'pending' },
+          { criterionId: 'membrane', points: 2, rationale: 'Le mécanisme est partiellement expliqué.', evidence: 'La réponse mentionne la membrane.', annotationSuggestion: 'Précise le rôle de la membrane.', pageNumber: 1, confidence: 'medium', scientificDiagramElements: [{ label: 'Membrane plasmique', status: 'partial', points: 1, maxPoints: 2, evidence: 'Le contour est incomplet.' }], scientificDiagramPages: [1], teacherPoints: 2, teacherComment: '', decision: 'pending' },
           { criterionId: 'transport', points: 2, rationale: 'Le transport sélectif est identifié.', evidence: 'La membrane contrôle les échanges.', pageNumber: 1, confidence: 'high', teacherPoints: 2, teacherComment: '', decision: 'pending' },
         ],
         teacherQuestions: '',
@@ -100,6 +100,11 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(flaggedCard.getByText('Confiance à vérifier', { exact: true })).toBeVisible();
   await expect(flaggedCard.getByText('Le mécanisme est partiellement expliqué.')).toBeVisible();
   await expect(flaggedCard.getByText('Précise le rôle de la membrane.')).toBeVisible();
+  const elementDetails = flaggedCard.locator('details.review-quality-details');
+  await expect(elementDetails).toHaveAttribute('open', '');
+  await expect(elementDetails.getByText('Membrane plasmique')).toBeVisible();
+  await expect(elementDetails.getByText('Le contour est incomplet.')).toBeVisible();
+  await expect(elementDetails.getByText('Partiel · 1 / 2 pt')).toBeVisible();
   await expect(flaggedCard.locator('details.review-explanation')).not.toHaveAttribute('open', '');
   await page.getByRole('button', { name: 'Afficher uniquement les points à examiner' }).click();
   const safeSummary = page.locator('details.review-safe-summary');
