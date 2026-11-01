@@ -44,6 +44,7 @@ function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequ
       properties: {
         diagrams: {
           type: 'array',
+          minItems: 1,
           items: {
             type: 'object',
             additionalProperties: false,
@@ -70,6 +71,8 @@ function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequ
         },
         criteria: {
           type: 'array',
+          minItems: request.rubric.criteria.length,
+          maxItems: request.rubric.criteria.length,
           items: {
             type: 'object',
             additionalProperties: false,
@@ -126,7 +129,8 @@ export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisR
   const subject = request.subjectTranscription?.trim();
   return [
     'Tu évalues des schémas scientifiques universitaires. Un schéma est une preuve, jamais une unité de notation.',
-    'OBLIGATION : ces images proviennent de pages déjà classées comme contenant un schéma scientifique. Ne retourne JAMAIS diagrams: [] ni criteria: []. Analyse chaque image jointe ; au moins un schéma doit être décrit pour chaque page transmise. Si une page est réellement illisible, crée une entrée avec uncertainties explicites et requiresTeacherReview à true au lieu de l’omettre.',\n    'Retourne diagrams : tous les schémas détectés, avec id neutre, pageNumber (index local 1-based), diagramType, summary court, bounds et uncertainties (tableau). Le champ bounds est obligatoire : retourne null si la localisation est incertaine.',
+    'OBLIGATION : ces images proviennent de pages déjà classées comme contenant un schéma scientifique. Ne retourne JAMAIS diagrams: [] ni criteria: []. Analyse chaque image jointe ; au moins un schéma doit être décrit pour chaque page transmise. Si une page est réellement illisible, crée une entrée avec uncertainties explicites et requiresTeacherReview à true au lieu de l’omettre.',
+    'Retourne diagrams : tous les schémas détectés, avec id neutre, pageNumber (index local 1-based), diagramType, summary court, bounds et uncertainties (tableau). Le champ bounds est obligatoire : retourne null si la localisation est incertaine.',
     'Retourne criteria : exactement UNE évaluation pour CHAQUE critère du barème, portant sur l’ensemble des schémas pertinents. Ne note jamais un critère séparément par schéma et ne répartis pas son maximum entre les schémas. Aucun critère ne doit être omis.',
     'Le maximum n’est justifié que si tous les attendus essentiels sont démontrés sur l’ensemble des schémas concernés. Si un élément essentiel est partiel ou manquant, attribue des points partiels.',
     'Le champ elements est toujours présent : si expectedElements est non vide, retourne chaque élément avec son label exact, status parmi present/partial/absent/uncertain et une preuve courte ; sinon retourne null. L’application calcule les points (present 100 %, partial 50 %, absent 0 %, uncertain 0 % et vérification enseignante).',
