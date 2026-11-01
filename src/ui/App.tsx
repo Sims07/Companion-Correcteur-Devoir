@@ -358,6 +358,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [copyViewerRotation, setCopyViewerRotation] = useState(0);
   const [originalImages, setOriginalImages] = useState<ImageInput[]>([]);
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
+  const [selectedSeriesPreviewId, setSelectedSeriesPreviewId] = useState<string | null>(null);
   const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
   const [backgroundCopyLabel, setBackgroundCopyLabel] = useState('');
   const [seriesPickerVersion, setSeriesPickerVersion] = useState(0);
@@ -2671,11 +2672,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <span className={`correction-series-card-status is-${job.status}`}>{statusLabel}</span>
             <div className="correction-series-actions">
               {canOpenCorrection && <button type="button" className="secondary-button correction-series-view" disabled={isAnalyzing} onClick={() => { void loadNextQueuedCopy(job.id); }}>Consulter la correction</button>}
+              {['pending', 'processing'].includes(job.status) && <button type="button" className="secondary-button correction-series-view" onClick={() => setSelectedSeriesPreviewId((current) => current === job.id ? null : job.id)}>{selectedSeriesPreviewId === job.id ? 'Masquer la copie' : 'Voir la copie'}</button>}
               {['needs-review', 'failed'].includes(job.status) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>{job.status === 'failed' ? 'Relancer' : 'Reprendre'}</button>}
               {job.status !== 'processing' && job.id !== currentBackgroundJobId && <button type="button" className="text-button correction-series-remove" onClick={() => { void removeSeriesCopy(job); }}>Supprimer</button>}
             </div>
           </div>
         </li>; })}</ol>}
+        {selectedSeriesPreviewId && (() => { const selectedCopy = backgroundJobs.find((job) => job.id === selectedSeriesPreviewId && job.assignmentId === activeAssignmentId); return selectedCopy ? <section className="correction-series-preview-panel" aria-label={`Aperçu de ${selectedCopy.label}`}>
+          <div className="correction-series-preview-heading"><div><h4>{selectedCopy.studentIdentity ? (formatStudentIdentityLabel(selectedCopy.studentIdentity) ?? selectedCopy.label) : selectedCopy.label}</h4><p>{selectedCopy.images.length} page(s) · Vous pouvez vérifier l’ordre et l’orientation des pages.</p></div><button type="button" className="text-button" onClick={() => setSelectedSeriesPreviewId(null)}>Fermer</button></div>
+          <div className="correction-series-pages" aria-label={`Pages de ${selectedCopy.label}`}>{selectedCopy.images.map((page, pageIndex) => <figure key={`${selectedCopy.id}-page-${pageIndex}`}><img src={`data:${page.mimeType};base64,${page.base64}`} alt={`Page ${pageIndex + 1} de ${selectedCopy.label}`} loading="lazy" /><figcaption>Page {pageIndex + 1}{selectedCopy.rotationAngles?.[pageIndex] ? ` · tournée de ${selectedCopy.rotationAngles[pageIndex]}°` : ''}{page.fileName ? ` · ${page.fileName}` : ''}</figcaption><details className="batch-copy-page-full-preview"><summary>Agrandir</summary><img loading="lazy" src={`data:${page.mimeType};base64,${page.base64}`} alt={`Image agrandie de la page ${pageIndex + 1} de ${selectedCopy.label}`} /></details><div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${pageIndex + 1} de ${selectedCopy.label} à gauche de 90 degrés`} disabled={isPreparingSeriesCopies || rotatingQueuedPage !== null} onClick={() => { void rotateQueuedCopyPage(selectedCopy, pageIndex, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${pageIndex + 1} de ${selectedCopy.label} à droite de 90 degrés`} disabled={isPreparingSeriesCopies || rotatingQueuedPage !== null} onClick={() => { void rotateQueuedCopyPage(selectedCopy, pageIndex, 90); }}>↷ 90°</button></div></figure>)}</div>
+        </section> : null; })()}
       </section>}
       {(interfaceMode !== 'teacher' || correctionSessionMode === 'individual') && <>
       <details className="copy-advanced-options"><summary>Options avancées <span>Format des questions, sujet et annotations</span></summary>
