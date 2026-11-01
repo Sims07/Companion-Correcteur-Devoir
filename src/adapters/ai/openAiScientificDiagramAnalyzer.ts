@@ -227,6 +227,8 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           messages: [{
             role: 'user',
             content: prompt,
+            // Scientific drawing quality depends on retaining the highest available image detail.
+            imageDetail: 'high',
             images: request.images.map((image) => 'data:' + image.mimeType + ';base64,' + image.base64),
           }],
         };

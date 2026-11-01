@@ -175,6 +175,100 @@ describe('background correction service', () => {
   });
 
 
+  it('routes mixed scientific pages to high-detail Vision and sends only text pages to OCR', async () => {
+    const f = fixture();
+    const diagramPage = { base64: 'ZGlhZ3JhbQ==', mimeType: 'image/png', fileName: 'schema.png' };
+    const textPage = { base64: 'dGV4dA==', mimeType: 'image/png', fileName: 'answer.png' };
+    const job = {
+      ...f.job,
+      images: [diagramPage, textPage],
+      originalImages: [diagramPage, textPage],
+      transcription: 'Ancienne transcription incluant le schéma',
+      rubric: { title: 'Biologie', criteria: [
+        { id: 'c1', title: 'Qualité du schéma', description: 'Évaluer le dessin scientifique et ses légendes.', maxPoints: 2, analysisMode: 'scientific-diagram' as const },
+        { id: 'c2', title: 'Connaissances', description: 'Exactitude scientifique.', maxPoints: 2 },
+      ] },
+      totalCriteria: 2,
+    };
+    const diagramAnalysis = {
+      classifyPages: vi.fn(async () => [
+        { pageNumber: 1, kind: 'scientific-diagram' as const, confidence: 0.99, reason: 'Schéma visible', suggestedRotation: 0 as const, orientationConfidence: 0.99 },
+        { pageNumber: 2, kind: 'text' as const, confidence: 0.99, reason: 'Réponse manuscrite', suggestedRotation: 0 as const, orientationConfidence: 0.99 },
+      ]),
+      analyze: vi.fn(async () => ({
+        diagrams: [{ id: 'diagram-1', pageNumber: 1, diagramType: 'Cellule', summary: 'Schéma de cellule', criteria: [], uncertainties: [] }],
+        criteria: [{ criterionId: 'c1', title: 'Qualité du schéma', points: 2, maxPoints: 2, evidence: 'Membrane et noyau visibles.', confidence: 0.96, requiresTeacherReview: false, diagramIds: ['diagram-1'] }],
+        overallUncertainties: [],
+      })),
+    };
+    const service = createBackgroundCorrectionService(f.repository, f.workspace, diagramAnalysis);
+    await service.enqueue(job, { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+    for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(diagramAnalysis.classifyPages).toHaveBeenCalledWith(expect.objectContaining({ images: [diagramPage, textPage], model: 'vision:4b' }));
+    expect(diagramAnalysis.analyze).toHaveBeenCalledWith(expect.objectContaining({ images: [diagramPage], pageNumbers: [1], model: 'vision:4b' }));
+    expect(f.requests[0].images).toEqual([textPage]);
+    expect(f.requests[0].pageNumbers).toEqual([2]);
+    expect(f.requests[0].transcription).toBeUndefined();
+    expect(f.jobs.get('copy-1')?.partialCriteria.map((criterion) => criterion.criterionId)).toEqual(['c1', 'c2']);
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+  });
+
+  it('persists a rotated page and invalidates every result derived from the previous image', async () => {
+    const f = fixture();
+    f.jobs.set('copy-1', {
+      ...f.job,
+      status: 'needs-review',
+      transcription: 'Ancienne transcription',
+      partialCriteria: [{ criterionId: 'c1', points: 1, rationale: '', evidence: 'Ancienne preuve', confidence: 'low' }],
+      completedCriteria: 1,
+      imageFingerprint: 'old-fingerprint',
+      error: 'Ancienne erreur',
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const rotated = [{ base64: 'cm90YXRlZA==', mimeType: 'image/png', fileName: 'page.png' }];
+    await service.updateImages('copy-1', rotated, { 0: 90 }, {
+      endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b', autoBackgroundCorrection: false,
+    });
+    expect(f.jobs.get('copy-1')).toMatchObject({
+      images: rotated,
+      rotationAngles: { 0: 90 },
+      status: 'pending',
+      phase: 'preparation',
+      transcription: null,
+      partialCriteria: [],
+      completedCriteria: 0,
+      completedPages: 0,
+      proposal: null,
+      imageFingerprint: null,
+      error: null,
+    });
+    expect(f.createProvider).not.toHaveBeenCalled();
+  });
+
+
+  it('allows rotation after the processing loop has been safely paused', async () => {
+    const f = fixture();
+    f.jobs.set('copy-1', { ...f.job, status: 'processing' });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.pauseAndWait();
+    const rotated = [{ base64: 'c2FmZWx5LXBhdXNlZA==', mimeType: 'image/png', fileName: 'page.png' }];
+    await expect(service.updateImages('copy-1', rotated, { 0: 270 }, {
+      endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b', autoBackgroundCorrection: false,
+    })).resolves.toBeUndefined();
+    expect(f.jobs.get('copy-1')).toMatchObject({ images: rotated, rotationAngles: { 0: 270 }, status: 'pending' });
+  });
+
+  it('refuses to rotate a page while its copy is processing', async () => {
+    const f = fixture();
+    f.jobs.set('copy-1', { ...f.job, status: 'processing' });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await expect(service.updateImages('copy-1', f.job.images, { 0: 90 }, {
+      endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b',
+    })).rejects.toThrow('Attendez la fin du traitement');
+  });
+
+
   it('skips automatic availability checks for OpenAI-compatible providers', async () => {
     const f = fixture();
     const service = createBackgroundCorrectionService(f.repository, f.workspace);

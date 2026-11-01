@@ -269,6 +269,7 @@ function getLocalMemoryCorrectionId(): string | null {
 export function App({ service, archiveService, evaluationService, backgroundCorrectionService, diagramAnalysisService, loadSalukiModel }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; backgroundCorrectionService?: BackgroundCorrectionService; diagramAnalysisService: ScientificDiagramAnalysisService; loadSalukiModel: (settings: { endpoint: string; apiKey: string }) => Promise<void> }) {
   const backgroundService: BackgroundCorrectionService = backgroundCorrectionService ?? {
     enqueue: async () => undefined,
+    updateImages: async () => undefined,
     listJobs: async () => [],
     prewarm: async () => undefined,
     pauseAndWait: async () => undefined,
@@ -361,6 +362,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [seriesPickerVersion, setSeriesPickerVersion] = useState(0);
   const [isPreparingSeriesCopies, setIsPreparingSeriesCopies] = useState(false);
   const [isStartingSeriesCorrections, setIsStartingSeriesCorrections] = useState(false);
+  const [rotatingQueuedPage, setRotatingQueuedPage] = useState<string | null>(null);
   const isStartingSeriesCorrectionsRef = useRef(false);
   const [seriesGroupingMode, setSeriesGroupingMode] = useState<'each-file' | 'group-files'>('each-file');
   const [correctionSessionMode, setCorrectionSessionMode] = useState<'individual' | 'series'>('individual');
@@ -1664,7 +1666,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               (image, degrees) => service.rotateImage(image, degrees),
             );
             automaticRotationCount += rotation.rotatedPages.length;
-            preparedJobs.push({ ...job, images: rotation.images, originalImages: job.images, scientificPageClassifications: rotation.classifications });
+            preparedJobs.push({ ...job, images: rotation.images, originalImages: job.images, rotationAngles: Object.fromEntries(rotation.rotatedPages.map(({ pageIndex, degrees }) => [pageIndex, degrees])) as Record<number, 0 | 90 | 180 | 270>, scientificPageClassifications: rotation.classifications });
           }
         } catch {
           automaticRotationUnavailable = true;
@@ -1694,6 +1696,40 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setError(cause instanceof Error ? cause.message : 'Impossible d’ajouter ces copies au traitement en arrière-plan.');
     } finally {
       setIsPreparingSeriesCopies(false);
+    }
+  }
+
+  async function rotateQueuedCopyPage(job: BackgroundCorrectionJob, pageIndex: number, clockwiseDegrees: 90 | 270) {
+    if (job.status === 'completed' || isPreparingSeriesCopies || rotatingQueuedPage !== null) return;
+    const original = job.originalImages[pageIndex] ?? job.images[pageIndex];
+    if (!original) return;
+    const rotationKey = `${job.id}:${pageIndex}`;
+    let pausedForRotation = false;
+    setRotatingQueuedPage(rotationKey);
+    try {
+      // A batch can start immediately. Pause at the next safe model boundary so the
+      // teacher can still correct orientation without racing an in-flight image read.
+      if (job.status === 'processing') {
+        await backgroundService.pauseAndWait();
+        pausedForRotation = true;
+      }
+      const nextAngle = accumulateClockwiseRotation(job.rotationAngles?.[pageIndex] ?? 0, clockwiseDegrees);
+      const rotated = nextAngle === 0 ? original : await service.rotateImage(original, nextAngle);
+      const nextImages = job.images.map((image, index) => index === pageIndex ? rotated : image);
+      const nextAngles = { ...(job.rotationAngles ?? {}), [pageIndex]: nextAngle };
+      await backgroundService.updateImages(job.id, nextImages, nextAngles, {
+        endpoint, apiCompatible, apiKey, visionModel, analysisModel,
+        thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection,
+        transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
+        transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
+      });
+      setReviewMessage(`Orientation de la page ${pageIndex + 1} de « ${job.label} » modifiée. La transcription et les évaluations précédentes ont été invalidées ; la copie sera relue avec l’image corrigée.`);
+      setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'La rotation de cette page a échoué.');
+    } finally {
+      if (pausedForRotation) backgroundService.resume();
+      setRotatingQueuedPage(null);
     }
   }
 
@@ -2608,7 +2644,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           {(['needs-review', 'failed'].includes(job.status)) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Reprendre</button>}
           {job.status !== 'processing' && job.id !== currentBackgroundJobId && <button type="button" className="text-button correction-series-remove" onClick={() => { void removeSeriesCopy(job); }}>Supprimer</button>}
           </div>
-          <div className="correction-series-pages" aria-label={`Pages de ${job.label}`}>{job.images.map((page, pageIndex) => <figure key={`${job.id}-page-${pageIndex}`}><img src={`data:${page.mimeType};base64,${page.base64}`} alt={`Page ${pageIndex + 1} de ${job.label}`} loading="lazy" /><figcaption>Page {pageIndex + 1}{page.fileName ? ` · ${page.fileName}` : ''}</figcaption></figure>)}</div>
+          <div className="correction-series-pages" aria-label={`Pages de ${job.label}`}>{job.images.map((page, pageIndex) => <figure key={`${job.id}-page-${pageIndex}`}><img src={`data:${page.mimeType};base64,${page.base64}`} alt={`Page ${pageIndex + 1} de ${job.label}`} loading="lazy" /><figcaption>Page {pageIndex + 1}{job.rotationAngles?.[pageIndex] ? ` · tournée de ${job.rotationAngles[pageIndex]}°` : ''}{page.fileName ? ` · ${page.fileName}` : ''}</figcaption><details className="batch-copy-page-full-preview"><summary>Agrandir</summary><img loading="lazy" src={`data:${page.mimeType};base64,${page.base64}`} alt={`Image agrandie de la page ${pageIndex + 1} de ${job.label}`} /></details><div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${pageIndex + 1} de ${job.label} à gauche de 90 degrés`} disabled={isPreparingSeriesCopies || rotatingQueuedPage !== null || job.status === 'completed'} onClick={() => { void rotateQueuedCopyPage(job, pageIndex, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${pageIndex + 1} de ${job.label} à droite de 90 degrés`} disabled={isPreparingSeriesCopies || rotatingQueuedPage !== null || job.status === 'completed'} onClick={() => { void rotateQueuedCopyPage(job, pageIndex, 90); }}>↷ 90°</button></div></figure>)}</div>
           {expandedBackgroundJobIds.includes(job.id) && <section id={`correction-details-${job.id}`} className="correction-series-live-details" aria-label={`Correction de ${job.label}`}>
             <div className="correction-series-live-heading"><strong>Correction de {job.label}</strong><span>{job.completedCriteria}/{job.totalCriteria} critère(s) analysé(s)</span></div>
             {job.transcription ? <details className="correction-series-transcription"><summary>Voir la transcription de la copie</summary><pre>{job.transcription}</pre></details> : <p className="correction-series-live-hint">{job.status === 'pending' ? 'La correction démarrera dès que cette copie sera prise en charge.' : job.phase === 'reading' || job.phase === 'preparation' ? 'Lecture de la copie en cours. La transcription apparaîtra ici dès qu’elle sera disponible.' : 'L’analyse est en cours. Les premiers résultats apparaîtront ici dès qu’un critère sera évalué.'}</p>}
@@ -2878,7 +2914,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <div className="student-label-field"><label className="field-label" htmlFor="background-copy-label">Nom de l’étudiant <span>(facultatif, pour une seule copie)</span></label><input id="background-copy-label" value={backgroundCopyLabel} onChange={(event) => setBackgroundCopyLabel(event.target.value)} placeholder="Nom ou identifiant" /></div>
           <label className="analysis-thinking-option copy-annotation-option"><input type="checkbox" checked={backgroundCopyDetectTeacherAnnotations} onChange={(event) => setBackgroundCopyDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient des annotations du professeur</strong><small>Les annotations incertaines demanderont une vérification avant la notation.</small></span></label>
           <FilePicker id="background-copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void enqueueBackgroundCopy(files); }} title="Ajouter plusieurs copies" description="Chaque fichier sélectionné devient une copie distincte. Les pages d’un même PDF restent regroupées. Les copies sont corrigées l’une après l’autre." actionLabel="Ajouter les copies" />
-          <ol>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').map((job, index) => <li key={job.id}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{job.label}</strong><small>{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}{job.status === 'processing' ? ` · ${job.phase === 'preparation' ? 'Préparation' : job.phase === 'reading' ? `Lecture ${job.completedPages}/${job.images.length}` : `Correction ${job.completedCriteria}/${job.totalCriteria}`}` : ''}</small>{job.error && <small role="status">{job.error}</small>}</span>{(['needs-review', 'failed'].includes(job.status) || (job.status === 'reviewing' && job.completedCriteria < job.totalCriteria && job.id !== currentBackgroundJobId)) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Reprendre</button>}</li>)}</ol>
+          <ol className="batch-copy-queue-list">{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').map((job, index) => <li key={job.id}><span className="queue-position">{index + 1}</span><div className="queue-copy-content"><span className="queue-copy-label"><strong>{job.label}</strong><small>{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}{job.status === 'processing' ? ` · ${job.phase === 'preparation' ? 'Préparation' : job.phase === 'reading' ? `Lecture ${job.completedPages}/${job.images.length}` : `Correction ${job.completedCriteria}/${job.totalCriteria}`}` : ''}</small>{job.error && <small role="status">{job.error}</small>}</span><div className="batch-copy-page-previews" aria-label={`Pages de ${job.label}`}>{job.images.map((image, pageIndex) => <figure className="batch-copy-page-preview" key={image.fileName + '-' + pageIndex}><img loading="lazy" src={`data:${image.mimeType};base64,${image.base64}`} alt={`Aperçu de la page ${pageIndex + 1} de ${job.label}`} /><figcaption>Page {pageIndex + 1}{job.rotationAngles?.[pageIndex] ? ` · tournée de ${job.rotationAngles[pageIndex]}°` : ''}</figcaption><details className="batch-copy-page-full-preview"><summary>Agrandir</summary><img loading="lazy" src={`data:${image.mimeType};base64,${image.base64}`} alt={`Image agrandie de la page ${pageIndex + 1} de ${job.label}`} /></details><div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${pageIndex + 1} de ${job.label} à gauche de 90 degrés`} disabled={isPreparingSeriesCopies || rotatingQueuedPage !== null} onClick={() => { void rotateQueuedCopyPage(job, pageIndex, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${pageIndex + 1} de ${job.label} à droite de 90 degrés`} disabled={isPreparingSeriesCopies || rotatingQueuedPage !== null} onClick={() => { void rotateQueuedCopyPage(job, pageIndex, 90); }}>↷ 90°</button></div></figure>)}</div></div>{(['needs-review', 'failed'].includes(job.status) || (job.status === 'reviewing' && job.completedCriteria < job.totalCriteria && job.id !== currentBackgroundJobId)) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Reprendre</button>}</li>)}</ol>
         </section>
         {correctionSessionMode === 'series' && currentBackgroundJobId && <section className="batch-review-current" aria-label="Copie actuellement en révision">
           <div className="batch-review-current-main">
