@@ -50,7 +50,7 @@ describe('correction en série — espace de révision', () => {
 
   
   it('presents the sequential batch as compact status cards with live provisional scores', () => {
-    expect(app).toContain("['correction-series-card', `is-${job.status}`].join(' ')");
+    expect(app).toContain("isExpanded && !isActive ? 'is-expanded' : ''");
     expect(app).toContain('correction-series-provisional-score');
     expect(app).toContain('Note provisoire ·');
     expect(styles).toContain('grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr))');
@@ -59,6 +59,8 @@ describe('correction en série — espace de révision', () => {
     expect(styles).toContain('.correction-series-pages figure');
     expect(styles).toContain('flex: 0 0 54px');
     expect(styles).toContain('.correction-series-live-details');
+    expect(styles).toContain('.correction-series-list > li:not(.is-active):not(.is-expanded) .correction-series-pages');
+    expect(styles).toContain('.correction-series-list > li.is-active { order: -1;');
   });
 
   it('shows a live batch overview based on actual copy states and expands the active copy', () => {

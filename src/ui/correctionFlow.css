@@ -2704,3 +2704,24 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+/* Keep the queue calm: page previews are contextual, not permanent decoration. */
+.correction-series-list > li.is-active {
+  order: -1;
+}
+.correction-series-list > li:not(.is-active):not(.is-expanded) .correction-series-pages {
+  display: none;
+}
+.correction-series-list > li.is-expanded {
+  border-color: var(--flow-border-strong);
+  background: var(--flow-surface, #fff);
+}
+.correction-series-list > li.is-expanded .correction-series-pages,
+.correction-series-list > li.is-active .correction-series-pages {
+  display: flex;
+}
+.correction-series-list > li.is-active .correction-series-live-details {
+  border-color: var(--flow-border-strong);
+  box-shadow: 0 3px 14px rgb(20 35 25 / 5%);
+}
