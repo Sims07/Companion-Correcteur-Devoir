@@ -1,14 +1,19 @@
 import type { LocalCorrection } from '../../domain/localCorrection.ts';
+import type { BackgroundCorrectionJob } from '../../domain/backgroundCorrection.ts';
+import type { BackgroundCorrectionRepository } from '../../ports/backgroundCorrectionRepository.ts';
+import type { ImageInput } from '../../ports/aiProvider.ts';
 import type { ModelEvaluationRecord } from '../../domain/modelEvaluation.ts';
 import type { LocalMemoryEntry, LocalMemoryQuery } from '../../domain/localMemory.ts';
 import { rankLocalMemories } from '../../domain/localMemory.ts';
 
 const DATABASE_NAME = 'companion-correcteur-devoir';
-const DATABASE_VERSION = 4;
+const DATABASE_VERSION = 5;
 const STORE_NAME = 'local-memory';
 const CORRECTION_STORE_NAME = 'local-corrections';
 const MODEL_EVALUATION_STORE_NAME = 'model-evaluations';
 const DIAGNOSTIC_HISTORY_STORE_NAME = 'diagnostic-history';
+const BACKGROUND_CORRECTION_STORE_NAME = 'background-corrections';
+const BACKGROUND_TRANSCRIPTION_STORE_NAME = 'background-transcriptions';
 
 interface StoredMemoryEntry extends LocalMemoryEntry {
   searchText: string;
@@ -35,6 +40,15 @@ function openDatabase(): Promise<IDBDatabase> {
         const store = database.createObjectStore(MODEL_EVALUATION_STORE_NAME, { keyPath: 'id' });
         store.createIndex('completedAt', 'completedAt', { unique: false });
         store.createIndex('assignmentId', 'assignmentId', { unique: false });
+      }
+      if (!database.objectStoreNames.contains(BACKGROUND_CORRECTION_STORE_NAME)) {
+        const store = database.createObjectStore(BACKGROUND_CORRECTION_STORE_NAME, { keyPath: 'id' });
+        store.createIndex('assignmentId', 'assignmentId', { unique: false });
+        store.createIndex('status', 'status', { unique: false });
+        store.createIndex('createdAt', 'createdAt', { unique: false });
+      }
+      if (!database.objectStoreNames.contains(BACKGROUND_TRANSCRIPTION_STORE_NAME)) {
+        database.createObjectStore(BACKGROUND_TRANSCRIPTION_STORE_NAME, { keyPath: 'fingerprint' });
       }
       if (!database.objectStoreNames.contains(DIAGNOSTIC_HISTORY_STORE_NAME)) {
         const store = database.createObjectStore(DIAGNOSTIC_HISTORY_STORE_NAME, { keyPath: 'id' });
@@ -238,4 +252,51 @@ export async function listDiagnosticHistory<T>(): Promise<T[]> {
     const records = await requestToPromise(transaction.objectStore(DIAGNOSTIC_HISTORY_STORE_NAME).getAll()) as T[];
     return records;
   } finally { database.close(); }
+}
+
+export class IndexedDbBackgroundCorrectionRepository implements BackgroundCorrectionRepository {
+  async saveJob(job: BackgroundCorrectionJob): Promise<void> {
+    const database = await openDatabase();
+    try {
+      const transaction = database.transaction(BACKGROUND_CORRECTION_STORE_NAME, 'readwrite');
+      const completion = transactionToPromise(transaction);
+      transaction.objectStore(BACKGROUND_CORRECTION_STORE_NAME).put(job);
+      await completion;
+    } finally { database.close(); }
+  }
+
+  async listJobs(assignmentId?: string): Promise<BackgroundCorrectionJob[]> {
+    const database = await openDatabase();
+    try {
+      const transaction = database.transaction(BACKGROUND_CORRECTION_STORE_NAME, 'readonly');
+      const jobs = await requestToPromise(transaction.objectStore(BACKGROUND_CORRECTION_STORE_NAME).getAll()) as BackgroundCorrectionJob[];
+      return jobs.filter((job) => !assignmentId || job.assignmentId === assignmentId).sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    } finally { database.close(); }
+  }
+
+  async fingerprintImages(images: ImageInput[]): Promise<string> {
+    if (!globalThis.crypto?.subtle) throw new Error('Le navigateur ne permet pas de calculer une empreinte locale des images.');
+    const source = images.map((image) => `${image.mimeType}:${image.base64}`).join('|');
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  async getCachedTranscription(fingerprint: string): Promise<string | null> {
+    const database = await openDatabase();
+    try {
+      const transaction = database.transaction(BACKGROUND_TRANSCRIPTION_STORE_NAME, 'readonly');
+      const cached = await requestToPromise(transaction.objectStore(BACKGROUND_TRANSCRIPTION_STORE_NAME).get(fingerprint)) as { fingerprint: string; transcription: string } | undefined;
+      return cached?.transcription ?? null;
+    } finally { database.close(); }
+  }
+
+  async saveCachedTranscription(fingerprint: string, transcription: string): Promise<void> {
+    const database = await openDatabase();
+    try {
+      const transaction = database.transaction(BACKGROUND_TRANSCRIPTION_STORE_NAME, 'readwrite');
+      const completion = transactionToPromise(transaction);
+      transaction.objectStore(BACKGROUND_TRANSCRIPTION_STORE_NAME).put({ fingerprint, transcription, updatedAt: new Date().toISOString() });
+      await completion;
+    } finally { database.close(); }
+  }
 }
