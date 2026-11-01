@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseScientificDiagramAnalysis } from './scientificDiagram.ts';
+import { parseScientificDiagramAnalysis, shouldRunScientificDiagramAnalysis } from './scientificDiagram.ts';
 import type { Rubric } from './rubric.ts';
 
 const rubric: Rubric = { title: 'Schéma', criteria: [{ id: 'labels', title: 'Légendes', description: '', maxPoints: 2 }] };
@@ -153,6 +153,17 @@ describe('parseScientificDiagramAnalysis', () => {
     const elementRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 2, expectedElements: [{ label: 'Membrane', points: 2 }] }] };
     const raw = { diagrams: [{ pageNumber: 1 }], criteria: [{ criterionId: 'cell', elements: [{ label: 'Membrane', status: 'partially-fulfilled', evidence: 'Contour incomplet.' }] }] };
     expect(parseScientificDiagramAnalysis(JSON.stringify(raw), elementRubric, 1).criteria?.[0].elements?.[0]).toMatchObject({ status: 'partial', points: 1 });
+  });
+
+  it('allows retry after a failed manual fallback but reuses a successful analysis', () => {
+    expect(shouldRunScientificDiagramAnalysis(null)).toBe(true);
+    expect(shouldRunScientificDiagramAnalysis({
+      diagrams: [{ id: 'diagram-1', pageNumber: 1, diagramType: 'schéma', summary: '', criteria: [], uncertainties: [] }],
+      criteria: [],
+      overallUncertainties: [],
+      warnings: ['Analyse des schémas indisponible : HTTP 503. Les critères graphiques sont à évaluer manuellement.'],
+    })).toBe(true);
+    expect(shouldRunScientificDiagramAnalysis({ diagrams: [], criteria: [], overallUncertainties: [] })).toBe(false);
   });
 
 });
