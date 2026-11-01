@@ -108,6 +108,10 @@ export function AnnotationInkColorPicker({ image, preview, selectedColor, onColo
               <button type="button" aria-label="Zoomer" onClick={() => setZoom((value) => Math.min(4, Number((value + 0.25).toFixed(2))))} disabled={zoom >= 4}>+</button>
               <button type="button" onClick={() => setZoom(1)}>Réinitialiser</button>
             </div>
+            <div className="annotation-ink-viewer-color" role="status" aria-live="polite">
+              <span className="annotation-ink-picked-swatch" style={{ backgroundColor: selectedColor === 'none' ? 'transparent' : selectedColor }} aria-hidden="true" />
+              <span>{selectedColor === 'none' ? 'Aucune couleur sélectionnée' : `Couleur active : ${selectedColor.toUpperCase()}`}</span>
+            </div>
             <div className="copy-image-viewer-stage annotation-ink-viewer-stage">
               <img
                 src={imageUrl(activeImage)}
