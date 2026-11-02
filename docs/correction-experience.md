@@ -125,3 +125,19 @@ Le choix est réversible à tout moment. Les deux parcours partagent le barème,
 - La liste des copies affiche le nom, le nombre de pages, le statut et un aperçu miniature de chaque page.
 - Une copie qui n'est pas en cours de traitement peut être retirée de la session ; une copie en cours est protégée contre la suppression.
 - Le bouton de lancement explicite le nombre de copies en attente et le fait que le traitement est séquentiel.
+
+
+## Navigation du devoir et suivi des copies
+
+L’entrée de l’application est la bibliothèque **Mes devoirs** : elle présente tous les devoirs enregistrés et permet d’en créer un nouveau. Chaque carte de devoir indique la formation, le nombre de copies et leur situation, y compris les corrections encore en cours.
+
+Après l’ouverture d’un devoir, l’enseignant arrive sur **Suivi des copies**. Cette liste est la référence unique, que les copies aient été ajoutées une par une ou en série. Elle regroupe quatre états compréhensibles par l’enseignant :
+
+- **À corriger** : la copie est prête et attend son tour.
+- **En cours** : la lecture ou la correction est en cours ; la progression reste visible.
+- **À réviser** : une proposition est disponible ou une intervention est nécessaire.
+- **Corrigées** : la correction a été enregistrée et peut être consultée à nouveau.
+
+Les filtres et les cartes gardent la même structure quel que soit le mode d’ajout. La note occupe la place principale dès qu’elle existe ; le nom de l’étudiant, le nombre de pages et le statut restent immédiatement lisibles. L’enseignant ouvre une copie pour la réviser, ou revient à la liste sans perdre le suivi des autres.
+
+Le choix entre correction individuelle et correction en série concerne uniquement la manière d’ajouter les fichiers. Il ne doit pas créer une seconde navigation, une seconde liste de copies ni un vocabulaire technique dans le parcours enseignant. Les termes liés à l’ordonnancement ou à l’exécution interne restent réservés aux espaces de diagnostic.
