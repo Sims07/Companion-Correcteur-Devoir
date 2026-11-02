@@ -1087,3 +1087,38 @@ footer { padding-top: 24px; line-height: 1.6; }
   outline: 3px solid var(--accent, #315fce);
   outline-offset: 3px;
 }
+
+
+/* Focused teacher verification workspace. */
+.copy-review-header{position:sticky;top:0;z-index:20;margin:0 -34px 12px;padding:12px 34px 14px;background:rgba(255,255,255,.97);border-bottom:1px solid #dfe8de;backdrop-filter:blur(12px)}
+.copy-review-breadcrumb{display:flex;align-items:center;gap:8px;margin-bottom:10px;color:#718075;font-size:11px}
+.copy-review-breadcrumb button{padding:0;border:0;background:none;color:#477b55;font-weight:700}
+.copy-review-header-main{display:flex;align-items:center;gap:14px;min-width:0}
+.copy-review-student-name{min-width:150px;flex:1}
+.copy-review-student-name input{width:100%;padding:8px 10px;border:1px solid #dfe8de;border-radius:8px;background:#fff;color:#294034;font-size:16px;font-weight:750}
+.copy-review-position{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.copy-review-position button{width:28px;height:28px;border:1px solid #dfe8de;border-radius:7px;background:#fff;color:#477b55}
+.copy-review-position button:disabled{opacity:.35}
+.copy-review-position strong{font-size:12px;font-variant-numeric:tabular-nums}
+.copy-review-status{padding:6px 9px;border-radius:999px;background:#fff3df;color:#8b6226;font-size:10px;font-weight:800;white-space:nowrap}
+.copy-review-status.is-completed{background:#e9f5eb;color:#27623a}
+.copy-review-header-score{font-size:17px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.copy-review-header-main>.primary-button{white-space:nowrap}
+.copy-review-alert-strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:8px 11px;border:1px solid #f0dfc1;border-radius:9px;background:#fffaf1;color:#805b27;font-size:11px}
+.copy-review-alert-strip button{border:0;background:transparent;color:inherit;font:inherit;font-weight:750;cursor:pointer}
+.copy-review-alert-chip{padding:4px 8px;border:1px solid #ecdcbf!important;border-radius:999px;background:#fff!important;font-size:10px!important}
+.review-annotations-details,.review-extra-tools{margin:8px 0 14px;padding:10px 13px;border:1px solid #dfe8de;border-radius:10px;background:#fff;color:#294034;font-size:12px}
+.review-annotations-details summary,.review-extra-tools>summary{cursor:pointer;font-weight:750}
+.review-annotations-details pre{max-height:180px;overflow:auto;white-space:pre-wrap;font:inherit;line-height:1.55}
+.review-confirm-safe{margin-top:12px}
+.copy-review-validation-bar{position:sticky;bottom:0;z-index:18;display:flex;align-items:center;justify-content:space-between;gap:16px;margin:20px -34px -24px;padding:12px 34px;background:rgba(255,255,255,.97);border-top:1px solid #dfe8de;box-shadow:0 -8px 24px rgba(32,52,43,.06);backdrop-filter:blur(12px)}
+.copy-review-validation-bar>div{display:grid;grid-template-columns:auto auto;align-items:center;gap:2px 10px}
+.copy-review-validation-bar>div>span{color:#718075;font-size:10px;font-weight:700}
+.copy-review-validation-bar>div>strong{font-size:16px;font-variant-numeric:tabular-nums}
+.copy-review-validation-bar>div>small{grid-column:1/-1;color:#718075;font-size:10px}
+.review-extra-tools .questions-field{margin:14px 0}
+.review-extra-tools .review-export{margin-top:12px}
+.review-workspace{align-items:start}
+@media(max-width:1280px){.copy-review-header{margin-right:-20px;margin-left:-20px;padding-right:20px;padding-left:20px}.copy-review-validation-bar{margin-right:-20px;margin-left:-20px;padding-right:20px;padding-left:20px}}
+@media(max-width:900px){.copy-review-header-main{flex-wrap:wrap}.copy-review-student-name{flex-basis:45%}.copy-review-header-main>.primary-button{flex:1}.copy-review-validation-bar{margin-right:-16px;margin-left:-16px;padding-right:16px;padding-left:16px}}
+@media(max-width:600px){.copy-review-header{margin-right:-16px;margin-left:-16px;padding:10px 16px}.copy-review-header-main{gap:8px}.copy-review-student-name{flex-basis:100%}.copy-review-header-main>.primary-button{min-width:100%;order:5}.copy-review-header-score{margin-left:auto}.copy-review-validation-bar{align-items:stretch;flex-direction:column;margin-bottom:-20px}.copy-review-validation-bar>.primary-button{width:100%}.copy-review-breadcrumb{font-size:10px}}
