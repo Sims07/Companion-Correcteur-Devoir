@@ -47,8 +47,8 @@ test('teacher can rotate each batch page manually before starting the series', a
   await page.reload();
   await openActiveAssignment(page);
   const chooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
-  await chooser.getByRole('button', { name: /Correction en série/ }).click();
-  const series = page.getByRole('region', { name: 'Session de correction en série' });
+  await chooser.getByRole('button', { name: /Corriger plusieurs copies/ }).click();
+  const series = page.getByRole('region', { name: 'Copies du devoir' });
   await series.getByLabel('Démarrer automatiquement la correction').uncheck();
   const imageBase64 = await page.evaluate(() => {
     const canvas = document.createElement('canvas');
@@ -68,12 +68,13 @@ test('teacher can rotate each batch page manually before starting the series', a
     buffer: Buffer.from(imageBase64, 'base64'),
   });
 
-  await series.getByRole('button', { name: 'Voir les pages et la correction' }).click();
+  await series.getByRole('button', { name: 'Voir la copie' }).click();
 
-  const preview = series.getByRole('img', { name: 'Page 1 de schema-cellule.png' });
+  const previewPanel = series.getByRole('region', { name: 'Aperçu de schema-cellule.png' });
+  const preview = previewPanel.getByRole('img', { name: 'Page 1 de schema-cellule.png' });
   await expect(preview).toBeVisible();
   await expect.poll(() => preview.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([8, 4]);
-  await series.getByRole('button', { name: 'Tourner la page 1 de schema-cellule.png à droite de 90 degrés' }).click();
+  await previewPanel.getByRole('button', { name: 'Tourner la page 1 de schema-cellule.png à droite de 90 degrés' }).click();
 
   await expect(series.getByText(/Page 1 · tournée de 90°/)).toBeVisible();
   await expect.poll(() => preview.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([4, 8]);

@@ -30,9 +30,7 @@ describe('correction en série — espace de révision', () => {
 
   it('exposes per-page rotation controls in the batch queue and pauses safely during processing', () => {
     expect(app).toContain('batch-copy-page-previews');
-    expect(app).toContain('correction-series-pages');
-    expect(app).toContain('job.images.map((page, pageIndex)');
-    expect(app).toContain('rotationAngles?.[pageIndex]');
+    expect(app).toContain('selectedCopy.images.map((page, pageIndex)');
     expect(app).toContain('Tourner la page ${pageIndex + 1} de ${job.label} à gauche de 90 degrés');
     expect(app).toContain('Tourner la page ${pageIndex + 1} de ${job.label} à droite de 90 degrés');
     expect(app).toContain('await backgroundService.pauseAndWait()');
@@ -45,38 +43,73 @@ describe('correction en série — espace de révision', () => {
   it('saves the current review before navigating to the next ready copy', () => {
     expect(app).toContain('onClick={() => { void finalizeReview(true); }}');
     expect(app).toContain('Enregistrer et passer à la copie suivante');
-    expect(app).toContain('Aucune autre copie prête pour le moment.');
+    expect(app).toContain('Aucune autre copie n’est prête à réviser pour le moment. Les autres corrections se poursuivent.');
   });
 
   
   it('presents the sequential batch as compact status cards with live provisional scores', () => {
-    expect(app).toContain("isExpanded && !isActive ? 'is-expanded' : ''");
-    expect(app).toContain('Voir les pages et la correction');
-    expect(app).toContain('Masquer les pages et la correction');
-    expect(app).toContain('correction-series-provisional-score');
-    expect(app).toContain('Note provisoire ·');
-    expect(styles).toContain('grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr))');
+    expect(app).toContain('correction-series-card-score');
+    expect(app).toContain('Consulter la correction');
+    expect(app).not.toContain('Voir les pages et la correction');
+    expect(app).not.toContain('Masquer les pages et la correction');
+    expect(app).toContain('Note provisoire');
+    expect(app).toContain('provisionalScore.toLocaleString');
+    expect(styles).toContain('grid-template-columns: repeat(auto-fit, minmax(min(100%, 255px), 1fr))');
     expect(styles).toContain('.correction-series-list > li.is-processing');
     expect(styles).toContain('.correction-series-list > li.is-pending');
-    expect(styles).toContain('.correction-series-pages figure');
-    expect(styles).toContain('flex: 0 0 54px');
-    expect(styles).toContain('.correction-series-live-details');
-    expect(styles).toContain('.correction-series-list > li:not(.is-active):not(.is-expanded) .correction-series-pages');
-    expect(styles).toContain('.correction-series-list > li.is-active {');
-    expect(styles).toContain('order: -1;');
+    expect(styles).toContain('.correction-series-card-heading');
+    expect(styles).toContain('.correction-series-card-footer');
+    expect(styles).toContain('.correction-series-card-score');
+    expect(styles).toContain('grid-auto-rows: 1fr');
+    expect(styles).toContain('min-height: 218px');
+    expect(app).toContain('Consulter la correction');
+    expect(app).not.toContain('correction-details-');
+    expect(app).not.toContain('correction-series-live-details');
+    expect(app).not.toContain('Masquer les pages et la correction');
   });
 
-  it('shows a live batch overview based on actual copy states and expands the active copy', () => {
+  it('shows a live batch overview without expanding copy cards', () => {
     expect(app).toContain('correction-series-overview');
     expect(app).toContain("['ready', 'reviewing', 'completed'].includes(job.status)");
     expect(app).toContain("job.status === 'processing'");
     expect(app).toContain("['needs-review', 'failed'].includes(job.status)");
     expect(app).toContain('Copies dont la correction est disponible');
-    expect(app).toContain('const isExpanded = isActive || expandedBackgroundJobIds.includes(job.id)');
-    expect(app).toContain("isActive ? 'Correction en cours' : isExpanded ? 'Masquer les pages et la correction' : 'Voir les pages et la correction'");
+    expect(app).toContain('Consulter la correction');
+    expect(app).toContain('Note proposée');
     expect(styles).toContain('.correction-series-overview-metrics');
     expect(styles).toContain('.correction-series-list > li.is-active');
-    expect(styles).toContain('grid-column: 1 / -1');
+    expect(styles).toContain('grid-auto-rows: 1fr');
+  });
+
+  it('keeps batch actions in their own responsive row and separates failures from teacher review', () => {
+    expect(app).toContain('className="correction-series-actions"');
+    expect(app).toContain("job.status === 'failed' ? 'Relancer' : 'Reprendre'");
+    expect(app).toContain('Correction à relancer');
+    expect(app).not.toContain('réessayer le traitement');
+    expect(app).toContain("const reviewCount = backgroundJobs.filter((job) => job.status === 'needs-review').length");
+    expect(app).toContain("const failedCount = backgroundJobs.filter((job) => job.status === 'failed').length");
+    expect(styles).toContain('.correction-series-actions');
+    expect(styles).toContain('flex: 1 1 100%');
+    expect(styles).not.toContain('margin-left: 2.35rem');
+    expect(styles).toContain('.correction-series-overview-metrics article.has-failure');
+  });
+
+  it('uses teacher-friendly language for the copy correction overview', () => {
+    expect(app).toContain('AVANCEMENT DES CORRECTIONS');
+    expect(app).toContain('copies prêtes');
+    expect(app).toContain('À corriger');
+    expect(app).toContain('À relancer');
+    expect(app).not.toContain('notes disponibles');
+    expect(app).toContain('Correction des copies');
+    expect(app).toContain('Corriger plusieurs copies');
+    expect(app).toContain('aria-label="Copies du devoir"');
+    expect(app).toContain('<h4>Copies à corriger</h4>');
+    expect(app).toContain('Les copies seront corrigées l’une après l’autre.');
+    expect(app).toContain('Démarrer automatiquement la correction des copies ajoutées');
+    expect(app).toContain('COPIES À SUIVRE');
+    expect(app).not.toContain('TRAITEMENT SÉQUENTIEL');
+    expect(app).not.toContain('TRAITEMENT EN ARRIÈRE-PLAN');
+    expect(app).not.toContain('Traitement séquentiel');
   });
 
 });
