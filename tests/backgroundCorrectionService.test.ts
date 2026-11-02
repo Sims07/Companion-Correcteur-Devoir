@@ -114,6 +114,33 @@ describe('background correction service', () => {
     expect(listener.mock.calls[0][0][0]).not.toHaveProperty('originalImages');
   });
 
+  it('uses the latest AI models when a queued copy starts', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const importSettings = {
+      endpoint: 'http://localhost:11434',
+      visionModel: 'old-vision:4b',
+      analysisModel: 'old-analysis:4b',
+      autoBackgroundCorrection: false,
+    };
+    const currentSettings = {
+      endpoint: 'http://localhost:11435',
+      visionModel: 'new-vision:4b',
+      analysisModel: 'new-analysis:4b',
+    };
+
+    await service.enqueue(f.job, importSettings);
+    await service.processPending(currentSettings);
+
+    expect(f.createProvider).toHaveBeenCalled();
+    expect(f.createProvider.mock.calls[0][0]).toMatchObject({
+      endpoint: currentSettings.endpoint,
+      visionModel: currentSettings.visionModel,
+      analysisModel: currentSettings.analysisModel,
+    });
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+  });
+
   it('prewarms, caches transcription and grades one criterion per sequential provider call', async () => {
     const f = fixture();
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
@@ -192,6 +219,28 @@ describe('background correction service', () => {
     await Promise.all([firstLaunch, secondLaunch]);
     expect(f.jobs.get('copy-1')?.status).toBe('ready');
     expect(calls).toBe(2);
+  });
+
+  it('resumes a retry deferred while the teacher has foreground priority', async () => {
+    const f = fixture();
+    f.jobs.set('copy-1', { ...f.job, status: 'failed', error: 'Réponse tronquée.' });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' };
+
+    await service.pauseAndWait();
+    await service.retry('copy-1', settings);
+
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'pending', error: null });
+    expect(f.createProvider).not.toHaveBeenCalled();
+
+    service.resume();
+    for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    expect(f.createProvider).toHaveBeenCalledTimes(2);
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+    expect(f.jobs.get('copy-1')?.error).toBeNull();
   });
 
   it('retries only unfinished criteria and reuses the saved transcription', async () => {
@@ -393,4 +442,26 @@ describe('background correction service', () => {
     expect(f.repository.deleteJob).not.toHaveBeenCalled();
   });
 
+});
+
+
+describe('background correction cancellation', () => {
+  it('stops the active model request and keeps the copy resumable in the queue', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    let requestStarted!: () => void;
+    const started = new Promise<void>((resolve) => { requestStarted = resolve; });
+    f.setGenerateImplementation(async (_request, _chunk, _stage, onTranscription, _diagnostic, _criterion, _annotationReview, _progress, signal) => {
+      await onTranscription?.('Texte extrait de la copie', 'copy');
+      requestStarted();
+      return new Promise<string>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+      });
+    });
+    const processing = service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+    await started;
+    await service.stopAndWait();
+    await processing;
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'pending', partialCriteria: [], transcription: 'Texte extrait de la copie' });
+  });
 });

@@ -291,7 +291,7 @@ export function createOllamaProvider(
     : fetchImpl;
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
-    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning' | 'identity') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>, onProgress?: (event: GradingProgressEvent) => void): Promise<string> {
+    async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning' | 'identity') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>, onProgress?: (event: GradingProgressEvent) => void, signal?: AbortSignal): Promise<string> {
       const endpoint = normalizedEndpoint(settings.endpoint);
       const providerName = settings.apiCompatible ? 'API compatible OpenAI' : 'Ollama';
       const visionOnly = request.visionOnly === true;
@@ -423,6 +423,7 @@ export function createOllamaProvider(
           diagnosticResultEmitted = true;
         };
         try {
+          if (signal?.aborted) throw new DOMException('Traitement interrompu par l’enseignant.', 'AbortError');
           const requestBody = {
               model,
               stream: true,
@@ -452,8 +453,10 @@ export function createOllamaProvider(
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody),
+            ...(signal ? { signal } : {}),
           }, intent, `Modèle ${model} · ${context}`));
         } catch (cause) {
+          if (signal?.aborted) throw new DOMException('Traitement interrompu par l’enseignant.', 'AbortError');
           publishFailedCall(cause);
           const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';
           throw new Error(`Connexion à ${providerName} interrompue pendant le traitement (modèle « ${model} », ${request.images?.length ?? 0} image(s)). Vérifiez l’adresse du fournisseur, le token et la disponibilité du modèle. Détail réseau : ${detail}`);

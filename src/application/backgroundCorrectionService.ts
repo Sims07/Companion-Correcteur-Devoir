@@ -16,6 +16,7 @@ export interface BackgroundCorrectionService {
   listJobSummaries(assignmentId?: string): Promise<BackgroundJobSummary[]>;
   prewarm(settings: OllamaSettings): Promise<void>;
   pauseAndWait(): Promise<void>;
+  stopAndWait(): Promise<void>;
   resume(): void;
   processPending(settings: OllamaSettings): Promise<void>;
   subscribe(listener: (jobs: BackgroundCorrectionJob[]) => void): () => void;
@@ -69,6 +70,7 @@ export function createBackgroundCorrectionService(
   let prewarmedModel: string | null = null;
   let prewarmSettings: OllamaSettings | null = null;
   let activeModelToUnload: string | null = null;
+  let activeRequestAbortController: AbortController | null = null;
   const listeners = new Set<(jobs: BackgroundCorrectionJob[]) => void>();
   const summaryListeners = new Set<(jobs: BackgroundJobSummary[]) => void>();
   async function persist(job: BackgroundCorrectionJob): Promise<void> {
@@ -89,11 +91,17 @@ export function createBackgroundCorrectionService(
           .filter((candidate) => candidate.status === 'pending' || candidate.status === 'processing')
           .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
         if (!job) break;
+        // Use the latest teacher configuration when a queued copy actually starts.
+        // The job's model fields are only a snapshot from import time and may be stale.
+        const jobSettings = lastSettings ?? settings;
         const fingerprint = job.imageFingerprint ?? await repository.fingerprintImages(job.images);
         const cachedTranscription = job.transcription ?? await repository.getCachedTranscription(fingerprint);
         let transcriptionFingerprint = fingerprint;
         let current: BackgroundCorrectionJob = {
           ...job,
+          visionModel: jobSettings.visionModel?.trim() || job.visionModel,
+          analysisModel: jobSettings.analysisModel?.trim() || job.analysisModel,
+          thinking: jobSettings.thinking ?? job.thinking,
           imageFingerprint: fingerprint,
           transcription: cachedTranscription,
           status: 'processing',
@@ -102,6 +110,8 @@ export function createBackgroundCorrectionService(
           error: null,
         };
         await persist(current);
+        const requestAbortController = new AbortController();
+        activeRequestAbortController = requestAbortController;
         try {
           let textPageNumbers = current.images.map((_, index) => index + 1);
           const visualRubric = partitionScientificRubric(current.rubric);
@@ -114,8 +124,8 @@ export function createBackgroundCorrectionService(
               classifications = await diagramAnalysis.classifyPages({
                 images: current.images,
                 model: current.visionModel,
-                endpoint: settings.endpoint,
-                apiKey: settings.apiKey ?? '',
+                endpoint: jobSettings.endpoint,
+                apiKey: jobSettings.apiKey ?? '',
               });
             }
             const routing = routeScientificPages(classifications, current.images.length);
@@ -138,8 +148,8 @@ export function createBackgroundCorrectionService(
                 ...(current.subjectTranscription ? { subjectTranscription: current.subjectTranscription } : {}),
                 rubric: { ...current.rubric, criteria: visualRubric.diagramCriteria },
                 model: current.visionModel,
-                endpoint: settings.endpoint,
-                apiKey: settings.apiKey ?? '',
+                endpoint: jobSettings.endpoint,
+                apiKey: jobSettings.apiKey ?? '',
               });
             }
             const visualProposal = mergeScientificDiagramCriteria(
@@ -167,7 +177,7 @@ export function createBackgroundCorrectionService(
               prewarmedModel = null;
             }
             const provider = workspace.createProvider({
-              ...settings,
+              ...jobSettings,
               visionModel: current.visionModel,
               analysisModel: current.analysisModel,
               thinking: current.thinking,
@@ -235,6 +245,7 @@ export function createBackgroundCorrectionService(
                   }
                   if (event.type === 'page' && event.status !== 'started') queueProgress({ completedPages: Math.max(current.completedPages, event.pageIndex) });
                 },
+                requestAbortController.signal,
               );
             } catch (cause) {
               generationError = cause;
@@ -255,7 +266,7 @@ export function createBackgroundCorrectionService(
             await persist(current);
           }
           if (paused) {
-            if (activeModelToUnload) await workspace.unloadModel?.(settings, activeModelToUnload).catch(() => undefined);
+            if (activeModelToUnload) await workspace.unloadModel?.(jobSettings, activeModelToUnload).catch(() => undefined);
             activeModelToUnload = null;
             await persist({ ...current, status: 'pending', updatedAt: new Date().toISOString() });
             break;
@@ -270,16 +281,19 @@ export function createBackgroundCorrectionService(
             updatedAt: new Date().toISOString(),
             error: complete ? null : 'Certains critères restent à vérifier.',
           });
+          if (activeRequestAbortController === requestAbortController) activeRequestAbortController = null;
         } catch (cause) {
-          if (activeModelToUnload) await workspace.unloadModel?.(settings, activeModelToUnload).catch(() => undefined);
+          if (activeModelToUnload) await workspace.unloadModel?.(jobSettings, activeModelToUnload).catch(() => undefined);
           activeModelToUnload = null;
+          const cancelled = requestAbortController.signal.aborted;
           await persist({
             ...current,
-            status: current.partialCriteria.length ? 'needs-review' : 'failed',
+            status: cancelled ? 'pending' : current.partialCriteria.length ? 'needs-review' : 'failed',
             ...(current.partialCriteria.length ? { proposal: createProposal(current.rubric, current.partialCriteria) } : {}),
             updatedAt: new Date().toISOString(),
-            error: cause instanceof Error ? cause.message : 'La correction en arrière-plan a échoué.',
+            error: cancelled ? null : cause instanceof Error ? cause.message : 'La correction en arrière-plan a échoué.',
           });
+          if (activeRequestAbortController === requestAbortController) activeRequestAbortController = null;
         }
       }
     })().finally(() => { activeLoop = null; });
@@ -359,15 +373,24 @@ export function createBackgroundCorrectionService(
       prewarmKey = '';
       prewarmUntil = 0;
     },
+    async stopAndWait() {
+      paused = true;
+      activeRequestAbortController?.abort();
+      if (activeLoop) await activeLoop;
+      if (prewarmPromise) await prewarmPromise.catch(() => undefined);
+      if (prewarmedModel && prewarmSettings) await workspace.unloadModel?.(prewarmSettings, prewarmedModel).catch(() => undefined);
+      prewarmedModel = null;
+      prewarmKey = '';
+      prewarmUntil = 0;
+    },
     resume() {
       foregroundPriority = false;
       paused = false;
       if (autoEnabled && lastSettings) void run(lastSettings);
     },
     async processPending(settings) {
-      // Manual launch must resume a queue explicitly paused by disabling automatic
-      // processing. run() is idempotent while a loop is already active, preventing
-      // repeated clicks from issuing duplicate model requests.
+      // Manual launch explicitly resumes a queue after a user-requested stop.
+      foregroundPriority = false;
       paused = false;
       try { await this.prewarm(settings); } catch { /* The correction itself will expose a configuration error if needed. */ }
       await run(settings);
@@ -442,6 +465,16 @@ export function createBackgroundCorrectionService(
       if (foregroundPriority) { lastSettings = settings; return; }
       paused = false;
       await run(settings);
+      // A retry can race with the final iteration of an already-running loop:
+      // run() then joins that loop, which may have observed an empty queue just
+      // before this job was persisted as pending. Re-check after the joined loop
+      // settles so the retry cannot remain pending without a generation request.
+      if (!paused && !foregroundPriority) {
+        const remainingJobs = await repository.listJobs();
+        if (remainingJobs.some((item) => item.status === 'pending' || item.status === 'processing')) {
+          await run(settings);
+        }
+      }
     },
     async setAutomatic(enabled, settings) {
       autoEnabled = enabled;

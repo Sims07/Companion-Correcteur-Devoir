@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseGradingProposal } from './grading.ts';
+import { normalizeGradeScore, parseGradingProposal } from './grading.ts';
 import type { Rubric } from './rubric.ts';
 
 const rubric: Rubric = {
@@ -78,5 +78,36 @@ describe('parseGradingProposal final score', () => {
 
     expect(proposal.criteria[0].pageNumber).toBe(2);
     expect(proposal.criteria[1].pageNumber).toBeUndefined();
+  });
+});
+
+
+describe('grade score precision', () => {
+  it('rounds individual scores to at most two decimal places', () => {
+    expect(normalizeGradeScore(1.239)).toBe(1.24);
+    expect(normalizeGradeScore(1.2)).toBe(1.2);
+    expect(normalizeGradeScore(0.1 + 0.2)).toBe(0.3);
+  });
+
+  it('normalizes model criterion scores before calculating the total', () => {
+    const proposal = parseGradingProposal(JSON.stringify({
+      summary: 'Notes avec une précision limitée.',
+      criteria: [criterion('science', 0.1 + 0.2), criterion('reasoning', 1.239)],
+      questionsForTeacher: [],
+    }), rubric);
+
+    expect(proposal.criteria.map((item) => item.points)).toEqual([0.3, 1.24]);
+    expect(proposal.finalScore).toBe(1.54);
+  });
+
+  it('accepts a declared total with harmless floating-point noise', () => {
+    const proposal = parseGradingProposal(JSON.stringify({
+      summary: 'Somme décimale.',
+      finalScore: 0.1 + 0.2,
+      criteria: [criterion('science', 0.1), criterion('reasoning', 0.2)],
+      questionsForTeacher: [],
+    }), rubric);
+
+    expect(proposal.finalScore).toBe(0.3);
   });
 });

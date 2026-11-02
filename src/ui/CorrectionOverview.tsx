@@ -18,6 +18,9 @@ type Props = {
   filter: CopyOverviewFilter;
   onFilterChange: (filter: CopyOverviewFilter) => void;
   onAddCopy: () => void;
+  pendingCount: number;
+  isStartingCorrections: boolean;
+  onStartCorrections: () => void;
   onOpenJob: (jobId: string) => void;
   onRetryJob: (jobId: string) => void;
   onOpenCorrection: (correction: LocalCorrection) => void;
@@ -45,14 +48,14 @@ const labels: Record<CopyOverviewFilter, string> = {
   'to-do': 'En attente',
   processing: 'Analyse en cours',
   'to-review': 'À vérifier',
-  'to-retry': 'À reprendre',
+  'to-retry': 'À corriger',
   completed: 'Corrigées',
 };
 const statusLabels: Record<CopyOverviewStatus, string> = {
   'to-do': 'En attente',
   processing: 'Analyse en cours',
   'to-review': 'À vérifier',
-  'to-retry': 'À reprendre',
+  'to-retry': 'À corriger',
   completed: 'Corrigée',
 };
 const number = (value: number) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(value);
@@ -71,7 +74,7 @@ function jobLabel(job: BackgroundJobSummary): string {
 }
 
 function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): string {
-  if (status === 'to-retry') return 'La correction n’a pas abouti. Vous pouvez relancer cette copie.';
+  if (status === 'to-retry') return 'La correction n’a pas abouti. Vous pouvez corriger à nouveau cette copie.';
   if (status === 'processing') return job.phase === 'reading'
     ? `Lecture de la copie · ${job.progress.completedPages}/${job.progress.totalPages} pages`
     : `Correction · ${job.progress.completedCriteria}/${job.progress.totalCriteria} critères`;
@@ -80,7 +83,7 @@ function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): stri
   return 'Proposition prête à vérifier';
 }
 
-export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, onOpenJob, onRetryJob, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
+export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, pendingCount, isStartingCorrections, onStartCorrections, onOpenJob, onRetryJob, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
   const [query, setQuery] = useState('');
   const items = useMemo(() => {
     const jobItems: OverviewItem[] = jobs
@@ -154,6 +157,7 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onF
         <p>Retrouvez les copies en attente, celles à vérifier et les corrections validées.</p>
       </div>
       <div className="copy-overview-primary-actions">
+        {pendingCount > 0 && <button type="button" className="primary-button" onClick={onStartCorrections} disabled={isStartingCorrections}>{isStartingCorrections ? 'Démarrage des corrections…' : `Démarrer les corrections (${pendingCount})`}</button>}
         {counts.toReview > 0 && <button type="button" className="primary-button" onClick={onReviewNextCopy}>Vérifier la copie suivante</button>}
         <button type="button" className="secondary-button" onClick={onAddCopy}>＋ Ajouter une copie</button>
       </div>
@@ -191,7 +195,7 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onF
             </div>
             <div className="correction-series-actions">
               {item.kind === 'job' && item.job && <>
-                {item.status === 'to-retry' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Reprendre</button>}
+                {item.status === 'to-retry' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Corriger</button>}
                 <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenJob(item.job!.id)}>Ouvrir</button>
               </>}
               {item.kind === 'current' && <button type="button" className="secondary-button correction-series-view" onClick={onOpenCurrentCopy}>Reprendre la copie</button>}

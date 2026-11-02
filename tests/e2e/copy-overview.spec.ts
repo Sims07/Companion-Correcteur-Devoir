@@ -42,7 +42,7 @@ async function prepareLocalWorkspace(page: Page) {
   await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
 }
 
-async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; status: 'ready' | 'failed'; updatedAt: string; error?: string }>, readyProposal = proposal) {
+async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; status: 'ready' | 'failed' | 'pending' | 'processing'; updatedAt: string; error?: string }>, readyProposal = proposal) {
   await page.evaluate(async ({ input, rubric: jobRubric, pageImage: image, proposal: readyProposal }) => {
     const request = indexedDB.open('companion-correcteur-devoir', 5);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -72,11 +72,11 @@ async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; sta
         createdAt: now,
         updatedAt: now,
         status: item.status,
-        phase: item.status === 'ready' ? 'complete' : 'reading',
-        completedPages: item.status === 'ready' ? 1 : 0,
-        completedCriteria: item.status === 'ready' ? 3 : 0,
+        phase: item.status === 'ready' ? 'complete' : item.status === 'pending' ? 'preparation' : item.status === 'processing' ? 'grading' : 'reading',
+        completedPages: item.status === 'ready' || item.status === 'processing' ? 1 : 0,
+        completedCriteria: item.status === 'ready' ? 3 : item.status === 'processing' ? 1 : 0,
         totalCriteria: 3,
-        transcription: item.status === 'ready' ? 'Transcription de test.' : null,
+        transcription: item.status === 'ready' || item.status === 'processing' ? 'Transcription de test en cours.' : null,
         partialCriteria: item.status === 'ready' ? readyProposal.criteria : [],
         proposal: item.status === 'ready' ? readyProposal : null,
         error: item.error ?? null,
@@ -93,8 +93,31 @@ async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; sta
 }
 
 function copyNavigation(page: Page) {
-  return page.locator('.teacher-step-nav').getByRole('button', { name: /Copies/ });
+  return page.getByRole('tab', { name: /Copies/ });
 }
+
+
+test('opening a copy whose analysis is running shows its individual correction progress', async ({ page }) => {
+  await prepareLocalWorkspace(page);
+  await seedJobs(page, [
+    { id: 'copy-processing', label: 'Copie en cours', status: 'processing', updatedAt: '2026-11-02T09:00:00.000Z' },
+  ]);
+  await page.reload();
+  await openActiveAssignment(page);
+  await copyNavigation(page).click();
+
+  await page.getByRole('button', { name: /Analyse en cours/ }).click();
+  const processingCard = page.locator('.copy-overview-grid .correction-series-card');
+  await expect(processingCard).toContainText('Copie en cours');
+  await processingCard.getByRole('button', { name: 'Ouvrir' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Correction en cours' })).toBeVisible();
+  await expect(page.getByText('La copie en cours de correction')).toBeVisible();
+  await expect(page.getByText('1/1 pages lues')).toBeVisible();
+  await expect(page.getByText('1/3 critères traités')).toBeVisible();
+  await expect(page.getByText('Transcription de test en cours.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
+});
 
 test('adding a copy while another one is under review keeps the previous copy and opens the next copy by priority', async ({ page }) => {
   await prepareLocalWorkspace(page);
@@ -108,6 +131,12 @@ test('adding a copy while another one is under review keeps the previous copy an
 
   await expect(page.getByRole('button', { name: /À vérifier/ })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Vérifier la copie suivante' }).click();
+  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Copie récente');
+  const copyRail = page.getByRole('complementary', { name: 'Navigation entre les copies' });
+  await expect(copyRail).toBeVisible();
+  await copyRail.getByRole('button', { name: /Copie ancienne/ }).click();
+  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Copie ancienne');
+  await copyRail.getByRole('button', { name: /Copie récente/ }).click();
   await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Copie récente');
 
   await copyNavigation(page).click();
@@ -187,10 +216,10 @@ test('a copy without alerts can be validated in one action and advances to the n
   await expect(studentName).toHaveValue('Copie suivante');
 });
 
-test('a failed copy is kept in À reprendre and the Reprendre action starts a new attempt', async ({ page }) => {
+test('a failed copy is kept in À corriger and the Corriger action starts a new attempt', async ({ page }) => {
   await prepareLocalWorkspace(page);
   await seedJobs(page, [
-    { id: 'copy-failed', label: 'Copie en échec', status: 'failed', updatedAt: '2026-11-02T09:00:00.000Z', error: 'La correction n’a pas abouti. Vous pouvez relancer cette copie.' },
+    { id: 'copy-failed', label: 'Copie en échec', status: 'failed', updatedAt: '2026-11-02T09:00:00.000Z', error: 'La correction n’a pas abouti. Vous pouvez corriger à nouveau cette copie.' },
   ]);
   let retryRequests = 0;
   await page.route('https://ai.example/**', async (route) => {
@@ -201,14 +230,14 @@ test('a failed copy is kept in À reprendre and the Reprendre action starts a ne
   await openActiveAssignment(page);
   await copyNavigation(page).click();
 
-  await page.getByRole('button', { name: /À reprendre/ }).click();
+  await page.getByRole('button', { name: /À corriger/ }).click();
   const failedCard = page.locator('.copy-overview-grid .correction-series-card');
   await expect(failedCard).toContainText('Copie en échec');
-  await expect(failedCard).toContainText('La correction n’a pas abouti. Vous pouvez relancer cette copie.');
-  await failedCard.getByRole('button', { name: 'Reprendre' }).click();
+  await expect(failedCard).toContainText('La correction n’a pas abouti. Vous pouvez corriger à nouveau cette copie.');
+  await failedCard.getByRole('button', { name: 'Corriger' }).click();
 
   await expect.poll(() => retryRequests).toBeGreaterThan(0);
-  await expect(failedCard).toContainText('À reprendre');
+  await expect(failedCard).toContainText('À corriger');
 });
 
 test('adding another copy automatically saves the imported foreground copy in the overview', async ({ page }) => {
@@ -229,4 +258,29 @@ test('adding another copy automatically saves the imported foreground copy in th
   await copyNavigation(page).click();
   await expect(page.getByText('copie-a-conserver.png')).toBeVisible();
   await expect(page.getByRole('button', { name: /En attente/ })).toContainText('1');
+});
+
+
+test('teacher can explicitly start correction for copies already loaded in the assignment', async ({ page }) => {
+  await prepareLocalWorkspace(page);
+  await seedJobs(page, [
+    { id: 'copy-pending-1', label: 'Copie en attente 1', status: 'pending', updatedAt: '2026-11-02T08:00:00.000Z' },
+    { id: 'copy-pending-2', label: 'Copie en attente 2', status: 'pending', updatedAt: '2026-11-02T09:00:00.000Z' },
+  ]);
+  let correctionRequests = 0;
+  await page.route('https://ai.example/**', async (route) => {
+    correctionRequests += 1;
+    await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'Service temporairement indisponible' }) });
+  });
+  await page.reload();
+  await openActiveAssignment(page);
+  await copyNavigation(page).click();
+
+  const launch = page.getByRole('button', { name: 'Démarrer les corrections (2)' });
+  await expect(launch).toBeVisible();
+  await expect(launch).toBeEnabled();
+  await launch.click();
+  await expect.poll(() => correctionRequests).toBeGreaterThan(0);
+  await expect(page.getByText('Copie en attente 1')).toBeVisible();
+  await expect(page.getByText('Copie en attente 2')).toBeVisible();
 });

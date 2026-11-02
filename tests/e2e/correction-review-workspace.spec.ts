@@ -102,13 +102,21 @@ test('review workspace keeps original evidence beside grading criteria on deskto
 
   await page.reload();
   await openActiveAssignment(page);
-  await page.locator('.teacher-step-nav').getByRole('button', { name: /Copies/ }).click();
+  await page.getByRole('tab', { name: /Copies/ }).click();
   await expect(page.locator('#background-copy-files')).toBeVisible();
-  await page.getByRole('button', { name: /Copies corrigées/ }).click();
+  await page.locator('.copy-overview-filters').getByRole('button', { name: /Corrigées/ }).click();
   await expect(page.getByRole('button', { name: 'Consulter la correction' })).toHaveCount(1);
   await expect(page.getByText('Copie d’un autre devoir')).toHaveCount(0);
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
   await expect(page.locator('#background-copy-files')).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toContainText('Biologie cellulaire');
+  await expect(page.getByRole('tab', { name: 'Copies' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('complementary', { name: 'Navigation entre les copies' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Copie de test/ })).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('.teacher-step-nav')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Réduire la liste des copies' }).click();
+  await expect(page.getByRole('button', { name: 'Afficher la liste des copies' })).toHaveAttribute('aria-expanded', 'false');
+  await page.getByRole('button', { name: 'Afficher la liste des copies' }).click();
 
   await expect(page.getByRole('heading', { name: 'Analyse des schémas scientifiques' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Pages identifiées' })).toHaveCount(0);
@@ -192,7 +200,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.reload();
   await openActiveAssignment(page);
-  await page.getByRole('button', { name: /Copies corrigées/ }).click();
+  await page.getByRole('tab', { name: /Copies/ }).click();
+  await page.locator('.copy-overview-filters').getByRole('button', { name: /Corrigées/ }).click();
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
   await expect(page.getByRole('button', { name: /Confirmer les critères sans alerte/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Corriger une autre copie' })).toBeVisible();
