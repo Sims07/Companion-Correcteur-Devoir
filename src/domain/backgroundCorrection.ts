@@ -1,5 +1,5 @@
 import type { ImageInput } from './imageInput.ts';
-import type { GradingProposal, CriterionProposal } from './grading.ts';
+import type { GradingProposal, CriterionProposal, ReviewedCriterion } from './grading.ts';
 import type { Rubric } from './rubric.ts';
 import type { TeacherAnnotationInkColor } from './teacherAnnotationColor.ts';
 import type { ScientificPageClassification } from './scientificPageClassification.ts';
@@ -63,6 +63,9 @@ export interface BackgroundCorrectionJob {
   transcriptionPageNumbers?: number[];
   partialCriteria: CriterionProposal[];
   proposal: GradingProposal | null;
+  /** Teacher edits kept when an unarchived foreground copy is moved to the queue. */
+  reviewDraft?: ReviewedCriterion[];
+  teacherQuestionsDraft?: string;
   error: string | null;
   imageFingerprint: string | null;
 }
