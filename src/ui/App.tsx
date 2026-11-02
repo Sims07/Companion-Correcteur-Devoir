@@ -1987,6 +1987,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         assignments={assignmentProfiles}
         activeAssignmentId={activeAssignmentId}
         archivedCorrections={archivedCorrections}
+        backgroundJobs={backgroundJobs}
         onCreate={() => { createNewAssignment(); setShowAssignmentsHome(false); }}
         onOpen={(profile) => { switchAssignment(profile); setShowAssignmentsHome(false); }}
         onDelete={deleteAssignment}
