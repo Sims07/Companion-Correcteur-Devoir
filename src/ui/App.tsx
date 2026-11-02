@@ -2079,6 +2079,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   function openArchivedCorrection(correction: LocalCorrection) {
     const snapshot = correction.snapshot;
+    setCurrentBackgroundJobId(null);
     if (!snapshot) return;
     const archivedTitle = snapshot.assignmentTitle || correction.assignmentTitle || assignmentTitle;
     let matchingAssignment = (correction.assignmentId ? assignmentProfiles.find((profile) => profile.id === correction.assignmentId) : undefined)
