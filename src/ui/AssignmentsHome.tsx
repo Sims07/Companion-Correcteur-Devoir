@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Rubric } from '../domain/rubric.ts';
+import type { BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
 import { getAssignmentOverview } from '../domain/assignmentOverview.ts';
 
 type AssignmentCardProfile = {
@@ -17,6 +18,7 @@ type Props = {
   assignments: AssignmentCardProfile[];
   activeAssignmentId: string;
   archivedCorrections: ArchivedCopy[];
+  backgroundJobs: BackgroundCorrectionJob[];
   onCreate: () => void;
   onOpen: (profile: AssignmentCardProfile) => void;
   onDelete: (profile: AssignmentCardProfile) => void;
@@ -25,10 +27,10 @@ type Props = {
 };
 type Filter = 'all' | 'with-corrections' | 'to-prepare';
 
-export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorrections, onCreate, onOpen, onDelete, onReturn, disabled }: Props) {
+export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorrections, backgroundJobs, onCreate, onOpen, onDelete, onReturn, disabled }: Props) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const overview = useMemo(() => getAssignmentOverview(assignments, archivedCorrections, query, filter), [assignments, archivedCorrections, filter, query]);
+  const assignmentIdsWithCopies = backgroundJobs.filter((job) => job.status !== 'completed').map((job) => job.assignmentId);\n  const overview = useMemo(() => getAssignmentOverview(assignments, archivedCorrections, query, filter, assignmentIdsWithCopies), [assignments, archivedCorrections, assignmentIdsWithCopies.join('|'), filter, query]);
   const { cards, correctionCount, preparationCount } = overview;
 
   return <section className="assignments-home" aria-labelledby="assignments-home-title">
@@ -47,11 +49,11 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
     {cards.length ? <div className="assignments-card-grid">{cards.map(({ profile, archivedCount, maximumPoints, ready }) => {
       const active = profile.id === activeAssignmentId;
       return <article className={active ? 'assignment-overview-card is-active' : 'assignment-overview-card'} key={profile.id}>
-        <div className="assignment-overview-top"><span className="assignment-overview-icon" aria-hidden="true">▤</span><span className={archivedCount ? 'assignment-status has-corrections' : ready ? 'assignment-status ready' : 'assignment-status preparing'}>{archivedCount ? 'Corrections disponibles' : ready ? 'Prêt à corriger' : 'En préparation'}</span></div>
+        <div className="assignment-overview-top"><span className="assignment-overview-icon" aria-hidden="true">▤</span><span className={totalCopies ? 'assignment-status has-corrections' : ready ? 'assignment-status ready' : 'assignment-status preparing'}>{statusLabel}</span></div>
         <div className="assignment-overview-title"><h3>{profile.title.trim() || 'Devoir sans titre'}</h3>{active && <span className="assignment-active-label">Actif</span>}</div>
         <p className="assignment-overview-meta">{profile.educationLevel || 'Formation non renseignée'}</p>
         {profile.description && <p className="assignment-overview-description">{profile.description}</p>}
-        <div className="assignment-overview-stats"><strong>{archivedCount}</strong><span>copie(s) archivée(s)</span><span className="assignment-stat-separator">·</span><span>{profile.rubric.criteria.length} critères</span><span className="assignment-stat-separator">·</span><span>{maximumPoints} points</span></div>
+        <div className="assignment-overview-stats"><strong>{totalCopies}</strong><span>copie(s)</span><span className="assignment-stat-separator">·</span><span>{profile.rubric.criteria.length} critères</span><span className="assignment-stat-separator">·</span><span>{maximumPoints} points</span></div>\n        {activeJobs.length > 0 && <p className="assignment-overview-activity">{processingCount} en cours · {pendingCount} à corriger · {reviewCount} à réviser</p>}
         <div className="assignment-overview-actions"><button type="button" className="assignment-open-button" onClick={() => onOpen(profile)} disabled={disabled}>{active ? 'Reprendre le devoir' : ready ? 'Ouvrir le devoir' : 'Configurer le devoir'} <span aria-hidden="true">→</span></button><details className="assignment-overview-menu"><summary aria-label={'Actions pour ' + (profile.title.trim() || 'devoir sans titre')}>···</summary><div><button type="button" onClick={() => onDelete(profile)} disabled={disabled || assignments.length <= 1}>Supprimer</button></div></details></div>
       </article>;
     })}</div> : <div className="assignments-empty"><span aria-hidden="true">⌕</span><h3>Aucun devoir trouvé</h3><p>Modifiez votre recherche ou créez un nouveau devoir.</p><button type="button" className="secondary-button" onClick={() => { setQuery(''); setFilter('all'); }}>Effacer les filtres</button></div>}
