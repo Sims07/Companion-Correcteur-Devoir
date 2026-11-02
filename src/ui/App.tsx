@@ -359,6 +359,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [copyViewerRotation, setCopyViewerRotation] = useState(0);
   const [originalImages, setOriginalImages] = useState<ImageInput[]>([]);
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
+  const [allBackgroundJobs, setAllBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
   const [selectedSeriesPreviewId, setSelectedSeriesPreviewId] = useState<string | null>(null);
   const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
   const [backgroundCopyLabel, setBackgroundCopyLabel] = useState('');
@@ -374,6 +375,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   useEffect(() => backgroundService.subscribe((jobs) => {
     setBackgroundJobs(jobs.filter((job) => job.assignmentId === activeAssignmentId));
   }), [backgroundCorrectionService, activeAssignmentId]);
+  useEffect(() => backgroundService.subscribe((jobs) => setAllBackgroundJobs(jobs)), [backgroundCorrectionService]);
+  useEffect(() => {
+    let active = true;
+    void backgroundService.listJobs().then((jobs) => { if (active) setAllBackgroundJobs(jobs); });
+    return () => { active = false; };
+  }, [backgroundCorrectionService]);
   useEffect(() => {
     let active = true;
     void backgroundService.listJobs(activeAssignmentId).then((jobs) => { if (active) setBackgroundJobs(jobs); });
@@ -1987,7 +1994,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         assignments={assignmentProfiles}
         activeAssignmentId={activeAssignmentId}
         archivedCorrections={archivedCorrections}
-        backgroundJobs={backgroundJobs}
+        backgroundJobs={allBackgroundJobs}
         onCreate={() => { createNewAssignment(); setShowAssignmentsHome(false); }}
         onOpen={(profile) => { switchAssignment(profile); setShowAssignmentsHome(false); }}
         onDelete={deleteAssignment}
