@@ -26,4 +26,19 @@ describe('correction launch feedback', () => {
     expect(source).toContain('Lecture de la copie…');
     expect(source).toContain('Correction en cours…');
   });
+  
+  it('re-reads the copy on every deliberate correction instead of reusing prior transcriptions', () => {
+    const source = appSource();
+    const start = source.indexOf('async function gradeCopies(');
+    const end = source.indexOf('async function startModelEvaluation()', start);
+    const gradeCopies = source.slice(start, end);
+
+    expect(gradeCopies).toContain("const isFreshCorrection = strategyOverride !== 'arbitrate-only';");
+    expect(gradeCopies).toContain('setTranscription(null);');
+    expect(gradeCopies).toContain('setSubjectTranscription(null);');
+    expect(gradeCopies).toContain('let classifications = isFreshCorrection ? null : pageClassifications;');
+    expect(gradeCopies).toContain('const gradingTranscription = isFreshCorrection ? null : transcription;');
+    expect(gradeCopies).toContain('images: textImages');
+    expect(gradeCopies).toContain("...(!isFreshCorrection && subjectTranscription ? { subjectTranscription } : {})");
+  });
 });

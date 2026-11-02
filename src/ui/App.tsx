@@ -929,7 +929,17 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     let analysisDurationMs: number | null = null;
     let outcome: TimingRecord['outcome'] = 'error';
     let diagnosticProposal: GradingProposal | null = null;
-    if (!transcription) setTeacherAnnotations('');
+    const isFreshCorrection = strategyOverride !== 'arbitrate-only';
+    if (isFreshCorrection) {
+      setTranscription(null);
+      setSubjectTranscription(null);
+      setStudentIdentity(null);
+      setTeacherAnnotations('');
+      setPageClassifications(null);
+      setScientificDiagramAnalysis(null);
+      setScientificDiagramError('');
+      setRotationSuggestions({});
+    }
     const partialCriteria: CriterionProposal[] = [];
     const previousModelResults = strategyOverride === 'arbitrate-only' ? diagnosticRuns.filter((run) => run.kind === 'model') : [];
     const diagnosticResultsForHistory: DiagnosticModelResult[] = [...previousModelResults];
@@ -939,7 +949,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     let annotationRotationAngles = manualRotationAngles;
     let diagramImages: ImageInput[] = [];
     let diagramPageNumbers: number[] = [];
-    let diagramAnalysisResult = scientificDiagramAnalysis;
+    let diagramAnalysisResult = isFreshCorrection ? null : scientificDiagramAnalysis;
     let classificationWasJustCreated = false;
     const rubricRouting = partitionScientificRubric(rubric);
     const gradingRubric: Rubric = interfaceMode === 'teacher' ? { ...rubric, criteria: rubricRouting.textCriteria } : rubric;
@@ -974,7 +984,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF de la copie.');
       if (interfaceMode === 'teacher' && apiCompatible) {
         try {
-          let classifications = pageClassifications;
+          let classifications = isFreshCorrection ? null : pageClassifications;
           if (!classifications || classifications.length !== images.length) {
             setCriterionProgressMessage('Détection du type et de l’orientation des pages…');
             classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, onDiagnosticResult: captureDiagramDiagnostic });
@@ -1027,7 +1037,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           diagramImages = diagramPageNumbers.map((pageNumber) => textImages[pageNumber - 1]);
           textPageNumbers = diagramRubric.criteria.length > 0 ? routing.textPageNumbers : textImages.map((_, index) => index + 1);
           textImages = textPageNumbers.map((pageNumber) => textImages[pageNumber - 1]);
-          if (diagramImages.length > 0 && diagramRubric.criteria.length > 0 && shouldRunScientificDiagramAnalysis(scientificDiagramAnalysis)) {
+          if (diagramImages.length > 0 && diagramRubric.criteria.length > 0 && shouldRunScientificDiagramAnalysis(diagramAnalysisResult)) {
             setCriterionProgressMessage(`${diagramImages.length} page(s) de schéma détectée(s) · correction scientifique spécialisée…`);
             setScientificDiagramError('');
             try {
@@ -1035,7 +1045,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 images: diagramImages,
                 pageNumbers: diagramPageNumbers,
                 question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
-                subjectTranscription: subjectTranscription ?? undefined,
+                ...(!isFreshCorrection && subjectTranscription ? { subjectTranscription } : {}),
                 rubric: diagramRubric,
                 model: visionModel,
                 endpoint,
@@ -1065,10 +1075,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         }
       }
       const shouldRunTextGrading = textImages.length > 0 && gradingRubric.criteria.length > 0;
-      if (shouldRunTextGrading && correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) throw new Error('Importez le sujet de référence pour ce mode de correction.');
+      if (shouldRunTextGrading && correctionMode === 'separate' && !subjectImages.length && (isFreshCorrection || !subjectTranscription)) throw new Error('Importez le sujet de référence pour ce mode de correction.');
       let textProposal: GradingProposal | null = null;
       if (shouldRunTextGrading) {
-        const gradingTranscription = classificationWasJustCreated && diagramImages.length > 0 ? null : transcription;
+        const gradingTranscription = isFreshCorrection ? null : transcription;
         // Avoid firing expensive availability generations automatically against remote
         // OpenAI-compatible providers; the grading request itself checks readiness.
         if (!apiCompatible) {
@@ -1086,7 +1096,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           }))
           : undefined;
         const raw = await provider.generate(
-          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, identifyStudent: !gradingTranscription, ...(teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
+          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, identifyStudent: !gradingTranscription, ...(teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(!isFreshCorrection && subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
           (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
           (stage) => {
             const now = Date.now();

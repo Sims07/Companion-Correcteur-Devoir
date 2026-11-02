@@ -95,8 +95,7 @@ export function createBackgroundCorrectionService(
         // The job's model fields are only a snapshot from import time and may be stale.
         const jobSettings = lastSettings ?? settings;
         const fingerprint = job.imageFingerprint ?? await repository.fingerprintImages(job.images);
-        const cachedTranscription = job.transcription ?? await repository.getCachedTranscription(fingerprint);
-        let transcriptionFingerprint = fingerprint;
+        const cachedTranscription = job.transcription ?? null;
         let current: BackgroundCorrectionJob = {
           ...job,
           visionModel: jobSettings.visionModel?.trim() || job.visionModel,
@@ -130,12 +129,11 @@ export function createBackgroundCorrectionService(
             }
             const routing = routeScientificPages(classifications, current.images.length);
             textPageNumbers = routing.textPageNumbers;
-            transcriptionFingerprint = await repository.fingerprintImages(textPageNumbers.map((pageNumber) => current.images[pageNumber - 1]));
             const transcriptionPageNumbersKey = textPageNumbers.join('|');
             if (current.transcriptionPageNumbers?.join('|') !== transcriptionPageNumbersKey) {
               current = {
                 ...current,
-                transcription: await repository.getCachedTranscription(transcriptionFingerprint),
+                transcription: null,
                 transcriptionPageNumbers: textPageNumbers,
               };
             }
@@ -186,11 +184,10 @@ export function createBackgroundCorrectionService(
             });
             let progressWrites = Promise.resolve();
             let progressWriteError: unknown = null;
-            const queueProgress = (patch: Partial<BackgroundCorrectionJob>, cachedText?: string) => {
+            const queueProgress = (patch: Partial<BackgroundCorrectionJob>) => {
               current = { ...current, ...patch, updatedAt: new Date().toISOString() };
               const snapshot = structuredClone(current);
               progressWrites = progressWrites.then(async () => {
-                if (cachedText !== undefined) await repository.saveCachedTranscription(transcriptionFingerprint, cachedText);
                 await persist(snapshot);
               }).catch((cause: unknown) => { progressWriteError = cause; });
             };
@@ -224,7 +221,7 @@ export function createBackgroundCorrectionService(
                         ...(studentIdentity.confidence === 'high' && suggestedLabel && fallbackLabel ? { label: suggestedLabel } : {}),
                       });
                     } catch { /* Invalid identity metadata never changes the queued copy label. */ }
-                  } else if (kind !== 'annotations' && kind !== 'warning') queueProgress({ transcription: text, transcriptionPageNumbers: textPageNumbers, phase: 'grading', completedPages: textPageNumbers.length }, text);
+                  } else if (kind !== 'annotations' && kind !== 'warning') queueProgress({ transcription: text, transcriptionPageNumbers: textPageNumbers, phase: 'grading', completedPages: textPageNumbers.length });
                 },
                 undefined,
                 (update) => {
@@ -304,8 +301,24 @@ export function createBackgroundCorrectionService(
     async enqueue(job, settings) {
       autoEnabled = settings.autoBackgroundCorrection !== false;
       const fingerprint = await repository.fingerprintImages(job.images);
-      const cached = await repository.getCachedTranscription(fingerprint);
-      await persist({ ...job, imageFingerprint: fingerprint, transcription: cached, updatedAt: new Date().toISOString() });
+      await persist({
+        ...job,
+        imageFingerprint: fingerprint,
+        transcription: null,
+        transcriptionPageNumbers: undefined,
+        subjectTranscription: undefined,
+        scientificPageClassifications: undefined,
+        scientificDiagramAnalysis: null,
+        studentIdentity: null,
+        partialCriteria: [],
+        completedPages: 0,
+        completedCriteria: 0,
+        proposal: null,
+        status: 'pending',
+        phase: 'preparation',
+        error: null,
+        updatedAt: new Date().toISOString(),
+      });
       void (async () => {
         try { await this.prewarm(settings); } catch { /* Availability checks never block a teacher from queuing a copy. */ }
         if (autoEnabled) await run(settings);
@@ -368,10 +381,9 @@ export function createBackgroundCorrectionService(
       paused = true;
       if (prewarmPromise) await prewarmPromise.catch(() => undefined);
       if (activeLoop) await activeLoop;
-      if (prewarmedModel && prewarmSettings) await workspace.unloadModel?.(prewarmSettings, prewarmedModel).catch(() => undefined);
-      prewarmedModel = null;
-      prewarmKey = '';
-      prewarmUntil = 0;
+      // Foreground correction takes priority over background jobs, but it may use
+      // the model that was just prewarmed for this copy. Keep it resident so the
+      // foreground request can benefit from the preload instead of unloading it.
     },
     async stopAndWait() {
       paused = true;
@@ -460,7 +472,23 @@ export function createBackgroundCorrectionService(
     async retry(jobId, settings) {
       const job = (await repository.listJobs()).find((item) => item.id === jobId);
       if (!job || !['failed', 'needs-review', 'reviewing'].includes(job.status)) return;
-      await persist({ ...job, status: 'pending', error: null, updatedAt: new Date().toISOString() });
+      await persist({
+        ...job,
+        transcription: null,
+        transcriptionPageNumbers: undefined,
+        subjectTranscription: undefined,
+        scientificPageClassifications: undefined,
+        scientificDiagramAnalysis: null,
+        studentIdentity: null,
+        partialCriteria: [],
+        completedPages: 0,
+        completedCriteria: 0,
+        proposal: null,
+        status: 'pending',
+        phase: 'preparation',
+        error: null,
+        updatedAt: new Date().toISOString(),
+      });
       autoEnabled = true;
       if (foregroundPriority) { lastSettings = settings; return; }
       paused = false;
