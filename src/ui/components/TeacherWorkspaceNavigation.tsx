@@ -16,6 +16,7 @@ export interface TeacherWorkspaceNavigationProps {
   copies: TeacherCopyNavigationItem[];
   activeCopyId: string | null;
   aiConfigured: boolean;
+  settingsExpanded: boolean;
   isAnalyzing: boolean;
   processingStatus: string;
   processingDetail: string;
@@ -34,6 +35,7 @@ export function TeacherWorkspaceNavigation({
   copies,
   activeCopyId,
   aiConfigured,
+  settingsExpanded,
   isAnalyzing,
   processingStatus,
   processingDetail,
@@ -72,7 +74,7 @@ export function TeacherWorkspaceNavigation({
               <span aria-hidden="true">{isAnalyzing ? '◌' : '●'}</span>
               <span><strong>{processingStatus}</strong><small>{processingDetail}</small></span>
             </div>
-            <button type="button" className={aiConfigured ? 'teacher-ai-settings-button' : 'teacher-ai-settings-button is-required'} onClick={onOpenSettings}>
+            <button type="button" className={aiConfigured ? 'teacher-ai-settings-button' : 'teacher-ai-settings-button is-required'} aria-expanded={settingsExpanded} aria-controls="teacher-ai-settings-panel" onClick={onOpenSettings}>
               <span aria-hidden="true">⚙</span>{aiConfigured ? 'Réglages de l’IA locale' : 'IA locale à configurer'}
             </button>
           </div>
