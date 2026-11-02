@@ -15,6 +15,7 @@ type AssignmentCardProfile = {
 };
 type ArchivedCopy = { assignmentTitle?: string };
 type Props = {
+  currentCopy: { assignmentId: string; status: 'to-do' | 'processing' | 'to-review' } | null;
   assignments: AssignmentCardProfile[];
   activeAssignmentId: string;
   archivedCorrections: ArchivedCopy[];
@@ -27,11 +28,11 @@ type Props = {
 };
 type Filter = 'all' | 'with-corrections' | 'to-prepare';
 
-export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorrections, backgroundJobs, onCreate, onOpen, onDelete, onReturn, disabled }: Props) {
+export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorrections, backgroundJobs, currentCopy, onCreate, onOpen, onDelete, onReturn, disabled }: Props) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const assignmentIdsWithCopies = backgroundJobs.filter((job) => job.status !== 'completed').map((job) => job.assignmentId);
-  const overview = useMemo(() => getAssignmentOverview(assignments, archivedCorrections, query, filter, assignmentIdsWithCopies), [assignments, archivedCorrections, assignmentIdsWithCopies.join('|'), filter, query]);
+  const assignmentIdsWithCopies = [...backgroundJobs.filter((job) => job.status !== 'completed').map((job) => job.assignmentId), ...(currentCopy ? [currentCopy.assignmentId] : [])];
+  const overview = useMemo(() => getAssignmentOverview(assignments, archivedCorrections, query, filter, assignmentIdsWithCopies), [assignments, archivedCorrections, assignmentIdsWithCopies.join('|'), currentCopy?.assignmentId, filter, query]);
   const { cards, correctionCount, preparationCount } = overview;
 
   return <section className="assignments-home" aria-labelledby="assignments-home-title">
@@ -50,10 +51,10 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
     {cards.length ? <div className="assignments-card-grid">{cards.map(({ profile, archivedCount, maximumPoints, ready }) => {
       const active = profile.id === activeAssignmentId;
       const activeJobs = backgroundJobs.filter((job) => job.assignmentId === profile.id && job.status !== 'completed');
-      const processingCount = activeJobs.filter((job) => job.status === 'processing').length;
-      const reviewCount = activeJobs.filter((job) => ['ready', 'needs-review', 'reviewing', 'failed'].includes(job.status)).length;
-      const pendingCount = activeJobs.filter((job) => job.status === 'pending').length;
-      const totalCopies = archivedCount + activeJobs.length;
+      const processingCount = activeJobs.filter((job) => job.status === 'processing').length + (currentCopy?.assignmentId === profile.id && currentCopy.status === 'processing' ? 1 : 0);
+      const reviewCount = activeJobs.filter((job) => ['ready', 'needs-review', 'reviewing', 'failed'].includes(job.status)).length + (currentCopy?.assignmentId === profile.id && currentCopy.status === 'to-review' ? 1 : 0);
+      const pendingCount = activeJobs.filter((job) => job.status === 'pending').length + (currentCopy?.assignmentId === profile.id && currentCopy.status === 'to-do' ? 1 : 0);
+      const totalCopies = archivedCount + activeJobs.length + (currentCopy?.assignmentId === profile.id ? 1 : 0);
       const statusLabel = processingCount ? 'Corrections en cours' : reviewCount ? 'À réviser' : pendingCount ? 'À corriger' : archivedCount ? 'Corrections terminées' : ready ? 'Prêt à corriger' : 'En préparation';
       return <article className={active ? 'assignment-overview-card is-active' : 'assignment-overview-card'} key={profile.id}>
         <div className="assignment-overview-top"><span className="assignment-overview-icon" aria-hidden="true">▤</span><span className={totalCopies ? 'assignment-status has-corrections' : ready ? 'assignment-status ready' : 'assignment-status preparing'}>{statusLabel}</span></div>
