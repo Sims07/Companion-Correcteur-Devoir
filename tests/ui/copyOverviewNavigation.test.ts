@@ -93,6 +93,14 @@ describe('CorrectionOverview — comportement enseignant', () => {
     expect(onOpenJob).toHaveBeenCalledWith('failed-copy');
   });
 
+  it('changes the selected category when a filter is activated', async () => {
+    await render();
+    const retryFilter = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('À reprendre'));
+    expect(retryFilter).toBeTruthy();
+    await act(async () => retryFilter?.click());
+    expect(onFilterChange).toHaveBeenCalledWith('to-retry');
+  });
+
   it('offers the quick review action when a copy is ready', async () => {
     await render();
     const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Réviser la copie suivante'));
