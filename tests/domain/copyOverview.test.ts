@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countCopyOverviewStatuses, defaultCopyOverviewFilter, sortCopyOverviewItems, toCopyOverviewStatus } from '../../src/domain/copyOverview.ts';
+import { countAssignmentCopies, countCopyOverviewStatuses, defaultCopyOverviewFilter, sortCopyOverviewItems, toCopyOverviewStatus } from '../../src/domain/copyOverview.ts';
 
 describe('suivi unifié des copies', () => {
   it.each([
@@ -12,6 +12,24 @@ describe('suivi unifié des copies', () => {
     ['completed', 'completed'],
   ] as const)('classe le statut %s dans la catégorie %s', (status, expected) => {
     expect(toCopyOverviewStatus(status)).toBe(expected);
+  });
+
+  it('keeps failed copies out of the review count in the assignment library', () => {
+    const jobs = [
+      { assignmentId: 'biology', status: 'failed' as const },
+      { assignmentId: 'biology', status: 'ready' as const },
+      { assignmentId: 'biology', status: 'pending' as const },
+      { assignmentId: 'biology', status: 'processing' as const },
+      { assignmentId: 'biology', status: 'completed' as const },
+      { assignmentId: 'genetics', status: 'failed' as const },
+    ];
+    expect(countAssignmentCopies(jobs, 'biology')).toEqual({
+      active: 4,
+      pending: 1,
+      processing: 1,
+      toReview: 1,
+      toRetry: 1,
+    });
   });
 
   it('compte séparément les copies à reprendre et celles à réviser', () => {
