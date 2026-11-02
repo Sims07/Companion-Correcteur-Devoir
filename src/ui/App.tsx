@@ -1917,7 +1917,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const snapshot = correction.snapshot;
     if (!snapshot) return;
     const archivedTitle = snapshot.assignmentTitle || correction.assignmentTitle || assignmentTitle;
-    let matchingAssignment = assignmentProfiles.find((profile) => profile.title === archivedTitle);
+    let matchingAssignment = (correction.assignmentId ? assignmentProfiles.find((profile) => profile.id === correction.assignmentId) : undefined)
+      ?? assignmentProfiles.find((profile) => profile.title === archivedTitle);
     if (!matchingAssignment) {
       matchingAssignment = {
         id: `assignment-${crypto.randomUUID()}`,
