@@ -37,6 +37,7 @@ import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision 
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
 import { AssignmentsHome } from './AssignmentsHome.tsx';
+import { CorrectionOverview } from './CorrectionOverview.tsx';
 
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
@@ -290,7 +291,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [assignmentTitle, setAssignmentTitle] = useState(() => readActiveAssignmentProfile().title);
   const [assignmentDescription, setAssignmentDescription] = useState(() => readActiveAssignmentProfile().description ?? '');
   const [educationLevel, setEducationLevel] = useState(() => readActiveAssignmentProfile().educationLevel ?? '');
-  const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'copy' : 'rubric');
+  const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review' | 'archive'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric');
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
@@ -1533,7 +1534,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setStreamedOutput('');
     setDiagnosticRuns([]);
     setShowAiSettings(false);
-    setTeacherStep(draft?.proposal ? 'review' : getTeacherEntryStep(profile.rubric) === 'copies' ? 'copy' : 'rubric');
+    setTeacherStep(getTeacherEntryStep(profile.rubric) === 'copies' ? 'overview' : 'rubric');
   }
 
   function switchAssignment(profile: AssignmentProfile) {
@@ -1873,8 +1874,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
   }
 
-  function startNextCopy() {
-    const readyExists = backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && (job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)) && job.id !== currentBackgroundJobId);
+  function startNextCopy(forceNew = false) {
+    const readyExists = !forceNew && backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && (job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)) && job.id !== currentBackgroundJobId);
     if (readyExists) { void loadNextQueuedCopy(); return; }
     setCurrentBackgroundJobId(null);
     setStudentLabel('');
@@ -1986,6 +1987,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         assignments={assignmentProfiles}
         activeAssignmentId={activeAssignmentId}
         archivedCorrections={archivedCorrections}
+        backgroundJobs={backgroundJobs}
         onCreate={() => { createNewAssignment(); setShowAssignmentsHome(false); }}
         onOpen={(profile) => { switchAssignment(profile); setShowAssignmentsHome(false); }}
         onDelete={deleteAssignment}
@@ -2016,8 +2018,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <button type="button" className={(teacherStep === 'details' || teacherStep === 'rubric') && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={(teacherStep === 'details' || teacherStep === 'rubric') && !showAiSettings ? 'step' : undefined} onClick={() => { setShowAiSettings(false); setTeacherStep('rubric'); }}>
             <span className="teacher-step-number">1</span><span><strong>Devoir</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères · Modifier</small></span>
           </button>
-          <button type="button" className={teacherStep === 'copy' && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'copy' && !showAiSettings ? 'step' : undefined} disabled={!validation.valid} onClick={() => { setShowAiSettings(false); setTeacherStep('copy'); }}>
-            <span className="teacher-step-number">2</span><span><strong>Copies</strong><small>{images.length ? images.length + ' page(s) importée(s)' : 'Sujet et pages étudiant'}</small></span>
+          <button type="button" className={(teacherStep === 'overview' || teacherStep === 'copy') && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={(teacherStep === 'overview' || teacherStep === 'copy') && !showAiSettings ? 'step' : undefined} disabled={!validation.valid} onClick={() => { setShowAiSettings(false); setTeacherStep('overview'); }}>
+            <span className="teacher-step-number">2</span><span><strong>Copies</strong><small>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').length + archivedCorrectionsForActiveAssignment.length} copie(s) · suivi et révision</small></span>
           </button>
           <button type="button" className={(teacherStep === 'progress' || teacherStep === 'review') && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={(teacherStep === 'progress' || teacherStep === 'review') && !showAiSettings ? 'step' : undefined} disabled={!proposal && !isAnalyzing} onClick={() => { setShowAiSettings(false); setTeacherStep(isAnalyzing ? 'progress' : 'review'); }}>
             <span className="teacher-step-number">3</span><span><strong>{isAnalyzing ? 'Correction en cours' : 'Révision'} </strong><small>{isAnalyzing ? analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length}/${images.length}` : analysisStage === 'grading' ? `Correction · critère ${criterionProgressPosition?.index ?? Object.values(criterionStatuses).filter((status) => status === 'completed').length}/${criterionProgressPosition?.total ?? rubric.criteria.length}` : 'Préparation' : proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
@@ -2486,6 +2488,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         })}</div>}
         <div className="archive-footer"><button type="button" className="primary-button" onClick={startNextCopy}>+ Ajouter une autre copie</button><p>Les copies archivées ne sont pas envoyées dans le cloud. Elles occupent de l’espace dans le stockage local de ce navigateur.</p></div>
       </section>}
+      {interfaceMode === 'teacher' && teacherStep === 'overview' && <CorrectionOverview
+        jobs={backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId)}
+        corrections={archivedCorrectionsForActiveAssignment}
+        currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ? { label: studentLabel || images[0]?.fileName || 'Copie en cours', pageCount: images.length, status: isAnalyzing ? 'processing' : proposal ? 'to-review' : 'to-do', score: proposal ? reviewedTotal : null, maximumPoints: validation.maximumPoints } : null}
+        onAddCopy={() => startNextCopy(true)}
+        onOpenJob={(jobId) => { void loadNextQueuedCopy(jobId); }}
+        onOpenCorrection={(correction) => { openArchivedCorrection(correction); }}
+        onOpenCurrentCopy={() => { setShowAiSettings(false); setTeacherStep(proposal ? 'review' : 'copy'); }}
+      />}
+
       {interfaceMode === 'teacher' && teacherStep === 'rubric' && <>
         <details className="assignment-details-collapsible">
           <summary><span><strong>Devoir</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères</small></span><span className="assignment-details-edit">Modifier</span></summary>
@@ -2597,7 +2609,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="rubric-actions"><button className="secondary-button" onClick={addCriterion}>+ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
       </section>
 
-      {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Le devoir est prêt ? Ajoutez les copies à corriger.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('copy')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
+      {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Le devoir est prêt ? Ajoutez les copies à corriger.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('overview')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
       </>}
 
       {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration') || (interfaceMode === 'teacher' && teacherStep === 'copy')) && <>
