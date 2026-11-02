@@ -280,6 +280,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     listJobSummaries: async () => [],
     prewarm: async () => undefined,
     pauseAndWait: async () => undefined,
+    stopAndWait: async () => undefined,
     resume: () => undefined,
     processPending: async () => undefined,
     subscribe: () => () => undefined,
@@ -311,6 +312,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [rubricImportAnalysisResponse, setRubricImportAnalysisResponse] = useState('');
   const [rubricImageImporting, setRubricImageImporting] = useState(false);
   const rubricImportAbortController = useRef<AbortController | null>(null);
+  const activeCorrectionAbortController = useRef<AbortController | null>(null);
   const rubricImportDiagnosticRuns = useRef<DiagnosticModelResult[]>([]);
   const [rubricFileImporting, setRubricFileImporting] = useState(false);
   const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
@@ -411,6 +413,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const teacherAnnotationReviewResolver = useRef<((decisions: TeacherAnnotationReviewDecision[]) => void) | null>(null);
   const [busy, setBusy] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isStoppingOperation, setIsStoppingOperation] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
   const [criterionProgressMessage, setCriterionProgressMessage] = useState('');
   const [pageProgress, setPageProgress] = useState<Record<number, 'started' | 'completed' | 'doubtful'>>({});
@@ -917,6 +920,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setTeacherStep('copy');
       return;
     }
+    const abortController = new AbortController();
+    activeCorrectionAbortController.current = abortController;
     const runStartedAt = Date.now();
     let readingStartedAt: number | null = null;
     let readingDurationMs: number | null = null;
@@ -1146,6 +1151,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             if (event.type === 'criterion') setCriterionProgressPosition({ index: event.criterionIndex, total: event.criterionTotal });
             if (event.type === 'model-load') setLastModelLoadDurationMs(event.durationMs);
           },
+          abortController.signal,
         );
         if (analysisStartedAt !== null) { analysisDurationMs = Math.max(0, Date.now() - analysisStartedAt); setAnalysisElapsedMs(analysisDurationMs); }
         textProposal = parseGradingProposal(raw, gradingRubric);
@@ -1169,7 +1175,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       outcome = 'success';
     } catch (cause) {
       if (interfaceMode === 'teacher') setTeacherStep(textImages.length === 0 || partialCriteria.length > 0 || analysisStartedAt !== null ? 'review' : 'copy');
-      setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
+      setError(abortController.signal.aborted ? 'Traitement interrompu. Les éléments déjà lus et les critères déjà évalués sont conservés.' : cause instanceof Error ? cause.message : 'La correction a échoué.');
     } finally {
       const finishedAt = Date.now();
       if (readingDurationMs !== null) setReadingElapsedMs(readingDurationMs);
@@ -1204,7 +1210,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       });
       setIsAnalyzing(false);
       setBusy(false);
-      backgroundService.resume();
+      if (activeCorrectionAbortController.current === abortController) activeCorrectionAbortController.current = null;
+      if (!abortController.signal.aborted) backgroundService.resume();
     }
   }
 
@@ -2080,6 +2087,22 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
 
+  async function stopCurrentOperations() {
+    if (isStoppingOperation) return;
+    setIsStoppingOperation(true);
+    activeCorrectionAbortController.current?.abort();
+    rubricImportAbortController.current?.abort();
+    evaluationCancelledRef.current = true;
+    try {
+      await backgroundService.stopAndWait();
+      setError('Traitement interrompu à votre demande. Les copies en attente restent conservées et pourront être relancées.');
+    } finally {
+      setIsStoppingOperation(false);
+    }
+  }
+
+  const hasInterruptibleOperation = isAnalyzing || rubricImageImporting || evaluationProgress?.status === 'running' || allBackgroundJobs.some((job) => job.status === 'processing');
+
   if ((interfaceMode as string) === 'debug') {
     return <main className="app-shell">
       <header className="topbar">
@@ -2101,7 +2124,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => { setShowAiSettings(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button><button type="button" className={(interfaceMode as string) === 'debug' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={(interfaceMode as string) === 'debug'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('debug'); }}>Inspecteur réseau</button><button type="button" className={interfaceMode === 'observability' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'observability'} onClick={() => { setShowAiSettings(false); setInterfaceMode('observability'); }}>Observabilité</button></div></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{hasInterruptibleOperation && <button type="button" className="global-stop-button" onClick={() => { void stopCurrentOperations(); }} disabled={isStoppingOperation}>{isStoppingOperation ? 'Arrêt en cours…' : '■ Arrêter le traitement'}</button>}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => { setShowAiSettings(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button><button type="button" className={(interfaceMode as string) === 'debug' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={(interfaceMode as string) === 'debug'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('debug'); }}>Inspecteur réseau</button><button type="button" className={interfaceMode === 'observability' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'observability'} onClick={() => { setShowAiSettings(false); setInterfaceMode('observability'); }}>Observabilité</button></div></div>
       </header>
 
       {interfaceMode === 'teacher' && showAssignmentsHome && <AssignmentsHome

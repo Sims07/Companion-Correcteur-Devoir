@@ -443,3 +443,24 @@ describe('background correction service', () => {
   });
 
 });
+
+
+describe('background correction cancellation', () => {
+  it('stops the active model request and keeps the copy resumable in the queue', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    let requestStarted!: () => void;
+    const started = new Promise<void>((resolve) => { requestStarted = resolve; });
+    f.setGenerateImplementation(async (_request, _chunk, _stage, _transcription, _diagnostic, _criterion, _annotationReview, _progress, signal) => {
+      requestStarted();
+      return new Promise<string>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+      });
+    });
+    const processing = service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+    await started;
+    await service.stopAndWait();
+    await processing;
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'pending', partialCriteria: [], transcription: 'Texte extrait de la copie' });
+  });
+});
