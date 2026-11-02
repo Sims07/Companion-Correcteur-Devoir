@@ -23,7 +23,9 @@ describe('parcours unifié des copies dans un devoir', () => {
   });
 
   it('garde les copies en cours visibles depuis la bibliothèque des devoirs', () => {
-    expect(app).toContain('backgroundJobs={backgroundJobs}');
+    expect(app).toContain('backgroundJobs={allBackgroundJobs}');
+    expect(app).toContain('backgroundService.subscribe((jobs) => setAllBackgroundJobs(jobs))');
+    expect(app).toContain('backgroundService.listJobs().then((jobs) => { if (active) setAllBackgroundJobs(jobs); })');
     expect(assignmentsHome).toContain('backgroundJobs: BackgroundCorrectionJob[]');
     expect(assignmentsHome).toContain('Corrections en cours');
     expect(assignmentsHome).toContain('À réviser');
