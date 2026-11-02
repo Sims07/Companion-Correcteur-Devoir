@@ -109,6 +109,12 @@ test('adding a copy while another one is under review keeps the previous copy an
   await expect(page.getByRole('button', { name: /À vérifier/ })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Vérifier la copie suivante' }).click();
   await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Copie récente');
+  const copyRail = page.getByRole('complementary', { name: 'Navigation entre les copies' });
+  await expect(copyRail).toBeVisible();
+  await copyRail.getByRole('button', { name: /Copie ancienne/ }).click();
+  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Copie ancienne');
+  await copyRail.getByRole('button', { name: /Copie récente/ }).click();
+  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Copie récente');
 
   await copyNavigation(page).click();
   await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
