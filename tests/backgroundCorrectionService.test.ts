@@ -114,6 +114,33 @@ describe('background correction service', () => {
     expect(listener.mock.calls[0][0][0]).not.toHaveProperty('originalImages');
   });
 
+  it('uses the latest AI models when a queued copy starts', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const importSettings = {
+      endpoint: 'http://localhost:11434',
+      visionModel: 'old-vision:4b',
+      analysisModel: 'old-analysis:4b',
+      autoBackgroundCorrection: false,
+    };
+    const currentSettings = {
+      endpoint: 'http://localhost:11435',
+      visionModel: 'new-vision:4b',
+      analysisModel: 'new-analysis:4b',
+    };
+
+    await service.enqueue(f.job, importSettings);
+    await service.processPending(currentSettings);
+
+    expect(f.createProvider).toHaveBeenCalled();
+    expect(f.createProvider.mock.calls[0][0]).toMatchObject({
+      endpoint: currentSettings.endpoint,
+      visionModel: currentSettings.visionModel,
+      analysisModel: currentSettings.analysisModel,
+    });
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+  });
+
   it('prewarms, caches transcription and grades one criterion per sequential provider call', async () => {
     const f = fixture();
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
