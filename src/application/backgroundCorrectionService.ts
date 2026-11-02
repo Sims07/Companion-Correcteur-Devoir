@@ -21,6 +21,7 @@ export interface BackgroundCorrectionService {
   subscribe(listener: (jobs: BackgroundCorrectionJob[]) => void): () => void;
   subscribeSummaries(listener: (jobs: BackgroundJobSummary[]) => void): () => void;
   markForReview(jobId: string): Promise<void>;
+  saveReviewDraft(jobId: string, reviewDraft: BackgroundCorrectionJob['reviewDraft'], teacherQuestionsDraft: string): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
   remove(jobId: string): Promise<void>;
   retry(jobId: string, settings: OllamaSettings): Promise<void>;
@@ -409,6 +410,15 @@ export function createBackgroundCorrectionService(
     async markForReview(jobId) {
       const job = (await repository.listJobs()).find((item) => item.id === jobId);
       if (job) await persist({ ...job, status: 'reviewing', updatedAt: new Date().toISOString() });
+    },
+    async saveReviewDraft(jobId, reviewDraft, teacherQuestionsDraft) {
+      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      if (job) await persist({
+        ...job,
+        reviewDraft: structuredClone(reviewDraft ?? []),
+        teacherQuestionsDraft,
+        updatedAt: new Date().toISOString(),
+      });
     },
     async remove(jobId) {
       const job = (await repository.listJobs()).find((item) => item.id === jobId);
