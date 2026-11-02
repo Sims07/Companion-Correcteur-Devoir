@@ -523,7 +523,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     { label: 'Barème vérifié', detail: validation.valid ? `${validation.maximumPoints} points répartis sur ${rubric.criteria.length} critères` : 'Corrigez les points ou les critères signalés', ready: validation.valid },
     { label: 'Sujet prêt', detail: correctionMode === 'integrated' ? 'Questions intégrées aux pages de la copie' : subjectReady ? `${subjectImages.length} page(s) du sujet importée(s)` : 'Importez le sujet de référence', ready: subjectReady },
     { label: 'Copie importée', detail: images.length ? `${images.length} page(s) · une seule copie à la fois` : 'Ajoutez les pages d’un étudiant', ready: images.length > 0 },
-    { label: 'IA locale configurée', detail: visionModel.trim() && analysisModel.trim() ? `Lecture : ${visionModel} · analyse : ${analysisModel}` : 'Choisissez les modèles Ollama', ready: Boolean(visionModel.trim() && analysisModel.trim()) },
+    { label: 'IA locale configurée', detail: visionModel.trim() && analysisModel.trim() ? 'Lecture et analyse configurées' : 'Configurez l’IA locale', ready: Boolean(visionModel.trim() && analysisModel.trim()) },
   ];
 
   useEffect(() => {
@@ -692,13 +692,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     let rubricImportSucceeded = false;
     setRubricImageImporting(true);
     try {
-      if (!visionModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale pour choisir un modèle de vision pour la lecture du barème.');
-      if (!analysisModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale pour choisir un modèle d’analyse pour structurer le barème.');
+      if (!visionModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale pour choisir un outil de lecture pour la lecture du barème.');
+      if (!analysisModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale pour choisir l’outil d’analyse qui structurera le barème.');
       const prepared = await service.prepareFiles([file]);
       preparedPageCountForTrace = prepared.length;
       if (abortController.signal.aborted) throw new Error('Import du barème interrompu par l’enseignant.');
       if (prepared.length === 0) throw new Error('Aucune page du barème n’a pu être préparée.');
-      const preparedMessage = `${prepared.length} page(s) préparée(s) en images. Envoi au modèle de vision Ollama « ${visionModel} »…`;
+      const preparedMessage = `${prepared.length} page(s) préparée(s) en images. Lecture du document avec l’IA locale…`;
       setRubricImportProgress({ stage: 'preparing', message: preparedMessage, page: 0, totalPages: prepared.length });
       setRubricImportEvents((events) => [...events, preparedMessage]);
       const imported = await service.importRubricImage(prepared, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking }, (progress) => {
@@ -729,7 +729,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setRubricImportMessage(imported.warnings.join(' ') || summary);
     } catch (cause) {
       const cancelled = abortController.signal.aborted;
-      const message = cancelled ? 'Import interrompu. La lecture et l’extraction ont été arrêtées ; aucun nouveau barème n’a été appliqué.' : cause instanceof Error ? cause.message : 'Impossible d’extraire le barème avec le modèle de vision local.';
+      const message = cancelled ? 'Import interrompu. La lecture et l’extraction ont été arrêtées ; aucun nouveau barème n’a été appliqué.' : cause instanceof Error ? cause.message : 'Impossible d’extraire le barème avec le outil de lecture local.';
       if (cancelled) setRubricImportMessage(message); else setError(message);
       setRubricImportProgress({ stage: cancelled ? 'cancelled' : 'error', message });
       setRubricImportEvents((events) => [...events, cancelled ? message : `Échec : ${message}`]);
@@ -886,7 +886,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       if (apiCompatible) {
         await service.checkReady({ endpoint, apiCompatible, apiKey, visionModel, analysisModel });
         setAvailableModels([]);
-        setConnectionMessage('Connexion réussie · modèle compatible OpenAI vérifié. Les identifiants des modèles sont renseignés manuellement.');
+        setConnectionMessage('Connexion réussie · serveur compatible OpenAI vérifié. Les identifiants des modèles sont renseignés manuellement.');
         return;
       }
       const models = await service.listModels(endpoint);
@@ -895,9 +895,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       if (!analysisModel && models[0]) setAnalysisModel(models[0].name);
       if (!secondAnalysisModel && models[1]) setSecondAnalysisModel(models[1].name);
       if (!arbitratorModel && models[0]) setArbitratorModel(models[0].name);
-      setConnectionMessage(models.length ? `Connexion réussie · ${models.length} modèle(s) disponible(s). Choisissez un modèle de vision pour la lecture et un modèle textuel pour l’analyse.` : 'Connexion réussie, mais aucun modèle installé. Installez un modèle compatible avec les images et un modèle pour l’analyse.');
+      setConnectionMessage(models.length ? `Connexion réussie · ${models.length} outil(s) disponible(s). Choisissez un outil de lecture et un outil d’analyse.` : 'Connexion réussie, mais aucun outil installé. Configurez un outil de lecture des images et un outil d’analyse.');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Connexion à Ollama impossible.');
+      setError(cause instanceof Error ? cause.message : 'Connexion au serveur local impossible.');
     } finally {
       setBusy(false);
     }
@@ -1204,8 +1204,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const selectedProfiles = aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
     if (selectedProfiles.length < 1) { setError('Sélectionnez au moins une configuration enregistrée pour la tester.'); return; }
     if (!validation.valid) { setError(validation.errors.join(' ')); return; }
-    if (evaluationStageMode === 'analysis' && !transcription?.trim()) { setError('Pour évaluer l’analyse seule, lancez d’abord une lecture Vision et vérifiez sa transcription.'); return; }
-    if (evaluationStageMode !== 'analysis' && !images.length) { setError('Importez une copie avant de lancer une évaluation Vision.'); return; }
+    if (evaluationStageMode === 'analysis' && !transcription?.trim()) { setError('Pour évaluer l’analyse seule, lancez d’abord une lecture de la copie et vérifiez sa transcription.'); return; }
+    if (evaluationStageMode !== 'analysis' && !images.length) { setError('Importez une copie avant de lancer une évaluation de la lecture.'); return; }
     if (evaluationStageMode === 'integrated' && correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
     evaluationCancelledRef.current = false;
     setModelEvaluationResults([]);
@@ -1232,7 +1232,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       onProgress: setEvaluationProgress,
       execute: async (configuration, _isCancelled, onStage) => {
         setEvaluationStage('preparing');
-        if (evaluationStageMode !== 'analysis' && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un modèle de vision pour cette expérience.');
+        if (evaluationStageMode !== 'analysis' && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un outil de lecture pour cette expérience.');
         if (evaluationStageMode !== 'vision' && !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle d’analyse pour cette expérience.');
         if (evaluationStageMode !== 'analysis') await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.visionModel });
         if (evaluationStageMode !== 'vision') await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.analysisModel });
@@ -1375,7 +1375,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   function cancelModelEvaluation() {
     evaluationCancelledRef.current = true;
-    setError('Annulation demandée : l’appel Ollama en cours sera laissé se terminer avant l’arrêt de la séquence.');
+    setError('Annulation demandée : l’analyse en cours sera laissé se terminer avant l’arrêt de la séquence.');
   }
 
   function saveDiagnosticReference() {
@@ -2119,7 +2119,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </section>
         {(!visionModel.trim() || !analysisModel.trim()) && <section className="sidebar-ai-setup" aria-label="Configuration nécessaire de l’IA locale">
           <span className="sidebar-ai-setup-icon" aria-hidden="true">⚙</span>
-          <div><strong>IA locale à configurer</strong><p>Choisissez les modèles avant de lancer votre première correction.</p></div>
+          <div><strong>IA locale à configurer</strong><p>Configurez l’IA locale avant de lancer votre première correction.</p></div>
           <button type="button" onClick={() => setShowAiSettings(true)}>Configurer maintenant <span aria-hidden="true">→</span></button>
         </section>}
         <nav className="teacher-step-nav" aria-label="Étapes du devoir">
@@ -2148,71 +2148,71 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       {!(interfaceMode === 'teacher' && showAssignmentsHome) && <div className={interfaceMode === 'teacher' ? 'teacher-content-column' : 'diagnostic-content-column'}>
       {interfaceMode === 'diagnostic' && <section className="privacy-strip">
         <span className="privacy-icon">⌂</span>
-        <div><strong>Traitement local, sans repli cloud</strong><p>Les fichiers sont lus et préparés dans votre navigateur, puis envoyés uniquement à l’adresse Ollama que vous configurez. Aucun stockage distant ni envoi vers un fournisseur cloud n’est prévu.</p></div>
+        <div><strong>Traitement local, sans repli cloud</strong><p>Les fichiers sont lus et préparés dans votre navigateur, puis envoyés uniquement à l’adresse du serveur local que vous configurez. Aucun stockage distant ni envoi vers un fournisseur cloud n’est prévu.</p></div>
         <span className="privacy-status">OLLAMA LOCAL</span>
       </section>}
 
       {interfaceMode === 'diagnostic' && (readingElapsedMs !== null || analysisElapsedMs !== null) && <details className="diagnostic-stage-timings"><summary>Durées des étapes de traitement</summary><div><span>Lecture de l’image : {readingElapsedMs === null ? 'Non mesurée' : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? 'Non mesurée' : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></div></details>}
 
       {interfaceMode === 'teacher' && showAiSettings && <section className={`panel ollama-panel teacher-model-panel ai-settings-view ${visionModel.trim() && analysisModel.trim() ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
-        <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DU POSTE</p><h2 id="teacher-model-title">Paramètres de l’IA locale</h2></div><span className="step-count">OLLAMA</span></div>
-        <p className="settings-intro">Configurez les modèles utilisés par le parcours de correction. Avec Ollama, les traitements restent sur votre serveur local. Une API compatible OpenAI transmet les contenus au serveur distant configuré.</p>
+        <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DU POSTE</p><h2 id="teacher-model-title">Paramètres de l’IA locale</h2></div><span className="step-count">LOCAL</span></div>
+        <p className="settings-intro">Configurez les outils utilisés par le parcours de correction. Avec un serveur local, les traitements restent sur votre poste. Une API compatible OpenAI transmet les contenus au serveur distant configuré.</p>
         <div className="ai-profile-controls" aria-label="Profils de configuration IA">
           <label className="field-label" htmlFor="ai-model-profile">Configuration enregistrée</label>
           <div className="ai-profile-row">
             <DesignSystemSelect id="ai-model-profile" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else setSelectedAiModelProfileId(''); }}>
               <option value="">Configuration actuelle</option>
-              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'}</option>)}
+              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'une configuration'}</option>)}
             </DesignSystemSelect>
             <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
           </div>
           <button type="button" className="secondary-button full-button" onClick={saveAiModelProfile}>Enregistrer cette configuration</button>
           {aiModelProfileMessage && <p className="validation" role="status">{aiModelProfileMessage}</p>}
-          <p className="hint">Les derniers réglages sont restaurés automatiquement. Les profils conservent le serveur, les modèles et la stratégie de diagnostic sur cet appareil.</p>
+          <p className="hint">Les derniers réglages sont restaurés automatiquement. Les profils conservent le serveur, les outils et la stratégie de diagnostic sur cet appareil.</p>
         </div>
         <label className="field-label" htmlFor="ai-provider-type">Fournisseur IA</label>
         <DesignSystemSelect id="ai-provider-type" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://ai.zaup.org/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}>
-          <option value="ollama">Ollama local</option><option value="openai">API compatible OpenAI</option>
+          <option value="ollama">Serveur local</option><option value="openai">API compatible OpenAI</option>
         </DesignSystemSelect>
-        <label className="field-label" htmlFor="ollama-endpoint">{apiCompatible ? 'URL Chat Completions' : 'Adresse du serveur Ollama'}</label>
+        <label className="field-label" htmlFor="ollama-endpoint">{apiCompatible ? 'URL Chat Completions' : 'Adresse du serveur local'}</label>
         <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} />
         {apiCompatible && <><label className="field-label" htmlFor="ai-api-key">Token API (Bearer)</label><input id="ai-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><p className="hint">Conservé dans le stockage local du navigateur et transmis uniquement au serveur configuré. Il n’apparaît pas dans les traces de diagnostic.</p></>}
-        <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture des copies</label>
+        <label className="field-label" htmlFor="ollama-vision-model">Outil de lecture des copies</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }} placeholder="Ex. gemma3:4b ou qwen2.5vl" />}
-        <p className="hint">Modèle de vision utilisé pour transcrire chaque page. La transcription est réutilisée lors d’une nouvelle analyse si la copie n’a pas changé.</p>
+        <p className="hint">Outil de lecture utilisé pour transcrire chaque page. La transcription est réutilisée lors d’une nouvelle analyse si la copie n’a pas changé.</p>
         <label className="field-label" htmlFor="ai-transcription-token-limit">Limite de tokens de transcription (maximum 2048)</label>
         <input id="ai-transcription-token-limit" type="number" min="128" max="2048" step="128" value={transcriptionTokenLimit} onChange={(event) => { setTranscriptionTokenLimit(Math.min(2048, Math.max(128, Number(event.target.value) || 2048))); setTranscription(null); }} />
         <p className="hint">La transcription utilise du texte brut, sans sortie JSON. La limite est plafonnée à 2048 tokens.</p>
         <label className="field-label" htmlFor="ai-transcription-prompt-mode">Consignes de lecture</label>
         <DesignSystemSelect id="ai-transcription-prompt-mode" value={transcriptionPromptMode} onChange={(event) => { setTranscriptionPromptMode(event.target.value as 'auto' | 'ocr' | 'general'); setTranscription(null); }}>
-          <option value="auto">Automatique selon le modèle</option><option value="ocr">OCR dédié (Text Recognition)</option><option value="general">Modèle généraliste (consignes détaillées)</option>
+          <option value="auto">Automatique</option><option value="ocr">Lecture de texte dédiée</option><option value="general">Lecture polyvalente (consignes détaillées)</option>
         </DesignSystemSelect>
-        <p className="hint">En automatique, GLM-OCR et les modèles OCR dédiés utilisent « Text Recognition: » ; Qwen et Gemma reçoivent des consignes complètes avec [illisible] et conservation de l’ordre.</p>
+        <p className="hint">En mode automatique, les outils de lecture spécialisés utilisent leurs consignes adaptées ; les outils polyvalents reçoivent des consignes complètes avec [illisible] et conservation de l’ordre.</p>
         <label className="field-label" htmlFor="ai-transcription-repeat-penalty">Pénalité de répétition</label>
         <input id="ai-transcription-repeat-penalty" type="number" min="1" max="2" step="0.01" value={transcriptionRepeatPenalty} onChange={(event) => { setTranscriptionRepeatPenalty(Math.min(2, Math.max(1, Number(event.target.value) || 1.05))); setTranscription(null); }} />
         <label className="field-label" htmlFor="ai-transcription-penalty-parameter">Paramètre de pénalité (API compatible)</label>
         <DesignSystemSelect id="ai-transcription-penalty-parameter" value={transcriptionPenaltyParameter} onChange={(event) => { setTranscriptionPenaltyParameter(event.target.value as 'none' | 'frequency_penalty' | 'repeat_penalty'); setTranscription(null); }}>
-          <option value="none">Aucune pénalité (recommandé)</option><option value="frequency_penalty">frequency_penalty (standard OpenAI)</option><option value="repeat_penalty">repeat_penalty (serveur compatible Ollama)</option>
+          <option value="none">Aucune pénalité (recommandé)</option><option value="frequency_penalty">frequency_penalty (standard OpenAI)</option><option value="repeat_penalty">repeat_penalty (serveur local compatible)</option>
         </DesignSystemSelect>
         {apiCompatible && transcriptionPenaltyParameter === 'frequency_penalty' && <>
           <label className="field-label" htmlFor="ai-transcription-frequency-penalty">Valeur frequency_penalty (API compatible)</label>
           <input id="ai-transcription-frequency-penalty" type="number" min="0" max="2" step="0.05" value={transcriptionFrequencyPenalty} onChange={(event) => { setTranscriptionFrequencyPenalty(Math.min(2, Math.max(0, Number(event.target.value) || 0))); setTranscription(null); }} />
           <p className="hint">Cette pénalité est différente de repeat_penalty. Pour une transcription fidèle, la valeur neutre 0 est recommandée ; n’augmentez-la que si vous avez validé son effet avec votre fournisseur.</p>
         </>}
-        <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
+        <label className="field-label" htmlFor="ollama-analysis-model">Outil d’analyse et de notation</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}
-        <p className="hint">Ce modèle applique le barème au texte lu. Le mode thinking reste désactivé pour privilégier une correction plus rapide et compatible.</p>
+        <p className="hint">Cet outil applique le barème au texte lu. Le mode thinking reste désactivé pour privilégier une correction plus rapide et compatible.</p>
         <label className="analysis-thinking-option" htmlFor="ai-criterion-by-criterion"><input id="ai-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère, avec affichage progressif. Désactivez cette option pour envoyer tout le barème dans un seul appel et comparer les deux approches.</small></span></label>
         {apiCompatible && <section className="saluki-load-card" aria-labelledby="saluki-load-title">
-          <div className="saluki-load-heading"><div><p className="eyebrow">MODÈLE AVANCÉ · À LA DEMANDE</p><h3 id="saluki-load-title">Saluki 27B <span className="saluki-beta">BÊTA</span></h3></div><span className={salukiLoaded ? 'saluki-status is-loaded' : 'saluki-status'}>{salukiLoaded ? 'Chargé' : 'Non chargé'}</span></div>
-          <p>Modèle texte et images plus puissant, chargé temporairement à la place de <code>system1</code> et <code>system1-vision</code>. Les mêmes endpoints de correction restent utilisés : les sélecteurs de modèles ne changent pas.</p>
+          <div className="saluki-load-heading"><div><p className="eyebrow">OPTION AVANCÉE · À LA DEMANDE</p><h3 id="saluki-load-title">Saluki 27B <span className="saluki-beta">BÊTA</span></h3></div><span className={salukiLoaded ? 'saluki-status is-loaded' : 'saluki-status'}>{salukiLoaded ? 'Chargé' : 'Non chargé'}</span></div>
+          <p>Outil plus puissant pour le texte et les images, chargé temporairement à la place de <code>system1</code> et <code>system1-vision</code>. Les mêmes endpoints de correction restent utilisés : les sélecteurs de modèles ne changent pas.</p>
           <div className="saluki-load-details"><span>Dérivé de Qwen3.8-27B</span><span>Chargement à la demande</span><span>Clé API : périmètre <code>models</code></span></div>
           <button type="button" className="primary-button full-button" disabled={busy || salukiLoading} onClick={() => void handleLoadSaluki()}>{salukiLoading ? 'Chargement en cours…' : salukiLoaded ? 'Recharger Saluki 27B' : 'Charger Saluki 27B'}</button>
           {salukiMessage && <p className={salukiLoaded ? 'saluki-feedback is-loaded' : 'saluki-feedback'} role="status" aria-live="polite">{salukiMessage}</p>}
-          <p className="hint">Le serveur peut décharger les autres modèles pour libérer la mémoire de la carte graphique. Le temps de chargement dépend de la taille du modèle et de la mémoire disponible.</p>
+          <p className="hint">Le serveur peut décharger les autres outils pour libérer la mémoire de la carte graphique. Le temps de chargement dépend de la taille de l’outil et de la mémoire disponible.</p>
           <details><summary>Détails techniques</summary><p>POST <code>/v1/models/saluki-27b/load</code></p><p>Le token Bearer configuré est transmis au serveur. Il doit disposer du périmètre <code>models</code>.</p></details>
         </section>}
-        <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : apiCompatible ? 'Tester la connexion' : 'Tester la connexion et détecter les modèles'}</button>
+        <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : apiCompatible ? 'Tester la connexion' : 'Tester la connexion et détecter les outils disponibles'}</button>
         {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
         <p className="hint">Aucun basculement automatique vers un autre fournisseur n’est effectué.</p>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
@@ -2223,7 +2223,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </section>}
       {interfaceMode === 'diagnostic' && <nav className="evaluation-step-nav" aria-label="Espaces de l’évaluation">
         <p className="evaluation-sidebar-label">LABORATOIRE IA</p>
-        <button type="button" className={evaluationWorkspaceStep === 'configuration' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'configuration' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('configuration')}><span>1</span><strong>Configuration</strong><small>Modèles, barème et copie</small></button>
+        <button type="button" className={evaluationWorkspaceStep === 'configuration' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'configuration' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('configuration')}><span>1</span><strong>Configuration</strong><small>IA locale, barème et copie</small></button>
         <button type="button" className={evaluationWorkspaceStep === 'execution' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'execution' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('execution')}><span>2</span><strong>Exécution</strong><small>Progression en direct</small></button>
         <button type="button" className={evaluationWorkspaceStep === 'results' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'results' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('results')}><span>3</span><strong>Résultats</strong><small>Notes, temps et tokens</small></button>
         <button type="button" className={evaluationWorkspaceStep === 'history' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'history' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('history')}><span>4</span><strong>Analyse & historique</strong><small>Comparer les essais passés</small></button>
@@ -2241,21 +2241,21 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <div className="evaluation-config-fields">
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</DesignSystemSelect></div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-name">Nom de la configuration</label><input id="evaluation-profile-name" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Ex. Gemma rapide, Qwen raisonnement…" /></div>
-            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-provider">Fournisseur IA</label><DesignSystemSelect id="evaluation-provider" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://serveur/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}><option value="ollama">Ollama local</option><option value="openai">API compatible OpenAI</option></DesignSystemSelect></div><div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-ollama-endpoint">{apiCompatible ? 'URL Chat Completions' : 'Adresse du serveur Ollama'}</label><input id="evaluation-ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} /></div>{apiCompatible && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-api-key">Token API (Bearer)</label><input id="evaluation-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><small>Utilisé pour les appels au serveur compatible OpenAI et conservé dans le stockage local de ce navigateur.</small></div>}
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-provider">Fournisseur IA</label><DesignSystemSelect id="evaluation-provider" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://serveur/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}><option value="ollama">Serveur local</option><option value="openai">API compatible OpenAI</option></DesignSystemSelect></div><div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-ollama-endpoint">{apiCompatible ? 'URL Chat Completions' : 'Adresse du serveur local'}</label><input id="evaluation-ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} /></div>{apiCompatible && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-api-key">Token API (Bearer)</label><input id="evaluation-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><small>Utilisé pour les appels au serveur compatible OpenAI et conservé dans le stockage local de ce navigateur.</small></div>}
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-vision-model">Modèle de lecture des images</label>{availableModels.length ? <DesignSystemSelect id="evaluation-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)}><option value="">Choisir un modèle vision</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="Ex. gemma3:4b" />}</div>
-            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-analysis-model">Modèle d’analyse et de notation</label>{availableModels.length ? <DesignSystemSelect id="evaluation-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}><option value="">Choisir un modèle d’analyse</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}</div>
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-analysis-model">Outil d’analyse et de notation</label>{availableModels.length ? <DesignSystemSelect id="evaluation-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}><option value="">Choisir un modèle d’analyse</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}</div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-strategy">Stratégie d’analyse</label><DesignSystemSelect id="evaluation-strategy" value={diagnosticStrategy} onChange={(event) => setDiagnosticStrategy(event.target.value as DiagnosticStrategy)}><option value="single">Un modèle d’analyse</option><option value="compare">Comparer deux avis</option><option value="arbitrate">Deux avis + arbitre</option></DesignSystemSelect></div>
             {diagnosticStrategy !== 'single' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-second-model">Second modèle d’analyse</label>{availableModels.length ? <DesignSystemSelect id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}><option value="">Choisir un modèle</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle" />}</div>}
             {diagnosticStrategy === 'arbitrate' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-arbitrator-model">Modèle arbitre</label>{availableModels.length ? <DesignSystemSelect id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)}><option value="">Choisir un arbitre</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)} placeholder="Nom du modèle arbitre" />}</div>}
           </div>
           <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-criterion-by-criterion"><input id="evaluation-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel par critère, séquentiellement. Désactivez pour comparer avec une requête globale.</small></span></label>
           <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-analysis-thinking"><input id="evaluation-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} /><span><strong>Activer le mode thinking</strong><small>Désactivé par défaut. Peut améliorer le raisonnement mais allonger fortement les essais.</small></span></label>
-          <div className="evaluation-config-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button><button type="button" className="primary-button" disabled={busy} onClick={saveAiModelProfile}>Enregistrer la configuration</button></div>
+          <div className="evaluation-config-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les outils disponibles'}</button><button type="button" className="primary-button" disabled={busy} onClick={saveAiModelProfile}>Enregistrer la configuration</button></div>
           {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}{aiModelProfileMessage && <p className="evaluation-profile-message" role="status">{aiModelProfileMessage}</p>}
         </div>
         {evaluationStageMode === 'analysis' && <section className="evaluation-analysis-reference" aria-labelledby="evaluation-analysis-reference-title">
           <div><p className="eyebrow">SOURCE DE RÉFÉRENCE</p><h3 id="evaluation-analysis-reference-title">Transcription à noter</h3><p>Vérifiez et corrigez le texte une fois pour toutes : chaque modèle d’analyse recevra exactement cette même transcription, sans nouvelle lecture d’image.</p></div>
-          <textarea aria-label="Transcription de référence pour l’évaluation de l’analyse" rows={8} value={transcription ?? ''} onChange={(event) => setTranscription(event.target.value)} placeholder="Lancez d’abord une évaluation Vision, ou collez ici une transcription déjà vérifiée…" />
+          <textarea aria-label="Transcription de référence pour l’évaluation de l’analyse" rows={8} value={transcription ?? ''} onChange={(event) => setTranscription(event.target.value)} placeholder="Lancez d’abord une évaluation de la lecture, ou collez ici une transcription déjà vérifiée…" />
           <p className="evaluation-reference-meta">{transcription?.trim() ? `${transcription.trim().split(/\s+/).filter(Boolean).length} mots dans la transcription de référence` : 'Aucune transcription de référence pour le moment'}</p>
         </section>}
         <div className="evaluation-selection-block"><div className="evaluation-section-heading compact"><div><h3>Sélection pour cette expérience</h3><p>Choisissez une à trois configurations. Une seule suffit pour mesurer ses performances ; plusieurs permettent de comparer leurs résultats sur les mêmes pages et le même barème.</p></div><span aria-live="polite" className={selectedEvaluationProfileIds.length >= 1 ? 'evaluation-step-chip ready' : 'evaluation-step-chip'}>{selectedEvaluationProfileIds.length} / 3 sélectionnée(s)</span></div>
@@ -2268,26 +2268,26 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <section id="debug-advanced-settings" className="debug-advanced-settings" aria-label="Configuration avancée du diagnostic">
           <div className="workspace-heading"><div><p className="eyebrow">OUTILS AVANCÉS</p><h3>Configuration du diagnostic multi-modèles</h3><p>Ces réglages techniques servent aux essais de diagnostic et restent séparés de l’évaluation indépendante.</p></div></div>
           <article className="panel ollama-panel">
-          <div className="panel-heading"><span className="number">03</span><div><h3>Modèle local Ollama</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
+          <div className="panel-heading"><span className="number">03</span><div><h3>IA locale</h3><p>Configurez votre serveur local et vérifiez les outils disponibles.</p></div></div>
         <div className="diagnostic-ai-profile-controls" aria-label="Profils de configuration IA">
           <label className="field-label" htmlFor="debug-ai-model-profile">Configuration enregistrée</label>
           <div className="ai-profile-row">
             <DesignSystemSelect id="debug-ai-model-profile" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else setSelectedAiModelProfileId(''); }}>
               <option value="">Configuration actuelle</option>
-              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'}</option>)}
+              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'une configuration'}</option>)}
             </DesignSystemSelect>
             <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
           </div>
           <button type="button" className="secondary-button full-button" onClick={saveAiModelProfile}>Enregistrer cette configuration</button>
           {aiModelProfileMessage && <p className="validation" role="status">{aiModelProfileMessage}</p>}
-          <p className="hint">Les derniers réglages sont restaurés automatiquement. Les profils conservent le serveur, les modèles et la stratégie de diagnostic sur cet appareil.</p>
+          <p className="hint">Les derniers réglages sont restaurés automatiquement. Les profils conservent le serveur, les outils et la stratégie de diagnostic sur cet appareil.</p>
         </div>
           <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur</label>
           <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
           <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture (vision)</label>
           {availableModels.length > 0 ? <DesignSystemSelect id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="ex. gemma3:4b, qwen2.5vl" />}
           <p className="hint">Ce modèle lit les images et transcrit la copie sans la corriger. La transcription reste en mémoire locale pour relancer l’analyse sans refaire cette étape.</p>
-          <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
+          <label className="field-label" htmlFor="ollama-analysis-model">Outil d’analyse et de notation</label>
           {availableModels.length > 0 ? <DesignSystemSelect id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="ex. qwen3.5:4b, phi4-mini" />
           }
           <div className="diagnostic-experiment">
@@ -2301,7 +2301,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <p className="hint">L’option « Analyser critère par critère » s’applique à la stratégie « Un modèle ». Les stratégies multi-modèles conservent un appel par modèle sur le barème complet.</p>
             {diagnosticStrategy !== 'single' && <>
               <label className="field-label" htmlFor="diagnostic-second-model">Second modèle d’analyse</label>
-              {availableModels.length > 0 ? <DesignSystemSelect id="diagnostic-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="diagnostic-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle Ollama" />}
+              {availableModels.length > 0 ? <DesignSystemSelect id="diagnostic-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="diagnostic-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second outil d’analyse" />}
               <p className="hint">Les deux modèles évaluent indépendamment la même transcription et le même barème. Ils sont exécutés successivement pour limiter la pression mémoire.</p>
             </>}
             {diagnosticStrategy === 'arbitrate' && <>
@@ -2652,10 +2652,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="rubric-import">
           <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Excel (.xlsx), CSV, TXT, Markdown ou JSON)</label>
           <FilePicker id="rubric-file" accept=".pdf,.xlsx,.csv,.txt,.md,.json" disabled={rubricFileImporting} onFilesSelected={(files) => { void importRubricFileFromInput(files?.[0]); }} title="Importer un document de barème" description={rubricFileImporting ? "Lecture par l’IA de vision locale en cours…" : "PDF, Excel, CSV, TXT, Markdown ou JSON"} actionLabel={rubricFileImporting ? "Analyse en cours…" : "Parcourir les fichiers"} />
-          <p className="hint">Les PDF sont convertis en images dans le navigateur puis lus par votre modèle de vision Ollama local. Aucun service cloud n’est utilisé. Vérifiez les critères, les points et le total après import.</p>
+          <p className="hint">Les PDF sont convertis en images dans le navigateur puis lus par votre outil de lecture Ollama local. Aucun service cloud n’est utilisé. Vérifiez les critères, les points et le total après import.</p>
           <label className="field-label" htmlFor="rubric-image-file">Ou importer une photo / un scan du barème (JPEG, PNG, WebP)</label>
           <FilePicker id="rubric-image-file" accept="image/jpeg,image/png,image/webp" disabled={rubricImageImporting} onFilesSelected={(files) => { void importRubricImageFromInput(files?.[0]); }} title="Importer une photo ou un scan" description="JPEG, PNG ou WebP · ou PDF multipage" actionLabel={rubricImageImporting ? 'Lecture en cours…' : 'Choisir une image'} compact />
-          <p className="hint">{rubricImageImporting ? 'Lecture du barème par le modèle de vision local…' : 'Une seule requête au modèle de vision Ollama sélectionné, avec toutes les pages PDF dans l’ordre et une sortie JSON structurée. Les pages ne sont envoyées qu’à votre serveur Ollama configuré ; aucun service cloud n’est utilisé. Vérifiez toujours le résultat avant utilisation.'}</p>
+          <p className="hint">{rubricImageImporting ? 'Lecture du barème par le outil de lecture local…' : 'Une seule requête au outil de lecture Ollama sélectionné, avec toutes les pages PDF dans l’ordre et une sortie JSON structurée. Les pages ne sont envoyées qu’à votre serveur Ollama configuré ; aucun service cloud n’est utilisé. Vérifiez toujours le résultat avant utilisation.'}</p>
           {rubricImportEvents.length > 0 && <section className={`rubric-import-progress ${rubricImportProgress?.stage === 'error' ? 'has-error' : ''}`} aria-label="Étapes de l’import du barème" aria-live="polite">
             <div className="rubric-import-progress-heading"><strong>Import du barème</strong><span>{rubricImportFileName}</span></div>
             {rubricImageImporting && <button type="button" className="secondary-button" onClick={() => rubricImportAbortController.current?.abort()} aria-label="Arrêter l’import du barème">Arrêter l’import</button>}
@@ -2670,11 +2670,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                   <span className="rubric-import-step-number" aria-hidden="true">{readingDone ? '✓' : '1'}</span>
                   <div className="rubric-import-step-content">
                     <strong>1. Lecture du document</strong>
-                    <p>{readingDone ? 'Lecture terminée : le texte reconnu est consultable ci-dessous.' : failed && !extractionStarted ? 'La lecture a rencontré une erreur.' : 'Le modèle de vision lit les pages dans leur ordre.'}</p>
+                    <p>{readingDone ? 'Lecture terminée : le texte reconnu est consultable ci-dessous.' : failed && !extractionStarted ? 'La lecture a rencontré une erreur.' : 'Le outil de lecture lit les pages dans leur ordre.'}</p>
                     {rubricImportProgress && !readingDone && !extractionStarted && <p className="rubric-import-step-status" role="status">{rubricImportProgress.message}</p>}
                     {rubricImportVisionResponse ? <details className="rubric-import-raw-response">
-                      <summary>Voir le texte lu par le modèle de vision</summary>
-                      <p>Transcription brute de « {visionModel} », avant structuration du barème.</p>
+                      <summary>Voir le texte extrait</summary>
+                      <p>Texte extrait avant structuration du barème.</p>
                       <pre>{rubricImportVisionResponse}</pre>
                       <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportVisionResponse); }}>Copier la transcription</button>
                     </details> : <p className="rubric-import-step-hint">Le texte reconnu apparaîtra ici dès que la lecture sera disponible.</p>}
@@ -2852,7 +2852,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </>}
       </>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep !== 'configuration' && <section id="evaluation-results" data-evaluation-step={evaluationWorkspaceStep} className="panel evaluation-results-workspace" aria-labelledby="evaluation-results-title">
-        <div className="evaluation-section-heading"><div><p className="eyebrow">{evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION' : evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS' : 'ÉTAPE 4 · ANALYSE & HISTORIQUE'}</p><h2 id="evaluation-results-title">{evaluationWorkspaceStep === 'execution' ? 'Exécution de l’expérience' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Résultats de la lecture Vision' : evaluationStageMode === 'analysis' ? 'Résultats de l’analyse' : 'Résultats du parcours complet') : 'Analyser et comparer les expériences'}</h2><p>{evaluationWorkspaceStep === 'execution' ? 'Suivez la progression des modèles locaux et le détail de chaque étape de traitement.' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Examinez les transcriptions produites et les performances des modèles de lecture.' : evaluationStageMode === 'analysis' ? 'Examinez les notes proposées, les justifications et les écarts entre modèles à partir de la même transcription.' : 'Examinez successivement la transcription, la notation et les performances des deux étapes.') : 'Retrouvez les essais précédents et comparez leurs performances grâce aux indicateurs graphiques.'}</p></div><span className="evaluation-step-chip">{evaluationWorkspaceStep === 'history' ? savedModelEvaluations.length + ' essai(s)' : modelEvaluationResults.length + ' résultat(s)'}</span></div>
+        <div className="evaluation-section-heading"><div><p className="eyebrow">{evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION' : evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS' : 'ÉTAPE 4 · ANALYSE & HISTORIQUE'}</p><h2 id="evaluation-results-title">{evaluationWorkspaceStep === 'execution' ? 'Exécution de l’expérience' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Résultats de la lecture de la copie' : evaluationStageMode === 'analysis' ? 'Résultats de l’analyse' : 'Résultats du parcours complet') : 'Analyser et comparer les expériences'}</h2><p>{evaluationWorkspaceStep === 'execution' ? 'Suivez la progression des modèles locaux et le détail de chaque étape de traitement.' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Examinez les transcriptions produites et les performances des modèles de lecture.' : evaluationStageMode === 'analysis' ? 'Examinez les notes proposées, les justifications et les écarts entre modèles à partir de la même transcription.' : 'Examinez successivement la transcription, la notation et les performances des deux étapes.') : 'Retrouvez les essais précédents et comparez leurs performances grâce aux indicateurs graphiques.'}</p></div><span className="evaluation-step-chip">{evaluationWorkspaceStep === 'history' ? savedModelEvaluations.length + ' essai(s)' : modelEvaluationResults.length + ' résultat(s)'}</span></div>
         {evaluationWorkspaceStep === 'execution' && <div className="evaluation-run-actions"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>{!validation.valid ? 'Vérifiez le barème avant de lancer l’expérience.' : evaluationStageMode !== 'analysis' && !images.length ? 'Importez les pages de la copie dans l’étape précédente.' : evaluationStageMode === 'analysis' && !transcription?.trim() ? 'Ajoutez ou vérifiez la transcription de référence dans la configuration.' : selectedEvaluationProfileIds.length < 1 ? 'Sélectionnez au moins une configuration.' : 'Le jeu d’essai est prêt à être lancé.'}</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => void startModelEvaluation()}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>}
                 {evaluationWorkspaceStep === 'execution' && evaluationProgress && <section className="evaluation-progress" aria-labelledby="evaluation-progress-title" aria-live="polite">
           <div className="evaluation-progress-heading"><div><p className="eyebrow">SUIVI DE L’EXPÉRIENCE</p><h3 id="evaluation-progress-title">{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation interrompue' : 'Évaluation en cours'}</h3><p>{evaluationProgress.status === 'completed' ? 'Toutes les configurations ont été traitées.' : evaluationProgress.status === 'cancelled' ? 'La séquence a été arrêtée après l’appel en cours.' : evaluationProgress.currentConfiguration ? 'La configuration active est indiquée ci-dessous.' : 'Préparation de la prochaine configuration…'}</p></div><strong className="evaluation-progress-counter">{evaluationProgress.completedSteps} / {evaluationProgress.totalSteps} étapes terminées</strong></div>
@@ -3069,14 +3069,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <button type="button" onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }}>Mes devoirs</button><span aria-hidden="true">›</span><span>{assignmentTitle.trim() || 'Devoir sans titre'}</span><span aria-hidden="true">›</span><button type="button" onClick={() => { setCopyOverviewFilter('all'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); }}>Copies</button>
           </nav>
           <div className="copy-review-header-main">
-            <label className="copy-review-student-name"><span className="visually-hidden">Nom de l’étudiant</span><input id="student-label" value={studentLabel} onChange={(event) => setStudentLabel(event.target.value)} placeholder="Nom de l’étudiant" /></label>
+            <label className="copy-review-student-name"><span>Nom lu sur la copie</span><input id="student-label" value={studentLabel} onChange={(event) => setStudentLabel(event.target.value)} placeholder="Nom de l’étudiant" /></label>
             <div className="copy-review-position" aria-label="Position dans le devoir"><button type="button" aria-label="Copie précédente" disabled={!previousReviewJob || isAnalyzing} onClick={() => { if (previousReviewJob) void loadNextQueuedCopy(previousReviewJob.id); }}>←</button><strong>{reviewPosition}/{reviewTotalCopies}</strong><button type="button" aria-label="Copie suivante" disabled={!reviewNavigation.nextCopy || isAnalyzing} onClick={() => { if (reviewNavigation.nextCopy) void loadNextQueuedCopy(reviewNavigation.nextCopy.id); }}>→</button></div>
             <span className={`copy-review-status ${isFinalized ? 'is-completed' : 'needs-attention'}`}>{isFinalized ? 'Corrigée' : isAnalyzing ? 'Analyse en cours' : 'À vérifier'}</span>
             <strong className="copy-review-header-score">{reviewedTotal.toLocaleString('fr-FR')} / {validation.maximumPoints}</strong>
             <button type="button" className="primary-button" aria-keyshortcuts="Control+Enter Meta+Enter" disabled={isAnalyzing || isFinalized || review.length !== rubric.criteria.length} onClick={() => void finalizeReview(true)}>{isFinalized ? 'Correction validée' : 'Valider et passer à la suivante'}</button>
           </div>
         </section>
-        {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || (studentIdentity !== null && studentIdentity.confidence !== 'high')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
+        {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || pageClassifications?.some((page) => page.kind === 'ambiguous') || (studentIdentity !== null && studentIdentity.confidence !== 'high')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
           {flaggedCriteriaIds.size > 0 && <button type="button" onClick={() => { setShowOnlyFlagged(true); document.querySelector('.review-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>⚠ {flaggedCriteriaIds.size} critère(s) à examiner</button>}
           {studentIdentity && studentIdentity.confidence !== 'high' && <button type="button" className="copy-review-alert-chip" onClick={() => document.getElementById('student-label')?.focus()}>Nom à confirmer</button>}
           {pageClassifications?.filter((page) => page.kind === 'ambiguous').map((page) => <span className="copy-review-alert-chip" role="alert" key={page.pageNumber}>Lecture douteuse · page {page.pageNumber}</span>)}

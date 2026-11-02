@@ -31,7 +31,7 @@ describe('UI design system', () => {
     expect(appComponent).toContain('aria-label="Étapes de l’import du barème"');
     expect(appComponent).toContain('1. Lecture du document');
     expect(appComponent).toContain('2. Extraction du barème');
-    expect(appComponent).toContain('Voir le texte lu par le modèle de vision');
+    expect(appComponent).toContain('Voir le texte extrait');
     expect(appComponent).toContain('Voir le JSON brut extrait');
     expect(appComponent).toContain('Afficher le journal détaillé de l’import');
     expect(appComponent).toContain('Arrêter l’import du barème');

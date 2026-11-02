@@ -1134,3 +1134,8 @@ footer { padding-top: 24px; line-height: 1.6; }
 .copy-overview-batch-import{margin-top:16px}
 .copy-overview-batch-import summary{cursor:pointer;font-weight:750}
 .copy-overview-batch-import[open]{display:grid;gap:14px}
+
+.copy-review-student-name{display:grid;gap:4px;color:#718075;font-size:10px;font-weight:700}
+.review-analysis-summary{margin:0 0 12px;padding:8px 10px;border:1px solid #dfe8de;border-radius:8px;background:#fff;font-size:11px}
+.review-analysis-summary summary{cursor:pointer;font-weight:700}
+.review-analysis-summary p{margin:8px 0 0;line-height:1.5}

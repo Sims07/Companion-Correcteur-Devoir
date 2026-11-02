@@ -116,11 +116,11 @@ test('review workspace keeps original evidence beside grading criteria on deskto
 
   await expect(page.locator('.copy-review-header')).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Nom lu sur la copie' })).toBeVisible();
   await expect(page.locator('.copy-review-validation-bar')).toBeVisible();
   await expect(page.locator('.review-background-queue')).toHaveCount(0);
   await expect(page.locator('#background-copy-files')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Correction validée' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Vérification de la copie' }).getByRole('button', { name: 'Correction validée' })).toBeVisible();
   await expect(page.getByRole('complementary', { name: 'Copie de l’étudiant' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Transport membranaire' })).toBeVisible();
@@ -149,7 +149,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await explanation.locator('summary').click();
   await expect(explanation.getByText('La réponse mentionne la membrane.')).toBeVisible();
   await expect(page.getByRole('img', { name: 'Page de travail 1 de la copie' })).toBeVisible();
-  await expect(page.getByText('Texte reconnu par l’IA')).toBeVisible();
+  await expect(page.getByText('Transcription de la copie')).toBeVisible();
   const locateEvidence = page.getByRole('button', { name: 'Repérer la preuve du critère Rôle de la membrane sur la page 1' });
   await expect(locateEvidence).toBeVisible();
   await locateEvidence.click();
@@ -161,6 +161,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(sourcePane).toHaveCSS('position', 'static');
   await expect(page.locator('.review-workspace')).toBeVisible();
+  await expect(page.locator('.review-card').first()).toBeInViewport();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
 
   await page.evaluate(async () => {
@@ -203,4 +204,68 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(originalImageDetails).toBeVisible();
   await originalImageDetails.locator('summary').click();
   await expect(page.getByRole('img', { name: 'Image originale non modifiée de la page 1' })).toBeVisible();
+});
+
+
+test('teacher verifies a flagged criterion, validates the copy and lands on the next ready copy', async ({ page }) => {
+  await page.goto('/');
+  await openActiveAssignment(page);
+
+  await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('companion-correcteur-devoir', 5);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    if (!database.objectStoreNames.contains('background-corrections')) throw new Error('Le stockage local des copies n’est pas initialisé.');
+    const assignmentId = localStorage.getItem('companion-correcteur:active-assignment:v1') ?? 'assignment-default';
+    const transaction = database.transaction('background-corrections', 'readwrite');
+    const store = transaction.objectStore('background-corrections');
+    const image = { base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGMQ6dH4DwADSAHIPzDQUwAAAABJRU5ErkJggg==', mimeType: 'image/png', fileName: 'page-1.png' };
+    const rubric = { title: 'Barème de biologie', criteria: [
+      { id: 'membrane', title: 'Rôle de la membrane', description: 'Expliquer la barrière sélective.', maxPoints: 4 },
+      { id: 'transport', title: 'Transport membranaire', description: 'Identifier un transport sélectif.', maxPoints: 2 },
+    ] };
+    const makeJob = (id: string, label: string, createdAt: string, confidence: 'medium' | 'high') => {
+      const criteria = [
+        { criterionId: 'membrane', points: 2, rationale: 'Le mécanisme est partiellement expliqué.', evidence: 'La réponse mentionne la membrane.', pageNumber: 1, confidence },
+        { criterionId: 'transport', points: 2, rationale: 'Le transport sélectif est identifié.', evidence: 'La membrane contrôle les échanges.', pageNumber: 1, confidence: 'high' as const },
+      ];
+      return {
+        id, assignmentId, label, question: 'Expliquez le rôle de la membrane plasmique.', rubric, correctionMode: 'integrated',
+        images: [image], originalImages: [image], subjectImages: [], detectTeacherAnnotations: false,
+        annotationInkColor: 'none', annotationInkColorApplied: true, visionModel: 'test-vision', analysisModel: 'test-analysis', thinking: false,
+        createdAt, updatedAt: createdAt, status: 'ready', phase: 'complete', completedPages: 1, completedCriteria: 2, totalCriteria: 2,
+        transcription: 'La membrane plasmique contrôle les échanges.', partialCriteria: criteria,
+        proposal: { summary: 'Une proposition de correction est prête à vérifier.', criteria, questionsForTeacher: [], finalScore: 4 },
+        error: null, imageFingerprint: id,
+      };
+    };
+    store.put(makeJob('review-first', 'Marie Dupont', '2026-11-01T08:00:00.000Z', 'medium'));
+    store.put(makeJob('review-second', 'Paul Martin', '2026-11-01T09:00:00.000Z', 'high'));
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+    database.close();
+  });
+
+  await page.reload();
+  await openActiveAssignment(page);
+  await page.locator('.teacher-step-nav .teacher-step').nth(1).click();
+  const firstCopy = page.locator('.copy-overview-grid .correction-series-card').filter({ hasText: 'Marie Dupont' });
+  await expect(firstCopy).toBeVisible();
+  await firstCopy.getByRole('button', { name: 'Vérifier la copie' }).click();
+
+  await expect(page.getByRole('textbox', { name: 'Nom lu sur la copie' })).toHaveValue('Marie Dupont');
+  const flaggedCriterion = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Rôle de la membrane' }) });
+  await flaggedCriterion.focus();
+  await flaggedCriterion.press('Enter');
+  await page.getByRole('button', { name: 'Tout confirmer' }).click();
+  await page.getByRole('region', { name: 'Vérification de la copie' }).getByRole('button', { name: 'Valider et passer à la suivante' }).click();
+
+  await expect(page.getByRole('textbox', { name: 'Nom lu sur la copie' })).toHaveValue('Paul Martin');
+  await expect(page.locator('.copy-review-position')).toContainText('2/2');
+  await expect(page.getByRole('heading', { name: 'Transport membranaire' })).toBeVisible();
 });

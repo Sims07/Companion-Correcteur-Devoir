@@ -71,9 +71,7 @@ function jobLabel(job: BackgroundJobSummary): string {
 }
 
 function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): string {
-  if (status === 'to-retry') return job.error
-    ? `La correction n’a pas abouti : ${job.error}`
-    : 'La correction n’a pas abouti. Relancez-la pour reprendre l’évaluation.';
+  if (status === 'to-retry') return 'La correction n’a pas abouti. Vérifiez les paramètres de l’IA locale puis réessayez.';
   if (status === 'processing') return job.phase === 'reading'
     ? `Lecture de la copie · ${job.progress.completedPages}/${job.progress.totalPages} pages`
     : `Correction · ${job.progress.completedCriteria}/${job.progress.totalCriteria} critères`;
@@ -194,7 +192,7 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onF
             <div className="correction-series-actions">
               {item.kind === 'job' && item.job && <>
                 {item.status === 'to-retry' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Reprendre</button>}
-                <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenJob(item.job!.id)}>Ouvrir</button>
+                <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenJob(item.job!.id)}>{item.status === 'to-review' ? 'Vérifier la copie' : 'Ouvrir'}</button>
               </>}
               {item.kind === 'current' && <button type="button" className="secondary-button correction-series-view" onClick={onOpenCurrentCopy}>Reprendre la copie</button>}
               {item.kind === 'correction' && item.correction && <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenCorrection(item.correction!)}>Consulter la correction</button>}

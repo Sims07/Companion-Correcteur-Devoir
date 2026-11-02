@@ -106,9 +106,9 @@ test('adding a copy while another one is under review keeps the previous copy an
   await openActiveAssignment(page);
   await copyNavigation(page).click();
 
-  await expect(page.getByRole('button', { name: /À réviser/ })).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: 'Réviser la copie suivante' }).click();
-  await expect(page.getByLabel('Nom et prénom à afficher')).toHaveValue('Copie récente');
+  await expect(page.getByRole('button', { name: /À vérifier/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Vérifier la copie suivante' }).click();
+  await expect(page.getByLabel('Nom lu sur la copie')).toHaveValue('Copie récente');
 
   await copyNavigation(page).click();
   await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
@@ -123,7 +123,7 @@ test('adding a copy while another one is under review keeps the previous copy an
 test('a failed copy is kept in À reprendre and the Reprendre action starts a new attempt', async ({ page }) => {
   await prepareLocalWorkspace(page);
   await seedJobs(page, [
-    { id: 'copy-failed', label: 'Copie en échec', status: 'failed', updatedAt: '2026-11-02T09:00:00.000Z', error: 'Ollama indisponible' },
+    { id: 'copy-failed', label: 'Copie en échec', status: 'failed', updatedAt: '2026-11-02T09:00:00.000Z', error: 'La correction n’a pas abouti. Vérifiez les paramètres de l’IA locale puis réessayez.' },
   ]);
   let retryRequests = 0;
   await page.route('https://ai.example/**', async (route) => {
@@ -137,7 +137,7 @@ test('a failed copy is kept in À reprendre and the Reprendre action starts a ne
   await page.getByRole('button', { name: /À reprendre/ }).click();
   const failedCard = page.locator('.copy-overview-grid .correction-series-card');
   await expect(failedCard).toContainText('Copie en échec');
-  await expect(failedCard).toContainText('Ollama indisponible');
+  await expect(failedCard).toContainText('Serveur local indisponible');
   await failedCard.getByRole('button', { name: 'Reprendre' }).click();
 
   await expect.poll(() => retryRequests).toBeGreaterThan(0);
@@ -161,5 +161,5 @@ test('adding another copy automatically saves the imported foreground copy in th
 
   await copyNavigation(page).click();
   await expect(page.getByText('copie-a-conserver.png')).toBeVisible();
-  await expect(page.getByRole('button', { name: /À corriger/ })).toContainText('1');
+  await expect(page.getByRole('button', { name: /En attente/ })).toContainText('1');
 });
