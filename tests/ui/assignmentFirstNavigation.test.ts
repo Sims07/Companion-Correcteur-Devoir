@@ -25,6 +25,9 @@ describe('navigation entre la bibliothèque de devoirs et l’espace de correcti
       canOpenNextReviewCopy: false,
       nextReviewCopyLabel: null,
       onOpenNextReviewCopy: vi.fn(),
+      canOpenNextReviewCopy: false,
+      nextReviewCopyLabel: null,
+      onOpenNextReviewCopy: vi.fn(),
     }));
     expect(html).toContain('Mes devoirs');
     expect(html).toContain('Devoir de biologie');
@@ -49,6 +52,9 @@ describe('navigation entre la bibliothèque de devoirs et l’espace de correcti
       onSelectRubric: vi.fn(),
       onOpenSettings: vi.fn(),
       onOpenCopy: vi.fn(),
+      canOpenNextReviewCopy: false,
+      nextReviewCopyLabel: null,
+      onOpenNextReviewCopy: vi.fn(),
     }));
     expect(html).toContain('role="tablist"');
     expect(html).toContain('aria-selected="true"');
