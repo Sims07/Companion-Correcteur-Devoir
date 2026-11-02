@@ -74,10 +74,11 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await expect(page.locator('.teacher-step-nav .teacher-step').nth(1)).toBeVisible();
   await expect(page.getByRole('button', { name: /Révision/ })).toBeVisible();
 
-  await page.getByRole('button', { name: /Corrections enregistrées/ }).click();
-  await expect(page.getByRole('heading', { name: 'Corrections enregistrées' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Aucune correction enregistrée pour le moment' })).toBeVisible();
-  await page.locator('.archive-empty').getByRole('button', { name: 'Ajouter une copie' }).click();
+  await page.getByRole('button', { name: /Copies corrigées/ }).click();
+  await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Corrigées/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('Aucune copie pour le moment')).toBeVisible();
+  await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter une copie/ }).click();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
