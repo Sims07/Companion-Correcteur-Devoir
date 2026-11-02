@@ -37,7 +37,8 @@ describe('teacher and AI diagnostic interface modes', () => {
   it('keeps a local archive and next-copy path after finalization', () => {
     const text = app();
     expect(text).toContain("useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review' | 'archive'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric')");
-    expect(text).toContain('Corrections enregistrées');
+    expect(text).toContain('Copies corrigées');
+    expect(text).toContain("setCopyOverviewFilter('completed')");
     expect(text).toContain('Ajouter une autre copie');
     expect(text).toContain('Consulter la correction');
     expect(text).toContain('archiveService.saveCorrection(correction)');
