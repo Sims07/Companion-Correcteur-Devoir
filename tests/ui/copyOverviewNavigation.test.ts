@@ -49,6 +49,9 @@ describe('CorrectionOverview — comportement enseignant', () => {
         filter,
         onFilterChange,
         onAddCopy: vi.fn(),
+        pendingCount: 0,
+        isStartingCorrections: false,
+        onStartCorrections: vi.fn(),
         onOpenJob,
         onRetryJob,
         onOpenCorrection: vi.fn(),
@@ -75,9 +78,9 @@ describe('CorrectionOverview — comportement enseignant', () => {
 
   it('renders distinct retry and review statuses with explicit counts', async () => {
     await render();
-    expect(container.textContent).toContain('À reprendre');
+    expect(container.textContent).toContain('À corriger');
     expect(container.textContent).toContain('À vérifier');
-    expect(container.textContent).toContain('La correction n’a pas abouti. Vous pouvez relancer cette copie.');
+    expect(container.textContent).toContain('La correction n’a pas abouti. Vous pouvez corriger à nouveau cette copie.');
     expect(container.textContent).toContain('2 résultat(s)');
     expect(container.querySelectorAll('.correction-series-card')).toHaveLength(2);
   });
@@ -87,7 +90,7 @@ describe('CorrectionOverview — comportement enseignant', () => {
     expect(container.querySelectorAll('.correction-series-card')).toHaveLength(1);
     expect(container.textContent).toContain('Alice Martin');
     const buttons = [...container.querySelectorAll('button')];
-    await act(async () => buttons.find((button) => button.textContent?.trim() === 'Reprendre')?.click());
+    await act(async () => buttons.find((button) => button.textContent?.trim() === 'Corriger')?.click());
     await act(async () => buttons.find((button) => button.textContent?.trim() === 'Ouvrir')?.click());
     expect(onRetryJob).toHaveBeenCalledWith('failed-copy');
     expect(onOpenJob).toHaveBeenCalledWith('failed-copy');
@@ -95,7 +98,7 @@ describe('CorrectionOverview — comportement enseignant', () => {
 
   it('changes the selected category when a filter is activated', async () => {
     await render();
-    const retryFilter = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('À reprendre'));
+    const retryFilter = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('À corriger'));
     expect(retryFilter).toBeTruthy();
     await act(async () => retryFilter?.click());
     expect(onFilterChange).toHaveBeenCalledWith('to-retry');
