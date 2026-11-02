@@ -10,6 +10,8 @@ test('the assignment library is the entry point and opens the selected teacher w
   await expect(page.locator('.teacher-sidebar')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Ajouter une copie/ })).toBeVisible();
+  const copyFilters = page.getByRole('group', { name: 'Filtrer les copies' });
+  for (const label of ['Toutes', 'À corriger', 'En cours', 'À réviser', 'Corrigées']) await expect(copyFilters.getByRole('button', { name: new RegExp(label) })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toHaveCount(0);
   await expect(page.locator('.sidebar-assignment-current')).toContainText('Devoir de biologie');
 
