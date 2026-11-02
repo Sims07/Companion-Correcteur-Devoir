@@ -11,6 +11,10 @@ export interface CopyReviewHeaderProps {
   isAnalyzing: boolean;
   isFinalized: boolean;
   canValidate: boolean;
+  canPrevious: boolean;
+  canNext: boolean;
+  previousLabel?: string | null;
+  nextLabel?: string | null;
   onPrevious: () => void;
   onNext: () => void;
   onValidate: () => void;
@@ -18,8 +22,11 @@ export interface CopyReviewHeaderProps {
 
 export function CopyReviewHeader({
   studentLabel, onStudentLabelChange, position, totalCopies, status, score, maximumPoints,
-  isAnalyzing, isFinalized, canValidate, onPrevious, onNext, onValidate,
+  isAnalyzing, isFinalized, canValidate, canPrevious, canNext, previousLabel, nextLabel,
+  onPrevious, onNext, onValidate,
 }: CopyReviewHeaderProps) {
+  const previousTitle = previousLabel ? 'Copie précédente : ' + previousLabel : 'Aucune copie précédente';
+  const nextTitle = nextLabel ? 'Copie suivante : ' + nextLabel : 'Aucune copie suivante';
   return (
     <section className="copy-review-header" aria-label="Vérification de la copie">
       <div className="copy-review-header-main">
@@ -27,12 +34,12 @@ export function CopyReviewHeader({
           <span className="copy-review-student-caption">Nom lu sur la copie</span>
           <input id="student-label" aria-label="Nom de l’étudiant" value={studentLabel} onChange={(event: ChangeEvent<HTMLInputElement>) => onStudentLabelChange(event.target.value)} placeholder="Nom de l’étudiant" />
         </label>
-        <div className="copy-review-position" aria-label={`Copie ${position} sur ${totalCopies}`}>
-          <button type="button" aria-label="Copie précédente" disabled={position <= 1 || isAnalyzing} onClick={onPrevious}>←</button>
-          <strong>{position}/{totalCopies}</strong>
-          <button type="button" aria-label="Copie suivante" disabled={position >= totalCopies || isAnalyzing} onClick={onNext}>→</button>
+        <div className="copy-review-position" aria-label={'Copie ' + position + ' sur ' + totalCopies}>
+          <button type="button" aria-label="Copie précédente" title={previousTitle} disabled={!canPrevious} onClick={onPrevious}>←</button>
+          <strong>Copie {position} sur {totalCopies}</strong>
+          <button type="button" aria-label="Copie suivante" title={nextTitle} disabled={!canNext} onClick={onNext}>→</button>
         </div>
-        <span className={`copy-review-status ${isFinalized ? 'is-completed' : 'needs-attention'}`}>{status}</span>
+        <span className={'copy-review-status ' + (isFinalized ? 'is-completed' : 'needs-attention')}>{status}</span>
         <strong className="copy-review-header-score">{score.toLocaleString('fr-FR')} / {maximumPoints}</strong>
         <button type="button" className="primary-button" aria-keyshortcuts="Control+Enter Meta+Enter" disabled={isAnalyzing || isFinalized || !canValidate} onClick={onValidate}>{isFinalized ? 'Correction validée' : 'Valider et passer à la suivante'}</button>
       </div>
