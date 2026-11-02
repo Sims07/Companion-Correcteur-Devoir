@@ -1914,7 +1914,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     // Complete persistence work before publishing the new active copy. Otherwise
     // the header/rail can briefly point at a job while its queue snapshot is stale,
     // allowing a fast second navigation to resolve against the previous copy.
-    if (requestedJob.status !== 'failed' && requestedJob.status !== 'processing') {
+    const canBeMarkedForReview = Boolean(requestedJob.proposal) &&
+      ['ready', 'needs-review', 'reviewing'].includes(requestedJob.status);
+    if (canBeMarkedForReview) {
       await backgroundService.markForReview(requestedJob.id);
     }
     const refreshedJobs = await backgroundService.listJobs(activeAssignmentId);
