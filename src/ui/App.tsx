@@ -2609,6 +2609,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         onFilterChange={(filter) => { setCopyOverviewFilterTouched(true); setCopyOverviewFilter(filter); }}
         currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ? { label: studentLabel || images[0]?.fileName || 'Copie en cours', pageCount: images.length, status: isAnalyzing ? 'processing' : proposal ? 'to-review' : 'to-do', score: proposal ? reviewedTotal : null, maximumPoints: validation.maximumPoints, updatedAt: '9999-12-31T23:59:59.999Z' } : null}
         onAddCopy={() => startNextCopy({ forceNew: true })}
+        pendingCount={allBackgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').length}
+        isStartingCorrections={isStartingSeriesCorrections}
+        onStartCorrections={() => { void startSeriesCorrections(); }}
         onOpenJob={(jobId) => { void loadNextQueuedCopy(jobId); }}
         onRetryJob={(jobId) => { void backgroundService.retry(jobId, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}
         onReviewNextCopy={() => {
