@@ -32,13 +32,13 @@ describe('suivi unifié des copies', () => {
     });
   });
 
-  it('compte séparément les copies à reprendre et celles à réviser', () => {
+  it('compte séparément les copies à reprendre et celles à vérifier', () => {
     expect(countCopyOverviewStatuses(['to-do', 'processing', 'to-review', 'to-retry', 'to-review', 'completed'])).toEqual({
       all: 6, toDo: 1, processing: 1, toReview: 2, toRetry: 1, completed: 1,
     });
   });
 
-  it('ouvre par défaut la catégorie à réviser lorsqu’elle contient des copies', () => {
+  it('ouvre par défaut la catégorie à vérifier lorsqu’elle contient des copies', () => {
     expect(defaultCopyOverviewFilter(['to-do', 'to-review', 'completed'])).toBe('to-review');
     expect(defaultCopyOverviewFilter(['to-do', 'to-retry', 'completed'])).toBe('all');
     expect(defaultCopyOverviewFilter([])).toBe('all');

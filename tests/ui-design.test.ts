@@ -24,7 +24,7 @@ describe('UI design system', () => {
     expect(appComponent).not.toContain('Réponse du modèle</strong>');
     expect(appComponent).not.toContain('live-analysis-output');
     expect(correctionFlowStylesheet).toContain('.review-card-pending.is-active');
-    expect(correctionFlowStylesheet).toContain('.copy-review-header');
+    expect(stylesheet).toContain('.copy-review-header');
   });
 
   it('presents rubric import as separate reading and extraction steps with inspectable raw outputs', () => {

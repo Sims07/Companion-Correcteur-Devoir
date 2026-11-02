@@ -46,7 +46,7 @@ const labels: Record<CopyOverviewFilter, string> = {
   processing: 'Analyse en cours',
   'to-review': 'À vérifier',
   'to-retry': 'À reprendre',
-  completed: 'Corrigées',
+  completed: 'Copies corrigées',
 };
 const statusLabels: Record<CopyOverviewStatus, string> = {
   'to-do': 'En attente',
