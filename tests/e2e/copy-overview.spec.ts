@@ -120,6 +120,30 @@ test('adding a copy while another one is under review keeps the previous copy an
   await expect(page.getByText('Copie ancienne')).toBeVisible();
 });
 
+test('teacher verifies a flagged criterion, validates the copy and lands on the next one', async ({ page }) => {
+  await prepareLocalWorkspace(page);
+  await seedJobs(page, [
+    { id: 'copy-older', label: 'Copie ancienne', status: 'ready', updatedAt: '2026-11-01T08:00:00.000Z' },
+    { id: 'copy-newer', label: 'Copie récente', status: 'ready', updatedAt: '2026-11-02T09:00:00.000Z' },
+  ]);
+  await page.reload();
+  await openActiveAssignment(page);
+  await copyNavigation(page).click();
+
+  await page.getByRole('button', { name: 'Vérifier la copie suivante' }).click();
+  const studentName = page.getByRole('textbox', { name: 'Nom de l’étudiant' });
+  await expect(studentName).toHaveValue('Copie récente');
+
+  const flaggedCard = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Connaissances scientifiques' }) });
+  await expect(flaggedCard.getByText('Point retiré', { exact: true })).toBeVisible();
+  await flaggedCard.getByLabel('Votre note').fill('7');
+  await expect(flaggedCard.getByText('7 / 8')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Valider et passer à la suivante' }).first().click();
+  await expect(studentName).toHaveValue('Copie ancienne');
+  await expect(page.getByRole('heading', { name: 'Connaissances scientifiques' })).toBeVisible();
+});
+
 test('a failed copy is kept in À reprendre and the Reprendre action starts a new attempt', async ({ page }) => {
   await prepareLocalWorkspace(page);
   await seedJobs(page, [
