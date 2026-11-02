@@ -31,8 +31,8 @@ describe('correction en série — espace de révision', () => {
   it('exposes per-page rotation controls in the batch queue and pauses safely during processing', () => {
     expect(app).toContain('selectedSeriesPreviewId');
     expect(app).toContain('selectedCopy.images.map((page, pageIndex)');
-    expect(app).toContain('Tourner la page ${pageIndex + 1} de ${job.label} à gauche de 90 degrés');
-    expect(app).toContain('Tourner la page ${pageIndex + 1} de ${job.label} à droite de 90 degrés');
+    expect(app).toContain('Tourner la page ${pageIndex + 1} de ${selectedCopy.label} à gauche de 90 degrés');
+    expect(app).toContain('Tourner la page ${pageIndex + 1} de ${selectedCopy.label} à droite de 90 degrés');
     expect(app).toContain('await backgroundService.pauseAndWait()');
     expect(app).toContain('backgroundService.updateImages(job.id, nextImages, nextAngles');
     expect(app).toContain('backgroundService.resume()');
