@@ -2103,7 +2103,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       ?? assignmentProfiles.find((profile) => profile.title === archivedTitle);
     if (!matchingAssignment) {
       matchingAssignment = {
-        id: `assignment-${crypto.randomUUID()}`,
+        // Preserve the assignment identity stored with the correction. Generating
+        // a new id here would detach this archive (and its siblings) from the
+        // current navigation list when the profile is not yet in memory.
+        id: correction.assignmentId ?? `assignment-${crypto.randomUUID()}`,
         title: archivedTitle,
         rubric: snapshot.rubric,
         question: snapshot.question,
