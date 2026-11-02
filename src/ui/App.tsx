@@ -494,6 +494,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
   const reviewNavigation = getBackgroundCorrectionReviewNavigation(backgroundJobs, activeAssignmentId, currentBackgroundJobId);
   const reviewJobs = backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId);
+  const activeBackgroundJob = reviewJobs.find((job) => job.id === currentBackgroundJobId) ?? null;
   const reviewCurrentIndex = reviewJobs.findIndex((job) => job.id === currentBackgroundJobId);
   const previousReviewJob = reviewCurrentIndex > 0 ? reviewJobs[reviewCurrentIndex - 1] : null;
   const archivedReviewIndex = archivedCorrectionsForActiveAssignment.findIndex((correction) => correction.id === currentCorrectionId);
@@ -1909,7 +1910,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setError(next.error ?? '');
     setCurrentCorrectionId(null);
     setIsFinalized(false);
-    setTeacherStep(canReview ? 'review' : 'copy');
+    setTeacherStep(canReview || next.status === 'processing' ? 'review' : 'copy');
     setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
   }
 
@@ -3075,6 +3076,27 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </section>}
           </div>
         </details>
+      </section>}
+
+      {currentBackgroundJobId && activeBackgroundJob?.status === 'processing' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="analysis-progress teacher-progress-card background-copy-progress" role="status" aria-live="polite" aria-atomic="true">
+        <div className="analysis-spinner" aria-hidden="true" />
+        <div className="analysis-progress-copy">
+          <div className="teacher-progress-heading"><div><p className="eyebrow">ESPACE ENSEIGNANT · COPIE INDIVIDUELLE</p><h2>Correction en cours</h2><p>{studentLabel || activeBackgroundJob.label} · Le traitement continue en arrière-plan.</p></div><span className="step-count">{activeBackgroundJob.phase === 'reading' ? 'Lecture de la copie' : activeBackgroundJob.phase === 'grading' ? 'Analyse des réponses' : 'Préparation'}</span></div>
+          <div className="teacher-progress-phases" aria-label="Progression de la correction">
+            <div className={activeBackgroundJob.phase === 'preparation' ? 'teacher-progress-phase current' : 'teacher-progress-phase complete'}><span>{activeBackgroundJob.phase === 'preparation' ? '1' : '✓'}</span><div><strong>Préparation</strong><small>{activeBackgroundJob.phase === 'preparation' ? 'En cours' : 'Terminée'}</small></div></div>
+            <div className={activeBackgroundJob.phase === 'reading' ? 'teacher-progress-phase current' : activeBackgroundJob.phase === 'grading' || activeBackgroundJob.phase === 'complete' ? 'teacher-progress-phase complete' : 'teacher-progress-phase'}><span>{activeBackgroundJob.phase === 'grading' || activeBackgroundJob.phase === 'complete' ? '✓' : '2'}</span><div><strong>Lecture de la copie</strong><small>{activeBackgroundJob.completedPages}/{activeBackgroundJob.images.length} pages lues</small></div></div>
+            <div className={activeBackgroundJob.phase === 'grading' ? 'teacher-progress-phase current' : 'teacher-progress-phase'}><span>3</span><div><strong>Correction des réponses</strong><small>{activeBackgroundJob.completedCriteria}/{activeBackgroundJob.totalCriteria} critères traités</small></div></div>
+          </div>
+        </div>
+      </section>}
+      {currentBackgroundJobId && activeBackgroundJob?.status === 'processing' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="live-copy-preview panel" aria-labelledby="background-copy-progress-title">
+        <div className="live-preview-heading"><div><p className="eyebrow">SUIVI INDIVIDUEL</p><h3 id="background-copy-progress-title">La copie en cours de correction</h3><p>Vous pouvez consulter les pages et la transcription pendant que l’analyse se poursuit.</p></div><span className="live-preview-state">Traitement en cours</span></div>
+        <div className="live-copy-layout">
+          <div className="live-copy-pages" aria-label="Pages de la copie en cours">
+            {images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-background-progress-' + index}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page ${index + 1} de la copie en cours de correction`} /><figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption></figure>)}
+          </div>
+          <div className="live-transcription-panel"><strong>Transcription</strong>{transcription ? <pre className="live-transcription-text">{transcription}</pre> : <p className="live-transcription-placeholder">La transcription apparaîtra au fur et à mesure de la lecture.</p>}</div>
+        </div>
       </section>}
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
