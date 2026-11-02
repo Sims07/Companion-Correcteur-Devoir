@@ -490,6 +490,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
   const reviewedTotal = criterionProgress.provisionalPoints;
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
+  useEffect(() => {
+    if (interfaceMode === 'teacher' && teacherStep === 'review') window.scrollTo(0, 0);
+  }, [interfaceMode, teacherStep, currentBackgroundJobId]);
   const reviewNavigation = getBackgroundCorrectionReviewNavigation(backgroundJobs, activeAssignmentId, currentBackgroundJobId);
   const reviewJobs = backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId);
   const reviewCurrentIndex = reviewJobs.findIndex((job) => job.id === currentBackgroundJobId);
