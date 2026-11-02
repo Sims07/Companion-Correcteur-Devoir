@@ -17,6 +17,8 @@ type Props = {
   corrections: LocalCorrection[];
   currentCopy: CurrentCopy | null;
   currentBackgroundJobId: string | null;
+  autoBackgroundCorrection: boolean;
+  onStartPending: () => void;
   onAddCopy: () => void;
   onOpenJob: (jobId: string) => void;
   onOpenCorrection: (correction: LocalCorrection) => void;
@@ -37,7 +39,7 @@ function formatScore(correction: LocalCorrection): string | null {
   return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(points)} / ${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(correction.snapshot.maximumPoints)}`;
 }
 
-export function CorrectionOverview({ jobs, corrections, currentCopy, currentBackgroundJobId, onAddCopy, onOpenJob, onOpenCorrection, onOpenCurrentCopy }: Props) {
+export function CorrectionOverview({ jobs, corrections, currentCopy, currentBackgroundJobId, autoBackgroundCorrection, onStartPending, onAddCopy, onOpenJob, onOpenCorrection, onOpenCurrentCopy }: Props) {
   const [filter, setFilter] = useState<Filter>('all');
   const visibleJobs = jobs.filter((job) => job.status !== 'completed');
   const statuses = [
@@ -51,7 +53,7 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, currentBack
   return <section className="correction-overview" aria-labelledby="correction-overview-title">
     <header className="correction-overview-heading">
       <div><p className="eyebrow">ESPACE DU DEVOIR</p><h2 id="correction-overview-title">Suivi des copies</h2><p>Retrouvez toutes les copies de ce devoir, quel que soit leur mode de correction.</p></div>
-      <button type="button" className="primary-button" onClick={onAddCopy}>＋ Ajouter une copie</button>
+      <div className="correction-overview-heading-actions">{counts.toDo > 0 && !autoBackgroundCorrection && <button type="button" className="secondary-button" onClick={onStartPending}>Lancer les corrections</button>}<button type="button" className="primary-button" onClick={onAddCopy}>＋ Ajouter une copie</button></div>
     </header>
     <div className="correction-overview-filters" role="group" aria-label="Filtrer les copies">
       {(['all', 'to-do', 'processing', 'to-review', 'completed'] as const).map((key) => {
