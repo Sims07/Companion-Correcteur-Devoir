@@ -44,7 +44,7 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
       <label className="assignments-search"><span aria-hidden="true">⌕</span><input type="search" aria-label="Rechercher un devoir" placeholder="Rechercher par nom, formation…" value={query} onChange={(event) => setQuery(event.target.value)} /><kbd>⌘ K</kbd></label>
       <div className="assignments-filters" role="group" aria-label="Filtrer les devoirs">
         <button type="button" className={filter === 'all' ? 'active' : ''} aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>Tous <span>{assignments.length}</span></button>
-        <button type="button" className={filter === 'with-copies' ? 'active' : ''} aria-pressed={filter === 'with-corrections'} onClick={() => setFilter('with-copies')}>Avec copies <span>{correctionCount}</span></button>
+        <button type="button" className={filter === 'with-copies' ? 'active' : ''} aria-pressed={filter === 'with-copies'} onClick={() => setFilter('with-copies')}>Avec copies <span>{correctionCount}</span></button>
         <button type="button" className={filter === 'to-prepare' ? 'active' : ''} aria-pressed={filter === 'to-prepare'} onClick={() => setFilter('to-prepare')}>À préparer <span>{preparationCount}</span></button>
       </div>
     </div>
