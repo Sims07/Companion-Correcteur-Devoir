@@ -1,35 +1,61 @@
-import { useMemo } from 'react';
-import type { BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
+import { useMemo, useState } from 'react';
+import type { BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import type { LocalCorrection } from '../domain/localCorrection.ts';
-import { countCopyOverviewStatuses, toCopyOverviewStatus, type CopyOverviewFilter, type CopyOverviewStatus } from '../domain/copyOverview.ts';
+import { countCopyOverviewStatuses, sortCopyOverviewItems, toCopyOverviewStatus, type CopyOverviewFilter, type CopyOverviewStatus } from '../domain/copyOverview.ts';
 
-type CurrentCopy = { label: string; pageCount: number; status: CopyOverviewStatus; score?: number | null; maximumPoints: number };
+type CurrentCopy = {
+  label: string;
+  pageCount: number;
+  status: CopyOverviewStatus;
+  score?: number | null;
+  maximumPoints: number;
+  updatedAt: string;
+};
 type Props = {
-  jobs: BackgroundCorrectionJob[];
+  jobs: BackgroundJobSummary[];
   corrections: LocalCorrection[];
   currentCopy: CurrentCopy | null;
   filter: CopyOverviewFilter;
   onFilterChange: (filter: CopyOverviewFilter) => void;
   onAddCopy: () => void;
   onOpenJob: (jobId: string) => void;
+  onRetryJob: (jobId: string) => void;
   onOpenCorrection: (correction: LocalCorrection) => void;
   onOpenCurrentCopy: () => void;
+  onReviewNextCopy: () => void;
+};
+
+type OverviewItem = {
+  id: string;
+  label: string;
+  searchText: string;
+  status: CopyOverviewStatus;
+  updatedAt: string;
+  pageCount: number;
+  score: number | null;
+  maximumPoints: number;
+  kind: 'job' | 'correction' | 'current';
+  job?: BackgroundJobSummary;
+  correction?: LocalCorrection;
+  message?: string;
 };
 
 const labels: Record<CopyOverviewFilter, string> = {
-  all: 'Toutes', 'to-do': 'À corriger', processing: 'En cours', 'to-review': 'À réviser', completed: 'Corrigées',
+  all: 'Toutes',
+  'to-do': 'À corriger',
+  processing: 'En cours',
+  'to-review': 'À réviser',
+  'to-retry': 'À reprendre',
+  completed: 'Corrigées',
 };
 const statusLabels: Record<CopyOverviewStatus, string> = {
-  'to-do': 'À corriger', processing: 'En cours', 'to-review': 'À réviser', completed: 'Corrigée',
+  'to-do': 'À corriger',
+  processing: 'En cours',
+  'to-review': 'À réviser',
+  'to-retry': 'À reprendre',
+  completed: 'Corrigée',
 };
 const number = (value: number) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(value);
-
-function scoreForJob(job: BackgroundCorrectionJob): { score: number; maximum: number; label: string } | null {
-  const maximum = job.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
-  if (job.proposal) return { score: job.proposal.finalScore, maximum, label: 'Note proposée' };
-  if (job.partialCriteria.length) return { score: job.partialCriteria.reduce((sum, criterion) => sum + criterion.points, 0), maximum, label: 'Note provisoire' };
-  return null;
-}
 
 function scoreForCorrection(correction: LocalCorrection): { score: number; maximum: number } | null {
   if (!correction.snapshot) return null;
@@ -39,53 +65,147 @@ function scoreForCorrection(correction: LocalCorrection): { score: number; maxim
   };
 }
 
-export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, onOpenJob, onOpenCorrection, onOpenCurrentCopy }: Props) {
-  const statuses = useMemo(() => [
-    ...jobs.map((job) => toCopyOverviewStatus(job.status)).filter((status) => status !== 'completed'),
-    ...corrections.filter((correction) => Boolean(correction.snapshot)).map(() => 'completed' as const),
-    ...(currentCopy ? [currentCopy.status] : []),
-  ], [jobs, corrections, currentCopy]);
-  const counts = countCopyOverviewStatuses(statuses);
-  const visible = (status: CopyOverviewStatus) => filter === 'all' || filter === status;
+function jobLabel(job: BackgroundJobSummary): string {
+  if (!job.studentIdentity) return job.label || 'Étudiant non identifié';
+  return [job.studentIdentity.lastName, job.studentIdentity.firstName].filter(Boolean).join(' ') || job.label || 'Étudiant non identifié';
+}
+
+function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): string {
+  if (status === 'to-retry') return job.error
+    ? `La correction n’a pas abouti : ${job.error}`
+    : 'La correction n’a pas abouti. Relancez-la pour reprendre l’évaluation.';
+  if (status === 'processing') return job.phase === 'reading'
+    ? `Lecture de la copie · ${job.progress.completedPages}/${job.progress.totalPages} pages`
+    : `Correction · ${job.progress.completedCriteria}/${job.progress.totalCriteria} critères`;
+  if (status === 'to-do') return 'En attente de correction';
+  if (job.status === 'needs-review') return 'Des éléments restent à vérifier avant de poursuivre';
+  return 'Proposition prête à réviser';
+}
+
+export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, onOpenJob, onRetryJob, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
+  const [query, setQuery] = useState('');
+  const items = useMemo(() => {
+    const jobItems: OverviewItem[] = jobs
+      .filter((job) => job.status !== 'completed')
+      .map((job) => {
+        const status = toCopyOverviewStatus(job.status);
+        const label = jobLabel(job);
+        return {
+          id: job.id,
+          label,
+          searchText: `${label} ${job.label}`.toLocaleLowerCase('fr-FR'),
+          status,
+          updatedAt: job.updatedAt,
+          pageCount: job.pageCount,
+          score: job.score,
+          maximumPoints: job.maximumPoints,
+          kind: 'job',
+          job,
+          message: jobMessage(job, status),
+        };
+      });
+    const correctionItems: OverviewItem[] = corrections
+      .filter((correction) => Boolean(correction.snapshot))
+      .map((correction) => {
+        const score = scoreForCorrection(correction);
+        return {
+          id: correction.id,
+          label: correction.label,
+          searchText: correction.label.toLocaleLowerCase('fr-FR'),
+          status: 'completed',
+          updatedAt: correction.updatedAt,
+          pageCount: correction.snapshot?.images.length ?? 0,
+          score: score?.score ?? null,
+          maximumPoints: score?.maximum ?? 0,
+          kind: 'correction',
+          correction,
+        };
+      });
+    const currentItems: OverviewItem[] = currentCopy ? [{
+      id: 'current-copy',
+      label: currentCopy.label || 'Copie en cours',
+      searchText: currentCopy.label.toLocaleLowerCase('fr-FR'),
+      status: currentCopy.status,
+      updatedAt: currentCopy.updatedAt,
+      pageCount: currentCopy.pageCount,
+      score: currentCopy.score ?? null,
+      maximumPoints: currentCopy.maximumPoints,
+      kind: 'current',
+    }] : [];
+    return sortCopyOverviewItems([...jobItems, ...correctionItems, ...currentItems]);
+  }, [jobs, corrections, currentCopy]);
+
+  const counts = countCopyOverviewStatuses(items.map((item) => item.status));
+  const normalizedQuery = query.trim().toLocaleLowerCase('fr-FR');
+  const visibleItems = items.filter((item) =>
+    (filter === 'all' || item.status === filter) &&
+    (!normalizedQuery || item.searchText.includes(normalizedQuery)),
+  );
+  const countFor = (key: CopyOverviewFilter) => key === 'all' ? counts.all
+    : key === 'to-do' ? counts.toDo
+      : key === 'processing' ? counts.processing
+        : key === 'to-review' ? counts.toReview
+          : key === 'to-retry' ? counts.toRetry
+            : counts.completed;
 
   return <section className="copy-overview" aria-labelledby="copy-overview-title">
     <header className="copy-overview-heading">
-      <div><p className="eyebrow">ESPACE DU DEVOIR</p><h2 id="copy-overview-title">Suivi des copies</h2><p>Un seul endroit pour suivre les copies, les réviser et retrouver les corrections validées.</p></div>
-      <button type="button" className="primary-button" onClick={onAddCopy}>＋ Ajouter une copie</button>
+      <div>
+        <p className="eyebrow">ESPACE DU DEVOIR</p>
+        <h2 id="copy-overview-title">Suivi des copies</h2>
+        <p>Retrouvez les copies à corriger, celles à réviser et les corrections validées.</p>
+      </div>
+      <div className="copy-overview-primary-actions">
+        {counts.toReview > 0 && <button type="button" className="primary-button" onClick={onReviewNextCopy}>Réviser la copie suivante</button>}
+        <button type="button" className="secondary-button" onClick={onAddCopy}>＋ Ajouter une copie</button>
+      </div>
     </header>
-    <div className="copy-overview-filters" role="group" aria-label="Filtrer les copies">
-      {(['all', 'to-do', 'processing', 'to-review', 'completed'] as const).map((key) => {
-        const count = key === 'all' ? counts.all : key === 'to-do' ? counts.toDo : key === 'processing' ? counts.processing : key === 'to-review' ? counts.toReview : counts.completed;
-        return <button type="button" key={key} className={filter === key ? 'is-active' : ''} aria-pressed={filter === key} onClick={() => onFilterChange(key)}>{labels[key]} <span>{count}</span></button>;
-      })}
+    <div className="copy-overview-toolbar">
+      <label className="copy-overview-search">
+        <span aria-hidden="true">⌕</span>
+        <input type="search" aria-label="Rechercher par nom d’étudiant ou libellé" placeholder="Nom d’étudiant ou libellé…" value={query} onChange={(event) => setQuery(event.target.value)} />
+      </label>
+      <span className="copy-overview-result-count" role="status">{visibleItems.length} résultat(s)</span>
     </div>
-    <ol className="correction-series-list copy-overview-grid">
-      {currentCopy && visible(currentCopy.status) && <li className={`correction-series-card is-${currentCopy.status}`}>
-        <div className="correction-series-card-heading"><span className="queue-position">•</span><div className="correction-series-copy"><strong>{currentCopy.label || 'Copie en cours'}</strong><small>{currentCopy.pageCount} page(s)</small></div></div>
-        <div className="correction-series-card-score"><span className="correction-series-card-score-label">{currentCopy.score === null || currentCopy.score === undefined ? 'Note à venir' : 'Note proposée'}</span><strong className={currentCopy.score === null || currentCopy.score === undefined ? 'is-pending' : ''}>{currentCopy.score === null || currentCopy.score === undefined ? '—' : <>{number(currentCopy.score)}<span> / {number(currentCopy.maximumPoints)}</span></>}</strong></div>
-        <div className="correction-series-card-footer"><span className={`correction-series-card-status is-${currentCopy.status}`}>{statusLabels[currentCopy.status]}</span><div className="correction-series-actions"><button type="button" className="secondary-button correction-series-view" onClick={onOpenCurrentCopy}>Reprendre la copie</button></div></div>
-      </li>}
-      {jobs.filter((job) => job.status !== 'completed' && visible(toCopyOverviewStatus(job.status))).map((job) => {
-        const status = toCopyOverviewStatus(job.status);
-        const score = scoreForJob(job);
-        const name = job.studentIdentity ? [job.studentIdentity.lastName, job.studentIdentity.firstName].filter(Boolean).join(' ') || job.label : job.label;
-        const description = job.status === 'processing' ? job.phase === 'reading' ? `Lecture · ${job.completedPages}/${job.images.length} pages` : `Correction · ${job.completedCriteria}/${job.totalCriteria} critères` : job.status === 'pending' ? 'En attente de correction' : job.status === 'failed' ? 'Une nouvelle tentative est nécessaire' : 'Proposition prête à réviser';
-        const action = job.status === 'failed' ? 'Voir les éléments à reprendre' : status === 'to-review' ? 'Réviser la copie' : 'Consulter la copie';
-        return <li className={`correction-series-card is-${job.status}`} key={job.id}>
-          <div className="correction-series-card-heading"><span className="queue-position">{job.label.match(/\d+/)?.[0] ?? '•'}</span><div className="correction-series-copy"><strong title={name}>{name || 'Étudiant non identifié'}</strong><small>{job.images.length} page(s)</small></div></div>
-          <div className="correction-series-card-score"><span className="correction-series-card-score-label">{score?.label ?? (job.status === 'failed' ? 'Note indisponible' : 'Note à venir')}</span><strong className={score ? '' : 'is-pending'}>{score ? <>{number(score.score)}<span> / {number(score.maximum)}</span></> : '—'}</strong></div>
-          <div className="correction-series-card-footer"><span className={`correction-series-card-status is-${job.status}`}>{statusLabels[status]} · {description}</span><div className="correction-series-actions"><button type="button" className="secondary-button correction-series-view" onClick={() => onOpenJob(job.id)}>{action}</button></div></div>
-        </li>;
-      })}
-      {corrections.filter((correction) => Boolean(correction.snapshot) && visible('completed')).map((correction) => {
-        const score = scoreForCorrection(correction);
-        return <li className="correction-series-card is-completed" key={correction.id}>
-          <div className="correction-series-card-heading"><span className="queue-position">✓</span><div className="correction-series-copy"><strong>{correction.label}</strong><small>{correction.snapshot?.images.length ?? 0} page(s)</small></div></div>
-          <div className="correction-series-card-score"><span className="correction-series-card-score-label">Note finale</span><strong>{score ? <>{number(score.score)}<span> / {number(score.maximum)}</span></> : '—'}</strong></div>
-          <div className="correction-series-card-footer"><span className="correction-series-card-status is-completed">Corrigée · Enregistrée le {new Date(correction.updatedAt).toLocaleDateString('fr-FR')}</span><div className="correction-series-actions"><button type="button" className="secondary-button correction-series-view" onClick={() => onOpenCorrection(correction)}>Consulter la correction</button></div></div>
-        </li>;
-      })}
-    </ol>
-    {counts.all === 0 || (filter !== 'all' && !statuses.some(visible)) ? <div className="correction-series-empty"><strong>{counts.all === 0 ? 'Aucune copie pour le moment' : 'Aucune copie dans cette catégorie'}</strong><p>{counts.all === 0 ? 'Ajoutez une première copie pour commencer.' : 'Choisissez une autre catégorie pour retrouver vos copies.'}</p>{counts.all === 0 && <button type="button" className="primary-button" onClick={onAddCopy}>Ajouter une copie</button>}</div> : null}
+    <div className="copy-overview-filters" role="group" aria-label="Filtrer les copies">
+      {(['all', 'to-retry', 'to-review', 'processing', 'to-do', 'completed'] as const).map((key) => (
+        <button type="button" key={key} className={filter === key ? 'is-active' : ''} aria-pressed={filter === key} onClick={() => onFilterChange(key)}>
+          {labels[key]} <span>{countFor(key)}</span>
+        </button>
+      ))}
+    </div>
+    {visibleItems.length ? <ol className="correction-series-list copy-overview-grid">
+      {visibleItems.map((item, index) => (
+        <li className={`correction-series-card is-${item.status}`} key={item.id}>
+          <div className="correction-series-card-heading">
+            <span className="queue-position">{index + 1}</span>
+            <div className="correction-series-copy"><strong title={item.label}>{item.label}</strong><small>{item.pageCount} page(s)</small></div>
+          </div>
+          <div className="correction-series-card-score">
+            <span className="correction-series-card-score-label">{item.score === null ? 'Note à venir' : item.status === 'completed' ? 'Note finale' : 'Note proposée'}</span>
+            <strong className={item.score === null ? 'is-pending' : ''}>{item.score === null ? '—' : <>{number(item.score)}<span> / {number(item.maximumPoints)}</span></>}</strong>
+          </div>
+          <div className="correction-series-card-footer">
+            <div>
+              <span className={`correction-series-card-status is-${item.status}`}>{statusLabels[item.status]}</span>
+              {item.message && <p className={item.status === 'to-retry' ? 'copy-overview-error' : 'copy-overview-message'}>{item.message}</p>}
+              {item.kind === 'correction' && <small>Enregistrée le {new Date(item.updatedAt).toLocaleDateString('fr-FR')}</small>}
+            </div>
+            <div className="correction-series-actions">
+              {item.kind === 'job' && item.job && <>
+                {item.status === 'to-retry' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Reprendre</button>}
+                <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenJob(item.job!.id)}>Ouvrir</button>
+              </>}
+              {item.kind === 'current' && <button type="button" className="secondary-button correction-series-view" onClick={onOpenCurrentCopy}>Reprendre la copie</button>}
+              {item.kind === 'correction' && item.correction && <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenCorrection(item.correction!)}>Consulter la correction</button>}
+            </div>
+          </div>
+        </li>
+      ))}
+    </ol> : <div className="correction-series-empty">
+      <strong>{items.length === 0 ? 'Aucune copie pour le moment' : 'Aucun résultat'}</strong>
+      <p>{items.length === 0 ? 'Ajoutez une première copie pour commencer.' : 'Modifiez votre recherche ou choisissez une autre catégorie.'}</p>
+      {items.length === 0 && <button type="button" className="primary-button" onClick={onAddCopy}>Ajouter une copie</button>}
+    </div>}
   </section>;
 }
