@@ -1996,6 +1996,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         activeAssignmentId={activeAssignmentId}
         archivedCorrections={archivedCorrections}
         backgroundJobs={allBackgroundJobs}
+        currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ? { assignmentId: activeAssignmentId, status: isAnalyzing ? 'processing' : proposal ? 'to-review' : 'to-do' } : null}
         onCreate={() => { createNewAssignment(); setShowAssignmentsHome(false); }}
         onOpen={(profile) => { switchAssignment(profile); setShowAssignmentsHome(false); }}
         onDelete={deleteAssignment}
