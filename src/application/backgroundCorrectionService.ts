@@ -144,8 +144,8 @@ export function createBackgroundCorrectionService(
                 ...(current.subjectTranscription ? { subjectTranscription: current.subjectTranscription } : {}),
                 rubric: { ...current.rubric, criteria: visualRubric.diagramCriteria },
                 model: current.visionModel,
-                endpoint: settings.endpoint,
-                apiKey: settings.apiKey ?? '',
+                endpoint: jobSettings.endpoint,
+                apiKey: jobSettings.apiKey ?? '',
               });
             }
             const visualProposal = mergeScientificDiagramCriteria(
@@ -277,7 +277,7 @@ export function createBackgroundCorrectionService(
             error: complete ? null : 'Certains critères restent à vérifier.',
           });
         } catch (cause) {
-          if (activeModelToUnload) await workspace.unloadModel?.(settings, activeModelToUnload).catch(() => undefined);
+          if (activeModelToUnload) await workspace.unloadModel?.(jobSettings, activeModelToUnload).catch(() => undefined);
           activeModelToUnload = null;
           await persist({
             ...current,
