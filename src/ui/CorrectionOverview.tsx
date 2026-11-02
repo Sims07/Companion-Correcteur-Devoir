@@ -89,6 +89,6 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, currentBack
         <button type="button" className="correction-overview-open" onClick={() => onOpenCorrection(correction)}>Consulter la correction <span aria-hidden="true">→</span></button>
       </article>)}
     </div>
-    {counts.all === 0 || (filter !== 'all' && !statuses.some(matches)) ? <div className="correction-overview-empty"><strong>{counts.all === 0 ? 'Aucune copie pour le moment' : 'Aucune copie dans cette catégorie'}</strong><p>{counts.all === 0 ? 'Ajoutez une première copie pour commencer.' : 'Choisissez une autre catégorie pour retrouver vos copies.'}</p>{counts.all === 0 && <button type="button" className="secondary-button" onClick={onAddCopy}>Ajouter une copie</button>}</div> : null}
+    {counts.all === 0 || (filter !== 'all' && !statuses.some(matches)) ? <div className="correction-overview-empty"><strong>{counts.all === 0 ? 'Aucune copie pour le moment' : 'Aucune copie dans cette catégorie'}</strong><p>{counts.all === 0 ? 'Utilisez le bouton « Ajouter une copie » pour commencer.' : 'Choisissez une autre catégorie pour retrouver vos copies.'}</p></div> : null}
   </section>;
 }
