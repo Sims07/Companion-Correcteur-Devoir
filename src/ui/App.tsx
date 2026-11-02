@@ -2526,7 +2526,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         onAddCopy={() => { setShowAiSettings(false); setTeacherStep('copy'); }}
         onOpenJob={(jobId) => { void loadNextQueuedCopy(jobId); }}
         onOpenCorrection={openArchivedCorrection}
-        onOpenCurrentCopy={() => { setShowAiSettings(false); setTeacherStep(isAnalyzing ? 'progress' : proposal ? 'review' : 'copy'); }}
+        onOpenCurrentCopy={() => { setShowAiSettings(false); if (!isAnalyzing && !proposal) setCorrectionSessionMode('individual'); setTeacherStep(isAnalyzing ? 'progress' : proposal ? 'review' : 'copy'); }}
       />}
 
       {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration') || (interfaceMode === 'teacher' && teacherStep === 'rubric')) && <>
