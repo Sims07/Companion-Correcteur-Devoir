@@ -49,6 +49,12 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
     </div>
     {cards.length ? <div className="assignments-card-grid">{cards.map(({ profile, archivedCount, maximumPoints, ready }) => {
       const active = profile.id === activeAssignmentId;
+      const activeJobs = backgroundJobs.filter((job) => job.assignmentId === profile.id && job.status !== 'completed');
+      const processingCount = activeJobs.filter((job) => job.status === 'processing').length;
+      const reviewCount = activeJobs.filter((job) => ['ready', 'needs-review', 'reviewing', 'failed'].includes(job.status)).length;
+      const pendingCount = activeJobs.filter((job) => job.status === 'pending').length;
+      const totalCopies = archivedCount + activeJobs.length;
+      const statusLabel = processingCount ? 'Corrections en cours' : reviewCount ? 'À réviser' : pendingCount ? 'À corriger' : archivedCount ? 'Corrections terminées' : ready ? 'Prêt à corriger' : 'En préparation';
       return <article className={active ? 'assignment-overview-card is-active' : 'assignment-overview-card'} key={profile.id}>
         <div className="assignment-overview-top"><span className="assignment-overview-icon" aria-hidden="true">▤</span><span className={totalCopies ? 'assignment-status has-corrections' : ready ? 'assignment-status ready' : 'assignment-status preparing'}>{statusLabel}</span></div>
         <div className="assignment-overview-title"><h3>{profile.title.trim() || 'Devoir sans titre'}</h3>{active && <span className="assignment-active-label">Actif</span>}</div>
