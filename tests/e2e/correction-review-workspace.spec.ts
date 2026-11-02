@@ -117,7 +117,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.locator('.copy-review-header')).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toBeVisible();
   await expect(page.getByText('Nom lu sur la copie')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Correction validée' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Correction validée' }).first()).toBeVisible();
   await expect(page.locator('.copy-review-validation-bar')).toBeVisible();
   await expect(page.getByRole('complementary', { name: 'Copie de l’étudiant' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
@@ -139,6 +139,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await safeSummary.locator('summary').click();
   await expect(safeSummary.getByText('Transport membranaire')).toBeVisible();
   await expect(safeSummary.getByText('La membrane contrôle les échanges.')).toBeVisible();
+  await expect(safeSummary.getByRole('button', { name: 'Tout confirmer' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Confirmer les critères sans alerte/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Confirmer ce critère' })).toHaveCount(0);
   const explanation = page.locator('details.review-explanation');
@@ -189,7 +190,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
   await expect(page.getByRole('button', { name: /Confirmer les critères sans alerte/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Corriger une autre copie' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Correction validée' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Correction validée' }).first()).toBeDisabled();
 
   const sourcePage = page.getByRole('img', { name: 'Page de travail 1 de la copie' });
   const sourceImageBeforeRotation = await sourcePage.getAttribute('src');
