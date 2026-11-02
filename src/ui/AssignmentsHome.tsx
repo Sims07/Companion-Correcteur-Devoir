@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Rubric } from '../domain/rubric.ts';
 import type { BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
+import { countAssignmentCopies } from '../domain/copyOverview.ts';
 import { getAssignmentOverview } from '../domain/assignmentOverview.ts';
 
 type AssignmentCardProfile = {
@@ -50,12 +51,12 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
     </div>
     {cards.length ? <div className="assignments-card-grid">{cards.map(({ profile, archivedCount, maximumPoints, ready }) => {
       const active = profile.id === activeAssignmentId;
-      const activeJobs = backgroundJobs.filter((job) => job.assignmentId === profile.id && job.status !== 'completed');
-      const processingCount = activeJobs.filter((job) => job.status === 'processing').length + (currentCopy?.assignmentId === profile.id && currentCopy.status === 'processing' ? 1 : 0);
-      const reviewCount = activeJobs.filter((job) => ['ready', 'needs-review', 'reviewing'].includes(job.status)).length + (currentCopy?.assignmentId === profile.id && currentCopy.status === 'to-review' ? 1 : 0);
-      const retryCount = activeJobs.filter((job) => job.status === 'failed').length;
-      const pendingCount = activeJobs.filter((job) => job.status === 'pending').length + (currentCopy?.assignmentId === profile.id && currentCopy.status === 'to-do' ? 1 : 0);
-      const totalCopies = archivedCount + activeJobs.length + (currentCopy?.assignmentId === profile.id ? 1 : 0);
+      const copyCounts = countAssignmentCopies(backgroundJobs, profile.id);
+      const processingCount = copyCounts.processing + (currentCopy?.assignmentId === profile.id && currentCopy.status === 'processing' ? 1 : 0);
+      const reviewCount = copyCounts.toReview + (currentCopy?.assignmentId === profile.id && currentCopy.status === 'to-review' ? 1 : 0);
+      const retryCount = copyCounts.toRetry;
+      const pendingCount = copyCounts.pending + (currentCopy?.assignmentId === profile.id && currentCopy.status === 'to-do' ? 1 : 0);
+      const totalCopies = archivedCount + copyCounts.active + (currentCopy?.assignmentId === profile.id ? 1 : 0);
       const statusLabel = retryCount ? 'À reprendre' : processingCount ? 'Corrections en cours' : reviewCount ? 'À réviser' : pendingCount ? 'À corriger' : archivedCount ? 'Corrections terminées' : ready ? 'Prêt à corriger' : 'En préparation';
       return <article className={active ? 'assignment-overview-card is-active' : 'assignment-overview-card'} key={profile.id}>
         <div className="assignment-overview-top"><span className="assignment-overview-icon" aria-hidden="true">▤</span><span className={totalCopies ? 'assignment-status has-corrections' : ready ? 'assignment-status ready' : 'assignment-status preparing'}>{statusLabel}</span></div>
@@ -63,7 +64,7 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
         <p className="assignment-overview-meta">{profile.educationLevel || 'Formation non renseignée'}</p>
         {profile.description && <p className="assignment-overview-description">{profile.description}</p>}
         <div className="assignment-overview-stats"><strong>{totalCopies}</strong><span>copie(s)</span><span className="assignment-stat-separator">·</span><span>{profile.rubric.criteria.length} critères</span><span className="assignment-stat-separator">·</span><span>{maximumPoints} points</span></div>
-        {activeJobs.length > 0 && <p className="assignment-overview-activity">{retryCount} à reprendre · {reviewCount} à réviser · {processingCount} en cours · {pendingCount} à corriger</p>}
+        {copyCounts.active > 0 && <p className="assignment-overview-activity">{retryCount} à reprendre · {reviewCount} à réviser · {processingCount} en cours · {pendingCount} à corriger</p>}
         <div className="assignment-overview-actions"><button type="button" className="assignment-open-button" onClick={() => onOpen(profile)} disabled={disabled}>{active ? 'Reprendre le devoir' : ready ? 'Ouvrir le devoir' : 'Configurer le devoir'} <span aria-hidden="true">→</span></button><details className="assignment-overview-menu"><summary aria-label={'Actions pour ' + (profile.title.trim() || 'devoir sans titre')}>···</summary><div><button type="button" onClick={() => onDelete(profile)} disabled={disabled || assignments.length <= 1}>Supprimer</button></div></details></div>
       </article>;
     })}</div> : <div className="assignments-empty"><span aria-hidden="true">⌕</span><h3>Aucun devoir trouvé</h3><p>Modifiez votre recherche ou créez un nouveau devoir.</p><button type="button" className="secondary-button" onClick={() => { setQuery(''); setFilter('all'); }}>Effacer les filtres</button></div>}
