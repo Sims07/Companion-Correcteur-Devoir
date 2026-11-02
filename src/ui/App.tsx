@@ -417,8 +417,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [criterionStatuses, setCriterionStatuses] = useState<Record<string, CriterionAnalysisUpdate['status']>>({});
   const [activeCriterionId, setActiveCriterionId] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [, setReadingElapsedMs] = useState<number | null>(null);
-  const [, setAnalysisElapsedMs] = useState<number | null>(null);
+  const [readingElapsedMs, setReadingElapsedMs] = useState<number | null>(null);
+  const [analysisElapsedMs, setAnalysisElapsedMs] = useState<number | null>(null);
   const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
   const diagnosticHistoryReady = useRef(false);
   const completedPageCount = Object.values(pageProgress).filter((status) => status === 'completed' || status === 'doubtful').length;
@@ -2152,6 +2152,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <span className="privacy-status">OLLAMA LOCAL</span>
       </section>}
 
+      {interfaceMode === 'diagnostic' && (readingElapsedMs !== null || analysisElapsedMs !== null) && <details className="diagnostic-stage-timings"><summary>Durées des étapes de traitement</summary><div><span>Lecture de l’image : {readingElapsedMs === null ? 'Non mesurée' : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? 'Non mesurée' : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></div></details>}
+
       {interfaceMode === 'teacher' && showAiSettings && <section className={`panel ollama-panel teacher-model-panel ai-settings-view ${visionModel.trim() && analysisModel.trim() ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
         <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DU POSTE</p><h2 id="teacher-model-title">Paramètres de l’IA locale</h2></div><span className="step-count">OLLAMA</span></div>
         <p className="settings-intro">Configurez les modèles utilisés par le parcours de correction. Avec Ollama, les traitements restent sur votre serveur local. Une API compatible OpenAI transmet les contenus au serveur distant configuré.</p>
@@ -2611,6 +2613,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         onOpenCurrentCopy={() => { setShowAiSettings(false); setTeacherStep(proposal ? 'review' : 'copy'); }}
       />}
 
+      {interfaceMode === 'teacher' && teacherStep === 'overview' && correctionSessionMode === 'series' && <details className="panel copy-overview-batch-import">
+        <summary>Ajouter plusieurs copies</summary>
+        <div className="student-label-field"><label className="field-label" htmlFor="background-copy-label">Nom de l’étudiant <span>(facultatif, pour une seule copie)</span></label><input id="background-copy-label" value={backgroundCopyLabel} onChange={(event) => setBackgroundCopyLabel(event.target.value)} placeholder="Nom ou identifiant" /></div>
+        <label className="analysis-thinking-option copy-annotation-option"><input type="checkbox" checked={backgroundCopyDetectTeacherAnnotations} onChange={(event) => setBackgroundCopyDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient des annotations du professeur</strong><small>Les annotations incertaines demanderont une vérification avant la notation.</small></span></label>
+        <FilePicker id="background-copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void enqueueBackgroundCopy(files); }} title="Ajouter plusieurs copies" description="Chaque fichier devient une copie distincte. Les pages d’un même PDF restent regroupées." actionLabel="Ajouter les copies" />
+      </details>}
+
       {interfaceMode === 'teacher' && teacherStep === 'rubric' && <>
         <details className="assignment-details-collapsible">
           <summary><span><strong>Devoir</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères</small></span><span className="assignment-details-edit">Modifier</span></summary>
@@ -3054,7 +3063,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 
-      {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section">
+      {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && !isAnalyzing && !isFinalized && review.length === rubric.criteria.length) { event.preventDefault(); void finalizeReview(true); } }}>
         <section className="copy-review-header" aria-label="Vérification de la copie">
           <nav className="copy-review-breadcrumb" aria-label="Fil d’Ariane">
             <button type="button" onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }}>Mes devoirs</button><span aria-hidden="true">›</span><span>{assignmentTitle.trim() || 'Devoir sans titre'}</span><span aria-hidden="true">›</span><button type="button" onClick={() => { setCopyOverviewFilter('all'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); }}>Copies</button>
@@ -3064,7 +3073,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <div className="copy-review-position" aria-label="Position dans le devoir"><button type="button" aria-label="Copie précédente" disabled={!previousReviewJob || isAnalyzing} onClick={() => { if (previousReviewJob) void loadNextQueuedCopy(previousReviewJob.id); }}>←</button><strong>{reviewPosition}/{reviewTotalCopies}</strong><button type="button" aria-label="Copie suivante" disabled={!reviewNavigation.nextCopy || isAnalyzing} onClick={() => { if (reviewNavigation.nextCopy) void loadNextQueuedCopy(reviewNavigation.nextCopy.id); }}>→</button></div>
             <span className={`copy-review-status ${isFinalized ? 'is-completed' : 'needs-attention'}`}>{isFinalized ? 'Corrigée' : isAnalyzing ? 'Analyse en cours' : 'À vérifier'}</span>
             <strong className="copy-review-header-score">{reviewedTotal.toLocaleString('fr-FR')} / {validation.maximumPoints}</strong>
-            <button type="button" className="primary-button" disabled={isAnalyzing || isFinalized || review.length !== rubric.criteria.length} onClick={() => void finalizeReview(true)}>{isFinalized ? 'Correction validée' : 'Valider et passer à la suivante'}</button>
+            <button type="button" className="primary-button" aria-keyshortcuts="Control+Enter Meta+Enter" disabled={isAnalyzing || isFinalized || review.length !== rubric.criteria.length} onClick={() => void finalizeReview(true)}>{isFinalized ? 'Correction validée' : 'Valider et passer à la suivante'}</button>
           </div>
         </section>
         {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || (studentIdentity !== null && studentIdentity.confidence !== 'high')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
@@ -3076,10 +3085,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         {scientificDiagramError && <p className="review-alert review-alert-warning" role="alert">{scientificDiagramError}</p>}
 
         {teacherAnnotations && <details className="review-annotations-details"><summary>✎ {teacherAnnotations.split('\n').filter((line) => line.trim()).length} annotations repérées</summary><pre>{teacherAnnotations}</pre></details>}
-        {(flaggedCriteriaIds.size > 0 || unreadableCopySignal) && <section className="review-alerts review-focus-overview" aria-label="Synthèse des éléments à examiner">
-          <strong>{flaggedCriteriaIds.size} critère(s) à examiner</strong>
-          {unreadableCopySignal && <span role="alert">La lecture de la copie mérite une vérification sur l’image originale.</span>}
-        </section>}
         <div className="review-workspace">
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
             <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de l’étudiant</h3><p>Consultez l’orientation utilisée pour l’analyse. Si une rotation a été appliquée, l’image originale reste accessible sous la page.</p></div>
@@ -3111,11 +3116,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               event.preventDefault();
               cards[Math.max(0, Math.min(cards.length - 1, currentIndex + (event.key === 'ArrowDown' ? 1 : -1)))]?.focus();
             } else if (event.key === 'Enter') {
-              const focusedAction = target.querySelector<HTMLButtonElement>('button:not(:disabled)');
-              if (focusedAction) { event.preventDefault(); focusedAction.click(); }
+              const criterionId = target.dataset.criterionId;
+              if (criterionId) { event.preventDefault(); updateReview(criterionId, { decision: 'accepted' }); }
             }
           }}>
-            <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite"><strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : criterionProgress.isComplete ? 'Note proposée' : 'Note partielle · analyse incomplète'}</strong><span>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente de la première note'} · {criterionProgress.completedCount} / {criterionProgress.totalCount} critères évalués</span>{proposal?.summary && <details className="review-summary-details"><summary>Voir la synthèse de l’analyse</summary><p>{proposal.summary}</p></details>}</div>
+            {proposal?.summary && <details className="review-analysis-summary"><summary>Consulter la synthèse de la proposition</summary><p>{proposal.summary}</p></details>}
         <div className="review-criteria-toolbar">
           <span>{flaggedCriteriaIds.size > 0 ? `${flaggedCriteriaIds.size} critère(s) à examiner · ${reliableCriteriaCount} sans alerte` : `Aucun signal particulier · ${review.length} critère(s)`}</span>
           <div className="review-criteria-toolbar-actions">
@@ -3137,14 +3142,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             const status = criterionStatuses[criterion.id];
             const active = isAnalyzing && activeCriterionId === criterion.id;
             const statusLabel = status === 'failed' ? 'À vérifier' : status === 'retrying' ? 'Nouvel essai en cours' : active ? `Analyse du critère ${criterionIndex + 1} en cours…` : criterionByCriterion ? 'En attente de son analyse' : 'En attente du résultat global';
-            return <article tabIndex={0} className={`panel review-card review-card-pending ${active ? 'is-active' : ''}`} key={criterion.id} aria-label={`Critère ${criterion.title} : ${statusLabel}`}>
+            return <article tabIndex={0} className={`panel review-card review-card-pending ${active ? 'is-active' : ''}`} key={criterion.id} data-criterion-id={criterion.id} aria-label={`Critère ${criterion.title} : ${statusLabel}`}>
               <div className="review-card-heading"><div><h3>{criterion.title}</h3><p>Maximum : {criterion.maxPoints} points</p></div><span className="review-pending-status">{statusLabel}</span></div>
               <div className="review-pending-content"><span className="live-score-placeholder" aria-hidden="true" /><div className="review-pending-skeleton" aria-hidden="true"><span /><span /><span /></div></div>
             </article>;
           }
           const isFlagged = flaggedCriteriaIds.has(item.criterionId);
           const alertReasons = getReviewAlertReasons(item, criterion?.maxPoints ?? 0);
-          return <article tabIndex={0} className="panel review-card" key={item.criterionId}>
+          return <article tabIndex={0} className="panel review-card" data-criterion-id={item.criterionId} key={item.criterionId}>
             <div className="review-card-heading">
               <div><h3>{criterion.title}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div>
               <div className="review-card-result">

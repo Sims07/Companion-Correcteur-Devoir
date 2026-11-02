@@ -227,13 +227,13 @@ describe('Évaluation des modèles — navigation et alignement du contenu', () 
 });
 
 describe('Durées réelles des étapes de traitement', () => {
-  it('keeps the measured reading and analysis durations visible in the teacher review', () => {
+  it('keeps the measured reading and analysis durations in the diagnostic workspace', () => {
     expect(appSource).toContain('readingElapsedMs');
     expect(appSource).toContain('analysisElapsedMs');
     expect(appSource).toContain('Lecture de l’image :');
     expect(appSource).toContain('Analyse et notation :');
-    expect(appSource).toContain('completed-stage-timings');
-    expect(styles).toContain('.completed-stage-timings');
+    expect(appSource).toContain('diagnostic-stage-timings');
+    expect(evaluationStyles).toContain('.diagnostic-stage-timings');
   });
 
   it('tracks model evaluation progress for each completed reading and analysis stage', () => {

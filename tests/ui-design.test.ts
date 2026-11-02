@@ -18,13 +18,13 @@ describe('UI design system', () => {
     expect(appComponent).toContain('criterionStatuses');
     expect(appComponent).toContain('review-card-pending');
     expect(appComponent).toContain('Analyse du critère ${criterionIndex + 1} en cours…');
-    expect(appComponent).toContain('Note provisoire · calcul en cours');
-    expect(appComponent).toContain('Cette note n’est pas définitive');
+    expect(appComponent).toContain('copy-review-header-score');
+    expect(appComponent).toContain('copy-review-header');
     expect(appComponent).toContain('review.length !== rubric.criteria.length');
     expect(appComponent).not.toContain('Réponse du modèle</strong>');
     expect(appComponent).not.toContain('live-analysis-output');
     expect(correctionFlowStylesheet).toContain('.review-card-pending.is-active');
-    expect(correctionFlowStylesheet).toContain('.review-score-summary.is-provisional');
+    expect(correctionFlowStylesheet).toContain('.copy-review-header');
   });
 
   it('presents rubric import as separate reading and extraction steps with inspectable raw outputs', () => {
@@ -158,19 +158,19 @@ describe('UI design system', () => {
     expect(appComponent).toContain('Afficher la transcription');
     expect(appComponent).toContain('review-card-pending');
     expect(appComponent).toContain('activeCriterionId === criterion.id');
-    expect(appComponent).toContain('review-score-summary');
+    expect(appComponent).toContain('review-analysis-summary');
     expect(correctionFlowStylesheet).toContain('.live-copy-page img');
     expect(correctionFlowStylesheet).toContain('.live-transcription-text');
     expect(correctionFlowStylesheet).toContain('.review-card-pending.is-active');
     expect(correctionFlowStylesheet).toContain('@media(prefers-reduced-motion:reduce)');
   });
-  it('keeps the teacher entry journey focused on Devoir, Copies and Révision', () => {
+  it('keeps the teacher entry journey focused on Devoir, Copies et Vérification', () => {
     expect(appComponent).toContain("getTeacherEntryStep(readActiveAssignmentProfile().rubric)");
     expect(appComponent).toContain("teacherStep === 'rubric' && <>");
     expect(appComponent).toContain('className="assignment-details-collapsible"');
     expect(appComponent).toContain('className="copy-advanced-options"');
     expect(appComponent).toContain("interfaceMode === 'teacher' ? 'Corriger'");
-    expect(appComponent).toContain('Ajouter une autre copie');
+    expect(appComponent).toContain('Valider et passer à la suivante');
     expect(appComponent).toContain("event.key === 'ArrowDown' || event.key === 'ArrowUp'");
     expect(appComponent).toContain("event.key === 'Enter'");
     expect(stylesheet).toContain('.assignment-details-collapsible');
@@ -183,11 +183,11 @@ describe('UI design system', () => {
     expect(appComponent).toContain('function loadNextQueuedCopy(jobId?: string)');
     expect(appComponent).toContain('function enqueueBackgroundCopy(files: FileList | null)');
     expect(appComponent).toContain('id="background-copy-files"');
-    expect(appComponent).toContain('Copie suivante');
+    expect(appComponent).toContain('reviewNavigation.nextCopy');
     expect(appComponent).toContain('backgroundService.retry(job.id');
     expect(appComponent).toContain('Mettre cette copie en file d’attente');
     expect(appComponent).toContain('Copies du devoir');
-    expect(appComponent).toContain('COPIES À SUIVRE');
+    expect(appComponent).toContain("teacherStep === 'overview' && <CorrectionOverview");
     expect(appComponent).not.toContain('TRAITEMENT EN ARRIÈRE-PLAN');
     expect(appComponent).toContain('backgroundCorrectionStatusLabel(job.status)');
     expect(appComponent).toContain('backgroundService.listJobs');
@@ -197,26 +197,27 @@ describe('UI design system', () => {
   });
 
   it('prioritizes actionable review alerts and keeps original copy evidence available during grading', () => {
-    expect(appComponent).toContain('review-alerts');
+    expect(appComponent).toContain('copy-review-alert-strip');
     expect(appComponent).toContain('getReviewFocus(review, rubric.criteria)');
     expect(appComponent).toContain('flaggedCriteriaIds.size');
-    expect(appComponent).toContain('Synthèse des éléments à examiner');
+    expect(appComponent).toContain('critère(s) à examiner');
     expect(appComponent).not.toContain('Afficher les ${reviewInsights.flaggedCriteriaIds.length} critères à vérifier');
     expect(appComponent).toContain('className="review-workspace"');
     expect(appComponent).toContain('className="review-source-pane"');
-    expect(appComponent).toContain('Copie de référence');
+    expect(appComponent).toContain('Copie de l’étudiant');
     expect(appComponent).toContain('className="review-transcription"');
     expect(appComponent).not.toContain('showSourceEvidence');
-    expect(appComponent).toContain('La lecture de la copie mérite une vérification sur l’image originale.');
-    expect(appComponent).toContain('correction-batch-progress');
-    expect(appComponent).toContain('Ajouter une autre copie');
-    expect(appComponent).toContain('Chaque copie enregistrée reste disponible dans « Corrections enregistrées ».');
+    expect(appComponent).toContain('Lecture douteuse · page');
+    expect(appComponent).not.toContain('review-background-queue');
+    expect(appComponent).toContain('copy-overview-batch-import');
+    expect(appComponent).toContain('Valider et passer à la suivante');
+    expect(appComponent).toContain('Cette correction est enregistrée sur cet appareil');
     expect(correctionFlowStylesheet).toContain('.review-alerts');
     expect(correctionFlowStylesheet).toContain('.review-workspace { display: grid;');
     expect(correctionFlowStylesheet).toContain('.review-source-pane { position: sticky;');
-    expect(correctionFlowStylesheet).toContain('.review-score-summary { position: sticky;');
+    expect(stylesheet).toContain('.copy-review-validation-bar');
     expect(correctionFlowStylesheet).toContain('@media (max-width: 720px)');
-    expect(correctionFlowStylesheet).toContain('.correction-batch-progress');
+    expect(stylesheet).toContain('.copy-overview-batch-import');
   });
 
   it('makes multiple local assignments discoverable from the assignment library', () => {
