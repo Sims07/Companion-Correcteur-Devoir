@@ -2144,6 +2144,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         ]}
         activeCopyId={currentBackgroundJobId ?? currentCorrectionId ?? (images.length > 0 ? 'current-copy' : null)}
         aiConfigured={Boolean(visionModel.trim() && analysisModel.trim())}
+        settingsExpanded={showAiSettings}
         isAnalyzing={isAnalyzing}
         processingStatus={isAnalyzing ? analysisStage === 'checking' ? 'Préparation de la correction' : analysisStage === 'reading' ? 'Lecture de la copie' : 'Correction des réponses' : 'Correction sur cet ordinateur'}
         processingDetail={isAnalyzing ? formatElapsed(elapsedSeconds) + ' écoulées' : apiCompatible ? 'Contenus transmis au fournisseur API configuré' : 'Vos copies restent sur votre serveur'}
@@ -2166,7 +2167,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <span className="privacy-status">OLLAMA LOCAL</span>
       </section>}
 
-      {interfaceMode === 'teacher' && showAiSettings && <section className={`panel ollama-panel teacher-model-panel ai-settings-view ${visionModel.trim() && analysisModel.trim() ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
+      {interfaceMode === 'teacher' && showAiSettings && <section id="teacher-ai-settings-panel" className={`panel ollama-panel teacher-model-panel ai-settings-view ${visionModel.trim() && analysisModel.trim() ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
         <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DU POSTE</p><h2 id="teacher-model-title">Paramètres de l’IA locale</h2></div><span className="step-count">OLLAMA</span></div>
         <p className="settings-intro">Configurez les modèles utilisés par le parcours de correction. Avec Ollama, les traitements restent sur votre serveur local. Une API compatible OpenAI transmet les contenus au serveur distant configuré.</p>
         <div className="ai-profile-controls" aria-label="Profils de configuration IA">
