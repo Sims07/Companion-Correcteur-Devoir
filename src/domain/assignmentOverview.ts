@@ -53,8 +53,10 @@ export function getAssignmentOverview<T extends AssignmentOverviewProfile>(
   archivedCorrections: ArchivedAssignmentCopy[],
   query = '',
   filter: AssignmentOverviewFilter = 'all',
+  assignmentsWithCopies: readonly string[] = [],
 ): AssignmentOverview<T> {
   const normalizedQuery = query.trim().toLocaleLowerCase('fr-FR');
+  const assignmentsWithCopiesSet = new Set(assignmentsWithCopies);
   const cards = assignments.map((profile) => {
     const archivedCount = getArchivedCorrectionsForAssignment(assignments, archivedCorrections, profile.id).length;
     const maximumPoints = profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
@@ -65,14 +67,14 @@ export function getAssignmentOverview<T extends AssignmentOverviewProfile>(
       .some((value) => value.toLocaleLowerCase('fr-FR').includes(normalizedQuery));
     return matchesQuery && (
       filter === 'all' ||
-      (filter === 'with-corrections' ? archivedCount > 0 : !ready)
+      (filter === 'with-corrections' ? archivedCount > 0 || assignmentsWithCopiesSet.has(profile.id) : !ready)
     );
   });
 
   return {
     cards,
     correctionCount: assignments.filter((profile) =>
-      getArchivedCorrectionsForAssignment(assignments, archivedCorrections, profile.id).length > 0,
+      getArchivedCorrectionsForAssignment(assignments, archivedCorrections, profile.id).length > 0 || assignmentsWithCopiesSet.has(profile.id),
     ).length,
     preparationCount: assignments.filter((profile) => profile.rubric.criteria.length === 0).length,
   };
