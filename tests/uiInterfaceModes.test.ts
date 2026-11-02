@@ -24,11 +24,12 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('review-explanation');
     expect(text).not.toContain('Confirmer les critères sans alerte');
     expect(text).not.toContain('undoGroupConfirmation');
-    expect(text).toContain('Aucun signal automatique. La proposition est retenue par défaut.');
     expect(text).toContain('Afficher tous les critères');
     expect(text).toContain('{reliableCriteriaCount} critères sans alerte · preuves disponibles');
+    expect(text).toContain('review-safe-summary-row');
+    expect(text).toContain('Tout confirmer');
+    expect(text).not.toContain('review-focus-overview');
     expect(text).toContain('Voir la synthèse de l’analyse');
-    expect(text).toContain('Synthèse des éléments à examiner');
     expect(text).not.toContain('Vérifications prioritaires');
     expect(text).not.toContain('reviewInsights.flaggedCriteriaIds.length');
     expect(text).not.toContain('<p>{proposal?.summary ??');

@@ -136,10 +136,17 @@ test('teacher verifies a flagged criterion, validates the copy and lands on the 
 
   const flaggedCard = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Connaissances scientifiques' }) });
   await expect(flaggedCard.getByText('Point retiré', { exact: true })).toBeVisible();
+  await flaggedCard.focus();
+  await page.keyboard.press('Enter');
+  await expect(flaggedCard.getByText('Confirmé', { exact: true })).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('.review-card').nth(1)).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(flaggedCard).toBeFocused();
   await flaggedCard.getByLabel('Votre note').fill('7');
   await expect(flaggedCard.getByText('7 / 8')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Valider et passer à la suivante' }).first().click();
+  await page.keyboard.press('Control+Enter');
   await expect(studentName).toHaveValue('Copie ancienne');
   await expect(page.getByRole('heading', { name: 'Connaissances scientifiques' })).toBeVisible();
 });

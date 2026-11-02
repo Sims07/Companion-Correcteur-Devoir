@@ -1772,6 +1772,7 @@
   letter-spacing: .02em;
   text-transform: uppercase;
 }
+.review-result-status.is-confirmed { color: var(--flow-success, #287a4b); background: var(--flow-success-soft, #e8f5ec); }
 .review-result-status.needs-review { color: #9a5a17; }
 .review-criteria-toolbar { align-items: center; gap: 12px; }
 .review-criteria-toolbar-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 14px; }

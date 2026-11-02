@@ -3065,7 +3065,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 
-      {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section">
+      {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+          event.preventDefault();
+          if (!isAnalyzing && !isFinalized && review.length === rubric.criteria.length) void finalizeReview(true);
+        }
+      }}>
         <CopyReviewHeader
           studentLabel={studentLabel}
           onStudentLabelChange={setStudentLabel}
@@ -3119,11 +3124,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </details>
           </aside>
           <div className="review-main-column" onKeyDown={(event) => {
-            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-              event.preventDefault();
-              if (!isAnalyzing && !isFinalized && review.length === rubric.criteria.length) void finalizeReview(true);
-              return;
-            }
             const target = event.target as HTMLElement;
             if (!target.classList.contains('review-card')) return;
             const cards = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('.review-card[tabindex="0"]'));
@@ -3133,8 +3133,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               event.preventDefault();
               cards[Math.max(0, Math.min(cards.length - 1, currentIndex + (event.key === 'ArrowDown' ? 1 : -1)))]?.focus();
             } else if (event.key === 'Enter') {
-              const focusedAction = target.querySelector<HTMLButtonElement>('button:not(:disabled)');
-              if (focusedAction) { event.preventDefault(); focusedAction.click(); }
+              const criterionId = target.dataset.criterionId;
+              if (criterionId) {
+                event.preventDefault();
+                updateReview(criterionId, { decision: 'accepted' });
+              }
             }
           }}>
             <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite"><strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : criterionProgress.isComplete ? 'Note proposée' : 'Note partielle · analyse incomplète'}</strong>{isAnalyzing && <small>Cette note n’est pas définitive et évoluera avec les prochains critères.</small>}<span>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente de la première note'} · {criterionProgress.completedCount} / {criterionProgress.totalCount} critères évalués</span>{proposal?.summary && <details className="review-summary-details"><summary>Voir la synthèse de l’analyse</summary><p>{proposal.summary}</p></details>}</div>
@@ -3164,12 +3167,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           }
           const isFlagged = flaggedCriteriaIds.has(item.criterionId);
           const alertReasons = getReviewAlertReasons(item, criterion?.maxPoints ?? 0);
-          return <article tabIndex={0} className="panel review-card" key={item.criterionId}>
+          return <article tabIndex={0} data-criterion-id={item.criterionId} className="panel review-card" key={item.criterionId}>
             <div className="review-card-heading">
               <div><h3>{criterion.title}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div>
               <div className="review-card-result">
                 <strong>{item.teacherPoints} / {criterion?.maxPoints ?? 0}</strong>
-                <span className={flaggedCriteriaIds.has(item.criterionId) ? 'review-result-status needs-review' : 'review-result-status'}>{flaggedCriteriaIds.has(item.criterionId) ? 'À examiner' : 'Sans alerte'}</span>
+                <span className={item.decision === 'accepted' ? 'review-result-status is-confirmed' : flaggedCriteriaIds.has(item.criterionId) ? 'review-result-status needs-review' : 'review-result-status'}>{item.decision === 'accepted' ? 'Confirmé' : flaggedCriteriaIds.has(item.criterionId) ? 'À examiner' : 'Sans alerte'}</span>
               </div>
             </div>
             {isFlagged && <div className="review-alert-summary">
