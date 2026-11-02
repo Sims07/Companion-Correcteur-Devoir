@@ -2910,6 +2910,11 @@
 .copy-overview-grid .correction-series-card-score { min-height: 86px; }
 .copy-overview-grid .correction-series-card-footer { margin-top: auto; }
 .copy-overview-grid .correction-series-card-status { line-height: 1.45; }
+.copy-overview-grid .correction-series-card.is-to-retry { border-color: #dfc99f; background: #fffaf0; }
+.copy-overview-grid .correction-series-card-status.is-to-retry { color: #a33d36; }
+.copy-overview-grid .correction-series-card.is-to-review { background: #f3f5f2; }
+.copy-overview-grid .correction-series-card-status.is-to-review { color: var(--flow-success); }
+.copy-overview-grid .correction-series-card.is-to-do { background: var(--flow-surface, #fff); }
 .copy-overview-grid .correction-series-actions > .correction-series-view { flex: 1 1 100%; }
 .assignment-overview-activity { margin: -0.35rem 0 0; color: var(--flow-muted); font-size: 0.72rem; }
 @media (max-width: 700px) {
