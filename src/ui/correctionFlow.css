@@ -2914,7 +2914,10 @@
 .assignment-overview-activity { margin: -0.35rem 0 0; color: var(--flow-muted); font-size: 0.72rem; }
 @media (max-width: 700px) {
   .copy-overview-heading { align-items: stretch; flex-direction: column; }
-  .copy-overview-heading > .primary-button { width: 100%; }
+  .copy-overview-primary-actions { width: 100%; flex-direction: column; align-items: stretch; }
+  .copy-overview-primary-actions button { width: 100%; }
+  .copy-overview-toolbar { align-items: stretch; flex-direction: column; }
+  .copy-overview-search { width: 100%; }
   .copy-overview-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .copy-overview-filters button { justify-content: space-between; }
   .copy-overview-grid { grid-template-columns: 1fr; }
