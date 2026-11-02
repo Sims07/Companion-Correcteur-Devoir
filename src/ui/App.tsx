@@ -2808,7 +2808,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               <article><strong>{processingCount}</strong><span>En cours</span></article>
               <article><strong>{pendingCount}</strong><span>En attente</span></article>
               <article className={reviewCount > 0 ? 'has-attention' : ''}><strong>{reviewCount}</strong><span>À vérifier</span></article>
-              <article className={failedCount > 0 ? 'has-failure' : ''}><strong>{failedCount}</strong><span>À relancer</span></article>
+              <article className={failedCount > 0 ? 'has-failure' : ''}><strong>{failedCount}</strong><span>À corriger</span></article>
             </div>
           </section>;
         })()}
@@ -2823,7 +2823,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <div className="correction-series-actions">
               {canOpenCorrection && <button type="button" className="secondary-button correction-series-view" disabled={isAnalyzing} onClick={() => { void loadNextQueuedCopy(job.id); }}>Consulter la correction</button>}
               {['pending', 'processing'].includes(job.status) && <button type="button" className="secondary-button correction-series-view" onClick={() => setSelectedSeriesPreviewId((current) => current === job.id ? null : job.id)}>{selectedSeriesPreviewId === job.id ? 'Masquer la copie' : 'Voir la copie'}</button>}
-              {['needs-review', 'failed'].includes(job.status) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>{job.status === 'failed' ? 'Relancer' : 'Reprendre'}</button>}
+              {['needs-review', 'failed'].includes(job.status) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Corriger</button>}
               {job.status !== 'processing' && job.id !== currentBackgroundJobId && <button type="button" className="text-button correction-series-remove" onClick={() => { void removeSeriesCopy(job); }}>Supprimer</button>}
             </div>
           </div>
