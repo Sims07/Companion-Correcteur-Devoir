@@ -16,6 +16,10 @@ describe('copies archivées dans le devoir actif', () => {
     expect(app).not.toContain('{archivedCorrections.map((item) => {');
   });
 
+  it('reopens a saved copy using its stable assignment ID before its editable title', () => {
+    expect(app).toContain('correction.assignmentId ? assignmentProfiles.find((profile) => profile.id === correction.assignmentId)');
+  });
+
   it('keeps the all-assignments archive collection available to the assignment library', () => {
     expect(app).toContain('archivedCorrections={archivedCorrections}');
   });
