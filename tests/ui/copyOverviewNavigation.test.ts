@@ -18,7 +18,7 @@ const failedJob: BackgroundJobSummary = {
   pageCount: 2,
   createdAt: '2026-11-02T09:00:00.000Z',
   updatedAt: '2026-11-02T09:00:00.000Z',
-  error: 'Ollama ne répond pas',
+  error: 'Le service local ne répond pas',
 };
 const reviewJob: BackgroundJobSummary = {
   ...failedJob,
@@ -76,8 +76,8 @@ describe('CorrectionOverview — comportement enseignant', () => {
   it('renders distinct retry and review statuses with explicit counts', async () => {
     await render();
     expect(container.textContent).toContain('À reprendre');
-    expect(container.textContent).toContain('À réviser');
-    expect(container.textContent).toContain('Ollama ne répond pas');
+    expect(container.textContent).toContain('À vérifier');
+    expect(container.textContent).toContain('Le service local ne répond pas');
     expect(container.textContent).toContain('2 résultat(s)');
     expect(container.querySelectorAll('.correction-series-card')).toHaveLength(2);
   });
@@ -103,7 +103,7 @@ describe('CorrectionOverview — comportement enseignant', () => {
 
   it('offers the quick review action when a copy is ready', async () => {
     await render();
-    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Réviser la copie suivante'));
+    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Vérifier la copie suivante'));
     expect(button).toBeTruthy();
     await act(async () => button?.click());
     expect(onReviewNextCopy).toHaveBeenCalledOnce();
