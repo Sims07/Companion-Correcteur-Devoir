@@ -53,26 +53,27 @@ export function getAssignmentOverview<T extends AssignmentOverviewProfile>(
   archivedCorrections: ArchivedAssignmentCopy[],
   query = '',
   filter: AssignmentOverviewFilter = 'all',
+  assignmentsWithCorrections: readonly string[] = [],
 ): AssignmentOverview<T> {
   const normalizedQuery = query.trim().toLocaleLowerCase('fr-FR');
   const cards = assignments.map((profile) => {
     const archivedCount = getArchivedCorrectionsForAssignment(assignments, archivedCorrections, profile.id).length;
     const maximumPoints = profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
     const ready = profile.rubric.criteria.length > 0 && maximumPoints > 0;
-    return { profile, archivedCount, maximumPoints, ready };
-  }).filter(({ profile, archivedCount, ready }) => {
+    return { profile, archivedCount, maximumPoints, ready, hasCorrections: archivedCount > 0 || assignmentsWithCorrections.includes(profile.id) };
+  }).filter(({ profile, hasCorrections, ready }) => {
     const matchesQuery = [profile.title, profile.description ?? '', profile.educationLevel ?? '']
       .some((value) => value.toLocaleLowerCase('fr-FR').includes(normalizedQuery));
     return matchesQuery && (
       filter === 'all' ||
-      (filter === 'with-corrections' ? archivedCount > 0 : !ready)
+      (filter === 'with-corrections' ? hasCorrections : !ready)
     );
   });
 
   return {
     cards,
     correctionCount: assignments.filter((profile) =>
-      getArchivedCorrectionsForAssignment(assignments, archivedCorrections, profile.id).length > 0,
+      getArchivedCorrectionsForAssignment(assignments, archivedCorrections, profile.id).length > 0 || assignmentsWithCorrections.includes(profile.id),
     ).length,
     preparationCount: assignments.filter((profile) => profile.rubric.criteria.length === 0).length,
   };
