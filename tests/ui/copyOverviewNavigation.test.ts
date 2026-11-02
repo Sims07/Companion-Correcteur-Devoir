@@ -18,6 +18,9 @@ describe('parcours unifié des copies dans un devoir', () => {
     expect(overview).toContain("corrections.filter((correction) => Boolean(correction.snapshot))");
     expect(overview).toContain("labels[key]");
     expect(overview).toContain('aria-label="Filtrer les copies"');
+    expect(overview).toContain('onFilterChange: (filter: CopyOverviewFilter) => void');
+    expect(app).toContain("setCopyOverviewFilter('completed')");
+    expect(app).toContain('filter={copyOverviewFilter}');
     expect(overview).toContain('Consulter la correction');
     expect(overview).toContain('Réviser la copie');
   });
