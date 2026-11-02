@@ -64,8 +64,7 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
   const expectedLabels = ['02-verifier', '03-analyse', '04-attente', '08-archivée', '07-archivée', '06-archivée', '05-archivée'];
   for (let index = 0; index < expectedLabels.length; index += 1) {
     await page.getByRole('button', { name: 'Copie suivante' }).click();
-    console.log('navigation after arrow', await page.locator('.copy-review-header').innerText(), await page.locator('.teacher-copy-rail').innerText(), await page.locator('[role=status]').allTextContents());
-    await expect(page.getByText('Copie ' + (index + 2) + ' sur 8')).toBeVisible();
+    await expect(page.locator('.copy-review-position strong')).toHaveText('Copie ' + (index + 2) + ' sur 8');
     await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText(expectedLabels[index]);
   }
   await expect(page.getByRole('button', { name: 'Copie suivante' })).toBeDisabled();
