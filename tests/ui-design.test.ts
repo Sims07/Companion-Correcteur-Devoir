@@ -81,28 +81,19 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('.question-panel {\n  margin-top: var(--flow-space-5);');
   });
 
-  it('creates a persistent teacher sidebar and responsive single-task workspace', () => {
+  it('creates breadcrumb, section tabs and a collapsible copy rail for the teacher workspace', () => {
     expect(correctionFlowStylesheet).toContain('.teacher-flow-shell {');
-    expect(correctionFlowStylesheet).toContain('grid-template-columns: 258px minmax(0, 1fr);');
-    expect(correctionFlowStylesheet).toContain('.teacher-sidebar {');
-    expect(correctionFlowStylesheet).toContain('.sidebar-ai-setup {');
-    expect(correctionFlowStylesheet).toContain('.sidebar-local-status.is-processing');
-    expect(correctionFlowStylesheet).toContain('.sidebar-local-status.is-processing > span:first-child { animation: none; }');
-    expect(correctionFlowStylesheet).toContain('.teacher-step.active');
-    expect(correctionFlowStylesheet).toContain('.teacher-model-panel');
-    expect(correctionFlowStylesheet).toContain('.sidebar-archive-button');
-    expect(correctionFlowStylesheet).toContain('.correction-archive');
-    expect(correctionFlowStylesheet).toContain('.archive-card');
-    expect(correctionFlowStylesheet).toContain('.finalized-next-actions');
-    expect(correctionFlowStylesheet).toContain('.student-label-field');
-    expect(correctionFlowStylesheet).toContain('.ai-settings-view');
-    expect(correctionFlowStylesheet).toContain('.teacher-flow-shell .setup-needed');
-    expect(correctionFlowStylesheet).toContain('.teacher-flow-shell .setup-complete');
-    expect(correctionFlowStylesheet).toContain('.processing-workspace-heading');
-    expect(correctionFlowStylesheet).toContain('.teacher-flow-shell .analysis-progress');
-    expect(correctionFlowStylesheet).toContain('.teacher-flow-shell .privacy-strip,');
+    expect(correctionFlowStylesheet).toContain('grid-template-columns: minmax(0, 1fr);');
+    expect(correctionFlowStylesheet).toContain('.teacher-workspace-navigation {');
+    expect(correctionFlowStylesheet).toContain('.teacher-breadcrumb');
+    expect(correctionFlowStylesheet).toContain('.teacher-workspace-tabs');
+    expect(correctionFlowStylesheet).toContain('.teacher-content-column.has-copy-rail');
+    expect(correctionFlowStylesheet).toContain('.teacher-copy-rail');
+    expect(correctionFlowStylesheet).toContain('.teacher-copy-rail.is-collapsed');
+    expect(correctionFlowStylesheet).toContain('.teacher-ai-settings-button.is-required');
+    expect(correctionFlowStylesheet).toContain('.teacher-workspace-processing');
     expect(correctionFlowStylesheet).toContain('@media (max-width: 720px)');
-    expect(correctionFlowStylesheet).toContain('.teacher-step-nav { grid-template-columns: repeat(3, minmax(0, 1fr));');
+    expect(correctionFlowStylesheet).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
   it('turns correction-mode radios into distinct selectable cards', () => {
@@ -238,24 +229,22 @@ describe('UI design system', () => {
   it('provides a full-width searchable assignment library with responsive cards', () => {
     expect(appComponent).toContain('showAssignmentsHome');
     expect(appComponent).toContain('<AssignmentsHome');
-    expect(appComponent).toContain('className="sidebar-back-to-assignments"');
+    expect(appComponent).toContain('onBackToAssignments={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }}');
     expect(correctionFlowStylesheet).toContain('.teacher-flow-shell.teacher-assignments-home');
     expect(correctionFlowStylesheet).toContain('.assignments-card-grid');
     expect(correctionFlowStylesheet).toContain('.assignments-filters');
     expect(correctionFlowStylesheet).toContain('@media(max-width:600px)');
   });
 
-  it('keeps the selected assignment as workspace context instead of a switcher', () => {
-    expect(appComponent).toContain('className="sidebar-assignment-current"');
-    expect(appComponent).toContain('aria-label="Devoir actif"');
-    expect(appComponent).toContain('DEVOIR SÉLECTIONNÉ');
+  it('keeps the selected assignment in the breadcrumb instead of a switcher', () => {
+    expect(appComponent).toContain('assignmentTitle={assignmentTitle}');
+    expect(appComponent).toContain('studentLabel={studentLabel}');
+    expect(appComponent).toContain('<TeacherWorkspaceNavigation');
     expect(appComponent).not.toContain('showAssignmentPicker');
     expect(appComponent).not.toContain('CHANGER DE DEVOIR');
-    expect(appComponent).not.toContain('className="sidebar-assignment-actions"');
-    expect(appComponent).not.toContain('htmlFor="assignment-title"');
-    expect(correctionFlowStylesheet).toContain('.sidebar-assignment-current {');
-    expect(correctionFlowStylesheet).toContain('.sidebar-back-to-assignments');
-    expect(correctionFlowStylesheet).toContain('.teacher-step-nav');
+    expect(correctionFlowStylesheet).toContain('.teacher-breadcrumb-assignment');
+    expect(correctionFlowStylesheet).toContain('.teacher-workspace-navigation');
+    expect(correctionFlowStylesheet).toContain('.teacher-copy-rail');
     expect(correctionFlowStylesheet).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
@@ -297,7 +286,7 @@ describe('UI design system', () => {
     expect(stylesheet).toContain('.evaluation-workspace-shell .evaluation-page-header');
     expect(correctionFlowStylesheet).toContain('@media (max-width: 720px)');
     expect(stylesheet).toContain('@media (max-width: 720px)');
-    expect(correctionFlowStylesheet).toContain('.teacher-step-nav');
+    expect(correctionFlowStylesheet).toContain('.teacher-workspace-tabs');
     expect(stylesheet).toContain('.evaluation-step-nav');
   });
 
