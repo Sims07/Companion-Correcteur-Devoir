@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
 import { backgroundCorrectionStatusLabel } from '../domain/backgroundCorrection.ts';
 import { getCorrectionCopyStatus, getCorrectionOverviewCounts, type CorrectionCopyStatus } from '../domain/correctionOverview.ts';
@@ -45,7 +45,7 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, currentBack
     ...corrections.filter((correction) => Boolean(correction.snapshot)).map(() => 'completed' as const),
     ...(currentCopy && !currentBackgroundJobId ? [currentCopy.status] : []),
   ];
-  const counts = useMemo(() => getCorrectionOverviewCounts(statuses), [statuses.join('|')]);
+  const counts = getCorrectionOverviewCounts(statuses);
   const matches = (status: CorrectionCopyStatus) => filter === 'all' || filter === status;
 
   return <section className="correction-overview" aria-labelledby="correction-overview-title">
@@ -71,8 +71,8 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, currentBack
         const progress = job.totalCriteria > 0 ? Math.round((job.completedCriteria / job.totalCriteria) * 100) : 0;
         return <article className={`correction-overview-card is-${status}`} key={job.id}>
           <div className="correction-overview-card-top"><span className="correction-overview-status">{status === 'to-do' ? 'À corriger' : status === 'processing' ? 'En cours' : 'À réviser'}</span><span className="correction-overview-pages">{job.images.length} page(s)</span></div>
-          <div className="correction-overview-score"><strong>{status === 'to-review' && job.proposal ? `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(job.proposal.totalScore)} / ${job.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)}` : '—'}</strong><span>{status === 'processing' ? job.phase === 'reading' ? 'Lecture de la copie' : 'Correction en cours' : status === 'to-review' ? 'Proposition disponible' : 'En attente'}</span></div>
-          <h3>{job.studentIdentity?.lastName || job.label || 'Étudiant non identifié'}</h3>
+          <div className="correction-overview-score"><strong>{status === 'to-review' && job.proposal ? `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(job.proposal.finalScore)} / ${job.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)}` : '—'}</strong><span>{status === 'processing' ? job.phase === 'reading' ? 'Lecture de la copie' : 'Correction en cours' : status === 'to-review' ? 'Proposition disponible' : 'En attente'}</span></div>
+          <h3>{job.label || 'Étudiant non identifié'}</h3>
           {status === 'processing' && <div className="correction-overview-progress" role="progressbar" aria-label={`Progression de ${job.label}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div>}
           <p className="correction-overview-detail">{status === 'processing' ? job.phase === 'reading' ? `Lecture · ${job.completedPages}/${job.images.length} pages` : `Correction · ${job.completedCriteria}/${job.totalCriteria} critères` : backgroundCorrectionStatusLabel(job.status)}</p>
           <button type="button" className="correction-overview-open" onClick={() => onOpenJob(job.id)}>{status === 'to-review' ? 'Réviser la copie' : status === 'processing' ? 'Voir la progression' : 'Ouvrir la copie'} <span aria-hidden="true">→</span></button>
