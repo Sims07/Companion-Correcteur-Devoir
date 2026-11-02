@@ -25,7 +25,7 @@ function archived(id: string, updatedAt: string): LocalCorrection {
     snapshot: {
       assignmentTitle: 'Biologie', question: '', rubric: { title: 'Biologie', criteria: [] },
       proposal: { summary: '', criteria: [], questionsForTeacher: [], finalScore: 8 },
-      review: [{ criterionId: 'c1', teacherPoints: 8, teacherComment: '', decision: 'accepted', points: 8, rationale: '', evidence: '' }],
+      review: [{ criterionId: 'c1', teacherPoints: 8, teacherComment: '', decision: 'accepted', confidence: 'high', points: 8, rationale: '', evidence: '' }],
       teacherQuestions: '', images: [], subjectImages: [], subjectTranscription: null,
       transcription: null, correctionMode: 'integrated', maximumPoints: 10,
     },
