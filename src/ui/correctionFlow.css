@@ -2771,3 +2771,8 @@
 .review-copy-overview-link { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 16px; border:1px solid #e0e8df; border-radius:11px; background:#fbfcfa; }
 .review-copy-overview-link p { margin:0; color:#718071; font-size:11px; }
 @media (max-width:600px) { .correction-overview-heading-actions,.review-copy-overview-link { width:100%; flex-direction:column; align-items:stretch; } }
+
+.correction-overview-heading-actions { display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:9px; }
+.review-copy-overview-link { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 16px; border:1px solid #e0e8df; border-radius:11px; background:#fbfcfa; }
+.review-copy-overview-link p { margin:0; color:#718071; font-size:11px; }
+@media (max-width:600px) { .correction-overview-heading-actions,.review-copy-overview-link { width:100%; flex-direction:column; align-items:stretch; } }
