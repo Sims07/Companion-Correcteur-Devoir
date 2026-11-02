@@ -177,7 +177,10 @@ test('a copy without alerts can be validated in one action and advances to the n
   const studentName = page.getByRole('textbox', { name: 'Nom de l’étudiant' });
   await expect(studentName).toHaveValue('Copie sans alerte');
   await expect(page.locator('.copy-review-alert-strip')).toHaveCount(0);
-  await expect(page.locator('.review-card')).toHaveCount(3);
+  await expect(page.locator('.review-card')).toHaveCount(0);
+  await expect(page.locator('.review-safe-summary-row')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Tout confirmer' })).toBeVisible();
+  await page.getByRole('button', { name: 'Tout confirmer' }).click();
   const validate = page.getByRole('button', { name: 'Valider et passer à la suivante' }).first();
   await expect(validate).toBeEnabled();
   await validate.click();

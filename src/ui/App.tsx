@@ -515,7 +515,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const reviewFocus = useMemo(() => getReviewFocus(review, rubric.criteria), [review, rubric.criteria]);
   const flaggedCriteriaIds = useMemo(() => new Set(reviewFocus.flaggedCriteriaIds), [reviewFocus]);
   const reliableCriteriaCount = reviewFocus.reliableCriteriaIds.length;
-  const shouldFocusExceptions = showOnlyFlagged && flaggedCriteriaIds.size > 0;
+  const shouldFocusExceptions = showOnlyFlagged && review.length === rubric.criteria.length;
   const orderedReviewCriteria = useMemo(() => [
     ...rubric.criteria.filter((criterion) => flaggedCriteriaIds.has(criterion.id)),
     ...rubric.criteria.filter((criterion) => !flaggedCriteriaIds.has(criterion.id)),
@@ -3144,7 +3144,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         {flaggedCriteriaIds.size > 0 && <div className="review-criteria-toolbar">
           <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>
         </div>}
-        {shouldFocusExceptions && <div className="review-safe-summary-row">
+        {shouldFocusExceptions && reliableCriteriaCount > 0 && <div className="review-safe-summary-row">
           <details className="review-safe-summary">
             <summary>{reliableCriteriaCount} critères sans alerte · preuves disponibles</summary>
             <ul>{review.filter((item) => reviewFocus.reliableCriteriaIds.includes(item.criterionId)).map((item) => {
