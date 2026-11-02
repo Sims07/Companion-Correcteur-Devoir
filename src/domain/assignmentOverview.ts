@@ -38,6 +38,7 @@ export function getArchivedCorrectionsForAssignment<T extends AssignmentOverview
 export interface AssignmentOverviewCard<T extends AssignmentOverviewProfile = AssignmentOverviewProfile> {
   profile: T;
   archivedCount: number;
+  hasCorrections: boolean;
   maximumPoints: number;
   ready: boolean;
 }
