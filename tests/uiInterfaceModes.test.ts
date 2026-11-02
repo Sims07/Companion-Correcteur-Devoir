@@ -5,6 +5,7 @@ const source = (path: string) => readFileSync(new URL(path, import.meta.url), 'u
 
 describe('teacher and AI diagnostic interface modes', () => {
   const app = () => source('../src/ui/App.tsx');
+  const teacherNavigation = () => source('../src/ui/components/TeacherWorkspaceNavigation.tsx');
 
   it('shows optional teacher-facing annotation suggestions linked to the source page without region localization', () => {
     const text = app();
@@ -39,7 +40,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     const text = app();
     expect(text).toContain("useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric')");
     expect(text).not.toContain("teacherStep === 'archive'");
-    expect(text).toContain('Copies corrigées');
+    expect(text).toContain('filter={copyOverviewFilter}');
+    expect(text).toContain('archivedCorrectionsForActiveAssignment');
     expect(text).toContain("setCopyOverviewFilter('completed')");
     expect(text).toContain("else { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); }");
     expect(text).toContain('Corriger une autre copie');
@@ -188,13 +190,14 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain("setInterfaceMode('diagnostic')");
   });
 
-  it('removes duplicate branding and makes missing local AI setup obvious in the sidebar', () => {
+  it('keeps local AI setup and processing status visible in the workspace navigation', () => {
     const text = app();
+    const navigation = teacherNavigation();
     expect(text).not.toContain('<strong>Correction</strong><small>Espace enseignant</small>');
-    expect(text).toContain('IA locale à configurer');
-    expect(text).toContain('Configurer maintenant');
-    expect(text).toContain('setShowAiSettings(true)');
-    expect(text).toContain('is-processing');
+    expect(navigation).toContain('IA locale à configurer');
+    expect(navigation).toContain('onOpenSettings');
+    expect(navigation).toContain('teacher-workspace-processing');
+    expect(text).toContain('processingStatus={isAnalyzing');
     expect(text).toContain('Lecture de la copie');
     expect(text).toContain('Correction des réponses');
     expect(text).not.toContain('Lecture des copies en cours');
@@ -215,7 +218,10 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('id="diagnostic-strategy"');
     expect(text).toContain("interfaceMode === 'teacher' && showAiSettings && <section className={`panel ollama-panel teacher-model-panel ai-settings-view");
     expect(text).toContain('Paramètres de l’IA locale');
-    expect(text).toContain('aria-expanded={showAiSettings}');
+    expect(text).toContain('settingsExpanded={showAiSettings}');
+    expect(teacherNavigation()).toContain('aria-expanded={settingsExpanded}');
+    expect(teacherNavigation()).toContain('aria-controls="teacher-ai-settings-panel"');
+    expect(text).toContain('id="teacher-ai-settings-panel"');
   });
 
   it('offers on-demand Saluki 27B loading only for the OpenAI-compatible server', () => {
@@ -260,24 +266,23 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('description: assignmentDescription, educationLevel');
   });
 
-  it('provides a teacher-specific three-step navigation and shows only the active task', () => {
+  it('provides breadcrumb navigation, Copies and Barème tabs, and a collapsible copy rail', () => {
     const text = app();
-    expect(text).toContain("useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric')");
-    expect(text).toContain('aria-label="Navigation de la correction"');
-    expect(text).toContain('aria-label="Étapes du devoir"');
+    const navigation = teacherNavigation();
+    expect(text).toContain('<TeacherWorkspaceNavigation');
+    expect(text).toContain("activeSection={teacherStep === 'rubric' || teacherStep === 'details' ? 'rubric' : 'copies'}");
+    expect(text).toContain("teacherStep === 'review' && !showAiSettings");
+    expect(navigation).toContain('aria-label="Fil d’Ariane"');
+    expect(navigation).toContain('role="tablist" aria-label="Sections du devoir"');
+    expect(navigation).toContain('aria-label="Navigation entre les copies"');
+    expect(navigation).toContain('setRailExpanded');
+    expect(navigation).toContain('onSelectCopies');
+    expect(navigation).toContain('onSelectRubric');
     expect(text).toContain("teacherStep === 'overview' && <CorrectionOverview");
-    expect(text).toContain('Préparer le barème');
-    expect(text).toContain('Ajouter une copie');
-    expect(text).toContain('Vérification');
-    expect(text).toContain('Correction en cours');
-    expect(text).not.toContain('Suivi du traitement');
     expect(text).toContain("setTeacherStep('progress')");
-    expect(text).toContain("(interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration')");
-    expect(text).toContain("(interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration')");
     expect(text).toContain("setTeacherStep('review')");
-    expect(text).toContain("const assignmentTitleKey = 'companion-correcteur:assignment-title:v1'");
-    expect(text).toContain('setItem(assignmentTitleKey, assignmentTitle)');
-    expect(text).not.toContain('Un devoir, un espace de travail');
+    expect(text).not.toContain('aria-label="Étapes du devoir"');
+    expect(text).not.toContain('teacher-step-nav');
   });
 
   it('keeps the dedicated evaluation workspace isolated from the teacher workspace', () => {
