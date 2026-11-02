@@ -479,7 +479,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     () => getArchivedCorrectionsForAssignment(assignmentProfiles, archivedCorrections, activeAssignmentId),
     [assignmentProfiles, archivedCorrections, activeAssignmentId],
   );
-  const [archiveMessage, setArchiveMessage] = useState('');
   const [review, setReview] = useState<ReviewedCriterion[]>([]);
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(true);
   const [focusedEvidencePage, setFocusedEvidencePage] = useState<number | null>(null);
@@ -589,7 +588,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     void archiveService.listCorrections().then((items) => {
       if (active) setArchivedCorrections(items.filter((item) => Boolean(item.snapshot)));
     }).catch(() => {
-      if (active) setArchiveMessage('Impossible de lire les corrections enregistrées sur cet appareil.');
+      if (active) setError('Impossible de lire les corrections enregistrées sur cet appareil.');
     });
     return () => { active = false; };
   }, [archiveService]);
@@ -1495,7 +1494,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setArchivedCorrections(saved.filter((item) => Boolean(item.snapshot)));
       setCurrentCorrectionId(id);
       setIsFinalized(true);
-      setArchiveMessage('Correction enregistrée localement avec la copie et les éléments de révision.');
       const memoryStatus = memorySaveFailed
         ? ` ${savedDecisionCount} décision(s) ont été conservées, mais la mémoire locale n’a pas pu être entièrement mise à jour.`
         : savedDecisionCount > 0
@@ -1898,7 +1896,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setCurrentCorrectionId(null);
     setIsFinalized(false);
     setTeacherStep(canReview ? 'review' : 'copy');
-    setArchiveMessage('');
     setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
   }
 
