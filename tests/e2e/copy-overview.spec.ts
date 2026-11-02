@@ -93,7 +93,7 @@ async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; sta
 }
 
 function copyNavigation(page: Page) {
-  return page.locator('.teacher-step-nav').getByRole('button', { name: /Copies/ });
+  return page.getByRole('tab', { name: /Copies/ });
 }
 
 test('adding a copy while another one is under review keeps the previous copy and opens the next copy by priority', async ({ page }) => {

@@ -7,9 +7,9 @@ test('the assignment library is the entry point and opens the selected teacher w
   await expect(page.locator('.assignment-overview-card')).toHaveCount(1);
 
   await page.locator('.assignment-overview-card').getByRole('button', { name: /Reprendre le devoir/ }).click();
-  await expect(page.locator('.teacher-sidebar')).toBeVisible();
+  await expect(page.locator('.teacher-workspace-navigation')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toHaveCount(0);
-  await expect(page.locator('.sidebar-assignment-current')).toContainText('Devoir de biologie');
+  await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toContainText('Devoir de biologie');
   await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
   await expect(page.getByRole('group', { name: 'Filtrer les copies' })).toBeVisible();
   await expect(page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter une copie/ })).toBeVisible();
@@ -21,7 +21,7 @@ test('the assignment library is the entry point and opens the selected teacher w
 test('teachers can create and delete an assignment from the library', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Créer un devoir/ }).click();
-  await expect(page.locator('.teacher-sidebar')).toBeVisible();
+  await expect(page.locator('.teacher-workspace-navigation')).toBeVisible();
   const details = page.locator('.assignment-details-collapsible');
   await expect(details).toBeVisible();
   await details.locator('summary').click();

@@ -1,32 +1,55 @@
-import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
-
-const app = readFileSync('src/ui/App.tsx', 'utf8');
-const styles = readFileSync('src/ui/correctionFlow.css', 'utf8');
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
+import { TeacherWorkspaceNavigation } from '../../src/ui/components/TeacherWorkspaceNavigation.tsx';
 
 describe('navigation entre la bibliothèque de devoirs et l’espace de correction', () => {
-  it('ouvre la bibliothèque de devoirs au démarrage', () => {
-    expect(app).toContain('const [showAssignmentsHome, setShowAssignmentsHome] = useState(true)');
-    expect(app).toContain('interfaceMode === \'teacher\' && showAssignmentsHome && <AssignmentsHome');
+  it('permet de revenir à la bibliothèque depuis le fil d’Ariane', () => {
+    const html = renderToStaticMarkup(createElement(TeacherWorkspaceNavigation, {
+      assignmentTitle: 'Devoir de biologie',
+      studentLabel: '',
+      activeSection: 'copies',
+      showCopyRail: false,
+      copies: [],
+      activeCopyId: null,
+      aiConfigured: true,
+      isAnalyzing: false,
+      processingStatus: 'Correction sur cet ordinateur',
+      processingDetail: 'Vos copies restent sur votre serveur',
+      onBackToAssignments: vi.fn(),
+      onSelectCopies: vi.fn(),
+      onSelectRubric: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenCopy: vi.fn(),
+    }));
+    expect(html).toContain('Mes devoirs');
+    expect(html).toContain('Devoir de biologie');
+    expect(html).toContain('Fil d’Ariane');
   });
 
-  it('présente le devoir actif sans proposer de changer de devoir dans la sidebar', () => {
-    expect(app).toContain('aria-label="Devoir actif"');
-    expect(app).toContain('DEVOIR SÉLECTIONNÉ');
-    expect(app).not.toContain('showAssignmentPicker');
-    expect(app).not.toContain('CHANGER DE DEVOIR');
-    expect(app).not.toContain('sidebar-all-assignments');
-  });
-
-  it('permet de revenir à la bibliothèque depuis un espace de correction', () => {
-    expect(app).toContain('className="sidebar-back-to-assignments"');
-    expect(app).toContain('setShowAssignmentsHome(true)');
-    expect(app).toContain('Mes devoirs');
-  });
-
-  it('aère visuellement le retour, le devoir actif et les étapes', () => {
-    expect(styles).toContain('.sidebar-back-to-assignments');
-    expect(styles).toContain('margin: 0 0 18px');
-    expect(styles).toContain('.teacher-step-nav {\n  gap: 11px;');
+  it('expose les deux espaces fonctionnels sans navigation en étapes', () => {
+    const html = renderToStaticMarkup(createElement(TeacherWorkspaceNavigation, {
+      assignmentTitle: 'Devoir de biologie',
+      studentLabel: '',
+      activeSection: 'rubric',
+      showCopyRail: false,
+      copies: [],
+      activeCopyId: null,
+      aiConfigured: false,
+      isAnalyzing: false,
+      processingStatus: 'Correction sur cet ordinateur',
+      processingDetail: 'Vos copies restent sur votre serveur',
+      onBackToAssignments: vi.fn(),
+      onSelectCopies: vi.fn(),
+      onSelectRubric: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenCopy: vi.fn(),
+    }));
+    expect(html).toContain('role="tablist"');
+    expect(html).toContain('aria-selected="true"');
+    expect(html).toContain('Barème');
+    expect(html).toContain('Copies');
+    expect(html).toContain('IA locale à configurer');
+    expect(html).not.toContain('teacher-step-nav');
   });
 });

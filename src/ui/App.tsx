@@ -40,6 +40,7 @@ import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
 import { AssignmentsHome } from './AssignmentsHome.tsx';
 import { CorrectionOverview } from './CorrectionOverview.tsx';
+import { TeacherWorkspaceNavigation } from './components/TeacherWorkspaceNavigation.tsx';
 
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
@@ -2108,48 +2109,57 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         disabled={isAnalyzing}
       />}
 
-      {interfaceMode === 'teacher' && !showAssignmentsHome && <aside className="teacher-sidebar" aria-label="Navigation de la correction">
-        <button type="button" className="sidebar-back-to-assignments" onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }} disabled={isAnalyzing}>
-          <span aria-hidden="true">←</span> Mes devoirs
-        </button>
-        <section className="sidebar-assignment-list" aria-label="Devoir actif">
-          <div className="sidebar-assignment-current">
-            <span className="sidebar-assignment-current-copy">
-              <span className="field-label">DEVOIR SÉLECTIONNÉ</span>
-              <strong>{assignmentTitle.trim() || 'Devoir sans titre'}</strong>
-              <small>{rubric.criteria.length} critères · {validation.maximumPoints} points</small>
-            </span>
-          </div>
-        </section>
-        {(!visionModel.trim() || !analysisModel.trim()) && <section className="sidebar-ai-setup" aria-label="Configuration nécessaire de l’IA locale">
-          <span className="sidebar-ai-setup-icon" aria-hidden="true">⚙</span>
-          <div><strong>IA locale à configurer</strong><p>Choisissez les modèles avant de lancer votre première correction.</p></div>
-          <button type="button" onClick={() => setShowAiSettings(true)}>Configurer maintenant <span aria-hidden="true">→</span></button>
-        </section>}
-        <nav className="teacher-step-nav" aria-label="Étapes du devoir">
-          <p className="eyebrow">PARCOURS DE CORRECTION</p>
-          <button type="button" className={(teacherStep === 'details' || teacherStep === 'rubric') && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={(teacherStep === 'details' || teacherStep === 'rubric') && !showAiSettings ? 'step' : undefined} onClick={() => { setShowAiSettings(false); setTeacherStep('rubric'); }}>
-            <span className="teacher-step-number">1</span><span><strong>Devoir</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères · Modifier</small></span>
-          </button>
-          <button type="button" className={(teacherStep === 'copy' || (teacherStep === 'overview' && copyOverviewFilter !== 'completed')) && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={(teacherStep === 'copy' || (teacherStep === 'overview' && copyOverviewFilter !== 'completed')) && !showAiSettings ? 'step' : undefined} disabled={!validation.valid} onClick={() => { setShowAiSettings(false); setCopyOverviewFilterTouched(false); setTeacherStep('overview'); }}>
-            <span className="teacher-step-number">2</span><span><strong>Copies</strong><small>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').length + archivedCorrectionsForActiveAssignment.length} copie(s) · suivi et vérification</small></span>
-          </button>
-          <button type="button" className={(teacherStep === 'progress' || teacherStep === 'review') && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={(teacherStep === 'progress' || teacherStep === 'review') && !showAiSettings ? 'step' : undefined} disabled={!proposal && !isAnalyzing} onClick={() => { setShowAiSettings(false); setTeacherStep(isAnalyzing ? 'progress' : 'review'); }}>
-            <span className="teacher-step-number">3</span><span><strong>{isAnalyzing ? 'Correction en cours' : 'Vérification'} </strong><small>{isAnalyzing ? analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length}/${images.length}` : analysisStage === 'grading' ? `Correction · critère ${criterionProgressPosition?.index ?? Object.values(criterionStatuses).filter((status) => status === 'completed').length}/${criterionProgressPosition?.total ?? rubric.criteria.length}` : 'Préparation' : proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
-          </button>
-        </nav>
-        <button type="button" className={copyOverviewFilter === 'completed' && teacherStep === 'overview' && !showAiSettings ? 'sidebar-archive-button active' : 'sidebar-archive-button'} aria-current={copyOverviewFilter === 'completed' && teacherStep === 'overview' && !showAiSettings ? 'page' : undefined} onClick={() => { setShowAiSettings(false); setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); }} disabled={isAnalyzing}><span aria-hidden="true">▤</span><span><strong>Copies corrigées</strong><small>{archivedCorrectionsForActiveAssignment.length} copie(s) validée(s)</small></span></button>
-        <div className="teacher-sidebar-footer">
-          <div className={isAnalyzing ? "sidebar-local-status is-processing" : "sidebar-local-status"} role={isAnalyzing ? "status" : undefined} aria-live={isAnalyzing ? "polite" : undefined}>
-            <span aria-hidden="true">{isAnalyzing ? "◌" : "●"}</span>
-            <span><strong>{isAnalyzing ? analysisStage === 'checking' ? 'Préparation de la correction' : analysisStage === 'reading' ? 'Lecture de la copie' : 'Correction des réponses' : 'Correction sur cet ordinateur'}</strong>
-            <small>{isAnalyzing ? `${formatElapsed(elapsedSeconds)} écoulées` : apiCompatible ? 'Contenus transmis au fournisseur API configuré' : 'Vos copies restent sur votre serveur'}</small></span>
-          </div>
-          <button type="button" className={showAiSettings ? 'sidebar-settings active' : 'sidebar-settings'} onClick={() => setShowAiSettings((current) => !current)} aria-expanded={showAiSettings}><span aria-hidden="true">⚙</span> Réglages de l’IA locale</button>
-        </div>
-      </aside>}
 
-      {!(interfaceMode === 'teacher' && showAssignmentsHome) && <div className={interfaceMode === 'teacher' ? 'teacher-content-column' : 'diagnostic-content-column'}>
+
+      {!(interfaceMode === 'teacher' && showAssignmentsHome) && <div className={interfaceMode === 'teacher' ? 'teacher-content-column' + (teacherStep === 'review' && !showAiSettings ? ' has-copy-rail' : '') : 'diagnostic-content-column'}>
+      {interfaceMode === 'teacher' && <TeacherWorkspaceNavigation
+        assignmentTitle={assignmentTitle}
+        studentLabel={studentLabel}
+        activeSection={teacherStep === 'rubric' || teacherStep === 'details' ? 'rubric' : 'copies'}
+        showCopyRail={teacherStep === 'review' && !showAiSettings}
+        copies={[
+          ...allBackgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').map((job) => ({
+            id: job.id,
+            label: job.studentIdentity ? formatStudentIdentityLabel(job.studentIdentity) : job.label || 'Étudiant non identifié',
+            status: backgroundCorrectionStatusLabel(job.status),
+            score: job.score === null ? null : job.score.toLocaleString('fr-FR') + ' / ' + job.maximumPoints.toLocaleString('fr-FR'),
+            updatedAt: job.updatedAt,
+          })),
+          ...archivedCorrectionsForActiveAssignment.map((correction) => {
+            const score = correction.snapshot?.review.reduce((sum, item) => sum + item.teacherPoints, 0);
+            return {
+              id: correction.id,
+              label: correction.label,
+              status: 'Corrigée',
+              score: correction.snapshot ? (score ?? 0).toLocaleString('fr-FR') + ' / ' + correction.snapshot.maximumPoints.toLocaleString('fr-FR') : null,
+              updatedAt: correction.updatedAt,
+            };
+          }),
+          ...(images.length > 0 && !currentBackgroundJobId && !currentCorrectionId ? [{
+            id: 'current-copy',
+            label: studentLabel || images[0]?.fileName || 'Copie en cours',
+            status: isAnalyzing ? 'Analyse en cours' : proposal ? 'À vérifier' : 'En cours',
+            score: proposal ? reviewedTotal.toLocaleString('fr-FR') + ' / ' + validation.maximumPoints.toLocaleString('fr-FR') : null,
+          }] : []),
+        ]}
+        activeCopyId={currentBackgroundJobId ?? currentCorrectionId ?? (images.length > 0 ? 'current-copy' : null)}
+        aiConfigured={Boolean(visionModel.trim() && analysisModel.trim())}
+        isAnalyzing={isAnalyzing}
+        processingStatus={isAnalyzing ? analysisStage === 'checking' ? 'Préparation de la correction' : analysisStage === 'reading' ? 'Lecture de la copie' : 'Correction des réponses' : 'Correction sur cet ordinateur'}
+        processingDetail={isAnalyzing ? formatElapsed(elapsedSeconds) + ' écoulées' : apiCompatible ? 'Contenus transmis au fournisseur API configuré' : 'Vos copies restent sur votre serveur'}
+        onBackToAssignments={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }}
+        onSelectCopies={() => { setShowAiSettings(false); setCopyOverviewFilterTouched(false); setTeacherStep('overview'); }}
+        onSelectRubric={() => { setShowAiSettings(false); setTeacherStep('rubric'); }}
+        onOpenSettings={() => setShowAiSettings(true)}
+        onOpenCopy={(copyId) => {
+          setShowAiSettings(false);
+          const job = allBackgroundJobs.find((item) => item.id === copyId && item.assignmentId === activeAssignmentId);
+          if (job) { void loadNextQueuedCopy(job.id); return; }
+          const correction = archivedCorrectionsForActiveAssignment.find((item) => item.id === copyId);
+          if (correction) { openArchivedCorrection(correction); return; }
+          setTeacherStep(proposal ? 'review' : 'copy');
+        }}
+      />}
       {interfaceMode === 'diagnostic' && <section className="privacy-strip">
         <span className="privacy-icon">⌂</span>
         <div><strong>Traitement local, sans repli cloud</strong><p>Les fichiers sont lus et préparés dans votre navigateur, puis envoyés uniquement à l’adresse Ollama que vous configurez. Aucun stockage distant ni envoi vers un fournisseur cloud n’est prévu.</p></div>
