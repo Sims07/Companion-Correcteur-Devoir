@@ -30,7 +30,7 @@ type Filter = 'all' | 'with-corrections' | 'to-prepare';
 export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorrections, backgroundJobs, onCreate, onOpen, onDelete, onReturn, disabled }: Props) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const overview = useMemo(() => getAssignmentOverview(assignments, archivedCorrections, query, filter), [assignments, archivedCorrections, filter, query]);
+  const overview = useMemo(() => getAssignmentOverview(assignments, archivedCorrections, query, filter, backgroundJobs.filter((job) => job.status !== 'completed').map((job) => job.assignmentId)), [assignments, archivedCorrections, backgroundJobs, filter, query]);
   const { cards, correctionCount, preparationCount } = overview;
 
   return <section className="assignments-home" aria-labelledby="assignments-home-title">
