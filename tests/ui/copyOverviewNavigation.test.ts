@@ -27,6 +27,8 @@ describe('parcours unifié des copies dans un devoir', () => {
     expect(app).toContain('backgroundService.subscribe((jobs) => setAllBackgroundJobs(jobs))');
     expect(app).toContain('backgroundService.listJobs().then((jobs) => { if (active) setAllBackgroundJobs(jobs); })');
     expect(assignmentsHome).toContain('backgroundJobs: BackgroundCorrectionJob[]');
+    expect(assignmentsHome).toContain("currentCopy: { assignmentId: string; status: 'to-do' | 'processing' | 'to-review' } | null");
+    expect(app).toContain('currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ?');
     expect(assignmentsHome).toContain('Corrections en cours');
     expect(assignmentsHome).toContain('À réviser');
     expect(assignmentsHome).toContain('À corriger');
