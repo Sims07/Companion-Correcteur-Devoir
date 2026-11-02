@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
 import type { LocalCorrection } from '../domain/localCorrection.ts';
 import { countCopyOverviewStatuses, toCopyOverviewStatus, type CopyOverviewFilter, type CopyOverviewStatus } from '../domain/copyOverview.ts';
@@ -8,6 +8,8 @@ type Props = {
   jobs: BackgroundCorrectionJob[];
   corrections: LocalCorrection[];
   currentCopy: CurrentCopy | null;
+  filter: CopyOverviewFilter;
+  onFilterChange: (filter: CopyOverviewFilter) => void;
   onAddCopy: () => void;
   onOpenJob: (jobId: string) => void;
   onOpenCorrection: (correction: LocalCorrection) => void;
@@ -37,8 +39,7 @@ function scoreForCorrection(correction: LocalCorrection): { score: number; maxim
   };
 }
 
-export function CorrectionOverview({ jobs, corrections, currentCopy, onAddCopy, onOpenJob, onOpenCorrection, onOpenCurrentCopy }: Props) {
-  const [filter, setFilter] = useState<CopyOverviewFilter>('all');
+export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, onOpenJob, onOpenCorrection, onOpenCurrentCopy }: Props) {
   const statuses = useMemo(() => [
     ...jobs.map((job) => toCopyOverviewStatus(job.status)).filter((status) => status !== 'completed'),
     ...corrections.filter((correction) => Boolean(correction.snapshot)).map(() => 'completed' as const),
@@ -55,7 +56,7 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, onAddCopy, 
     <div className="copy-overview-filters" role="group" aria-label="Filtrer les copies">
       {(['all', 'to-do', 'processing', 'to-review', 'completed'] as const).map((key) => {
         const count = key === 'all' ? counts.all : key === 'to-do' ? counts.toDo : key === 'processing' ? counts.processing : key === 'to-review' ? counts.toReview : counts.completed;
-        return <button type="button" key={key} className={filter === key ? 'is-active' : ''} aria-pressed={filter === key} onClick={() => setFilter(key)}>{labels[key]} <span>{count}</span></button>;
+        return <button type="button" key={key} className={filter === key ? 'is-active' : ''} aria-pressed={filter === key} onClick={() => onFilterChange(key)}>{labels[key]} <span>{count}</span></button>;
       })}
     </div>
     <ol className="correction-series-list copy-overview-grid">
