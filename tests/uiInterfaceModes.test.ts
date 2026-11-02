@@ -216,7 +216,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('value={apiKey}');
     expect(text).toContain('className="debug-advanced-settings"');
     expect(text).toContain('id="diagnostic-strategy"');
-    expect(text).toContain("interfaceMode === 'teacher' && showAiSettings && <section className={`panel ollama-panel teacher-model-panel ai-settings-view");
+    expect(text).toContain("interfaceMode === 'teacher' && showAiSettings && <section id="teacher-ai-settings-panel" className={`panel ollama-panel teacher-model-panel ai-settings-view");
     expect(text).toContain('Paramètres de l’IA locale');
     expect(text).toContain('settingsExpanded={showAiSettings}');
     expect(teacherNavigation()).toContain('aria-expanded={settingsExpanded}');
