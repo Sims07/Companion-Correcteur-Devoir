@@ -1503,7 +1503,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setReviewMessage(teacherQuestions.trim()
         ? `Correction enregistrée sur cet appareil.${memoryStatus} Relisez les questions ouvertes avant de communiquer la note.`
         : `Correction enregistrée sur cet appareil.${memoryStatus} Vous pourrez la retrouver dans « Corrections enregistrées ».`);
-      if (advanceToNextCopy) startNextCopy();
+      if (advanceToNextCopy) await startNextCopy();
       else { setCopyOverviewFilter('completed'); setTeacherStep('overview'); }
     } catch {
       setIsFinalized(false);
@@ -1869,8 +1869,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setReviewMessage('Aucune autre copie n’est prête à réviser pour le moment. Les autres corrections se poursuivent.');
       return;
     }
-    const canReview = next.status === 'ready' || (next.status === 'reviewing' && next.completedCriteria === next.totalCriteria && Boolean(next.proposal));
-    await backgroundService.markForReview(next.id);
+    const canReview = Boolean(next.proposal) && ['ready', 'needs-review', 'reviewing'].includes(next.status);
+    if (next.status !== 'failed') await backgroundService.markForReview(next.id);
     setCurrentBackgroundJobId(next.id);
     setStudentLabel(next.studentIdentity ? (formatStudentIdentityLabel(next.studentIdentity) ?? next.label) : next.label);
     setStudentIdentity(next.studentIdentity ?? null);
@@ -1889,8 +1889,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setPageClassifications(next.scientificPageClassifications ?? null);
     setScientificDiagramError('');
     setProposal(canReview && next.proposal ? structuredClone(next.proposal) : null);
-    setReview(canReview && next.proposal ? toReviewedCriteria(next.proposal) : []);
-    setTeacherQuestions(canReview && next.proposal ? next.proposal.questionsForTeacher.join('\\n') : '');
+    setReview(canReview && next.proposal ? structuredClone(next.reviewDraft ?? toReviewedCriteria(next.proposal)) : []);
+    setTeacherQuestions(canReview && next.proposal ? next.teacherQuestionsDraft ?? next.proposal.questionsForTeacher.join('\\n') : '');
     setShowOnlyFlagged(true);
     setReviewMessage(canReview ? 'Correction prête. Examinez les propositions signalées avant validation. Examinez les propositions signalées avant validation.' : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés localement.');
     setError(next.error ?? '');
@@ -1901,9 +1901,75 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
   }
 
-  function startNextCopy(forceNew = false) {
-    const readyExists = !forceNew && backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && (job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)) && job.id !== currentBackgroundJobId);
-    if (readyExists) { void loadNextQueuedCopy(); return; }
+  async function startNextCopy(options: { forceNew?: boolean } = {}) {
+    if (isAnalyzing) return;
+    const forceNew = options.forceNew ?? false;
+    const readyExists = !forceNew && backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && (job.status === 'ready' || (job.status === 'reviewing' && Boolean(job.proposal))) && job.id !== currentBackgroundJobId);
+    if (readyExists) { await loadNextQueuedCopy(); return; }
+
+    // A foreground copy may not have been queued yet. Persist it before resetting
+    // the editor so "Ajouter une copie" cannot discard pages or teacher revisions.
+    if (!currentBackgroundJobId && images.length > 0 && !isFinalized) {
+      if (!validation.valid) {
+        setError('Vérifiez le barème avant de sauvegarder cette copie dans le suivi.');
+        return;
+      }
+      try {
+        const now = new Date().toISOString();
+        const id = `queued-copy-${crypto.randomUUID()}`;
+        const label = studentLabel.trim() || images[0]?.fileName || `Copie ${backgroundJobs.length + 1}`;
+        const savedProposal = proposal ? structuredClone(proposal) : null;
+        const savedCriteria = savedProposal?.criteria ?? [];
+        const savedJob: BackgroundCorrectionJob = {
+          ...createBackgroundCorrection({
+            id,
+            assignmentId: activeAssignmentId,
+            label,
+            studentIdentity,
+            question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+            rubric: structuredClone(rubric),
+            correctionMode,
+            images: structuredClone(images),
+            originalImages: structuredClone(originalImages),
+            subjectImages: structuredClone(subjectImages),
+            ...(subjectTranscription ? { subjectTranscription } : {}),
+            scientificPageClassifications: pageClassifications ?? undefined,
+            scientificDiagramAnalysis,
+            detectTeacherAnnotations,
+            annotationInkColor,
+            annotationInkColorApplied,
+            visionModel,
+            analysisModel,
+            thinking: analysisThinking,
+            createdAt: now,
+            updatedAt: now,
+          }),
+          status: savedProposal ? (savedCriteria.length === rubric.criteria.length ? 'ready' : 'needs-review') : 'pending',
+          phase: savedProposal ? 'complete' : 'preparation',
+          completedPages: transcription ? images.length : 0,
+          completedCriteria: savedCriteria.length,
+          totalCriteria: rubric.criteria.length,
+          transcription,
+          partialCriteria: savedCriteria,
+          proposal: savedProposal,
+          reviewDraft: structuredClone(review),
+          teacherQuestionsDraft: teacherQuestions,
+          error: null,
+          updatedAt: now,
+        };
+        await backgroundService.enqueue(savedJob, {
+          endpoint, apiCompatible, apiKey, visionModel, analysisModel,
+          thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection,
+          transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
+          transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
+        });
+        setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Impossible de sauvegarder la copie avant de passer à la suivante.');
+        return;
+      }
+    }
+
     setCurrentBackgroundJobId(null);
     setStudentLabel('');
     setStudentIdentity(null);
@@ -2523,7 +2589,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         filter={copyOverviewFilter}
         onFilterChange={setCopyOverviewFilter}
         currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ? { label: studentLabel || images[0]?.fileName || 'Copie en cours', pageCount: images.length, status: isAnalyzing ? 'processing' : proposal ? 'to-review' : 'to-do', score: proposal ? reviewedTotal : null, maximumPoints: validation.maximumPoints } : null}
-        onAddCopy={() => startNextCopy(true)}
+        onAddCopy={() => startNextCopy({ forceNew: true })}
         onOpenJob={(jobId) => { void loadNextQueuedCopy(jobId); }}
         onOpenCorrection={(correction) => { openArchivedCorrection(correction); }}
         onOpenCurrentCopy={() => { setShowAiSettings(false); setTeacherStep(proposal ? 'review' : 'copy'); }}
