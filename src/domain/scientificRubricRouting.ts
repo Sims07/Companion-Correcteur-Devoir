@@ -116,3 +116,9 @@ export function mergeScientificDiagramCriteria(
     finalScore: orderedCriteria.reduce((sum, criterion) => sum + criterion.points, 0),
   };
 }
+
+
+/** Scientific diagram routing is a teacher workflow, independent of the configured AI provider. */
+export function shouldRunTeacherScientificDiagramWorkflow(interfaceMode: string): boolean {
+  return interfaceMode === 'teacher';
+}
