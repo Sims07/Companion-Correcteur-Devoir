@@ -1,50 +1,122 @@
-import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+// @vitest-environment jsdom
+import { act, createElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { BackgroundJobSummary } from '../../src/domain/backgroundCorrection.ts';
+import { CorrectionOverview } from '../../src/ui/CorrectionOverview.tsx';
 
-const app = readFileSync('src/ui/App.tsx', 'utf8');
-const assignmentsHome = readFileSync('src/ui/AssignmentsHome.tsx', 'utf8');
-const overview = readFileSync('src/ui/CorrectionOverview.tsx', 'utf8');
-const styles = readFileSync('src/ui/correctionFlow.css', 'utf8');
+const failedJob: BackgroundJobSummary = {
+  id: 'failed-copy',
+  assignmentId: 'biology',
+  label: 'Alice Martin',
+  studentIdentity: null,
+  status: 'failed',
+  phase: 'reading',
+  progress: { completedPages: 1, totalPages: 2, completedCriteria: 0, totalCriteria: 3 },
+  score: null,
+  maximumPoints: 20,
+  pageCount: 2,
+  createdAt: '2026-11-02T09:00:00.000Z',
+  updatedAt: '2026-11-02T09:00:00.000Z',
+  error: 'Ollama ne répond pas',
+};
+const reviewJob: BackgroundJobSummary = {
+  ...failedJob,
+  id: 'review-copy',
+  label: 'Bob Durand',
+  status: 'ready',
+  phase: 'complete',
+  progress: { completedPages: 2, totalPages: 2, completedCriteria: 3, totalCriteria: 3 },
+  score: 15,
+  updatedAt: '2026-11-02T10:00:00.000Z',
+  error: null,
+};
 
-describe('parcours unifié des copies dans un devoir', () => {
-  it('ouvre le suivi des copies après sélection d’un devoir déjà configuré', () => {
-    expect(app).toContain("getTeacherEntryStep(profile.rubric) === 'copies' ? 'overview' : 'rubric'");
-    expect(app).toContain("teacherStep === 'overview' && <CorrectionOverview");
-    expect(app).toContain("setCopyOverviewFilter('all'); setTeacherStep('overview')");
+describe('CorrectionOverview — comportement enseignant', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  const onRetryJob = vi.fn();
+  const onOpenJob = vi.fn();
+  const onReviewNextCopy = vi.fn();
+  const onFilterChange = vi.fn();
+
+  async function render(filter: 'all' | 'to-retry' | 'to-review' | 'processing' | 'to-do' | 'completed' = 'all') {
+    await act(async () => {
+      root.render(createElement(CorrectionOverview, {
+        jobs: [failedJob, reviewJob],
+        corrections: [],
+        currentCopy: null,
+        filter,
+        onFilterChange,
+        onAddCopy: vi.fn(),
+        onOpenJob,
+        onRetryJob,
+        onOpenCorrection: vi.fn(),
+        onOpenCurrentCopy: vi.fn(),
+        onReviewNextCopy,
+      }));
+    });
+  }
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    onRetryJob.mockClear();
+    onOpenJob.mockClear();
+    onReviewNextCopy.mockClear();
+    onFilterChange.mockClear();
   });
 
-  it('réinitialise le filtre lorsque le professeur change de devoir', () => {
-    expect(app).toContain('function applyAssignment(profile: AssignmentProfile) {\n    setCopyOverviewFilter(\'all\');');
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
   });
 
-  it('propose un seul parcours de suivi quel que soit le mode de correction', () => {
-    expect(overview).toContain("jobs.map((job) => toCopyOverviewStatus(job.status))");
-    expect(overview).toContain("corrections.filter((correction) => Boolean(correction.snapshot))");
-    expect(overview).toContain("labels[key]");
-    expect(overview).toContain('aria-label="Filtrer les copies"');
-    expect(overview).toContain('onFilterChange: (filter: CopyOverviewFilter) => void');
-    expect(app).toContain("setCopyOverviewFilter('completed')");
-    expect(app).toContain('filter={copyOverviewFilter}');
-    expect(overview).toContain('Consulter la correction');
-    expect(overview).toContain('Réviser la copie');
+  it('renders distinct retry and review statuses with explicit counts', async () => {
+    await render();
+    expect(container.textContent).toContain('À reprendre');
+    expect(container.textContent).toContain('À réviser');
+    expect(container.textContent).toContain('Ollama ne répond pas');
+    expect(container.textContent).toContain('2 résultat(s)');
+    expect(container.querySelectorAll('.correction-series-card')).toHaveLength(2);
   });
 
-  it('garde les copies en cours visibles depuis la bibliothèque des devoirs', () => {
-    expect(app).toContain('backgroundJobs={allBackgroundJobs}');
-    expect(app).toContain('backgroundService.subscribe((jobs) => setAllBackgroundJobs(jobs))');
-    expect(app).toContain('backgroundService.listJobs().then((jobs) => { if (active) setAllBackgroundJobs(jobs); })');
-    expect(assignmentsHome).toContain('backgroundJobs: BackgroundCorrectionJob[]');
-    expect(assignmentsHome).toContain("currentCopy: { assignmentId: string; status: 'to-do' | 'processing' | 'to-review' } | null");
-    expect(app).toContain('currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ?');
-    expect(assignmentsHome).toContain('Corrections en cours');
-    expect(assignmentsHome).toContain('À réviser');
-    expect(assignmentsHome).toContain('À corriger');
+  it('filters failed copies separately and offers both retry and open actions', async () => {
+    await render('to-retry');
+    expect(container.querySelectorAll('.correction-series-card')).toHaveLength(1);
+    expect(container.textContent).toContain('Alice Martin');
+    const buttons = [...container.querySelectorAll('button')];
+    await act(async () => buttons.find((button) => button.textContent?.trim() === 'Reprendre')?.click());
+    await act(async () => buttons.find((button) => button.textContent?.trim() === 'Ouvrir')?.click());
+    expect(onRetryJob).toHaveBeenCalledWith('failed-copy');
+    expect(onOpenJob).toHaveBeenCalledWith('failed-copy');
   });
 
-  it('utilise des cartes de taille homogène avec la note au premier plan', () => {
-    expect(styles).toContain('.copy-overview-grid > li.correction-series-card');
-    expect(styles).toContain('grid-auto-rows: 1fr');
-    expect(styles).toContain('.copy-overview-grid .correction-series-card-score');
-    expect(styles).toContain('min-height: 86px');
+  it('offers the quick review action when a copy is ready', async () => {
+    await render();
+    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Réviser la copie suivante'));
+    expect(button).toBeTruthy();
+    await act(async () => button?.click());
+    expect(onReviewNextCopy).toHaveBeenCalledOnce();
+  });
+
+  it('numbers cards by their displayed position and not by the copy label', async () => {
+    await render();
+    const positions = [...container.querySelectorAll('.queue-position')].map((node) => node.textContent);
+    expect(positions).toEqual(['1', '2']);
+  });
+
+  it('searches by student name or copy label and updates the result count', async () => {
+    await render();
+    const input = container.querySelector<HTMLInputElement>('input[type="search"]');
+    expect(input).not.toBeNull();
+    await act(async () => {
+      input!.value = 'alice';
+      input!.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(container.querySelectorAll('.correction-series-card')).toHaveLength(1);
+    expect(container.textContent).toContain('1 résultat(s)');
+    expect(container.textContent).toContain('Alice Martin');
   });
 });
