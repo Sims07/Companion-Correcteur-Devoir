@@ -3,6 +3,28 @@ import type { BackgroundCorrectionStatus } from './backgroundCorrection.ts';
 export type CopyOverviewStatus = 'to-do' | 'processing' | 'to-review' | 'to-retry' | 'completed';
 export type CopyOverviewFilter = 'all' | CopyOverviewStatus;
 
+export interface AssignmentCopyCounts {
+  active: number;
+  pending: number;
+  processing: number;
+  toReview: number;
+  toRetry: number;
+}
+
+export function countAssignmentCopies(
+  jobs: readonly Pick<BackgroundJobSummary, 'assignmentId' | 'status'>[],
+  assignmentId: string,
+): AssignmentCopyCounts {
+  const active = jobs.filter((job) => job.assignmentId === assignmentId && job.status !== 'completed');
+  return {
+    active: active.length,
+    pending: active.filter((job) => job.status === 'pending').length,
+    processing: active.filter((job) => job.status === 'processing').length,
+    toReview: active.filter((job) => ['ready', 'needs-review', 'reviewing'].includes(job.status)).length,
+    toRetry: active.filter((job) => job.status === 'failed').length,
+  };
+}
+
 export interface CopyOverviewCounts {
   all: number;
   toDo: number;
