@@ -72,7 +72,7 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await expect(page.locator('.assignment-details-collapsible')).toBeVisible();
   await expect(page.locator('.assignment-details-collapsible')).not.toHaveAttribute('open', '');
   await expect(page.locator('.teacher-step-nav .teacher-step').nth(1)).toBeVisible();
-  await expect(page.getByRole('button', { name: /Révision/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Vérification/ })).toBeVisible();
 
   await page.getByRole('button', { name: /Copies corrigées/ }).click();
   await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
