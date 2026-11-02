@@ -13,7 +13,7 @@ import { getTeacherEntryStep } from '../domain/teacherJourney.ts';
 import { shouldRunScientificDiagramAnalysis, type ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
 import { routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
 import { accumulateClockwiseRotation, getConfidentDiagramRotation } from '../domain/scientificPageOrientation.ts';
-import { mergeScientificDiagramCriteria, partitionScientificRubric } from '../domain/scientificRubricRouting.ts';
+import { mergeScientificDiagramCriteria, partitionScientificRubric, shouldRunTeacherScientificDiagramWorkflow } from '../domain/scientificRubricRouting.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, GradingProgressEvent, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/diagnosticReference.ts';
@@ -985,7 +985,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       await backgroundService.pauseAndWait();
       if (!validation.valid) throw new Error(validation.errors.join(' '));
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF de la copie.');
-      if (interfaceMode === 'teacher' && apiCompatible) {
+      if (shouldRunTeacherScientificDiagramWorkflow(interfaceMode)) {
         try {
           let classifications = isFreshCorrection ? null : pageClassifications;
           if (!classifications || classifications.length !== images.length) {
