@@ -43,7 +43,7 @@ async function prepareLocalWorkspace(page: Page) {
 }
 
 async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; status: 'ready' | 'failed'; updatedAt: string; error?: string }>) {
-  await page.evaluate(async (input) => {
+  await page.evaluate(async ({ input, rubric: jobRubric, pageImage: image, proposal: readyProposal }) => {
     const request = indexedDB.open('companion-correcteur-devoir', 5);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
@@ -58,10 +58,10 @@ async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; sta
         assignmentId: 'assignment-default',
         label: item.label,
         question: 'Évaluez la réponse manuscrite à la question de biologie.',
-        rubric,
+        rubric: jobRubric,
         correctionMode: 'integrated',
-        images: [pageImage],
-        originalImages: [pageImage],
+        images: [image],
+        originalImages: [image],
         subjectImages: [],
         detectTeacherAnnotations: false,
         annotationInkColor: 'none',
@@ -77,8 +77,8 @@ async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; sta
         completedCriteria: item.status === 'ready' ? 3 : 0,
         totalCriteria: 3,
         transcription: item.status === 'ready' ? 'Transcription de test.' : null,
-        partialCriteria: item.status === 'ready' ? proposal.criteria : [],
-        proposal: item.status === 'ready' ? proposal : null,
+        partialCriteria: item.status === 'ready' ? readyProposal.criteria : [],
+        proposal: item.status === 'ready' ? readyProposal : null,
         error: item.error ?? null,
         imageFingerprint: null,
       });
@@ -89,7 +89,7 @@ async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; sta
       transaction.onabort = () => reject(transaction.error);
     });
     database.close();
-  }, jobs);
+  }, { input: jobs, rubric, pageImage, proposal });
 }
 
 function copyNavigation(page: Page) {
