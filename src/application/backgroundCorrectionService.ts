@@ -305,6 +305,7 @@ export function createBackgroundCorrectionService(
         ...job,
         imageFingerprint: fingerprint,
         transcription: null,
+        transcriptionPageNumbers: undefined,
         subjectTranscription: undefined,
         scientificPageClassifications: undefined,
         scientificDiagramAnalysis: null,

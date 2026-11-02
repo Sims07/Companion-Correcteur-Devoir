@@ -263,7 +263,7 @@ describe('background correction service', () => {
       status: 'needs-review' as const,
       transcription: 'Texte déjà extrait',
       subjectTranscription: 'Ancien sujet transcrit',
-      studentIdentity: { firstName: 'Ancien', lastName: 'Étudiant', confidence: 'high' as const },
+      studentIdentity: { firstName: 'Ancien', lastName: 'Étudiant', studentNumber: null, confidence: 'high' as const },
       partialCriteria: [{ criterionId: 'c1', points: 2, rationale: '', evidence: 'preuve précédente', confidence: 'high' as const }],
       completedCriteria: 1,
       completedPages: 1,
@@ -290,9 +290,10 @@ describe('background correction service', () => {
   it('does not reuse a cached transcription when the same image is imported as a new copy', async () => {
     const f = fixture();
     f.cache.set('fingerprint-1', 'Transcription provenant d’une correction précédente');
+    f.jobs.set(f.job.id, { ...f.job, status: 'completed' });
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
     const settings = { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' };
-    await service.enqueue({ ...f.job, id: 'copy-2', label: 'Copie 2' }, settings);
+    await service.enqueue({ ...f.job, id: 'copy-2', label: 'Copie 2', transcription: 'Transcription déjà présente', partialCriteria: [{ criterionId: 'c1', points: 2, rationale: '', evidence: 'ancienne preuve', confidence: 'high' }], completedCriteria: 1 }, settings);
     for (let attempt = 0; attempt < 50 && f.jobs.get('copy-2')?.status !== 'ready'; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
     expect(f.repository.getCachedTranscription).not.toHaveBeenCalled();
     expect(f.requests[0].images).toEqual(f.job.images);

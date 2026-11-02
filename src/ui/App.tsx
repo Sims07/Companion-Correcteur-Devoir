@@ -1075,7 +1075,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         }
       }
       const shouldRunTextGrading = textImages.length > 0 && gradingRubric.criteria.length > 0;
-      if (shouldRunTextGrading && correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) throw new Error('Importez le sujet de référence pour ce mode de correction.');
+      if (shouldRunTextGrading && correctionMode === 'separate' && !subjectImages.length && (isFreshCorrection || !subjectTranscription)) throw new Error('Importez le sujet de référence pour ce mode de correction.');
       let textProposal: GradingProposal | null = null;
       if (shouldRunTextGrading) {
         const gradingTranscription = isFreshCorrection ? null : transcription;
