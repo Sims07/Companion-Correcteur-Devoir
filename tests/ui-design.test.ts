@@ -164,13 +164,13 @@ describe('UI design system', () => {
     expect(correctionFlowStylesheet).toContain('.review-card-pending.is-active');
     expect(correctionFlowStylesheet).toContain('@media(prefers-reduced-motion:reduce)');
   });
-  it('keeps the teacher entry journey focused on Devoir, Copies and Révision', () => {
+  it('keeps the teacher entry journey focused on Devoir, Copies and Vérification', () => {
     expect(appComponent).toContain("getTeacherEntryStep(readActiveAssignmentProfile().rubric)");
     expect(appComponent).toContain("teacherStep === 'rubric' && <>");
     expect(appComponent).toContain('className="assignment-details-collapsible"');
     expect(appComponent).toContain('className="copy-advanced-options"');
     expect(appComponent).toContain("interfaceMode === 'teacher' ? 'Corriger'");
-    expect(appComponent).toContain('Ajouter une autre copie');
+    expect(appComponent).toContain('Valider et passer à la suivante');
     expect(appComponent).toContain("event.key === 'ArrowDown' || event.key === 'ArrowUp'");
     expect(appComponent).toContain("event.key === 'Enter'");
     expect(stylesheet).toContain('.assignment-details-collapsible');
@@ -204,12 +204,12 @@ describe('UI design system', () => {
     expect(appComponent).not.toContain('Afficher les ${reviewInsights.flaggedCriteriaIds.length} critères à vérifier');
     expect(appComponent).toContain('className="review-workspace"');
     expect(appComponent).toContain('className="review-source-pane"');
-    expect(appComponent).toContain('Copie de référence');
+    expect(appComponent).toContain('Copie de l’étudiant');
     expect(appComponent).toContain('className="review-transcription"');
     expect(appComponent).not.toContain('showSourceEvidence');
     expect(appComponent).toContain('La lecture de la copie mérite une vérification sur l’image originale.');
     expect(appComponent).toContain('correction-batch-progress');
-    expect(appComponent).toContain('Ajouter une autre copie');
+    expect(appComponent).toContain('Valider et passer à la suivante');
     expect(appComponent).toContain('Chaque copie enregistrée reste disponible dans « Corrections enregistrées ».');
     expect(correctionFlowStylesheet).toContain('.review-alerts');
     expect(correctionFlowStylesheet).toContain('.review-workspace { display: grid;');
