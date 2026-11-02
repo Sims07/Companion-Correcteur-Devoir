@@ -13,6 +13,10 @@ describe('parcours unifié des copies dans un devoir', () => {
     expect(app).toContain("setCopyOverviewFilter('all'); setTeacherStep('overview')");
   });
 
+  it('réinitialise le filtre lorsque le professeur change de devoir', () => {
+    expect(app).toContain('function applyAssignment(profile: AssignmentProfile) {\n    setCopyOverviewFilter(\'all\');');
+  });
+
   it('propose un seul parcours de suivi quel que soit le mode de correction', () => {
     expect(overview).toContain("jobs.map((job) => toCopyOverviewStatus(job.status))");
     expect(overview).toContain("corrections.filter((correction) => Boolean(correction.snapshot))");
