@@ -1901,18 +1901,28 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     // A background job keeps running independently; navigating to another queued
     // or processing copy must not be blocked by the foreground copy's analysis flag.
     if (isAnalyzing && !jobId) { setReviewMessage('Attendez la fin du traitement avant de changer de copie.'); return; }
+
     const availableJobs = jobId ? await backgroundService.listJobs(activeAssignmentId) : backgroundJobs;
-    const next = jobId
+    const requestedJob = jobId
       ? availableJobs.find((job) => job.id === jobId && job.assignmentId === activeAssignmentId) ?? null
       : copyNavigation.nextCopyToReview?.job ?? null;
-    if (!next) {
+    if (!requestedJob) {
       setReviewMessage('Aucune autre copie à vérifier pour le moment. Les autres corrections se poursuivent.');
       return;
     }
+
+    // Complete persistence work before publishing the new active copy. Otherwise
+    // the header/rail can briefly point at a job while its queue snapshot is stale,
+    // allowing a fast second navigation to resolve against the previous copy.
+    if (requestedJob.status !== 'failed' && requestedJob.status !== 'processing') {
+      await backgroundService.markForReview(requestedJob.id);
+    }
+    const refreshedJobs = await backgroundService.listJobs(activeAssignmentId);
+    const next = refreshedJobs.find((job) => job.id === requestedJob.id) ?? requestedJob;
     const canReview = Boolean(next.proposal) && ['ready', 'needs-review', 'reviewing'].includes(next.status);
-    // Keep an actively processed job in `processing`: markForReview would
-    // change it to `reviewing` and hide the dedicated in-progress screen.
-    if (next.status !== 'failed' && next.status !== 'processing') await backgroundService.markForReview(next.id);
+
+    // Publish the refreshed queue and selected copy together after all async work.
+    setBackgroundJobs(refreshedJobs);
     setCurrentBackgroundJobId(next.id);
     // The foreground analysis flag belongs to the previously displayed copy.
     // A selected background job has its own persisted status/phase and must
@@ -1945,7 +1955,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setCurrentCorrectionId(null);
     setIsFinalized(false);
     setTeacherStep(canReview || next.status === 'processing' || next.status === 'pending' ? 'review' : 'copy');
-    setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
   }
 
   async function startNextCopy(options: { forceNew?: boolean } = {}) {
