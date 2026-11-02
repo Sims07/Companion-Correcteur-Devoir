@@ -2003,7 +2003,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setDiagnosticRuns([]);
     setStreamedOutput('');
     setTeacherStep('copy');
-    setArchiveMessage('');
   }
 
   function openArchivedCorrection(correction: LocalCorrection) {
@@ -2054,7 +2053,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setCurrentTimingRecordId(snapshot.timingTraceId ?? null);
     setIsFinalized(true);
     setReviewMessage('Correction enregistrée ouverte en lecture et révision locale.');
-    setArchiveMessage('');
     setShowAiSettings(false);
     setTeacherStep('review');
   }
