@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Rubric } from '../domain/rubric.ts';
-import type { BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
+import type { BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import { getAssignmentOverview } from '../domain/assignmentOverview.ts';
 
 type AssignmentCardProfile = {
@@ -19,14 +19,14 @@ type Props = {
   assignments: AssignmentCardProfile[];
   activeAssignmentId: string;
   archivedCorrections: ArchivedCopy[];
-  backgroundJobs: BackgroundCorrectionJob[];
+  backgroundJobs: BackgroundJobSummary[];
   onCreate: () => void;
   onOpen: (profile: AssignmentCardProfile) => void;
   onDelete: (profile: AssignmentCardProfile) => void;
   onReturn: () => void;
   disabled: boolean;
 };
-type Filter = 'all' | 'with-corrections' | 'to-prepare';
+type Filter = 'all' | 'with-copies' | 'to-prepare';
 
 export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorrections, backgroundJobs, currentCopy, onCreate, onOpen, onDelete, onReturn, disabled }: Props) {
   const [query, setQuery] = useState('');
@@ -44,7 +44,7 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
       <label className="assignments-search"><span aria-hidden="true">⌕</span><input type="search" aria-label="Rechercher un devoir" placeholder="Rechercher par nom, formation…" value={query} onChange={(event) => setQuery(event.target.value)} /><kbd>⌘ K</kbd></label>
       <div className="assignments-filters" role="group" aria-label="Filtrer les devoirs">
         <button type="button" className={filter === 'all' ? 'active' : ''} aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>Tous <span>{assignments.length}</span></button>
-        <button type="button" className={filter === 'with-corrections' ? 'active' : ''} aria-pressed={filter === 'with-corrections'} onClick={() => setFilter('with-corrections')}>Avec corrections <span>{correctionCount}</span></button>
+        <button type="button" className={filter === 'with-copies' ? 'active' : ''} aria-pressed={filter === 'with-corrections'} onClick={() => setFilter('with-copies')}>Avec copies <span>{correctionCount}</span></button>
         <button type="button" className={filter === 'to-prepare' ? 'active' : ''} aria-pressed={filter === 'to-prepare'} onClick={() => setFilter('to-prepare')}>À préparer <span>{preparationCount}</span></button>
       </div>
     </div>
@@ -52,17 +52,18 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
       const active = profile.id === activeAssignmentId;
       const activeJobs = backgroundJobs.filter((job) => job.assignmentId === profile.id && job.status !== 'completed');
       const processingCount = activeJobs.filter((job) => job.status === 'processing').length + (currentCopy?.assignmentId === profile.id && currentCopy.status === 'processing' ? 1 : 0);
-      const reviewCount = activeJobs.filter((job) => ['ready', 'needs-review', 'reviewing', 'failed'].includes(job.status)).length + (currentCopy?.assignmentId === profile.id && currentCopy.status === 'to-review' ? 1 : 0);
+      const reviewCount = activeJobs.filter((job) => ['ready', 'needs-review', 'reviewing'].includes(job.status)).length + (currentCopy?.assignmentId === profile.id && currentCopy.status === 'to-review' ? 1 : 0);
+      const retryCount = activeJobs.filter((job) => job.status === 'failed').length;
       const pendingCount = activeJobs.filter((job) => job.status === 'pending').length + (currentCopy?.assignmentId === profile.id && currentCopy.status === 'to-do' ? 1 : 0);
       const totalCopies = archivedCount + activeJobs.length + (currentCopy?.assignmentId === profile.id ? 1 : 0);
-      const statusLabel = processingCount ? 'Corrections en cours' : reviewCount ? 'À réviser' : pendingCount ? 'À corriger' : archivedCount ? 'Corrections terminées' : ready ? 'Prêt à corriger' : 'En préparation';
+      const statusLabel = retryCount ? 'À reprendre' : processingCount ? 'Corrections en cours' : reviewCount ? 'À réviser' : pendingCount ? 'À corriger' : archivedCount ? 'Corrections terminées' : ready ? 'Prêt à corriger' : 'En préparation';
       return <article className={active ? 'assignment-overview-card is-active' : 'assignment-overview-card'} key={profile.id}>
         <div className="assignment-overview-top"><span className="assignment-overview-icon" aria-hidden="true">▤</span><span className={totalCopies ? 'assignment-status has-corrections' : ready ? 'assignment-status ready' : 'assignment-status preparing'}>{statusLabel}</span></div>
         <div className="assignment-overview-title"><h3>{profile.title.trim() || 'Devoir sans titre'}</h3>{active && <span className="assignment-active-label">Actif</span>}</div>
         <p className="assignment-overview-meta">{profile.educationLevel || 'Formation non renseignée'}</p>
         {profile.description && <p className="assignment-overview-description">{profile.description}</p>}
         <div className="assignment-overview-stats"><strong>{totalCopies}</strong><span>copie(s)</span><span className="assignment-stat-separator">·</span><span>{profile.rubric.criteria.length} critères</span><span className="assignment-stat-separator">·</span><span>{maximumPoints} points</span></div>
-        {activeJobs.length > 0 && <p className="assignment-overview-activity">{processingCount} en cours · {pendingCount} à corriger · {reviewCount} à réviser</p>}
+        {activeJobs.length > 0 && <p className="assignment-overview-activity">{retryCount} à reprendre · {reviewCount} à réviser · {processingCount} en cours · {pendingCount} à corriger</p>}
         <div className="assignment-overview-actions"><button type="button" className="assignment-open-button" onClick={() => onOpen(profile)} disabled={disabled}>{active ? 'Reprendre le devoir' : ready ? 'Ouvrir le devoir' : 'Configurer le devoir'} <span aria-hidden="true">→</span></button><details className="assignment-overview-menu"><summary aria-label={'Actions pour ' + (profile.title.trim() || 'devoir sans titre')}>···</summary><div><button type="button" onClick={() => onDelete(profile)} disabled={disabled || assignments.length <= 1}>Supprimer</button></div></details></div>
       </article>;
     })}</div> : <div className="assignments-empty"><span aria-hidden="true">⌕</span><h3>Aucun devoir trouvé</h3><p>Modifiez votre recherche ou créez un nouveau devoir.</p><button type="button" className="secondary-button" onClick={() => { setQuery(''); setFilter('all'); }}>Effacer les filtres</button></div>}
