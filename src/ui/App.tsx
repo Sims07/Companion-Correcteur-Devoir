@@ -2588,6 +2588,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         onOpenJob={(jobId) => { void loadNextQueuedCopy(jobId); }}
         onRetryJob={(jobId) => { void backgroundService.retry(jobId, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}
         onReviewNextCopy={() => {
+          if (images.length > 0 && !currentBackgroundJobId && proposal) {
+            setTeacherStep('review');
+            return;
+          }
           const next = allBackgroundJobs
             .filter((job) => job.assignmentId === activeAssignmentId && ['ready', 'needs-review', 'reviewing'].includes(job.status))
             .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
