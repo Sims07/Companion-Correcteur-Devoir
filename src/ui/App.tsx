@@ -2099,8 +2099,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setCurrentBackgroundJobId(null);
     if (!snapshot) return;
     const archivedTitle = snapshot.assignmentTitle || correction.assignmentTitle || assignmentTitle;
-    let matchingAssignment = (correction.assignmentId ? assignmentProfiles.find((profile) => profile.id === correction.assignmentId) : undefined)
-      ?? assignmentProfiles.find((profile) => profile.title === archivedTitle);
+    // An archived correction's assignment id is authoritative. Matching only
+    // by title can silently attach it to a different assignment with the same name.
+    let matchingAssignment = correction.assignmentId
+      ? assignmentProfiles.find((profile) => profile.id === correction.assignmentId)
+      : assignmentProfiles.find((profile) => profile.title === archivedTitle);
     if (!matchingAssignment) {
       matchingAssignment = {
         // Preserve the assignment identity stored with the correction. Generating
