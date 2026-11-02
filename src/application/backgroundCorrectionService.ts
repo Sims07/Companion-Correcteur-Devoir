@@ -133,7 +133,7 @@ export function createBackgroundCorrectionService(
             if (current.transcriptionPageNumbers?.join('|') !== transcriptionPageNumbersKey) {
               current = {
                 ...current,
-                transcription: await repository.getCachedTranscription(transcriptionFingerprint),
+                transcription: null,
                 transcriptionPageNumbers: textPageNumbers,
               };
             }
