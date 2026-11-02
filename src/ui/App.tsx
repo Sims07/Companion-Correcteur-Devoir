@@ -495,6 +495,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const reviewJobs = backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId);
   const reviewCurrentIndex = reviewJobs.findIndex((job) => job.id === currentBackgroundJobId);
   const previousReviewJob = reviewCurrentIndex > 0 ? reviewJobs[reviewCurrentIndex - 1] : null;
+  const archivedReviewIndex = archivedCorrectionsForActiveAssignment.findIndex((correction) => correction.id === currentCorrectionId);
+  const previousArchivedCorrection = archivedReviewIndex > 0 ? archivedCorrectionsForActiveAssignment[archivedReviewIndex - 1] : null;
+  const nextArchivedCorrection = archivedReviewIndex >= 0 && archivedReviewIndex < archivedCorrectionsForActiveAssignment.length - 1 ? archivedCorrectionsForActiveAssignment[archivedReviewIndex + 1] : null;
   const reviewPosition = currentBackgroundJobId ? reviewNavigation.currentPosition ?? 1 : Math.max(1, archivedCorrectionsForActiveAssignment.findIndex((correction) => correction.id === currentCorrectionId) + 1);
   const reviewTotalCopies = currentBackgroundJobId ? reviewNavigation.totalCopies : Math.max(1, archivedCorrectionsForActiveAssignment.length);
   useEffect(() => {
@@ -3074,8 +3077,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           isAnalyzing={isAnalyzing}
           isFinalized={isFinalized}
           canValidate={review.length === rubric.criteria.length}
-          onPrevious={() => { if (previousReviewJob) void loadNextQueuedCopy(previousReviewJob.id); }}
-          onNext={() => { if (reviewNavigation.nextCopy) void loadNextQueuedCopy(reviewNavigation.nextCopy.id); }}
+          onPrevious={() => {
+            if (currentBackgroundJobId && previousReviewJob) void loadNextQueuedCopy(previousReviewJob.id);
+            else if (!currentBackgroundJobId && previousArchivedCorrection) openArchivedCorrection(previousArchivedCorrection);
+          }}
+          onNext={() => {
+            if (currentBackgroundJobId && reviewNavigation.nextCopy) void loadNextQueuedCopy(reviewNavigation.nextCopy.id);
+            else if (!currentBackgroundJobId && nextArchivedCorrection) openArchivedCorrection(nextArchivedCorrection);
+          }}
           onValidate={() => void finalizeReview(true)}
         />
         {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || (studentIdentity !== null && studentIdentity.confidence !== 'high')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
