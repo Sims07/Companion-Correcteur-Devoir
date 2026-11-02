@@ -3153,7 +3153,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 
-      {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => {
+      {(proposal || isAnalyzing || review.length > 0 || Boolean(activeBackgroundJob) || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
           event.preventDefault();
           if (!isAnalyzing && !isFinalized && review.length === rubric.criteria.length) void finalizeReview(true);
