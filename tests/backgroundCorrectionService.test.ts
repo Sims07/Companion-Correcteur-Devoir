@@ -141,6 +141,18 @@ describe('background correction service', () => {
     expect(f.jobs.get('copy-1')?.status).toBe('ready');
   });
 
+  it('keeps a prewarmed vision model resident when foreground correction pauses the background queue', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' };
+
+    await service.prewarm(settings);
+    await service.pauseAndWait();
+
+    expect(f.workspace.prewarmModel).toHaveBeenCalledWith(settings, 'vision:4b');
+    expect(f.workspace.unloadModel).not.toHaveBeenCalled();
+  });
+
   it('prewarms, caches transcription and grades one criterion per sequential provider call', async () => {
     const f = fixture();
     const service = createBackgroundCorrectionService(f.repository, f.workspace);

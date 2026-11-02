@@ -368,10 +368,9 @@ export function createBackgroundCorrectionService(
       paused = true;
       if (prewarmPromise) await prewarmPromise.catch(() => undefined);
       if (activeLoop) await activeLoop;
-      if (prewarmedModel && prewarmSettings) await workspace.unloadModel?.(prewarmSettings, prewarmedModel).catch(() => undefined);
-      prewarmedModel = null;
-      prewarmKey = '';
-      prewarmUntil = 0;
+      // Foreground correction takes priority over background jobs, but it may use
+      // the model that was just prewarmed for this copy. Keep it resident so the
+      // foreground request can benefit from the preload instead of unloading it.
     },
     async stopAndWait() {
       paused = true;
