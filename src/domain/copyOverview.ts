@@ -1,4 +1,4 @@
-import type { BackgroundCorrectionStatus } from './backgroundCorrection.ts';
+import type { BackgroundCorrectionStatus, BackgroundJobSummary } from './backgroundCorrection.ts';
 
 export type CopyOverviewStatus = 'to-do' | 'processing' | 'to-review' | 'to-retry' | 'completed';
 export type CopyOverviewFilter = 'all' | CopyOverviewStatus;
