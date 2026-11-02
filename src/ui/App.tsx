@@ -24,7 +24,7 @@ import type { RubricImportProgress } from '../ports/correctionWorkspace.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
-import { createBackgroundCorrection, backgroundCorrectionStatusLabel, findBackgroundCorrectionToOpen, type BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
+import { createBackgroundCorrection, backgroundCorrectionStatusLabel, findBackgroundCorrectionToOpen, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import { getBackgroundCorrectionResult } from '../domain/backgroundCorrectionResult.ts';
 import { getBackgroundCorrectionReviewNavigation } from '../domain/backgroundCorrectionReviewNavigation.ts';
 import { prepareBatchCopies } from '../application/prepareBatchCopies.ts';
@@ -33,10 +33,12 @@ import type { BackgroundCorrectionService } from '../application/backgroundCorre
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { getArchivedCorrectionsForAssignment } from '../domain/assignmentOverview.ts';
+import { defaultCopyOverviewFilter, toCopyOverviewStatus, type CopyOverviewFilter } from '../domain/copyOverview.ts';
 import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/teacherAnnotations.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
 import { AssignmentsHome } from './AssignmentsHome.tsx';
+import { CorrectionOverview } from './CorrectionOverview.tsx';
 
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
@@ -272,12 +274,15 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     enqueue: async () => undefined,
     updateImages: async () => undefined,
     listJobs: async () => [],
+    listJobSummaries: async () => [],
     prewarm: async () => undefined,
     pauseAndWait: async () => undefined,
     resume: () => undefined,
     processPending: async () => undefined,
     subscribe: () => () => undefined,
+    subscribeSummaries: () => () => undefined,
     markForReview: async () => undefined,
+    saveReviewDraft: async () => undefined,
     markCompleted: async () => undefined,
     remove: async () => undefined,
     retry: async () => undefined,
@@ -286,11 +291,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
   const [showAssignmentsHome, setShowAssignmentsHome] = useState(true);
+  const [copyOverviewFilter, setCopyOverviewFilter] = useState<CopyOverviewFilter>('all');
+  const [copyOverviewFilterTouched, setCopyOverviewFilterTouched] = useState(false);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, AssignmentDraft>>({});
   const [assignmentTitle, setAssignmentTitle] = useState(() => readActiveAssignmentProfile().title);
   const [assignmentDescription, setAssignmentDescription] = useState(() => readActiveAssignmentProfile().description ?? '');
   const [educationLevel, setEducationLevel] = useState(() => readActiveAssignmentProfile().educationLevel ?? '');
-  const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'copy' : 'rubric');
+  const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric');
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
@@ -358,6 +365,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [copyViewerRotation, setCopyViewerRotation] = useState(0);
   const [originalImages, setOriginalImages] = useState<ImageInput[]>([]);
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
+  const [allBackgroundJobs, setAllBackgroundJobs] = useState<BackgroundJobSummary[]>([]);
   const [selectedSeriesPreviewId, setSelectedSeriesPreviewId] = useState<string | null>(null);
   const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
   const [backgroundCopyLabel, setBackgroundCopyLabel] = useState('');
@@ -373,6 +381,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   useEffect(() => backgroundService.subscribe((jobs) => {
     setBackgroundJobs(jobs.filter((job) => job.assignmentId === activeAssignmentId));
   }), [backgroundCorrectionService, activeAssignmentId]);
+  useEffect(() => backgroundService.subscribeSummaries((jobs) => setAllBackgroundJobs(jobs)), [backgroundCorrectionService]);
+  useEffect(() => {
+    let active = true;
+    void backgroundService.listJobSummaries().then((jobs) => { if (active) setAllBackgroundJobs(jobs); });
+    return () => { active = false; };
+  }, [backgroundCorrectionService]);
   useEffect(() => {
     let active = true;
     void backgroundService.listJobs(activeAssignmentId).then((jobs) => { if (active) setBackgroundJobs(jobs); });
@@ -465,7 +479,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     () => getArchivedCorrectionsForAssignment(assignmentProfiles, archivedCorrections, activeAssignmentId),
     [assignmentProfiles, archivedCorrections, activeAssignmentId],
   );
-  const [archiveMessage, setArchiveMessage] = useState('');
   const [review, setReview] = useState<ReviewedCriterion[]>([]);
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(true);
   const [focusedEvidencePage, setFocusedEvidencePage] = useState<number | null>(null);
@@ -477,6 +490,18 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
   const reviewedTotal = criterionProgress.provisionalPoints;
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
+  useEffect(() => {
+    if (copyOverviewFilterTouched) return;
+    const statuses = [
+      ...allBackgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').map((job) => toCopyOverviewStatus(job.status)),
+      ...archivedCorrectionsForActiveAssignment.filter((correction) => Boolean(correction.snapshot)).map(() => 'completed' as const),
+      ...(images.length > 0 && !isFinalized && !currentBackgroundJobId
+        ? [isAnalyzing ? 'processing' as const : proposal ? 'to-review' as const : 'to-do' as const]
+        : []),
+    ];
+    setCopyOverviewFilter(defaultCopyOverviewFilter(statuses));
+  }, [activeAssignmentId, allBackgroundJobs, archivedCorrectionsForActiveAssignment, copyOverviewFilterTouched, currentBackgroundJobId, images.length, isAnalyzing, isFinalized, proposal]);
+
   const reviewFocus = useMemo(() => getReviewFocus(review, rubric.criteria), [review, rubric.criteria]);
   const flaggedCriteriaIds = useMemo(() => new Set(reviewFocus.flaggedCriteriaIds), [reviewFocus]);
   const reliableCriteriaCount = reviewFocus.reliableCriteriaIds.length;
@@ -563,7 +588,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     void archiveService.listCorrections().then((items) => {
       if (active) setArchivedCorrections(items.filter((item) => Boolean(item.snapshot)));
     }).catch(() => {
-      if (active) setArchiveMessage('Impossible de lire les corrections enregistrées sur cet appareil.');
+      if (active) setError('Impossible de lire les corrections enregistrées sur cet appareil.');
     });
     return () => { active = false; };
   }, [archiveService]);
@@ -1469,7 +1494,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setArchivedCorrections(saved.filter((item) => Boolean(item.snapshot)));
       setCurrentCorrectionId(id);
       setIsFinalized(true);
-      setArchiveMessage('Correction enregistrée localement avec la copie et les éléments de révision.');
       const memoryStatus = memorySaveFailed
         ? ` ${savedDecisionCount} décision(s) ont été conservées, mais la mémoire locale n’a pas pu être entièrement mise à jour.`
         : savedDecisionCount > 0
@@ -1478,7 +1502,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setReviewMessage(teacherQuestions.trim()
         ? `Correction enregistrée sur cet appareil.${memoryStatus} Relisez les questions ouvertes avant de communiquer la note.`
         : `Correction enregistrée sur cet appareil.${memoryStatus} Vous pourrez la retrouver dans « Corrections enregistrées ».`);
-      if (advanceToNextCopy) startNextCopy();
+      if (advanceToNextCopy) await startNextCopy();
+      else { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); }
     } catch {
       setIsFinalized(false);
       setReviewMessage('La correction n’a pas pu être archivée dans le stockage local. Vérifiez l’espace disponible du navigateur puis réessayez.');
@@ -1494,6 +1519,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   function applyAssignment(profile: AssignmentProfile) {
+    setCopyOverviewFilter('all');
+    setCopyOverviewFilterTouched(false);
     setCurrentBackgroundJobId(null);
     setShowOnlyFlagged(true);
     setFocusedEvidencePage(null);
@@ -1533,7 +1560,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setStreamedOutput('');
     setDiagnosticRuns([]);
     setShowAiSettings(false);
-    setTeacherStep(draft?.proposal ? 'review' : getTeacherEntryStep(profile.rubric) === 'copies' ? 'copy' : 'rubric');
+    setTeacherStep(getTeacherEntryStep(profile.rubric) === 'copies' ? 'overview' : 'rubric');
   }
 
   function switchAssignment(profile: AssignmentProfile) {
@@ -1841,8 +1868,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setReviewMessage('Aucune autre copie n’est prête à réviser pour le moment. Les autres corrections se poursuivent.');
       return;
     }
-    const canReview = next.status === 'ready' || (next.status === 'reviewing' && next.completedCriteria === next.totalCriteria && Boolean(next.proposal));
-    await backgroundService.markForReview(next.id);
+    const canReview = Boolean(next.proposal) && ['ready', 'needs-review', 'reviewing'].includes(next.status);
+    if (next.status !== 'failed') await backgroundService.markForReview(next.id);
     setCurrentBackgroundJobId(next.id);
     setStudentLabel(next.studentIdentity ? (formatStudentIdentityLabel(next.studentIdentity) ?? next.label) : next.label);
     setStudentIdentity(next.studentIdentity ?? null);
@@ -1861,21 +1888,95 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setPageClassifications(next.scientificPageClassifications ?? null);
     setScientificDiagramError('');
     setProposal(canReview && next.proposal ? structuredClone(next.proposal) : null);
-    setReview(canReview && next.proposal ? toReviewedCriteria(next.proposal) : []);
-    setTeacherQuestions(canReview && next.proposal ? next.proposal.questionsForTeacher.join('\\n') : '');
+    setReview(canReview && next.proposal ? structuredClone(next.reviewDraft ?? toReviewedCriteria(next.proposal)) : []);
+    setTeacherQuestions(canReview && next.proposal ? next.teacherQuestionsDraft ?? next.proposal.questionsForTeacher.join('\\n') : '');
     setShowOnlyFlagged(true);
     setReviewMessage(canReview ? 'Correction prête. Examinez les propositions signalées avant validation. Examinez les propositions signalées avant validation.' : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés localement.');
     setError(next.error ?? '');
     setCurrentCorrectionId(null);
     setIsFinalized(false);
     setTeacherStep(canReview ? 'review' : 'copy');
-    setArchiveMessage('');
     setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
   }
 
-  function startNextCopy() {
-    const readyExists = backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && (job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)) && job.id !== currentBackgroundJobId);
-    if (readyExists) { void loadNextQueuedCopy(); return; }
+  async function startNextCopy(options: { forceNew?: boolean } = {}) {
+    if (isAnalyzing) return;
+    const forceNew = options.forceNew ?? false;
+    const readyExists = !forceNew && backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && (job.status === 'ready' || (job.status === 'reviewing' && Boolean(job.proposal))) && job.id !== currentBackgroundJobId);
+    if (readyExists) { await loadNextQueuedCopy(); return; }
+
+    if (currentBackgroundJobId && !isFinalized) {
+      try {
+        await backgroundService.saveReviewDraft(currentBackgroundJobId, structuredClone(review), teacherQuestions);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Impossible de sauvegarder votre révision avant de passer à la copie suivante.');
+        return;
+      }
+    }
+
+    // A foreground copy may not have been queued yet. Persist it before resetting
+    // the editor so "Ajouter une copie" cannot discard pages or teacher revisions.
+    if (!currentBackgroundJobId && images.length > 0 && !isFinalized) {
+      if (!validation.valid) {
+        setError('Vérifiez le barème avant de sauvegarder cette copie dans le suivi.');
+        return;
+      }
+      try {
+        const now = new Date().toISOString();
+        const id = `queued-copy-${crypto.randomUUID()}`;
+        const label = studentLabel.trim() || images[0]?.fileName || `Copie ${backgroundJobs.length + 1}`;
+        const savedProposal = proposal ? structuredClone(proposal) : null;
+        const savedCriteria = savedProposal?.criteria ?? [];
+        const savedJob: BackgroundCorrectionJob = {
+          ...createBackgroundCorrection({
+            id,
+            assignmentId: activeAssignmentId,
+            label,
+            studentIdentity,
+            question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
+            rubric: structuredClone(rubric),
+            correctionMode,
+            images: structuredClone(images),
+            originalImages: structuredClone(originalImages),
+            subjectImages: structuredClone(subjectImages),
+            ...(subjectTranscription ? { subjectTranscription } : {}),
+            scientificPageClassifications: pageClassifications ?? undefined,
+            scientificDiagramAnalysis,
+            detectTeacherAnnotations,
+            annotationInkColor,
+            annotationInkColorApplied,
+            visionModel,
+            analysisModel,
+            thinking: analysisThinking,
+            createdAt: now,
+            updatedAt: now,
+          }),
+          status: savedProposal ? (savedCriteria.length === rubric.criteria.length ? 'ready' : 'needs-review') : 'pending',
+          phase: savedProposal ? 'complete' : 'preparation',
+          completedPages: transcription ? images.length : 0,
+          completedCriteria: savedCriteria.length,
+          totalCriteria: rubric.criteria.length,
+          transcription,
+          partialCriteria: savedCriteria,
+          proposal: savedProposal,
+          reviewDraft: structuredClone(review),
+          teacherQuestionsDraft: teacherQuestions,
+          error: null,
+          updatedAt: now,
+        };
+        await backgroundService.enqueue(savedJob, {
+          endpoint, apiCompatible, apiKey, visionModel, analysisModel,
+          thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection,
+          transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
+          transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
+        });
+        setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Impossible de sauvegarder la copie avant de passer à la suivante.');
+        return;
+      }
+    }
+
     setCurrentBackgroundJobId(null);
     setStudentLabel('');
     setStudentIdentity(null);
@@ -1902,14 +2003,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setDiagnosticRuns([]);
     setStreamedOutput('');
     setTeacherStep('copy');
-    setArchiveMessage('');
   }
 
   function openArchivedCorrection(correction: LocalCorrection) {
     const snapshot = correction.snapshot;
     if (!snapshot) return;
     const archivedTitle = snapshot.assignmentTitle || correction.assignmentTitle || assignmentTitle;
-    let matchingAssignment = assignmentProfiles.find((profile) => profile.title === archivedTitle);
+    let matchingAssignment = (correction.assignmentId ? assignmentProfiles.find((profile) => profile.id === correction.assignmentId) : undefined)
+      ?? assignmentProfiles.find((profile) => profile.title === archivedTitle);
     if (!matchingAssignment) {
       matchingAssignment = {
         id: `assignment-${crypto.randomUUID()}`,
@@ -1952,7 +2053,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setCurrentTimingRecordId(snapshot.timingTraceId ?? null);
     setIsFinalized(true);
     setReviewMessage('Correction enregistrée ouverte en lecture et révision locale.');
-    setArchiveMessage('');
     setShowAiSettings(false);
     setTeacherStep('review');
   }
@@ -1986,6 +2086,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         assignments={assignmentProfiles}
         activeAssignmentId={activeAssignmentId}
         archivedCorrections={archivedCorrections}
+        backgroundJobs={allBackgroundJobs}
+        currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ? { assignmentId: activeAssignmentId, status: isAnalyzing ? 'processing' : proposal ? 'to-review' : 'to-do' } : null}
         onCreate={() => { createNewAssignment(); setShowAssignmentsHome(false); }}
         onOpen={(profile) => { switchAssignment(profile); setShowAssignmentsHome(false); }}
         onDelete={deleteAssignment}
@@ -2016,14 +2118,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <button type="button" className={(teacherStep === 'details' || teacherStep === 'rubric') && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={(teacherStep === 'details' || teacherStep === 'rubric') && !showAiSettings ? 'step' : undefined} onClick={() => { setShowAiSettings(false); setTeacherStep('rubric'); }}>
             <span className="teacher-step-number">1</span><span><strong>Devoir</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères · Modifier</small></span>
           </button>
-          <button type="button" className={teacherStep === 'copy' && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={teacherStep === 'copy' && !showAiSettings ? 'step' : undefined} disabled={!validation.valid} onClick={() => { setShowAiSettings(false); setTeacherStep('copy'); }}>
-            <span className="teacher-step-number">2</span><span><strong>Copies</strong><small>{images.length ? images.length + ' page(s) importée(s)' : 'Sujet et pages étudiant'}</small></span>
+          <button type="button" className={(teacherStep === 'copy' || (teacherStep === 'overview' && copyOverviewFilter !== 'completed')) && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={(teacherStep === 'copy' || (teacherStep === 'overview' && copyOverviewFilter !== 'completed')) && !showAiSettings ? 'step' : undefined} disabled={!validation.valid} onClick={() => { setShowAiSettings(false); setCopyOverviewFilterTouched(false); setTeacherStep('overview'); }}>
+            <span className="teacher-step-number">2</span><span><strong>Copies</strong><small>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').length + archivedCorrectionsForActiveAssignment.length} copie(s) · suivi et révision</small></span>
           </button>
           <button type="button" className={(teacherStep === 'progress' || teacherStep === 'review') && !showAiSettings ? 'teacher-step active' : 'teacher-step'} aria-current={(teacherStep === 'progress' || teacherStep === 'review') && !showAiSettings ? 'step' : undefined} disabled={!proposal && !isAnalyzing} onClick={() => { setShowAiSettings(false); setTeacherStep(isAnalyzing ? 'progress' : 'review'); }}>
             <span className="teacher-step-number">3</span><span><strong>{isAnalyzing ? 'Correction en cours' : 'Révision'} </strong><small>{isAnalyzing ? analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length}/${images.length}` : analysisStage === 'grading' ? `Correction · critère ${criterionProgressPosition?.index ?? Object.values(criterionStatuses).filter((status) => status === 'completed').length}/${criterionProgressPosition?.total ?? rubric.criteria.length}` : 'Préparation' : proposal ? pendingCount + ' critère(s) à valider' : 'Disponible après analyse'}</small></span>
           </button>
         </nav>
-        <button type="button" className={teacherStep === 'archive' && !showAiSettings ? 'sidebar-archive-button active' : 'sidebar-archive-button'} onClick={() => { setShowAiSettings(false); setTeacherStep('archive'); }} disabled={isAnalyzing}><span aria-hidden="true">▤</span><span><strong>Corrections enregistrées</strong><small>{archivedCorrectionsForActiveAssignment.length} copie(s) archivée(s)</small></span></button>
+        <button type="button" className={copyOverviewFilter === 'completed' && teacherStep === 'overview' && !showAiSettings ? 'sidebar-archive-button active' : 'sidebar-archive-button'} aria-current={copyOverviewFilter === 'completed' && teacherStep === 'overview' && !showAiSettings ? 'page' : undefined} onClick={() => { setShowAiSettings(false); setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); }} disabled={isAnalyzing}><span aria-hidden="true">▤</span><span><strong>Copies corrigées</strong><small>{archivedCorrectionsForActiveAssignment.length} copie(s) validée(s)</small></span></button>
         <div className="teacher-sidebar-footer">
           <div className={isAnalyzing ? "sidebar-local-status is-processing" : "sidebar-local-status"} role={isAnalyzing ? "status" : undefined} aria-live={isAnalyzing ? "polite" : undefined}>
             <span aria-hidden="true">{isAnalyzing ? "◌" : "●"}</span>
@@ -2476,16 +2578,30 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
 
         </details>
-</section> : (interfaceMode === 'diagnostic' || !showAiSettings) && <>      {interfaceMode === 'teacher' && teacherStep === 'archive' && <section className="correction-archive" aria-labelledby="correction-archive-title">
-        <div className="workspace-heading"><div><p className="eyebrow">HISTORIQUE LOCAL</p><h2 id="correction-archive-title">Corrections enregistrées</h2><p>Retrouvez les copies finalisées, leur note validée et les éléments de preuve. Tout reste stocké dans ce navigateur.</p></div><span className="step-count">{archivedCorrectionsForActiveAssignment.length} COPIE(S)</span></div>
-        {archiveMessage && <p className="validation" role="status">{archiveMessage}</p>}
-        {archivedCorrectionsForActiveAssignment.length === 0 ? <div className="panel archive-empty"><span className="archive-empty-icon" aria-hidden="true">▤</span><h3>Aucune correction enregistrée pour le moment</h3><p>Une fois une correction finalisée, elle apparaîtra ici avec sa copie, sa transcription et la note validée.</p><button type="button" className="primary-button" onClick={() => { setTeacherStep('copy'); setShowAiSettings(false); }}>Ajouter une copie</button></div> : <div className="archive-list">{archivedCorrectionsForActiveAssignment.map((item) => {
-          const snapshot = item.snapshot!;
-          const total = snapshot.review.reduce((sum, criterion) => sum + criterion.teacherPoints, 0);
-          return <article className="panel archive-card" key={item.id}><div className="archive-card-main"><div><span className="archive-status">✓ FINALISÉE</span><h3>{item.label}</h3><p>{item.assignmentTitle || snapshot.assignmentTitle} · {snapshot.images.length} page(s)</p><small>Finalisée le {new Date(item.updatedAt).toLocaleString('fr-FR')}</small></div><strong className="archive-score">{total} <span>/ {snapshot.maximumPoints}</span></strong></div><div className="archive-card-actions"><button type="button" className="secondary-button" onClick={() => openArchivedCorrection(item)}>Consulter la correction</button><button type="button" className="text-button" onClick={() => { if (window.confirm('Supprimer définitivement cette correction de cet appareil ?')) { void archiveService.deleteCorrection(item.id).then(() => archiveService.listCorrections()).then((items) => setArchivedCorrections(items.filter((entry) => Boolean(entry.snapshot)))).catch(() => setArchiveMessage('La suppression a échoué. Réessayez.')); } }}>Supprimer</button></div></article>;
-        })}</div>}
-        <div className="archive-footer"><button type="button" className="primary-button" onClick={startNextCopy}>+ Ajouter une autre copie</button><p>Les copies archivées ne sont pas envoyées dans le cloud. Elles occupent de l’espace dans le stockage local de ce navigateur.</p></div>
-      </section>}
+</section> : (interfaceMode === 'diagnostic' || !showAiSettings) && <>      {interfaceMode === 'teacher' && teacherStep === 'overview' && <CorrectionOverview
+        jobs={allBackgroundJobs.filter((job) => job.assignmentId === activeAssignmentId)}
+        corrections={archivedCorrectionsForActiveAssignment}
+        filter={copyOverviewFilter}
+        onFilterChange={(filter) => { setCopyOverviewFilterTouched(true); setCopyOverviewFilter(filter); }}
+        currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ? { label: studentLabel || images[0]?.fileName || 'Copie en cours', pageCount: images.length, status: isAnalyzing ? 'processing' : proposal ? 'to-review' : 'to-do', score: proposal ? reviewedTotal : null, maximumPoints: validation.maximumPoints, updatedAt: '9999-12-31T23:59:59.999Z' } : null}
+        onAddCopy={() => startNextCopy({ forceNew: true })}
+        onOpenJob={(jobId) => { void loadNextQueuedCopy(jobId); }}
+        onRetryJob={(jobId) => { void backgroundService.retry(jobId, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}
+        onReviewNextCopy={() => {
+          if (images.length > 0 && !currentBackgroundJobId && proposal) {
+            setTeacherStep('review');
+            return;
+          }
+          const next = allBackgroundJobs
+            .filter((job) => job.assignmentId === activeAssignmentId && ['ready', 'needs-review', 'reviewing'].includes(job.status))
+            .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+          if (next) void loadNextQueuedCopy(next.id);
+          else if (images.length > 0 && !currentBackgroundJobId) setTeacherStep(proposal ? 'review' : 'copy');
+        }}
+        onOpenCorrection={(correction) => { openArchivedCorrection(correction); }}
+        onOpenCurrentCopy={() => { setShowAiSettings(false); setTeacherStep(proposal ? 'review' : 'copy'); }}
+      />}
+
       {interfaceMode === 'teacher' && teacherStep === 'rubric' && <>
         <details className="assignment-details-collapsible">
           <summary><span><strong>Devoir</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères</small></span><span className="assignment-details-edit">Modifier</span></summary>
@@ -2597,7 +2713,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="rubric-actions"><button className="secondary-button" onClick={addCriterion}>+ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
       </section>
 
-      {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Le devoir est prêt ? Ajoutez les copies à corriger.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('copy')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
+      {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Le devoir est prêt ? Ajoutez les copies à corriger.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('overview')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
       </>}
 
       {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration') || (interfaceMode === 'teacher' && teacherStep === 'copy')) && <>
@@ -2708,7 +2824,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <FilePicker id="copy-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importFiles(files); }} title="Déposer les pages de la copie ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Choisir les fichiers" />
           {interfaceMode !== 'teacher' && <label className="analysis-thinking-option copy-annotation-option"><input type="checkbox" checked={autoBackgroundCorrection} onChange={(event) => { const enabled = event.target.checked; setAutoBackgroundCorrection(enabled); try { window.localStorage.setItem('companion-correcteur:auto-background-correction:v1', String(enabled)); } catch { /* Keep the current session preference if storage is unavailable. */ } void backgroundService.setAutomatic(enabled, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: enabled, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }} /><span><strong>Démarrer automatiquement la correction des copies ajoutées</strong><small>Activé par défaut. Les copies sont corrigées l’une après l’autre. Vous gardez la main pour vérifier chaque proposition.</small></span></label>}
           {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>
-             {interfaceMode === 'teacher' && <details className="copy-advanced-options copy-annotation-details"><summary>Annotations du professeur</summary><label className="analysis-thinking-option copy-annotation-option" htmlFor="copy-has-teacher-annotations"><input id="copy-has-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient déjà des annotations du professeur</strong><small>À activer uniquement pour cette copie si elle comporte des remarques, corrections, coches ou notes déjà inscrites. Leur détection reste locale et les points existants ne sont jamais additionnés automatiquement.</small></span></label></details>}{interfaceMode === 'teacher' && <details className="copy-advanced-options copy-annotation-details"><summary>Couleur des annotations</summary><div className="annotation-ink-color-control"><label className="field-label">Couleur des annotations du professeur</label><AnnotationInkColorPicker image={originalImages[0] ?? images[0]} preview={annotationInkColorPreview} selectedColor={annotationInkColor} onColorPick={(color) => { if (annotationInkColorApplied && annotationInkColor !== 'none') { setImages(originalImages); setManualRotationAngles({}); setPageClassifications(null); setScientificDiagramAnalysis(null); } setAnnotationInkColor(color); setAnnotationInkColorApplied(color === 'none'); setAnnotationInkColorPreview(null); if (color !== 'none') setDetectTeacherAnnotations(true); }} /><p className="hint">Le retrait est effectué dans le navigateur, sur la copie de travail uniquement. Les originaux restent conservés. Attention : tous les pixels de cette couleur sont concernés, y compris une éventuelle écriture de l’étudiant dans la même couleur. Vérifiez l’aperçu avant validation.</p>{annotationInkColor !== 'none' && !annotationInkColorApplied && <div className="annotation-ink-preview-actions"><button type="button" className="secondary-button" disabled={annotationInkColorBusy || !images.length} onClick={async () => { setAnnotationInkColorBusy(true); setError(''); try { const preview = await service.eraseTeacherAnnotationColor(images[0], annotationInkColor); setAnnotationInkColorPreview(preview); } catch (cause) { setError(cause instanceof Error ? cause.message : 'La prévisualisation du retrait des annotations a échoué.'); } finally { setAnnotationInkColorBusy(false); } }}>{annotationInkColorBusy ? 'Préparation…' : 'Prévisualiser le retrait'}</button>{annotationInkColorPreview && <><button type="button" className="primary-button" disabled={annotationInkColorBusy} onClick={async () => { setAnnotationInkColorBusy(true); try { const cleaned = await Promise.all(images.map((image) => service.eraseTeacherAnnotationColor(image, annotationInkColor))); setImages(cleaned); setAnnotationInkColorApplied(true); setAnnotationInkColorPreview(null); setTranscription(null); setPageClassifications(null); setScientificDiagramAnalysis(null); setProposal(null); setReview([]); setReviewMessage('Couleur des annotations retirée localement sur toutes les pages de la copie.'); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Le retrait des annotations a échoué.'); } finally { setAnnotationInkColorBusy(false); } }}>Appliquer à toutes les pages</button></>}</div>}</div></details>}{interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="auto-rotate-scientific-diagrams"><input id="auto-rotate-scientific-diagrams" type="checkbox" checked={autoRotateScientificDiagrams} onChange={(event) => { setAutoRotateScientificDiagrams(event.target.checked); try { window.localStorage.setItem('companion-correcteur:auto-rotate-diagrams:v1', String(event.target.checked)); } catch { setReviewMessage('Le réglage de rotation automatique ne peut pas être conservé dans le stockage local.'); } }} /><span><strong>Rotation automatique des schémas</strong><small>Désactivée par défaut. Lorsqu’elle est activée, chaque rotation est vérifiée par une seconde analyse d’orientation avant application ; sinon, une suggestion avant/après est proposée.</small></span></label>}{images.map((image, index) => <div className="file-row copy-image-row" key={`${image.fileName}-${index}`}><button type="button" className="copy-image-row-preview copy-image-preview-trigger" onClick={() => { setCopyViewerPage(index); setCopyViewerZoom(1); setCopyViewerRotation(0); }} aria-label={`Agrandir la page ${index + 1}`}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Aperçu de la page ${index + 1}`} /><span>{image.fileName || `Page ${index + 1}`} · Agrandir</span></button>{originalImages[index] && originalImages[index].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non modifiée</summary><img src={`data:${originalImages[index].mimeType};base64,${originalImages[index].base64}`} alt={`Image originale non modifiée de la page ${index + 1}`} /></details>}{rotationSuggestions[index] && <div className="copy-rotation-suggestion" role="group" aria-label={`Suggestion de rotation pour la page ${index + 1}`}><strong>La page {index + 1} semble tournée de {rotationSuggestions[index].degrees}°</strong><div className="copy-rotation-suggestion-previews"><figure><img src={`data:${(originalImages[index] ?? image).mimeType};base64,${(originalImages[index] ?? image).base64}`} alt={`Page ${index + 1} avant rotation`} /><figcaption>Avant</figcaption></figure><figure><img src={`data:${rotationSuggestions[index].preview.mimeType};base64,${rotationSuggestions[index].preview.base64}`} alt={`Page ${index + 1} après rotation proposée`} /><figcaption>Après</figcaption></figure></div><div><button type="button" className="secondary-button" onClick={() => { void rotateCopyPage(index, rotationSuggestions[index].degrees); }}>Appliquer</button><button type="button" className="text-button" onClick={() => setRotationSuggestions((current) => { const next = { ...current }; delete next[index]; return next; })}>Ignorer</button></div></div>}<div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button><button type="button" className="text-button" onClick={() => removeCopyPage(index)}>Retirer</button></div></div>)}<p className="copy-image-original-note">Les rotations s’appliquent uniquement à la copie de travail. Les images originales non modifiées sont conservées localement avec la correction.</p>{interfaceMode !== 'teacher' && <div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={startNextCopy}>Effacer cette copie</button></div>}</div>}
+             {interfaceMode === 'teacher' && <details className="copy-advanced-options copy-annotation-details"><summary>Annotations du professeur</summary><label className="analysis-thinking-option copy-annotation-option" htmlFor="copy-has-teacher-annotations"><input id="copy-has-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient déjà des annotations du professeur</strong><small>À activer uniquement pour cette copie si elle comporte des remarques, corrections, coches ou notes déjà inscrites. Leur détection reste locale et les points existants ne sont jamais additionnés automatiquement.</small></span></label></details>}{interfaceMode === 'teacher' && <details className="copy-advanced-options copy-annotation-details"><summary>Couleur des annotations</summary><div className="annotation-ink-color-control"><label className="field-label">Couleur des annotations du professeur</label><AnnotationInkColorPicker image={originalImages[0] ?? images[0]} preview={annotationInkColorPreview} selectedColor={annotationInkColor} onColorPick={(color) => { if (annotationInkColorApplied && annotationInkColor !== 'none') { setImages(originalImages); setManualRotationAngles({}); setPageClassifications(null); setScientificDiagramAnalysis(null); } setAnnotationInkColor(color); setAnnotationInkColorApplied(color === 'none'); setAnnotationInkColorPreview(null); if (color !== 'none') setDetectTeacherAnnotations(true); }} /><p className="hint">Le retrait est effectué dans le navigateur, sur la copie de travail uniquement. Les originaux restent conservés. Attention : tous les pixels de cette couleur sont concernés, y compris une éventuelle écriture de l’étudiant dans la même couleur. Vérifiez l’aperçu avant validation.</p>{annotationInkColor !== 'none' && !annotationInkColorApplied && <div className="annotation-ink-preview-actions"><button type="button" className="secondary-button" disabled={annotationInkColorBusy || !images.length} onClick={async () => { setAnnotationInkColorBusy(true); setError(''); try { const preview = await service.eraseTeacherAnnotationColor(images[0], annotationInkColor); setAnnotationInkColorPreview(preview); } catch (cause) { setError(cause instanceof Error ? cause.message : 'La prévisualisation du retrait des annotations a échoué.'); } finally { setAnnotationInkColorBusy(false); } }}>{annotationInkColorBusy ? 'Préparation…' : 'Prévisualiser le retrait'}</button>{annotationInkColorPreview && <><button type="button" className="primary-button" disabled={annotationInkColorBusy} onClick={async () => { setAnnotationInkColorBusy(true); try { const cleaned = await Promise.all(images.map((image) => service.eraseTeacherAnnotationColor(image, annotationInkColor))); setImages(cleaned); setAnnotationInkColorApplied(true); setAnnotationInkColorPreview(null); setTranscription(null); setPageClassifications(null); setScientificDiagramAnalysis(null); setProposal(null); setReview([]); setReviewMessage('Couleur des annotations retirée localement sur toutes les pages de la copie.'); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Le retrait des annotations a échoué.'); } finally { setAnnotationInkColorBusy(false); } }}>Appliquer à toutes les pages</button></>}</div>}</div></details>}{interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="auto-rotate-scientific-diagrams"><input id="auto-rotate-scientific-diagrams" type="checkbox" checked={autoRotateScientificDiagrams} onChange={(event) => { setAutoRotateScientificDiagrams(event.target.checked); try { window.localStorage.setItem('companion-correcteur:auto-rotate-diagrams:v1', String(event.target.checked)); } catch { setReviewMessage('Le réglage de rotation automatique ne peut pas être conservé dans le stockage local.'); } }} /><span><strong>Rotation automatique des schémas</strong><small>Désactivée par défaut. Lorsqu’elle est activée, chaque rotation est vérifiée par une seconde analyse d’orientation avant application ; sinon, une suggestion avant/après est proposée.</small></span></label>}{images.map((image, index) => <div className="file-row copy-image-row" key={`${image.fileName}-${index}`}><button type="button" className="copy-image-row-preview copy-image-preview-trigger" onClick={() => { setCopyViewerPage(index); setCopyViewerZoom(1); setCopyViewerRotation(0); }} aria-label={`Agrandir la page ${index + 1}`}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Aperçu de la page ${index + 1}`} /><span>{image.fileName || `Page ${index + 1}`} · Agrandir</span></button>{originalImages[index] && originalImages[index].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non modifiée</summary><img src={`data:${originalImages[index].mimeType};base64,${originalImages[index].base64}`} alt={`Image originale non modifiée de la page ${index + 1}`} /></details>}{rotationSuggestions[index] && <div className="copy-rotation-suggestion" role="group" aria-label={`Suggestion de rotation pour la page ${index + 1}`}><strong>La page {index + 1} semble tournée de {rotationSuggestions[index].degrees}°</strong><div className="copy-rotation-suggestion-previews"><figure><img src={`data:${(originalImages[index] ?? image).mimeType};base64,${(originalImages[index] ?? image).base64}`} alt={`Page ${index + 1} avant rotation`} /><figcaption>Avant</figcaption></figure><figure><img src={`data:${rotationSuggestions[index].preview.mimeType};base64,${rotationSuggestions[index].preview.base64}`} alt={`Page ${index + 1} après rotation proposée`} /><figcaption>Après</figcaption></figure></div><div><button type="button" className="secondary-button" onClick={() => { void rotateCopyPage(index, rotationSuggestions[index].degrees); }}>Appliquer</button><button type="button" className="text-button" onClick={() => setRotationSuggestions((current) => { const next = { ...current }; delete next[index]; return next; })}>Ignorer</button></div></div>}<div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button><button type="button" className="text-button" onClick={() => removeCopyPage(index)}>Retirer</button></div></div>)}<p className="copy-image-original-note">Les rotations s’appliquent uniquement à la copie de travail. Les images originales non modifiées sont conservées localement avec la correction.</p>{interfaceMode !== 'teacher' && <div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={() => startNextCopy()}>Effacer cette copie</button></div>}</div>}
           {(interfaceMode !== 'teacher' || correctionSessionMode === 'series') && backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed') && <section className="copy-queue" aria-label="Copies à suivre"><div className="copy-queue-heading"><div><span className="eyebrow">COPIES À SUIVRE</span><h4>{backgroundJobs.filter((job) => job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)).length} copie(s) prête(s) à réviser · {backgroundJobs.filter((job) => job.status === 'pending' || job.status === 'processing').length} en attente ou en cours · {backgroundJobs.filter((job) => job.status === 'needs-review' || job.status === 'failed' || (job.status === 'reviewing' && job.completedCriteria < job.totalCriteria)).length} à reprendre</h4></div>{currentBackgroundJobId ? <button type="button" className="primary-button" onClick={() => { void finalizeReview(true); }} disabled={isAnalyzing || !proposal || !getBackgroundCorrectionReviewNavigation(backgroundJobs, activeAssignmentId, currentBackgroundJobId).nextCopy}>Enregistrer et passer à la copie suivante</button> : <button type="button" className="primary-button" onClick={() => { void loadNextQueuedCopy(); }} disabled={isAnalyzing || !getBackgroundCorrectionReviewNavigation(backgroundJobs, activeAssignmentId, null).nextCopy}>Ouvrir une copie prête</button>}</div>{!autoBackgroundCorrection && backgroundJobs.some((job) => job.status === 'pending') && <button type="button" className="secondary-button" onClick={() => { void backgroundService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Corriger les copies en attente</button>}<ol>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId).map((job, index) => <li key={job.id} className={job.id === currentBackgroundJobId ? 'is-current-review' : undefined} aria-current={job.id === currentBackgroundJobId ? 'step' : undefined}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{job.label}</strong><small>{job.id === currentBackgroundJobId ? 'En cours de révision · ' : ''}{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}{job.status === 'processing' ? ` · ${job.phase === 'preparation' ? 'Préparation' : job.phase === 'reading' ? `Lecture ${job.completedPages}/${job.images.length}` : `Correction ${job.completedCriteria}/${job.totalCriteria}`}` : ''}</small>{job.error && <small role="status">{job.error}</small>}</span>{(['needs-review', 'failed'].includes(job.status) || (job.status === 'reviewing' && job.completedCriteria < job.totalCriteria && job.id !== currentBackgroundJobId)) && <><button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void loadNextQueuedCopy(job.id); }}>Ouvrir</button><button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Reprendre</button></>}</li>)}</ol></section>}
         </article>
 
@@ -3081,7 +3197,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </div>
           </article>;
         })}
-        {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Cette correction est enregistrée sur cet appareil</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" onClick={startNextCopy}>Ajouter une autre copie</button><button type="button" className="secondary-button" onClick={() => { setTeacherStep('archive'); setShowAiSettings(false); }}>Voir les corrections enregistrées</button></div></div>}
+        {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Cette correction est enregistrée sur cet appareil</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" onClick={() => startNextCopy()}>Ajouter une autre copie</button><button type="button" className="secondary-button" onClick={() => { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); setShowAiSettings(false); }}>Voir les copies corrigées</button></div></div>}
          <div className="panel final-review"><div><span className="eyebrow">{isAnalyzing ? 'NOTE PROVISOIRE · ANALYSE EN COURS' : criterionProgress.isComplete ? 'NOTE PROPOSÉE' : 'NOTE PARTIELLE · ANALYSE INCOMPLÈTE'}</span><h3>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente des premiers résultats'}</h3><p>{isAnalyzing ? `${criterionProgress.completedCount} / ${criterionProgress.totalCount} critères évalués. Cette note n’est pas définitive et évoluera avec les prochains critères.` : review.length < rubric.criteria.length ? `${rubric.criteria.length - review.length} critère(s) sans proposition exploitable : l’enregistrement reste bloqué.` : 'La proposition est retenue par défaut. Vous pouvez modifier librement les notes et commentaires.'}</p></div><div className="questions-field"><span className="field-label">Points à vérifier avant de communiquer la note</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question précise n’a été formulée. Vérifiez tout de même les alertes et les preuves ci-dessus.</p>}</div>{!isFinalized && <button type="button" className="primary-button" disabled={isAnalyzing || review.length !== rubric.criteria.length} onClick={() => void finalizeReview(true)}>Ajouter une autre copie</button>}<details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Export local pour conserver ou réutiliser les résultats de cette correction.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal?.summary ?? '', criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil.'); }}>{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>{reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}</div>
           </div>
         </div>

@@ -71,6 +71,49 @@ function fixture() {
 }
 
 describe('background correction service', () => {
+  it('persists teacher edits and open questions before a copy is left', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const reviewDraft = [{
+      criterionId: 'c1',
+      points: 2,
+      rationale: 'Analyse du modèle',
+      evidence: 'Preuve manuscrite',
+      confidence: 'high' as const,
+      teacherPoints: 1,
+      teacherComment: 'Préciser le mécanisme',
+      decision: 'adjusted' as const,
+    }];
+    await service.saveReviewDraft('copy-1', reviewDraft, 'Vérifier la définition');
+    expect(f.jobs.get('copy-1')).toMatchObject({
+      reviewDraft,
+      teacherQuestionsDraft: 'Vérifier la définition',
+    });
+  });
+
+  it('publishes lightweight summaries without exposing page images', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const summaries = await service.listJobSummaries('assignment-1');
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({
+      id: 'copy-1',
+      assignmentId: 'assignment-1',
+      label: 'Copie 1',
+      status: 'pending',
+      pageCount: 1,
+      maximumPoints: 4,
+      progress: { completedPages: 0, totalPages: 1, completedCriteria: 0, totalCriteria: 2 },
+    });
+    expect(summaries[0]).not.toHaveProperty('images');
+
+    const listener = vi.fn();
+    service.subscribeSummaries(listener);
+    await service.markForReview('copy-1');
+    expect(listener).toHaveBeenCalledWith([expect.objectContaining({ id: 'copy-1', status: 'reviewing' })]);
+    expect(listener.mock.calls[0][0][0]).not.toHaveProperty('originalImages');
+  });
+
   it('prewarms, caches transcription and grades one criterion per sequential provider call', async () => {
     const f = fixture();
     const service = createBackgroundCorrectionService(f.repository, f.workspace);

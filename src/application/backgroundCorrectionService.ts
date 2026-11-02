@@ -1,5 +1,5 @@
 import { parseGradingProposal } from '../domain/grading.ts';
-import type { BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
+import { toBackgroundJobSummary, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import type { Rubric } from '../domain/rubric.ts';
 import type { BackgroundCorrectionRepository } from '../ports/backgroundCorrectionRepository.ts';
 import type { GradingProgressEvent, OllamaSettings } from '../ports/aiProvider.ts';
@@ -13,12 +13,15 @@ export interface BackgroundCorrectionService {
   enqueue(job: BackgroundCorrectionJob, settings: OllamaSettings): Promise<void>;
   updateImages(jobId: string, images: BackgroundCorrectionJob['images'], rotationAngles: NonNullable<BackgroundCorrectionJob['rotationAngles']>, settings: OllamaSettings): Promise<void>;
   listJobs(assignmentId?: string): Promise<BackgroundCorrectionJob[]>;
+  listJobSummaries(assignmentId?: string): Promise<BackgroundJobSummary[]>;
   prewarm(settings: OllamaSettings): Promise<void>;
   pauseAndWait(): Promise<void>;
   resume(): void;
   processPending(settings: OllamaSettings): Promise<void>;
   subscribe(listener: (jobs: BackgroundCorrectionJob[]) => void): () => void;
+  subscribeSummaries(listener: (jobs: BackgroundJobSummary[]) => void): () => void;
   markForReview(jobId: string): Promise<void>;
+  saveReviewDraft(jobId: string, reviewDraft: BackgroundCorrectionJob['reviewDraft'], teacherQuestionsDraft: string): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
   remove(jobId: string): Promise<void>;
   retry(jobId: string, settings: OllamaSettings): Promise<void>;
@@ -67,10 +70,13 @@ export function createBackgroundCorrectionService(
   let prewarmSettings: OllamaSettings | null = null;
   let activeModelToUnload: string | null = null;
   const listeners = new Set<(jobs: BackgroundCorrectionJob[]) => void>();
+  const summaryListeners = new Set<(jobs: BackgroundJobSummary[]) => void>();
   async function persist(job: BackgroundCorrectionJob): Promise<void> {
     await repository.saveJob(job);
     const jobs = await repository.listJobs();
     for (const listener of listeners) listener(jobs);
+    const summaries = jobs.map(toBackgroundJobSummary);
+    for (const listener of summaryListeners) listener(summaries);
   }
 
   async function run(settings: OllamaSettings): Promise<void> {
@@ -292,6 +298,7 @@ export function createBackgroundCorrectionService(
       })();
     },
     listJobs: (assignmentId) => repository.listJobs(assignmentId),
+    listJobSummaries: async (assignmentId) => (await repository.listJobs(assignmentId)).map(toBackgroundJobSummary),
     async prewarm(settings) {
       // A remote OpenAI-compatible endpoint must not receive background generation
       // requests just because a copy was imported or the application was opened.
@@ -366,6 +373,7 @@ export function createBackgroundCorrectionService(
       await run(settings);
     },
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+    subscribeSummaries(listener) { summaryListeners.add(listener); return () => summaryListeners.delete(listener); },
     async updateImages(jobId, images, rotationAngles, settings) {
       const job = (await repository.listJobs()).find((item) => item.id === jobId);
       if (!job) throw new Error('Cette copie n’existe plus dans la file de correction.');
@@ -403,6 +411,15 @@ export function createBackgroundCorrectionService(
       const job = (await repository.listJobs()).find((item) => item.id === jobId);
       if (job) await persist({ ...job, status: 'reviewing', updatedAt: new Date().toISOString() });
     },
+    async saveReviewDraft(jobId, reviewDraft, teacherQuestionsDraft) {
+      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      if (job) await persist({
+        ...job,
+        reviewDraft: structuredClone(reviewDraft ?? []),
+        teacherQuestionsDraft,
+        updatedAt: new Date().toISOString(),
+      });
+    },
     async remove(jobId) {
       const job = (await repository.listJobs()).find((item) => item.id === jobId);
       if (!job) return;
@@ -410,6 +427,8 @@ export function createBackgroundCorrectionService(
       await repository.deleteJob(jobId);
       const jobs = await repository.listJobs();
       for (const listener of listeners) listener(jobs);
+      const summaries = jobs.map(toBackgroundJobSummary);
+      for (const listener of summaryListeners) listener(summaries);
     },
     async markCompleted(jobId) {
       const job = (await repository.listJobs()).find((item) => item.id === jobId);

@@ -62,13 +62,19 @@ describe('getAssignmentOverview', () => {
   });
 
   it('filters assignments that already have archived corrections', () => {
-    const overview = getAssignmentOverview([readyAssignment, draftAssignment], [{ assignmentTitle: 'Biologie cellulaire' }], '', 'with-corrections');
+    const overview = getAssignmentOverview([readyAssignment, draftAssignment], [{ assignmentTitle: 'Biologie cellulaire' }], '', 'with-copies');
     expect(overview.cards.map((card) => card.profile.id)).toEqual(['cell-biology']);
   });
 
   it('filters assignments that still need preparation', () => {
     const overview = getAssignmentOverview([readyAssignment, draftAssignment], [], '', 'to-prepare');
     expect(overview.cards.map((card) => card.profile.id)).toEqual(['genetics']);
+  });
+
+  it('includes assignments with active corrections in the corrections filter', () => {
+    const overview = getAssignmentOverview([readyAssignment, draftAssignment], [], '', 'with-copies', ['genetics']);
+    expect(overview.cards.map((card) => card.profile.id)).toEqual(['genetics']);
+    expect(overview.correctionCount).toBe(1);
   });
 
   it('returns an empty list for a search with no match', () => {
