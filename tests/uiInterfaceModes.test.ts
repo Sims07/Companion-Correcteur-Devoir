@@ -36,7 +36,7 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('keeps a local archive and next-copy path after finalization', () => {
     const text = app();
-    expect(text).toContain("useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'copy' : 'rubric')");
+    expect(text).toContain("useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review' | 'archive'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric')");
     expect(text).toContain('Corrections enregistrées');
     expect(text).toContain('Ajouter une autre copie');
     expect(text).toContain('Consulter la correction');
@@ -258,7 +258,7 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('provides a teacher-specific three-step navigation and shows only the active task', () => {
     const text = app();
-    expect(text).toContain("useState<'details' | 'rubric' | 'copy' | 'progress' | 'review' | 'archive'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'copy' : 'rubric')");
+    expect(text).toContain("useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review' | 'archive'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric')");
     expect(text).toContain('aria-label="Navigation de la correction"');
     expect(text).toContain('aria-label="Étapes du devoir"');
     expect(text).toContain('Préparer le barème');

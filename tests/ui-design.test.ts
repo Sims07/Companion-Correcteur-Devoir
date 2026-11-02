@@ -182,7 +182,8 @@ describe('UI design system', () => {
     expect(appComponent).toContain('function queueCurrentCopy()');
     expect(appComponent).toContain('function loadNextQueuedCopy(jobId?: string)');
     expect(appComponent).toContain('function enqueueBackgroundCopy(files: FileList | null)');
-    expect(appComponent).toContain('id="background-copy-files"');
+    expect(appComponent).toContain("teacherStep === 'overview' && <CorrectionOverview");
+    expect(appComponent).toContain('onAddCopy');
     expect(appComponent).toContain('Copie suivante');
     expect(appComponent).toContain('backgroundService.retry(job.id');
     expect(appComponent).toContain('Mettre cette copie en file d’attente');
