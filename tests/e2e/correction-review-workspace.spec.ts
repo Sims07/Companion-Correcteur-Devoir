@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { openActiveAssignment } from './helpers/teacher-workspace';
 
 test('review workspace keeps original evidence beside grading criteria on desktop and stacks on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/');
   await openActiveAssignment(page);
 
@@ -126,6 +127,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Transport membranaire' })).toBeVisible();
   const flaggedCard = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Rôle de la membrane' }) });
+  await expect(page.locator('.review-source-pane')).toBeInViewport();
+  await expect(flaggedCard).toBeInViewport();
   await expect(flaggedCard.getByText('Point retiré', { exact: true })).toBeVisible();
   await expect(flaggedCard.getByText('Confiance à vérifier', { exact: true })).toBeVisible();
   await expect(flaggedCard.getByText('Le mécanisme est partiellement expliqué.')).toBeVisible();
@@ -139,12 +142,11 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.getByRole('button', { name: 'Afficher uniquement les points à examiner' }).click();
   const safeSummary = page.locator('details.review-safe-summary');
   await expect(safeSummary).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Tout confirmer' })).toBeVisible();
   await safeSummary.locator('summary').click();
   await expect(safeSummary.getByText('Transport membranaire')).toBeVisible();
   await expect(safeSummary.getByText('La membrane contrôle les échanges.')).toBeVisible();
-  await expect(safeSummary.getByRole('button', { name: 'Tout confirmer' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Confirmer les critères sans alerte/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Confirmer ce critère' })).toHaveCount(0);
+  await expect(page.locator('.review-focus-overview')).toHaveCount(0);
   const explanation = page.locator('details.review-explanation');
   await expect(explanation).toHaveCount(1);
   await expect(explanation).not.toHaveAttribute('open', '');

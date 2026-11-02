@@ -3097,10 +3097,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         {scientificDiagramError && <p className="review-alert review-alert-warning" role="alert">{scientificDiagramError}</p>}
 
         {teacherAnnotations && <details className="review-annotations-details"><summary>✎ {teacherAnnotations.split('\n').filter((line) => line.trim()).length} annotations repérées</summary><pre>{teacherAnnotations}</pre></details>}
-        {(flaggedCriteriaIds.size > 0 || unreadableCopySignal) && <section className="review-alerts review-focus-overview" aria-label="Synthèse des éléments à examiner">
-          <strong>{flaggedCriteriaIds.size} critère(s) à examiner</strong>
-          {unreadableCopySignal && <span role="alert">La lecture de la copie mérite une vérification sur l’image originale.</span>}
-        </section>}
         <div className="review-workspace">
           <aside className="review-source-pane" aria-labelledby="review-source-pane-title">
             <div className="review-source-heading"><h3 id="review-source-pane-title">Copie de l’étudiant</h3><p>Consultez l’orientation utilisée pour l’analyse. Si une rotation a été appliquée, l’image originale reste accessible sous la page.</p></div>
@@ -3142,22 +3138,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             }
           }}>
             <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite"><strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : criterionProgress.isComplete ? 'Note proposée' : 'Note partielle · analyse incomplète'}</strong>{isAnalyzing && <small>Cette note n’est pas définitive et évoluera avec les prochains critères.</small>}<span>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente de la première note'} · {criterionProgress.completedCount} / {criterionProgress.totalCount} critères évalués</span>{proposal?.summary && <details className="review-summary-details"><summary>Voir la synthèse de l’analyse</summary><p>{proposal.summary}</p></details>}</div>
-        <div className="review-criteria-toolbar">
-          <span>{flaggedCriteriaIds.size > 0 ? `${flaggedCriteriaIds.size} critère(s) à examiner · ${reliableCriteriaCount} sans alerte` : `Aucun signal particulier · ${review.length} critère(s)`}</span>
-          <div className="review-criteria-toolbar-actions">
-            {flaggedCriteriaIds.size > 0 && <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>}
-          </div>
-        </div>
-        {flaggedCriteriaIds.size === 0 && <p className="review-focus-hint" role="note">Aucun signal automatique. La proposition est retenue par défaut.</p>}
-        {shouldFocusExceptions && <details className="review-safe-summary">
-          <summary>{reliableCriteriaCount} critères sans alerte · preuves disponibles</summary>
-          <ul>{review.filter((item) => reviewFocus.reliableCriteriaIds.includes(item.criterionId)).map((item) => {
-            const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
-            return <li key={item.criterionId}><strong>{criterion?.title ?? item.criterionId}</strong><span>{item.teacherPoints} / {criterion?.maxPoints ?? 0} points</span><small>{item.evidence.trim().split(/\s+/u).slice(0, 12).join(' ')}{item.evidence.trim().split(/\s+/u).length > 12 ? '…' : ''}</small></li>;
-          })}</ul>
+        {flaggedCriteriaIds.size > 0 && <div className="review-criteria-toolbar">
+          <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>
+        </div>}
+        {shouldFocusExceptions && <div className="review-safe-summary-row">
+          <details className="review-safe-summary">
+            <summary>{reliableCriteriaCount} critères sans alerte · preuves disponibles</summary>
+            <ul>{review.filter((item) => reviewFocus.reliableCriteriaIds.includes(item.criterionId)).map((item) => {
+              const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
+              return <li key={item.criterionId}><strong>{criterion?.title ?? item.criterionId}</strong><span>{item.teacherPoints} / {criterion?.maxPoints ?? 0} points</span><small>{item.evidence.trim().split(/\\s+/u).slice(0, 12).join(' ')}{item.evidence.trim().split(/\\s+/u).length > 12 ? '…' : ''}</small></li>;
+            })}</ul>
+          </details>
           <button type="button" className="secondary-button review-confirm-safe" onClick={() => review.filter((item) => reviewFocus.reliableCriteriaIds.includes(item.criterionId)).forEach((item) => updateReview(item.criterionId, { decision: 'accepted' }))}>Tout confirmer</button>
-        </details>}
-        {shouldFocusExceptions && <p className="review-focus-hint">Les critères sans alerte sont regroupés pour accélérer la lecture. Vous pouvez les afficher à tout moment.</p>}
+        </div>}
         {(isAnalyzing ? rubric.criteria : orderedReviewCriteria.filter((criterion) => !shouldFocusExceptions || flaggedCriteriaIds.has(criterion.id))).map((criterion, criterionIndex) => {
           const item = review.find((entry) => entry.criterionId === criterion.id);
           if (!item) {
