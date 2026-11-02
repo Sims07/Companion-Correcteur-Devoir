@@ -5,6 +5,7 @@ import { DesignSystemSelect } from './components/DesignSystemSelect.tsx';
 import { CopyReviewHeader } from './components/CopyReviewHeader.tsx';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
 import type { ModelEvaluationService } from '../application/modelEvaluationService.ts';
+import { createAsyncActionGuard } from '../domain/asyncActionGuard.ts';
 import { normalizeGradeScore, parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion, type CriterionProposal } from '../domain/grading.ts';
 import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationRecords, getModelEvaluationStage, runModelEvaluation, sumReportedTokensForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot } from '../domain/modelEvaluation.ts';
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
@@ -476,6 +477,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [annotationInkColorApplied, setAnnotationInkColorApplied] = useState(true);
   const [annotationInkColorBusy, setAnnotationInkColorBusy] = useState(false);
   const [currentCorrectionId, setCurrentCorrectionId] = useState<string | null>(null);
+  const finalizeReviewAction = useRef(createAsyncActionGuard());
   const [archivedCorrections, setArchivedCorrections] = useState<LocalCorrection[]>([]);
   const archivedCorrectionsForActiveAssignment = useMemo(
     () => getArchivedCorrectionsForAssignment(assignmentProfiles, archivedCorrections, activeAssignmentId),
@@ -1438,6 +1440,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function finalizeReview(advanceToNextCopy = false) {
+    await finalizeReviewAction.current(async () => {
     if (!proposal) {
       setReviewMessage('Aucune proposition à archiver. Lancez d’abord l’analyse de la copie.');
       return;
@@ -1523,6 +1526,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setIsFinalized(false);
       setReviewMessage('La correction n’a pas pu être archivée dans le stockage local. Vérifiez l’espace disponible du navigateur puis réessayez.');
     }
+  
+    });
   }
 
   function captureActiveDraft(): AssignmentDraft {
