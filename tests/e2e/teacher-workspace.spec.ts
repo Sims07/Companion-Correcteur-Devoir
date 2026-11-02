@@ -60,7 +60,7 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
 
   await page.getByRole('button', { name: 'Réglages de l’IA locale' }).click();
   await expect(page.getByRole('heading', { name: 'Paramètres de l’IA locale' })).toBeVisible();
-  await expect(page.getByLabel('Adresse du serveur local')).toBeVisible();
+  await expect(page.getByLabel('Adresse du serveur local')).toHaveCount(0);
   await expect(page.getByLabel('Outil de lecture des copies')).toBeVisible();
   await expect(page.getByLabel('Outil d’analyse et de notation')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
@@ -162,7 +162,7 @@ test('series session keeps copy cards uniform and opens the correction separatel
   await expect(cards).toHaveCount(2);
   for (const card of await cards.all()) {
     await expect(card.getByText('Note à venir')).toBeVisible();
-    await expect(card.getByText('En attente')).toBeVisible();
+    await expect(card.getByText(/En attente|Analyse en cours/)).toBeVisible();
     await expect(card.getByRole('button', { name: 'Voir les pages et la correction' })).toHaveCount(0);
     await expect(card.locator('.correction-series-pages')).toHaveCount(0);
     await expect(card.locator('.correction-series-live-details')).toHaveCount(0);

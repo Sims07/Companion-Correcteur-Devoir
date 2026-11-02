@@ -137,7 +137,7 @@ test('a failed copy is kept in À reprendre and the Reprendre action starts a ne
   await page.getByRole('button', { name: /À reprendre/ }).click();
   const failedCard = page.locator('.copy-overview-grid .correction-series-card');
   await expect(failedCard).toContainText('Copie en échec');
-  await expect(failedCard).toContainText('Serveur local indisponible');
+  await expect(failedCard).toContainText('La correction n’a pas abouti. Vérifiez les paramètres de l’IA locale puis réessayez.');
   await failedCard.getByRole('button', { name: 'Reprendre' }).click();
 
   await expect.poll(() => retryRequests).toBeGreaterThan(0);

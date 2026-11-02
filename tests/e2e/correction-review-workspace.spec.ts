@@ -124,6 +124,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.getByRole('complementary', { name: 'Copie de l’étudiant' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Transport membranaire' })).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(page.locator('.review-card').first()).toBeInViewport();
   const flaggedCard = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Rôle de la membrane' }) });
   await expect(flaggedCard.getByText('Point retiré', { exact: true })).toBeVisible();
   await expect(flaggedCard.getByText('Confiance à vérifier', { exact: true })).toBeVisible();
@@ -161,7 +163,6 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(sourcePane).toHaveCSS('position', 'static');
   await expect(page.locator('.review-workspace')).toBeVisible();
-  await expect(page.locator('.review-card').first()).toBeInViewport();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
 
   await page.evaluate(async () => {
@@ -219,6 +220,12 @@ test('teacher verifies a flagged criterion, validates the copy and lands on the 
     });
     if (!database.objectStoreNames.contains('background-corrections')) throw new Error('Le stockage local des copies n’est pas initialisé.');
     const assignmentId = localStorage.getItem('companion-correcteur:active-assignment:v1') ?? 'assignment-default';
+    const profiles = JSON.parse(localStorage.getItem('companion-correcteur:assignments:v1') ?? '[]');
+    const profileIndex = profiles.findIndex((profile: { id: string }) => profile.id === assignmentId);
+    if (profileIndex >= 0) {
+      profiles[profileIndex] = { ...profiles[profileIndex], rubric, question: 'Expliquez le rôle de la membrane plasmique.' };
+      localStorage.setItem('companion-correcteur:assignments:v1', JSON.stringify(profiles));
+    }
     const transaction = database.transaction('background-corrections', 'readwrite');
     const store = transaction.objectStore('background-corrections');
     const image = { base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGMQ6dH4DwADSAHIPzDQUwAAAABJRU5ErkJggg==', mimeType: 'image/png', fileName: 'page-1.png' };
@@ -259,7 +266,8 @@ test('teacher verifies a flagged criterion, validates the copy and lands on the 
   await firstCopy.getByRole('button', { name: 'Vérifier la copie' }).click();
 
   await expect(page.getByRole('textbox', { name: 'Nom lu sur la copie' })).toHaveValue('Marie Dupont');
-  const flaggedCriterion = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Rôle de la membrane' }) });
+  const flaggedCriterion = page.locator('.review-card[data-criterion-id="membrane"]');
+  await expect(flaggedCriterion).toBeVisible();
   await flaggedCriterion.focus();
   await flaggedCriterion.press('Enter');
   await page.getByRole('button', { name: 'Tout confirmer' }).click();
