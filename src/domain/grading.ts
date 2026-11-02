@@ -34,6 +34,10 @@ export interface ReviewedCriterion extends CriterionProposal {
   decision: 'pending' | 'accepted' | 'adjusted';
 }
 
+export function normalizeGradeScore(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -104,7 +108,7 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     }
     seenIds.add(item.criterionId);
 
-    const points = typeof item.points === 'number' ? item.points : Number.NaN;
+    const points = typeof item.points === 'number' ? normalizeGradeScore(item.points) : Number.NaN;
     const minimumPoints = Math.min(0, rubricCriterion.maxPoints);
     const maximumPoints = Math.max(0, rubricCriterion.maxPoints);
     if (!Number.isFinite(points) || points < minimumPoints || points > maximumPoints) {
@@ -143,8 +147,8 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     if (criterion.questionForTeacher) questions.push(criterion.questionForTeacher);
   });
 
-  const calculatedFinalScore = criteria.reduce((sum, criterion) => sum + criterion.points, 0);
-  const declaredFinalScore = typeof parsed.finalScore === 'number' ? parsed.finalScore : calculatedFinalScore;
+  const calculatedFinalScore = normalizeGradeScore(criteria.reduce((sum, criterion) => sum + Math.round(criterion.points * 100), 0) / 100);
+  const declaredFinalScore = typeof parsed.finalScore === 'number' ? normalizeGradeScore(parsed.finalScore) : calculatedFinalScore;
   if (!Number.isFinite(declaredFinalScore) || Math.abs(declaredFinalScore - calculatedFinalScore) > 0.0001) {
     throw new Error(`La note finale annoncée (${String(parsed.finalScore)}) ne correspond pas à la somme des points par critère (${calculatedFinalScore}).`);
   }
