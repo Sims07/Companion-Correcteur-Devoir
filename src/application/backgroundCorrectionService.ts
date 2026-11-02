@@ -442,6 +442,16 @@ export function createBackgroundCorrectionService(
       if (foregroundPriority) { lastSettings = settings; return; }
       paused = false;
       await run(settings);
+      // A retry can race with the final iteration of an already-running loop:
+      // run() then joins that loop, which may have observed an empty queue just
+      // before this job was persisted as pending. Re-check after the joined loop
+      // settles so the retry cannot remain pending without a generation request.
+      if (!paused && !foregroundPriority) {
+        const remainingJobs = await repository.listJobs();
+        if (remainingJobs.some((item) => item.status === 'pending' || item.status === 'processing')) {
+          await run(settings);
+        }
+      }
     },
     async setAutomatic(enabled, settings) {
       autoEnabled = enabled;
