@@ -42,7 +42,7 @@ async function prepareLocalWorkspace(page: Page) {
   await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
 }
 
-async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; status: 'ready' | 'failed'; updatedAt: string; error?: string }>, readyProposal = proposal) {
+async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; status: 'ready' | 'failed' | 'pending'; updatedAt: string; error?: string }>, readyProposal = proposal) {
   await page.evaluate(async ({ input, rubric: jobRubric, pageImage: image, proposal: readyProposal }) => {
     const request = indexedDB.open('companion-correcteur-devoir', 5);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -72,7 +72,7 @@ async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; sta
         createdAt: now,
         updatedAt: now,
         status: item.status,
-        phase: item.status === 'ready' ? 'complete' : 'reading',
+        phase: item.status === 'ready' ? 'complete' : item.status === 'pending' ? 'preparation' : 'reading',
         completedPages: item.status === 'ready' ? 1 : 0,
         completedCriteria: item.status === 'ready' ? 3 : 0,
         totalCriteria: 3,
@@ -235,4 +235,29 @@ test('adding another copy automatically saves the imported foreground copy in th
   await copyNavigation(page).click();
   await expect(page.getByText('copie-a-conserver.png')).toBeVisible();
   await expect(page.getByRole('button', { name: /En attente/ })).toContainText('1');
+});
+
+
+test('teacher can explicitly start correction for copies already loaded in the assignment', async ({ page }) => {
+  await prepareLocalWorkspace(page);
+  await seedJobs(page, [
+    { id: 'copy-pending-1', label: 'Copie en attente 1', status: 'pending', updatedAt: '2026-11-02T08:00:00.000Z' },
+    { id: 'copy-pending-2', label: 'Copie en attente 2', status: 'pending', updatedAt: '2026-11-02T09:00:00.000Z' },
+  ]);
+  let correctionRequests = 0;
+  await page.route('https://ai.example/**', async (route) => {
+    correctionRequests += 1;
+    await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'Service temporairement indisponible' }) });
+  });
+  await page.reload();
+  await openActiveAssignment(page);
+  await copyNavigation(page).click();
+
+  const launch = page.getByRole('button', { name: 'Démarrer les corrections (2)' });
+  await expect(launch).toBeVisible();
+  await expect(launch).toBeEnabled();
+  await launch.click();
+  await expect.poll(() => correctionRequests).toBeGreaterThan(0);
+  await expect(page.getByText('Copie en attente 1')).toBeVisible();
+  await expect(page.getByText('Copie en attente 2')).toBeVisible();
 });
