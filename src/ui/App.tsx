@@ -1474,6 +1474,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       if (savedDecisionCount > 0) window.dispatchEvent(new Event(LOCAL_MEMORY_UPDATED_EVENT));
       const saved = await archiveService.listCorrections();
       setArchivedCorrections(saved.filter((item) => Boolean(item.snapshot)));
+      if (currentBackgroundJobId) setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
       setCurrentCorrectionId(id);
       setIsFinalized(true);
       setArchiveMessage('Correction enregistrée localement avec la copie et les éléments de révision.');
@@ -1486,6 +1487,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         ? `Correction enregistrée sur cet appareil.${memoryStatus} Relisez les questions ouvertes avant de communiquer la note.`
         : `Correction enregistrée sur cet appareil.${memoryStatus} Vous pourrez la retrouver dans « Corrections enregistrées ».`);
       if (advanceToNextCopy) startNextCopy();
+      else setTeacherStep('overview');
     } catch {
       setIsFinalized(false);
       setReviewMessage('La correction n’a pas pu être archivée dans le stockage local. Vérifiez l’espace disponible du navigateur puis réessayez.');
@@ -2517,6 +2519,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </>}
 
       {interfaceMode === 'teacher' && teacherStep === 'overview' && <CorrectionOverview
+        message={isFinalized ? reviewMessage : ''}
         jobs={backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId)}
         corrections={archivedCorrectionsForActiveAssignment}
         currentBackgroundJobId={currentBackgroundJobId}

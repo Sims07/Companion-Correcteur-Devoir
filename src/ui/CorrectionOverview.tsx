@@ -14,6 +14,7 @@ type CurrentCopy = {
 type Filter = 'all' | CorrectionCopyStatus;
 
 type Props = {
+  message?: string;
   jobs: BackgroundCorrectionJob[];
   corrections: LocalCorrection[];
   currentCopy: CurrentCopy | null;
@@ -40,7 +41,7 @@ function formatScore(correction: LocalCorrection): string | null {
   return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(points)} / ${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(correction.snapshot.maximumPoints)}`;
 }
 
-export function CorrectionOverview({ jobs, corrections, currentCopy, currentBackgroundJobId, autoBackgroundCorrection, onStartPending, onAddCopy, onOpenJob, onOpenCorrection, onOpenCurrentCopy }: Props) {
+export function CorrectionOverview({ message = '', jobs, corrections, currentCopy, currentBackgroundJobId, autoBackgroundCorrection, onStartPending, onAddCopy, onOpenJob, onOpenCorrection, onOpenCurrentCopy }: Props) {
   const [filter, setFilter] = useState<Filter>('all');
   const visibleJobs = jobs.filter((job) => job.status !== 'completed');
   const statuses = [
@@ -57,6 +58,7 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, currentBack
       <div><p className="eyebrow">ESPACE DU DEVOIR</p><h2 id="correction-overview-title">Suivi des copies</h2><p>Retrouvez toutes les copies de ce devoir, quel que soit leur mode de correction.</p></div>
       <div className="correction-overview-heading-actions">{pendingJobsCount > 0 && !autoBackgroundCorrection && <button type="button" className="secondary-button" onClick={onStartPending}>Lancer les corrections</button>}<button type="button" className="primary-button" onClick={onAddCopy}>＋ Ajouter une copie</button></div>
     </header>
+    {message && <p className="correction-overview-message" role="status">{message}</p>}
     <div className="correction-overview-filters" role="group" aria-label="Filtrer les copies">
       {(['all', 'to-do', 'processing', 'to-review', 'completed'] as const).map((key) => {
         const count = key === 'all' ? counts.all : key === 'to-do' ? counts.toDo : key === 'processing' ? counts.processing : key === 'to-review' ? counts.toReview : counts.completed;

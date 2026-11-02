@@ -2930,3 +2930,5 @@
 .review-copy-overview-link { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 16px; border:1px solid #e0e8df; border-radius:11px; background:#fbfcfa; }
 .review-copy-overview-link p { margin:0; color:#718071; font-size:11px; }
 @media (max-width:600px) { .correction-overview-heading-actions,.review-copy-overview-link { width:100%; flex-direction:column; align-items:stretch; } }
+
+.correction-overview-message { margin: -8px 0 0; padding:12px 14px; border:1px solid #d8e7d5; border-radius:10px; background:#f2f7f0; color:#426c49; font-size:12px; line-height:1.5; }

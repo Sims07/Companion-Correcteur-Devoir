@@ -21,6 +21,8 @@ describe('espace de suivi unifié des copies', () => {
 
   it('centralise le retour à la liste depuis la révision', () => {
     expect(app).toContain('Retour au suivi des copies');
+    expect(app).toContain("else setTeacherStep('overview')");
+    expect(overview).toContain('correction-overview-message');
     expect(app).not.toContain('Copies préparées en arrière-plan');
   });
 
