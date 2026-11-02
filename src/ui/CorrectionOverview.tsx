@@ -7,6 +7,7 @@ import type { LocalCorrection } from '../domain/localCorrection.ts';
 type CurrentCopy = {
   label: string;
   pageCount: number;
+  score: string | null;
   status: 'to-do' | 'processing' | 'to-review';
 };
 
@@ -65,13 +66,17 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, currentBack
     <div className="correction-overview-grid">
       {currentCopy && !currentBackgroundJobId && matches(currentCopy.status) && <article className={`correction-overview-card is-${currentCopy.status}`}>
         <div className="correction-overview-card-top"><span className="correction-overview-status">{currentCopy.status === 'processing' ? 'En cours' : currentCopy.status === 'to-review' ? 'À réviser' : 'À corriger'}</span><span className="correction-overview-pages">{currentCopy.pageCount} page(s)</span></div>
-        <div className="correction-overview-score"><strong>—</strong><span>Note à venir</span></div>
+        <div className="correction-overview-score"><strong>{currentCopy.score ?? '—'}</strong><span>{currentCopy.score ? 'Note proposée' : 'Note à venir'}</span></div>
         <h3>{currentCopy.label || 'Copie en cours'}</h3>
         <button type="button" className="correction-overview-open" onClick={onOpenCurrentCopy}>Reprendre la copie <span aria-hidden="true">→</span></button>
       </article>}
       {visibleJobs.filter((job) => matches(getCorrectionCopyStatus(job.status))).map((job) => {
         const status = getCorrectionCopyStatus(job.status);
-        const progress = job.totalCriteria > 0 ? Math.round((job.completedCriteria / job.totalCriteria) * 100) : 0;
+        const progress = job.phase === 'reading'
+          ? Math.round((job.completedPages / Math.max(1, job.images.length)) * 50)
+          : job.phase === 'grading' && job.totalCriteria > 0
+            ? 50 + Math.round((job.completedCriteria / job.totalCriteria) * 50)
+            : 0;
         return <article className={`correction-overview-card is-${status}`} key={job.id}>
           <div className="correction-overview-card-top"><span className="correction-overview-status">{status === 'to-do' ? 'À corriger' : status === 'processing' ? 'En cours' : 'À réviser'}</span><span className="correction-overview-pages">{job.images.length} page(s)</span></div>
           <div className="correction-overview-score"><strong>{status === 'to-review' && job.proposal ? `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(job.proposal.finalScore)} / ${job.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)}` : '—'}</strong><span>{status === 'processing' ? job.phase === 'reading' ? 'Lecture de la copie' : 'Correction en cours' : status === 'to-review' ? 'Proposition disponible' : 'En attente'}</span></div>
