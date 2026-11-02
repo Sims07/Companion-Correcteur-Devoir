@@ -1914,6 +1914,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     // change it to `reviewing` and hide the dedicated in-progress screen.
     if (next.status !== 'failed' && next.status !== 'processing') await backgroundService.markForReview(next.id);
     setCurrentBackgroundJobId(next.id);
+    // The foreground analysis flag belongs to the previously displayed copy.
+    // A selected background job has its own persisted status/phase and must
+    // keep navigation available even while that job is processing in the queue.
+    setIsAnalyzing(false);
+    setStreamedOutput('');
+    setCurrentTimingRecordId(null);
     setStudentLabel(next.studentIdentity ? (formatStudentIdentityLabel(next.studentIdentity) ?? next.label) : next.label);
     setStudentIdentity(next.studentIdentity ?? null);
     setDetectTeacherAnnotations(next.detectTeacherAnnotations);
