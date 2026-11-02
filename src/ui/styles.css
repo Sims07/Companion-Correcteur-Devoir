@@ -1087,3 +1087,6 @@ footer { padding-top: 24px; line-height: 1.6; }
   outline: 3px solid var(--accent, #315fce);
   outline-offset: 3px;
 }
+
+.copy-review-student-caption{display:block;margin:0 0 4px;color:#718075;font-size:9px;font-weight:750;letter-spacing:.06em;text-transform:uppercase}
+.copy-review-student-name{display:flex;flex-direction:column;min-width:150px;flex:1}

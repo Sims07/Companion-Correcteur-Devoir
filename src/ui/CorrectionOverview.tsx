@@ -42,16 +42,16 @@ type OverviewItem = {
 
 const labels: Record<CopyOverviewFilter, string> = {
   all: 'Toutes',
-  'to-do': 'À corriger',
-  processing: 'En cours',
-  'to-review': 'À réviser',
+  'to-do': 'En attente',
+  processing: 'Analyse en cours',
+  'to-review': 'À vérifier',
   'to-retry': 'À reprendre',
   completed: 'Corrigées',
 };
 const statusLabels: Record<CopyOverviewStatus, string> = {
-  'to-do': 'À corriger',
-  processing: 'En cours',
-  'to-review': 'À réviser',
+  'to-do': 'En attente',
+  processing: 'Analyse en cours',
+  'to-review': 'À vérifier',
   'to-retry': 'À reprendre',
   completed: 'Corrigée',
 };
@@ -156,7 +156,7 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onF
         <p>Retrouvez les copies à corriger, celles à réviser et les corrections validées.</p>
       </div>
       <div className="copy-overview-primary-actions">
-        {counts.toReview > 0 && <button type="button" className="primary-button" onClick={onReviewNextCopy}>Réviser la copie suivante</button>}
+        {counts.toReview > 0 && <button type="button" className="primary-button" onClick={onReviewNextCopy}>Vérifier la copie suivante</button>}
         <button type="button" className="secondary-button" onClick={onAddCopy}>＋ Ajouter une copie</button>
       </div>
     </header>

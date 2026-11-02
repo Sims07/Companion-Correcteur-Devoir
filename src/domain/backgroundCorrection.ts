@@ -142,11 +142,11 @@ export function findBackgroundCorrectionToOpen(
 export function backgroundCorrectionStatusLabel(status: BackgroundCorrectionStatus): string {
   switch (status) {
     case 'pending': return 'En attente';
-    case 'processing': return 'En cours';
-    case 'ready': return 'Prête à réviser';
+    case 'processing': return 'Analyse en cours';
+    case 'ready': return 'À vérifier';
     case 'needs-review': return 'À vérifier';
-    case 'reviewing': return 'Révision en cours';
-    case 'completed': return 'Archivée';
-    case 'failed': return 'Échec';
+    case 'reviewing': return 'À vérifier';
+    case 'completed': return 'Corrigée';
+    case 'failed': return 'À reprendre';
   }
 }

@@ -114,7 +114,12 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(diagramDetails.getByText('Schéma de cellule végétale')).toBeVisible();
   await expect(diagramDetails.getByText('La membrane est représentée.')).toBeVisible();
 
-  await expect(page.getByRole('complementary', { name: 'Copie de référence' })).toBeVisible();
+  await expect(page.locator('.copy-review-header')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toBeVisible();
+  await expect(page.getByText('Nom lu sur la copie')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Correction validée' })).toBeVisible();
+  await expect(page.locator('.copy-review-validation-bar')).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Copie de l’étudiant' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Transport membranaire' })).toBeVisible();
   const flaggedCard = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Rôle de la membrane' }) });
@@ -142,7 +147,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await explanation.locator('summary').click();
   await expect(explanation.getByText('La réponse mentionne la membrane.')).toBeVisible();
   await expect(page.getByRole('img', { name: 'Page de travail 1 de la copie' })).toBeVisible();
-  await expect(page.getByText('Texte reconnu par l’IA')).toBeVisible();
+  await expect(page.getByText('Transcription de la copie')).toBeVisible();
   const locateEvidence = page.getByRole('button', { name: 'Repérer la preuve du critère Rôle de la membrane sur la page 1' });
   await expect(locateEvidence).toBeVisible();
   await locateEvidence.click();
@@ -183,7 +188,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.getByRole('button', { name: /Copies corrigées/ }).click();
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
   await expect(page.getByRole('button', { name: /Confirmer les critères sans alerte/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Ajouter une autre copie' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Corriger une autre copie' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Correction validée' })).toBeDisabled();
 
   const sourcePage = page.getByRole('img', { name: 'Page de travail 1 de la copie' });
   const sourceImageBeforeRotation = await sourcePage.getAttribute('src');

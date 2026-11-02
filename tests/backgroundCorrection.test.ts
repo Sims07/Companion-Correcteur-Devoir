@@ -52,7 +52,12 @@ describe('background correction jobs', () => {
   });
 
   it('uses teacher-facing status labels', () => {
-    expect(backgroundCorrectionStatusLabel('ready')).toBe('Prête à réviser');
+    expect(backgroundCorrectionStatusLabel('pending')).toBe('En attente');
+    expect(backgroundCorrectionStatusLabel('processing')).toBe('Analyse en cours');
+    expect(backgroundCorrectionStatusLabel('ready')).toBe('À vérifier');
+    expect(backgroundCorrectionStatusLabel('reviewing')).toBe('À vérifier');
+    expect(backgroundCorrectionStatusLabel('failed')).toBe('À reprendre');
+    expect(backgroundCorrectionStatusLabel('completed')).toBe('Corrigée');
     expect(backgroundCorrectionStatusLabel('needs-review')).toBe('À vérifier');
   });
 });
