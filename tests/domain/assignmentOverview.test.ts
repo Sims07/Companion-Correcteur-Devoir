@@ -66,6 +66,12 @@ describe('getAssignmentOverview', () => {
     expect(overview.cards.map((card) => card.profile.id)).toEqual(['cell-biology']);
   });
 
+  it('includes assignments with active background copies in the corrections filter', () => {
+    const overview = getAssignmentOverview([readyAssignment, draftAssignment], [], '', 'with-corrections', ['genetics']);
+    expect(overview.cards.map((card) => card.profile.id)).toEqual(['genetics']);
+    expect(overview.correctionCount).toBe(1);
+  });
+
   it('filters assignments that still need preparation', () => {
     const overview = getAssignmentOverview([readyAssignment, draftAssignment], [], '', 'to-prepare');
     expect(overview.cards.map((card) => card.profile.id)).toEqual(['genetics']);

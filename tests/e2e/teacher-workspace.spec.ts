@@ -16,7 +16,7 @@ test('teacher can edit the collapsed assignment and rubric as one Devoir step', 
   await page.getByLabel('Nom du barème (distinct du devoir)').fill('Barème cellulaire');
   await expect(page.getByRole('heading', { name: 'Devoir et barème' })).toBeVisible();
   await page.getByRole('button', { name: 'Continuer vers les copies' }).click();
-  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Mes devoirs' }).click();
   await page.getByRole('button', { name: /Créer un devoir/ }).click();
@@ -91,6 +91,10 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
 test('teacher can choose clearly distinct individual and series correction workflows', async ({ page }) => {
   await page.goto('/');
   await openActiveAssignment(page);
+  await page.locator('.teacher-step-nav .teacher-step').nth(1).click();
+  await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Filtrer les copies' })).toBeVisible();
+  await page.getByRole('button', { name: /Ajouter une copie/ }).click();
   const modeChooser = page.getByRole('region', { name: 'Choisir le mode de correction' });
   await expect(modeChooser).toBeVisible();
   await expect(modeChooser.getByRole('button', { name: /Correction individuelle/ })).toHaveAttribute('aria-pressed', 'true');
