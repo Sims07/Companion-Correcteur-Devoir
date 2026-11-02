@@ -101,10 +101,12 @@ test('review workspace keeps original evidence beside grading criteria on deskto
 
   await page.reload();
   await openActiveAssignment(page);
+  await expect(page.locator('#background-copy-files')).toBeVisible();
   await page.getByRole('button', { name: /Copies corrigées/ }).click();
   await expect(page.getByRole('button', { name: 'Consulter la correction' })).toHaveCount(1);
   await expect(page.getByText('Copie d’un autre devoir')).toHaveCount(0);
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
+  await expect(page.locator('#background-copy-files')).toHaveCount(0);
 
   await expect(page.getByRole('heading', { name: 'Analyse des schémas scientifiques' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Pages identifiées' })).toHaveCount(0);
