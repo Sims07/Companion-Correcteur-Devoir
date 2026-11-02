@@ -71,6 +71,29 @@ function fixture() {
 }
 
 describe('background correction service', () => {
+  it('publishes lightweight summaries without exposing page images', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const summaries = await service.listJobSummaries('assignment-1');
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({
+      id: 'copy-1',
+      assignmentId: 'assignment-1',
+      label: 'Copie 1',
+      status: 'pending',
+      pageCount: 1,
+      maximumPoints: 4,
+      progress: { completedPages: 0, totalPages: 1, completedCriteria: 0, totalCriteria: 2 },
+    });
+    expect(summaries[0]).not.toHaveProperty('images');
+
+    const listener = vi.fn();
+    service.subscribeSummaries(listener);
+    await service.markForReview('copy-1');
+    expect(listener).toHaveBeenCalledWith([expect.objectContaining({ id: 'copy-1', status: 'reviewing' })]);
+    expect(listener.mock.calls[0][0][0]).not.toHaveProperty('originalImages');
+  });
+
   it('prewarms, caches transcription and grades one criterion per sequential provider call', async () => {
     const f = fixture();
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
