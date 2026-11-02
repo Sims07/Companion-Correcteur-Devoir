@@ -2522,7 +2522,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         currentBackgroundJobId={currentBackgroundJobId}
         autoBackgroundCorrection={autoBackgroundCorrection}
         onStartPending={() => { void backgroundService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}
-        currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ? { label: studentLabel || images[0]?.fileName || 'Copie en cours', pageCount: images.length, status: isAnalyzing ? 'processing' : proposal ? 'to-review' : 'to-do' } : null}
+        currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ? { label: studentLabel || images[0]?.fileName || 'Copie en cours', pageCount: images.length, score: review.length > 0 ? `${reviewedTotal} / ${validation.maximumPoints}` : null, status: isAnalyzing ? 'processing' : proposal ? 'to-review' : 'to-do' } : null}
         onAddCopy={() => { setShowAiSettings(false); setTeacherStep('copy'); }}
         onOpenJob={(jobId) => { void loadNextQueuedCopy(jobId); }}
         onOpenCorrection={openArchivedCorrection}
