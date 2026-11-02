@@ -1,4 +1,4 @@
-export type AssignmentOverviewFilter = 'all' | 'with-corrections' | 'to-prepare';
+export type AssignmentOverviewFilter = 'all' | 'with-copies' | 'to-prepare';
 
 export interface AssignmentOverviewProfile {
   id: string;
@@ -67,7 +67,7 @@ export function getAssignmentOverview<T extends AssignmentOverviewProfile>(
       .some((value) => value.toLocaleLowerCase('fr-FR').includes(normalizedQuery));
     return matchesQuery && (
       filter === 'all' ||
-      (filter === 'with-corrections' ? archivedCount > 0 || assignmentsWithCopiesSet.has(profile.id) : !ready)
+      (filter === 'with-copies' ? archivedCount > 0 || assignmentsWithCopiesSet.has(profile.id) : !ready)
     );
   });
 
