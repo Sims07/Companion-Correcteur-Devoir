@@ -4,7 +4,7 @@ import { openActiveAssignment } from './helpers/teacher-workspace';
 test('scientific page routing is automatic and is no longer configured per assignment', async ({ page }) => {
   await page.goto('/');
   await openActiveAssignment(page);
-  await page.locator('.teacher-step-nav .teacher-step').first().click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
   await expect(page.getByRole('checkbox', { name: /Ce devoir comporte des schémas scientifiques à évaluer/ })).toHaveCount(0);
 });
 
