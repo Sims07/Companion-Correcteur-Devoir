@@ -282,6 +282,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     subscribe: () => () => undefined,
     subscribeSummaries: () => () => undefined,
     markForReview: async () => undefined,
+    saveReviewDraft: async () => undefined,
     markCompleted: async () => undefined,
     remove: async () => undefined,
     retry: async () => undefined,
@@ -1906,6 +1907,15 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const forceNew = options.forceNew ?? false;
     const readyExists = !forceNew && backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && (job.status === 'ready' || (job.status === 'reviewing' && Boolean(job.proposal))) && job.id !== currentBackgroundJobId);
     if (readyExists) { await loadNextQueuedCopy(); return; }
+
+    if (currentBackgroundJobId && !isFinalized) {
+      try {
+        await backgroundService.saveReviewDraft(currentBackgroundJobId, structuredClone(review), teacherQuestions);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Impossible de sauvegarder votre révision avant de passer à la copie suivante.');
+        return;
+      }
+    }
 
     // A foreground copy may not have been queued yet. Persist it before resetting
     // the editor so "Ajouter une copie" cannot discard pages or teacher revisions.
