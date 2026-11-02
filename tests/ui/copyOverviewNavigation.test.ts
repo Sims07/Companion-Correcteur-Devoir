@@ -10,7 +10,7 @@ describe('parcours unifié des copies dans un devoir', () => {
   it('ouvre le suivi des copies après sélection d’un devoir déjà configuré', () => {
     expect(app).toContain("getTeacherEntryStep(profile.rubric) === 'copies' ? 'overview' : 'rubric'");
     expect(app).toContain("teacherStep === 'overview' && <CorrectionOverview");
-    expect(app).toContain("onClick={() => setTeacherStep('overview')}");
+    expect(app).toContain("setCopyOverviewFilter('all'); setTeacherStep('overview')");
   });
 
   it('propose un seul parcours de suivi quel que soit le mode de correction', () => {
