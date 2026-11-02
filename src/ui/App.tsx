@@ -410,7 +410,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [busy, setBusy] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
-  const [criterionProgressMessage, setCriterionProgressMessage] = useState('');
+  const [, setCriterionProgressMessage] = useState('');
   const [pageProgress, setPageProgress] = useState<Record<number, 'started' | 'completed' | 'doubtful'>>({});
   const [criterionProgressPosition, setCriterionProgressPosition] = useState<{ index: number; total: number } | null>(null);
   const [lastModelLoadDurationMs, setLastModelLoadDurationMs] = useState<number | null>(null);
@@ -418,8 +418,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [criterionStatuses, setCriterionStatuses] = useState<Record<string, CriterionAnalysisUpdate['status']>>({});
   const [activeCriterionId, setActiveCriterionId] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [readingElapsedMs, setReadingElapsedMs] = useState<number | null>(null);
-  const [analysisElapsedMs, setAnalysisElapsedMs] = useState<number | null>(null);
+  const [, setReadingElapsedMs] = useState<number | null>(null);
+  const [, setAnalysisElapsedMs] = useState<number | null>(null);
   const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
   const diagnosticHistoryReady = useRef(false);
   const completedPageCount = Object.values(pageProgress).filter((status) => status === 'completed' || status === 'doubtful').length;
@@ -519,7 +519,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   ], [rubric.criteria, flaggedCriteriaIds]);
   const unreadableCopySignal = hasUnreadableCopySignal(transcription, images.length > 0);
   useEffect(() => { setShowOnlyFlagged(!isFinalized); }, [isFinalized]);
-  const completedForAssignment = archivedCorrectionsForActiveAssignment.length;
   const subjectReady = correctionMode === 'integrated' || subjectImages.length > 0 || Boolean(subjectTranscription);
   const setupChecks = [
     { label: 'Barème vérifié', detail: validation.valid ? `${validation.maximumPoints} points répartis sur ${rubric.criteria.length} critères` : 'Corrigez les points ou les critères signalés', ready: validation.valid },
