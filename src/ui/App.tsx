@@ -3153,7 +3153,21 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 
-      {(proposal || isAnalyzing || review.length > 0 || Boolean(activeBackgroundJob) || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => {
+      {activeBackgroundJob?.status === 'pending' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="analysis-progress teacher-progress-card" role="status"><strong>Copie en attente de traitement</strong><p>La copie sera traitée dès que le poste pourra démarrer la prochaine analyse.</p></section>}
+      {activeBackgroundJob && !proposal && !isAnalyzing && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section copy-navigation-only">
+        <CopyReviewHeader studentLabel={studentLabel} onStudentLabelChange={setStudentLabel} position={reviewPosition} totalCopies={reviewTotalCopies}
+          status={activeBackgroundJob.status === 'pending' ? 'En attente' : activeBackgroundJob.status === 'processing' ? 'Analyse en cours' : 'À reprendre'}
+          score={reviewedTotal} maximumPoints={validation.maximumPoints} isAnalyzing={false} isFinalized={false} canValidate={false}
+          canPrevious={Boolean(copyNavigation.previousCopy)} canNext={Boolean(copyNavigation.nextCopy)}
+          previousLabel={copyNavigation.previousCopy ? copyNavigation.previousCopy.label + ' · ' + copyNavigation.previousCopy.status : null}
+          nextLabel={copyNavigation.nextCopy ? copyNavigation.nextCopy.label + ' · ' + copyNavigation.nextCopy.status : null}
+          onPrevious={() => { if (copyNavigation.previousCopy) void openCopyNavigationItem(copyNavigation.previousCopy.id); }}
+          onNext={() => { if (copyNavigation.nextCopy) void openCopyNavigationItem(copyNavigation.nextCopy.id); }}
+          onValidate={() => setReviewMessage('Aucune proposition à valider pour cette copie.')}
+        />
+        {reviewMessage && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
+      </section>}
+      {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
           event.preventDefault();
           if (!isAnalyzing && !isFinalized && review.length === rubric.criteria.length) void finalizeReview(true);
@@ -3179,7 +3193,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           onValidate={() => void finalizeReview(true)}
         />
         {reviewMessage && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
-        {activeBackgroundJob && !proposal && <section className="analysis-progress teacher-progress-card" role="status" aria-live="polite"><strong>{activeBackgroundJob.status === 'pending' ? 'Copie en attente de traitement' : activeBackgroundJob.status === 'processing' ? 'Analyse de la copie en cours' : 'Cette copie doit être reprise'}</strong><p>{activeBackgroundJob.status === 'pending' ? 'La copie sera traitée dès que le poste pourra démarrer la prochaine analyse.' : activeBackgroundJob.status === 'processing' ? 'Vous pouvez consulter une autre copie pendant que le traitement se poursuit.' : activeBackgroundJob.error || 'Relancez la correction pour poursuivre.'}</p></section>}
+        
         {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || (studentIdentity !== null && studentIdentity.confidence !== 'high')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
           {flaggedCriteriaIds.size > 0 && <button type="button" onClick={() => { setShowOnlyFlagged(true); document.querySelector('.review-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>⚠ {flaggedCriteriaIds.size} critère(s) à examiner</button>}
           {studentIdentity && studentIdentity.confidence !== 'high' && <button type="button" className="copy-review-alert-chip" onClick={() => document.getElementById('student-label')?.focus()}>Nom à confirmer</button>}

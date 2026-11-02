@@ -61,13 +61,14 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
   await page.locator('.copy-overview-grid li').filter({ hasText: '01-reprendre' }).getByRole('button', { name: 'Ouvrir', exact: true }).click();
 
   await expect(page.getByText('Copie 1 sur 8')).toBeVisible();
+  await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText('01-reprendre');
   const expectedLabels = ['02-verifier', '03-analyse', '04-attente', '08-archivée', '07-archivée', '06-archivée', '05-archivée'];
   for (let index = 0; index < expectedLabels.length; index += 1) {
     await page.getByRole('button', { name: 'Copie suivante' }).click();
     const actualCounter = await page.locator('.copy-review-position strong').textContent().catch(() => '<header absent>');
     const activeCopy = await page.locator('.teacher-copy-rail-list button[aria-current="page"]').innerText().catch(() => '<aucune copie active>');
     const navigationMessages = await page.locator('[role="status"]').allTextContents();
-    expect(actualCounter, 'Navigation après flèche : ' + JSON.stringify({ activeCopy, navigationMessages })).toBe('Copie ' + (index + 2) + ' sur 8');
+    expect(actualCounter, 'Navigation après flèche : ' + JSON.stringify({ activeCopy, rail, navigationMessages })).toBe('Copie ' + (index + 2) + ' sur 8');
     await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText(expectedLabels[index]);
   }
   await expect(page.getByRole('button', { name: 'Copie suivante' })).toBeDisabled();
