@@ -25,6 +25,9 @@ export interface TeacherWorkspaceNavigationProps {
   onSelectRubric: () => void;
   onOpenSettings: () => void;
   onOpenCopy: (copyId: string) => void;
+  canOpenNextReviewCopy: boolean;
+  nextReviewCopyLabel?: string | null;
+  onOpenNextReviewCopy: () => void;
 }
 
 export function TeacherWorkspaceNavigation({
@@ -44,6 +47,9 @@ export function TeacherWorkspaceNavigation({
   onSelectRubric,
   onOpenSettings,
   onOpenCopy,
+  canOpenNextReviewCopy,
+  nextReviewCopyLabel,
+  onOpenNextReviewCopy,
 }: TeacherWorkspaceNavigationProps) {
   const [railExpanded, setRailExpanded] = useState(true);
   const activeCopy = copies.find((copy) => copy.id === activeCopyId);
@@ -103,6 +109,7 @@ export function TeacherWorkspaceNavigation({
               </ol>
             ) : <p className="teacher-copy-rail-empty">Aucune copie dans ce devoir.</p>
           ) : <p className="teacher-copy-rail-collapsed-count">{copies.length} copie(s)</p>}
+          {railExpanded && <button type="button" className="secondary-button teacher-copy-rail-next-review" onClick={onOpenNextReviewCopy} disabled={!canOpenNextReviewCopy || isAnalyzing} title={nextReviewCopyLabel ? "Prochaine copie à vérifier : " + nextReviewCopyLabel + " · À vérifier" : "Aucune autre copie à vérifier pour le moment"}>Prochaine copie à vérifier</button>}
         </aside>
       )}
     </>

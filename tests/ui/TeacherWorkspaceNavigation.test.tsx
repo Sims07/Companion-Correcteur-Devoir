@@ -9,6 +9,9 @@ const callbacks = {
   onSelectRubric: vi.fn(),
   onOpenSettings: vi.fn(),
   onOpenCopy: vi.fn(),
+  canOpenNextReviewCopy: false,
+  nextReviewCopyLabel: null,
+  onOpenNextReviewCopy: vi.fn(),
 };
 
 describe('navigation de l’espace enseignant', () => {

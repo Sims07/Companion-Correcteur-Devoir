@@ -26,9 +26,9 @@ import type { RubricImportProgress } from '../ports/correctionWorkspace.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
-import { createBackgroundCorrection, backgroundCorrectionStatusLabel, findBackgroundCorrectionToOpen, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
+import { createBackgroundCorrection, backgroundCorrectionStatusLabel, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import { getBackgroundCorrectionResult } from '../domain/backgroundCorrectionResult.ts';
-import { getBackgroundCorrectionReviewNavigation } from '../domain/backgroundCorrectionReviewNavigation.ts';
+import { getCopyNavigation } from '../domain/backgroundCorrectionReviewNavigation.ts';
 import { prepareBatchCopies } from '../application/prepareBatchCopies.ts';
 import { autoRotateScientificPages } from '../application/autoRotateScientificPages.ts';
 import type { BackgroundCorrectionService } from '../application/backgroundCorrectionService.ts';
@@ -497,16 +497,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
   const reviewedTotal = criterionProgress.provisionalPoints;
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
-  const reviewNavigation = getBackgroundCorrectionReviewNavigation(backgroundJobs, activeAssignmentId, currentBackgroundJobId);
-  const reviewJobs = backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId);
-  const activeBackgroundJob = reviewJobs.find((job) => job.id === currentBackgroundJobId) ?? null;
-  const reviewCurrentIndex = reviewJobs.findIndex((job) => job.id === currentBackgroundJobId);
-  const previousReviewJob = reviewCurrentIndex > 0 ? reviewJobs[reviewCurrentIndex - 1] : null;
-  const archivedReviewIndex = archivedCorrectionsForActiveAssignment.findIndex((correction) => correction.id === currentCorrectionId);
-  const previousArchivedCorrection = archivedReviewIndex > 0 ? archivedCorrectionsForActiveAssignment[archivedReviewIndex - 1] : null;
-  const nextArchivedCorrection = archivedReviewIndex >= 0 && archivedReviewIndex < archivedCorrectionsForActiveAssignment.length - 1 ? archivedCorrectionsForActiveAssignment[archivedReviewIndex + 1] : null;
-  const reviewPosition = currentBackgroundJobId ? reviewNavigation.currentPosition ?? 1 : Math.max(1, archivedCorrectionsForActiveAssignment.findIndex((correction) => correction.id === currentCorrectionId) + 1);
-  const reviewTotalCopies = currentBackgroundJobId ? reviewNavigation.totalCopies : Math.max(1, archivedCorrectionsForActiveAssignment.length);
+  const currentCopyId = currentBackgroundJobId ?? currentCorrectionId ?? (images.length > 0 ? 'current-copy' : null);
+  const currentDraftNavigationItem = images.length > 0 && !currentBackgroundJobId && !currentCorrectionId
+    ? {
+      id: 'current-copy',
+      label: studentLabel || images[0]?.fileName || 'Copie en cours',
+      status: isAnalyzing ? 'Analyse en cours' as const : proposal ? 'À vérifier' as const : 'À reprendre' as const,
+      score: proposal ? reviewedTotal.toLocaleString('fr-FR') + ' / ' + validation.maximumPoints.toLocaleString('fr-FR') : null,
+    }
+    : null;
+  const copyNavigation = getCopyNavigation(activeAssignmentId, currentCopyId, backgroundJobs, archivedCorrectionsForActiveAssignment, currentDraftNavigationItem);
+  const activeBackgroundJob = backgroundJobs.find((job) => job.id === currentBackgroundJobId) ?? null;
+  const reviewPosition = copyNavigation.currentPosition ?? (copyNavigation.totalCopies > 0 ? 1 : 0);
+  const reviewTotalCopies = copyNavigation.totalCopies;
   useEffect(() => {
     if (copyOverviewFilterTouched) return;
     const statuses = [
@@ -1527,8 +1530,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setReviewMessage(teacherQuestions.trim()
         ? `Correction enregistrée sur cet appareil.${memoryStatus} Relisez les questions ouvertes avant de communiquer la note.`
         : `Correction enregistrée sur cet appareil.${memoryStatus} Vous pourrez la retrouver dans « Corrections enregistrées ».`);
-      if (advanceToNextCopy) await startNextCopy();
-      else { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); }
+      if (advanceToNextCopy) {
+        const nextToReview = copyNavigation.nextCopyToReview;
+        if (nextToReview?.kind === 'job') {
+          await loadNextQueuedCopy(nextToReview.id);
+        } else {
+          setReviewMessage('Aucune autre copie à vérifier pour le moment.');
+        }
+      } else { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); }
     } catch {
       setIsFinalized(false);
       setReviewMessage('La correction n’a pas pu être archivée dans le stockage local. Vérifiez l’espace disponible du navigateur puis réessayez.');
@@ -1889,10 +1898,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function loadNextQueuedCopy(jobId?: string) {
-    if (isAnalyzing) return;
-    const next = findBackgroundCorrectionToOpen(backgroundJobs, activeAssignmentId, currentBackgroundJobId, jobId);
+    if (isAnalyzing) { setReviewMessage('Attendez la fin du traitement avant de changer de copie.'); return; }
+    const availableJobs = jobId ? await backgroundService.listJobs(activeAssignmentId) : backgroundJobs;
+    const next = jobId
+      ? availableJobs.find((job) => job.id === jobId && job.assignmentId === activeAssignmentId) ?? null
+      : copyNavigation.nextCopyToReview?.job ?? null;
     if (!next) {
-      setReviewMessage('Aucune autre copie n’est prête à vérifier pour le moment. Les autres corrections se poursuivent.');
+      setReviewMessage('Aucune autre copie à vérifier pour le moment. Les autres corrections se poursuivent.');
       return;
     }
     const canReview = Boolean(next.proposal) && ['ready', 'needs-review', 'reviewing'].includes(next.status);
@@ -1924,7 +1936,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setError(next.error ?? '');
     setCurrentCorrectionId(null);
     setIsFinalized(false);
-    setTeacherStep(canReview || next.status === 'processing' ? 'review' : 'copy');
+    setTeacherStep(canReview || next.status === 'processing' || next.status === 'pending' ? 'review' : 'copy');
     setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
   }
 
@@ -2032,6 +2044,31 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setDiagnosticRuns([]);
     setStreamedOutput('');
     setTeacherStep('copy');
+  }
+
+  async function openCopyNavigationItem(copyId: string) {
+    const target = copyNavigation.copies.find((copy) => copy.id === copyId);
+    if (!target) {
+      setReviewMessage('Cette copie n’est plus disponible dans ce devoir. Actualisez la liste avant de réessayer.');
+      return;
+    }
+    if (target.id === currentCopyId) return;
+
+    // Preserve an unregistered foreground copy in the local queue before switching away.
+    if (currentCopyId === 'current-copy' && images.length > 0 && !currentBackgroundJobId && !currentCorrectionId) {
+      await startNextCopy({ forceNew: true });
+      setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
+    }
+
+    if (target.kind === 'job') {
+      await loadNextQueuedCopy(target.id);
+      return;
+    }
+    if (target.kind === 'correction' && target.correction) {
+      openArchivedCorrection(target.correction);
+      return;
+    }
+    setReviewMessage('La copie courante est déjà affichée.');
   }
 
   function openArchivedCorrection(correction: LocalCorrection) {
@@ -2148,32 +2185,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         studentLabel={studentLabel}
         activeSection={teacherStep === 'rubric' || teacherStep === 'details' ? 'rubric' : 'copies'}
         showCopyRail={teacherStep === 'review' && !showAiSettings}
-        copies={[
-          ...allBackgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').map((job) => ({
-            id: job.id,
-            label: (job.studentIdentity ? formatStudentIdentityLabel(job.studentIdentity) : null) || job.label || 'Étudiant non identifié',
-            status: backgroundCorrectionStatusLabel(job.status),
-            score: job.score === null ? null : job.score.toLocaleString('fr-FR') + ' / ' + job.maximumPoints.toLocaleString('fr-FR'),
-            updatedAt: job.updatedAt,
-          })),
-          ...archivedCorrectionsForActiveAssignment.map((correction) => {
-            const score = correction.snapshot?.review.reduce((sum, item) => sum + item.teacherPoints, 0);
-            return {
-              id: correction.id,
-              label: correction.label,
-              status: 'Corrigée',
-              score: correction.snapshot ? (score ?? 0).toLocaleString('fr-FR') + ' / ' + correction.snapshot.maximumPoints.toLocaleString('fr-FR') : null,
-              updatedAt: correction.updatedAt,
-            };
-          }),
-          ...(images.length > 0 && !currentBackgroundJobId && !currentCorrectionId ? [{
-            id: 'current-copy',
-            label: studentLabel || images[0]?.fileName || 'Copie en cours',
-            status: isAnalyzing ? 'Analyse en cours' : proposal ? 'À vérifier' : 'En cours',
-            score: proposal ? reviewedTotal.toLocaleString('fr-FR') + ' / ' + validation.maximumPoints.toLocaleString('fr-FR') : null,
-          }] : []),
-        ]}
-        activeCopyId={currentBackgroundJobId ?? currentCorrectionId ?? (images.length > 0 ? 'current-copy' : null)}
+        copies={copyNavigation.copies.map((copy) => ({
+          id: copy.id,
+          label: copy.label,
+          status: copy.status,
+          score: copy.score,
+          updatedAt: copy.updatedAt,
+        }))}
+        activeCopyId={currentCopyId}
         aiConfigured={Boolean(visionModel.trim() && analysisModel.trim())}
         settingsExpanded={showAiSettings}
         isAnalyzing={isAnalyzing}
@@ -2183,14 +2202,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         onSelectCopies={() => { setShowAiSettings(false); setCopyOverviewFilterTouched(false); setTeacherStep('overview'); }}
         onSelectRubric={() => { setShowAiSettings(false); setTeacherStep('rubric'); }}
         onOpenSettings={() => setShowAiSettings(true)}
-        onOpenCopy={(copyId) => {
-          setShowAiSettings(false);
-          const job = allBackgroundJobs.find((item) => item.id === copyId && item.assignmentId === activeAssignmentId);
-          if (job) { void loadNextQueuedCopy(job.id); return; }
-          const correction = archivedCorrectionsForActiveAssignment.find((item) => item.id === copyId);
-          if (correction) { openArchivedCorrection(correction); return; }
-          setTeacherStep(proposal ? 'review' : 'copy');
-        }}
+        canOpenNextReviewCopy={Boolean(copyNavigation.nextCopyToReview)}
+        nextReviewCopyLabel={copyNavigation.nextCopyToReview?.label ?? null}
+        onOpenNextReviewCopy={() => { const next = copyNavigation.nextCopyToReview; if (next) void openCopyNavigationItem(next.id); }}
+        onOpenCopy={(copyId) => { setShowAiSettings(false); void openCopyNavigationItem(copyId); }}
       />}
       {interfaceMode === 'diagnostic' && <section className="privacy-strip">
         <span className="privacy-icon">⌂</span>
@@ -2890,7 +2905,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           {interfaceMode !== 'teacher' && <label className="analysis-thinking-option copy-annotation-option"><input type="checkbox" checked={autoBackgroundCorrection} onChange={(event) => { const enabled = event.target.checked; setAutoBackgroundCorrection(enabled); try { window.localStorage.setItem('companion-correcteur:auto-background-correction:v1', String(enabled)); } catch { /* Keep the current session preference if storage is unavailable. */ } void backgroundService.setAutomatic(enabled, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: enabled, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }} /><span><strong>Démarrer automatiquement la correction des copies ajoutées</strong><small>Activé par défaut. Les copies sont corrigées l’une après l’autre. Vous gardez la main pour vérifier chaque proposition.</small></span></label>}
           {images.length > 0 && <div className="file-list"><strong>{images.length} page(s) prête(s) à analyser</strong>
              {interfaceMode === 'teacher' && <details className="copy-advanced-options copy-annotation-details"><summary>Annotations du professeur</summary><label className="analysis-thinking-option copy-annotation-option" htmlFor="copy-has-teacher-annotations"><input id="copy-has-teacher-annotations" type="checkbox" checked={detectTeacherAnnotations} onChange={(event) => setDetectTeacherAnnotations(event.target.checked)} /><span><strong>Cette copie contient déjà des annotations du professeur</strong><small>À activer uniquement pour cette copie si elle comporte des remarques, corrections, coches ou notes déjà inscrites. Leur détection reste locale et les points existants ne sont jamais additionnés automatiquement.</small></span></label></details>}{interfaceMode === 'teacher' && <details className="copy-advanced-options copy-annotation-details"><summary>Couleur des annotations</summary><div className="annotation-ink-color-control"><label className="field-label">Couleur des annotations du professeur</label><AnnotationInkColorPicker image={originalImages[0] ?? images[0]} preview={annotationInkColorPreview} selectedColor={annotationInkColor} onColorPick={(color) => { if (annotationInkColorApplied && annotationInkColor !== 'none') { setImages(originalImages); setManualRotationAngles({}); setPageClassifications(null); setScientificDiagramAnalysis(null); } setAnnotationInkColor(color); setAnnotationInkColorApplied(color === 'none'); setAnnotationInkColorPreview(null); if (color !== 'none') setDetectTeacherAnnotations(true); }} /><p className="hint">Le retrait est effectué dans le navigateur, sur la copie de travail uniquement. Les originaux restent conservés. Attention : tous les pixels de cette couleur sont concernés, y compris une éventuelle écriture de l’étudiant dans la même couleur. Vérifiez l’aperçu avant validation.</p>{annotationInkColor !== 'none' && !annotationInkColorApplied && <div className="annotation-ink-preview-actions"><button type="button" className="secondary-button" disabled={annotationInkColorBusy || !images.length} onClick={async () => { setAnnotationInkColorBusy(true); setError(''); try { const preview = await service.eraseTeacherAnnotationColor(images[0], annotationInkColor); setAnnotationInkColorPreview(preview); } catch (cause) { setError(cause instanceof Error ? cause.message : 'La prévisualisation du retrait des annotations a échoué.'); } finally { setAnnotationInkColorBusy(false); } }}>{annotationInkColorBusy ? 'Préparation…' : 'Prévisualiser le retrait'}</button>{annotationInkColorPreview && <><button type="button" className="primary-button" disabled={annotationInkColorBusy} onClick={async () => { setAnnotationInkColorBusy(true); try { const cleaned = await Promise.all(images.map((image) => service.eraseTeacherAnnotationColor(image, annotationInkColor))); setImages(cleaned); setAnnotationInkColorApplied(true); setAnnotationInkColorPreview(null); setTranscription(null); setPageClassifications(null); setScientificDiagramAnalysis(null); setProposal(null); setReview([]); setReviewMessage('Couleur des annotations retirée localement sur toutes les pages de la copie.'); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Le retrait des annotations a échoué.'); } finally { setAnnotationInkColorBusy(false); } }}>Appliquer à toutes les pages</button></>}</div>}</div></details>}{interfaceMode === 'teacher' && <label className="analysis-thinking-option copy-annotation-option" htmlFor="auto-rotate-scientific-diagrams"><input id="auto-rotate-scientific-diagrams" type="checkbox" checked={autoRotateScientificDiagrams} onChange={(event) => { setAutoRotateScientificDiagrams(event.target.checked); try { window.localStorage.setItem('companion-correcteur:auto-rotate-diagrams:v1', String(event.target.checked)); } catch { setReviewMessage('Le réglage de rotation automatique ne peut pas être conservé dans le stockage local.'); } }} /><span><strong>Rotation automatique des schémas</strong><small>Désactivée par défaut. Lorsqu’elle est activée, chaque rotation est vérifiée par une seconde analyse d’orientation avant application ; sinon, une suggestion avant/après est proposée.</small></span></label>}{images.map((image, index) => <div className="file-row copy-image-row" key={`${image.fileName}-${index}`}><button type="button" className="copy-image-row-preview copy-image-preview-trigger" onClick={() => { setCopyViewerPage(index); setCopyViewerZoom(1); setCopyViewerRotation(0); }} aria-label={`Agrandir la page ${index + 1}`}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Aperçu de la page ${index + 1}`} /><span>{image.fileName || `Page ${index + 1}`} · Agrandir</span></button>{originalImages[index] && originalImages[index].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non modifiée</summary><img src={`data:${originalImages[index].mimeType};base64,${originalImages[index].base64}`} alt={`Image originale non modifiée de la page ${index + 1}`} /></details>}{rotationSuggestions[index] && <div className="copy-rotation-suggestion" role="group" aria-label={`Suggestion de rotation pour la page ${index + 1}`}><strong>La page {index + 1} semble tournée de {rotationSuggestions[index].degrees}°</strong><div className="copy-rotation-suggestion-previews"><figure><img src={`data:${(originalImages[index] ?? image).mimeType};base64,${(originalImages[index] ?? image).base64}`} alt={`Page ${index + 1} avant rotation`} /><figcaption>Avant</figcaption></figure><figure><img src={`data:${rotationSuggestions[index].preview.mimeType};base64,${rotationSuggestions[index].preview.base64}`} alt={`Page ${index + 1} après rotation proposée`} /><figcaption>Après</figcaption></figure></div><div><button type="button" className="secondary-button" onClick={() => { void rotateCopyPage(index, rotationSuggestions[index].degrees); }}>Appliquer</button><button type="button" className="text-button" onClick={() => setRotationSuggestions((current) => { const next = { ...current }; delete next[index]; return next; })}>Ignorer</button></div></div>}<div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${index + 1} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button><button type="button" className="text-button" onClick={() => removeCopyPage(index)}>Retirer</button></div></div>)}<p className="copy-image-original-note">Les rotations s’appliquent uniquement à la copie de travail. Les images originales non modifiées sont conservées localement avec la correction.</p>{interfaceMode !== 'teacher' && <div className="copy-queue-actions"><button type="button" className="secondary-button" onClick={queueCurrentCopy} disabled={!images.length || Boolean(proposal) || isAnalyzing}>Mettre cette copie en file d’attente</button><button type="button" className="text-button" onClick={() => startNextCopy()}>Effacer cette copie</button></div>}</div>}
-          {(interfaceMode !== 'teacher' || correctionSessionMode === 'series') && backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed') && <section className="copy-queue" aria-label="Copies à suivre"><div className="copy-queue-heading"><div><span className="eyebrow">COPIES À SUIVRE</span><h4>{backgroundJobs.filter((job) => job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)).length} copie(s) prête(s) à vérifier · {backgroundJobs.filter((job) => job.status === 'pending' || job.status === 'processing').length} en attente ou en cours · {backgroundJobs.filter((job) => job.status === 'needs-review' || job.status === 'failed' || (job.status === 'reviewing' && job.completedCriteria < job.totalCriteria)).length} à reprendre</h4></div>{currentBackgroundJobId ? <button type="button" className="primary-button" onClick={() => { void finalizeReview(true); }} disabled={isAnalyzing || !proposal || !getBackgroundCorrectionReviewNavigation(backgroundJobs, activeAssignmentId, currentBackgroundJobId).nextCopy}>Enregistrer et passer à la copie suivante</button> : <button type="button" className="primary-button" onClick={() => { void loadNextQueuedCopy(); }} disabled={isAnalyzing || !getBackgroundCorrectionReviewNavigation(backgroundJobs, activeAssignmentId, null).nextCopy}>Ouvrir une copie prête</button>}</div>{!autoBackgroundCorrection && backgroundJobs.some((job) => job.status === 'pending') && <button type="button" className="secondary-button" onClick={() => { void backgroundService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Corriger les copies en attente</button>}<ol>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId).map((job, index) => <li key={job.id} className={job.id === currentBackgroundJobId ? 'is-current-review' : undefined} aria-current={job.id === currentBackgroundJobId ? 'step' : undefined}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{job.label}</strong><small>{job.id === currentBackgroundJobId ? 'En cours de vérification · ' : ''}{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}{job.status === 'processing' ? ` · ${job.phase === 'preparation' ? 'Préparation' : job.phase === 'reading' ? `Lecture ${job.completedPages}/${job.images.length}` : `Correction ${job.completedCriteria}/${job.totalCriteria}`}` : ''}</small>{job.error && <small role="status">{job.error}</small>}</span>{(['needs-review', 'failed'].includes(job.status) || (job.status === 'reviewing' && job.completedCriteria < job.totalCriteria && job.id !== currentBackgroundJobId)) && <><button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void loadNextQueuedCopy(job.id); }}>Ouvrir</button><button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Corriger</button></>}</li>)}</ol></section>}
+          {(interfaceMode !== 'teacher' || correctionSessionMode === 'series') && backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed') && <section className="copy-queue" aria-label="Copies à suivre"><div className="copy-queue-heading"><div><span className="eyebrow">COPIES À SUIVRE</span><h4>{backgroundJobs.filter((job) => job.status === 'ready' || (job.status === 'reviewing' && job.completedCriteria === job.totalCriteria)).length} copie(s) prête(s) à vérifier · {backgroundJobs.filter((job) => job.status === 'pending' || job.status === 'processing').length} en attente ou en cours · {backgroundJobs.filter((job) => job.status === 'needs-review' || job.status === 'failed' || (job.status === 'reviewing' && job.completedCriteria < job.totalCriteria)).length} à reprendre</h4></div>{currentBackgroundJobId ? <button type="button" className="primary-button" onClick={() => { void finalizeReview(true); }} disabled={isAnalyzing || !proposal || !getBackgroundCorrectionReviewNavigation(backgroundJobs, activeAssignmentId, currentBackgroundJobId).nextCopy}>Valider et passer à la copie suivante</button> : <button type="button" className="primary-button" onClick={() => { void loadNextQueuedCopy(); }} disabled={isAnalyzing || !getBackgroundCorrectionReviewNavigation(backgroundJobs, activeAssignmentId, null).nextCopy}>Ouvrir une copie prête</button>}</div>{!autoBackgroundCorrection && backgroundJobs.some((job) => job.status === 'pending') && <button type="button" className="secondary-button" onClick={() => { void backgroundService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Corriger les copies en attente</button>}<ol>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId).map((job, index) => <li key={job.id} className={job.id === currentBackgroundJobId ? 'is-current-review' : undefined} aria-current={job.id === currentBackgroundJobId ? 'step' : undefined}><span className="queue-position">{index + 1}</span><span className="queue-copy-label"><strong>{job.label}</strong><small>{job.id === currentBackgroundJobId ? 'En cours de vérification · ' : ''}{job.images.length} page(s) · {backgroundCorrectionStatusLabel(job.status)}{job.status === 'processing' ? ` · ${job.phase === 'preparation' ? 'Préparation' : job.phase === 'reading' ? `Lecture ${job.completedPages}/${job.images.length}` : `Correction ${job.completedCriteria}/${job.totalCriteria}`}` : ''}</small>{job.error && <small role="status">{job.error}</small>}</span>{(['needs-review', 'failed'].includes(job.status) || (job.status === 'reviewing' && job.completedCriteria < job.totalCriteria && job.id !== currentBackgroundJobId)) && <><button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void loadNextQueuedCopy(job.id); }}>Ouvrir</button><button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Corriger</button></>}</li>)}</ol></section>}
         </article>
 
       </section>
@@ -3142,22 +3157,22 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           onStudentLabelChange={setStudentLabel}
           position={reviewPosition}
           totalCopies={reviewTotalCopies}
-          status={isFinalized ? 'Corrigée' : isAnalyzing ? 'Analyse en cours' : 'À vérifier'}
+          status={isFinalized ? 'Corrigée' : activeBackgroundJob?.status === 'pending' ? 'En attente' : activeBackgroundJob?.status === 'processing' || isAnalyzing ? 'Analyse en cours' : activeBackgroundJob?.status === 'failed' || activeBackgroundJob?.status === 'needs-review' || (activeBackgroundJob?.status === 'reviewing' && activeBackgroundJob.completedCriteria < activeBackgroundJob.totalCriteria) ? 'À reprendre' : 'À vérifier'}
           score={reviewedTotal}
           maximumPoints={validation.maximumPoints}
           isAnalyzing={isAnalyzing}
           isFinalized={isFinalized}
           canValidate={review.length === rubric.criteria.length}
-          onPrevious={() => {
-            if (currentBackgroundJobId && previousReviewJob) void loadNextQueuedCopy(previousReviewJob.id);
-            else if (!currentBackgroundJobId && previousArchivedCorrection) openArchivedCorrection(previousArchivedCorrection);
-          }}
-          onNext={() => {
-            if (currentBackgroundJobId && reviewNavigation.nextCopy) void loadNextQueuedCopy(reviewNavigation.nextCopy.id);
-            else if (!currentBackgroundJobId && nextArchivedCorrection) openArchivedCorrection(nextArchivedCorrection);
-          }}
+          canPrevious={Boolean(copyNavigation.previousCopy)}
+          canNext={Boolean(copyNavigation.nextCopy)}
+          previousLabel={copyNavigation.previousCopy ? copyNavigation.previousCopy.label + ' · ' + copyNavigation.previousCopy.status : null}
+          nextLabel={copyNavigation.nextCopy ? copyNavigation.nextCopy.label + ' · ' + copyNavigation.nextCopy.status : null}
+          onPrevious={() => { if (copyNavigation.previousCopy) void openCopyNavigationItem(copyNavigation.previousCopy.id); }}
+          onNext={() => { if (copyNavigation.nextCopy) void openCopyNavigationItem(copyNavigation.nextCopy.id); }}
           onValidate={() => void finalizeReview(true)}
         />
+        {reviewMessage && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
+        {activeBackgroundJob && !proposal && <section className="analysis-progress teacher-progress-card" role="status" aria-live="polite"><strong>{activeBackgroundJob.status === 'pending' ? 'Copie en attente de traitement' : activeBackgroundJob.status === 'processing' ? 'Analyse de la copie en cours' : 'Cette copie doit être reprise'}</strong><p>{activeBackgroundJob.status === 'pending' ? 'La copie sera traitée dès que le poste pourra démarrer la prochaine analyse.' : activeBackgroundJob.status === 'processing' ? 'Vous pouvez consulter une autre copie pendant que le traitement se poursuit.' : activeBackgroundJob.error || 'Relancez la correction pour poursuivre.'}</p></section>}
         {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || (studentIdentity !== null && studentIdentity.confidence !== 'high')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
           {flaggedCriteriaIds.size > 0 && <button type="button" onClick={() => { setShowOnlyFlagged(true); document.querySelector('.review-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>⚠ {flaggedCriteriaIds.size} critère(s) à examiner</button>}
           {studentIdentity && studentIdentity.confidence !== 'high' && <button type="button" className="copy-review-alert-chip" onClick={() => document.getElementById('student-label')?.focus()}>Nom à confirmer</button>}
