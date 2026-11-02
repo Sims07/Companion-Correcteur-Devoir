@@ -1700,7 +1700,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setReviewMessage((autoBackgroundCorrection
         ? `${preparedJobs.length} copie(s) ajoutée(s). Le traitement démarre automatiquement, une copie après l’autre.`
         : `${preparedJobs.length} copie(s) ajoutée(s). Vérifiez la liste ci-dessous, puis démarrez les corrections lorsque vous êtes prêt.`) + rotationMessage);
-      setTeacherStep('overview');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible d’ajouter ces copies au traitement en arrière-plan.');
     } finally {
