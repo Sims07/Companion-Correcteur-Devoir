@@ -1884,7 +1884,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       return;
     }
     const canReview = Boolean(next.proposal) && ['ready', 'needs-review', 'reviewing'].includes(next.status);
-    if (next.status !== 'failed') await backgroundService.markForReview(next.id);
+    // Keep an actively processed job in `processing`: markForReview would
+    // change it to `reviewing` and hide the dedicated in-progress screen.
+    if (next.status !== 'failed' && next.status !== 'processing') await backgroundService.markForReview(next.id);
     setCurrentBackgroundJobId(next.id);
     setStudentLabel(next.studentIdentity ? (formatStudentIdentityLabel(next.studentIdentity) ?? next.label) : next.label);
     setStudentIdentity(next.studentIdentity ?? null);
