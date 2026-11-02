@@ -42,7 +42,7 @@ async function prepareLocalWorkspace(page: Page) {
   await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
 }
 
-async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; status: 'ready' | 'failed' | 'pending'; updatedAt: string; error?: string }>, readyProposal = proposal) {
+async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; status: 'ready' | 'failed' | 'pending' | 'processing'; updatedAt: string; error?: string }>, readyProposal = proposal) {
   await page.evaluate(async ({ input, rubric: jobRubric, pageImage: image, proposal: readyProposal }) => {
     const request = indexedDB.open('companion-correcteur-devoir', 5);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -72,11 +72,11 @@ async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; sta
         createdAt: now,
         updatedAt: now,
         status: item.status,
-        phase: item.status === 'ready' ? 'complete' : item.status === 'pending' ? 'preparation' : 'reading',
-        completedPages: item.status === 'ready' ? 1 : 0,
-        completedCriteria: item.status === 'ready' ? 3 : 0,
+        phase: item.status === 'ready' ? 'complete' : item.status === 'pending' ? 'preparation' : item.status === 'processing' ? 'grading' : 'reading',
+        completedPages: item.status === 'ready' || item.status === 'processing' ? 1 : 0,
+        completedCriteria: item.status === 'ready' ? 3 : item.status === 'processing' ? 1 : 0,
         totalCriteria: 3,
-        transcription: item.status === 'ready' ? 'Transcription de test.' : null,
+        transcription: item.status === 'ready' || item.status === 'processing' ? 'Transcription de test en cours.' : null,
         partialCriteria: item.status === 'ready' ? readyProposal.criteria : [],
         proposal: item.status === 'ready' ? readyProposal : null,
         error: item.error ?? null,
@@ -95,6 +95,29 @@ async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; sta
 function copyNavigation(page: Page) {
   return page.getByRole('tab', { name: /Copies/ });
 }
+
+
+test('opening a copy whose analysis is running shows its individual correction progress', async ({ page }) => {
+  await prepareLocalWorkspace(page);
+  await seedJobs(page, [
+    { id: 'copy-processing', label: 'Copie en cours', status: 'processing', updatedAt: '2026-11-02T09:00:00.000Z' },
+  ]);
+  await page.reload();
+  await openActiveAssignment(page);
+  await copyNavigation(page).click();
+
+  await page.getByRole('button', { name: /Analyse en cours/ }).click();
+  const processingCard = page.locator('.copy-overview-grid .correction-series-card');
+  await expect(processingCard).toContainText('Copie en cours');
+  await processingCard.getByRole('button', { name: 'Ouvrir' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Correction en cours' })).toBeVisible();
+  await expect(page.getByText('La copie en cours de correction')).toBeVisible();
+  await expect(page.getByText('1/1 pages lues')).toBeVisible();
+  await expect(page.getByText('1/3 critères traités')).toBeVisible();
+  await expect(page.getByText('Transcription de test en cours.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
+});
 
 test('adding a copy while another one is under review keeps the previous copy and opens the next copy by priority', async ({ page }) => {
   await prepareLocalWorkspace(page);
