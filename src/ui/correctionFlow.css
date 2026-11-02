@@ -2888,6 +2888,18 @@
 .copy-overview-heading h2 { margin: 0; color: var(--flow-text); font-size: clamp(1.55rem, 3vw, 2rem); letter-spacing: -0.035em; }
 .copy-overview-heading p:not(.eyebrow) { margin: 0.45rem 0 0; color: var(--flow-muted); font-size: 0.88rem; line-height: 1.55; }
 .copy-overview-heading .eyebrow { margin: 0 0 0.45rem; }
+.copy-overview-primary-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 0.55rem; }
+.copy-overview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
+.copy-overview-search { display: flex; align-items: center; gap: 0.55rem; width: min(100%, 420px); min-height: 42px; padding: 0 0.75rem; border: 1px solid var(--flow-border); border-radius: 10px; background: var(--flow-surface, #fff); color: var(--flow-muted); }
+.copy-overview-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--flow-text); font: inherit; font-size: 0.84rem; }
+.copy-overview-search input:focus-visible { outline: none; }
+.copy-overview-result-count { color: var(--flow-muted); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+.copy-overview-message, .copy-overview-error { margin: 0.35rem 0 0; font-size: 0.74rem; line-height: 1.45; overflow-wrap: anywhere; }
+.copy-overview-message { color: var(--flow-muted); }
+.copy-overview-error { color: var(--flow-danger, #a33b35); }
+.copy-overview-grid .correction-series-card-footer { align-items: flex-end; }
+.copy-overview-grid .correction-series-card-footer > div:first-child { min-width: 0; }
+.copy-overview-grid .correction-series-actions { align-items: stretch; }
 .copy-overview-filters { display: flex; flex-wrap: wrap; gap: 0.45rem; padding: 0.4rem; border: 1px solid var(--flow-border); border-radius: 12px; background: var(--flow-surface, #fff); }
 .copy-overview-filters button { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 36px; padding: 0.4rem 0.7rem; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--flow-muted); font: inherit; font-size: 0.78rem; font-weight: 650; cursor: pointer; }
 .copy-overview-filters button.is-active { border-color: var(--flow-border-strong); background: var(--flow-accent-soft); color: var(--flow-text); }
