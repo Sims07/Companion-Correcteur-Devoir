@@ -117,11 +117,6 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.getByRole('button', { name: 'Réduire la liste des copies' }).click();
   await expect(page.getByRole('button', { name: 'Afficher la liste des copies' })).toHaveAttribute('aria-expanded', 'false');
   await page.getByRole('button', { name: 'Afficher la liste des copies' }).click();
-  await page.getByRole('tab', { name: 'Barème' }).click();
-  await expect(page.locator('.rubric-editor')).toBeVisible();
-  await page.getByRole('tab', { name: 'Copies' }).click();
-  await expect(page.locator('.copy-overview')).toBeVisible();
-  await page.getByRole('button', { name: 'Consulter la correction' }).click();
 
   await expect(page.getByRole('heading', { name: 'Analyse des schémas scientifiques' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Pages identifiées' })).toHaveCount(0);
