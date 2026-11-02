@@ -2101,7 +2101,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  const hasInterruptibleOperation = isAnalyzing || rubricImageImporting || evaluationProgress?.status === 'running' || allBackgroundJobs.some((job) => job.status === 'processing');
+  const hasInterruptibleOperation = isStoppingOperation || isAnalyzing || rubricImageImporting || evaluationProgress?.status === 'running' || allBackgroundJobs.some((job) => job.status === 'processing');
 
   if ((interfaceMode as string) === 'debug') {
     return <main className="app-shell">

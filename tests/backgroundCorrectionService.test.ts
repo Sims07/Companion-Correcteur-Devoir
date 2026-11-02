@@ -451,7 +451,8 @@ describe('background correction cancellation', () => {
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
     let requestStarted!: () => void;
     const started = new Promise<void>((resolve) => { requestStarted = resolve; });
-    f.setGenerateImplementation(async (_request, _chunk, _stage, _transcription, _diagnostic, _criterion, _annotationReview, _progress, signal) => {
+    f.setGenerateImplementation(async (_request, _chunk, _stage, onTranscription, _diagnostic, _criterion, _annotationReview, _progress, signal) => {
+      await onTranscription?.('Texte extrait de la copie', 'copy');
       requestStarted();
       return new Promise<string>((_resolve, reject) => {
         signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });

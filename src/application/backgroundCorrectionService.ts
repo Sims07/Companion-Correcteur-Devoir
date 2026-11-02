@@ -16,7 +16,6 @@ export interface BackgroundCorrectionService {
   listJobSummaries(assignmentId?: string): Promise<BackgroundJobSummary[]>;
   prewarm(settings: OllamaSettings): Promise<void>;
   pauseAndWait(): Promise<void>;
-  stopAndWait(): Promise<void>;
   resume(): void;
   processPending(settings: OllamaSettings): Promise<void>;
   subscribe(listener: (jobs: BackgroundCorrectionJob[]) => void): () => void;
@@ -70,7 +69,6 @@ export function createBackgroundCorrectionService(
   let prewarmedModel: string | null = null;
   let prewarmSettings: OllamaSettings | null = null;
   let activeModelToUnload: string | null = null;
-  let activeRequestAbortController: AbortController | null = null;
   const listeners = new Set<(jobs: BackgroundCorrectionJob[]) => void>();
   const summaryListeners = new Set<(jobs: BackgroundJobSummary[]) => void>();
   async function persist(job: BackgroundCorrectionJob): Promise<void> {
@@ -110,8 +108,6 @@ export function createBackgroundCorrectionService(
           error: null,
         };
         await persist(current);
-        const requestAbortController = new AbortController();
-        activeRequestAbortController = requestAbortController;
         try {
           let textPageNumbers = current.images.map((_, index) => index + 1);
           const visualRubric = partitionScientificRubric(current.rubric);
@@ -245,7 +241,6 @@ export function createBackgroundCorrectionService(
                   }
                   if (event.type === 'page' && event.status !== 'started') queueProgress({ completedPages: Math.max(current.completedPages, event.pageIndex) });
                 },
-                requestAbortController.signal,
               );
             } catch (cause) {
               generationError = cause;
@@ -281,19 +276,16 @@ export function createBackgroundCorrectionService(
             updatedAt: new Date().toISOString(),
             error: complete ? null : 'Certains critères restent à vérifier.',
           });
-          if (activeRequestAbortController === requestAbortController) activeRequestAbortController = null;
         } catch (cause) {
           if (activeModelToUnload) await workspace.unloadModel?.(jobSettings, activeModelToUnload).catch(() => undefined);
           activeModelToUnload = null;
-          const cancelled = requestAbortController.signal.aborted;
           await persist({
             ...current,
-            status: cancelled ? 'pending' : current.partialCriteria.length ? 'needs-review' : 'failed',
+            status: current.partialCriteria.length ? 'needs-review' : 'failed',
             ...(current.partialCriteria.length ? { proposal: createProposal(current.rubric, current.partialCriteria) } : {}),
             updatedAt: new Date().toISOString(),
-            error: cancelled ? null : cause instanceof Error ? cause.message : 'La correction en arrière-plan a échoué.',
+            error: cause instanceof Error ? cause.message : 'La correction en arrière-plan a échoué.',
           });
-          if (activeRequestAbortController === requestAbortController) activeRequestAbortController = null;
         }
       }
     })().finally(() => { activeLoop = null; });
@@ -373,24 +365,15 @@ export function createBackgroundCorrectionService(
       prewarmKey = '';
       prewarmUntil = 0;
     },
-    async stopAndWait() {
-      paused = true;
-      activeRequestAbortController?.abort();
-      if (activeLoop) await activeLoop;
-      if (prewarmPromise) await prewarmPromise.catch(() => undefined);
-      if (prewarmedModel && prewarmSettings) await workspace.unloadModel?.(prewarmSettings, prewarmedModel).catch(() => undefined);
-      prewarmedModel = null;
-      prewarmKey = '';
-      prewarmUntil = 0;
-    },
     resume() {
       foregroundPriority = false;
       paused = false;
       if (autoEnabled && lastSettings) void run(lastSettings);
     },
     async processPending(settings) {
-      // Manual launch explicitly resumes a queue after a user-requested stop.
-      foregroundPriority = false;
+      // Manual launch must resume a queue explicitly paused by disabling automatic
+      // processing. run() is idempotent while a loop is already active, preventing
+      // repeated clicks from issuing duplicate model requests.
       paused = false;
       try { await this.prewarm(settings); } catch { /* The correction itself will expose a configuration error if needed. */ }
       await run(settings);
