@@ -101,6 +101,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
 
   await page.reload();
   await openActiveAssignment(page);
+  await page.locator('.teacher-step-nav').getByRole('button', { name: /Copies/ }).click();
   await expect(page.locator('#background-copy-files')).toBeVisible();
   await page.getByRole('button', { name: /Copies corrigées/ }).click();
   await expect(page.getByRole('button', { name: 'Consulter la correction' })).toHaveCount(1);
