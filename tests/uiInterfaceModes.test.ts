@@ -26,7 +26,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).not.toContain('undoGroupConfirmation');
     expect(text).toContain('Aucun signal automatique. La proposition est retenue par défaut.');
     expect(text).toContain('Afficher tous les critères');
-    expect(text).toContain('Voir les {reliableCriteriaCount} critères sans alerte');
+    expect(text).toContain('{reliableCriteriaCount} critères sans alerte · preuves disponibles');
     expect(text).toContain('Voir la synthèse de l’analyse');
     expect(text).toContain('Synthèse des éléments à examiner');
     expect(text).not.toContain('Vérifications prioritaires');
@@ -41,7 +41,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Copies corrigées');
     expect(text).toContain("setCopyOverviewFilter('completed')");
     expect(text).toContain("else { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); }");
-    expect(text).toContain('Ajouter une autre copie');
+    expect(text).toContain('Corriger une autre copie');
     expect(text).toContain('Consulter la correction');
     expect(text).toContain('archiveService.saveCorrection(correction)');
     expect(text).toContain("images: evaluationStageMode === 'analysis' ? [] : structuredClone(images)");
@@ -52,7 +52,7 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('keeps correction proposals accepted by default and lets teachers move directly to another copy', () => {
     const text = app();
-    expect(text).toContain('Ajouter une autre copie');
+    expect(text).toContain('Corriger une autre copie');
     expect(text).toContain('La proposition est retenue par défaut');
     expect(text).not.toContain('Confirmer ce critère');
     expect(text).not.toContain('Confirmer les critères sans alerte');
@@ -267,7 +267,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain("teacherStep === 'overview' && <CorrectionOverview");
     expect(text).toContain('Préparer le barème');
     expect(text).toContain('Ajouter une copie');
-    expect(text).toContain('Révision');
+    expect(text).toContain('Vérification');
     expect(text).toContain('Correction en cours');
     expect(text).not.toContain('Suivi du traitement');
     expect(text).toContain("setTeacherStep('progress')");
