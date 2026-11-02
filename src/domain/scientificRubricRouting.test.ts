@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeScientificDiagramCriteria, partitionScientificRubric } from './scientificRubricRouting.ts';
+import { mergeScientificDiagramCriteria, partitionScientificRubric, shouldRunTeacherScientificDiagramWorkflow } from './scientificRubricRouting.ts';
 import type { GradingProposal } from './grading.ts';
 import type { Rubric } from './rubric.ts';
 import type { ScientificDiagramAnalysis } from './scientificDiagram.ts';
@@ -27,6 +27,12 @@ const diagramAnalysis: ScientificDiagramAnalysis = {
 };
 
 describe('scientific rubric routing', () => {
+  it('runs the scientific Vision workflow in teacher mode regardless of whether the provider is local or remote', () => {
+    expect(shouldRunTeacherScientificDiagramWorkflow('teacher')).toBe(true);
+    expect(shouldRunTeacherScientificDiagramWorkflow('diagnostic')).toBe(false);
+    expect(shouldRunTeacherScientificDiagramWorkflow('debug')).toBe(false);
+  });
+
   it('separates visual criteria from text criteria using rubric wording when no mode is explicitly selected', () => {
     expect(partitionScientificRubric(rubric)).toEqual({ diagramCriteria: [rubric.criteria[0]], textCriteria: [rubric.criteria[1]] });
   });
