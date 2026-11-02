@@ -194,6 +194,28 @@ describe('background correction service', () => {
     expect(calls).toBe(2);
   });
 
+  it('resumes a retry deferred while the teacher has foreground priority', async () => {
+    const f = fixture();
+    f.jobs.set('copy-1', { ...f.job, status: 'failed', error: 'Réponse tronquée.' });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' };
+
+    await service.pauseAndWait();
+    await service.retry('copy-1', settings);
+
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'pending', error: null });
+    expect(f.createProvider).not.toHaveBeenCalled();
+
+    service.resume();
+    for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    expect(f.createProvider).toHaveBeenCalledTimes(2);
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+    expect(f.jobs.get('copy-1')?.error).toBeNull();
+  });
+
   it('retries only unfinished criteria and reuses the saved transcription', async () => {
     const f = fixture();
     const partial = {
