@@ -8,6 +8,27 @@ import type { StudentIdentity } from './studentIdentity.ts';
 
 export type BackgroundCorrectionStatus = 'pending' | 'processing' | 'ready' | 'needs-review' | 'reviewing' | 'completed' | 'failed';
 
+export interface BackgroundJobSummary {
+  id: string;
+  assignmentId: string;
+  label: string;
+  studentIdentity?: StudentIdentity | null;
+  status: BackgroundCorrectionStatus;
+  phase: BackgroundCorrectionJob['phase'];
+  progress: {
+    completedPages: number;
+    totalPages: number;
+    completedCriteria: number;
+    totalCriteria: number;
+  };
+  score: number | null;
+  maximumPoints: number;
+  pageCount: number;
+  createdAt: string;
+  updatedAt: string;
+  error: string | null;
+}
+
 export interface BackgroundCorrectionJob {
   id: string;
   assignmentId: string;
@@ -44,6 +65,33 @@ export interface BackgroundCorrectionJob {
   proposal: GradingProposal | null;
   error: string | null;
   imageFingerprint: string | null;
+}
+
+export function toBackgroundJobSummary(job: BackgroundCorrectionJob): BackgroundJobSummary {
+  const maximumPoints = job.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
+  const score = job.proposal?.finalScore ?? (job.partialCriteria.length
+    ? job.partialCriteria.reduce((sum, criterion) => sum + criterion.points, 0)
+    : null);
+  return {
+    id: job.id,
+    assignmentId: job.assignmentId,
+    label: job.label,
+    studentIdentity: job.studentIdentity ?? null,
+    status: job.status,
+    phase: job.phase,
+    progress: {
+      completedPages: job.completedPages,
+      totalPages: job.images.length,
+      completedCriteria: job.completedCriteria,
+      totalCriteria: job.totalCriteria,
+    },
+    score,
+    maximumPoints,
+    pageCount: job.images.length,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    error: job.error,
+  };
 }
 
 export function createBackgroundCorrection(input: Omit<BackgroundCorrectionJob, 'status' | 'phase' | 'completedPages' | 'completedCriteria' | 'totalCriteria' | 'transcription' | 'partialCriteria' | 'proposal' | 'error' | 'imageFingerprint'>): BackgroundCorrectionJob {
