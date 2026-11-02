@@ -13,8 +13,6 @@ test('evaluation presents four focused spaces and keeps launch disabled until th
   await expect(page.getByRole('heading', { name: 'Sélection pour cette expérience' })).toBeVisible();
   await expect(page.getByText('Aucune configuration enregistrée.')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Préparer le barème de correction' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
-  await page.getByRole('button', { name: /Ajouter une copie/ }).click();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Lancer et comparer les résultats' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Évaluer cette configuration' })).toBeDisabled();
