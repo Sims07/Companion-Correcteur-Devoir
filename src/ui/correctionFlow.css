@@ -1772,6 +1772,7 @@
   letter-spacing: .02em;
   text-transform: uppercase;
 }
+.review-result-status.is-confirmed { color: var(--flow-success, #287a4b); background: var(--flow-success-soft, #e8f5ec); }
 .review-result-status.needs-review { color: #9a5a17; }
 .review-criteria-toolbar { align-items: center; gap: 12px; }
 .review-criteria-toolbar-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 14px; }
@@ -1807,8 +1808,16 @@
   .review-card-result > strong { font-size: 16px; }
 }
 
-.review-safe-summary {
+.review-safe-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 8px 0;
+}
+.review-safe-summary {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   padding: 9px 12px;
   border: 1px solid var(--flow-border);
   border-radius: 9px;
@@ -1823,22 +1832,7 @@
 .review-safe-summary ul { display: grid; gap: 6px; margin: 9px 0 0; padding: 0; list-style: none; }
 .review-safe-summary li { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
 .review-safe-summary li span { color: var(--flow-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-
-.review-focus-overview {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
-  margin: 0 0 14px;
-  padding: 9px 12px;
-  border: 1px solid var(--flow-border);
-  border-radius: 9px;
-  background: var(--flow-surface-soft);
-  color: var(--flow-muted);
-  font-size: 12px;
-}
-.review-focus-overview strong { color: var(--flow-text); }
-.review-focus-overview span { color: #9a5a17; }
+.review-confirm-safe { flex: 0 0 auto; white-space: nowrap; }
 
 .review-alert-summary { display: grid; gap: 7px; margin-top: 12px; }
 .review-alert-reasons { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1847,7 +1841,12 @@
 .review-alert-summary .annotation-suggestion { margin: 0; }
 .review-safe-summary li { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,2fr); align-items: baseline; gap: 6px 12px; }
 .review-safe-summary li small { color: var(--flow-muted); font-size: 12px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 720px) { .review-safe-summary li { grid-template-columns: minmax(0,1fr) auto; } .review-safe-summary li small { grid-column: 1 / -1; } }
+@media (max-width: 720px) {
+  .review-safe-summary-row { align-items: stretch; flex-direction: column; }
+  .review-confirm-safe { width: 100%; }
+  .review-safe-summary li { grid-template-columns: minmax(0,1fr) auto; }
+  .review-safe-summary li small { grid-column: 1 / -1; }
+}
 
 
 /* Page orientation controls are intentionally lightweight and remain local. */

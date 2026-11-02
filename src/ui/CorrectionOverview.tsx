@@ -42,16 +42,16 @@ type OverviewItem = {
 
 const labels: Record<CopyOverviewFilter, string> = {
   all: 'Toutes',
-  'to-do': 'À corriger',
-  processing: 'En cours',
-  'to-review': 'À réviser',
+  'to-do': 'En attente',
+  processing: 'Analyse en cours',
+  'to-review': 'À vérifier',
   'to-retry': 'À reprendre',
   completed: 'Corrigées',
 };
 const statusLabels: Record<CopyOverviewStatus, string> = {
-  'to-do': 'À corriger',
-  processing: 'En cours',
-  'to-review': 'À réviser',
+  'to-do': 'En attente',
+  processing: 'Analyse en cours',
+  'to-review': 'À vérifier',
   'to-retry': 'À reprendre',
   completed: 'Corrigée',
 };
@@ -71,15 +71,13 @@ function jobLabel(job: BackgroundJobSummary): string {
 }
 
 function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): string {
-  if (status === 'to-retry') return job.error
-    ? `La correction n’a pas abouti : ${job.error}`
-    : 'La correction n’a pas abouti. Relancez-la pour reprendre l’évaluation.';
+  if (status === 'to-retry') return 'La correction n’a pas abouti. Vous pouvez relancer cette copie.';
   if (status === 'processing') return job.phase === 'reading'
     ? `Lecture de la copie · ${job.progress.completedPages}/${job.progress.totalPages} pages`
     : `Correction · ${job.progress.completedCriteria}/${job.progress.totalCriteria} critères`;
   if (status === 'to-do') return 'En attente de correction';
   if (job.status === 'needs-review') return 'Des éléments restent à vérifier avant de poursuivre';
-  return 'Proposition prête à réviser';
+  return 'Proposition prête à vérifier';
 }
 
 export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, onOpenJob, onRetryJob, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
@@ -153,10 +151,10 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onF
       <div>
         <p className="eyebrow">ESPACE DU DEVOIR</p>
         <h2 id="copy-overview-title">Suivi des copies</h2>
-        <p>Retrouvez les copies à corriger, celles à réviser et les corrections validées.</p>
+        <p>Retrouvez les copies en attente, celles à vérifier et les corrections validées.</p>
       </div>
       <div className="copy-overview-primary-actions">
-        {counts.toReview > 0 && <button type="button" className="primary-button" onClick={onReviewNextCopy}>Réviser la copie suivante</button>}
+        {counts.toReview > 0 && <button type="button" className="primary-button" onClick={onReviewNextCopy}>Vérifier la copie suivante</button>}
         <button type="button" className="secondary-button" onClick={onAddCopy}>＋ Ajouter une copie</button>
       </div>
     </header>

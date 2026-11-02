@@ -42,7 +42,7 @@ async function prepareLocalWorkspace(page: Page) {
   await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
 }
 
-async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; status: 'ready' | 'failed'; updatedAt: string; error?: string }>) {
+async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; status: 'ready' | 'failed'; updatedAt: string; error?: string }>, readyProposal = proposal) {
   await page.evaluate(async ({ input, rubric: jobRubric, pageImage: image, proposal: readyProposal }) => {
     const request = indexedDB.open('companion-correcteur-devoir', 5);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -89,7 +89,7 @@ async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; sta
       transaction.onabort = () => reject(transaction.error);
     });
     database.close();
-  }, { input: jobs, rubric, pageImage, proposal });
+  }, { input: jobs, rubric, pageImage, proposal: readyProposal });
 }
 
 function copyNavigation(page: Page) {
@@ -106,9 +106,9 @@ test('adding a copy while another one is under review keeps the previous copy an
   await openActiveAssignment(page);
   await copyNavigation(page).click();
 
-  await expect(page.getByRole('button', { name: /À réviser/ })).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: 'Réviser la copie suivante' }).click();
-  await expect(page.getByLabel('Nom et prénom à afficher')).toHaveValue('Copie récente');
+  await expect(page.getByRole('button', { name: /À vérifier/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Vérifier la copie suivante' }).click();
+  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Copie récente');
 
   await copyNavigation(page).click();
   await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
@@ -120,10 +120,77 @@ test('adding a copy while another one is under review keeps the previous copy an
   await expect(page.getByText('Copie ancienne')).toBeVisible();
 });
 
+test('teacher verifies a flagged criterion, validates the copy and lands on the next one', async ({ page }) => {
+  await prepareLocalWorkspace(page);
+  await seedJobs(page, [
+    { id: 'copy-older', label: 'Copie ancienne', status: 'ready', updatedAt: '2026-11-01T08:00:00.000Z' },
+    { id: 'copy-newer', label: 'Copie récente', status: 'ready', updatedAt: '2026-11-02T09:00:00.000Z' },
+  ]);
+  await page.reload();
+  await openActiveAssignment(page);
+  await copyNavigation(page).click();
+
+  await page.getByRole('button', { name: 'Vérifier la copie suivante' }).click();
+  const studentName = page.getByRole('textbox', { name: 'Nom de l’étudiant' });
+  await expect(studentName).toHaveValue('Copie récente');
+
+  const flaggedCard = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Connaissances scientifiques' }) });
+  await expect(flaggedCard.getByText('Point retiré', { exact: true })).toBeVisible();
+  await flaggedCard.focus();
+  await page.keyboard.press('Enter');
+  await expect(flaggedCard.getByText('Confirmé', { exact: true })).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('.review-card').nth(1)).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(flaggedCard).toBeFocused();
+  await flaggedCard.getByLabel('Votre note').fill('7');
+  await expect(flaggedCard.getByText('7 / 8')).toBeVisible();
+
+  await page.keyboard.press('Control+Enter');
+  await expect(studentName).toHaveValue('Copie ancienne');
+  await expect(page.getByRole('heading', { name: 'Connaissances scientifiques' })).toBeVisible();
+});
+
+test('a copy without alerts can be validated in one action and advances to the next copy', async ({ page }) => {
+  await prepareLocalWorkspace(page);
+  const fullCreditProposal = {
+    ...proposal,
+    criteria: rubric.criteria.map((criterion) => ({
+      criterionId: criterion.id,
+      points: criterion.maxPoints,
+      rationale: 'Le critère est pleinement satisfait.',
+      evidence: 'La réponse apporte une preuve précise et suffisante.',
+      confidence: 'high' as const,
+    })),
+    finalScore: 20,
+  };
+  await seedJobs(page, [
+    { id: 'copy-older', label: 'Copie suivante', status: 'ready', updatedAt: '2026-11-01T08:00:00.000Z' },
+    { id: 'copy-newer', label: 'Copie sans alerte', status: 'ready', updatedAt: '2026-11-02T09:00:00.000Z' },
+  ], fullCreditProposal);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.reload();
+  await openActiveAssignment(page);
+  await copyNavigation(page).click();
+  await page.getByRole('button', { name: 'Vérifier la copie suivante' }).click();
+
+  const studentName = page.getByRole('textbox', { name: 'Nom de l’étudiant' });
+  await expect(studentName).toHaveValue('Copie sans alerte');
+  await expect(page.locator('.copy-review-alert-strip')).toHaveCount(0);
+  await expect(page.locator('.review-card')).toHaveCount(0);
+  await expect(page.locator('.review-safe-summary-row')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Tout confirmer' })).toBeVisible();
+  await page.getByRole('button', { name: 'Tout confirmer' }).click();
+  const validate = page.getByRole('button', { name: 'Valider et passer à la suivante' }).first();
+  await expect(validate).toBeEnabled();
+  await validate.click();
+  await expect(studentName).toHaveValue('Copie suivante');
+});
+
 test('a failed copy is kept in À reprendre and the Reprendre action starts a new attempt', async ({ page }) => {
   await prepareLocalWorkspace(page);
   await seedJobs(page, [
-    { id: 'copy-failed', label: 'Copie en échec', status: 'failed', updatedAt: '2026-11-02T09:00:00.000Z', error: 'Ollama indisponible' },
+    { id: 'copy-failed', label: 'Copie en échec', status: 'failed', updatedAt: '2026-11-02T09:00:00.000Z', error: 'La correction n’a pas abouti. Vous pouvez relancer cette copie.' },
   ]);
   let retryRequests = 0;
   await page.route('https://ai.example/**', async (route) => {
@@ -137,7 +204,7 @@ test('a failed copy is kept in À reprendre and the Reprendre action starts a ne
   await page.getByRole('button', { name: /À reprendre/ }).click();
   const failedCard = page.locator('.copy-overview-grid .correction-series-card');
   await expect(failedCard).toContainText('Copie en échec');
-  await expect(failedCard).toContainText('Ollama indisponible');
+  await expect(failedCard).toContainText('La correction n’a pas abouti. Vous pouvez relancer cette copie.');
   await failedCard.getByRole('button', { name: 'Reprendre' }).click();
 
   await expect.poll(() => retryRequests).toBeGreaterThan(0);
@@ -161,5 +228,5 @@ test('adding another copy automatically saves the imported foreground copy in th
 
   await copyNavigation(page).click();
   await expect(page.getByText('copie-a-conserver.png')).toBeVisible();
-  await expect(page.getByRole('button', { name: /À corriger/ })).toContainText('1');
+  await expect(page.getByRole('button', { name: /En attente/ })).toContainText('1');
 });

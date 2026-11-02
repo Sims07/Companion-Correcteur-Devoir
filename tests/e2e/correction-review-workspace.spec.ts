@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { openActiveAssignment } from './helpers/teacher-workspace';
 
 test('review workspace keeps original evidence beside grading criteria on desktop and stacks on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/');
   await openActiveAssignment(page);
 
@@ -71,7 +72,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
         correctionMode: 'integrated',
         maximumPoints: 6,
         hasScientificDiagrams: true,
-        scientificPageClassifications: [{ pageNumber: 1, kind: 'scientific-diagram', confidence: 0.96, reason: 'Schéma de cellule' }],
+        scientificPageClassifications: [{ pageNumber: 1, kind: 'ambiguous', confidence: 0.62, reason: 'La lecture de cette page reste incertaine.' }],
         scientificDiagramAnalysis: { diagrams: [{ id: 'diagram-1', pageNumber: 1, bounds: { x: 0.1, y: 0.2, width: 0.5, height: 0.4 }, diagramType: 'Cellule', summary: 'Schéma de cellule végétale', criteria: [{ criterionId: 'membrane', title: 'Rôle de la membrane', points: 3, maxPoints: 4, evidence: 'La membrane est représentée.', confidence: 0.8, requiresTeacherReview: false }], uncertainties: [] }], overallUncertainties: [] },
       },
     };
@@ -101,10 +102,13 @@ test('review workspace keeps original evidence beside grading criteria on deskto
 
   await page.reload();
   await openActiveAssignment(page);
+  await page.locator('.teacher-step-nav').getByRole('button', { name: /Copies/ }).click();
+  await expect(page.locator('#background-copy-files')).toBeVisible();
   await page.getByRole('button', { name: /Copies corrigées/ }).click();
   await expect(page.getByRole('button', { name: 'Consulter la correction' })).toHaveCount(1);
   await expect(page.getByText('Copie d’un autre devoir')).toHaveCount(0);
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
+  await expect(page.locator('#background-copy-files')).toHaveCount(0);
 
   await expect(page.getByRole('heading', { name: 'Analyse des schémas scientifiques' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Pages identifiées' })).toHaveCount(0);
@@ -114,10 +118,18 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(diagramDetails.getByText('Schéma de cellule végétale')).toBeVisible();
   await expect(diagramDetails.getByText('La membrane est représentée.')).toBeVisible();
 
-  await expect(page.getByRole('complementary', { name: 'Copie de référence' })).toBeVisible();
+  await expect(page.locator('.copy-review-header')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toBeVisible();
+  await expect(page.getByText('Nom lu sur la copie')).toBeVisible();
+  await expect(page.getByText('Lecture douteuse · page 1')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Correction validée' }).first()).toBeVisible();
+  await expect(page.locator('.copy-review-validation-bar')).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Copie de l’étudiant' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Transport membranaire' })).toBeVisible();
   const flaggedCard = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Rôle de la membrane' }) });
+  await expect(page.locator('.review-source-pane')).toBeInViewport();
+  await expect(flaggedCard).toBeInViewport();
   await expect(flaggedCard.getByText('Point retiré', { exact: true })).toBeVisible();
   await expect(flaggedCard.getByText('Confiance à vérifier', { exact: true })).toBeVisible();
   await expect(flaggedCard.getByText('Le mécanisme est partiellement expliqué.')).toBeVisible();
@@ -131,18 +143,18 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.getByRole('button', { name: 'Afficher uniquement les points à examiner' }).click();
   const safeSummary = page.locator('details.review-safe-summary');
   await expect(safeSummary).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Tout confirmer' })).toBeVisible();
   await safeSummary.locator('summary').click();
   await expect(safeSummary.getByText('Transport membranaire')).toBeVisible();
   await expect(safeSummary.getByText('La membrane contrôle les échanges.')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Confirmer les critères sans alerte/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Confirmer ce critère' })).toHaveCount(0);
+  await expect(page.locator('.review-focus-overview')).toHaveCount(0);
   const explanation = page.locator('details.review-explanation');
   await expect(explanation).toHaveCount(1);
   await expect(explanation).not.toHaveAttribute('open', '');
   await explanation.locator('summary').click();
   await expect(explanation.getByText('La réponse mentionne la membrane.')).toBeVisible();
   await expect(page.getByRole('img', { name: 'Page de travail 1 de la copie' })).toBeVisible();
-  await expect(page.getByText('Texte reconnu par l’IA')).toBeVisible();
+  await expect(page.getByText('Transcription de la copie')).toBeVisible();
   const locateEvidence = page.getByRole('button', { name: 'Repérer la preuve du critère Rôle de la membrane sur la page 1' });
   await expect(locateEvidence).toBeVisible();
   await locateEvidence.click();
@@ -183,7 +195,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.getByRole('button', { name: /Copies corrigées/ }).click();
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
   await expect(page.getByRole('button', { name: /Confirmer les critères sans alerte/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Ajouter une autre copie' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Corriger une autre copie' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Correction validée' }).first()).toBeDisabled();
 
   const sourcePage = page.getByRole('img', { name: 'Page de travail 1 de la copie' });
   const sourceImageBeforeRotation = await sourcePage.getAttribute('src');
