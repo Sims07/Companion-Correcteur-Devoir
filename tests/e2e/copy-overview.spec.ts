@@ -42,7 +42,7 @@ async function prepareLocalWorkspace(page: Page) {
   await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
 }
 
-async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; status: 'ready' | 'failed'; updatedAt: string; error?: string }>) {
+async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; status: 'ready' | 'failed'; updatedAt: string; error?: string }>, readyProposal = proposal) {
   await page.evaluate(async ({ input, rubric: jobRubric, pageImage: image, proposal: readyProposal }) => {
     const request = indexedDB.open('companion-correcteur-devoir', 5);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -89,7 +89,7 @@ async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; sta
       transaction.onabort = () => reject(transaction.error);
     });
     database.close();
-  }, { input: jobs, rubric, pageImage, proposal });
+  }, { input: jobs, rubric, pageImage, proposal: readyProposal });
 }
 
 function copyNavigation(page: Page) {
@@ -149,6 +149,39 @@ test('teacher verifies a flagged criterion, validates the copy and lands on the 
   await page.keyboard.press('Control+Enter');
   await expect(studentName).toHaveValue('Copie ancienne');
   await expect(page.getByRole('heading', { name: 'Connaissances scientifiques' })).toBeVisible();
+});
+
+test('a copy without alerts can be validated in one action and advances to the next copy', async ({ page }) => {
+  await prepareLocalWorkspace(page);
+  const fullCreditProposal = {
+    ...proposal,
+    criteria: rubric.criteria.map((criterion) => ({
+      criterionId: criterion.id,
+      points: criterion.maxPoints,
+      rationale: 'Le critère est pleinement satisfait.',
+      evidence: 'La réponse apporte une preuve précise et suffisante.',
+      confidence: 'high' as const,
+    })),
+    finalScore: 20,
+  };
+  await seedJobs(page, [
+    { id: 'copy-older', label: 'Copie suivante', status: 'ready', updatedAt: '2026-11-01T08:00:00.000Z' },
+    { id: 'copy-newer', label: 'Copie sans alerte', status: 'ready', updatedAt: '2026-11-02T09:00:00.000Z' },
+  ], fullCreditProposal);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.reload();
+  await openActiveAssignment(page);
+  await copyNavigation(page).click();
+  await page.getByRole('button', { name: 'Vérifier la copie suivante' }).click();
+
+  const studentName = page.getByRole('textbox', { name: 'Nom de l’étudiant' });
+  await expect(studentName).toHaveValue('Copie sans alerte');
+  await expect(page.locator('.copy-review-alert-strip')).toHaveCount(0);
+  await expect(page.locator('.review-card')).toHaveCount(3);
+  const validate = page.getByRole('button', { name: 'Valider et passer à la suivante' }).first();
+  await expect(validate).toBeEnabled();
+  await validate.click();
+  await expect(studentName).toHaveValue('Copie suivante');
 });
 
 test('a failed copy is kept in À reprendre and the Reprendre action starts a new attempt', async ({ page }) => {
