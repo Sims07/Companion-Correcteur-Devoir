@@ -2120,7 +2120,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         copies={[
           ...allBackgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').map((job) => ({
             id: job.id,
-            label: job.studentIdentity ? formatStudentIdentityLabel(job.studentIdentity) : job.label || 'Étudiant non identifié',
+            label: (job.studentIdentity ? formatStudentIdentityLabel(job.studentIdentity) : null) || job.label || 'Étudiant non identifié',
             status: backgroundCorrectionStatusLabel(job.status),
             score: job.score === null ? null : job.score.toLocaleString('fr-FR') + ' / ' + job.maximumPoints.toLocaleString('fr-FR'),
             updatedAt: job.updatedAt,
