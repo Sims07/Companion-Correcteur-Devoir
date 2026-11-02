@@ -16,7 +16,7 @@ test('teacher can edit the collapsed assignment and rubric as one Devoir step', 
   await page.getByLabel('Nom du barème (distinct du devoir)').fill('Barème cellulaire');
   await expect(page.getByRole('heading', { name: 'Devoir et barème' })).toBeVisible();
   await page.getByRole('button', { name: 'Continuer vers les copies' }).click();
-  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Mes devoirs' }).click();
   await page.getByRole('button', { name: /Créer un devoir/ }).click();
