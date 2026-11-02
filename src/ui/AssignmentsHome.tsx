@@ -48,12 +48,19 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
     </div>
     {cards.length ? <div className="assignments-card-grid">{cards.map(({ profile, archivedCount, maximumPoints, ready }) => {
       const active = profile.id === activeAssignmentId;
+      const activeJobs = backgroundJobs.filter((job) => job.assignmentId === profile.id && job.status !== 'completed');
+      const processingCount = activeJobs.filter((job) => job.status === 'processing').length;
+      const reviewCount = activeJobs.filter((job) => ['ready', 'needs-review', 'reviewing', 'failed'].includes(job.status)).length;
+      const pendingCount = activeJobs.filter((job) => job.status === 'pending').length;
+      const totalCopies = archivedCount + activeJobs.length;
+      const statusLabel = processingCount ? 'Corrections en cours' : reviewCount ? 'À réviser' : pendingCount ? 'En attente' : archivedCount ? 'Corrections terminées' : ready ? 'Prêt à corriger' : 'En préparation';
       return <article className={active ? 'assignment-overview-card is-active' : 'assignment-overview-card'} key={profile.id}>
-        <div className="assignment-overview-top"><span className="assignment-overview-icon" aria-hidden="true">▤</span><span className={archivedCount ? 'assignment-status has-corrections' : ready ? 'assignment-status ready' : 'assignment-status preparing'}>{archivedCount ? 'Corrections disponibles' : ready ? 'Prêt à corriger' : 'En préparation'}</span></div>
+        <div className="assignment-overview-top"><span className="assignment-overview-icon" aria-hidden="true">▤</span><span className={totalCopies ? 'assignment-status has-corrections' : ready ? 'assignment-status ready' : 'assignment-status preparing'}>{statusLabel}</span></div>
         <div className="assignment-overview-title"><h3>{profile.title.trim() || 'Devoir sans titre'}</h3>{active && <span className="assignment-active-label">Actif</span>}</div>
         <p className="assignment-overview-meta">{profile.educationLevel || 'Formation non renseignée'}</p>
         {profile.description && <p className="assignment-overview-description">{profile.description}</p>}
-        <div className="assignment-overview-stats"><strong>{totalCopies}</strong><span>copie(s)</span><span className="assignment-stat-separator">·</span><span>{profile.rubric.criteria.length} critères</span><span className="assignment-stat-separator">·</span><span>{maximumPoints} points</span></div>\n        {activeJobs.length > 0 && <p className="assignment-overview-activity">{processingCount} en cours · {pendingCount} en attente · {reviewCount} à réviser</p>}
+        <div className="assignment-overview-stats"><strong>{totalCopies}</strong><span>copie(s)</span><span className="assignment-stat-separator">·</span><span>{profile.rubric.criteria.length} critères</span><span className="assignment-stat-separator">·</span><span>{maximumPoints} points</span></div>
+        {activeJobs.length > 0 && <p className="assignment-overview-activity">{processingCount} en cours · {pendingCount} en attente · {reviewCount} à réviser</p>}
         <div className="assignment-overview-actions"><button type="button" className="assignment-open-button" onClick={() => onOpen(profile)} disabled={disabled}>{active ? 'Reprendre le devoir' : ready ? 'Ouvrir le devoir' : 'Configurer le devoir'} <span aria-hidden="true">→</span></button><details className="assignment-overview-menu"><summary aria-label={'Actions pour ' + (profile.title.trim() || 'devoir sans titre')}>···</summary><div><button type="button" onClick={() => onDelete(profile)} disabled={disabled || assignments.length <= 1}>Supprimer</button></div></details></div>
       </article>;
     })}</div> : <div className="assignments-empty"><span aria-hidden="true">⌕</span><h3>Aucun devoir trouvé</h3><p>Modifiez votre recherche ou créez un nouveau devoir.</p><button type="button" className="secondary-button" onClick={() => { setQuery(''); setFilter('all'); }}>Effacer les filtres</button></div>}
