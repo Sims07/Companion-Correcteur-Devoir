@@ -30,6 +30,7 @@ describe('navigation de l’espace enseignant', () => {
 
     expect(html).toContain('aria-label="Fil d’Ariane"');
     expect(html).toContain('Biologie cellulaire');
+    expect(html).toContain('class="teacher-breadcrumb-assignment"');
     expect(html).toContain('aria-label="Sections du devoir"');
     expect(html).toContain('aria-selected="true"');
     expect(html).toContain('Copies');
@@ -59,6 +60,8 @@ describe('navigation de l’espace enseignant', () => {
     expect(html).toContain('Réduire la liste des copies');
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('Marie Dupont');
+    expect(html).toContain('<strong aria-current="page">Marie Dupont</strong>');
+    expect(html).not.toContain('<strong aria-current="page">Copies</strong>');
     expect(html).toContain('14,5 / 20');
     expect(html).toContain('À vérifier');
   });
