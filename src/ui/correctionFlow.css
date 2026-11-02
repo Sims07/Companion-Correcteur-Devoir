@@ -3018,3 +3018,9 @@
 @media (prefers-reduced-motion: reduce) {
   .teacher-workspace-processing.is-active > span:first-child { animation: none; }
 }
+
+
+.global-stop-button { display:inline-flex; align-items:center; justify-content:center; min-height:36px; padding:8px 12px; border:1px solid #d97757; border-radius:9px; background:#fff4ef; color:#9b341d; font:inherit; font-size:12px; font-weight:750; cursor:pointer; white-space:nowrap; }
+.global-stop-button:hover:not(:disabled) { background:#ffe7de; border-color:#b94b2e; }
+.global-stop-button:disabled { opacity:.7; cursor:wait; }
+@media (max-width:760px) { .global-stop-button { min-height:32px; padding:6px 9px; font-size:11px; } }

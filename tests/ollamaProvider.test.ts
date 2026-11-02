@@ -898,3 +898,20 @@ describe('Ollama adapter', () => {
   });
 
 });
+
+
+describe('Ollama generation cancellation', () => {
+  it('forwards the abort signal to the active HTTP request', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn<typeof fetch>((_input, init) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    }));
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock);
+    const generation = provider.generate(request, undefined, undefined, undefined, undefined, undefined, undefined, undefined, controller.signal);
+    await Promise.resolve();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
+    controller.abort();
+    await expect(generation).rejects.toThrow('interrompu par l’enseignant');
+  });
+});
