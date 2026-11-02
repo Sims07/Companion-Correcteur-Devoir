@@ -220,12 +220,6 @@ test('teacher verifies a flagged criterion, validates the copy and lands on the 
     });
     if (!database.objectStoreNames.contains('background-corrections')) throw new Error('Le stockage local des copies n’est pas initialisé.');
     const assignmentId = localStorage.getItem('companion-correcteur:active-assignment:v1') ?? 'assignment-default';
-    const profiles = JSON.parse(localStorage.getItem('companion-correcteur:assignments:v1') ?? '[]');
-    const profileIndex = profiles.findIndex((profile: { id: string }) => profile.id === assignmentId);
-    if (profileIndex >= 0) {
-      profiles[profileIndex] = { ...profiles[profileIndex], rubric, question: 'Expliquez le rôle de la membrane plasmique.' };
-      localStorage.setItem('companion-correcteur:assignments:v1', JSON.stringify(profiles));
-    }
     const transaction = database.transaction('background-corrections', 'readwrite');
     const store = transaction.objectStore('background-corrections');
     const image = { base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGMQ6dH4DwADSAHIPzDQUwAAAABJRU5ErkJggg==', mimeType: 'image/png', fileName: 'page-1.png' };
@@ -233,6 +227,12 @@ test('teacher verifies a flagged criterion, validates the copy and lands on the 
       { id: 'membrane', title: 'Rôle de la membrane', description: 'Expliquer la barrière sélective.', maxPoints: 4 },
       { id: 'transport', title: 'Transport membranaire', description: 'Identifier un transport sélectif.', maxPoints: 2 },
     ] };
+    const profiles = JSON.parse(localStorage.getItem('companion-correcteur:assignments:v1') ?? '[]');
+    const profileIndex = profiles.findIndex((profile: { id: string }) => profile.id === assignmentId);
+    if (profileIndex >= 0) {
+      profiles[profileIndex] = { ...profiles[profileIndex], rubric, question: 'Expliquez le rôle de la membrane plasmique.' };
+      localStorage.setItem('companion-correcteur:assignments:v1', JSON.stringify(profiles));
+    }
     const makeJob = (id: string, label: string, createdAt: string, confidence: 'medium' | 'high') => {
       const criteria = [
         { criterionId: 'membrane', points: 2, rationale: 'Le mécanisme est partiellement expliqué.', evidence: 'La réponse mentionne la membrane.', pageNumber: 1, confidence },
