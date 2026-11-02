@@ -39,6 +39,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain("useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review' | 'archive'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric')");
     expect(text).toContain('Copies corrigées');
     expect(text).toContain("setCopyOverviewFilter('completed')");
+    expect(text).toContain("else { setCopyOverviewFilter('completed'); setTeacherStep('overview'); }");
     expect(text).toContain('Ajouter une autre copie');
     expect(text).toContain('Consulter la correction');
     expect(text).toContain('archiveService.saveCorrection(correction)');
