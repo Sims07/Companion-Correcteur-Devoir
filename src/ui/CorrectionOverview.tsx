@@ -48,12 +48,13 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, currentBack
     ...(currentCopy && !currentBackgroundJobId ? [currentCopy.status] : []),
   ];
   const counts = getCorrectionOverviewCounts(statuses);
+  const pendingJobsCount = visibleJobs.filter((job) => job.status === 'pending').length;
   const matches = (status: CorrectionCopyStatus) => filter === 'all' || filter === status;
 
   return <section className="correction-overview" aria-labelledby="correction-overview-title">
     <header className="correction-overview-heading">
       <div><p className="eyebrow">ESPACE DU DEVOIR</p><h2 id="correction-overview-title">Suivi des copies</h2><p>Retrouvez toutes les copies de ce devoir, quel que soit leur mode de correction.</p></div>
-      <div className="correction-overview-heading-actions">{counts.toDo > 0 && !autoBackgroundCorrection && <button type="button" className="secondary-button" onClick={onStartPending}>Lancer les corrections</button>}<button type="button" className="primary-button" onClick={onAddCopy}>＋ Ajouter une copie</button></div>
+      <div className="correction-overview-heading-actions">{pendingJobsCount > 0 && !autoBackgroundCorrection && <button type="button" className="secondary-button" onClick={onStartPending}>Lancer les corrections</button>}<button type="button" className="primary-button" onClick={onAddCopy}>＋ Ajouter une copie</button></div>
     </header>
     <div className="correction-overview-filters" role="group" aria-label="Filtrer les copies">
       {(['all', 'to-do', 'processing', 'to-review', 'completed'] as const).map((key) => {
