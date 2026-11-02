@@ -89,11 +89,17 @@ export function createBackgroundCorrectionService(
           .filter((candidate) => candidate.status === 'pending' || candidate.status === 'processing')
           .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
         if (!job) break;
+        // Use the latest teacher configuration when a queued copy actually starts.
+        // The job's model fields are only a snapshot from import time and may be stale.
+        const jobSettings = lastSettings ?? settings;
         const fingerprint = job.imageFingerprint ?? await repository.fingerprintImages(job.images);
         const cachedTranscription = job.transcription ?? await repository.getCachedTranscription(fingerprint);
         let transcriptionFingerprint = fingerprint;
         let current: BackgroundCorrectionJob = {
           ...job,
+          visionModel: jobSettings.visionModel?.trim() || job.visionModel,
+          analysisModel: jobSettings.analysisModel?.trim() || job.analysisModel,
+          thinking: jobSettings.thinking ?? job.thinking,
           imageFingerprint: fingerprint,
           transcription: cachedTranscription,
           status: 'processing',
@@ -114,8 +120,8 @@ export function createBackgroundCorrectionService(
               classifications = await diagramAnalysis.classifyPages({
                 images: current.images,
                 model: current.visionModel,
-                endpoint: settings.endpoint,
-                apiKey: settings.apiKey ?? '',
+                endpoint: jobSettings.endpoint,
+                apiKey: jobSettings.apiKey ?? '',
               });
             }
             const routing = routeScientificPages(classifications, current.images.length);
@@ -167,7 +173,7 @@ export function createBackgroundCorrectionService(
               prewarmedModel = null;
             }
             const provider = workspace.createProvider({
-              ...settings,
+              ...jobSettings,
               visionModel: current.visionModel,
               analysisModel: current.analysisModel,
               thinking: current.thinking,
@@ -255,7 +261,7 @@ export function createBackgroundCorrectionService(
             await persist(current);
           }
           if (paused) {
-            if (activeModelToUnload) await workspace.unloadModel?.(settings, activeModelToUnload).catch(() => undefined);
+            if (activeModelToUnload) await workspace.unloadModel?.(jobSettings, activeModelToUnload).catch(() => undefined);
             activeModelToUnload = null;
             await persist({ ...current, status: 'pending', updatedAt: new Date().toISOString() });
             break;
