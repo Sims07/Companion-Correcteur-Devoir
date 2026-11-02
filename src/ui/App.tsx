@@ -24,7 +24,7 @@ import type { RubricImportProgress } from '../ports/correctionWorkspace.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
-import { createBackgroundCorrection, backgroundCorrectionStatusLabel, findBackgroundCorrectionToOpen, type BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
+import { createBackgroundCorrection, backgroundCorrectionStatusLabel, findBackgroundCorrectionToOpen, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import { getBackgroundCorrectionResult } from '../domain/backgroundCorrectionResult.ts';
 import { getBackgroundCorrectionReviewNavigation } from '../domain/backgroundCorrectionReviewNavigation.ts';
 import { prepareBatchCopies } from '../application/prepareBatchCopies.ts';
@@ -33,7 +33,7 @@ import type { BackgroundCorrectionService } from '../application/backgroundCorre
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { getArchivedCorrectionsForAssignment } from '../domain/assignmentOverview.ts';
-import type { CopyOverviewFilter } from '../domain/copyOverview.ts';
+import { defaultCopyOverviewFilter, toCopyOverviewStatus, type CopyOverviewFilter } from '../domain/copyOverview.ts';
 import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/teacherAnnotations.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
@@ -274,11 +274,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     enqueue: async () => undefined,
     updateImages: async () => undefined,
     listJobs: async () => [],
+    listJobSummaries: async () => [],
     prewarm: async () => undefined,
     pauseAndWait: async () => undefined,
     resume: () => undefined,
     processPending: async () => undefined,
     subscribe: () => () => undefined,
+    subscribeSummaries: () => () => undefined,
     markForReview: async () => undefined,
     markCompleted: async () => undefined,
     remove: async () => undefined,
@@ -289,11 +291,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
   const [showAssignmentsHome, setShowAssignmentsHome] = useState(true);
   const [copyOverviewFilter, setCopyOverviewFilter] = useState<CopyOverviewFilter>('all');
+  const [copyOverviewFilterTouched, setCopyOverviewFilterTouched] = useState(false);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, AssignmentDraft>>({});
   const [assignmentTitle, setAssignmentTitle] = useState(() => readActiveAssignmentProfile().title);
   const [assignmentDescription, setAssignmentDescription] = useState(() => readActiveAssignmentProfile().description ?? '');
   const [educationLevel, setEducationLevel] = useState(() => readActiveAssignmentProfile().educationLevel ?? '');
-  const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review' | 'archive'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric');
+  const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric');
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
@@ -361,7 +364,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [copyViewerRotation, setCopyViewerRotation] = useState(0);
   const [originalImages, setOriginalImages] = useState<ImageInput[]>([]);
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
-  const [allBackgroundJobs, setAllBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
+  const [allBackgroundJobs, setAllBackgroundJobs] = useState<BackgroundJobSummary[]>([]);
   const [selectedSeriesPreviewId, setSelectedSeriesPreviewId] = useState<string | null>(null);
   const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
   const [backgroundCopyLabel, setBackgroundCopyLabel] = useState('');
@@ -377,10 +380,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   useEffect(() => backgroundService.subscribe((jobs) => {
     setBackgroundJobs(jobs.filter((job) => job.assignmentId === activeAssignmentId));
   }), [backgroundCorrectionService, activeAssignmentId]);
-  useEffect(() => backgroundService.subscribe((jobs) => setAllBackgroundJobs(jobs)), [backgroundCorrectionService]);
+  useEffect(() => backgroundService.subscribeSummaries((jobs) => setAllBackgroundJobs(jobs)), [backgroundCorrectionService]);
   useEffect(() => {
     let active = true;
-    void backgroundService.listJobs().then((jobs) => { if (active) setAllBackgroundJobs(jobs); });
+    void backgroundService.listJobSummaries().then((jobs) => { if (active) setAllBackgroundJobs(jobs); });
     return () => { active = false; };
   }, [backgroundCorrectionService]);
   useEffect(() => {
@@ -487,6 +490,18 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
   const reviewedTotal = criterionProgress.provisionalPoints;
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
+  useEffect(() => {
+    if (copyOverviewFilterTouched) return;
+    const statuses = [
+      ...allBackgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').map((job) => toCopyOverviewStatus(job.status)),
+      ...archivedCorrectionsForActiveAssignment.filter((correction) => Boolean(correction.snapshot)).map(() => 'completed' as const),
+      ...(images.length > 0 && !isFinalized && !currentBackgroundJobId
+        ? [isAnalyzing ? 'processing' as const : proposal ? 'to-review' as const : 'to-do' as const]
+        : []),
+    ];
+    setCopyOverviewFilter(defaultCopyOverviewFilter(statuses));
+  }, [activeAssignmentId, allBackgroundJobs, archivedCorrectionsForActiveAssignment, copyOverviewFilterTouched, currentBackgroundJobId, images.length, isAnalyzing, isFinalized, proposal]);
+
   const reviewFocus = useMemo(() => getReviewFocus(review, rubric.criteria), [review, rubric.criteria]);
   const flaggedCriteriaIds = useMemo(() => new Set(reviewFocus.flaggedCriteriaIds), [reviewFocus]);
   const reliableCriteriaCount = reviewFocus.reliableCriteriaIds.length;
@@ -1506,6 +1521,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   function applyAssignment(profile: AssignmentProfile) {
     setCopyOverviewFilter('all');
+    setCopyOverviewFilterTouched(false);
     setCurrentBackgroundJobId(null);
     setShowOnlyFlagged(true);
     setFocusedEvidencePage(null);
