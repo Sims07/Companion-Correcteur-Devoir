@@ -55,7 +55,7 @@ const statusLabels: Record<CopyOverviewStatus, string> = {
   'to-do': 'En attente',
   processing: 'Analyse en cours',
   'to-review': 'À vérifier',
-  'to-retry': 'À reprendre',
+  'to-retry': 'À corriger',
   completed: 'Corrigée',
 };
 const number = (value: number) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(value);
