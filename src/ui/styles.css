@@ -1122,3 +1122,8 @@ footer { padding-top: 24px; line-height: 1.6; }
 @media(max-width:1280px){.copy-review-header{margin-right:-20px;margin-left:-20px;padding-right:20px;padding-left:20px}.copy-review-validation-bar{margin-right:-20px;margin-left:-20px;padding-right:20px;padding-left:20px}}
 @media(max-width:900px){.copy-review-header-main{flex-wrap:wrap}.copy-review-student-name{flex-basis:45%}.copy-review-header-main>.primary-button{flex:1}.copy-review-validation-bar{margin-right:-16px;margin-left:-16px;padding-right:16px;padding-left:16px}}
 @media(max-width:600px){.copy-review-header{margin-right:-16px;margin-left:-16px;padding:10px 16px}.copy-review-header-main{gap:8px}.copy-review-student-name{flex-basis:100%}.copy-review-header-main>.primary-button{min-width:100%;order:5}.copy-review-header-score{margin-left:auto}.copy-review-validation-bar{align-items:stretch;flex-direction:column;margin-bottom:-20px}.copy-review-validation-bar>.primary-button{width:100%}.copy-review-breadcrumb{font-size:10px}}
+
+.review-safe-summary-row{display:flex;align-items:center;gap:12px;margin:12px 0}
+.review-safe-summary-row .review-safe-summary{flex:1;min-width:0;margin:0}
+.review-safe-summary-row .review-confirm-safe{flex:0 0 auto;margin:0}
+@media(max-width:600px){.review-safe-summary-row{align-items:stretch;flex-direction:column}.review-safe-summary-row .review-confirm-safe{width:100%}}

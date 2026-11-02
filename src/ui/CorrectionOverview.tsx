@@ -153,7 +153,7 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onF
       <div>
         <p className="eyebrow">ESPACE DU DEVOIR</p>
         <h2 id="copy-overview-title">Suivi des copies</h2>
-        <p>Retrouvez les copies à corriger, celles à réviser et les corrections validées.</p>
+        <p>Retrouvez les copies en attente, celles à vérifier et les corrections validées.</p>
       </div>
       <div className="copy-overview-primary-actions">
         {counts.toReview > 0 && <button type="button" className="primary-button" onClick={onReviewNextCopy}>Vérifier la copie suivante</button>}

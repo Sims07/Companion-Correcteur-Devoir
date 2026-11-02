@@ -409,7 +409,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [busy, setBusy] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<'checking' | 'reading' | 'grading'>('checking');
-  const [criterionProgressMessage, setCriterionProgressMessage] = useState('');
+  const [, setCriterionProgressMessage] = useState('');
   const [pageProgress, setPageProgress] = useState<Record<number, 'started' | 'completed' | 'doubtful'>>({});
   const [criterionProgressPosition, setCriterionProgressPosition] = useState<{ index: number; total: number } | null>(null);
   const [lastModelLoadDurationMs, setLastModelLoadDurationMs] = useState<number | null>(null);
@@ -417,8 +417,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [criterionStatuses, setCriterionStatuses] = useState<Record<string, CriterionAnalysisUpdate['status']>>({});
   const [activeCriterionId, setActiveCriterionId] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [readingElapsedMs, setReadingElapsedMs] = useState<number | null>(null);
-  const [analysisElapsedMs, setAnalysisElapsedMs] = useState<number | null>(null);
+  const [, setReadingElapsedMs] = useState<number | null>(null);
+  const [, setAnalysisElapsedMs] = useState<number | null>(null);
   const [timingHistory, setTimingHistory] = useState<TimingRecord[]>(readTimingHistory);
   const diagnosticHistoryReady = useRef(false);
   const completedPageCount = Object.values(pageProgress).filter((status) => status === 'completed' || status === 'doubtful').length;
@@ -518,7 +518,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   ], [rubric.criteria, flaggedCriteriaIds]);
   const unreadableCopySignal = hasUnreadableCopySignal(transcription, images.length > 0);
   useEffect(() => { setShowOnlyFlagged(!isFinalized); }, [isFinalized]);
-  const completedForAssignment = archivedCorrectionsForActiveAssignment.length;
   const subjectReady = correctionMode === 'integrated' || subjectImages.length > 0 || Boolean(subjectTranscription);
   const setupChecks = [
     { label: 'Barème vérifié', detail: validation.valid ? `${validation.maximumPoints} points répartis sur ${rubric.criteria.length} critères` : 'Corrigez les points ou les critères signalés', ready: validation.valid },
@@ -3071,7 +3070,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || (studentIdentity !== null && studentIdentity.confidence !== 'high')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
           {flaggedCriteriaIds.size > 0 && <button type="button" onClick={() => { setShowOnlyFlagged(true); document.querySelector('.review-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>⚠ {flaggedCriteriaIds.size} critère(s) à examiner</button>}
           {studentIdentity && studentIdentity.confidence !== 'high' && <button type="button" className="copy-review-alert-chip" onClick={() => document.getElementById('student-label')?.focus()}>Nom à confirmer</button>}
-          {unreadableCopySignal && <span className="copy-review-alert-chip" role="alert">Lecture douteuse · vérifier l’image</span>}
+          {pageClassifications?.filter((page) => page.kind === 'ambiguous').map((page) => <span className="copy-review-alert-chip" role="alert" key={page.pageNumber}>Lecture douteuse · page {page.pageNumber}</span>)}
+          {unreadableCopySignal && !pageClassifications?.some((page) => page.kind === 'ambiguous') && <span className="copy-review-alert-chip" role="alert">Lecture à vérifier sur l’image</span>}
         </section>}
         {scientificDiagramError && <p className="review-alert review-alert-warning" role="alert">{scientificDiagramError}</p>}
 
@@ -3123,14 +3123,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           </div>
         </div>
         {flaggedCriteriaIds.size === 0 && <p className="review-focus-hint" role="note">Aucun signal automatique. La proposition est retenue par défaut.</p>}
-        {shouldFocusExceptions && <details className="review-safe-summary">
+        {shouldFocusExceptions && <div className="review-safe-summary-row"><details className="review-safe-summary">
           <summary>{reliableCriteriaCount} critères sans alerte · preuves disponibles</summary>
           <ul>{review.filter((item) => reviewFocus.reliableCriteriaIds.includes(item.criterionId)).map((item) => {
             const criterion = rubric.criteria.find((entry) => entry.id === item.criterionId);
             return <li key={item.criterionId}><strong>{criterion?.title ?? item.criterionId}</strong><span>{item.teacherPoints} / {criterion?.maxPoints ?? 0} points</span><small>{item.evidence.trim().split(/\s+/u).slice(0, 12).join(' ')}{item.evidence.trim().split(/\s+/u).length > 12 ? '…' : ''}</small></li>;
           })}</ul>
-          <button type="button" className="secondary-button review-confirm-safe" onClick={() => review.filter((item) => reviewFocus.reliableCriteriaIds.includes(item.criterionId)).forEach((item) => updateReview(item.criterionId, { decision: 'accepted' }))}>Tout confirmer</button>
-        </details>}
+        </details><button type="button" className="secondary-button review-confirm-safe" onClick={() => review.filter((item) => reviewFocus.reliableCriteriaIds.includes(item.criterionId)).forEach((item) => updateReview(item.criterionId, { decision: 'accepted' }))}>Tout confirmer</button></div>}
         {shouldFocusExceptions && <p className="review-focus-hint">Les critères sans alerte sont regroupés pour accélérer la lecture. Vous pouvez les afficher à tout moment.</p>}
         {(isAnalyzing ? rubric.criteria : orderedReviewCriteria.filter((criterion) => !shouldFocusExceptions || flaggedCriteriaIds.has(criterion.id))).map((criterion, criterionIndex) => {
           const item = review.find((entry) => entry.criterionId === criterion.id);

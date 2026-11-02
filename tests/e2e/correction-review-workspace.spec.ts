@@ -118,6 +118,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toBeVisible();
   await expect(page.locator('.copy-review-validation-bar')).toBeVisible();
+  await expect(page.locator('.review-background-queue')).toHaveCount(0);
+  await expect(page.locator('#background-copy-files')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Correction validée' })).toBeVisible();
   await expect(page.getByRole('complementary', { name: 'Copie de l’étudiant' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
