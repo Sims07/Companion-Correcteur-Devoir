@@ -57,7 +57,7 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
   await openActiveAssignment(page);
   await page.getByRole('tab', { name: /Copies/ }).click();
   await page.locator('.copy-overview-filters').getByRole('button', { name: /À corriger/ }).click();
-  await page.getByRole('button', { name: 'Ouvrir' }).click();
+  await page.locator('.copy-overview-grid li').filter({ hasText: '01-reprendre' }).getByRole('button', { name: 'Ouvrir', exact: true }).click();
 
   await expect(page.getByText('Copie 1 sur 8')).toBeVisible();
   const expectedLabels = ['02-verifier', '03-analyse', '04-attente', '08-archivée', '07-archivée', '06-archivée', '05-archivée'];
