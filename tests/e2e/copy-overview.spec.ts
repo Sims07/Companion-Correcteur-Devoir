@@ -214,7 +214,7 @@ test('a failed copy is kept in À corriger and the Corriger action starts a new 
   await failedCard.getByRole('button', { name: 'Corriger' }).click();
 
   await expect.poll(() => retryRequests).toBeGreaterThan(0);
-  await expect(failedCard).toContainText('À reprendre');
+  await expect(failedCard).toContainText('À corriger');
 });
 
 test('adding another copy automatically saves the imported foreground copy in the overview', async ({ page }) => {
