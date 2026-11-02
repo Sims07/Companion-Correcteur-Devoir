@@ -71,6 +71,12 @@ describe('getAssignmentOverview', () => {
     expect(overview.cards.map((card) => card.profile.id)).toEqual(['genetics']);
   });
 
+  it('includes assignments with active corrections in the corrections filter', () => {
+    const overview = getAssignmentOverview([readyAssignment, draftAssignment], [], '', 'with-corrections', ['genetics']);
+    expect(overview.cards.map((card) => card.profile.id)).toEqual(['genetics']);
+    expect(overview.correctionCount).toBe(1);
+  });
+
   it('returns an empty list for a search with no match', () => {
     expect(getAssignmentOverview([readyAssignment, draftAssignment], [], 'introuvable').cards).toEqual([]);
   });
