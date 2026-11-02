@@ -2880,3 +2880,30 @@
 .correction-series-preview-heading h4 { margin: 0; }
 .correction-series-preview-heading p { margin: 0.25rem 0 0; color: var(--flow-muted); font-size: 0.84rem; }
 .correction-series-preview-panel .correction-series-pages { padding: 0; }
+
+
+/* One teacher-facing overview for individual and batch corrections. */
+.copy-overview { display: grid; gap: 1.1rem; width: 100%; padding: clamp(1.25rem, 3vw, 2.1rem) 0 2rem; }
+.copy-overview-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.25rem; }
+.copy-overview-heading h2 { margin: 0; color: var(--flow-text); font-size: clamp(1.55rem, 3vw, 2rem); letter-spacing: -0.035em; }
+.copy-overview-heading p:not(.eyebrow) { margin: 0.45rem 0 0; color: var(--flow-muted); font-size: 0.88rem; line-height: 1.55; }
+.copy-overview-heading .eyebrow { margin: 0 0 0.45rem; }
+.copy-overview-filters { display: flex; flex-wrap: wrap; gap: 0.45rem; padding: 0.4rem; border: 1px solid var(--flow-border); border-radius: 12px; background: var(--flow-surface, #fff); }
+.copy-overview-filters button { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 36px; padding: 0.4rem 0.7rem; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--flow-muted); font: inherit; font-size: 0.78rem; font-weight: 650; cursor: pointer; }
+.copy-overview-filters button.is-active { border-color: var(--flow-border-strong); background: var(--flow-accent-soft); color: var(--flow-text); }
+.copy-overview-filters button span { display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.25rem; padding: 0 0.25rem; border-radius: 99px; background: rgb(110 130 110 / 12%); font-size: 0.68rem; font-variant-numeric: tabular-nums; }
+.copy-overview-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 255px), 1fr)); grid-auto-rows: 1fr; align-items: stretch; gap: 0.85rem; }
+.copy-overview-grid > li.correction-series-card { min-height: 218px; }
+.copy-overview-grid .correction-series-card-heading { align-items: center; }
+.copy-overview-grid .correction-series-card-score { min-height: 86px; }
+.copy-overview-grid .correction-series-card-footer { margin-top: auto; }
+.copy-overview-grid .correction-series-card-status { line-height: 1.45; }
+.copy-overview-grid .correction-series-actions > .correction-series-view { flex: 1 1 100%; }
+.assignment-overview-activity { margin: -0.35rem 0 0; color: var(--flow-muted); font-size: 0.72rem; }
+@media (max-width: 700px) {
+  .copy-overview-heading { align-items: stretch; flex-direction: column; }
+  .copy-overview-heading > .primary-button { width: 100%; }
+  .copy-overview-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .copy-overview-filters button { justify-content: space-between; }
+  .copy-overview-grid { grid-template-columns: 1fr; }
+}
