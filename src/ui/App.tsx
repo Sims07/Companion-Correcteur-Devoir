@@ -1489,6 +1489,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         ? `Correction enregistrée sur cet appareil.${memoryStatus} Relisez les questions ouvertes avant de communiquer la note.`
         : `Correction enregistrée sur cet appareil.${memoryStatus} Vous pourrez la retrouver dans « Corrections enregistrées ».`);
       if (advanceToNextCopy) startNextCopy();
+      else { setCopyOverviewFilter('completed'); setTeacherStep('overview'); }
     } catch {
       setIsFinalized(false);
       setReviewMessage('La correction n’a pas pu être archivée dans le stockage local. Vérifiez l’espace disponible du navigateur puis réessayez.');
