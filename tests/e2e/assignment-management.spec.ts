@@ -8,6 +8,8 @@ test('the assignment library is the entry point and opens the selected teacher w
 
   await page.locator('.assignment-overview-card').getByRole('button', { name: /Reprendre le devoir/ }).click();
   await expect(page.locator('.teacher-sidebar')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Ajouter une copie/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toHaveCount(0);
   await expect(page.locator('.sidebar-assignment-current')).toContainText('Devoir de biologie');
 
