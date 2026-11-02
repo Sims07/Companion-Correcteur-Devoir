@@ -77,7 +77,7 @@ describe('CorrectionOverview — comportement enseignant', () => {
     await render();
     expect(container.textContent).toContain('À reprendre');
     expect(container.textContent).toContain('À vérifier');
-    expect(container.textContent).toContain('Le service local ne répond pas');
+    expect(container.textContent).toContain('La correction n’a pas abouti. Vous pouvez relancer cette copie.');
     expect(container.textContent).toContain('2 résultat(s)');
     expect(container.querySelectorAll('.correction-series-card')).toHaveLength(2);
   });
