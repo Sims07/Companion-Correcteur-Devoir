@@ -1504,6 +1504,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   function applyAssignment(profile: AssignmentProfile) {
+    setCopyOverviewFilter('all');
     setCurrentBackgroundJobId(null);
     setShowOnlyFlagged(true);
     setFocusedEvidencePage(null);
