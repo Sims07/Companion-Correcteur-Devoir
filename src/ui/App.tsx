@@ -1898,7 +1898,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function loadNextQueuedCopy(jobId?: string) {
-    if (isAnalyzing) { setReviewMessage('Attendez la fin du traitement avant de changer de copie.'); return; }
+    // A background job keeps running independently; navigating to another queued
+    // or processing copy must not be blocked by the foreground copy's analysis flag.
+    if (isAnalyzing && !jobId) { setReviewMessage('Attendez la fin du traitement avant de changer de copie.'); return; }
     const availableJobs = jobId ? await backgroundService.listJobs(activeAssignmentId) : backgroundJobs;
     const next = jobId
       ? availableJobs.find((job) => job.id === jobId && job.assignmentId === activeAssignmentId) ?? null
