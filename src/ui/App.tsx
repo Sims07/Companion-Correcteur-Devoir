@@ -3095,7 +3095,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || (studentIdentity !== null && studentIdentity.confidence !== 'high')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
           {flaggedCriteriaIds.size > 0 && <button type="button" onClick={() => { setShowOnlyFlagged(true); document.querySelector('.review-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>⚠ {flaggedCriteriaIds.size} critère(s) à examiner</button>}
           {studentIdentity && studentIdentity.confidence !== 'high' && <button type="button" className="copy-review-alert-chip" onClick={() => document.getElementById('student-label')?.focus()}>Nom à confirmer</button>}
-          {unreadableCopySignal && <span className="copy-review-alert-chip" role="alert">Lecture douteuse · vérifier l’image</span>}
+          {pageClassifications?.filter((page) => page.kind === 'ambiguous').map((page) => <span className="copy-review-alert-chip" role="alert" key={page.pageNumber}>Lecture douteuse · page {page.pageNumber}</span>)}
+          {unreadableCopySignal && !pageClassifications?.some((page) => page.kind === 'ambiguous') && <span className="copy-review-alert-chip" role="alert">Lecture à vérifier sur l’image</span>}
         </section>}
         {interfaceMode !== 'teacher' && isAnalyzing && <p className="diagnostic-progress-message">{criterionProgressMessage || 'Analyse progressive en cours'}</p>}
         {interfaceMode !== 'teacher' && (readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? 'non mesurée' : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? 'non mesurée' : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
