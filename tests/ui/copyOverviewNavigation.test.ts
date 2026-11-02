@@ -120,8 +120,9 @@ describe('CorrectionOverview — comportement enseignant', () => {
     const input = container.querySelector<HTMLInputElement>('input[type="search"]');
     expect(input).not.toBeNull();
     await act(async () => {
-      input!.value = 'alice';
-      input!.dispatchEvent(new Event('input', { bubbles: true }));
+      const setNativeValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      setNativeValue?.call(input, 'alice');
+      input!.dispatchEvent(new window.Event('input', { bubbles: true }));
     });
     expect(container.querySelectorAll('.correction-series-card')).toHaveLength(1);
     expect(container.textContent).toContain('1 résultat(s)');
