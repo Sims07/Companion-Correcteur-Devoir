@@ -193,10 +193,10 @@ test('a copy without alerts can be validated in one action and advances to the n
   await expect(studentName).toHaveValue('Copie suivante');
 });
 
-test('a failed copy is kept in À reprendre and the Reprendre action starts a new attempt', async ({ page }) => {
+test('a failed copy is kept in À corriger and the Corriger action starts a new attempt', async ({ page }) => {
   await prepareLocalWorkspace(page);
   await seedJobs(page, [
-    { id: 'copy-failed', label: 'Copie en échec', status: 'failed', updatedAt: '2026-11-02T09:00:00.000Z', error: 'La correction n’a pas abouti. Vous pouvez relancer cette copie.' },
+    { id: 'copy-failed', label: 'Copie en échec', status: 'failed', updatedAt: '2026-11-02T09:00:00.000Z', error: 'La correction n’a pas abouti. Vous pouvez corriger à nouveau cette copie.' },
   ]);
   let retryRequests = 0;
   await page.route('https://ai.example/**', async (route) => {
@@ -207,11 +207,11 @@ test('a failed copy is kept in À reprendre and the Reprendre action starts a ne
   await openActiveAssignment(page);
   await copyNavigation(page).click();
 
-  await page.getByRole('button', { name: /À reprendre/ }).click();
+  await page.getByRole('button', { name: /À corriger/ }).click();
   const failedCard = page.locator('.copy-overview-grid .correction-series-card');
   await expect(failedCard).toContainText('Copie en échec');
-  await expect(failedCard).toContainText('La correction n’a pas abouti. Vous pouvez relancer cette copie.');
-  await failedCard.getByRole('button', { name: 'Reprendre' }).click();
+  await expect(failedCard).toContainText('La correction n’a pas abouti. Vous pouvez corriger à nouveau cette copie.');
+  await failedCard.getByRole('button', { name: 'Corriger' }).click();
 
   await expect.poll(() => retryRequests).toBeGreaterThan(0);
   await expect(failedCard).toContainText('À reprendre');
