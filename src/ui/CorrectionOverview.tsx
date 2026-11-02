@@ -18,6 +18,9 @@ type Props = {
   filter: CopyOverviewFilter;
   onFilterChange: (filter: CopyOverviewFilter) => void;
   onAddCopy: () => void;
+  pendingCount: number;
+  isStartingCorrections: boolean;
+  onStartCorrections: () => void;
   onOpenJob: (jobId: string) => void;
   onRetryJob: (jobId: string) => void;
   onOpenCorrection: (correction: LocalCorrection) => void;
@@ -80,7 +83,7 @@ function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): stri
   return 'Proposition prête à vérifier';
 }
 
-export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, onOpenJob, onRetryJob, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
+export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, pendingCount, isStartingCorrections, onStartCorrections, onOpenJob, onRetryJob, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
   const [query, setQuery] = useState('');
   const items = useMemo(() => {
     const jobItems: OverviewItem[] = jobs
@@ -154,6 +157,7 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onF
         <p>Retrouvez les copies en attente, celles à vérifier et les corrections validées.</p>
       </div>
       <div className="copy-overview-primary-actions">
+        {pendingCount > 0 && <button type="button" className="primary-button" onClick={onStartCorrections} disabled={isStartingCorrections}>{isStartingCorrections ? 'Démarrage des corrections…' : `Démarrer les corrections (${pendingCount})`}</button>}
         {counts.toReview > 0 && <button type="button" className="primary-button" onClick={onReviewNextCopy}>Vérifier la copie suivante</button>}
         <button type="button" className="secondary-button" onClick={onAddCopy}>＋ Ajouter une copie</button>
       </div>
