@@ -205,6 +205,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.reload();
   await openActiveAssignment(page);
+  await page.getByRole('tab', { name: /Copies/ }).click();
   await page.locator('.copy-overview-filters').getByRole('button', { name: /Corrigées/ }).click();
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
   await expect(page.getByRole('button', { name: /Confirmer les critères sans alerte/ })).toHaveCount(0);
