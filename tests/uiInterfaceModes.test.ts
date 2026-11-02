@@ -220,7 +220,7 @@ describe('teacher and AI diagnostic interface modes', () => {
   it('offers on-demand Saluki 27B loading only for the OpenAI-compatible server', () => {
     const text = app();
     expect(text).toContain('Saluki 27B');
-    expect(text).toContain('MODÈLE AVANCÉ · À LA DEMANDE');
+    expect(text).toContain('OPTION AVANCÉE · À LA DEMANDE');
     expect(text).toContain('POST <code>/v1/models/saluki-27b/load</code>');
     expect(text).toContain('handleLoadSaluki');
     expect(text).toContain("await loadSalukiModel({ endpoint, apiKey })");
