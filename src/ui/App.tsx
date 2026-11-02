@@ -2056,8 +2056,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
     // Preserve an unregistered foreground copy in the local queue before switching away.
     if (currentCopyId === 'current-copy' && images.length > 0 && !currentBackgroundJobId && !currentCorrectionId) {
+      const previousJobIds = new Set(backgroundJobs.map((job) => job.id));
       await startNextCopy({ forceNew: true });
-      setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
+      const savedJobs = await backgroundService.listJobs(activeAssignmentId);
+      setBackgroundJobs(savedJobs);
+      if (!savedJobs.some((job) => !previousJobIds.has(job.id))) {
+        setReviewMessage('La copie courante n’a pas pu être sauvegardée. Vérifiez le barème et le stockage local avant de changer de copie.');
+        return;
+      }
     }
 
     if (target.kind === 'job') {
@@ -2184,7 +2190,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         assignmentTitle={assignmentTitle}
         studentLabel={studentLabel}
         activeSection={teacherStep === 'rubric' || teacherStep === 'details' ? 'rubric' : 'copies'}
-        showCopyRail={teacherStep === 'review' && !showAiSettings}
+        showCopyRail={(teacherStep === 'review' || (teacherStep === 'copy' && Boolean(currentBackgroundJobId))) && !showAiSettings}
         copies={copyNavigation.copies.map((copy) => ({
           id: copy.id,
           label: copy.label,

@@ -39,7 +39,7 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
         assignmentId: 'assignment-default', assignmentTitle: 'Devoir de biologie',
         snapshot: {
           assignmentTitle: 'Devoir de biologie', question: 'Question de biologie', rubric, proposal,
-          review: [{ criterionId: 'c1', points: 8, teacherPoints: 8, teacherComment: '', decision: 'accepted', rationale: 'Correct', evidence: 'Présent' }],
+          review: [{ criterionId: 'c1', points: 8, teacherPoints: 8, teacherComment: '', decision: 'accepted', confidence: 'high', rationale: 'Correct', evidence: 'Présent' }],
           teacherQuestions: '', images: [image], originalImages: [image], subjectImages: [],
           subjectTranscription: null, transcription: 'Réponse', correctionMode: 'integrated', maximumPoints: 10,
         },
