@@ -46,8 +46,9 @@ export function TeacherWorkspaceNavigation({
   onOpenCopy,
 }: TeacherWorkspaceNavigationProps) {
   const [railExpanded, setRailExpanded] = useState(true);
+  const activeCopy = copies.find((copy) => copy.id === activeCopyId);
   const breadcrumbCurrent = showCopyRail
-    ? (studentLabel.trim() || 'Vérification de la copie')
+    ? (activeCopy?.label.trim() || studentLabel.trim() || 'Vérification de la copie')
     : activeSection === 'rubric' ? 'Barème' : 'Copies';
 
   return (
@@ -56,7 +57,7 @@ export function TeacherWorkspaceNavigation({
         <nav className="teacher-breadcrumb" aria-label="Fil d’Ariane">
           <button type="button" onClick={onBackToAssignments} disabled={isAnalyzing}>Mes devoirs</button>
           <span aria-hidden="true">›</span>
-          <span className="teacher-breadcrumb-assignment">{assignmentTitle.trim() || 'Devoir sans titre'}</span>
+          <button type="button" className="teacher-breadcrumb-assignment" onClick={onSelectCopies} disabled={isAnalyzing}>{assignmentTitle.trim() || 'Devoir sans titre'}</button>
           <span aria-hidden="true">›</span>
           <strong aria-current="page">{breadcrumbCurrent}</strong>
         </nav>
