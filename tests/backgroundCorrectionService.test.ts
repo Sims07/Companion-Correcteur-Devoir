@@ -166,7 +166,8 @@ describe('background correction service', () => {
     expect(f.createProvider).toHaveBeenCalledTimes(2);
     expect(f.requests[0].keepAnalysisModelWarm).toBe(true);
     expect(f.requests[1].keepAnalysisModelWarm).toBe(false);
-    expect(f.cache.get('fingerprint-1')).toBe('Texte extrait de la copie');
+    expect(f.repository.getCachedTranscription).not.toHaveBeenCalled();
+    expect(f.cache).toEqual(new Map());
     expect(completed?.status).toBe('ready');
     expect(completed?.partialCriteria).toHaveLength(2);
     expect(completed?.proposal?.finalScore).toBe(4);
@@ -255,27 +256,48 @@ describe('background correction service', () => {
     expect(f.jobs.get('copy-1')?.error).toBeNull();
   });
 
-  it('retries only unfinished criteria and reuses the saved transcription', async () => {
+  it('restarts a deliberate retry from the images and discards every previous result', async () => {
     const f = fixture();
     const partial = {
       ...f.job,
       status: 'needs-review' as const,
       transcription: 'Texte déjà extrait',
+      subjectTranscription: 'Ancien sujet transcrit',
+      studentIdentity: { firstName: 'Ancien', lastName: 'Étudiant', confidence: 'high' as const },
       partialCriteria: [{ criterionId: 'c1', points: 2, rationale: '', evidence: 'preuve précédente', confidence: 'high' as const }],
       completedCriteria: 1,
-      error: 'Interruption après le premier critère.',
+      completedPages: 1,
+      error: 'Résultat précédent à remplacer.',
     };
     f.jobs.set(partial.id, partial);
+    f.cache.set('fingerprint-1', 'Transcription issue d’une autre correction de la même image');
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
     await service.retry('copy-1', { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
     for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
     const completed = f.jobs.get('copy-1');
-    expect(f.createProvider).toHaveBeenCalledTimes(1);
-    expect(f.requests[0].images).toEqual([]);
-    expect(f.requests[0].transcription).toBe('Texte déjà extrait');
-    expect(JSON.parse(f.requests[0].rubric).criteria.map((criterion: { id: string }) => criterion.id)).toEqual(['c2']);
-    expect(completed?.partialCriteria.map((criterion) => criterion.criterionId)).toEqual(['c1', 'c2']);
+    expect(f.createProvider).toHaveBeenCalledTimes(2);
+    expect(f.requests[0].images).toEqual(f.job.images);
+    expect(f.requests[0].transcription).toBeUndefined();
+    expect(JSON.parse(f.requests[0].rubric).criteria.map((criterion: { id: string }) => criterion.id)).toEqual(['c1']);
+    expect(completed?.partialCriteria).toHaveLength(2);
+    expect(completed?.partialCriteria.every((criterion) => criterion.evidence === 'preuve')).toBe(true);
+    expect(completed?.transcription).toBe('Texte extrait de la copie');
+    expect(completed?.studentIdentity).toBeNull();
+    expect(f.repository.getCachedTranscription).not.toHaveBeenCalled();
     expect(completed?.status).toBe('ready');
+  });
+
+  it('does not reuse a cached transcription when the same image is imported as a new copy', async () => {
+    const f = fixture();
+    f.cache.set('fingerprint-1', 'Transcription provenant d’une correction précédente');
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' };
+    await service.enqueue({ ...f.job, id: 'copy-2', label: 'Copie 2' }, settings);
+    for (let attempt = 0; attempt < 50 && f.jobs.get('copy-2')?.status !== 'ready'; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(f.repository.getCachedTranscription).not.toHaveBeenCalled();
+    expect(f.requests[0].images).toEqual(f.job.images);
+    expect(f.requests[0].transcription).toBeUndefined();
+    expect(f.jobs.get('copy-2')?.status).toBe('ready');
   });
 
 
