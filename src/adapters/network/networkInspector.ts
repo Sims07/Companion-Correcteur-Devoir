@@ -78,8 +78,21 @@ function readPersistedHistory(): NetworkRequestRecord[] {
 
 function initialize(): void {
   if (initialized) return;
-  liveRecords = readPersistedHistory();
+  const persisted = readPersistedHistory();
+  const interruptedAt = Date.now();
+  let interrupted = false;
+  liveRecords = persisted.map((record) => {
+    if (record.state !== 'pending') return record;
+    interrupted = true;
+    return {
+      ...record,
+      state: 'error',
+      durationMs: Number.isFinite(Date.parse(record.startedAt)) ? Math.max(0, interruptedAt - Date.parse(record.startedAt)) : record.durationMs,
+      error: 'Interrompue : la page a été rechargée',
+    };
+  });
   initialized = true;
+  if (interrupted) persist(liveRecords);
 }
 
 function persistedRecords(records: NetworkRequestRecord[]): NetworkRequestRecord[] {

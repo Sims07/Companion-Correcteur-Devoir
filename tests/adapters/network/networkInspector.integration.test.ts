@@ -210,6 +210,50 @@ describe('network inspector fetch integration', () => {
     restore();
   });
 
+  it('restores persisted pending requests as interrupted errors after a page reload', async () => {
+    const values = new Map<string, string>();
+    const pendingRecord = {
+      id: 'pending-before-reload',
+      method: 'POST',
+      url: 'http://localhost:11434/api/chat',
+      intent: 'Lire une copie',
+      context: 'Modèle qwen3.5:4b',
+      startedAt: '2026-11-03T08:00:00.000Z',
+      durationMs: null,
+      state: 'pending',
+      status: null,
+      statusText: '',
+      requestHeaders: {},
+      responseHeaders: {},
+      requestBody: '{}',
+      responseBody: '',
+      error: null,
+    };
+    values.set('companion-correcteur:network-inspector:v1', JSON.stringify([pendingRecord]));
+    const fakeWindow = {
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => { values.set(key, value); },
+        removeItem: (key: string) => { values.delete(key); },
+      },
+      dispatchEvent: vi.fn(),
+      location: { origin: 'http://localhost' },
+    };
+    vi.stubGlobal('window', fakeWindow);
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    vi.resetModules();
+    const inspector = await import('../../../src/adapters/network/networkInspector.ts');
+
+    const [record] = inspector.loadNetworkHistory();
+
+    expect(record).toMatchObject({
+      id: 'pending-before-reload',
+      state: 'error',
+      error: 'Interrompue : la page a été rechargée',
+    });
+    expect(values.get('companion-correcteur:network-inspector:v1')).toContain('Interrompue : la page a été rechargée');
+  });
+
   it('clears both the in-memory records and persisted history', async () => {
     const values = new Map<string, string>();
     const fakeWindow = {

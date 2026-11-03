@@ -207,7 +207,9 @@ function normalizedEndpoint(endpoint: string): string {
   return value;
 }
 
-/** Sends a small text-only request first so the UI can confirm that the selected model actually responds. */
+/** Checks that a local Ollama server is reachable and that the selected model is installed.
+ * This deliberately uses metadata endpoints only: readiness checks must never load or unload a model.
+ */
 export async function checkOllamaReady(
   settings: OllamaSettings,
   fetchImpl: typeof fetch = fetch,
@@ -215,24 +217,46 @@ export async function checkOllamaReady(
   const endpoint = normalizedEndpoint(settings.endpoint);
   const model = settings.model?.trim() || settings.visionModel?.trim() || settings.analysisModel?.trim() || '';
   if (!model) throw new Error(settings.apiCompatible ? 'Renseignez un identifiant de modèle compatible OpenAI.' : 'Choisissez un modèle Ollama.');
-  const requestFetch = settings.apiCompatible
-    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter, frequencyPenalty: settings.transcriptionFrequencyPenalty }, fetchImpl)
-    : fetchImpl;
-  const response = await requestFetch(`${endpoint}/api/chat`, annotateNetworkRequest({
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      stream: false,
-      think: false,
-      keep_alive: 0,
-      messages: [{ role: 'user', content: 'Ceci est un test de disponibilité, aucune copie à analyser. Réponds uniquement par le mot PRÊT.' }],
-    }),
-  }, 'Vérifier la disponibilité du modèle', `Modèle ${model}`));
-  if (!response.ok) throw new Error(`Le test de disponibilité ${settings.apiCompatible ? 'de l’API compatible OpenAI' : 'Ollama'} a échoué (HTTP ${response.status}). Vérifiez l’URL, le token et le modèle.`);
-  const data = await response.json() as OllamaChatResponse;
-  if (data.error) throw new Error('Ollama signale une erreur pendant le test de disponibilité.');
-  if (!data.message?.content?.trim()) throw new Error('Le modèle n’a pas répondu au test de disponibilité.');
+
+  if (settings.apiCompatible) {
+    const requestFetch = createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter, frequencyPenalty: settings.transcriptionFrequencyPenalty }, fetchImpl);
+    let response: Response;
+    try {
+      response = await requestFetch(`${endpoint}/api/chat`, annotateNetworkRequest({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, stream: false, messages: [{ role: 'user', content: 'Réponds uniquement par OK.' }] }),
+      }, 'Vérifier la disponibilité du modèle', `Modèle ${model}`));
+    } catch {
+      throw new Error('Serveur compatible OpenAI injoignable. Vérifiez son adresse et sa disponibilité.');
+    }
+    if (!response.ok) throw new Error(`Le serveur compatible OpenAI a refusé la vérification (HTTP ${response.status}). Vérifiez l’URL, le token et le modèle.`);
+    return;
+  }
+
+  let tagsResponse: Response;
+  try {
+    tagsResponse = await fetchImpl(`${endpoint}/api/tags`, annotateNetworkRequest({}, 'Vérifier la disponibilité du modèle', `Recherche du modèle ${model}`));
+  } catch {
+    throw new Error('Serveur Ollama injoignable. Vérifiez qu’Ollama est démarré et que son adresse est correcte.');
+  }
+  if (!tagsResponse.ok) throw new Error(`Impossible de consulter les modèles Ollama (HTTP ${tagsResponse.status}). Vérifiez le serveur et ses autorisations CORS.`);
+  const tags = await tagsResponse.json() as OllamaTagsResponse;
+  const expectedNames = new Set([model, ...(model.includes(':') ? [] : [`${model}:latest`])]);
+  const installed = (tags.models ?? []).some((entry) => expectedNames.has(entry.name?.trim() ?? ''));
+  if (!installed) throw new Error(`Le modèle « ${model} » n’est pas installé dans Ollama. Téléchargez-le avec ollama pull ${model}.`);
+
+  let showResponse: Response;
+  try {
+    showResponse = await fetchImpl(`${endpoint}/api/show`, annotateNetworkRequest({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model }),
+    }, 'Vérifier la disponibilité du modèle', `Vérification des métadonnées de ${model}`));
+  } catch {
+    throw new Error(`Le modèle « ${model} » est installé, mais Ollama ne répond pas à /api/show.`);
+  }
+  if (!showResponse.ok) throw new Error(`Ollama ne peut pas charger les métadonnées du modèle « ${model} » (HTTP ${showResponse.status}).`);
 }
 
 /** Explicitly unload a local model before handing the machine back to foreground work. */
@@ -247,7 +271,7 @@ export async function unloadOllamaModel(settings: OllamaSettings, model: string,
 }
 
 /** Load one local model in the background and keep it warm briefly for the next copy. */
-export async function prewarmOllamaModel(settings: OllamaSettings, model: string, fetchImpl: typeof fetch = fetch): Promise<void> {
+export async function prewarmOllamaModel(settings: OllamaSettings, model: string, fetchImpl: typeof fetch = fetch, signal?: AbortSignal): Promise<void> {
   if (settings.apiCompatible) return;
   const endpoint = normalizedEndpoint(settings.endpoint);
   const response = await fetchImpl(`${endpoint}/api/chat`, annotateNetworkRequest({
@@ -257,10 +281,11 @@ export async function prewarmOllamaModel(settings: OllamaSettings, model: string
       model,
       stream: false,
       think: false,
-      keep_alive: '60s',
+      keep_alive: '5m',
       messages: [{ role: 'user', content: 'Réponds uniquement par OK.' }],
       options: { num_predict: 1 },
     }),
+    ...(signal ? { signal } : {}),
   }, 'Précharger le modèle de lecture', `Modèle ${model}`));
   if (!response.ok) throw new Error(`Le préchauffage du modèle de lecture a échoué (HTTP ${response.status}).`);
   const data = await response.json() as OllamaChatResponse;
@@ -280,6 +305,7 @@ export function createOllamaProvider(
   fetchImpl: typeof fetch = fetch,
 ): GradingProvider {
   let activeRequestPayloads: unknown[] | null = null;
+  const requestedModels = new Set<string>();
   const providerFetch = settings.apiCompatible
     ? createOpenAiCompatibleFetch({
         endpoint: settings.endpoint,
@@ -376,10 +402,24 @@ export function createOllamaProvider(
         streamChunk?: (chunk: string) => void,
         json = false,
         think = false,
-        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; keepAlive?: string | number; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void },
+        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; keepAlive?: string | number; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void; pageIndex?: number },
       ): Promise<string> {
         const startedAt = Date.now();
         activeRequestPayloads = [];
+        const coldStartRequest = !settings.apiCompatible && !requestedModels.has(model);
+        let timedOut = false;
+        const requestAbortController = new AbortController();
+        const relayAbort = () => requestAbortController.abort();
+        if (signal?.aborted) relayAbort();
+        else signal?.addEventListener('abort', relayAbort, { once: true });
+        const timeoutId = coldStartRequest
+          ? setTimeout(() => { timedOut = true; requestAbortController.abort(); }, 5 * 60 * 1000)
+          : null;
+        const clearColdStartTimeout = () => { if (timeoutId !== null) clearTimeout(timeoutId); };
+        const finishRequest = () => {
+          clearColdStartTimeout();
+          signal?.removeEventListener('abort', relayAbort);
+        };
         let response: Response;
         let partialContent = '';
         let diagnosticResultEmitted = false;
@@ -453,26 +493,55 @@ export function createOllamaProvider(
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody),
-            ...(signal ? { signal } : {}),
+            signal: requestAbortController.signal,
           }, intent, `Modèle ${model} · ${context}`));
+          clearColdStartTimeout();
         } catch (cause) {
+          finishRequest();
+          if (timedOut) {
+            const timeoutError = new Error('Le modèle met trop de temps à répondre. Vérifiez Ollama avec « ollama ps », puis relancez la correction.');
+            publishFailedCall(timeoutError);
+            throw timeoutError;
+          }
           if (signal?.aborted) throw new DOMException('Traitement interrompu par l’enseignant.', 'AbortError');
           publishFailedCall(cause);
           const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';
           throw new Error(`Connexion à ${providerName} interrompue pendant le traitement (modèle « ${model} », ${request.images?.length ?? 0} image(s)). Vérifiez l’adresse du fournisseur, le token et la disponibilité du modèle. Détail réseau : ${detail}`);
         }
         if (!response.ok) {
+          finishRequest();
+          if (response.status === 404 && coldStartRequest && !settings.apiCompatible) {
+            try {
+              await checkOllamaReady({ ...settings, model }, fetchImpl);
+            } catch (readinessCause) {
+              publishFailedCall(readinessCause);
+              throw readinessCause;
+            }
+          }
           const error = new Error(`${providerName} a répondu avec le statut HTTP ${response.status} pour le modèle « ${model} ».`);
           publishFailedCall(error);
           throw error;
         }
+        if (!settings.apiCompatible) requestedModels.add(model);
         try {
+          let firstTokenReported = false;
           const result = await readOllamaStream(response, (chunk) => {
             partialContent += chunk;
+            if (chunk && !firstTokenReported) {
+              firstTokenReported = true;
+              onProgress?.({
+                type: 'first-token',
+                role: tracking?.kind === 'vision' ? 'reading' : 'analysis',
+                ...(tracking?.pageIndex !== undefined ? { pageIndex: tracking.pageIndex } : {}),
+              });
+            }
             streamChunk?.(chunk);
             return tracking?.stage === 'reading' && hasTranscriptionDrift(partialContent);
           });
           if (result.suspiciousStop) tracking?.onSuspiciousStop?.();
+          if (tracking && typeof result.loadMs === 'number' && result.loadMs > 0) {
+            onProgress?.({ type: 'model-load', role: tracking.kind === 'vision' ? 'reading' : 'analysis', durationMs: result.loadMs });
+          }
           if (tracking && diagnosticTracking) {
             const metrics: Omit<DiagnosticModelResult, 'raw'> = {
               kind: tracking.kind,
@@ -511,9 +580,6 @@ export function createOllamaProvider(
               generationTokenLimit: tracking.generationTokenLimit ?? 2048,
             };
             lastDiagnosticMetrics = metrics;
-            if (typeof result.loadMs === 'number' && result.loadMs > 0) {
-              onProgress?.({ type: 'model-load', role: tracking.kind === 'vision' ? 'reading' : 'analysis', durationMs: result.loadMs });
-            }
             if (!tracking.deferResult) {
               onDiagnosticResult?.({ ...metrics, raw: result.content });
               diagnosticResultEmitted = true;
@@ -528,8 +594,17 @@ export function createOllamaProvider(
               ? 'Ollama a produit un raisonnement interne mais aucune réponse finale exploitable (message.content vide). Désactivez le mode thinking ou essayez un autre modèle.'
               : 'Ollama a retourné une réponse vide.');
           }
+          requestedModels.add(model);
+          finishRequest();
           return result.content;
         } catch (cause) {
+          finishRequest();
+          if (timedOut) {
+            const timeoutError = new Error('Le modèle met trop de temps à répondre. Vérifiez Ollama avec « ollama ps », puis relancez la correction.');
+            if (!diagnosticResultEmitted) publishFailedCall(timeoutError);
+            throw timeoutError;
+          }
+          if (signal?.aborted) throw new DOMException('Traitement interrompu par l’enseignant.', 'AbortError');
           if (cause instanceof SyntaxError) {
             const error = new Error(`Le flux envoyé par ${providerName} est mal formé. Vérifiez la compatibilité du serveur.`);
             publishFailedCall(error);
@@ -627,7 +702,7 @@ export function createOllamaProvider(
             false,
             false,
             {
-              kind: 'vision', stage: 'reading', intent: 'Lire et transcrire une page de copie', context: `${pageLabel} · page ${index + 1}/${request.images?.length ?? 0}`, temperature: 0,
+              kind: 'vision', stage: 'reading', intent: 'Lire et transcrire une page de copie', context: `${pageLabel} · page ${index + 1}/${request.images?.length ?? 0}`, pageIndex: request.pageNumbers?.[index] ?? index + 1, temperature: 0,
               generationTokenLimit: transcriptionLimit,
               stop: ['\n\n\n\n'],
               repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,

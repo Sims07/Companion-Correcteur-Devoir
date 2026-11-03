@@ -109,21 +109,23 @@ describe('Ollama adapter', () => {
     expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ stage: 'reading', requestMetadata: { provider: 'openai-compatible', format: 'json', imageCount: 1 } });
   });
 
-  it('checks that the selected model responds to a text-only readiness request', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ message: { content: 'PRÊT' } }), { status: 200 }));
+  it('checks the installed model through metadata endpoints without generating text', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ models: [{ name: 'llava' }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ modelfile: 'FROM llava' }), { status: 200 }));
     await expect(checkOllamaReady({ endpoint: 'http://localhost:11434/', model: 'llava' }, fetchMock)).resolves.toBeUndefined();
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:11434/api/chat', expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(1, 'http://localhost:11434/api/tags', expect.anything());
+    expect(fetchMock).toHaveBeenNthCalledWith(2, 'http://localhost:11434/api/show', expect.objectContaining({
       method: 'POST',
-      body: expect.stringContaining('"stream":false'),
+      body: JSON.stringify({ model: 'llava' }),
     }));
-    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"think":false');
-    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"keep_alive":0');
-    expect(String(fetchMock.mock.calls[0][1]?.body)).not.toContain('"images"');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('reports a readiness request that returns an empty response', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ message: { content: '' } }), { status: 200 }));
-    await expect(checkOllamaReady({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock)).rejects.toThrow(/n’a pas répondu/);
+  it('reports an unreachable Ollama server without attempting generation', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch'));
+    await expect(checkOllamaReady({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock)).rejects.toThrow(/injoignable/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('sends the configured model, local image and JSON mode with thinking disabled by default', async () => {
@@ -138,8 +140,8 @@ describe('Ollama adapter', () => {
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"format":"json"');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"stream":true');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"think":false');
-    // Model generation has no request timeout or AbortSignal: let slow local inference finish.
-    expect(fetchMock.mock.calls[0][1]?.signal).toBeUndefined();
+    // The first request for a local model is cancellable and has a five-minute cold-start limit.
+    expect(fetchMock.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { messages: Array<{ content: string }> };
     expect(body.messages[0].content).toContain('Le maximum n’est justifié que si tous les attendus essentiels explicitement décrits sont démontrés');
     expect(body.messages[0].content).toContain('Le maximum n’est justifié que si tous les attendus essentiels explicitement décrits sont démontrés');
@@ -910,8 +912,11 @@ describe('Ollama generation cancellation', () => {
     const generation = provider.generate(request, undefined, undefined, undefined, undefined, undefined, undefined, undefined, controller.signal);
     await Promise.resolve();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
+    const requestSignal = fetchMock.mock.calls[0][1]?.signal;
+    expect(requestSignal).toBeInstanceOf(AbortSignal);
+    expect(requestSignal).not.toBe(controller.signal);
     controller.abort();
+    expect(requestSignal?.aborted).toBe(true);
     await expect(generation).rejects.toThrow('interrompu par l’enseignant');
   });
 });

@@ -15,7 +15,7 @@ export interface BackgroundCorrectionService {
   listJobs(assignmentId?: string): Promise<BackgroundCorrectionJob[]>;
   listJobSummaries(assignmentId?: string): Promise<BackgroundJobSummary[]>;
   prewarm(settings: OllamaSettings): Promise<void>;
-  pauseAndWait(): Promise<void>;
+  pauseAndWait(modelToKeepWarm?: string): Promise<void>;
   stopAndWait(): Promise<void>;
   resume(): void;
   processPending(settings: OllamaSettings): Promise<void>;
@@ -63,6 +63,9 @@ export function createBackgroundCorrectionService(
   let prewarmUntil = 0;
   let prewarmKey = '';
   let prewarmPromise: Promise<void> | null = null;
+  let prewarmAbortController: AbortController | null = null;
+  let prewarmInFlightModel: string | null = null;
+  let foregroundPriorityEpoch = 0;
   let prewarmInFlightKey = '';
   let prewarmFailedKey = '';
   let prewarmFailureCount = 0;
@@ -346,16 +349,20 @@ export function createBackgroundCorrectionService(
       }
 
       prewarmInFlightKey = key;
+      prewarmInFlightModel = settings.visionModel?.trim() || null;
+      const prewarmEpoch = foregroundPriorityEpoch;
+      const controller = new AbortController();
+      prewarmAbortController = controller;
       const operation = (async () => {
         await workspace.checkReady({ ...settings, model: settings.visionModel });
         if (settings.analysisModel?.trim()) await workspace.checkReady({ ...settings, model: settings.analysisModel });
-        if (settings.visionModel?.trim()) {
-          await workspace.prewarmModel?.(settings, settings.visionModel);
-          prewarmedModel = settings.visionModel;
-          prewarmSettings = settings;
-        }
+        if (controller.signal.aborted || foregroundPriority || prewarmEpoch !== foregroundPriorityEpoch || !settings.visionModel?.trim()) return;
+        await workspace.prewarmModel?.(settings, settings.visionModel, controller.signal);
+        if (controller.signal.aborted) return;
+        prewarmedModel = settings.visionModel;
+        prewarmSettings = settings;
         prewarmKey = key;
-        prewarmUntil = Date.now() + 60_000;
+        prewarmUntil = Date.now() + 5 * 60_000;
         prewarmFailedKey = '';
         prewarmFailureCount = 0;
         prewarmRetryAt = 0;
@@ -364,6 +371,7 @@ export function createBackgroundCorrectionService(
       try {
         await operation;
       } catch (cause) {
+        if (controller.signal.aborted) return;
         prewarmFailureCount = prewarmFailedKey === key ? prewarmFailureCount + 1 : 1;
         prewarmFailedKey = key;
         const backoff = [30_000, 60_000, 300_000][Math.min(prewarmFailureCount - 1, 2)];
@@ -373,20 +381,33 @@ export function createBackgroundCorrectionService(
         if (prewarmPromise === operation) {
           prewarmPromise = null;
           prewarmInFlightKey = '';
+          prewarmInFlightModel = null;
         }
+        if (prewarmAbortController === controller) prewarmAbortController = null;
       }
     },
-    async pauseAndWait() {
+    async pauseAndWait(modelToKeepWarm) {
+      foregroundPriorityEpoch += 1;
       foregroundPriority = true;
       paused = true;
-      if (prewarmPromise) await prewarmPromise.catch(() => undefined);
+      const sameModelIsPrewarming = Boolean(modelToKeepWarm && prewarmInFlightModel === modelToKeepWarm);
+      if (prewarmPromise && !sameModelIsPrewarming) {
+        prewarmAbortController?.abort();
+        await prewarmPromise.catch(() => undefined);
+      }
       if (activeLoop) await activeLoop;
-      // Foreground correction takes priority over background jobs, but it may use
-      // the model that was just prewarmed for this copy. Keep it resident so the
-      // foreground request can benefit from the preload instead of unloading it.
+      if (modelToKeepWarm && prewarmedModel && prewarmedModel !== modelToKeepWarm && prewarmSettings) {
+        await workspace.unloadModel?.(prewarmSettings, prewarmedModel).catch(() => undefined);
+        prewarmedModel = null;
+        prewarmKey = '';
+        prewarmUntil = 0;
+      }
+      // If the foreground request uses the same model, let an already-issued
+      // prewarm finish in Ollama and start inference immediately without waiting.
     },
     async stopAndWait() {
       paused = true;
+      prewarmAbortController?.abort();
       activeRequestAbortController?.abort();
       if (activeLoop) await activeLoop;
       if (prewarmPromise) await prewarmPromise.catch(() => undefined);

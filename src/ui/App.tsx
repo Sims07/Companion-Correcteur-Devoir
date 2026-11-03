@@ -279,7 +279,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     listJobs: async () => [],
     listJobSummaries: async () => [],
     prewarm: async () => undefined,
-    pauseAndWait: async () => undefined,
+    pauseAndWait: async (_modelToKeepWarm?: string) => undefined,
     stopAndWait: async () => undefined,
     resume: () => undefined,
     processPending: async () => undefined,
@@ -419,6 +419,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [pageProgress, setPageProgress] = useState<Record<number, 'started' | 'completed' | 'doubtful'>>({});
   const [criterionProgressPosition, setCriterionProgressPosition] = useState<{ index: number; total: number } | null>(null);
   const [lastModelLoadDurationMs, setLastModelLoadDurationMs] = useState<number | null>(null);
+  const [modelResponseStarted, setModelResponseStarted] = useState(false);
   const initialDocumentTitle = useRef(document.title);
   const [criterionStatuses, setCriterionStatuses] = useState<Record<string, CriterionAnalysisUpdate['status']>>({});
   const [activeCriterionId, setActiveCriterionId] = useState<string | null>(null);
@@ -966,8 +967,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setReadingElapsedMs(null);
     setAnalysisElapsedMs(null);
     setAnalysisStage('checking');
+    setCriterionProgressMessage('Préparation de la correction…');
     setCurrentTimingRecordId(null);
-    setCriterionProgressMessage('');
+    setModelResponseStarted(false);
     setPageProgress({});
     setCriterionProgressPosition(null);
     setLastModelLoadDurationMs(null);
@@ -982,9 +984,17 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setIsFinalized(false);
     try {
       // Show immediate feedback before waiting for background jobs to finish.
-      await backgroundService.pauseAndWait();
+      await backgroundService.pauseAndWait(strategyOverride === 'arbitrate-only' ? undefined : visionModel);
       if (!validation.valid) throw new Error(validation.errors.join(' '));
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF de la copie.');
+      if (!apiCompatible && strategyOverride !== 'arbitrate-only') {
+        const modelsToCheck = new Set<string>();
+        if (isFreshCorrection && visionModel.trim()) modelsToCheck.add(visionModel.trim());
+        if (gradingRubric.criteria.length > 0 && analysisModel.trim()) modelsToCheck.add(analysisModel.trim());
+        for (const model of modelsToCheck) {
+          await service.checkReady({ endpoint, apiCompatible: false, model });
+        }
+      }
       if (shouldRunTeacherScientificDiagramWorkflow(interfaceMode)) {
         try {
           let classifications = isFreshCorrection ? null : pageClassifications;
@@ -1082,13 +1092,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       let textProposal: GradingProposal | null = null;
       if (shouldRunTextGrading) {
         const gradingTranscription = isFreshCorrection ? null : transcription;
-        // Avoid firing expensive availability generations automatically against remote
-        // OpenAI-compatible providers; the grading request itself checks readiness.
-        if (!apiCompatible) {
-          if ((!gradingTranscription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
-          await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
-        }
+        // Ollama model metadata was checked above without loading the models.
         setAnalysisStage('reading');
+        if (!gradingTranscription) setCriterionProgressMessage('Chargement du modèle de lecture, cela peut prendre quelques minutes…');
         const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
         const teacherAnnotationImages = detectTeacherAnnotations
           ? await Promise.all(textPageNumbers.map(async (pageNumber) => {
@@ -1107,6 +1113,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             if (stage === 'grading') {
               if (readingStartedAt !== null && readingDurationMs === null) { readingDurationMs = now - readingStartedAt; setReadingElapsedMs(readingDurationMs); }
               analysisStartedAt = now;
+              setModelResponseStarted(false);
+              setLastModelLoadDurationMs(null);
+              setCriterionProgressMessage('Chargement du modèle d’analyse, cela peut prendre quelques minutes…');
               setStreamedOutput('');
               if (interfaceMode === 'teacher') {
                 setTeacherStep('review');
@@ -1163,6 +1172,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             if (event.type === 'page') setPageProgress((current) => ({ ...current, [event.pageIndex]: event.status }));
             if (event.type === 'criterion') setCriterionProgressPosition({ index: event.criterionIndex, total: event.criterionTotal });
             if (event.type === 'model-load') setLastModelLoadDurationMs(event.durationMs);
+            if (event.type === 'first-token') {
+              setModelResponseStarted(true);
+              setCriterionProgressMessage(event.role === 'reading' ? `Lecture de la page ${event.pageIndex ?? 1}…` : 'Analyse en cours…');
+            }
           },
           abortController.signal,
         );
@@ -3123,7 +3136,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <div className={analysisStage === 'reading' ? 'teacher-progress-phase current' : analysisStage === 'grading' ? 'teacher-progress-phase complete' : 'teacher-progress-phase'}><span>{analysisStage === 'grading' ? '✓' : '2'}</span><div><strong>Lecture de la copie</strong><small>{analysisStage === 'reading' ? `Lecture · page ${Object.keys(pageProgress).length ? Math.max(...Object.keys(pageProgress).map(Number)) : 1}/${images.length}` : analysisStage === 'grading' ? `${Object.values(pageProgress).filter((status) => status === 'completed' || status === 'doubtful').length}/${images.length} pages lues` : 'À venir'}</small></div></div>
             <div className={analysisStage === 'grading' ? 'teacher-progress-phase current' : 'teacher-progress-phase'}><span>3</span><div><strong>Correction</strong><small>{analysisStage === 'grading' ? `Critère ${criterionProgressPosition?.index ?? Math.min(rubric.criteria.length, Object.values(criterionStatuses).filter((status) => status === 'completed').length + (activeCriterionId ? 1 : 0))}/${criterionProgressPosition?.total ?? rubric.criteria.length}` : 'À venir'}</small></div></div>
           </div>
-          {(analysisStage === 'checking' || (analysisStage === 'reading' && lastModelLoadDurationMs === null && Object.keys(pageProgress).length === 1 && pageProgress[Number(Object.keys(pageProgress)[0])] === 'started')) && <p className="teacher-progress-hint">Chargement du modèle, jusqu’à 1 min la première fois.</p>}
+          {((analysisStage === 'reading' && !modelResponseStarted && lastModelLoadDurationMs === null && Object.keys(pageProgress).length <= 1) || (analysisStage === 'grading' && !modelResponseStarted && lastModelLoadDurationMs === null && !Object.values(criterionStatuses).includes('completed'))) && <p className="teacher-progress-hint">{analysisStage === 'reading' ? 'Chargement du modèle de lecture, cela peut prendre quelques minutes' : 'Chargement du modèle d’analyse, cela peut prendre quelques minutes'} · {formatElapsed(elapsedSeconds)} écoulées.</p>}
+          {criterionProgressMessage && !criterionProgressMessage.startsWith('Chargement du modèle') && <p className="teacher-progress-hint">{criterionProgressMessage}</p>}
+          {lastModelLoadDurationMs !== null && <p className="teacher-progress-hint">Chargement réel du modèle : {formatElapsed(Math.round(lastModelLoadDurationMs / 1000))}.</p>}
           <div className="teacher-progress-page-list" aria-label="État de lecture des pages">{images.map((image, index) => { const status = pageProgress[index + 1]; return <span className={status === 'doubtful' ? 'is-doubtful' : status === 'completed' ? 'is-complete' : ''} key={`${image.fileName}-${index}`}>{status === 'completed' ? '✓' : status === 'doubtful' ? '!' : '·'} Page {index + 1}</span>; })}</div>
           {Object.entries(pageProgress).filter(([, status]) => status === 'doubtful').map(([page]) => <p className="teacher-progress-warning" key={page}>Page {page} : lecture douteuse. <button type="button" className="text-button" onClick={() => setCopyViewerPage(Number(page) - 1)}>Voir la page</button> avant de valider la correction.</p>)}
         </div>
