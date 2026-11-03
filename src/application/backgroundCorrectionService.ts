@@ -355,7 +355,7 @@ export function createBackgroundCorrectionService(
           prewarmSettings = settings;
         }
         prewarmKey = key;
-        prewarmUntil = Date.now() + 60_000;
+        prewarmUntil = Date.now() + 5 * 60_000;
         prewarmFailedKey = '';
         prewarmFailureCount = 0;
         prewarmRetryAt = 0;
