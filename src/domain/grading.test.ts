@@ -16,6 +16,15 @@ const criterion = (criterionId: string, points: number) => ({
   rationale: 'Justification',
   evidence: 'Preuve',
   confidence: 'high',
+  it('accepts small-model wrappers and French explanatory field aliases', () => {
+    const raw = '<think>raisonnement</think> Résultat : \x60\x60\x60json\n{"resume":"À vérifier","criteres":[{"idCritere":"science","note":4,"justification":"Justification courte","preuve":"Preuve exacte","confiance":"medium"},{"idCritere":"reasoning","note":3,"justification":"Raisonnement","preuve":"Extrait","confiance":"high"}]}\n\x60\x60\x60';
+    expect(parseGradingProposal(raw, rubric).criteria.map((item) => item.criterionId)).toEqual(['science', 'reasoning']);
+  });
+
+  it('keeps numeric grading strict and rejects string scores explicitly', () => {
+    const raw = JSON.stringify({ criteria: [{ ...criterion('science', 4), points: '4' }, criterion('reasoning', 3)] });
+    expect(() => parseGradingProposal(raw, rubric)).toThrow(/hors barème/);
+  });
 });
 
 describe('parseGradingProposal final score', () => {

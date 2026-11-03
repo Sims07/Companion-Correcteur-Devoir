@@ -1,3 +1,5 @@
+import { parseModelJson } from './modelJson.ts';
+
 export type StudentIdentityConfidence = 'high' | 'medium' | 'low';
 
 export interface StudentIdentity {
@@ -53,17 +55,16 @@ export function formatStudentIdentityLabel(identity: StudentIdentity): string | 
 /** Parses a dedicated, machine-readable Vision response without inferring missing identity fields. */
 export function parseStudentIdentityResponse(raw: string): StudentIdentity | null {
   try {
-    const normalized = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-    const parsed: unknown = JSON.parse(normalized);
+    const parsed = parseModelJson(raw);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
     const value = parsed as Record<string, unknown>;
-    const firstName = optionalText(value.firstName);
-    const lastName = optionalText(value.lastName);
-    const studentNumber = optionalText(value.studentNumber);
+    const firstName = optionalText(value.firstName ?? value.prenom);
+    const lastName = optionalText(value.lastName ?? value.nom);
+    const studentNumber = optionalText(value.studentNumber ?? value.numeroEtudiant ?? value.numero_etudiant);
     if (!firstName && !lastName && !studentNumber) return null;
-    const confidence = value.confidence === 'high' || value.confidence === 'medium' ? value.confidence : 'low';
+    const rawConfidence = value.confidence ?? value.confiance;
+    const confidence = rawConfidence === 'high' || rawConfidence === 'élevée' ? 'high'
+      : rawConfidence === 'medium' || rawConfidence === 'moyenne' ? 'medium' : 'low';
     return { firstName, lastName, studentNumber, confidence };
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }

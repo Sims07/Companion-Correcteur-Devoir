@@ -48,8 +48,12 @@ export function parseScientificPageClassifications(raw: string, pageCount: numbe
     if (!Number.isInteger(pageNumber) || Number(pageNumber) < 1 || Number(pageNumber) > pageCount || seen.has(Number(pageNumber))) throw new Error('La classification contient un numéro de page invalide ou répété.');
     const rawKind = value.kind ?? value.typePage ?? value.type_page ?? value.type ?? value.nature;
     const normalized = normalizeKind(rawKind);
-    const warning = normalized === null ? `Page ${pageNumber} : type de page inconnu (« ${String(rawKind ?? 'absent')} »), classée comme ambiguë. Vérification enseignante nécessaire.` : undefined;
     const confidence = confidenceValue(value.confidence ?? value.confiance);
+    const warning = normalized === null
+      ? `Page ${pageNumber} : type de page inconnu (« ${String(rawKind ?? 'absent')} »), classée comme ambiguë. Vérification enseignante nécessaire.`
+      : confidence < 0.75 && (normalized === 'scientific-diagram' || normalized === 'mixed' || normalized === 'ambiguous')
+        ? `Page ${pageNumber} : schéma possible, confiance faible.`
+        : undefined;
     const rawReason = value.reason ?? value.raison ?? value.justification ?? value.motif;
     const reason = typeof rawReason === 'string' ? rawReason.trim() : '';
     const rawRotation = value.suggestedRotation ?? value.rotationSuggeree ?? value.rotation;

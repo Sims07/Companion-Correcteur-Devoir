@@ -2,6 +2,7 @@ import { parseScientificDiagramAnalysis } from '../../domain/scientificDiagram.t
 import { parseScientificPageClassifications } from '../../domain/scientificPageClassification.ts';
 import type { ScientificDiagramAnalyzer, ScientificDiagramAnalysisRequest, ScientificPageClassificationRequest } from '../../ports/scientificDiagramAnalysis.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
+import { currentFetch } from './currentFetch.ts';
 import type { DiagnosticModelResult, ImageInput } from '../../ports/aiProvider.ts';
 
 function diagnosticResult(request: { model: string; endpoint: string; images: ImageInput[]; apiCompatible?: boolean; onDiagnosticResult?: (result: DiagnosticModelResult) => void }, purpose: DiagnosticModelResult['purpose'], prompt: string, raw: string, startedAt: number, error?: string, requestPayload = ''): void {
@@ -21,7 +22,7 @@ function diagnosticResult(request: { model: string; endpoint: string; images: Im
 
 function classificationPrompt(pageNumber: number, previousRaw = ''): string {
   return [
-    `RÔLE : classe la page ${pageNumber} d’une copie universitaire de biologie et indique une éventuelle rotation horaire à appliquer à toute la page.`,
+    `RÔLE : Classer la page ${pageNumber} pour la détection des schémas et indiquer une éventuelle rotation horaire à appliquer à toute la page.`,
     ['kind=text : texte manuscrit, réponse rédigée, liste ou tableau de données.','kind=scientific-diagram : schéma scientifique dessiné par l’étudiant.','kind=mixed : schéma scientifique et texte/tableau présents ensemble.','kind=ambiguous : contenu impossible à classer avec confiance.'].join('\n'),
     ['FORMAT DE SORTIE','Réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown.','Champs obligatoires : pageNumber (entier), kind (text | scientific-diagram | mixed | ambiguous), confidence (nombre de 0 à 1), reason (une phrase courte), suggestedRotation (0 | 90 | 180 | 270, rotation horaire à appliquer ; 0 si la page est droite ou en cas de doute), orientationConfidence (nombre de 0 à 1).','Un tableau seul est text. Ne propose une rotation non nulle que si toute la page est tournée ; ne tourne pas une page pour un dessin isolé en paysage. Ne suggère jamais de rotation pour text ou mixed. Toute rotation est une suggestion à valider par le professeur.',...(previousRaw ? [`Réponse précédente à réparer : ${previousRaw.slice(0, 1500)}. Corrige le JSON sans inventer de contenu.`] : []),'Exemple neutre : {"pageNumber":1,"kind":"text","confidence":0.9,"reason":"texte manuscrit","suggestedRotation":0,"orientationConfidence":0.9}.'].join('\n'),
   ].join('\n\n');
@@ -117,6 +118,7 @@ function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequ
 }
 
 export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisRequest, compact = false): string {
+  const pageNumber = request.pageNumbers?.[0] ?? 1;
   const criteria = request.rubric.criteria.map((criterion) => ({
     criterionId: criterion.id,
     title: criterion.title,
@@ -126,7 +128,7 @@ export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisR
   }));
   const subject = request.subjectTranscription?.trim();
   return [
-    'Tu évalues les schémas scientifiques d’UNE SEULE PAGE universitaire. Une requête correspond toujours à une seule image ; un schéma est une preuve, jamais une unité de notation.',
+    `Analyser les schémas de la page ${pageNumber} d’une copie universitaire. Une requête correspond toujours à une seule image ; un schéma est une preuve, jamais une unité de notation.`,
     'OBLIGATION : cette image provient d’une page déjà classée comme contenant un schéma scientifique. Ne retourne JAMAIS diagrams: [] ni criteria: []. Analyse cette page uniquement ; au moins un schéma doit être décrit. Si la page est réellement illisible, crée une entrée avec uncertainties explicites et requiresTeacherReview à true au lieu de l’omettre.',
     'Retourne diagrams : tous les schémas détectés sur cette page, avec id neutre, pageNumber = 1, diagramType, summary court, bounds et uncertainties (tableau). Le champ bounds est obligatoire : retourne null si la localisation est incertaine.',
     'Retourne criteria : exactement UNE évaluation pour CHAQUE critère du barème, portant sur l’ensemble des schémas pertinents de CETTE PAGE uniquement. Ne note jamais un critère séparément par schéma et ne répartis pas son maximum entre les schémas. Aucun critère ne doit être omis.',
@@ -155,14 +157,14 @@ function buildScientificDiagramRepairPrompt(
 ): string {
   return [
     buildScientificDiagramPrompt(request, true),
-    'CORRECTION OBLIGATOIRE : la réponse précédente est invalide. Les listes diagrams et criteria ne peuvent pas être vides : cette image provient d’une page déjà classée comme contenant un schéma scientifique. Retourne au moins un schéma sur cette page et une évaluation pour chaque critère du barème.',
+    'Réparer la réponse d’analyse des schémas : la réponse précédente est invalide. Les listes diagrams et criteria ne peuvent pas être vides : cette image provient d’une page déjà classée comme contenant un schéma scientifique. Retourne au moins un schéma sur cette page et une évaluation pour chaque critère du barème.',
     'Corrige précisément ce champ : ' + reason + '.',
     'Réponse précédente (extrait) : ' + previousRaw.slice(0, 3000),
     'Retourne le JSON complet, sans qualityBreakdown.',
   ].join('\n\n');
 }
 
-export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = fetch): ScientificDiagramAnalyzer {
+export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = currentFetch): ScientificDiagramAnalyzer {
   return {
     async classifyPages(request: ScientificPageClassificationRequest) {
       let requestPayload = '';

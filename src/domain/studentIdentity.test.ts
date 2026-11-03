@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractStudentIdentity, formatStudentIdentityLabel } from './studentIdentity.ts';
+import { extractStudentIdentity, formatStudentIdentityLabel, parseStudentIdentityResponse } from './studentIdentity.ts';
 
 describe('student identity extraction', () => {
   it('extracts a name and student number without polluting the grading transcription', () => {
@@ -17,5 +17,9 @@ describe('student identity extraction', () => {
   it('ignores empty and malformed identity metadata', () => {
     expect(extractStudentIdentity('Texte\nSTUDENT_IDENTITY: {broken}')).toMatchObject({ transcription: 'Texte', identity: null });
     expect(extractStudentIdentity('Texte\nSTUDENT_IDENTITY: {"firstName":null,"lastName":null,"studentNumber":null}')).toMatchObject({ transcription: 'Texte', identity: null });
+  });
+  it('parses wrapped French identity fields from a small model', () => {
+    expect(parseStudentIdentityResponse('<think>...</think> Identité : {"prenom":"Alice","nom":"Martin","numeroEtudiant":"42","confiance":"high"}'))
+      .toEqual({ firstName: 'Alice', lastName: 'Martin', studentNumber: '42', confidence: 'high' });
   });
 });

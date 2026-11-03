@@ -41,7 +41,7 @@ export function parseArbitrationDecisions(
   if (actualIds.length !== disputedCriterionIds.length || disputedCriterionIds.some((id) => !actualIds.includes(id))) {
     throw new Error('Le juge doit retourner exactement une décision pour chaque critère litigieux.');
   }
-  const allowedKeys = new Set(['decisions']);
+  const allowedKeys = new Set(['decisions', 'arbitrages', 'summary', 'resume']);
   if (Object.keys(parsed).some((key) => !allowedKeys.has(key))) throw new Error('Le juge a retourné des champs hors du contrat de décision.');
   return decisions;
 }

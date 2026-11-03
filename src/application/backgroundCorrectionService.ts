@@ -128,7 +128,6 @@ export function createBackgroundCorrectionService(
                 model: current.visionModel,
                 endpoint: jobSettings.endpoint,
                 apiKey: jobSettings.apiKey ?? '',
-                apiCompatible: jobSettings.apiCompatible,
               });
             }
             const routing = routeScientificPages(classifications, current.images.length);
