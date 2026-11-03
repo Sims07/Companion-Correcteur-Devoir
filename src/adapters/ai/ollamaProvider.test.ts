@@ -52,8 +52,8 @@ describe('Ollama readiness without loading models', () => {
         expect(payload.stream).toBe(true);
         const stream = new ReadableStream<Uint8Array>({
           start(controller) {
-            controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content: 'Transcription de la copie.' } }) + '\\n'));
-            controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, load_duration: modelLoadCount === 1 ? 120_000_000 : 0 }) + '\\n'));
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content: 'Transcription de la copie.' } }) + '\n'));
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, load_duration: modelLoadCount === 1 ? 120_000_000 : 0 }) + '\n'));
             controller.close();
             if (payload.keep_alive === 0) modelLoaded = false;
           },
@@ -121,8 +121,8 @@ describe('Ollama readiness without loading models', () => {
       const body = new ReadableStream<Uint8Array>({
         start(controller) {
           setTimeout(() => {
-            controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content: 'Lecture terminée.' } }) + '\\n'));
-            controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true }) + '\\n'));
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content: 'Lecture terminée.' } }) + '\n'));
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true }) + '\n'));
             controller.close();
           }, 6 * 60 * 1000);
         },
