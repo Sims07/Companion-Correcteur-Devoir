@@ -912,8 +912,11 @@ describe('Ollama generation cancellation', () => {
     const generation = provider.generate(request, undefined, undefined, undefined, undefined, undefined, undefined, undefined, controller.signal);
     await Promise.resolve();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
+    const requestSignal = fetchMock.mock.calls[0][1]?.signal;
+    expect(requestSignal).toBeInstanceOf(AbortSignal);
+    expect(requestSignal).not.toBe(controller.signal);
     controller.abort();
+    expect(requestSignal?.aborted).toBe(true);
     await expect(generation).rejects.toThrow('interrompu par l’enseignant');
   });
 });
