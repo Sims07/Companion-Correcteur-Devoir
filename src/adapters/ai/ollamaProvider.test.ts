@@ -44,7 +44,8 @@ describe('Ollama readiness without loading models', () => {
         generationCount += 1;
         const payload = JSON.parse(String(init?.body)) as { model: string; stream: boolean; keep_alive?: string | number };
         expect(payload.model).toBe('qwen3.5:4b');
-        if (!modelLoaded) {
+        const loadedOnThisRequest = !modelLoaded;
+        if (loadedOnThisRequest) {
           modelLoaded = true;
           modelLoadCount += 1;
         }
@@ -53,7 +54,7 @@ describe('Ollama readiness without loading models', () => {
         const stream = new ReadableStream<Uint8Array>({
           start(controller) {
             controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content: 'Transcription de la copie.' } }) + '\n'));
-            controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, load_duration: modelLoadCount === 1 ? 120_000_000 : 0 }) + '\n'));
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, load_duration: loadedOnThisRequest ? 120_000_000 : 0 }) + '\n'));
             controller.close();
             if (payload.keep_alive === 0) modelLoaded = false;
           },
