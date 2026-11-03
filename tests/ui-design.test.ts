@@ -198,7 +198,9 @@ describe('UI design system', () => {
     expect(appComponent).toContain('Copie de l’étudiant');
     expect(appComponent).toContain('className="review-transcription"');
     expect(appComponent).not.toContain('showSourceEvidence');
-    expect(appComponent).toContain('Lecture douteuse · page {page.pageNumber}');
+    expect(appComponent).toContain('Analyser comme schéma');
+    expect(appComponent).toContain('resolveAmbiguousPageClassification');
+    expect(appComponent).toContain('Ignorer');
     expect(appComponent).toContain('Lecture à vérifier sur l’image');
     expect(appComponent).not.toContain('correction-batch-progress');
     expect(appComponent).toContain('Valider et passer à la suivante');

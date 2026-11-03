@@ -132,4 +132,9 @@ describe('scientific page classification', () => {
       .toMatchObject({ kind: 'text', confidence: 0.5, reason: '' });
   });
 
+  it('keeps low-confidence text pages readable while preserving the uncertainty signal', () => {
+    expect(parseScientificPageClassifications('{"kind":"text","confidence":0.4}', 1)[0])
+      .toMatchObject({ kind: 'text', confidence: 0.4, warning: 'Page 1 : classification incertaine, confiance faible.' });
+  });
+
 });

@@ -57,7 +57,7 @@ export function parseScientificPageClassifications(raw: string, pageCount: numbe
     const orientationConfidence = typeof rawOrientation === 'string' && rawOrientation.trim() ? Number(rawOrientation.replace(',', '.')) : rawOrientation;
     const validOrientation = typeof orientationConfidence === 'number' && Number.isFinite(orientationConfidence) && orientationConfidence >= 0 && orientationConfidence <= 1;
     seen.add(Number(pageNumber));
-    const kind = normalized === null || confidence < 0.75 ? 'ambiguous' : normalized;
+    const kind = normalized === null || ((normalized === 'scientific-diagram' || normalized === 'mixed') && confidence < 0.75) ? 'ambiguous' : normalized;
     return { pageNumber: Number(pageNumber), kind, confidence, reason, ...(validRotation && validOrientation ? { suggestedRotation: normalizedRotation as 0 | 90 | 180 | 270, orientationConfidence } : {}), ...(warning ? { warning } : {}) };
   });
   return pages.sort((a, b) => a.pageNumber - b.pageNumber);
