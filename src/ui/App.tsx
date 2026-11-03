@@ -1105,6 +1105,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             if (stage === 'grading') {
               if (readingStartedAt !== null && readingDurationMs === null) { readingDurationMs = now - readingStartedAt; setReadingElapsedMs(readingDurationMs); }
               analysisStartedAt = now;
+              setLastModelLoadDurationMs(null);
               setCriterionProgressMessage('Chargement du modèle d’analyse, cela peut prendre quelques minutes…');
               setStreamedOutput('');
               if (interfaceMode === 'teacher') {
