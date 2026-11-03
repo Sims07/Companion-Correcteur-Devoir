@@ -244,7 +244,7 @@ export async function checkOllamaReady(
   const tags = await tagsResponse.json() as OllamaTagsResponse;
   const installed = (tags.models ?? []).some((entry) => {
     const name = entry.name?.trim();
-    return name === model || name?.split(':')[0] === model.split(':')[0];
+    return name === model;
   });
   if (!installed) throw new Error(`Le modèle « ${model} » n’est pas installé dans Ollama. Téléchargez-le avec ollama pull ${model}.`);
 
