@@ -80,3 +80,26 @@ export function routeScientificPages(classifications: ScientificPageClassificati
     ambiguousPageNumbers: classifications.filter((page) => page.kind === 'ambiguous').map((page) => page.pageNumber),
   };
 }
+
+/** Applies an explicit teacher decision to an ambiguous page before routing it again. */
+export function resolveAmbiguousPageClassification(
+  classifications: ScientificPageClassification[],
+  pageNumber: number,
+  kind: 'text' | 'scientific-diagram',
+): ScientificPageClassification[] {
+  let found = false;
+  const updated = classifications.map((page) => {
+    if (page.pageNumber !== pageNumber) return page;
+    if (page.kind !== 'ambiguous') throw new Error('Seules les pages ambiguës peuvent être arbitrées manuellement.');
+    found = true;
+    return {
+      ...page,
+      kind,
+      confidence: 1,
+      reason: kind === 'scientific-diagram' ? 'Schéma confirmé par l’enseignant.' : 'Page ignorée comme schéma par l’enseignant.',
+      warning: undefined,
+    };
+  });
+  if (!found) throw new Error('La page ambiguë à arbitrer est introuvable.');
+  return updated;
+}

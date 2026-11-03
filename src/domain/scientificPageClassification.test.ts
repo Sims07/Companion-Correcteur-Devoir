@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { resolveAmbiguousPageClassification } from './scientificPageClassification.ts';
 import { parseScientificPageClassifications, routeScientificPages } from './scientificPageClassification.ts';
 
 describe('scientific page classification', () => {
@@ -33,9 +34,9 @@ describe('scientific page classification', () => {
       { pageNumber: 1, kind: 'text', confidence: 0.8, reason: '' },
       { pageNumber: 1, kind: 'text', confidence: 0.8, reason: '' },
     ] }), 2)).toThrow(/invalide ou répété/);
-    expect(() => parseScientificPageClassifications(JSON.stringify({ pages: [
-      { pageNumber: 1, kind: 'text', confidence: 1.2, reason: '' },
-    ] }), 1)).toThrow(/invalides/);
+    expect(parseScientificPageClassifications(JSON.stringify({ pages: [
+      { pageNumber: 1, kind: 'text', confidence: 1.2 },
+    ] }), 1)[0].confidence).toBe(0.5);
   });
 
   it('routes only scientific diagrams to the dedicated correction and keeps ambiguous pages in text', () => {
@@ -89,10 +90,41 @@ describe('scientific page classification', () => {
     expect(parsed.slice(1).every((page) => page.suggestedRotation === undefined && page.orientationConfidence === undefined)).toBe(true);
   });
 
+
+  it('accepts wrapped French small-model responses and missing explanations', () => {
+    const wrapped = '<think>raisonnement</think> Résultat : {"numeroPage":"1","type_page":"schéma","confiance":"0,8","raison":"dessin"}';
+    expect(parseScientificPageClassifications(wrapped, 1)[0]).toMatchObject({ kind: 'scientific-diagram', confidence: 0.8, reason: 'dessin' });
+    expect(parseScientificPageClassifications('{"kind":"texte","confidence":"0.9"}', 1)[0]).toMatchObject({ kind: 'text', confidence: 0.9, reason: '' });
+    expect(parseScientificPageClassifications('{"pageNumber":1,"type":"mixte"}', 1)[0]).toMatchObject({ kind: 'mixed', confidence: 0.5, reason: '' });
+  });
+
+  it('accepts a flat page object and warns for unknown kinds', () => {
+    expect(parseScientificPageClassifications('{"kind":"diagram"}', 1)[0].kind).toBe('scientific-diagram');
+    expect(parseScientificPageClassifications('{"kind":"photo"}', 1)[0]).toMatchObject({ kind: 'ambiguous', warning: expect.stringContaining('type de page inconnu') });
+  });
+
+  it('rejects a root array and truncated JSON with explicit errors', () => {
+    expect(() => parseScientificPageClassifications('[{"kind":"text"}]', 1)).toThrow(/pas un tableau racine/);
+    expect(() => parseScientificPageClassifications('{"pages":[{"kind":"text"}', 1)).toThrow(/tronquée/);
+  });
+
   it('rejects unsupported page kinds and malformed JSON', () => {
     expect(() => parseScientificPageClassifications('{bad', 1)).toThrow(/JSON valide/);
-    expect(() => parseScientificPageClassifications(JSON.stringify({ pages: [
+    expect(parseScientificPageClassifications(JSON.stringify({ pages: [
       { pageNumber: 1, kind: 'photo', confidence: 0.8, reason: '' },
-    ] }), 1)).toThrow(/type de page/);
+    ] }), 1)[0]).toMatchObject({ kind: 'ambiguous', warning: expect.stringContaining('type de page inconnu') });
   });
+  it('warns visibly when a possible diagram is classified with low confidence', () => {
+    expect(parseScientificPageClassifications('{"kind":"scientific_diagram","confidence":0.4}', 1)[0])
+      .toMatchObject({ kind: 'ambiguous', warning: 'Page 1 : schéma possible, confiance faible.' });
+  });
+
+  it('applies an explicit teacher decision to an ambiguous page before routing', () => {
+    const ambiguous = parseScientificPageClassifications('{"kind":"photo","confidence":0.4}', 1);
+    expect(resolveAmbiguousPageClassification(ambiguous, 1, 'scientific-diagram')[0])
+      .toMatchObject({ kind: 'scientific-diagram', confidence: 1, reason: 'Schéma confirmé par l’enseignant.' });
+    expect(resolveAmbiguousPageClassification(ambiguous, 1, 'text')[0].kind).toBe('text');
+    expect(() => resolveAmbiguousPageClassification(ambiguous, 2, 'text')).toThrow(/introuvable/);
+  });
+
 });

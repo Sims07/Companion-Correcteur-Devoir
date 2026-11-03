@@ -23,8 +23,8 @@ function diagnosticResult(request: { model: string; endpoint: string; images: Im
 function classificationPrompt(pageNumber: number, previousRaw = ''): string {
   return [
     `RÔLE : Classer la page ${pageNumber} pour la détection des schémas et indiquer une éventuelle rotation horaire à appliquer à toute la page.`,
-    ['kind=text : texte manuscrit, réponse rédigée, liste ou tableau de données.','kind=scientific-diagram : schéma scientifique dessiné par l’étudiant.','kind=mixed : schéma scientifique et texte/tableau présents ensemble.','kind=ambiguous : contenu impossible à classer avec confiance.'].join('\n'),
-    ['FORMAT DE SORTIE','Réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown.','Champs obligatoires : pageNumber (entier), kind (text | scientific-diagram | mixed | ambiguous), confidence (nombre de 0 à 1), reason (une phrase courte), suggestedRotation (0 | 90 | 180 | 270, rotation horaire à appliquer ; 0 si la page est droite ou en cas de doute), orientationConfidence (nombre de 0 à 1).','Un tableau seul est text. Ne propose une rotation non nulle que si toute la page est tournée ; ne tourne pas une page pour un dessin isolé en paysage. Ne suggère jamais de rotation pour text ou mixed. Toute rotation est une suggestion à valider par le professeur.',...(previousRaw ? [`Réponse précédente à réparer : ${previousRaw.slice(0, 1500)}. Corrige le JSON sans inventer de contenu.`] : []),'Exemple neutre : {"pageNumber":1,"kind":"text","confidence":0.9,"reason":"texte manuscrit","suggestedRotation":0,"orientationConfidence":0.9}.'].join('\n'),
+    ['kind=text : texte manuscrit, réponse rédigée, liste ou tableau de données ; kind=scientific-diagram : schéma scientifique dessiné par l’étudiant.','kind=mixed : schéma scientifique et texte/tableau présents ensemble.','kind=ambiguous : contenu impossible à classer avec confiance.'].join('\n'),
+    ['FORMAT DE SORTIE','Réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown.','Champs obligatoires : pageNumber (entier), kind (text | scientific-diagram | mixed | ambiguous), confidence (nombre de 0 à 1), reason (une phrase courte), suggestedRotation (0 | 90 | 180 | 270, rotation horaire à appliquer ; 0 si la page est droite ou en cas de doute), orientationConfidence (nombre de 0 à 1).','Un tableau seul est text. Ne propose une rotation non nulle que si toute la page est tournée ; ne tourne pas une page pour un dessin isolé en paysage. La rotation est indépendante du type de contenu et concerne toujours la page entière. Toute rotation est une suggestion à valider par le professeur.',...(previousRaw ? [`Réponse précédente à réparer : ${previousRaw.slice(0, 1500)}. Corrige le JSON sans inventer de contenu.`] : []),'Exemple neutre : {"pageNumber":1,"kind":"text","confidence":0.9,"reason":"texte manuscrit","suggestedRotation":0,"orientationConfidence":0.9}.'].join('\n'),
   ].join('\n\n');
 }
 function buildScientificPageClassificationSchema() {
@@ -147,6 +147,7 @@ export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisR
     'CORRESPONDANCE DES PAGES : ' + (request.pageNumbers ?? request.images.map((_, index) => index + 1)).map((page, index) => (index + 1) + ' → ' + page).join(', '),
     compact ? 'Réponse compacte obligatoire : aucun qualityBreakdown.' : '',
     'SCHÉMA JSON À RESPECTER STRICTEMENT (généré depuis le même schéma que celui utilisé pour contraindre la réponse) : ' + JSON.stringify(buildScientificDiagramJsonSchema(request)),
+    ['FORMAT DE SORTIE', 'Réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown. Respecte le schéma JSON contraint transmis avec la requête. Les notes sont des nombres et restent dans les limites du barème ; n’invente aucune note.', 'Exemple neutre : {"diagrams":[{"id":"diagram-1","pageNumber":1,"diagramType":"schéma","summary":"Description courte.","uncertainties":[],"bounds":null}],"criteria":[{"criterionId":"criterion-id","points":0,"evidence":"Extrait exact.","confidence":0.5,"requiresTeacherReview":true,"diagramIds":[],"elements":null,"qualityBreakdown":null}],"overallUncertainties":[]}'].join('\n'),
   ].filter(Boolean).join('\n\n');
 }
 
@@ -160,7 +161,7 @@ function buildScientificDiagramRepairPrompt(
     'Réparer la réponse d’analyse des schémas : la réponse précédente est invalide. Les listes diagrams et criteria ne peuvent pas être vides : cette image provient d’une page déjà classée comme contenant un schéma scientifique. Retourne au moins un schéma sur cette page et une évaluation pour chaque critère du barème.',
     'Corrige précisément ce champ : ' + reason + '.',
     'Réponse précédente (extrait) : ' + previousRaw.slice(0, 3000),
-    'Retourne le JSON complet, sans qualityBreakdown.',
+    'FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown. Retourne le JSON complet conforme au schéma. Exemple neutre : {"diagrams":[{"id":"diagram-1","pageNumber":1,"diagramType":"schéma","summary":"Description courte.","uncertainties":[],"bounds":null}],"criteria":[{"criterionId":"criterion-id","points":0,"evidence":"Extrait exact.","confidence":0.5,"requiresTeacherReview":true,"diagramIds":[],"elements":null,"qualityBreakdown":null}],"overallUncertainties":[]}.',
   ].join('\n\n');
 }
 
@@ -211,7 +212,8 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
     },
     async analyze(request) {
       let requestPayload = '';
-      const compatibleFetch = createOpenAiCompatibleFetch(
+      const local = request.apiCompatible !== true;
+      const compatibleFetch = local ? fetchImpl : createOpenAiCompatibleFetch(
         { endpoint: request.endpoint, apiKey: request.apiKey, onRequest: (payload) => { requestPayload = payload; } },
         fetchImpl,
       );
@@ -227,27 +229,31 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
         const payload = {
           model: request.model,
           stream: false,
-          generation_token_parameter: 'max_tokens',
-          options: { num_predict: 2048 },
+          ...(local ? { think: false, keep_alive: 0 } : { generation_token_parameter: 'max_tokens' as const }),
+          options: { temperature: 0, num_predict: 2048 },
           messages: [{
             role: 'user',
             content: prompt,
             // Scientific drawing quality depends on retaining the highest available image detail.
             imageDetail: 'high',
-            images: request.images.map((image) => 'data:' + image.mimeType + ';base64,' + image.base64),
+            images: request.images.map((image) => local ? image.base64 : 'data:' + image.mimeType + ';base64,' + image.base64),
           }],
         };
-        const post = (format: unknown) => compatibleFetch(
+        const post = (format: unknown) => {
+          const body = JSON.stringify({ ...payload, format });
+          if (local) requestPayload = JSON.stringify({ ...payload, images: ['[IMAGE REDACTED]'], format });
+          return compatibleFetch(
           request.endpoint.replace(/\/+$/, '') + '/api/chat',
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...payload, format }),
+            body,
           },
         );
+        };
 
         let response = await post(schema);
-        if (!response.ok && response.status === 400) {
+        if (!local && !response.ok && response.status === 400) {
           const detail = (await response.text()).slice(0, 500);
           if (/format|schema|json.?schema|unsupported/i.test(detail)) {
             response = await post('json_object');

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { extractStudentIdentity, formatStudentIdentityLabel, parseStudentIdentityResponse } from './studentIdentity.ts';
+import { buildStudentIdentityPrompt } from '../adapters/ai/ollamaProvider.ts';
 
 describe('student identity extraction', () => {
   it('extracts a name and student number without polluting the grading transcription', () => {
@@ -22,4 +23,10 @@ describe('student identity extraction', () => {
     expect(parseStudentIdentityResponse('<think>...</think> Identité : {"prenom":"Alice","nom":"Martin","numeroEtudiant":"42","confiance":"high"}'))
       .toEqual({ firstName: 'Alice', lastName: 'Martin', studentNumber: '42', confidence: 'high' });
   });
+  it('keeps the identity JSON contract in the final prompt paragraph with a neutral example', () => {
+    const prompt = buildStudentIdentityPrompt();
+    expect(prompt.split('\n\n').at(-1)).toContain('FORMAT DE SORTIE');
+    expect(prompt.split('\n\n').at(-1)).toContain('{"firstName":null,"lastName":null,"studentNumber":null,"confidence":"low"}');
+  });
+
 });
