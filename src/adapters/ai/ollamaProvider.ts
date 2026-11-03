@@ -409,7 +409,6 @@ export function createOllamaProvider(
         const startedAt = Date.now();
         activeRequestPayloads = [];
         const coldStartRequest = !settings.apiCompatible && !requestedModels.has(model);
-        requestedModels.add(model);
         let timedOut = false;
         const requestAbortController = new AbortController();
         const relayAbort = () => requestAbortController.abort();
@@ -577,6 +576,7 @@ export function createOllamaProvider(
               ? 'Ollama a produit un raisonnement interne mais aucune réponse finale exploitable (message.content vide). Désactivez le mode thinking ou essayez un autre modèle.'
               : 'Ollama a retourné une réponse vide.');
           }
+          requestedModels.add(model);
           finishRequest();
           return result.content;
         } catch (cause) {
