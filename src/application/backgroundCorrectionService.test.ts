@@ -79,6 +79,29 @@ describe('background Ollama prewarming', () => {
     await expect(warming).resolves.toBeUndefined();
   });
 
+  it('does not launch a same-model prewarm after foreground work takes priority during metadata checks', async () => {
+    let notifyReadyStarted!: () => void;
+    let finishReady!: () => void;
+    const readyStarted = new Promise<void>((resolve) => { notifyReadyStarted = resolve; });
+    const readyFinished = new Promise<void>((resolve) => { finishReady = resolve; });
+    const checkReady = vi.fn(async () => {
+      notifyReadyStarted();
+      await readyFinished;
+    });
+    const prewarmModel = vi.fn(async () => undefined);
+    const workspace = { checkReady, prewarmModel } as unknown as OllamaGateway;
+    const service = createBackgroundCorrectionService({} as unknown as BackgroundCorrectionRepository, workspace);
+
+    const warming = service.prewarm(settings);
+    await readyStarted;
+    await service.pauseAndWait(settings.visionModel);
+    service.resume();
+    finishReady();
+    await expect(warming).resolves.toBeUndefined();
+
+    expect(prewarmModel).not.toHaveBeenCalled();
+  });
+
   it('aborts and waits for an in-flight prewarm when foreground correction uses another model', async () => {
     let signal: AbortSignal | undefined;
     let notifyStarted!: () => void;
