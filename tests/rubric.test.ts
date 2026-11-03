@@ -25,6 +25,14 @@ describe('validateRubric', () => {
     expect(result).toEqual({ valid: true, errors: [], maximumPoints: -0.25 });
   });
 
+  it('totals decimal rubric maxima without floating-point residue', () => {
+    const result = validateRubric({ ...validRubric, criteria: [
+      { ...validRubric.criteria[0], maxPoints: 1.65 },
+      { ...validRubric.criteria[1], maxPoints: 0.01 },
+    ] });
+    expect(result.maximumPoints).toBe(1.66);
+  });
+
   it('still rejects non-finite maximum points', () => {
     const result = validateRubric({ ...validRubric, criteria: [{ ...validRubric.criteria[0], maxPoints: Number.NaN }] });
     expect(result.valid).toBe(false);

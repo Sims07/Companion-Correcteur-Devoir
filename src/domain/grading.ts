@@ -1,5 +1,4 @@
 import type { Rubric } from './rubric.ts';
-import { normalizeGradeScore, sumGradeScores } from './scorePrecision.ts';
 import { parseModelJson } from './modelJson.ts';
 import type { ScientificDiagramQualityAssessment } from './scientificDiagram.ts';
 
@@ -34,6 +33,10 @@ export interface ReviewedCriterion extends CriterionProposal {
   teacherPoints: number;
   teacherComment: string;
   decision: 'pending' | 'accepted' | 'adjusted';
+}
+
+export function normalizeGradeScore(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -137,7 +140,7 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     if (criterion.questionForTeacher) questions.push(criterion.questionForTeacher);
   });
 
-  const calculatedFinalScore = sumGradeScores(criteria.map((criterion) => criterion.points));
+  const calculatedFinalScore = normalizeGradeScore(criteria.reduce((sum, criterion) => sum + Math.round(criterion.points * 100), 0) / 100);
   if (parsed.finalScore !== undefined && typeof parsed.finalScore !== 'number') {
     throw new Error('La note finale doit être un nombre strictement numérique.');
   }
