@@ -3,7 +3,7 @@ export function parseModelJson(raw: string): unknown {
   const source = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<\/?think>/gi, '').trim()
     .replace(/^\x60{3}(?:json)?\s*/i, '').replace(/\s*\x60{3}$/, '');
   const start = source.search(/[{\[]/);
-  if (start < 0) throw new Error('La réponse du modèle ne respecte pas le format attendu (JSON) : aucun objet JSON n’a été trouvé.');
+  if (start < 0) throw new Error('La réponse du modèle ne respecte pas le format attendu : aucun objet JSON n’a été trouvé.');
   const first = source[start];
   const stack: string[] = [];
   let inString = false;
