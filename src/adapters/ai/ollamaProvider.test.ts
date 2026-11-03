@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { checkOllamaReady, createOllamaProvider, prewarmOllamaModel } from './ollamaProvider.ts';
 import type { OllamaSettings } from '../../ports/aiProvider.ts';
 
@@ -13,6 +13,7 @@ function response(body: unknown, status = 200): Response {
 }
 
 describe('Ollama readiness without loading models', () => {
+  afterEach(() => vi.useRealTimers());
   it('checks installed model metadata without issuing a generation request', async () => {
     const mockFetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -74,6 +75,29 @@ describe('Ollama readiness without loading models', () => {
     expect(transcription).toContain('Transcription de la copie.');
     expect(generationCount).toBe(1);
     expect(modelLoadCount).toBe(1);
+  });
+
+  it('cancels a cold-start request after five minutes with an actionable Ollama hint', async () => {
+    vi.useFakeTimers();
+    let notifyRequestStarted!: () => void;
+    const requestStarted = new Promise<void>((resolve) => { notifyRequestStarted = resolve; });
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      notifyRequestStarted();
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+      });
+    }) as unknown as typeof fetch;
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b' }, fetchImpl);
+    const grading = provider.generate({
+      question: 'Transcrire la copie.',
+      rubric: '{}',
+      images: [{ base64: 'aW1hZ2U=', mimeType: 'image/png', fileName: 'page-1.png' }],
+      visionOnly: true,
+    });
+
+    await requestStarted;
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+    await expect(grading).rejects.toThrow('ollama ps');
   });
 
   it('reports a clear error when the selected model is not installed', async () => {
