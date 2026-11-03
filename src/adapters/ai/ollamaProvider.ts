@@ -888,13 +888,13 @@ export function createOllamaProvider(
       const gradingPrompt = buildPrompt(transcription, subjectTranscription);
       const strategy = settings.diagnosticStrategy ?? 'single';
       const arbitratorModel = settings.arbitratorModel?.trim() || analysisModel;
-      const sendGradingWithRepair = async (
+      async function sendGradingWithRepair(
         model: string,
         prompt: string,
         images: string[] | undefined,
         streamChunk: ((chunk: string) => void) | undefined,
-        tracking?: Parameters<typeof sendStream>[6],
-      ): Promise<string> => {
+        tracking: NonNullable<Parameters<typeof sendStream>[6]>,
+      ): Promise<string> {
         const validateObject = (raw: string) => {
           const parsed = parseModelJson(raw);
           if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('La réponse de correction doit être un objet JSON.');
@@ -910,7 +910,7 @@ export function createOllamaProvider(
             throw new Error('Réponse tronquée ou JSON invalide après une tentative de réparation : ' + (secondCause instanceof Error ? secondCause.message : 'format inexploitable'));
           }
         }
-      };
+      }
 
       const runArbitration = async (firstResult: string, secondResult: string): Promise<string> => {
         const rubric = JSON.parse(request.rubric) as { title: string; criteria: Array<{ id: string; title: string; description: string; maxPoints: number }> };
@@ -938,6 +938,13 @@ export function createOllamaProvider(
         const selectCriteria = (result: { criteria: Array<{ criterionId: string; points: number; rationale: string; evidence: string; confidence: string; questionForTeacher?: string }> }) => ({
           criteria: result.criteria.filter((criterion) => disputedIds.has(criterion.criterionId)),
         });
+        const arbitrationSchema = {
+          type: 'object', additionalProperties: false, required: ['decisions'],
+          properties: { decisions: { type: 'array', items: { type: 'object', additionalProperties: false,
+            required: ['criterionId', 'selected', 'reason'],
+            properties: { criterionId: { type: 'string', enum: resolution.disputedCriterionIds }, selected: { type: 'string', enum: ['avis1', 'avis2'] }, reason: { type: 'string' } },
+          } } },
+        };
         const arbitrationPrompt = [
           'RÔLE : arbitre uniquement, tu n’es pas un troisième correcteur. Tu ne dois pas générer de correction complète.',
           'Pour chaque critère litigieux, choisis exclusivement la note déjà donnée par AVIS 1 ou AVIS 2. Interdiction de créer une troisième note, de calculer une moyenne ou de modifier un critère non litigieux.',
