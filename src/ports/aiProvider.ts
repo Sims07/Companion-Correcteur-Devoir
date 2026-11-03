@@ -84,7 +84,8 @@ export type GradingProgressEvent =
   | { type: 'phase'; phase: 'preparation' | 'reading' | 'grading' }
   | { type: 'page'; pageIndex: number; pageTotal: number; status: 'started' | 'completed' | 'doubtful' }
   | { type: 'criterion'; criterionIndex: number; criterionTotal: number; status: CriterionAnalysisUpdate['status'] }
-  | { type: 'model-load'; role: 'reading' | 'analysis'; durationMs: number };
+  | { type: 'model-load'; role: 'reading' | 'analysis'; durationMs: number }
+  | { type: 'first-token'; role: 'reading' | 'analysis'; pageIndex?: number };
 
 export interface GradingProvider {
   readonly id: string;
