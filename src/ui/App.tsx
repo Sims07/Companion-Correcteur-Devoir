@@ -926,8 +926,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const abortController = new AbortController();
     activeCorrectionAbortController.current = abortController;
     const runStartedAt = Date.now();
-    let correctionTimedOut = false;
-    const correctionTimeout = window.setTimeout(() => { correctionTimedOut = true; abortController.abort(); }, 5 * 60 * 1000);
     let readingStartedAt: number | null = null;
     let readingDurationMs: number | null = null;
     let analysisStartedAt: number | null = null;
@@ -1189,9 +1187,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       outcome = 'success';
     } catch (cause) {
       if (interfaceMode === 'teacher') setTeacherStep(textImages.length === 0 || partialCriteria.length > 0 || analysisStartedAt !== null ? 'review' : 'copy');
-      setError(correctionTimedOut ? 'Le modèle met trop de temps à répondre. Vérifiez Ollama avec « ollama ps », puis relancez la correction.' : abortController.signal.aborted ? 'Traitement interrompu. Les éléments déjà lus et les critères déjà évalués sont conservés.' : cause instanceof Error ? cause.message : 'La correction a échoué.');
+      setError(abortController.signal.aborted ? 'Traitement interrompu. Les éléments déjà lus et les critères déjà évalués sont conservés.' : cause instanceof Error ? cause.message : 'La correction a échoué.');
     } finally {
-      window.clearTimeout(correctionTimeout);
       const finishedAt = Date.now();
       if (readingDurationMs !== null) setReadingElapsedMs(readingDurationMs);
       if (analysisStartedAt !== null) setAnalysisElapsedMs(analysisDurationMs ?? Math.max(0, finishedAt - analysisStartedAt));
