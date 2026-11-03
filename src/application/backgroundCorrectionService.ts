@@ -63,6 +63,7 @@ export function createBackgroundCorrectionService(
   let prewarmUntil = 0;
   let prewarmKey = '';
   let prewarmPromise: Promise<void> | null = null;
+  let prewarmAbortController: AbortController | null = null;
   let prewarmInFlightKey = '';
   let prewarmFailedKey = '';
   let prewarmFailureCount = 0;
@@ -346,14 +347,16 @@ export function createBackgroundCorrectionService(
       }
 
       prewarmInFlightKey = key;
+      const controller = new AbortController();
+      prewarmAbortController = controller;
       const operation = (async () => {
         await workspace.checkReady({ ...settings, model: settings.visionModel });
         if (settings.analysisModel?.trim()) await workspace.checkReady({ ...settings, model: settings.analysisModel });
-        if (settings.visionModel?.trim()) {
-          await workspace.prewarmModel?.(settings, settings.visionModel);
-          prewarmedModel = settings.visionModel;
-          prewarmSettings = settings;
-        }
+        if (controller.signal.aborted || !settings.visionModel?.trim()) return;
+        await workspace.prewarmModel?.(settings, settings.visionModel, controller.signal);
+        if (controller.signal.aborted) return;
+        prewarmedModel = settings.visionModel;
+        prewarmSettings = settings;
         prewarmKey = key;
         prewarmUntil = Date.now() + 5 * 60_000;
         prewarmFailedKey = '';
@@ -364,6 +367,7 @@ export function createBackgroundCorrectionService(
       try {
         await operation;
       } catch (cause) {
+        if (controller.signal.aborted) return;
         prewarmFailureCount = prewarmFailedKey === key ? prewarmFailureCount + 1 : 1;
         prewarmFailedKey = key;
         const backoff = [30_000, 60_000, 300_000][Math.min(prewarmFailureCount - 1, 2)];
@@ -374,11 +378,13 @@ export function createBackgroundCorrectionService(
           prewarmPromise = null;
           prewarmInFlightKey = '';
         }
+        if (prewarmAbortController === controller) prewarmAbortController = null;
       }
     },
     async pauseAndWait() {
       foregroundPriority = true;
       paused = true;
+      prewarmAbortController?.abort();
       if (prewarmPromise) await prewarmPromise.catch(() => undefined);
       if (activeLoop) await activeLoop;
       // Foreground correction takes priority over background jobs, but it may use
@@ -387,6 +393,7 @@ export function createBackgroundCorrectionService(
     },
     async stopAndWait() {
       paused = true;
+      prewarmAbortController?.abort();
       activeRequestAbortController?.abort();
       if (activeLoop) await activeLoop;
       if (prewarmPromise) await prewarmPromise.catch(() => undefined);
