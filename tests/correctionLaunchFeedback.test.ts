@@ -13,8 +13,8 @@ describe('correction launch feedback', () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
     expect(gradeCopies.indexOf('setBusy(true)')).toBeLessThan(gradeCopies.indexOf('await backgroundService.pauseAndWait('));
-    expect(gradeCopies.indexOf("setTeacherStep('progress')")).toBeLessThan(gradeCopies.indexOf('await backgroundService.pauseAndWait()'));
-    expect(gradeCopies.indexOf('setIsAnalyzing(true)')).toBeLessThan(gradeCopies.indexOf('await backgroundService.pauseAndWait()'));
+    expect(gradeCopies.indexOf("setTeacherStep('progress')")).toBeLessThan(gradeCopies.indexOf('await backgroundService.pauseAndWait('));
+    expect(gradeCopies.indexOf('setIsAnalyzing(true)')).toBeLessThan(gradeCopies.indexOf('await backgroundService.pauseAndWait('));
   });
 
   it('disables repeated launches and communicates the current preparation phase', () => {
