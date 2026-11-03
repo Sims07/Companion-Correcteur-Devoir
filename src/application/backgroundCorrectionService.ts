@@ -65,6 +65,7 @@ export function createBackgroundCorrectionService(
   let prewarmPromise: Promise<void> | null = null;
   let prewarmAbortController: AbortController | null = null;
   let prewarmInFlightModel: string | null = null;
+  let foregroundPriorityEpoch = 0;
   let prewarmInFlightKey = '';
   let prewarmFailedKey = '';
   let prewarmFailureCount = 0;
@@ -349,12 +350,13 @@ export function createBackgroundCorrectionService(
 
       prewarmInFlightKey = key;
       prewarmInFlightModel = settings.visionModel?.trim() || null;
+      const prewarmEpoch = foregroundPriorityEpoch;
       const controller = new AbortController();
       prewarmAbortController = controller;
       const operation = (async () => {
         await workspace.checkReady({ ...settings, model: settings.visionModel });
         if (settings.analysisModel?.trim()) await workspace.checkReady({ ...settings, model: settings.analysisModel });
-        if (controller.signal.aborted || foregroundPriority || !settings.visionModel?.trim()) return;
+        if (controller.signal.aborted || foregroundPriority || prewarmEpoch !== foregroundPriorityEpoch || !settings.visionModel?.trim()) return;
         await workspace.prewarmModel?.(settings, settings.visionModel, controller.signal);
         if (controller.signal.aborted) return;
         prewarmedModel = settings.visionModel;
@@ -385,6 +387,7 @@ export function createBackgroundCorrectionService(
       }
     },
     async pauseAndWait(modelToKeepWarm) {
+      foregroundPriorityEpoch += 1;
       foregroundPriority = true;
       paused = true;
       const sameModelIsPrewarming = Boolean(modelToKeepWarm && prewarmInFlightModel === modelToKeepWarm);
