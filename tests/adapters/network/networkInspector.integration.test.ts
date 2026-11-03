@@ -349,14 +349,13 @@ describe('network inspector fetch integration', () => {
         rubric: { title: 'Barème', criteria: [] },
         question: 'Identifier les schémas',
         images: [{ base64: 'cG5n', mimeType: 'image/png', fileName: 'copie-a.png' }],
-        pageNumbers: [3],
       })).resolves.toMatchObject([{ pageNumber: 1, kind: 'scientific-diagram' }]);
       await new Promise((resolve) => setTimeout(resolve, 0));
 
       expect(loadNetworkHistory()).toHaveLength(1);
       expect(loadNetworkHistory()[0]).toMatchObject({
-        intent: 'Classer la page 3 pour la détection des schémas',
-        context: 'Modèle vision-model · page 3/1 · copie-a.png',
+        intent: 'Classer la page 1 pour la détection des schémas',
+        context: 'Modèle vision-model · page 1/1 · copie-a.png',
         state: 'success',
       });
       expect(JSON.stringify(loadNetworkHistory())).not.toContain('cG5n');
