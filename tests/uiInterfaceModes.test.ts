@@ -178,7 +178,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain("if ((interfaceMode as string) === 'debug')");
     expect(text).toContain("import { NetworkInspector } from './NetworkInspector.tsx'");
     expect(text).toContain('<NetworkInspector />');
-    expect(bootstrap).toContain('installNetworkInspector()');
+    expect(bootstrap.startsWith("import './instrumentation.ts';")).toBe(true);
+    expect(source('../src/instrumentation.ts')).toContain('installNetworkInspector()');
   });
 
   it('exposes an accessible switch whose buttons reflect the selected mode', () => {
