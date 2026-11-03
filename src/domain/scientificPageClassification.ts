@@ -42,9 +42,11 @@ export function parseScientificPageClassifications(raw: string, pageCount: numbe
     const confidence = confidenceValue(value.confidence ?? value.confiance);
     const warning = normalized === null
       ? `Page ${pageNumber} : type de page inconnu (« ${String(rawKind ?? 'absent')} »), classée comme ambiguë. Vérification enseignante nécessaire.`
-      : confidence < 0.75 && (normalized === 'scientific-diagram' || normalized === 'mixed' || normalized === 'ambiguous')
+      : confidence < 0.75 && (normalized === 'scientific-diagram' || normalized === 'mixed')
         ? `Page ${pageNumber} : schéma possible, confiance faible.`
-        : undefined;
+        : confidence < 0.75
+          ? `Page ${pageNumber} : classification incertaine, confiance faible.`
+          : undefined;
     const rawReason = value.reason ?? value.raison ?? value.justification ?? value.motif;
     const reason = typeof rawReason === 'string' ? rawReason.trim() : '';
     const rawRotation = value.suggestedRotation ?? value.rotationSuggeree ?? value.rotation;
@@ -55,7 +57,7 @@ export function parseScientificPageClassifications(raw: string, pageCount: numbe
     const orientationConfidence = typeof rawOrientation === 'string' && rawOrientation.trim() ? Number(rawOrientation.replace(',', '.')) : rawOrientation;
     const validOrientation = typeof orientationConfidence === 'number' && Number.isFinite(orientationConfidence) && orientationConfidence >= 0 && orientationConfidence <= 1;
     seen.add(Number(pageNumber));
-    const kind = normalized === null ? 'ambiguous' : (normalized === 'scientific-diagram' || normalized === 'mixed') && confidence < 0.75 ? 'ambiguous' : normalized;
+    const kind = normalized === null || confidence < 0.75 ? 'ambiguous' : normalized;
     return { pageNumber: Number(pageNumber), kind, confidence, reason, ...(validRotation && validOrientation ? { suggestedRotation: normalizedRotation as 0 | 90 | 180 | 270, orientationConfidence } : {}), ...(warning ? { warning } : {}) };
   });
   return pages.sort((a, b) => a.pageNumber - b.pageNumber);
