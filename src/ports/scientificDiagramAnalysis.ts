@@ -7,6 +7,8 @@ export interface ScientificDiagramAnalysisRequest {
   images: ImageInput[];
   /** Original page numbers for filtered diagram images. */
   pageNumbers?: number[];
+  /** Total number of pages in the original copy, for readable request context. */
+  totalPageCount?: number;
   question: string;
   subjectTranscription?: string;
   rubric: Rubric;
