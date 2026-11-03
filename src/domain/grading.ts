@@ -114,6 +114,7 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     const rawConfidence = item.confidence ?? item.confiance;
     const confidence: Confidence = rawConfidence === 'low' || rawConfidence === 'medium' || rawConfidence === 'high' ? rawConfidence : 'low';
     const evidence = text(item.evidence ?? item.preuve);
+    if (!evidence) throw new Error(`La preuve est obligatoire pour le critère « ${rubricCriterion.title} ».`);
     const rationale = text(item.rationale ?? item.justification);
     criteria.push({
       criterionId: rubricCriterion.id,
@@ -140,6 +141,9 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
   });
 
   const calculatedFinalScore = normalizeGradeScore(criteria.reduce((sum, criterion) => sum + Math.round(criterion.points * 100), 0) / 100);
+  if (parsed.finalScore !== undefined && typeof parsed.finalScore !== 'number') {
+    throw new Error('La note finale doit être un nombre strictement numérique.');
+  }
   const declaredFinalScore = typeof parsed.finalScore === 'number' ? normalizeGradeScore(parsed.finalScore) : calculatedFinalScore;
   if (!Number.isFinite(declaredFinalScore) || Math.abs(declaredFinalScore - calculatedFinalScore) > 0.0001) {
     throw new Error(`La note finale annoncée (${String(parsed.finalScore)}) ne correspond pas à la somme des points par critère (${calculatedFinalScore}).`);
