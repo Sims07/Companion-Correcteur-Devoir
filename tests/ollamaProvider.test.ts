@@ -355,6 +355,22 @@ describe('Ollama adapter', () => {
     expect(gradingRequest.messages[0].content).toContain('Réponse de l’étudiant');
   });
 
+  it('continues grading when annotation JSON remains invalid after its repair attempt', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse('Réponse de l’étudiant'))
+      .mockResolvedValueOnce(streamingResponse('Réponse annotée mais JSON invalide'))
+      .mockRejectedValueOnce(new TypeError('repair unavailable'))
+      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const warnings: string[] = [];
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
+    await expect(provider.generate({ ...request, detectTeacherAnnotations: true }, undefined, undefined, (value, kind) => { if (kind === 'warning') warnings.push(value); }))
+      .resolves.toBe('{"criteria":[]}');
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(warnings.some((warning) => warning.includes('La transcription initiale est conservée'))).toBe(true);
+    const gradingRequest = JSON.parse(String(fetchMock.mock.calls[3][1]?.body));
+    expect(gradingRequest.messages[0].content).toContain('Réponse de l’étudiant');
+  });
+
   it('rejects a cleaned transcription that adds or reformulates student words', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse('Réponse de l’étudiant'))
