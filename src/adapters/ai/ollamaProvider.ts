@@ -242,10 +242,8 @@ export async function checkOllamaReady(
   }
   if (!tagsResponse.ok) throw new Error(`Impossible de consulter les modèles Ollama (HTTP ${tagsResponse.status}). Vérifiez le serveur et ses autorisations CORS.`);
   const tags = await tagsResponse.json() as OllamaTagsResponse;
-  const installed = (tags.models ?? []).some((entry) => {
-    const name = entry.name?.trim();
-    return name === model;
-  });
+  const expectedNames = new Set([model, ...(model.includes(':') ? [] : [\`${model}:latest\`])]);
+  const installed = (tags.models ?? []).some((entry) => expectedNames.has(entry.name?.trim() ?? ''));
   if (!installed) throw new Error(`Le modèle « ${model} » n’est pas installé dans Ollama. Téléchargez-le avec ollama pull ${model}.`);
 
   let showResponse: Response;
