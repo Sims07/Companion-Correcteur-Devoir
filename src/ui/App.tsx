@@ -1082,12 +1082,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       let textProposal: GradingProposal | null = null;
       if (shouldRunTextGrading) {
         const gradingTranscription = isFreshCorrection ? null : transcription;
-        // Avoid firing expensive availability generations automatically against remote
-        // OpenAI-compatible providers; the grading request itself checks readiness.
-        if (!apiCompatible) {
-          if ((!gradingTranscription || (correctionMode === 'separate' && !subjectTranscription))) await service.checkReady({ endpoint, apiCompatible, apiKey, model: visionModel });
-          await service.checkReady({ endpoint, apiCompatible, apiKey, model: analysisModel });
-        }
+        // The first real request is the readiness check. Avoid loading and unloading
+        // local Ollama models with synthetic generations before reading the copy.
         setAnalysisStage('reading');
         const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
         const teacherAnnotationImages = detectTeacherAnnotations
