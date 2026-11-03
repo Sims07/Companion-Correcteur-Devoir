@@ -346,8 +346,6 @@ describe('network inspector fetch integration', () => {
         apiCompatible: true,
         apiKey: 'secret',
         model: 'vision-model',
-        rubric: { title: 'Barème', criteria: [] },
-        question: 'Identifier les schémas',
         images: [{ base64: 'cG5n', mimeType: 'image/png', fileName: 'copie-a.png' }],
       })).resolves.toMatchObject([{ pageNumber: 1, kind: 'scientific-diagram' }]);
       await new Promise((resolve) => setTimeout(resolve, 0));
