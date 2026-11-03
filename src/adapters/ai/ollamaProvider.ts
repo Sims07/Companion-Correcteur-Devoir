@@ -496,7 +496,6 @@ export function createOllamaProvider(
             signal: requestAbortController.signal,
           }, intent, `Modèle ${model} · ${context}`));
           clearColdStartTimeout();
-          if (!settings.apiCompatible) requestedModels.add(model);
         } catch (cause) {
           finishRequest();
           if (timedOut) {
@@ -523,6 +522,7 @@ export function createOllamaProvider(
           publishFailedCall(error);
           throw error;
         }
+        if (!settings.apiCompatible) requestedModels.add(model);
         try {
           let firstTokenReported = false;
           const result = await readOllamaStream(response, (chunk) => {
