@@ -147,7 +147,6 @@ export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisR
     ...(subject ? ['SUJET DE RÉFÉRENCE (transcription fournie) : ' + subject] : []),
     'CORRESPONDANCE DES PAGES : ' + (request.pageNumbers ?? request.images.map((_, index) => index + 1)).map((page, index) => (index + 1) + ' → ' + page).join(', '),
     compact ? 'Réponse compacte obligatoire : aucun qualityBreakdown.' : '',
-    'SCHÉMA JSON À RESPECTER STRICTEMENT (généré depuis le même schéma que celui utilisé pour contraindre la réponse) : ' + JSON.stringify(buildScientificDiagramJsonSchema(request)),
     ['FORMAT DE SORTIE', 'Réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown. Respecte le schéma JSON contraint transmis avec la requête. Les notes sont des nombres et restent dans les limites du barème ; n’invente aucune note.', 'Exemple neutre : {"diagrams":[{"id":"diagram-1","pageNumber":1,"diagramType":"schéma","summary":"Description courte.","uncertainties":[],"bounds":null}],"criteria":[{"criterionId":"criterion-id","points":0,"evidence":"Extrait exact.","confidence":0.5,"requiresTeacherReview":true,"diagramIds":[],"elements":null,"qualityBreakdown":null}],"overallUncertainties":[]}'].join('\n'),
   ].filter(Boolean).join('\n\n');
 }
