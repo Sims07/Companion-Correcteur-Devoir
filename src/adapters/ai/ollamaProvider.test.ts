@@ -85,7 +85,7 @@ describe('Ollama readiness without loading models', () => {
   });
 
   it('keeps the background-prewarmed model resident for five minutes', async () => {
-    const mockFetch = vi.fn(async () => response({ message: { content: 'OK' } }));
+    const mockFetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => response({ message: { content: 'OK' } }));
     const fetchImpl = mockFetch as unknown as typeof fetch;
 
     await prewarmOllamaModel(settings, 'qwen3.5:4b', fetchImpl);
