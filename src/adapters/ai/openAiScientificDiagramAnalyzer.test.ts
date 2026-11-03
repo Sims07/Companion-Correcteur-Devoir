@@ -116,16 +116,17 @@ describe('OpenAI scientific diagram adapter', () => {
     ]);
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer secret');
   });
-  it('embeds the exact generated JSON Schema in the prompt so the model knows every required field', async () => {
+  it('sends the JSON Schema through the provider format without duplicating it in the prompt', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
     await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request);
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     const prompt = body.messages[0].content[0].text as string;
-    const schema = body.format;
-    expect(prompt).toContain('SCHÉMA JSON À RESPECTER STRICTEMENT');
-    expect(prompt.split('\n\n').at(-1)).toContain('FORMAT DE SORTIE');
-    expect(prompt.split('\\n\\n').at(-1)).toContain('Exemple neutre');
-    expect(prompt).toContain(JSON.stringify(schema));
+    const schema = body.response_format.json_schema.schema;
+    expect(prompt).not.toContain('SCHÉMA JSON À RESPECTER STRICTEMENT');
+    expect(prompt).not.toContain(JSON.stringify(schema));
+    expect(prompt).toContain('CRITÈRES VISUELS');
+    expect(prompt.split('\\n\\n').at(-1)).toContain('FORMAT DE SORTIE');
+    expect(body.response_format).toMatchObject({ type: 'json_schema', json_schema: { strict: true } });
     expect(schema.required).toEqual(['diagrams', 'criteria', 'overallUncertainties']);
     expect(schema.properties.diagrams.minItems).toBe(1);
     expect(schema.properties.criteria.minItems).toBe(1);
