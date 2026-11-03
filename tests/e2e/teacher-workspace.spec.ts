@@ -91,6 +91,62 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
 });
 
 
+test('individual correction checks both local Ollama models before its first inference request', async ({ page }) => {
+  const requests: string[] = [];
+  await page.addInitScript(() => {
+    localStorage.setItem('companion-correcteur:ollama-configuration:v1', JSON.stringify({
+      endpoint: 'http://localhost:11434',
+      apiCompatible: false,
+      visionModel: 'vision:4b',
+      analysisModel: 'analysis:4b',
+    }));
+  });
+  await page.route('http://localhost:11434/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/tags') {
+      requests.push('tags');
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ models: [{ name: 'vision:4b' }, { name: 'analysis:4b' }] }) });
+      return;
+    }
+    if (url.pathname === '/api/show') {
+      const model = route.request().postDataJSON()?.model as string;
+      requests.push(`show:${model}`);
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modelfile: `FROM ${model}` }) });
+      return;
+    }
+    if (url.pathname === '/api/chat') {
+      const payload = route.request().postDataJSON() as { model: string; stream: boolean };
+      requests.push(`${payload.stream ? 'inference' : 'prewarm'}:${payload.model}`);
+      if (!payload.stream) {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ message: { content: 'OK' } }) });
+        return;
+      }
+      await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'fake inference failure' }) });
+      return;
+    }
+    await route.fulfill({ status: 404, body: 'not found' });
+  });
+
+  await page.goto('/');
+  await openActiveAssignment(page);
+  const onePixelPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jxioAAAAASUVORK5CYII=', 'base64');
+  await page.locator('#copy-files').setInputFiles({ name: 'copie-test.png', mimeType: 'image/png', buffer: onePixelPng });
+  await expect.poll(() => requests.includes('prewarm:vision:4b')).toBe(true);
+
+  const beforeCorrection = requests.length;
+  await page.getByRole('button', { name: 'Corriger', exact: true }).click();
+  await expect.poll(() => requests.slice(beforeCorrection).some((item) => item.startsWith('inference:'))).toBe(true);
+
+  expect(requests.slice(beforeCorrection, beforeCorrection + 4)).toEqual([
+    'tags',
+    'show:vision:4b',
+    'tags',
+    'show:analysis:4b',
+  ]);
+  expect(requests.slice(beforeCorrection).findIndex((item) => item.startsWith('inference:'))).toBeGreaterThan(3);
+  await expect(page.getByText(/fake inference failure|HTTP 500/)).toBeVisible();
+});
+
 test('teacher can choose clearly distinct individual and series correction workflows', async ({ page }) => {
   await page.goto('/');
   await openActiveAssignment(page);
