@@ -1,9 +1,10 @@
+import './instrumentation.ts';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './ui/App.tsx';
 import { LocalMemoryCompanion } from './ui/LocalMemoryCompanion.tsx';
 import { installLocalMemoryFetchBridge } from './adapters/ai/localMemoryFetchBridge.ts';
-import { installNetworkInspector } from './adapters/network/networkInspector.ts';
+import { currentFetch } from './adapters/ai/currentFetch.ts';
 import { loadSalukiModel } from './adapters/ai/modelLoadClient.ts';
 import { IndexedDbBackgroundCorrectionRepository, IndexedDbLocalCorrectionRepository, IndexedDbModelEvaluationRepository } from './adapters/storage/indexedDbMemory.ts';
 import { createLocalCorrectionService } from './application/localCorrectionService.ts';
@@ -28,12 +29,10 @@ const localCorrectionService = createLocalCorrectionService(localCorrectionRepos
 const modelEvaluationService = createModelEvaluationService(new IndexedDbModelEvaluationRepository());
 const scientificDiagramAnalyzer = createOpenAiScientificDiagramAnalyzer();
 const scientificDiagramAnalysisService = createScientificDiagramAnalysisService(scientificDiagramAnalyzer);
-const backgroundCorrectionService = createBackgroundCorrectionService(new IndexedDbBackgroundCorrectionRepository(), { checkReady: checkOllamaReady, prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, fetch, signal), unloadModel: unloadOllamaModel, listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, fetch, onProgress, signal) }, scientificDiagramAnalyzer);
-// Install the observer first so subsequent fetch wrappers delegate through it.
-installNetworkInspector();
+const backgroundCorrectionService = createBackgroundCorrectionService(new IndexedDbBackgroundCorrectionRepository(), { checkReady: checkOllamaReady, prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), unloadModel: unloadOllamaModel, listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) }, scientificDiagramAnalyzer);
 installLocalMemoryFetchBridge(localCorrectionRepository);
 const correctionWorkspaceService = createCorrectionWorkspaceService(
-  { checkReady: checkOllamaReady, prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, fetch, signal), listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, fetch, onProgress, signal) },
+  { checkReady: checkOllamaReady, prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) },
   { prepareFiles: prepareLocalFiles, rotateImage: rotateLocalImage, eraseTeacherAnnotationColor, importRubric: importRubricFile },
 );
 

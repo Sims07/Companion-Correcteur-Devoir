@@ -1,4 +1,5 @@
 import { copyNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
+import { currentFetch } from './currentFetch.ts';
 
 /** Browser-side transport adapter for OpenAI Chat Completions compatible endpoints.
  * It translates the existing Ollama-shaped requests/responses so grading orchestration stays unchanged.
@@ -149,7 +150,7 @@ async function providerRejectsParameter(response: Response, parameter: string): 
 }
 
 /** Compatible fetch passed to the existing provider; credentials never enter request metadata or logs. */
-export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, fetchImpl: typeof fetch = fetch): typeof fetch {
+export function createOpenAiCompatibleFetch(settings: OpenAiCompatibleSettings, fetchImpl: typeof fetch = currentFetch): typeof fetch {
   const url = completionUrl(settings.endpoint);
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;

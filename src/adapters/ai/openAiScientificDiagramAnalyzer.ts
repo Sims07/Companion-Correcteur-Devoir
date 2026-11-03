@@ -184,7 +184,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
               messages: [{ role: 'user', content, imageDetail: 'high' as const, images: [local ? image.base64 : 'data:' + image.mimeType + ';base64,' + image.base64] }],
             };
             if (local) requestPayload = JSON.stringify(body);
-            const response = await compatibleFetch(`${request.endpoint.replace(/\\/+$/, '')}/api/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const response = await compatibleFetch(`${request.endpoint.replace(/\/+$/, '')}/api/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
             if (!response.ok) throw new Error(`La détection Vision de la page ${index + 1} a échoué (HTTP ${response.status}). ${(await response.text()).slice(0, 500)}`);
             const result = await response.json() as { message?: { content?: string }; choices?: Array<{ message?: { content?: string }; finish_reason?: string }>; error?: string; done_reason?: string };
             if (result.error) throw new Error(result.error);

@@ -4,21 +4,21 @@ export interface ScientificPageClassification {
   suggestedRotation?: 0 | 90 | 180 | 270; orientationConfidence?: number; warning?: string;
 }
 function extractModelJson(raw: string): string {
-  const source = raw.replace(/<think>[\\s\\S]*?<\\/think>/gi, '').replace(/<\\/?think>/gi, '').trim().replace(/^\\x60{3}(?:json)?\\s*/i, '').replace(/\\s*\\x60{3}$/, '');
-  const start = source.search(/[\\[{]/);
+  const source = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<\/?think>/gi, '').trim().replace(/^\x60{3}(?:json)?\s*/i, '').replace(/\s*\x60{3}$/, '');
+  const start = source.search(/[\{\[]/);
   if (start < 0) throw new Error('La réponse Vision ne contient aucun objet JSON.');
   const opening = source[start], closing = opening === '{' ? '}' : ']';
   let depth = 0, inString = false, escaped = false;
   for (let i = start; i < source.length; i += 1) {
     const c = source[i];
-    if (inString) { if (escaped) escaped = false; else if (c === '\\\\') escaped = true; else if (c === '"') inString = false; continue; }
+    if (inString) { if (escaped) escaped = false; else if (c === '\\') escaped = true; else if (c === '"') inString = false; continue; }
     if (c === '"') inString = true; else if (c === opening) depth += 1; else if (c === closing) { depth -= 1; if (!depth) return source.slice(start, i + 1); }
   }
   throw new Error('La réponse Vision est tronquée : objet JSON incomplet.');
 }
 function normalizeKind(value: unknown): ScientificPageKind | null {
   if (typeof value !== 'string') return null;
-  const kind = value.trim().toLocaleLowerCase('fr').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[ _]/g, '-');
+  const kind = value.trim().toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[ _]/g, '-');
   if (['text', 'texte', 'textuel'].includes(kind)) return 'text';
   if (['scientific-diagram', 'scientificdiagram', 'diagram', 'diagramme', 'schema'].includes(kind)) return 'scientific-diagram';
   if (['mixed', 'mixte'].includes(kind)) return 'mixed';

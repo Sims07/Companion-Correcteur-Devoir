@@ -1,36 +1,48 @@
 import { expect, test } from '@playwright/test';
 import { openActiveAssignment } from './helpers/teacher-workspace';
 
-test('teacher can open an imported copy page in a fullscreen viewer and zoom it', async ({ page }) => {
+test('teacher rotations in the fullscreen viewer update the working copy', async ({ page }) => {
   await page.goto('/');
   await openActiveAssignment(page);
+  const imageBase64 = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 8;
+    canvas.height = 4;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas 2D unavailable');
+    context.fillStyle = '#174f78';
+    context.fillRect(0, 0, 4, 4);
+    context.fillStyle = '#e4a23a';
+    context.fillRect(4, 0, 4, 4);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
   await page.locator('#copy-files').setInputFiles({
     name: 'page-1.png',
     mimeType: 'image/png',
-    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/pXcAAAAASUVORK5CYII=', 'base64'),
+    buffer: Buffer.from(imageBase64, 'base64'),
   });
+
   const thumbnail = page.getByRole('button', { name: 'Agrandir la page 1' });
   await expect(thumbnail).toBeVisible();
   await thumbnail.click();
   const viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 1' });
   await expect(viewer).toBeVisible();
-  await expect(viewer.getByText('100 %')).toBeVisible();
   const image = viewer.getByRole('img', { name: 'Page 1 agrandie' });
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => [element.naturalWidth, element.naturalHeight])).toEqual([8, 4]);
+
   await viewer.getByRole('button', { name: 'Tourner l’image à droite de 90 degrés' }).click();
-  await expect(image).toHaveCSS('transform', 'matrix(0, 1, -1, 0, 0, 0)');
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => [element.naturalWidth, element.naturalHeight])).toEqual([4, 8]);
+  await expect.poll(() => thumbnail.locator('img').evaluate((element: HTMLImageElement) => [element.naturalWidth, element.naturalHeight])).toEqual([4, 8]);
+
   await viewer.getByRole('button', { name: 'Tourner l’image à gauche de 90 degrés' }).click();
-  await expect(image).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
-  await viewer.getByRole('button', { name: 'Tourner l’image à gauche de 90 degrés' }).click();
-  await expect(image).toHaveCSS('transform', 'matrix(0, -1, 1, 0, 0, 0)');
-  await viewer.getByRole('button', { name: 'Réinitialiser' }).click();
-  await expect(image).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => [element.naturalWidth, element.naturalHeight])).toEqual([8, 4]);
+  await expect.poll(() => thumbnail.locator('img').evaluate((element: HTMLImageElement) => [element.naturalWidth, element.naturalHeight])).toEqual([8, 4]);
+
   await viewer.getByRole('button', { name: 'Zoomer', exact: true }).click();
   await expect(viewer.getByText('125 %')).toBeVisible();
   await viewer.getByRole('button', { name: 'Fermer le visualiseur' }).click();
   await expect(viewer).toHaveCount(0);
 });
-
-
 
 test('teacher can rotate each batch page manually before starting the series', async ({ page }) => {
   await page.goto('/');
