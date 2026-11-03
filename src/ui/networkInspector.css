@@ -4,3 +4,6 @@
 @media(max-width:520px){.network-request-columns,.network-request-row{grid-template-columns:58px 42px minmax(0,1fr) minmax(76px,1fr) 38px}.network-request-columns span:last-child{display:none}.network-request-row .network-duration{display:none}}
 
 .network-intent-detail{padding:11px 12px;border:1px solid var(--border,#dce5dc);border-left:3px solid var(--accent,#6b8f72);border-radius:8px;background:var(--surface-muted,#f3f7f2)}.network-intent-detail h3{margin:0 0 5px;font-size:11px;color:var(--text-secondary,#647467);text-transform:uppercase;letter-spacing:.04em}.network-intent-detail p{margin:0;color:var(--text-primary,#203027);font-size:12px;font-weight:650;line-height:1.45}.network-intent-detail small{display:block;margin-top:5px;color:var(--text-secondary,#718074);font-size:11px;line-height:1.4}
+
+.network-pending-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;background:var(--surface-muted,#edf3ed);color:var(--text-primary,#203027);font-weight:700;font-variant-numeric:tabular-nums}
+.network-waiting-hint{display:block;margin-top:4px;color:#a36a19;font-size:10px;line-height:1.35;font-weight:600}
