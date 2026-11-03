@@ -13,7 +13,7 @@ const settings: OllamaSettings = {
 function createService() {
   const checkReady = vi.fn(async () => undefined);
   const prewarmModel = vi.fn(async () => undefined);
-  const repository = {} as BackgroundCorrectionRepository;
+  const repository = {} as unknown as BackgroundCorrectionRepository;
   const workspace = {
     checkReady,
     prewarmModel,
