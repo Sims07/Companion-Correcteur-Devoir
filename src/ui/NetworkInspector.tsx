@@ -30,11 +30,13 @@ export function NetworkInspector() {
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'headers' | 'request' | 'response'>('headers');
   const [storageStatus, setStorageStatus] = useState(getNetworkInspectorStatus);
+  const [clock, setClock] = useState(() => Date.now());
 
   useEffect(() => {
     const refresh = () => { setRecords(loadNetworkHistory()); setStorageStatus(getNetworkInspectorStatus()); };
     window.addEventListener(networkInspectorEvent, refresh);
-    return () => window.removeEventListener(networkInspectorEvent, refresh);
+    const timer = window.setInterval(() => setClock(Date.now()), 250);
+    return () => { window.removeEventListener(networkInspectorEvent, refresh); window.clearInterval(timer); };
   }, []);
 
   const filtered = useMemo(() => records.filter((record) => {
@@ -45,13 +47,15 @@ export function NetworkInspector() {
   const selected = filtered.find((record) => record.id === selectedId) ?? filtered[0] ?? null;
   const pending = records.filter((record) => record.state === 'pending').length;
   const errors = records.filter((record) => record.state === 'error').length;
+  const liveDuration = (record: NetworkRequestRecord) => record.state === 'pending' ? Math.max(0, clock - Date.parse(record.startedAt)) : record.durationMs;
+  const waitingForServer = (record: NetworkRequestRecord) => record.state === 'pending' && (liveDuration(record) ?? 0) >= 15_000;
 
   return <main className="network-inspector" aria-label="Inspecteur réseau">
     <header className="network-inspector-heading">
       <div><p className="eyebrow">OUTILS DE DÉVELOPPEMENT</p><h1>Inspecteur réseau</h1><p>Suivez les requêtes HTTP de l’application en direct et consultez leur historique local.</p></div>
       <div className="network-inspector-actions"><span className="network-local-indicator">● Historique local</span><button type="button" className="secondary-button" onClick={() => { clearNetworkHistory(); setRecords([]); setSelectedId(null); setStorageStatus(getNetworkInspectorStatus()); }}>Effacer l’historique</button></div>
     </header>
-    <div className="network-inspector-summary"><span><b>{records.length}</b> requêtes</span><span><b>{pending}</b> en cours</span><span><b>{errors}</b> erreurs</span><span><b>{(storageStatus.storageBytes / 1024).toFixed(1)} Ko</b> occupés dans le stockage local</span></div>
+    <div className="network-inspector-summary"><span><b>{records.length}</b> requêtes</span><span className={pending > 0 ? 'network-pending-badge' : ''}><b>{pending}</b> requête(s) en cours</span><span><b>{errors}</b> erreurs</span><span><b>{(storageStatus.storageBytes / 1024).toFixed(1)} Ko</b> occupés dans le stockage local</span></div>
     {storageStatus.storageWarning && <p className="network-error" role="alert">{storageStatus.storageWarning}</p>}
     <div className="network-inspector-layout">
       <section className="network-request-list" aria-label="Liste des requêtes">
@@ -59,15 +63,15 @@ export function NetworkInspector() {
         <div className="network-request-table" role="list" aria-label="Requêtes HTTP">
           <div className="network-request-columns" aria-hidden="true"><span>Heure</span><span>Méthode</span><span>URL</span><span>Intention</span><span>HTTP</span><span>Durée</span></div>
           {filtered.map((record) => <button type="button" role="listitem" key={record.id} className={selected?.id === record.id ? 'network-request-row selected' : 'network-request-row'} onClick={() => setSelectedId(record.id)}>
-            <span className="network-request-time" title={new Date(record.startedAt).toLocaleString("fr-FR")}>{formatTime(record.startedAt)}</span><span className="network-method">{record.method}</span><span className="network-url" title={record.url}>{record.url}</span><span className="network-intent" title={record.context ? `${record.intent} · ${record.context}` : record.intent}><strong>{record.intent}</strong>{record.context && <small>{record.context}</small>}</span><span className={`network-state ${record.state}`}>{record.state === 'pending' ? '…' : record.status ?? 'ERR'}</span><span className="network-duration">{formatDuration(record.durationMs)}</span>
+            <span className="network-request-time" title={new Date(record.startedAt).toLocaleString("fr-FR")}>{formatTime(record.startedAt)}</span><span className="network-method">{record.method}</span><span className="network-url" title={record.url}>{record.url}</span><span className="network-intent" title={record.context ? `${record.intent} · ${record.context}` : record.intent}><strong>{record.intent}</strong>{record.context && <small>{record.context}</small>}</span><span className={`network-state ${record.state}`}>{record.state === 'pending' ? '…' : record.status ?? 'ERR'}</span><span className="network-duration">{formatDuration(liveDuration(record))}{waitingForServer(record) && <small className="network-waiting-hint">En attente du serveur (modèle en cours de chargement ?)</small>}</span>
           </button>)}
           {!filtered.length && <p className="network-empty">Aucune requête. Les prochains appels HTTP apparaîtront ici.</p>}
         </div>
       </section>
       <section className="network-request-details" aria-label="Détail de la requête">
         {selected ? <>
-          <div className="network-selected-heading"><div><span className="network-method">{selected.method}</span><strong>{selected.url}</strong></div><span>{formatTime(selected.startedAt)} · {formatDuration(selected.durationMs)}</span></div>
-          <section className="network-intent-detail" aria-label="Intention de la requête"><h3>Intention</h3><p>{selected.intent || 'Intention non renseignée'}</p>{selected.context && <small>{selected.context}</small>}</section>
+          <div className="network-selected-heading"><div><span className="network-method">{selected.method}</span><strong>{selected.url}</strong></div><span>{formatTime(selected.startedAt)} · {formatDuration(liveDuration(selected))}</span></div>
+          <section className="network-intent-detail" aria-label="Intention de la requête"><h3>Intention</h3><p>{selected.intent || 'Intention non renseignée'}</p>{selected.context && <small>{selected.context}</small>}{waitingForServer(selected) && <p className="network-waiting-hint" role="status">En attente du serveur (modèle en cours de chargement ?)</p>}</section>
           <nav className="network-detail-tabs" aria-label="Détails réseau">{(['headers','request','response'] as const).map((item) => <button type="button" key={item} className={tab === item ? 'active' : ''} aria-pressed={tab === item} onClick={() => setTab(item)}>{item === 'headers' ? 'Headers' : item === 'request' ? 'Payload' : 'Response'}</button>)}</nav>
           {tab === 'headers' && <><Detail title="General" value={{ url: selected.url, method: selected.method, status: selected.status ? `${selected.status} ${selected.statusText}` : 'En attente' }} /><Detail title="Request headers" value={selected.requestHeaders} /><Detail title="Response headers" value={selected.responseHeaders} /></>}
           {tab === 'request' && <Detail title="Request payload" value={selected.requestBody} />}
