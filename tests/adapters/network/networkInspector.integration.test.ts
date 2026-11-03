@@ -3,6 +3,7 @@ import { clearNetworkHistory, getNetworkInspectorStatus, installNetworkInspector
 import { installLocalMemoryFetchBridge } from '../../../src/adapters/ai/localMemoryFetchBridge.ts';
 import type { LocalCorrectionRepository } from '../../../src/ports/localCorrectionRepository.ts';
 import { annotateNetworkRequest } from '../../../src/ports/networkRequestMetadata.ts';
+import { createOpenAiScientificDiagramAnalyzer } from '../../../src/adapters/ai/openAiScientificDiagramAnalyzer.ts';
 
 describe('network inspector fetch integration', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -311,6 +312,52 @@ describe('network inspector fetch integration', () => {
       const records = loadNetworkHistory();
       expect(records).toHaveLength(phases.length);
       for (const [intent, context] of phases) expect(records).toContainEqual(expect.objectContaining({ intent, context, state: 'success' }));
+    } finally {
+      restore();
+    }
+  });
+
+  it('records the real OpenAI-compatible page classification intent through the analyzer transport', async () => {
+    const values = new Map<string, string>();
+    const fakeWindow = {
+      fetch: vi.fn(async () => new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify({
+          pageNumber: 1, kind: 'scientific-diagram', confidence: 0.95,
+          reason: 'Schéma biologique', suggestedRotation: 0, orientationConfidence: 0.99,
+        }) } }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } })),
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => { values.set(key, value); },
+        removeItem: (key: string) => { values.delete(key); },
+      },
+      dispatchEvent: vi.fn(),
+      location: { origin: 'http://localhost' },
+    };
+    vi.stubGlobal('window', fakeWindow);
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    clearNetworkHistory();
+    const restore = installNetworkInspector();
+    const analyzer = createOpenAiScientificDiagramAnalyzer((input, init) => window.fetch(input, init));
+
+    try {
+      await expect(analyzer.classifyPages({
+        endpoint: 'https://ai.example',
+        apiCompatible: true,
+        apiKey: 'secret',
+        model: 'vision-model',
+        images: [{ base64: 'cG5n', mimeType: 'image/png', fileName: 'copie-a.png' }],
+      })).resolves.toMatchObject([{ pageNumber: 1, kind: 'scientific-diagram' }]);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(loadNetworkHistory()).toHaveLength(1);
+      expect(loadNetworkHistory()[0]).toMatchObject({
+        intent: 'Classer la page 1 pour la détection des schémas',
+        context: 'Modèle vision-model · page 1/1 · copie-a.png',
+        state: 'success',
+      });
+      expect(JSON.stringify(loadNetworkHistory())).not.toContain('cG5n');
+      expect(JSON.stringify(loadNetworkHistory())).not.toContain('secret');
     } finally {
       restore();
     }
