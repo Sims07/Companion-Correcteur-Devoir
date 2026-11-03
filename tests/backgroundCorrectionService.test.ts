@@ -149,7 +149,7 @@ describe('background correction service', () => {
     await service.prewarm(settings);
     await service.pauseAndWait();
 
-    expect(f.workspace.prewarmModel).toHaveBeenCalledWith(settings, 'vision:4b');
+    expect(f.workspace.prewarmModel).toHaveBeenCalledWith(settings, 'vision:4b', expect.any(AbortSignal));
     expect(f.workspace.unloadModel).not.toHaveBeenCalled();
   });
 
@@ -162,7 +162,7 @@ describe('background correction service', () => {
     }
     const completed = f.jobs.get('copy-1');
     expect(f.workspace.checkReady).toHaveBeenCalledTimes(2);
-    expect(f.workspace.prewarmModel).toHaveBeenCalledWith(expect.anything(), 'vision:4b');
+    expect(f.workspace.prewarmModel).toHaveBeenCalledWith(expect.anything(), 'vision:4b', expect.any(AbortSignal));
     expect(f.createProvider).toHaveBeenCalledTimes(2);
     expect(f.requests[0].keepAnalysisModelWarm).toBe(true);
     expect(f.requests[1].keepAnalysisModelWarm).toBe(false);
