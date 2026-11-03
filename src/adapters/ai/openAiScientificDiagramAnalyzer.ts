@@ -188,7 +188,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
               messages: [{ role: 'user', content, imageDetail: 'high' as const, images: [local ? image.base64 : 'data:' + image.mimeType + ';base64,' + image.base64] }],
             };
             if (local) requestPayload = JSON.stringify({ ...body, messages: body.messages.map((message) => ({ ...message, images: ['[IMAGE REDACTED]'] })) });
-            const pageNumber = request.pageNumbers?.[index] ?? index + 1;
+            const pageNumber = index + 1;
             const imageName = image.fileName?.trim();
             const context = `Modèle ${request.model} · page ${pageNumber}/${request.images.length}${imageName ? ` · ${imageName}` : ''}`;
             const response = await compatibleFetch(
