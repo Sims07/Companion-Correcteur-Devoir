@@ -1,3 +1,5 @@
+import { currentFetch } from './currentFetch.ts';
+
 export interface SalukiLoadSettings {
   endpoint: string;
   apiKey: string;
@@ -15,7 +17,7 @@ function salukiLoadUrl(endpoint: string): string {
 
 export async function loadSalukiModel(
   settings: SalukiLoadSettings,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = currentFetch,
 ): Promise<void> {
   const response = await fetchImpl(salukiLoadUrl(settings.endpoint), {
     method: 'POST',
