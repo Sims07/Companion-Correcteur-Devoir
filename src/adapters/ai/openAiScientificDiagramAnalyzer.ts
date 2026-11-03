@@ -4,14 +4,14 @@ import type { ScientificDiagramAnalyzer, ScientificDiagramAnalysisRequest, Scien
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
 import type { DiagnosticModelResult, ImageInput } from '../../ports/aiProvider.ts';
 
-function diagnosticResult(request: { model: string; endpoint: string; images: ImageInput[]; onDiagnosticResult?: (result: DiagnosticModelResult) => void }, purpose: DiagnosticModelResult['purpose'], prompt: string, raw: string, startedAt: number, error?: string, requestPayload = ''): void {
+function diagnosticResult(request: { model: string; endpoint: string; images: ImageInput[]; apiCompatible?: boolean; onDiagnosticResult?: (result: DiagnosticModelResult) => void }, purpose: DiagnosticModelResult['purpose'], prompt: string, raw: string, startedAt: number, error?: string, requestPayload = ''): void {
   request.onDiagnosticResult?.({
     kind: 'vision',
     stage: 'reading',
     purpose,
     model: request.model,
     requestPrompt: prompt,
-    requestMetadata: { provider: 'openai-compatible', endpoint: request.endpoint, stream: false, think: false, format: 'json', imageCount: request.images.length, keepAlive: 0, options: { contextTokens: 0, generationTokenLimit: purpose === 'scientific-diagram-classification' ? 320 : 2048 } },
+    requestMetadata: { provider: request.apiCompatible ? 'openai-compatible' : 'ollama', endpoint: request.endpoint, stream: false, think: false, format: 'json-schema', imageCount: request.images.length, keepAlive: 0, options: { contextTokens: 0, generationTokenLimit: purpose === 'scientific-diagram-classification' ? 1024 : 2048 } },
     requestPayload,
     raw,
     ...(error ? { error } : {}),
@@ -19,22 +19,20 @@ function diagnosticResult(request: { model: string; endpoint: string; images: Im
   });
 }
 
-function classificationPrompt(originalPageNumber: number): string {
+function classificationPrompt(pageNumber: number, previousRaw = ''): string {
   return [
-    'Tu es chargé de classer UNE SEULE page d’une copie universitaire de biologie avant toute correction.',
-    'L’image jointe est la page indiquée ci-dessous. Ne fais aucune hypothèse sur les autres pages de la copie.',
-    'Détermine aussi l’orientation de lecture de la page : suggestedRotation est la rotation horaire à appliquer à l’image reçue (0, 90, 180 ou 270) pour rendre le contenu droit. Ne propose une rotation non nulle que si toute la page (texte, légendes et dessin) est clairement tournée ; ne tourne jamais une page portrait simplement parce qu’un dessin isolé est en paysage. Ne propose une rotation non nulle que si tu es très sûr que la page entière est de travers ; sinon retourne 0. orientationConfidence est une confiance indépendante, entre 0 et 1. En cas de doute, utilise 0 et une confiance faible.',
-    'Classe cette page selon son contenu réellement produit par l’étudiant. Les tableaux de données ou de comparaison structurés en lignes et colonnes ne sont PAS des schémas scientifiques : classe un tableau seul en text, même s’il contient des notions de biologie. Le modèle textuel sait exploiter les tableaux transcrits en Markdown.',
-    'Un schéma scientifique est un dessin ou une représentation visuelle porteuse d’information scientifique : cellule dessinée, tissu, anatomie, coupe, cycle, voie métabolique dessinée, graphique avec axes/courbes, arbre phylogénétique, montage expérimental annoté.',
-    'Si la page contient uniquement du texte et/ou un tableau, retourne kind=text. Si elle contient un véritable schéma scientifique sans tableau, retourne kind=scientific-diagram. Si elle contient à la fois un vrai schéma scientifique distinct ET un tableau ou une réponse rédigée, retourne kind=mixed : cette page sera envoyée au modèle textuel pour le texte/tableau ET à Vision pour le schéma uniquement. Si tu ne peux pas décider, retourne ambiguous.',
-    'Ne confonds jamais un tableau, une liste, une formule isolée, des cases à compléter, un dessin décoratif ou une illustration imprimée du sujet avec un schéma scientifique produit par l’étudiant.',
-    'Ne juge pas la qualité scientifique et n’attribue aucun point à cette étape. Cette étape sert uniquement à router cette page vers le bon parcours.',
-    'Retourne exactement une entrée pour l’unique image jointe. Le champ pageNumber doit toujours valoir 1 dans cette réponse isolée.',
-    'Les seules valeurs autorisées pour kind sont text, scientific-diagram, mixed ou ambiguous. Retourne toujours suggestedRotation (0, 90, 180 ou 270) et orientationConfidence (0 à 1), même si tu ne proposes aucune rotation. Une rotation est une suggestion à valider par le professeur. Si l’option de rotation automatique est activée, l’application effectuera un second contrôle d’orientation avant de l’appliquer. Ne suggère jamais de rotation pour les pages mixed ou text. Exemple : {"pages":[{"pageNumber":1,"kind":"scientific-diagram","confidence":0.98,"reason":"...","suggestedRotation":90,"orientationConfidence":0.96}]}',
-    `NUMÉRO DE PAGE ORIGINAL : ${originalPageNumber}`,
-  ].join('\n\n');
+    `RÔLE : classe la page ${pageNumber} d’une copie universitaire de biologie et indique une éventuelle rotation horaire à appliquer à toute la page.`,
+    ['kind=text : texte manuscrit, réponse rédigée, liste ou tableau de données.','kind=scientific-diagram : schéma scientifique dessiné par l’étudiant.','kind=mixed : schéma scientifique et texte/tableau présents ensemble.','kind=ambiguous : contenu impossible à classer avec confiance.'].join('\\n'),
+    ['FORMAT DE SORTIE','Réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown.','Champs obligatoires : pageNumber (entier), kind (text | scientific-diagram | mixed | ambiguous), confidence (nombre de 0 à 1), reason (une phrase courte), suggestedRotation (0 | 90 | 180 | 270, rotation horaire à appliquer ; 0 si la page est droite ou en cas de doute), orientationConfidence (nombre de 0 à 1).','Un tableau seul est text. Ne propose une rotation non nulle que si toute la page est tournée ; ne tourne pas une page pour un dessin isolé en paysage. Ne suggère jamais de rotation pour text ou mixed. Toute rotation est une suggestion à valider par le professeur.',...(previousRaw ? [`Réponse précédente à réparer : ${previousRaw.slice(0, 1500)}. Corrige le JSON sans inventer de contenu.`] : []),'Exemple neutre : {"pageNumber":1,"kind":"text","confidence":0.9,"reason":"texte manuscrit","suggestedRotation":0,"orientationConfidence":0.9}.'].join('\\n'),
+  ].join('\\n\\n');
 }
-
+function buildScientificPageClassificationSchema() {
+  return { type: 'object', additionalProperties: false, required: ['pageNumber','kind','confidence','reason','suggestedRotation','orientationConfidence'], properties: {
+    pageNumber: { type: 'integer', minimum: 1 }, kind: { type: 'string', enum: ['text','scientific-diagram','mixed','ambiguous'] },
+    confidence: { type: 'number', minimum: 0, maximum: 1 }, reason: { type: 'string' },
+    suggestedRotation: { type: 'integer', enum: [0,90,180,270] }, orientationConfidence: { type: 'number', minimum: 0, maximum: 1 },
+  } };
+}
 
 function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequest) {
   return {
@@ -168,42 +166,40 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
   return {
     async classifyPages(request: ScientificPageClassificationRequest) {
       let requestPayload = '';
-      const compatibleFetch = createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey, onRequest: (payload) => { requestPayload = payload; } }, fetchImpl);
+      const local = request.apiCompatible !== true;
+      const compatibleFetch = local ? fetchImpl : createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey, onRequest: (payload) => { requestPayload = payload; } }, fetchImpl);
       const classifications = [];
-      // Keep one image per request: this prevents cross-page attribution and makes page identity explicit.
       for (const [index, image] of request.images.entries()) {
-        const prompt = classificationPrompt(index + 1);
-        const startedAt = Date.now();
+        const prompt = classificationPrompt(index + 1), schema = buildScientificPageClassificationSchema(), startedAt = Date.now();
         let raw = '';
         try {
-          const response = await compatibleFetch(`${request.endpoint.replace(/\/+$/, '')}/api/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          const send = async (previousRaw = '') => {
+            const content = previousRaw ? classificationPrompt(index + 1, previousRaw) : prompt;
+            const body = {
               model: request.model,
               stream: false,
-              format: 'json',
-              generation_token_parameter: 'max_tokens',
-              options: { num_predict: 320 },
-              messages: [{
-                role: 'user',
-                content: prompt,
-                imageDetail: 'high',
-                images: [`data:${image.mimeType};base64,${image.base64}`],
-              }],
-            }),
-          });
-          if (!response.ok) {
-            const detail = (await response.text()).slice(0, 500);
-            throw new Error(`La détection Vision de la page ${index + 1} a échoué (HTTP ${response.status}). ${detail}`);
+              ...(local ? { think: false, keep_alive: index < request.images.length - 1 ? '30s' : 0 } : { generation_token_parameter: 'max_tokens' as const }),
+              format: schema,
+              options: { temperature: 0, num_predict: 1024 },
+              messages: [{ role: 'user', content, imageDetail: 'high' as const, images: [local ? image.base64 : 'data:' + image.mimeType + ';base64,' + image.base64] }],
+            };
+            if (local) requestPayload = JSON.stringify(body);
+            const response = await compatibleFetch(`${request.endpoint.replace(/\\/+$/, '')}/api/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            if (!response.ok) throw new Error(`La détection Vision de la page ${index + 1} a échoué (HTTP ${response.status}). ${(await response.text()).slice(0, 500)}`);
+            const result = await response.json() as { message?: { content?: string }; choices?: Array<{ message?: { content?: string }; finish_reason?: string }>; error?: string; done_reason?: string };
+            if (result.error) throw new Error(result.error);
+            raw = result.message?.content ?? result.choices?.[0]?.message?.content ?? '';
+            return { truncated: (result.done_reason ?? result.choices?.[0]?.finish_reason) === 'length', content };
+          };
+          let attempt = await send();
+          if (attempt.truncated) {
+            attempt = await send(raw);
+            if (attempt.truncated) throw new Error(`Réponse tronquée : la classification de la page ${index + 1} a atteint deux fois la limite de génération.`);
           }
-          const payload = await response.json() as { message?: { content?: string }; error?: string };
-          if (payload.error) throw new Error(`La détection Vision de la page ${index + 1} a échoué : ${payload.error}`);
-          raw = payload.message?.content ?? '';
           if (!raw.trim()) throw new Error(`Le modèle Vision n’a retourné aucune classification pour la page ${index + 1}.`);
           const [classification] = parseScientificPageClassifications(raw, 1);
           classifications.push({ ...classification, pageNumber: index + 1 });
-          diagnosticResult(request, 'scientific-diagram-classification', prompt, raw, startedAt, undefined, requestPayload);
+          diagnosticResult(request, 'scientific-diagram-classification', attempt.content, raw, startedAt, undefined, requestPayload);
         } catch (cause) {
           diagnosticResult(request, 'scientific-diagram-classification', prompt, raw, startedAt, cause instanceof Error ? cause.message : String(cause), requestPayload);
           throw cause;

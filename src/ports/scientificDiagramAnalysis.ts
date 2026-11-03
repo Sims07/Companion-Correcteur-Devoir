@@ -13,6 +13,7 @@ export interface ScientificDiagramAnalysisRequest {
   model: string;
   endpoint: string;
   apiKey: string;
+  apiCompatible?: boolean;
   onDiagnosticResult?: (result: DiagnosticModelResult) => void;
 }
 
@@ -21,6 +22,7 @@ export interface ScientificPageClassificationRequest {
   model: string;
   endpoint: string;
   apiKey: string;
+  apiCompatible?: boolean;
   onDiagnosticResult?: (result: DiagnosticModelResult) => void;
 }
 
