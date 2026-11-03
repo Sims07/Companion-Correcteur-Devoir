@@ -273,7 +273,7 @@ export async function unloadOllamaModel(settings: OllamaSettings, model: string,
 }
 
 /** Load one local model in the background and keep it warm briefly for the next copy. */
-export async function prewarmOllamaModel(settings: OllamaSettings, model: string, fetchImpl: typeof fetch = fetch): Promise<void> {
+export async function prewarmOllamaModel(settings: OllamaSettings, model: string, fetchImpl: typeof fetch = fetch, signal?: AbortSignal): Promise<void> {
   if (settings.apiCompatible) return;
   const endpoint = normalizedEndpoint(settings.endpoint);
   const response = await fetchImpl(`${endpoint}/api/chat`, annotateNetworkRequest({
@@ -287,6 +287,7 @@ export async function prewarmOllamaModel(settings: OllamaSettings, model: string
       messages: [{ role: 'user', content: 'Réponds uniquement par OK.' }],
       options: { num_predict: 1 },
     }),
+    ...(signal ? { signal } : {}),
   }, 'Précharger le modèle de lecture', `Modèle ${model}`));
   if (!response.ok) throw new Error(`Le préchauffage du modèle de lecture a échoué (HTTP ${response.status}).`);
   const data = await response.json() as OllamaChatResponse;
