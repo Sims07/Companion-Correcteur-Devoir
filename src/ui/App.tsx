@@ -11,7 +11,7 @@ import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationReco
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import { getTeacherEntryStep } from '../domain/teacherJourney.ts';
 import { shouldRunScientificDiagramAnalysis, type ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
-import { resolveAmbiguousPageClassification, routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
+import { routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
 import { accumulateClockwiseRotation, getConfidentDiagramRotation } from '../domain/scientificPageOrientation.ts';
 import { mergeScientificDiagramCriteria, partitionScientificRubric, shouldRunTeacherScientificDiagramWorkflow } from '../domain/scientificRubricRouting.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, GradingProgressEvent, ImageInput } from '../ports/aiProvider.ts';
@@ -917,20 +917,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  function resolveAmbiguousPage(pageNumber: number, kind: 'text' | 'scientific-diagram') {
-    try {
-      const updated = resolveAmbiguousPageClassification(pageClassifications ?? [], pageNumber, kind);
-      setPageClassifications(updated);
-      setReviewMessage(kind === 'scientific-diagram'
-        ? `Page ${pageNumber} : schéma confirmé. Reprise de l’analyse scientifique…`
-        : `Page ${pageNumber} : ignorée comme schéma. Reprise de la correction…`);
-      void gradeCopies(undefined, updated);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible de résoudre la classification de cette page.');
-    }
-  }
-
-  async function gradeCopies(strategyOverride?: 'arbitrate-only', classificationOverride?: ScientificPageClassification[]) {
+  async function gradeCopies(strategyOverride?: 'arbitrate-only') {
     if (annotationInkColor !== 'none' && !annotationInkColorApplied) {
       setError('Prévisualisez puis appliquez le retrait de la couleur des annotations avant de lancer la lecture et la correction.');
       setTeacherStep('copy');
@@ -952,7 +939,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setStudentIdentity(null);
       setTeacherAnnotations('');
       setPageClassifications(null);
-      if (classificationOverride) setPageClassifications(classificationOverride);
       setScientificDiagramAnalysis(null);
       setScientificDiagramError('');
       setRotationSuggestions({});
@@ -1010,10 +996,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       }
       if (shouldRunTeacherScientificDiagramWorkflow(interfaceMode)) {
         try {
-          let classifications = classificationOverride ?? (isFreshCorrection ? null : pageClassifications);
+          let classifications = isFreshCorrection ? null : pageClassifications;
           if (!classifications || classifications.length !== images.length) {
             setCriterionProgressMessage('Détection du type et de l’orientation des pages…');
-            classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, apiCompatible, onDiagnosticResult: captureDiagramDiagnostic });
+            classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, onDiagnosticResult: captureDiagramDiagnostic });
             classificationWasJustCreated = true;
             const suggestions = await Promise.all(classifications.map(async (classification, index) => {
               const degrees = getConfidentDiagramRotation(classification, manualRotationAngles[index] !== undefined);
@@ -1032,7 +1018,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               if (autoRotateScientificDiagrams) {
                 try {
                   const [verification] = await diagramAnalysisService.classifyPages({
-                    images: [suggestion.preview], model: visionModel, endpoint, apiKey, apiCompatible,
+                    images: [suggestion.preview], model: visionModel, endpoint, apiKey,
                     onDiagnosticResult: captureDiagramDiagnostic,
                   });
                   if (verification?.kind === 'scientific-diagram' && verification.confidence >= 0.9 && verification.suggestedRotation === 0 && (verification.orientationConfidence ?? 0) >= 0.92) {
@@ -1071,7 +1057,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 images: diagramImages,
                 pageNumbers: diagramPageNumbers,
                 totalPageCount: images.length,
-                apiCompatible,
                 question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
                 ...(!isFreshCorrection && subjectTranscription ? { subjectTranscription } : {}),
                 rubric: diagramRubric,
@@ -1770,7 +1755,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           for (const job of jobs) {
             const rotation = await autoRotateScientificPages(
               job.images,
-              (pages) => diagramAnalysisService.classifyPages({ images: pages, model: visionModel, endpoint, apiKey, apiCompatible }),
+              (pages) => diagramAnalysisService.classifyPages({ images: pages, model: visionModel, endpoint, apiKey }),
               (image, degrees) => service.rotateImage(image, degrees),
             );
             automaticRotationCount += rotation.rotatedPages.length;
@@ -3240,10 +3225,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       }}>
         {reviewMessage && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
         
-        {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || (studentIdentity !== null && studentIdentity.confidence !== 'high') || Boolean(pageClassifications?.some((page) => page.kind === 'ambiguous'))) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
+        {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || (studentIdentity !== null && studentIdentity.confidence !== 'high')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
           {flaggedCriteriaIds.size > 0 && <button type="button" onClick={() => { setShowOnlyFlagged(true); document.querySelector('.review-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>⚠ {flaggedCriteriaIds.size} critère(s) à examiner</button>}
           {studentIdentity && studentIdentity.confidence !== 'high' && <button type="button" className="copy-review-alert-chip" onClick={() => document.getElementById('student-label')?.focus()}>Nom à confirmer</button>}
-          {pageClassifications?.filter((page) => page.kind === 'ambiguous').map((page) => <div className="copy-review-alert-chip" role="group" aria-label={`Page ${page.pageNumber} à vérifier`} key={page.pageNumber}><span role="alert">{page.warning ?? `Page ${page.pageNumber} : schéma possible, confiance faible.`}</span><button type="button" className="text-button" disabled={isAnalyzing} onClick={() => resolveAmbiguousPage(page.pageNumber, 'scientific-diagram')}>Analyser comme schéma</button><button type="button" className="text-button" disabled={isAnalyzing} onClick={() => resolveAmbiguousPage(page.pageNumber, 'text')}>Ignorer</button></div>)}
+          {pageClassifications?.filter((page) => page.kind === 'ambiguous').map((page) => <span className="copy-review-alert-chip" role="alert" key={page.pageNumber}>Lecture douteuse · page {page.pageNumber}</span>)}
           {unreadableCopySignal && !pageClassifications?.some((page) => page.kind === 'ambiguous') && <span className="copy-review-alert-chip" role="alert">Lecture à vérifier sur l’image</span>}
         </section>}
         {interfaceMode !== 'teacher' && isAnalyzing && <p className="diagnostic-progress-message">{criterionProgressMessage || 'Analyse progressive en cours'}</p>}
