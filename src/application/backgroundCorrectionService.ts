@@ -393,7 +393,7 @@ export function createBackgroundCorrectionService(
         await prewarmPromise.catch(() => undefined);
       }
       if (activeLoop) await activeLoop;
-      if (prewarmedModel && prewarmedModel !== modelToKeepWarm && prewarmSettings) {
+      if (modelToKeepWarm && prewarmedModel && prewarmedModel !== modelToKeepWarm && prewarmSettings) {
         await workspace.unloadModel?.(prewarmSettings, prewarmedModel).catch(() => undefined);
         prewarmedModel = null;
         prewarmKey = '';
