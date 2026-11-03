@@ -32,12 +32,15 @@ export function NetworkInspector() {
   const [storageStatus, setStorageStatus] = useState(getNetworkInspectorStatus);
   const [clock, setClock] = useState(() => Date.now());
 
+  const hasPendingRequests = records.some((record) => record.state === 'pending');
+
   useEffect(() => {
     const refresh = () => { setRecords(loadNetworkHistory()); setStorageStatus(getNetworkInspectorStatus()); };
     window.addEventListener(networkInspectorEvent, refresh);
+    if (!hasPendingRequests) return () => window.removeEventListener(networkInspectorEvent, refresh);
     const timer = window.setInterval(() => setClock(Date.now()), 250);
     return () => { window.removeEventListener(networkInspectorEvent, refresh); window.clearInterval(timer); };
-  }, []);
+  }, [hasPendingRequests]);
 
   const filtered = useMemo(() => records.filter((record) => {
     const matchesFilter = filter === 'all' || record.state === filter;
