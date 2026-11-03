@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { clearNetworkHistory, getNetworkInspectorStatus, installNetworkInspector, loadNetworkHistory } from '../../../src/adapters/network/networkInspector.ts';
 import { installLocalMemoryFetchBridge } from '../../../src/adapters/ai/localMemoryFetchBridge.ts';
 import type { LocalCorrectionRepository } from '../../../src/ports/localCorrectionRepository.ts';
+import { annotateNetworkRequest } from '../../../src/ports/networkRequestMetadata.ts';
 
 describe('network inspector fetch integration', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -277,6 +278,42 @@ describe('network inspector fetch integration', () => {
     expect(loadNetworkHistory()).toEqual([]);
     expect(values.size).toBe(0);
     restore();
+  });
+
+  it('records the readable intent contract for every correction HTTP phase', async () => {
+    const values = new Map<string, string>();
+    const fakeWindow = {
+      fetch: vi.fn(async () => new Response('{"ok":true}', { status: 200 })),
+      localStorage: { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } },
+      dispatchEvent: vi.fn(),
+      location: { origin: 'http://localhost' },
+    };
+    vi.stubGlobal('window', fakeWindow);
+    vi.stubGlobal('CustomEvent', class { constructor(public type: string) {} });
+    clearNetworkHistory();
+    const restore = installNetworkInspector();
+    const phases = [
+      ['Vérifier la disponibilité du modèle', 'Modèle qwen3.5:4b'],
+      ['Précharger le modèle de lecture', 'Modèle qwen3.5:4b'],
+      ['Classer la page 1 pour la détection des schémas', 'Modèle vision · page 1/2 · copie-a.png'],
+      ['Lire et transcrire une page de copie', 'Modèle vision · page 1/2 · copie-a.png'],
+      ['Analyser les schémas de la page 2', 'Modèle vision · page 2/2 · copie-b.png'],
+      ['Analyser le critère Légendes', 'Modèle qwen3.5:4b · critère 1/3 · copie-a.png'],
+      ['Arbitrer les désaccords entre modèles', 'Modèle arbitre · 2 critères litigieux · copie-a.png'],
+      ['Lire et transcrire une page du barème', 'Modèle vision · barème.pdf · page 1/1'],
+      ['Structurer le barème transcrit', 'Modèle analyse · barème.pdf · bloc 1/1'],
+    ] as const;
+    try {
+      for (const [intent, context] of phases) {
+        await window.fetch('/api/correction-step', annotateNetworkRequest({ method: 'POST', body: JSON.stringify({ phase: intent }) }, intent, context));
+      }
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const records = loadNetworkHistory();
+      expect(records).toHaveLength(phases.length);
+      for (const [intent, context] of phases) expect(records).toContainEqual(expect.objectContaining({ intent, context, state: 'success' }));
+    } finally {
+      restore();
+    }
   });
 
 });

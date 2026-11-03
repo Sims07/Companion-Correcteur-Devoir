@@ -1057,6 +1057,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               const diagramResult = await diagramAnalysisService.analyze({
                 images: diagramImages,
                 pageNumbers: diagramPageNumbers,
+                totalPageCount: images.length,
                 question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
                 ...(!isFreshCorrection && subjectTranscription ? { subjectTranscription } : {}),
                 rubric: diagramRubric,

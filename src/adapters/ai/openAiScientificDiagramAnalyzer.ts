@@ -2,6 +2,8 @@ import { parseScientificDiagramAnalysis } from '../../domain/scientificDiagram.t
 import { parseScientificPageClassifications } from '../../domain/scientificPageClassification.ts';
 import type { ScientificDiagramAnalyzer, ScientificDiagramAnalysisRequest, ScientificPageClassificationRequest } from '../../ports/scientificDiagramAnalysis.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
+import { currentFetch } from './currentFetch.ts';
+import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 import type { DiagnosticModelResult, ImageInput } from '../../ports/aiProvider.ts';
 
 function diagnosticResult(request: { model: string; endpoint: string; images: ImageInput[]; onDiagnosticResult?: (result: DiagnosticModelResult) => void }, purpose: DiagnosticModelResult['purpose'], prompt: string, raw: string, startedAt: number, error?: string, requestPayload = ''): void {
@@ -164,7 +166,7 @@ function buildScientificDiagramRepairPrompt(
   ].join('\n\n');
 }
 
-export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = fetch): ScientificDiagramAnalyzer {
+export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = currentFetch): ScientificDiagramAnalyzer {
   return {
     async classifyPages(request: ScientificPageClassificationRequest) {
       let requestPayload = '';
@@ -176,7 +178,9 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
         const startedAt = Date.now();
         let raw = '';
         try {
-          const response = await compatibleFetch(`${request.endpoint.replace(/\/+$/, '')}/api/chat`, {
+          const pageNumber = index + 1;
+          const fileName = image.fileName ?? `page ${pageNumber}`;
+          const response = await compatibleFetch(`${request.endpoint.replace(/\/+$/, '')}/api/chat`, annotateNetworkRequest({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -192,7 +196,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
                 images: [`data:${image.mimeType};base64,${image.base64}`],
               }],
             }),
-          });
+          }, `Classer la page ${pageNumber} pour la détection des schémas`, `Modèle ${request.model} · page ${pageNumber}/${request.images.length} · ${fileName}`));
           if (!response.ok) {
             const detail = (await response.text()).slice(0, 500);
             throw new Error(`La détection Vision de la page ${index + 1} a échoué (HTTP ${response.status}). ${detail}`);
@@ -221,6 +225,10 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       const startedAt = Date.now();
       let raw = '';
       let prompt = buildScientificDiagramPrompt(request);
+      const pageNumber = request.pageNumbers?.[0] ?? 1;
+      const pageTotal = request.totalPageCount ?? Math.max(pageNumber, request.pageNumbers?.length ?? 1);
+      const fileName = request.images[0]?.fileName ?? `page ${pageNumber}`;
+      const networkContext = `Modèle ${request.model} · page ${pageNumber}/${pageTotal} · ${fileName}`;
 
       const schema = buildScientificDiagramJsonSchema(request);
 
@@ -241,11 +249,11 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
         };
         const post = (format: unknown) => compatibleFetch(
           request.endpoint.replace(/\/+$/, '') + '/api/chat',
-          {
+          annotateNetworkRequest({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...payload, format }),
-          },
+          }, promptOverride ? 'Réparer la réponse d’analyse des schémas' : `Analyser les schémas de la page ${pageNumber}`, networkContext),
         );
 
         let response = await post(schema);

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createOpenAiScientificDiagramAnalyzer } from './openAiScientificDiagramAnalyzer.ts';
+import { clearNetworkHistory, installNetworkInspector, loadNetworkHistory } from '../network/networkInspector.ts';
 
 const request = {
   endpoint: 'https://ai.example',
@@ -234,6 +235,33 @@ describe('OpenAI scientific diagram adapter', () => {
     const secondBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
     expect(typeof firstBody.format).toBe('object');
     expect(secondBody.format).toBe('json_object');
+  });
+
+  it('observes page classification even when the analyzer was created before inspector installation', async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({ pages: [{ pageNumber: 1, kind: 'scientific-diagram', confidence: 0.98, reason: 'Schéma biologique' }] }) } }],
+    }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    window.fetch = fetchMock;
+    clearNetworkHistory();
+    const analyzer = createOpenAiScientificDiagramAnalyzer();
+    const restoreInspector = installNetworkInspector();
+    try {
+      await analyzer.classifyPages({ ...request, images: [{ ...request.images[0], fileName: 'copie-biologie-page-1.png' }] });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(loadNetworkHistory()[0]).toMatchObject({
+        method: 'POST',
+        intent: 'Classer la page 1 pour la détection des schémas',
+        context: 'Modèle vision-model · page 1/1 · copie-biologie-page-1.png',
+        state: 'success',
+      });
+      expect(fetchMock).toHaveBeenCalledOnce();
+    } finally {
+      restoreInspector();
+      window.fetch = originalFetch;
+      vi.stubGlobal('fetch', originalFetch);
+    }
   });
 
 });
