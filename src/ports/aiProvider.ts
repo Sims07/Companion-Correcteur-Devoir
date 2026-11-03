@@ -39,7 +39,7 @@ export interface DiagnosticModelResult {
   /** Legacy standalone prompt preview. New traces keep the full sanitized request in requestPayload. */
   requestPrompt?: string;
   /** Effective non-sensitive provider settings; never contains image bytes or endpoint credentials. */
-  requestMetadata?: { provider?: 'ollama' | 'openai-compatible'; endpoint?: string; stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number; stop?: string[]; repeatPenalty?: number; frequencyPenalty?: number } };
+  requestMetadata?: { provider?: 'ollama' | 'openai-compatible'; endpoint?: string; stream: boolean; think: boolean; format?: 'json' | 'json-schema'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number; stop?: string[]; repeatPenalty?: number; frequencyPenalty?: number } };
   /** Sanitized JSON preview of the exact provider request; image bytes and credentials are always redacted. */
   requestPayload?: string;
   /** Raw response content returned by the model, including partial output when available. */

@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createOpenAiScientificDiagramAnalyzer } from './openAiScientificDiagramAnalyzer.ts';
-import { clearNetworkHistory, installNetworkInspector, loadNetworkHistory } from '../network/networkInspector.ts';
 
 const request = {
   endpoint: 'https://ai.example',
+  apiCompatible: true,
   apiKey: 'secret',
   teacherAnnotations: 'Correction rouge : légende à revoir',
   model: 'vision-model',
@@ -27,20 +27,74 @@ describe('OpenAI scientific diagram adapter', () => {
     ]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(diagnostic).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(diagnostic.mock.calls)).not.toContain('cG5n');
     expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'scientific-diagram-classification', model: 'vision-model' }));
     for (const [index, [url, init]] of fetchMock.mock.calls.entries()) {
       expect(String(url)).toBe('https://ai.example/v1/chat/completions');
       const body = JSON.parse(String(init?.body));
-      expect(body.max_tokens).toBe(320);
+      expect(body.max_tokens).toBe(1024);
       expect(body.max_completion_tokens).toBeUndefined();
       expect(body.messages[0].content).toHaveLength(2);
-      expect(body.messages[0].content[0].text).toContain(`NUMÉRO DE PAGE ORIGINAL : ${index + 1}`);
-      expect(body.messages[0].content[0].text).toContain('Les tableaux de données');
-      expect(body.messages[0].content[0].text).toContain('Les seules valeurs autorisées pour kind sont text, scientific-diagram, mixed ou ambiguous');
+      expect(body.messages[0].content[0].text).toContain(`classe la page ${index + 1}`);
+      expect(body.messages[0].content[0].text).toContain('kind=text : texte manuscrit');
+      expect(body.messages[0].content[0].text.split('\n\n')).toHaveLength(3);
+      expect(body.messages[0].content[0].text).toContain('FORMAT DE SORTIE');
+      expect(body.messages[0].content[0].text.split('\n\n').at(-1)).toContain('FORMAT DE SORTIE');
       expect(body.messages[0].content[0].text).toContain('orientationConfidence');
+      expect(body.messages[0].content[0].text).toContain('Exemple neutre : {\"pageNumber\":1,\"kind\":\"text\"');
+      expect(body.response_format.json_schema.schema.properties.kind.enum).toEqual(['text', 'scientific-diagram', 'mixed', 'ambiguous']);
       expect(body.messages[0].content[1].image_url.url).toContain(index === 0 ? 'cG5n' : 'cG5nMg==');
       expect(body.messages[0].content[1].image_url.detail).toBe('high');
     }
+  });
+
+
+  it('uses native Ollama chat with constrained JSON schema and a 1024-token budget', async () => {
+    const nativeResponse = { message: { content: '{"pageNumber":1,"kind":"text","confidence":0.9,"reason":"texte manuscrit","suggestedRotation":0,"orientationConfidence":0.9}' }, done_reason: 'stop' };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(nativeResponse), { status: 200 }));
+    await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).classifyPages({ ...request, apiCompatible: false })).resolves.toMatchObject([{ kind: 'text', confidence: 0.9 }]);
+    expect(String(fetchMock.mock.calls[0][0])).toBe('https://ai.example/api/chat');
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.think).toBe(false);
+    expect(body.keep_alive).toBe(0);
+    expect(body.options.num_predict).toBe(1024);
+    expect(body.format.properties.kind.enum).toEqual(['text', 'scientific-diagram', 'mixed', 'ambiguous']);
+    expect(body.format.properties.suggestedRotation.enum).toEqual([0, 90, 180, 270]);
+  });
+
+  it('repairs a truncated local classification once and reports a second truncation', async () => {
+    const valid = { message: { content: '{"kind":"text","confidence":0.9}' }, done_reason: 'stop' };
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: '{"kind":' }, done_reason: 'length' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(valid), { status: 200 }));
+    await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).classifyPages({ ...request, apiCompatible: false })).resolves.toMatchObject([{ kind: 'text' }]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).messages[0].content)).toContain('Réponse précédente à réparer');
+  });
+
+  it('repairs an OpenAI-compatible classification response when finish_reason is length', async () => {
+    const valid = { choices: [{ message: { content: '{"kind":"text","confidence":0.9}' }, finish_reason: 'stop' }] };
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: '{"kind":' }, finish_reason: 'length' }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(valid), { status: 200 }));
+    await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).classifyPages({ ...request, apiCompatible: true })).resolves.toMatchObject([{ kind: 'text' }]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).messages[0].content[0].text).toContain('Réponse précédente à réparer');
+  });
+
+
+
+  it('uses native Ollama chat and a JSON Schema for local diagram analysis too', async () => {
+    const nativeResponse = { message: { content: JSON.stringify(output) }, done_reason: 'stop' };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(nativeResponse), { status: 200 }));
+    await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({ ...request, apiCompatible: false }))
+      .resolves.toMatchObject({ diagrams: [{ pageNumber: 1, criteria: [{ points: 2 }] }] });
+    expect(String(fetchMock.mock.calls[0][0])).toBe('https://ai.example/api/chat');
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.think).toBe(false);
+    expect(body.keep_alive).toBe(0);
+    expect(body.format.properties.criteria.type).toBe('array');
+    expect(body.messages[0].images[0]).toBe('cG5n');
   });
 
   it('sends the original page image and rubric to the configured OpenAI-compatible Vision endpoint', async () => {
@@ -69,6 +123,8 @@ describe('OpenAI scientific diagram adapter', () => {
     const prompt = body.messages[0].content[0].text as string;
     const schema = body.format;
     expect(prompt).toContain('SCHÉMA JSON À RESPECTER STRICTEMENT');
+    expect(prompt.split('\n\n').at(-1)).toContain('FORMAT DE SORTIE');
+    expect(prompt.split('\\n\\n').at(-1)).toContain('Exemple neutre');
     expect(prompt).toContain(JSON.stringify(schema));
     expect(schema.required).toEqual(['diagrams', 'criteria', 'overallUncertainties']);
     expect(schema.properties.diagrams.minItems).toBe(1);
@@ -235,33 +291,6 @@ describe('OpenAI scientific diagram adapter', () => {
     const secondBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
     expect(typeof firstBody.format).toBe('object');
     expect(secondBody.format).toBe('json_object');
-  });
-
-  it('observes page classification even when the analyzer was created before inspector installation', async () => {
-    const originalFetch = globalThis.fetch;
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
-      choices: [{ message: { content: JSON.stringify({ pages: [{ pageNumber: 1, kind: 'scientific-diagram', confidence: 0.98, reason: 'Schéma biologique' }] }) } }],
-    }), { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
-    window.fetch = fetchMock;
-    clearNetworkHistory();
-    const analyzer = createOpenAiScientificDiagramAnalyzer();
-    const restoreInspector = installNetworkInspector();
-    try {
-      await analyzer.classifyPages({ ...request, images: [{ ...request.images[0], fileName: 'copie-biologie-page-1.png' }] });
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(loadNetworkHistory()[0]).toMatchObject({
-        method: 'POST',
-        intent: 'Classer la page 1 pour la détection des schémas',
-        context: 'Modèle vision-model · page 1/1 · copie-biologie-page-1.png',
-        state: 'success',
-      });
-      expect(fetchMock).toHaveBeenCalledOnce();
-    } finally {
-      restoreInspector();
-      window.fetch = originalFetch;
-      vi.stubGlobal('fetch', originalFetch);
-    }
   });
 
 });

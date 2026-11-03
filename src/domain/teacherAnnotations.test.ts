@@ -27,6 +27,12 @@ describe('teacher annotation extraction contract', () => {
     expect(detection.annotations).toHaveLength(1);
     expect(detection.invalidAnnotationCount).toBe(1);
   });
+  it('accepts French aliases and ignores only invalid annotations', () => {
+    const result = parseTeacherAnnotationDetection('<think>...</think> Voilà : {"transcriptionEtudiant":"Réponse","annotationsProfesseur":[{"texte":"Bien","type":"commentaire"},{"texte":"invalide","type":"inventé"}]}');
+    expect(result.studentTranscription).toBe('Réponse');
+    expect(result.annotations).toMatchObject([{ text: 'Bien', kind: 'comment', confidence: 'low' }]);
+    expect(result.invalidAnnotationCount).toBe(1);
+  });
 });
 
 describe('deletion-only transcription validation', () => {

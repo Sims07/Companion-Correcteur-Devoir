@@ -10,7 +10,7 @@ const criterion = {
 
 describe('incremental grading prompt contract', () => {
   it('keeps relevant source material and limits the call to one exact rubric criterion', () => {
-    const context = ['Instructions générales longues', '<consigne_enseignant>Expliquez la mitose.</consigne_enseignant>', '<sujet_reference>46 chromosomes.</sujet_reference>', '<transcription_etudiant>Deux cellules filles.</transcription_etudiant>', '<barème>{\"criteria\":[{\"id\":\"other\"}]}</barème>'].join('\\n\\n');
+    const context = ['Instructions générales longues', '<consigne_enseignant>Expliquez la mitose.</consigne_enseignant>', '<sujet_reference>46 chromosomes.</sujet_reference>', '<transcription_etudiant>Deux cellules filles.</transcription_etudiant>', '<barème>{\"criteria\":[{\"id\":\"other\"}]}</barème>'].join('\n\n');
     const prompt = buildIncrementalCriterionPrompt(context, criterion);
 
     expect(prompt).toContain('Expliquez la mitose.');
@@ -21,7 +21,7 @@ describe('incremental grading prompt contract', () => {
     expect(prompt).not.toContain('<barème>');
     expect(prompt).toContain('MODE INCRÉMENTAL');
     expect(prompt).toContain(JSON.stringify(criterion));
-    expect(prompt).toContain('"criterionId":"cell-division"');
+    expect(prompt).toContain('IDENTIFIANT DE SORTIE IMPÉRATIF : criterionId doit être exactement "cell-division"');
     expect(prompt).toContain('N’évalue aucun autre critère');
   });
 
@@ -37,8 +37,10 @@ describe('incremental grading prompt contract', () => {
 
   it('allows empty rationale and annotation for confident maximum score while keeping evidence required', () => {
     const prompt = buildIncrementalCriterionPrompt('Contexte', criterion);
-    expect(prompt).toContain('rationale et annotationSuggestion peuvent être des chaînes vides uniquement lorsque points atteint maxPoints et confidence vaut high');
-    expect(prompt).toContain('evidence reste toujours obligatoire et non vide');
+    expect(prompt).toContain('points (nombre, jamais une chaîne');
+    expect(prompt).toContain('FORMAT DE SORTIE');
+    expect(prompt).toContain('Exemple neutre');
+    expect(prompt.split('\n\n').at(-1)).toContain('FORMAT DE SORTIE');
     expect(prompt).toContain('confidence vaut high');
   });
 

@@ -71,6 +71,19 @@ describe('parseGradingProposal', () => {
     expect(() => parseGradingProposal('not json', rubric)).toThrow(/format attendu/);
   });
 
+  it('rejects a numeric score encoded as a string', () => {
+    expect(() => parseGradingProposal(JSON.stringify({
+      criteria: [{ ...validCriteria[0], points: '6' }, validCriteria[1]],
+    }), rubric)).toThrow(/hors barème/);
+  });
+
+  it('rejects a final score encoded as a string instead of a number', () => {
+    expect(() => parseGradingProposal(JSON.stringify({
+      criteria: validCriteria,
+      finalScore: '9',
+    }), rubric)).toThrow(/note finale doit être un nombre/);
+  });
+
   it('rejects an incomplete proposal rather than silently omitting rubric criteria', () => {
     expect(() => parseGradingProposal(JSON.stringify({ criteria: [validCriteria[0]] }), rubric)).toThrow(/incomplète/);
   });

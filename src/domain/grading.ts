@@ -1,4 +1,5 @@
 import type { Rubric } from './rubric.ts';
+import { parseModelJson } from './modelJson.ts';
 import type { ScientificDiagramQualityAssessment } from './scientificDiagram.ts';
 
 export type Confidence = 'low' | 'medium' | 'high';
@@ -47,12 +48,12 @@ function text(value: unknown, fallback = ''): string {
 }
 
 function normalizeCriteria(parsed: Record<string, unknown>): unknown[] | null {
-  if (Array.isArray(parsed.criteria)) return parsed.criteria;
+  if (Array.isArray(parsed.criteria ?? parsed.criteres)) return (parsed.criteria ?? parsed.criteres) as unknown[];
 
   // Some local instruction-tuned models obey the JSON contract but serialize the
   // criteria collection as an object keyed by criterion id instead of an array.
   // Normalize that harmless shape before applying the strict domain validation.
-  const objectCriteria = isRecord(parsed.criteria) ? parsed.criteria : null;
+  const objectCriteria = isRecord(parsed.criteria ?? parsed.criteres) ? (parsed.criteria ?? parsed.criteres) as Record<string, unknown> : null;
   if (objectCriteria) {
     return Object.entries(objectCriteria).map(([criterionId, value]) => ({
       ...(isRecord(value) ? value : {}),
@@ -77,13 +78,9 @@ function normalizeCriteria(parsed: Record<string, unknown>): unknown[] | null {
 }
 
 export function parseGradingProposal(raw: string, rubric: Rubric): GradingProposal {
-  const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   let parsed: unknown;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    throw new Error('La réponse du modèle ne respecte pas le format attendu. Relancez la correction ou demandez une réponse JSON au modèle.');
-  }
+  try { parsed = parseModelJson(raw); }
+  catch (cause) { throw new Error(cause instanceof Error ? cause.message : 'La réponse du modèle ne respecte pas le format JSON attendu.'); }
   if (!isRecord(parsed)) {
     throw new Error('La réponse du modèle ne contient pas de liste de critères exploitable.');
   }
@@ -96,35 +93,31 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
   const criteria: CriterionProposal[] = [];
   const seenIds = new Set<string>();
   for (const item of normalizedCriteria) {
-    if (!isRecord(item) || typeof item.criterionId !== 'string') {
+    if (!isRecord(item) || typeof (item.criterionId ?? item.idCritere) !== 'string') {
       throw new Error('Une entrée de la réponse du modèle ne contient pas d’identifiant de critère valide.');
     }
-    const rubricCriterion = knownCriteria.get(item.criterionId);
+    const rubricCriterion = knownCriteria.get(String(item.criterionId ?? item.idCritere));
     if (!rubricCriterion) {
       throw new Error(`La réponse du modèle contient un critère inconnu (« ${item.criterionId} »). Relancez la correction.`);
     }
-    if (seenIds.has(item.criterionId)) {
+    if (seenIds.has(String(item.criterionId ?? item.idCritere))) {
       throw new Error(`La réponse du modèle contient plusieurs propositions pour le critère « ${rubricCriterion.title} ».`);
     }
-    seenIds.add(item.criterionId);
+    seenIds.add(String(item.criterionId ?? item.idCritere));
 
-    const points = typeof item.points === 'number' ? normalizeGradeScore(item.points) : Number.NaN;
+    const points = typeof (item.points ?? item.note) === 'number' ? normalizeGradeScore((item.points ?? item.note) as number) : Number.NaN;
     const minimumPoints = Math.min(0, rubricCriterion.maxPoints);
     const maximumPoints = Math.max(0, rubricCriterion.maxPoints);
     if (!Number.isFinite(points) || points < minimumPoints || points > maximumPoints) {
       throw new Error(`La proposition pour « ${rubricCriterion.title} » est hors barème. Vérifiez la réponse du modèle.`);
     }
-    const confidence: Confidence = item.confidence === 'low' || item.confidence === 'medium' || item.confidence === 'high'
-      ? item.confidence
-      : 'low';
-    const evidence = text(item.evidence);
-    if (!evidence) throw new Error(`La preuve du critère « ${rubricCriterion.title} » est obligatoire, même lorsque le maximum de points est attribué.`);
-    const rationale = text(item.rationale);
-    if (((rubricCriterion.maxPoints < 0 ? points < 0 : points < rubricCriterion.maxPoints) || confidence !== 'high') && !rationale) {
-      throw new Error(`La justification du critère « ${rubricCriterion.title} » est obligatoire lorsque la note est partielle ou la confiance n’est pas élevée.`);
-    }
+    const rawConfidence = item.confidence ?? item.confiance;
+    const confidence: Confidence = rawConfidence === 'low' || rawConfidence === 'medium' || rawConfidence === 'high' ? rawConfidence : 'low';
+    const evidence = text(item.evidence ?? item.preuve);
+    if (!evidence) throw new Error(`La preuve est obligatoire pour le critère « ${rubricCriterion.title} ».`);
+    const rationale = text(item.rationale ?? item.justification);
     criteria.push({
-      criterionId: item.criterionId,
+      criterionId: rubricCriterion.id,
       points,
       rationale,
       evidence,
@@ -148,6 +141,9 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
   });
 
   const calculatedFinalScore = normalizeGradeScore(criteria.reduce((sum, criterion) => sum + Math.round(criterion.points * 100), 0) / 100);
+  if (parsed.finalScore !== undefined && typeof parsed.finalScore !== 'number') {
+    throw new Error('La note finale doit être un nombre strictement numérique.');
+  }
   const declaredFinalScore = typeof parsed.finalScore === 'number' ? normalizeGradeScore(parsed.finalScore) : calculatedFinalScore;
   if (!Number.isFinite(declaredFinalScore) || Math.abs(declaredFinalScore - calculatedFinalScore) > 0.0001) {
     throw new Error(`La note finale annoncée (${String(parsed.finalScore)}) ne correspond pas à la somme des points par critère (${calculatedFinalScore}).`);

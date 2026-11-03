@@ -38,4 +38,18 @@ describe('parseArbitrationDecisions', () => {
       { criterionId: 'q1', selected: 'avis1', reason: 'raison' },
     ], finalScore: 99 }), ['q1'], first, second)).toThrow('champs hors du contrat');
   });
+  it('accepts wrapped French aliases and an omitted explanatory reason', () => {
+    expect(parseArbitrationDecisions('<think>...</think> Décision : {"arbitrages":[{"idCritere":"q1","choix":"2"}],"resume":"à vérifier"}', ['q1'], first, second))
+      .toEqual([{ criterionId: 'q1', selected: 'avis2', reason: '' }]);
+  });
+
+  it('rejects string notes or invalid selections with an explicit error', () => {
+    expect(() => parseArbitrationDecisions('{"decisions":[{"criterionId":"q1","selected":"avis3"}]}', ['q1'], first, second))
+      .toThrow(/selected/);
+  });
+  it('rejects a root array instead of an arbitration object explicitly', () => {
+    expect(() => parseArbitrationDecisions('[{"criterionId":"q1","selected":"avis1"}]', ['q1'], first, second))
+      .toThrow(/objet JSON exploitable/);
+  });
+
 });

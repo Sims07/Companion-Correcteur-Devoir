@@ -14,7 +14,7 @@ export type ObservabilitySpan = {
   generationMs?: number;
   loadMs?: number;
   requestPrompt?: string;
-  requestMetadata?: { provider?: 'ollama' | 'openai-compatible'; endpoint?: string; stream: boolean; think: boolean; format?: 'json'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number; stop?: string[]; repeatPenalty?: number; frequencyPenalty?: number } };
+  requestMetadata?: { provider?: 'ollama' | 'openai-compatible'; endpoint?: string; stream: boolean; think: boolean; format?: 'json' | 'json-schema'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number; stop?: string[]; repeatPenalty?: number; frequencyPenalty?: number } };
   requestPayload?: string;
   raw?: string;
   error?: string;
