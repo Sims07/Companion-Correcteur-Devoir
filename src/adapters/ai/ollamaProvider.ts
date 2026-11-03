@@ -997,7 +997,7 @@ export function createOllamaProvider(
         const criteria = parsedRubric.criteria ?? [];
         // Legacy callers without structured criteria keep the original whole-rubric contract.
         if (criteria.length === 0) {
-          return sendStream(analysisModel, gradingPrompt, undefined, onChunk, gradingSchema, settings.thinking ?? false, { kind: 'model', stage: 'analysis', allowTruncated: true });
+          return sendGradingWithRepair(analysisModel, gradingPrompt, undefined, onChunk, { kind: 'model', stage: 'analysis' });
         }
 
         const completed: Array<Record<string, unknown>> = [];

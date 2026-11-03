@@ -5,6 +5,21 @@ export interface ScientificPageClassification {
   pageNumber: number; kind: ScientificPageKind; confidence: number; reason: string;
   suggestedRotation?: 0 | 90 | 180 | 270; orientationConfidence?: number; warning?: string;
 }
+function normalizeKind(value: unknown): ScientificPageKind | null {
+  if (typeof value !== 'string') return null;
+  const kind = value.trim().toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[ _]/g, '-');
+  if (['text', 'texte', 'textuel'].includes(kind)) return 'text';
+  if (['scientific-diagram', 'diagram', 'diagramme', 'schema', 'scientific-schema'].includes(kind)) return 'scientific-diagram';
+  if (['mixed', 'mixte', 'hybride'].includes(kind)) return 'mixed';
+  if (['ambiguous', 'ambigu', 'ambigue', 'incertain', 'indetermine'].includes(kind)) return 'ambiguous';
+  return null;
+}
+
+function confidenceValue(value: unknown): number {
+  const number = typeof value === 'string' && value.trim() ? Number(value.replace(',', '.')) : value;
+  return typeof number === 'number' && Number.isFinite(number) && number >= 0 && number <= 1 ? number : 0.5;
+}
+
 export function parseScientificPageClassifications(raw: string, pageCount: number): ScientificPageClassification[] {
   let parsed: unknown;
   try { parsed = parseModelJson(raw); }
