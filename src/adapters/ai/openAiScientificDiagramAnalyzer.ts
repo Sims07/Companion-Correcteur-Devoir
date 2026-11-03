@@ -240,7 +240,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           model: request.model,
           stream: false,
           ...(local ? { think: false, keep_alive: 0 } : { generation_token_parameter: 'max_tokens' as const }),
-          options: { temperature: 0, num_predict: local ? 4096 : 2048, ...(local ? { num_ctx: 8192 } : {}) },
+          options: { temperature: 0, num_predict: 2048, ...(local ? { num_ctx: 8192 } : {}) },
           messages: [{
             role: 'user',
             content: prompt,
