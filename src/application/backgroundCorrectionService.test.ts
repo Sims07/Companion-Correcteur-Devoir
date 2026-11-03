@@ -46,7 +46,35 @@ describe('background Ollama prewarming', () => {
     expect(prewarmModel).toHaveBeenCalledTimes(2);
   });
 
-  it('aborts an in-flight prewarm when foreground correction takes priority', async () => {
+  it('lets a same-model prewarm continue without blocking foreground correction', async () => {
+    let signal: AbortSignal | undefined;
+    let notifyStarted!: () => void;
+    let finishPrewarm!: () => void;
+    const started = new Promise<void>((resolve) => { notifyStarted = resolve; });
+    const prewarmFinished = new Promise<void>((resolve) => { finishPrewarm = resolve; });
+    const prewarmModel = vi.fn(async (_settings: OllamaSettings, _model: string, requestSignal?: AbortSignal) => {
+      signal = requestSignal;
+      notifyStarted();
+      await prewarmFinished;
+    });
+    const workspace = {
+      checkReady: vi.fn(async () => undefined),
+      prewarmModel,
+    } as unknown as OllamaGateway;
+    const service = createBackgroundCorrectionService({} as unknown as BackgroundCorrectionRepository, workspace);
+
+    const warming = service.prewarm(settings);
+    await started;
+    let pauseFinished = false;
+    await service.pauseAndWait(settings.visionModel).then(() => { pauseFinished = true; });
+
+    expect(pauseFinished).toBe(true);
+    expect(signal?.aborted).toBe(false);
+    finishPrewarm();
+    await expect(warming).resolves.toBeUndefined();
+  });
+
+  it('aborts and waits for an in-flight prewarm when foreground correction uses another model', async () => {
     let signal: AbortSignal | undefined;
     let notifyStarted!: () => void;
     const started = new Promise<void>((resolve) => { notifyStarted = resolve; });
@@ -65,7 +93,7 @@ describe('background Ollama prewarming', () => {
 
     const warming = service.prewarm(settings);
     await started;
-    await service.pauseAndWait();
+    await service.pauseAndWait('different-model:7b');
     await expect(warming).resolves.toBeUndefined();
 
     expect(signal?.aborted).toBe(true);
