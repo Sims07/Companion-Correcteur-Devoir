@@ -75,7 +75,7 @@ describe('hexagonal architecture boundaries', () => {
     for (const file of networkAdapters) {
       const text = source(file);
       expect(text, file).toContain('currentFetch');
-      expect(text, file).not.toMatch(/(?:fetchImpl|requestFetch):\\s*typeof fetch\\s*=\\s*fetch\\b/);
+      expect(text, file).not.toMatch(/(?:fetchImpl|requestFetch):\s*typeof fetch\s*=\s*fetch\b/);
     }
     const entrypoint = source('../src/main.tsx');
     expect(entrypoint.startsWith("import './instrumentation.ts';" )).toBe(true);
