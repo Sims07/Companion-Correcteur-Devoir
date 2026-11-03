@@ -140,7 +140,7 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     if (criterion.questionForTeacher) questions.push(criterion.questionForTeacher);
   });
 
-  const calculatedFinalScore = normalizeGradeScore(criteria.reduce((sum, criterion) => sum + Math.round(criterion.points * 100), 0) / 100);
+  const calculatedFinalScore = sumGradeScores(criteria.map((criterion) => criterion.points));
   if (parsed.finalScore !== undefined && typeof parsed.finalScore !== 'number') {
     throw new Error('La note finale doit être un nombre strictement numérique.');
   }
