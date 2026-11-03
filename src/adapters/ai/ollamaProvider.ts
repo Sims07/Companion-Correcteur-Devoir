@@ -521,6 +521,9 @@ export function createOllamaProvider(
             return tracking?.stage === 'reading' && hasTranscriptionDrift(partialContent);
           });
           if (result.suspiciousStop) tracking?.onSuspiciousStop?.();
+          if (tracking && typeof result.loadMs === 'number' && result.loadMs > 0) {
+            onProgress?.({ type: 'model-load', role: tracking.kind === 'vision' ? 'reading' : 'analysis', durationMs: result.loadMs });
+          }
           if (tracking && diagnosticTracking) {
             const metrics: Omit<DiagnosticModelResult, 'raw'> = {
               kind: tracking.kind,
@@ -559,9 +562,6 @@ export function createOllamaProvider(
               generationTokenLimit: tracking.generationTokenLimit ?? 2048,
             };
             lastDiagnosticMetrics = metrics;
-            if (typeof result.loadMs === 'number' && result.loadMs > 0) {
-              onProgress?.({ type: 'model-load', role: tracking.kind === 'vision' ? 'reading' : 'analysis', durationMs: result.loadMs });
-            }
             if (!tracking.deferResult) {
               onDiagnosticResult?.({ ...metrics, raw: result.content });
               diagnosticResultEmitted = true;
