@@ -926,6 +926,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const abortController = new AbortController();
     activeCorrectionAbortController.current = abortController;
     const runStartedAt = Date.now();
+    let correctionTimedOut = false;
+    const correctionTimeout = window.setTimeout(() => { correctionTimedOut = true; abortController.abort(); }, 5 * 60 * 1000);
     let readingStartedAt: number | null = null;
     let readingDurationMs: number | null = null;
     let analysisStartedAt: number | null = null;
@@ -966,6 +968,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setReadingElapsedMs(null);
     setAnalysisElapsedMs(null);
     setAnalysisStage('checking');
+    setCriterionProgressMessage('Préparation de la correction locale…');
     setCurrentTimingRecordId(null);
     setCriterionProgressMessage('');
     setPageProgress({});
@@ -1085,6 +1088,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         // The first real request is the readiness check. Avoid loading and unloading
         // local Ollama models with synthetic generations before reading the copy.
         setAnalysisStage('reading');
+        if (!gradingTranscription) setCriterionProgressMessage('Chargement du modèle de lecture, cela peut prendre quelques minutes…');
         const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
         const teacherAnnotationImages = detectTeacherAnnotations
           ? await Promise.all(textPageNumbers.map(async (pageNumber) => {
@@ -1103,6 +1107,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             if (stage === 'grading') {
               if (readingStartedAt !== null && readingDurationMs === null) { readingDurationMs = now - readingStartedAt; setReadingElapsedMs(readingDurationMs); }
               analysisStartedAt = now;
+              setCriterionProgressMessage('Chargement du modèle d’analyse, cela peut prendre quelques minutes…');
               setStreamedOutput('');
               if (interfaceMode === 'teacher') {
                 setTeacherStep('review');
@@ -1184,8 +1189,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       outcome = 'success';
     } catch (cause) {
       if (interfaceMode === 'teacher') setTeacherStep(textImages.length === 0 || partialCriteria.length > 0 || analysisStartedAt !== null ? 'review' : 'copy');
-      setError(abortController.signal.aborted ? 'Traitement interrompu. Les éléments déjà lus et les critères déjà évalués sont conservés.' : cause instanceof Error ? cause.message : 'La correction a échoué.');
+      setError(correctionTimedOut ? 'Le modèle met trop de temps à répondre. Vérifiez Ollama avec « ollama ps », puis relancez la correction.' : abortController.signal.aborted ? 'Traitement interrompu. Les éléments déjà lus et les critères déjà évalués sont conservés.' : cause instanceof Error ? cause.message : 'La correction a échoué.');
     } finally {
+      window.clearTimeout(correctionTimeout);
       const finishedAt = Date.now();
       if (readingDurationMs !== null) setReadingElapsedMs(readingDurationMs);
       if (analysisStartedAt !== null) setAnalysisElapsedMs(analysisDurationMs ?? Math.max(0, finishedAt - analysisStartedAt));
