@@ -802,7 +802,8 @@ export function createOllamaProvider(
             const detail = cause instanceof Error ? cause.message : 'erreur inconnue du modèle de lecture';
             const warning = `Détection des annotations non effectuée sur la page ${pageNumber} : elles n'ont pas été retirées. ${detail}`;
             onTranscription?.(warning, 'warning');
-            throw new Error(warning);
+            // Annotation detection is advisory: keep the original student transcription and continue grading.
+            continue;
           }
           let detection = parseTeacherAnnotationDetection(annotationResponse);
           if (!detection.studentTranscription) {
@@ -812,8 +813,14 @@ export function createOllamaProvider(
               'Réponse précédente à réparer : ' + annotationResponse.slice(0, 2500) + '.',
               'FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON sans texte ni Markdown. Champs : studentTranscription et annotations. Exemple neutre : {"studentTranscription":"Texte étudiant.","annotations":[]}.',
             ].join('\n\n');
-            const repaired = await sendStream(visionModel, repairPrompt, [providerImage(image)], undefined, annotationSchema, false, { kind: 'vision', stage: 'reading', temperature: 0, generationTokenLimit: 1024, allowTruncated: true, intent: 'Réparer la détection des annotations', context: 'Page ' + pageNumber });
-            detection = parseTeacherAnnotationDetection(repaired);
+            try {
+              const repaired = await sendStream(visionModel, repairPrompt, [providerImage(image)], undefined, annotationSchema, false, { kind: 'vision', stage: 'reading', temperature: 0, generationTokenLimit: 1024, allowTruncated: true, intent: 'Réparer la détection des annotations', context: 'Page ' + pageNumber });
+              detection = parseTeacherAnnotationDetection(repaired);
+            } catch (repairCause) {
+              const warning = `Détection des annotations non exploitable sur la page ${pageNumber} : ${repairCause instanceof Error ? repairCause.message : 'réponse invalide'}. La transcription initiale est conservée et la correction continue ; vérifiez les annotations manuellement.`;
+              onTranscription?.(warning, 'warning');
+              continue;
+            }
           }
           if (detection.invalidAnnotationCount > 0) {
             onTranscription?.(`Page ${pageNumber} : ${detection.invalidAnnotationCount} annotation(s) au format invalide ont été ignorées ; les autres annotations restent vérifiables.`, 'warning');
@@ -821,7 +828,8 @@ export function createOllamaProvider(
           if (!detection.studentTranscription) {
             const warning = `Détection des annotations non exploitable sur la page ${pageNumber} : la transcription nettoyée est absente. La correction ne peut pas continuer sans transcription fiable.`;
             onTranscription?.(warning, 'warning');
-            throw new Error(warning);
+            // The initial OCR remains authoritative when annotation cleanup cannot be validated.
+            continue;
           }
           if (!isDeletionOnlyTranscription(originalPageText, detection.studentTranscription)) {
             const warning = `Transcription nettoyée rejetée sur la page ${pageNumber} : le modèle a ajouté, reformulé ou réordonné du texte. Les annotations n'ont pas été retirées ; aucune note ne peut être calculée.`;

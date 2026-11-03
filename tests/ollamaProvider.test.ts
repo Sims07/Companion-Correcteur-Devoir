@@ -341,15 +341,18 @@ describe('Ollama adapter', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('does not grade when annotation detection fails and reports the page', async () => {
+  it('continues grading with the original transcription when annotation detection fails and reports the page', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(streamingResponse('Réponse de l’étudiant'))
-      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
     const warnings: string[] = [];
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }, fetchMock);
-    await expect(provider.generate({ ...request, detectTeacherAnnotations: true }, undefined, undefined, (value, kind) => { if (kind === 'warning') warnings.push(value); })).rejects.toThrow(/page 1.*elles n'ont pas été retirées/i);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await expect(provider.generate({ ...request, detectTeacherAnnotations: true }, undefined, undefined, (value, kind) => { if (kind === 'warning') warnings.push(value); })).resolves.toBe('{"criteria":[]}');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(warnings[0]).toContain('page 1');
+    const gradingRequest = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
+    expect(gradingRequest.messages[0].content).toContain('Réponse de l’étudiant');
   });
 
   it('rejects a cleaned transcription that adds or reformulates student words', async () => {
