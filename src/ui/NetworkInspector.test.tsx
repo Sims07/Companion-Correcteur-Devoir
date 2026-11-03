@@ -3,14 +3,13 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const startedAt = '2026-11-03T08:00:00.000Z';
 vi.mock('../adapters/network/networkInspector.ts', () => ({
   networkInspectorEvent: 'network-inspector-test-event',
   clearNetworkHistory: vi.fn(),
   getNetworkInspectorStatus: () => ({ storageBytes: 0, storageWarning: null }),
   loadNetworkHistory: () => [{
     id: 'pending-request',
-    startedAt,
+    startedAt: '2026-11-03T08:00:00.000Z',
     method: 'POST',
     url: 'http://localhost:11434/api/chat',
     intent: 'Lire et transcrire une page',
@@ -43,7 +42,7 @@ describe('NetworkInspector live request feedback', () => {
 
   it('updates the pending request stopwatch and explains long server waits', async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(startedAt));
+    vi.setSystemTime(new Date('2026-11-03T08:00:00.000Z'));
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
