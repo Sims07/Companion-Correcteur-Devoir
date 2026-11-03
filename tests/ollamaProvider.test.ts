@@ -137,7 +137,7 @@ describe('Ollama adapter', () => {
       body: expect.stringContaining('"model":"llava"'),
     }));
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"images":["aGVsbG8="]');
-    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"format":"json"');
+    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"format":{"type":"object"');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"stream":true');
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"think":false');
     // The first request for a local model is cancellable and has a five-minute cold-start limit.
