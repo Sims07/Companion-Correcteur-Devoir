@@ -11,7 +11,7 @@ import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationReco
 import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import { getTeacherEntryStep } from '../domain/teacherJourney.ts';
 import { shouldRunScientificDiagramAnalysis, type ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
-import { routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
+import { resolveAmbiguousPageClassification, routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
 import { accumulateClockwiseRotation, getConfidentDiagramRotation } from '../domain/scientificPageOrientation.ts';
 import { mergeScientificDiagramCriteria, partitionScientificRubric, shouldRunTeacherScientificDiagramWorkflow } from '../domain/scientificRubricRouting.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, GradingProgressEvent, ImageInput } from '../ports/aiProvider.ts';
