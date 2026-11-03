@@ -1,3 +1,5 @@
+import { sumGradeScores } from './scorePrecision.ts';
+
 export interface CriterionProgressDefinition {
   id: string;
   maxPoints: number;
@@ -33,8 +35,8 @@ export function summarizeCriterionProgress(
   return {
     completedCount,
     totalCount,
-    provisionalPoints: [...scoresByCriterion.values()].reduce((sum, points) => sum + points, 0),
-    maximumPoints: criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0),
+    provisionalPoints: sumGradeScores([...scoresByCriterion.values()]),
+    maximumPoints: sumGradeScores(criteria.map((criterion) => criterion.maxPoints)),
     isComplete: totalCount > 0 && completedCount === totalCount,
   };
 }

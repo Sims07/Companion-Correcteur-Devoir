@@ -32,6 +32,17 @@ describe('buildDiagnosticScore', () => {
     });
   });
 
+  it('totals decimal criterion scores without floating-point residue', () => {
+    const decimalProposal = {
+      ...proposal,
+      criteria: [
+        { ...proposal.criteria[0], points: 1.65 },
+        { ...proposal.criteria[1], points: 0.01 },
+      ],
+    };
+    expect(buildDiagnosticScore(decimalProposal, rubric).modelScore).toBe(1.66);
+  });
+
   it('keeps the model score independent from teacher-reviewed points', () => {
     const reviewedProposal = { ...proposal, criteria: proposal.criteria.map((criterion) => ({ ...criterion, points: 0 })) };
     expect(buildDiagnosticScore(reviewedProposal, rubric).modelScore).toBe(0);

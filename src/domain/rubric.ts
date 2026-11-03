@@ -1,3 +1,5 @@
+import { sumGradeScores } from './scorePrecision.ts';
+
 export interface RubricCriterion {
   id: string;
   title: string;
@@ -43,7 +45,7 @@ export function validateRubric(rubric: Rubric): RubricValidation {
         labels.add(element.label.trim());
         if (!Number.isFinite(element.points) || element.points < 0) errors.push(`Les points de l’élément « ${element.label} » doivent être positifs ou nuls.`);
       }
-      const expectedTotal = criterion.expectedElements.reduce((sum, element) => sum + element.points, 0);
+      const expectedTotal = sumGradeScores(criterion.expectedElements.map((element) => element.points));
       if (Math.abs(expectedTotal - criterion.maxPoints) > 0.0001) errors.push(`Les éléments attendus du critère ${criterion.id} totalisent ${expectedTotal} point(s), au lieu de ${criterion.maxPoints}.`);
     }
   }
@@ -51,6 +53,6 @@ export function validateRubric(rubric: Rubric): RubricValidation {
   return {
     valid: errors.length === 0,
     errors,
-    maximumPoints: rubric.criteria.reduce((sum, criterion) => sum + (Number.isFinite(criterion.maxPoints) ? criterion.maxPoints : 0), 0),
+    maximumPoints: sumGradeScores(rubric.criteria.map((criterion) => Number.isFinite(criterion.maxPoints) ? criterion.maxPoints : 0)),
   };
 }

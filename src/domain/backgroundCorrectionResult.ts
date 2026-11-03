@@ -1,4 +1,5 @@
 import type { BackgroundCorrectionJob } from './backgroundCorrection.ts';
+import { sumGradeScores } from './scorePrecision.ts';
 
 export interface BackgroundCorrectionResult {
   score: number;
@@ -16,6 +17,6 @@ export function getBackgroundCorrectionResult(
 
   return {
     score: job.proposal.finalScore,
-    maxScore: job.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0),
+    maxScore: sumGradeScores(job.rubric.criteria.map((criterion) => criterion.maxPoints)),
   };
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { backgroundCorrectionStatusLabel, createBackgroundCorrection, findBackgroundCorrectionToOpen, nextBackgroundCorrection } from '../src/domain/backgroundCorrection.ts';
+import { getBackgroundCorrectionResult } from '../src/domain/backgroundCorrectionResult.ts';
 
 const base = {
   id: 'copy-1',
@@ -49,6 +50,21 @@ describe('background correction jobs', () => {
     const reviewing = { ...ready, status: 'reviewing' as const };
     expect(findBackgroundCorrectionToOpen([reviewing], 'assignment-1', 'copy-1', 'copy-1')?.id).toBe('copy-1');
     expect(findBackgroundCorrectionToOpen([reviewing], 'assignment-1', 'copy-1', 'unknown')).toBeNull();
+  });
+
+  it('returns decimal score and maximum totals without floating-point residue', () => {
+    const job = {
+      ...createBackgroundCorrection({
+        ...base,
+        rubric: { title: 'Décimal', criteria: [
+          { id: 'a', title: 'A', description: '', maxPoints: 1.65 },
+          { id: 'b', title: 'B', description: '', maxPoints: 0.01 },
+        ] },
+      }),
+      status: 'ready' as const,
+      proposal: { summary: 'OK', criteria: [], questionsForTeacher: [], finalScore: 1.66 },
+    };
+    expect(getBackgroundCorrectionResult(job)).toEqual({ score: 1.66, maxScore: 1.66 });
   });
 
   it('uses teacher-facing status labels', () => {
