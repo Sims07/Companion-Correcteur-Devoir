@@ -604,7 +604,7 @@ export function createOllamaProvider(
                 endpoint: diagnosticEndpoint(settings.endpoint),
                 stream: true,
                 think,
-                ...(json ? { format: 'json' as const } : {}),
+                ...(json ? { format: json === true ? 'json' as const : 'json-schema' as const } : {}),
                 imageCount: images?.length ?? 0,
                 keepAlive: tracking?.keepAlive ?? 0,
                 options: {
