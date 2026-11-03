@@ -306,6 +306,7 @@ export function createOllamaProvider(
   fetchImpl: typeof fetch = fetch,
 ): GradingProvider {
   let activeRequestPayloads: unknown[] | null = null;
+  const requestedModels = new Set<string>();
   const providerFetch = settings.apiCompatible
     ? createOpenAiCompatibleFetch({
         endpoint: settings.endpoint,
@@ -406,6 +407,20 @@ export function createOllamaProvider(
       ): Promise<string> {
         const startedAt = Date.now();
         activeRequestPayloads = [];
+        const coldStartRequest = !settings.apiCompatible && !requestedModels.has(model);
+        requestedModels.add(model);
+        let timedOut = false;
+        const requestAbortController = new AbortController();
+        const relayAbort = () => requestAbortController.abort();
+        if (signal?.aborted) relayAbort();
+        else signal?.addEventListener('abort', relayAbort, { once: true });
+        const timeoutId = coldStartRequest
+          ? setTimeout(() => { timedOut = true; requestAbortController.abort(); }, 5 * 60 * 1000)
+          : null;
+        const finishRequest = () => {
+          if (timeoutId !== null) clearTimeout(timeoutId);
+          signal?.removeEventListener('abort', relayAbort);
+        };
         let response: Response;
         let partialContent = '';
         let diagnosticResultEmitted = false;
@@ -479,15 +494,22 @@ export function createOllamaProvider(
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody),
-            ...(signal ? { signal } : {}),
+            signal: requestAbortController.signal,
           }, intent, `Modèle ${model} · ${context}`));
         } catch (cause) {
+          finishRequest();
+          if (timedOut) {
+            const timeoutError = new Error('Le modèle met trop de temps à répondre. Vérifiez Ollama avec « ollama ps », puis relancez la correction.');
+            publishFailedCall(timeoutError);
+            throw timeoutError;
+          }
           if (signal?.aborted) throw new DOMException('Traitement interrompu par l’enseignant.', 'AbortError');
           publishFailedCall(cause);
           const detail = cause instanceof Error ? cause.message : 'erreur réseau inconnue';
           throw new Error(`Connexion à ${providerName} interrompue pendant le traitement (modèle « ${model} », ${request.images?.length ?? 0} image(s)). Vérifiez l’adresse du fournisseur, le token et la disponibilité du modèle. Détail réseau : ${detail}`);
         }
         if (!response.ok) {
+          finishRequest();
           const error = new Error(`${providerName} a répondu avec le statut HTTP ${response.status} pour le modèle « ${model} ».`);
           publishFailedCall(error);
           throw error;
@@ -554,8 +576,16 @@ export function createOllamaProvider(
               ? 'Ollama a produit un raisonnement interne mais aucune réponse finale exploitable (message.content vide). Désactivez le mode thinking ou essayez un autre modèle.'
               : 'Ollama a retourné une réponse vide.');
           }
+          finishRequest();
           return result.content;
         } catch (cause) {
+          finishRequest();
+          if (timedOut) {
+            const timeoutError = new Error('Le modèle met trop de temps à répondre. Vérifiez Ollama avec « ollama ps », puis relancez la correction.');
+            if (!diagnosticResultEmitted) publishFailedCall(timeoutError);
+            throw timeoutError;
+          }
+          if (signal?.aborted) throw new DOMException('Traitement interrompu par l’enseignant.', 'AbortError');
           if (cause instanceof SyntaxError) {
             const error = new Error(`Le flux envoyé par ${providerName} est mal formé. Vérifiez la compatibilité du serveur.`);
             publishFailedCall(error);
