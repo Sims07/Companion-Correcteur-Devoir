@@ -47,4 +47,9 @@ describe('parseArbitrationDecisions', () => {
     expect(() => parseArbitrationDecisions('{"decisions":[{"criterionId":"q1","selected":"avis3"}]}', ['q1'], first, second))
       .toThrow(/selected/);
   });
+  it('rejects a root array instead of an arbitration object explicitly', () => {
+    expect(() => parseArbitrationDecisions('[{"criterionId":"q1","selected":"avis1"}]', ['q1'], first, second))
+      .toThrow(/objet JSON exploitable/);
+  });
+
 });

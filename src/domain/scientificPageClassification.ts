@@ -1,3 +1,5 @@
+import { parseModelJson } from './modelJson.ts';
+
 export type ScientificPageKind = 'text' | 'scientific-diagram' | 'mixed' | 'ambiguous';
 export interface ScientificPageClassification {
   pageNumber: number; kind: ScientificPageKind; confidence: number; reason: string;

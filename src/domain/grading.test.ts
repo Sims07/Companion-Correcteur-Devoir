@@ -120,4 +120,9 @@ describe('grade score precision', () => {
     expect(() => parseGradingProposal(raw, rubric)).toThrow(/hors barème/);
   });
 
+  it('rejects a root array instead of a grading object with an explicit message', () => {
+    expect(() => parseGradingProposal('[{"criterionId":"science","points":4}]', rubric))
+      .toThrow(/liste de critères exploitable/);
+  });
+
 });

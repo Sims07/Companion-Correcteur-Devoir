@@ -803,7 +803,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setOriginalImages((current) => [...current, ...structuredClone(prepared)]);
       setRotationSuggestions({});
       setPageClassifications(null);
-      if (classificationOverride) setPageClassifications(classificationOverride);
       setScientificDiagramAnalysis(null);
       setScientificDiagramError('');
       setFocusedEvidencePage(null);

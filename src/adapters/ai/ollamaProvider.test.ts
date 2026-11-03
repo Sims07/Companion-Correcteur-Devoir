@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { checkOllamaReady, createOllamaProvider, prewarmOllamaModel } from './ollamaProvider.ts';
+import { buildStudentIdentityPrompt, buildTeacherAnnotationPrompt, checkOllamaReady, createOllamaProvider, prewarmOllamaModel } from './ollamaProvider.ts';
 import type { OllamaSettings } from '../../ports/aiProvider.ts';
 
 const settings: OllamaSettings = {
@@ -187,5 +187,20 @@ describe('Ollama readiness without loading models', () => {
     const init = mockFetch.mock.calls[0]?.[1];
     expect(init).toBeDefined();
     expect(JSON.parse(String(init?.body)).keep_alive).toBe('5m');
+  });
+});
+
+describe('JSON prompt output contracts', () => {
+  it('places the identity JSON contract last and uses a neutral example', () => {
+    const prompt = buildStudentIdentityPrompt();
+    expect(prompt.split('\n\n').at(-1)).toContain('FORMAT DE SORTIE');
+    expect(prompt.split('\n\n').at(-1)).toContain('{"firstName":null,"lastName":null,"studentNumber":null,"confidence":"low"}');
+  });
+
+  it('places the annotation JSON contract after the initial transcription data', () => {
+    const prompt = buildTeacherAnnotationPrompt('Réponse de l’étudiant.');
+    expect(prompt.indexOf('TRANSCRIPTION INITIALE')).toBeLessThan(prompt.lastIndexOf('FORMAT DE SORTIE'));
+    expect(prompt.split('\n\n').at(-1)).toContain('FORMAT DE SORTIE');
+    expect(prompt.split('\n\n').at(-1)).toContain('{"studentTranscription":"Texte étudiant.","annotations":[]}');
   });
 });

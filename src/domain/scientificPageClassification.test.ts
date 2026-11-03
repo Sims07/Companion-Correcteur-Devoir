@@ -127,4 +127,9 @@ describe('scientific page classification', () => {
     expect(() => resolveAmbiguousPageClassification(ambiguous, 2, 'text')).toThrow(/introuvable/);
   });
 
+  it('accepts Markdown, thinking tags and prose around the page JSON', () => {
+    expect(parseScientificPageClassifications('Réponse : \x60\x60\x60json\n{"kind":"texte"}\n\x60\x60\x60', 1)[0])
+      .toMatchObject({ kind: 'text', confidence: 0.5, reason: '' });
+  });
+
 });
