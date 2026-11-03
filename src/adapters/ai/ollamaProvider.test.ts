@@ -115,7 +115,7 @@ describe('Ollama readiness without loading models', () => {
 
   it('clears the five-minute cold-start deadline when response headers arrive even if streaming takes longer', async () => {
     vi.useFakeTimers();
-    let requestSignal: AbortSignal | undefined;
+    let requestSignal: AbortSignal | null | undefined;
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       requestSignal = init?.signal;
       await new Promise<void>((resolve) => setTimeout(resolve, 2 * 60 * 1000));
