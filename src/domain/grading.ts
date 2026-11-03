@@ -1,4 +1,6 @@
 import type { Rubric } from './rubric.ts';
+import { normalizeGradeScore, sumGradeScores } from './scorePrecision.ts';
+export { normalizeGradeScore } from './scorePrecision.ts';
 import { parseModelJson } from './modelJson.ts';
 import type { ScientificDiagramQualityAssessment } from './scientificDiagram.ts';
 
