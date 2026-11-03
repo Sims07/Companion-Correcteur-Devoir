@@ -37,10 +37,6 @@ export interface ReviewedCriterion extends CriterionProposal {
   decision: 'pending' | 'accepted' | 'adjusted';
 }
 
-export function normalizeGradeScore(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
