@@ -207,7 +207,9 @@ function normalizedEndpoint(endpoint: string): string {
   return value;
 }
 
-/** Sends a small text-only request first so the UI can confirm that the selected model actually responds. */
+/** Checks that a local Ollama server is reachable and that the selected model is installed.
+ * This deliberately uses metadata endpoints only: readiness checks must never load or unload a model.
+ */
 export async function checkOllamaReady(
   settings: OllamaSettings,
   fetchImpl: typeof fetch = fetch,
@@ -215,24 +217,48 @@ export async function checkOllamaReady(
   const endpoint = normalizedEndpoint(settings.endpoint);
   const model = settings.model?.trim() || settings.visionModel?.trim() || settings.analysisModel?.trim() || '';
   if (!model) throw new Error(settings.apiCompatible ? 'Renseignez un identifiant de modèle compatible OpenAI.' : 'Choisissez un modèle Ollama.');
-  const requestFetch = settings.apiCompatible
-    ? createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter, frequencyPenalty: settings.transcriptionFrequencyPenalty }, fetchImpl)
-    : fetchImpl;
-  const response = await requestFetch(`${endpoint}/api/chat`, annotateNetworkRequest({
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      stream: false,
-      think: false,
-      keep_alive: 0,
-      messages: [{ role: 'user', content: 'Ceci est un test de disponibilité, aucune copie à analyser. Réponds uniquement par le mot PRÊT.' }],
-    }),
-  }, 'Vérifier la disponibilité du modèle', `Modèle ${model}`));
-  if (!response.ok) throw new Error(`Le test de disponibilité ${settings.apiCompatible ? 'de l’API compatible OpenAI' : 'Ollama'} a échoué (HTTP ${response.status}). Vérifiez l’URL, le token et le modèle.`);
-  const data = await response.json() as OllamaChatResponse;
-  if (data.error) throw new Error('Ollama signale une erreur pendant le test de disponibilité.');
-  if (!data.message?.content?.trim()) throw new Error('Le modèle n’a pas répondu au test de disponibilité.');
+
+  if (settings.apiCompatible) {
+    const requestFetch = createOpenAiCompatibleFetch({ endpoint: settings.endpoint, apiKey: settings.apiKey ?? '', repetitionPenaltyParameter: settings.transcriptionPenaltyParameter, frequencyPenalty: settings.transcriptionFrequencyPenalty }, fetchImpl);
+    let response: Response;
+    try {
+      response = await requestFetch(`${endpoint}/api/chat`, annotateNetworkRequest({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, stream: false, messages: [{ role: 'user', content: 'Réponds uniquement par OK.' }] }),
+      }, 'Vérifier la disponibilité du modèle', `Modèle ${model}`));
+    } catch {
+      throw new Error('Serveur compatible OpenAI injoignable. Vérifiez son adresse et sa disponibilité.');
+    }
+    if (!response.ok) throw new Error(`Le serveur compatible OpenAI a refusé la vérification (HTTP ${response.status}). Vérifiez l’URL, le token et le modèle.`);
+    return;
+  }
+
+  let tagsResponse: Response;
+  try {
+    tagsResponse = await fetchImpl(`${endpoint}/api/tags`, annotateNetworkRequest({}, 'Vérifier la disponibilité du modèle', `Recherche du modèle ${model}`));
+  } catch {
+    throw new Error('Serveur Ollama injoignable. Vérifiez qu’Ollama est démarré et que son adresse est correcte.');
+  }
+  if (!tagsResponse.ok) throw new Error(`Impossible de consulter les modèles Ollama (HTTP ${tagsResponse.status}). Vérifiez le serveur et ses autorisations CORS.`);
+  const tags = await tagsResponse.json() as OllamaTagsResponse;
+  const installed = (tags.models ?? []).some((entry) => {
+    const name = entry.name?.trim();
+    return name === model || name?.split(':')[0] === model.split(':')[0];
+  });
+  if (!installed) throw new Error(`Le modèle « ${model} » n’est pas installé dans Ollama. Téléchargez-le avec ollama pull ${model}.`);
+
+  let showResponse: Response;
+  try {
+    showResponse = await fetchImpl(`${endpoint}/api/show`, annotateNetworkRequest({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model }),
+    }, 'Vérifier la disponibilité du modèle', `Vérification des métadonnées de ${model}`));
+  } catch {
+    throw new Error(`Le modèle « ${model} » est installé, mais Ollama ne répond pas à /api/show.`);
+  }
+  if (!showResponse.ok) throw new Error(`Ollama ne peut pas charger les métadonnées du modèle « ${model} » (HTTP ${showResponse.status}).`);
 }
 
 /** Explicitly unload a local model before handing the machine back to foreground work. */
@@ -257,7 +283,7 @@ export async function prewarmOllamaModel(settings: OllamaSettings, model: string
       model,
       stream: false,
       think: false,
-      keep_alive: '60s',
+      keep_alive: '5m',
       messages: [{ role: 'user', content: 'Réponds uniquement par OK.' }],
       options: { num_predict: 1 },
     }),
