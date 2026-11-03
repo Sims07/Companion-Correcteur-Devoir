@@ -93,6 +93,8 @@ describe('OpenAI scientific diagram adapter', () => {
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(body.think).toBe(false);
     expect(body.keep_alive).toBe(0);
+    expect(body.options.num_ctx).toBe(8192);
+    expect(body.options.num_predict).toBe(4096);
     expect(body.format.properties.criteria.type).toBe('array');
     expect(body.messages[0].images[0]).toBe('cG5n');
   });
