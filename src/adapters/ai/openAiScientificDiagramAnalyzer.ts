@@ -4,6 +4,7 @@ import type { ScientificDiagramAnalyzer, ScientificDiagramAnalysisRequest, Scien
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
 import { currentFetch } from './currentFetch.ts';
 import type { DiagnosticModelResult, ImageInput } from '../../ports/aiProvider.ts';
+import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 
 function diagnosticResult(request: { model: string; endpoint: string; images: ImageInput[]; apiCompatible?: boolean; onDiagnosticResult?: (result: DiagnosticModelResult) => void }, purpose: DiagnosticModelResult['purpose'], prompt: string, raw: string, startedAt: number, error?: string, requestPayload = ''): void {
   request.onDiagnosticResult?.({
@@ -187,7 +188,17 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
               messages: [{ role: 'user', content, imageDetail: 'high' as const, images: [local ? image.base64 : 'data:' + image.mimeType + ';base64,' + image.base64] }],
             };
             if (local) requestPayload = JSON.stringify({ ...body, messages: body.messages.map((message) => ({ ...message, images: ['[IMAGE REDACTED]'] })) });
-            const response = await compatibleFetch(`${request.endpoint.replace(/\/+$/, '')}/api/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const pageNumber = request.pageNumbers?.[index] ?? index + 1;
+            const imageName = image.fileName?.trim();
+            const context = `Modèle ${request.model} · page ${pageNumber}/${request.images.length}${imageName ? ` · ${imageName}` : ''}`;
+            const response = await compatibleFetch(
+              `${request.endpoint.replace(/\/+$/, '')}/api/chat`,
+              annotateNetworkRequest(
+                { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+                `Classer la page ${pageNumber} pour la détection des schémas`,
+                context,
+              ),
+            );
             if (!response.ok) throw new Error(`La détection Vision de la page ${index + 1} a échoué (HTTP ${response.status}). ${(await response.text()).slice(0, 500)}`);
             const result = await response.json() as { message?: { content?: string }; choices?: Array<{ message?: { content?: string }; finish_reason?: string }>; error?: string; done_reason?: string };
             if (result.error) throw new Error(result.error);
