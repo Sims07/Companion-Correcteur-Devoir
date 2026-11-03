@@ -21,6 +21,16 @@ describe('summarizeCriterionProgress', () => {
     ])).toMatchObject({ completedCount: 1, provisionalPoints: 4, isComplete: false });
   });
 
+  it('sums fractional grades and rubric maxima without floating-point residue', () => {
+    expect(summarizeCriterionProgress([
+      { id: 'a', maxPoints: 2 },
+      { id: 'b', maxPoints: 1 },
+    ], [
+      { criterionId: 'a', points: 1.65 },
+      { criterionId: 'b', points: 0 },
+    ])).toMatchObject({ provisionalPoints: 1.65, maximumPoints: 3 });
+  });
+
   it('counts each criterion once and marks the score complete only when all are evaluated', () => {
     expect(summarizeCriterionProgress(criteria, [
       { criterionId: 'knowledge', points: 6 },
