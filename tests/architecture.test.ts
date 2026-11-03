@@ -65,6 +65,35 @@ describe('hexagonal architecture boundaries', () => {
     expect(imports(source('../src/application/scientificDiagramAnalysisService.ts')).some((path) => path.includes('/adapters/'))).toBe(false);
   });
 
+  it('resolves network fetch lazily and installs the inspector before application adapters are created', () => {
+    const networkAdapters = [
+      '../src/adapters/ai/openAiScientificDiagramAnalyzer.ts',
+      '../src/adapters/ai/openAiCompatibleTransport.ts',
+      '../src/adapters/ai/ollamaProvider.ts',
+      '../src/adapters/ai/modelLoadClient.ts',
+    ];
+    for (const file of networkAdapters) {
+      const text = source(file);
+      expect(text, file).toContain('currentFetch');
+      expect(text, file).not.toMatch(/(?:fetchImpl|requestFetch):\\s*typeof fetch\\s*=\\s*fetch\\b/);
+    }
+    const entrypoint = source('../src/main.tsx');
+    expect(entrypoint.startsWith("import './instrumentation.ts';")).toBe(true);
+    expect(source('../src/instrumentation.ts')).toContain('installNetworkInspector();');
+  });
+
+  it('keeps readable intents on every grading network phase', () => {
+    const ollama = source('../src/adapters/ai/ollamaProvider.ts');
+    for (const intent of [
+      'Vérifier la disponibilité du modèle', 'Précharger le modèle', 'Lire et transcrire une page de copie',
+      'Analyser le critère', 'Arbitrer les désaccords entre modèles', 'Lire et transcrire une page du barème',
+      'Structurer le barème transcrit',
+    ]) expect(ollama).toContain(intent);
+    const diagrams = source('../src/adapters/ai/openAiScientificDiagramAnalyzer.ts');
+    expect(diagrams).toContain('Classer la page ${pageNumber} pour la détection des schémas');
+    expect(diagrams).toContain('Analyser les schémas de la page ${pageNumber}');
+    expect(diagrams).toContain('Réparer la réponse d’analyse des schémas');
+  });
   it('uses main as the composition root for concrete dependencies', () => {
     const text = source('../src/main.tsx');
     expect(text).toContain('new IndexedDbLocalCorrectionRepository()');
