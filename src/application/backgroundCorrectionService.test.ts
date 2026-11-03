@@ -48,12 +48,15 @@ describe('background Ollama prewarming', () => {
 
   it('lets a same-model prewarm continue without blocking foreground correction', async () => {
     let signal: AbortSignal | undefined;
+    let modelLoaded = false;
+    let modelLoadCount = 0;
     let notifyStarted!: () => void;
     let finishPrewarm!: () => void;
     const started = new Promise<void>((resolve) => { notifyStarted = resolve; });
     const prewarmFinished = new Promise<void>((resolve) => { finishPrewarm = resolve; });
     const prewarmModel = vi.fn(async (_settings: OllamaSettings, _model: string, requestSignal?: AbortSignal) => {
       signal = requestSignal;
+      if (!modelLoaded) { modelLoaded = true; modelLoadCount += 1; }
       notifyStarted();
       await prewarmFinished;
     });
@@ -70,6 +73,8 @@ describe('background Ollama prewarming', () => {
 
     expect(pauseFinished).toBe(true);
     expect(signal?.aborted).toBe(false);
+    if (!modelLoaded) { modelLoaded = true; modelLoadCount += 1; } // Simulated first foreground inference reuses the resident model.
+    expect(modelLoadCount).toBe(1);
     finishPrewarm();
     await expect(warming).resolves.toBeUndefined();
   });
