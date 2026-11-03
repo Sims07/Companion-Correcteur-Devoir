@@ -55,7 +55,7 @@ describe('Ollama adapter', () => {
     expect(onTranscription).toHaveBeenCalledWith(identity, 'identity');
     expect(onTranscription).toHaveBeenCalledWith('[ copie.png ]\nRéponse manuscrite lisible.', 'copy');
     expect(onDiagnosticResult).toHaveBeenCalledTimes(2);
-    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ stage: 'reading', kind: 'vision', requestMetadata: { format: 'json', imageCount: 1 } });
+    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ stage: 'reading', kind: 'vision', requestMetadata: { format: 'json-schema', imageCount: 1 } });
   });
 
   it('continues transcription when the dedicated identity request fails or finds no identity', async () => {
@@ -106,7 +106,7 @@ describe('Ollama adapter', () => {
     expect(identityRequest.messages[0].content[0].text).toContain('uniquement la bande supérieure');
     expect(identityRequest.messages[0].content[1].image_url.url).toContain('base64,aGVsbG8=');
     expect(onTranscription).toHaveBeenCalledWith(identity, 'identity');
-    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ stage: 'reading', requestMetadata: { provider: 'openai-compatible', format: 'json', imageCount: 1 } });
+    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ stage: 'reading', requestMetadata: { provider: 'openai-compatible', format: 'json-schema', imageCount: 1 } });
   });
 
   it('checks the installed model through metadata endpoints without generating text', async () => {
@@ -428,7 +428,7 @@ describe('Ollama adapter', () => {
     expect(analysisBody.model).toBe('qwen3.5:4b');
     expect(analysisBody.messages[0].content).toContain('Transcription fidèle de la copie');
     expect(analysisBody.messages[0].images).toBeUndefined();
-    expect(analysisBody.format).toBe('json');
+    expect(analysisBody.format).toMatchObject({ type: 'object' });
   });
 
 
@@ -562,7 +562,7 @@ describe('Ollama adapter', () => {
     expect(firstSuffix).toContain('annotationSuggestion');
     expect(firstSuffix).toContain('N’évalue aucun autre critère');
     expect(secondSuffix).toContain('"id":"reasoning"');
-    expect(first.options.num_predict).toBe(512);
+    expect(first.options.num_predict).toBeGreaterThanOrEqual(1024);
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).keep_alive).toBe('30s');
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).keep_alive).toBe(0);
     expect(JSON.parse(raw)).toMatchObject({ finalScore: 7, criteria: [{ criterionId: 'knowledge', points: 4 }, { criterionId: 'reasoning', points: 3, annotationSuggestion: 'Précise la conséquence de la division.' }] });

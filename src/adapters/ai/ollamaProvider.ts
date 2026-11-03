@@ -1106,7 +1106,7 @@ export function createOllamaProvider(
             tokensPerSecond: generationMs && generatedTokens !== undefined ? generatedTokens / (generationMs / 1000) : undefined,
             doneReason: criterionDiagnosticMetrics.some((item) => item.doneReason === 'length') ? 'length' : firstMetric.doneReason,
             thinkingPresent: criterionDiagnosticMetrics.some((item) => item.thinkingPresent),
-            generationTokenLimit: 512,
+            generationTokenLimit: 1024,
             requestCount: criterionDiagnosticMetrics.length,
             raw: fullProposalRaw,
           });
