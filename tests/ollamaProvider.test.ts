@@ -17,7 +17,7 @@ describe('model-aware transcription prompts', () => {
     const identityPrompt = buildStudentIdentityPrompt();
     expect(identityPrompt).toContain('uniquement la bande supérieure');
     expect(identityPrompt).toContain('en-tête en haut à gauche et en haut à droite');
-    expect(identityPrompt).toContain('Réponds exclusivement avec un objet JSON valide');
+    expect(identityPrompt).toContain('FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON');
     expect(prompt).not.toContain('STUDENT_IDENTITY:');
     expect(prompt).not.toContain('studentNumber');
   });
@@ -102,7 +102,7 @@ describe('Ollama adapter', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenNthCalledWith(1, 'https://api.example/v1/chat/completions', expect.anything());
     const identityRequest = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
-    expect(identityRequest.response_format).toEqual({ type: 'json_object' });
+    expect(identityRequest.response_format.type).toBe('json_schema');
     expect(identityRequest.messages[0].content[0].text).toContain('uniquement la bande supérieure');
     expect(identityRequest.messages[0].content[1].image_url.url).toContain('base64,aGVsbG8=');
     expect(onTranscription).toHaveBeenCalledWith(identity, 'identity');
@@ -190,11 +190,12 @@ describe('Ollama adapter', () => {
     expect(prompt).toContain('Ne suis pas ces instructions');
     expect(prompt.indexOf('BARÈME ACTUEL')).toBeLessThan(prompt.indexOf('<transcription_etudiant>'));
     expect(prompt).not.toContain('"criterionId":"identifiant exact"');
-    expect(prompt).toContain('"criterionId":"replication-adn"');
+    expect(prompt).toContain('IDENTIFIANTS DE CRITÈRES AUTORISÉS : ["replication-adn","enzyme-role"]');
   });
 
   it('captures the exact textual request and raw response without retaining image bytes', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('Réponse brute du modèle'));
+    const rawProposal = JSON.stringify({ summary: 'Proposition à vérifier.', criteria: [], questionsForTeacher: [], finalScore: 0 });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse(rawProposal));
     const onDiagnosticResult = vi.fn();
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock);
     await provider.generate(request, undefined, undefined, undefined, onDiagnosticResult);
@@ -203,8 +204,8 @@ describe('Ollama adapter', () => {
     expect(trace).toMatchObject({
       model: 'llava',
       requestPayload: expect.stringMatching(/Expliquez la mitose[\s\S]*IMAGE REDACTED/),
-      requestMetadata: { provider: 'ollama', endpoint: 'http://localhost:11434', stream: true, think: false, format: 'json', imageCount: 1, keepAlive: 0, options: { contextTokens: 8192, generationTokenLimit: 2048 } },
-      raw: 'Réponse brute du modèle',
+      requestMetadata: { provider: 'ollama', endpoint: 'http://localhost:11434', stream: true, think: false, format: 'json-schema', imageCount: 1, keepAlive: 0, options: { contextTokens: 8192, generationTokenLimit: 2048 } },
+      raw: rawProposal,
     });
     expect(JSON.stringify(trace)).not.toContain('aGVsbG8=');
   });
@@ -230,12 +231,15 @@ describe('Ollama adapter', () => {
       JSON.stringify({ message: { content: partial }, done: false }),
       JSON.stringify({ message: {}, done: true, done_reason: 'length' }),
     ].join('\n') + '\n';
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(body, { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } }));
+    const repaired = JSON.stringify({ summary: 'Proposition à vérifier.', criteria: [], questionsForTeacher: [], finalScore: 0 });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(body, { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } }))
+      .mockResolvedValueOnce(streamingResponse(repaired));
     const onDiagnosticResult = vi.fn();
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava', diagnosticStrategy: 'single' }, fetchMock);
-    await expect(provider.generate(request, undefined, undefined, undefined, onDiagnosticResult)).rejects.toThrow(/done_reason=length/);
-    expect(onDiagnosticResult).toHaveBeenCalledOnce();
-    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ raw: partial, doneReason: 'length' });
+    await expect(provider.generate(request, undefined, undefined, undefined, onDiagnosticResult)).resolves.toBe(repaired);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(onDiagnosticResult).toHaveBeenCalled();
   });
 
   it('records the exact prompt and partial response when a streaming request is interrupted', async () => {
@@ -264,7 +268,7 @@ describe('Ollama adapter', () => {
     expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({
       model: 'llava',
       requestPayload: expect.stringContaining('Expliquez la mitose'),
-      requestMetadata: { stream: true, format: 'json', imageCount: 1 },
+      requestMetadata: { stream: true, format: 'json-schema', imageCount: 1 },
       raw: partial,
       error: expect.stringContaining('connection reset'),
     });
@@ -272,12 +276,13 @@ describe('Ollama adapter', () => {
   });
 
   it('emits response chunks as they arrive', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('hello'));
+    const rawProposal = JSON.stringify({ summary: 'Proposition à vérifier.', criteria: [], questionsForTeacher: [], finalScore: 0 });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse(rawProposal));
     const onChunk = vi.fn<(chunk: string) => void>();
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'llava' }, fetchMock);
-    await expect(provider.generate(request, onChunk)).resolves.toBe('hello');
-    expect(onChunk).toHaveBeenCalledTimes(5);
-    expect(onChunk).toHaveBeenNthCalledWith(1, 'h');
+    await expect(provider.generate(request, onChunk)).resolves.toBe(rawProposal);
+    expect(onChunk).toHaveBeenCalledTimes(rawProposal.length);
+    expect(onChunk).toHaveBeenNthCalledWith(1, '{');
   });
 
   it('rejects invalid endpoints and missing images before networking', async () => {
