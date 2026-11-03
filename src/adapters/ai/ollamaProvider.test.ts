@@ -51,7 +51,7 @@ describe('Ollama readiness without loading models', () => {
         const stream = [
           JSON.stringify({ message: { content: 'Transcription de la copie.' } }),
           JSON.stringify({ done: true, load_duration: modelLoadCount === 1 ? 120_000_000 : 0 }),
-        ].join('\\n') + '\\n';
+        ].join(String.fromCharCode(10)) + String.fromCharCode(10);
         modelLoaded = false;
         return new Response(stream, { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
       }
