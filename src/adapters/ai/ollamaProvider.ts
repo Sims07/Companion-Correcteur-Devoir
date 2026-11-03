@@ -402,7 +402,7 @@ export function createOllamaProvider(
         streamChunk?: (chunk: string) => void,
         json = false,
         think = false,
-        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; keepAlive?: string | number; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void },
+        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; keepAlive?: string | number; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void; pageIndex?: number },
       ): Promise<string> {
         const startedAt = Date.now();
         activeRequestPayloads = [];
@@ -415,8 +415,9 @@ export function createOllamaProvider(
         const timeoutId = coldStartRequest
           ? setTimeout(() => { timedOut = true; requestAbortController.abort(); }, 5 * 60 * 1000)
           : null;
+        const clearColdStartTimeout = () => { if (timeoutId !== null) clearTimeout(timeoutId); };
         const finishRequest = () => {
-          if (timeoutId !== null) clearTimeout(timeoutId);
+          clearColdStartTimeout();
           signal?.removeEventListener('abort', relayAbort);
         };
         let response: Response;
@@ -494,6 +495,8 @@ export function createOllamaProvider(
             body: JSON.stringify(requestBody),
             signal: requestAbortController.signal,
           }, intent, `Modèle ${model} · ${context}`));
+          clearColdStartTimeout();
+          if (!settings.apiCompatible) requestedModels.add(model);
         } catch (cause) {
           finishRequest();
           if (timedOut) {
@@ -508,13 +511,30 @@ export function createOllamaProvider(
         }
         if (!response.ok) {
           finishRequest();
+          if (response.status === 404 && coldStartRequest && !settings.apiCompatible) {
+            try {
+              await checkOllamaReady({ ...settings, model }, fetchImpl);
+            } catch (readinessCause) {
+              publishFailedCall(readinessCause);
+              throw readinessCause;
+            }
+          }
           const error = new Error(`${providerName} a répondu avec le statut HTTP ${response.status} pour le modèle « ${model} ».`);
           publishFailedCall(error);
           throw error;
         }
         try {
+          let firstTokenReported = false;
           const result = await readOllamaStream(response, (chunk) => {
             partialContent += chunk;
+            if (chunk && !firstTokenReported) {
+              firstTokenReported = true;
+              onProgress?.({
+                type: 'first-token',
+                role: tracking?.kind === 'vision' ? 'reading' : 'analysis',
+                ...(tracking?.pageIndex !== undefined ? { pageIndex: tracking.pageIndex } : {}),
+              });
+            }
             streamChunk?.(chunk);
             return tracking?.stage === 'reading' && hasTranscriptionDrift(partialContent);
           });
@@ -682,7 +702,7 @@ export function createOllamaProvider(
             false,
             false,
             {
-              kind: 'vision', stage: 'reading', intent: 'Lire et transcrire une page de copie', context: `${pageLabel} · page ${index + 1}/${request.images?.length ?? 0}`, temperature: 0,
+              kind: 'vision', stage: 'reading', intent: 'Lire et transcrire une page de copie', context: `${pageLabel} · page ${index + 1}/${request.images?.length ?? 0}`, pageIndex: request.pageNumbers?.[index] ?? index + 1, temperature: 0,
               generationTokenLimit: transcriptionLimit,
               stop: ['\n\n\n\n'],
               repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
