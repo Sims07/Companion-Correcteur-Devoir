@@ -5,6 +5,7 @@ import { buildIncrementalCriterionPrompt } from './gradingPrompts.ts';
 import { resolveCloseDiagnosticCriteria } from '../../domain/diagnosticResolution.ts';
 import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
+import { currentFetch } from './currentFetch.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 import { formatTeacherAnnotations, isDeletionOnlyTranscription, parseTeacherAnnotationDetection, removeConfirmedTeacherAnnotation, type TeacherAnnotationReviewCandidate, type TeacherAnnotationReviewDecision } from '../../domain/teacherAnnotations.ts';
 import { buildRubricStructuringPrompt, formatRubricTranscriptionChunk, RUBRIC_STRUCTURING_CHUNK_OUTPUT_TOKENS, RUBRIC_STRUCTURING_MAX_OUTPUT_TOKENS, splitRubricTranscriptions } from './rubricStructuring.ts';
@@ -212,7 +213,7 @@ function normalizedEndpoint(endpoint: string): string {
  */
 export async function checkOllamaReady(
   settings: OllamaSettings,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = currentFetch,
 ): Promise<void> {
   const endpoint = normalizedEndpoint(settings.endpoint);
   const model = settings.model?.trim() || settings.visionModel?.trim() || settings.analysisModel?.trim() || '';
@@ -260,7 +261,7 @@ export async function checkOllamaReady(
 }
 
 /** Explicitly unload a local model before handing the machine back to foreground work. */
-export async function unloadOllamaModel(settings: OllamaSettings, model: string, fetchImpl: typeof fetch = fetch): Promise<void> {
+export async function unloadOllamaModel(settings: OllamaSettings, model: string, fetchImpl: typeof fetch = currentFetch): Promise<void> {
   if (settings.apiCompatible) return;
   const response = await fetchImpl(`${normalizedEndpoint(settings.endpoint)}/api/generate`, annotateNetworkRequest({
     method: 'POST',
@@ -271,7 +272,7 @@ export async function unloadOllamaModel(settings: OllamaSettings, model: string,
 }
 
 /** Load one local model in the background and keep it warm briefly for the next copy. */
-export async function prewarmOllamaModel(settings: OllamaSettings, model: string, fetchImpl: typeof fetch = fetch, signal?: AbortSignal): Promise<void> {
+export async function prewarmOllamaModel(settings: OllamaSettings, model: string, fetchImpl: typeof fetch = currentFetch, signal?: AbortSignal): Promise<void> {
   if (settings.apiCompatible) return;
   const endpoint = normalizedEndpoint(settings.endpoint);
   const response = await fetchImpl(`${endpoint}/api/chat`, annotateNetworkRequest({
@@ -292,7 +293,7 @@ export async function prewarmOllamaModel(settings: OllamaSettings, model: string
   if (data.error) throw new Error('Le modèle de lecture n’a pas pu être préchargé.');
 }
 
-export async function listOllamaModels(endpoint: string, fetchImpl: typeof fetch = fetch): Promise<OllamaModel[]> {
+export async function listOllamaModels(endpoint: string, fetchImpl: typeof fetch = currentFetch): Promise<OllamaModel[]> {
   const response = await fetchImpl(`${normalizedEndpoint(endpoint)}/api/tags`, annotateNetworkRequest({}, 'Lister les modèles disponibles', 'Serveur Ollama configuré'));
   if (!response.ok) throw new Error(`Connexion Ollama impossible (HTTP ${response.status}). Vérifiez Ollama et ses autorisations CORS.`);
   const data = await response.json() as OllamaTagsResponse;
@@ -302,7 +303,7 @@ export async function listOllamaModels(endpoint: string, fetchImpl: typeof fetch
 /** Browser-side adapter: sends requests only to the endpoint explicitly configured by the teacher. */
 export function createOllamaProvider(
   settings: OllamaSettings,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = currentFetch,
 ): GradingProvider {
   let activeRequestPayloads: unknown[] | null = null;
   const requestedModels = new Set<string>();
@@ -702,7 +703,7 @@ export function createOllamaProvider(
             false,
             false,
             {
-              kind: 'vision', stage: 'reading', intent: 'Lire et transcrire une page de copie', context: `${pageLabel} · page ${index + 1}/${request.images?.length ?? 0}`, pageIndex: request.pageNumbers?.[index] ?? index + 1, temperature: 0,
+              kind: 'vision', stage: 'reading', intent: 'Lire et transcrire une page de copie', context: `${pageLabel} · page ${request.pageNumbers?.[index] ?? index + 1}/${request.totalPageCount ?? request.images?.length ?? 0}`, pageIndex: request.pageNumbers?.[index] ?? index + 1, temperature: 0,
               generationTokenLimit: transcriptionLimit,
               stop: ['\n\n\n\n'],
               repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
@@ -860,7 +861,7 @@ export function createOllamaProvider(
           `AVIS 1 (JSON) :\\n${JSON.stringify(selectCriteria(firstProposal))}`,
           `AVIS 2 (JSON) :\\n${JSON.stringify(selectCriteria(secondProposal))}`,
         ].join('\n\n');
-        const raw = await sendStream(arbitratorModel, arbitrationPrompt, undefined, onChunk, true, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration', deferResult: true });
+        const raw = await sendStream(arbitratorModel, arbitrationPrompt, undefined, onChunk, true, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration', deferResult: true, intent: 'Arbitrer les désaccords entre modèles', context: `Modèle ${arbitratorModel} · ${resolution.disputedCriterionIds.length} critère(s) litigieux · ${request.images?.map((image) => image.fileName).filter(Boolean).join(', ') || 'copie'}` });
         const decisions = parseArbitrationDecisions(raw, resolution.disputedCriterionIds, firstProposal.criteria, secondProposal.criteria);
         const judgedCriteria = resolution.disputedCriterionIds.map((criterionId) => {
           const decision = decisions.find((item) => item.criterionId === criterionId)!;
@@ -922,7 +923,7 @@ export function createOllamaProvider(
                 onChunk,
                 true,
                 settings.thinking ?? false,
-                { kind: 'model', stage: 'analysis', generationTokenLimit: 512, keepAlive: index < criteria.length - 1 || request.keepAnalysisModelWarm ? '30s' : 0, deferResult: diagnosticTracking },
+                { kind: 'model', stage: 'analysis', generationTokenLimit: 512, keepAlive: index < criteria.length - 1 || request.keepAnalysisModelWarm ? '30s' : 0, deferResult: diagnosticTracking, intent: `Analyser le critère ${criterion.title}`, context: `Modèle ${analysisModel} · critère ${index + 1}/${criteria.length} · ${request.images?.map((image) => image.fileName).filter(Boolean).join(', ') || 'copie'}` },
               );
               if (diagnosticTracking && lastDiagnosticMetrics) criterionDiagnosticMetrics.push(lastDiagnosticMetrics);
               let parsed: unknown;
@@ -1042,7 +1043,7 @@ function rubricSlug(value: string, index: number): string {
 export async function importRubricImageWithOllama(
   inputImages: ImageInput[] | ImageInput,
   settings: OllamaSettings,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = currentFetch,
   onProgress?: (progress: RubricImportProgress) => void,
   signal?: AbortSignal,
 ): Promise<ImportedRubric> {
