@@ -56,7 +56,7 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(String(fetchMock.mock.calls[0][0])).toBe('https://ai.example/api/chat');
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(body.think).toBe(false);
-    expect(body.keep_alive).toBe(0);
+    expect(body).not.toHaveProperty('keep_alive');
     expect(body.options.num_predict).toBe(1024);
     expect(body.format.properties.kind.enum).toEqual(['text', 'scientific-diagram', 'mixed', 'ambiguous']);
     expect(body.format.properties.suggestedRotation.enum).toEqual([0, 90, 180, 270]);
@@ -102,7 +102,7 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(String(fetchMock.mock.calls[0][0])).toBe('https://ai.example/api/chat');
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(body.think).toBe(false);
-    expect(body.keep_alive).toBe(0);
+    expect(body).not.toHaveProperty('keep_alive');
     expect(body.options.num_ctx).toBe(8192);
     expect(body.options.num_predict).toBe(2048);
     expect(body.format.properties.criteria.type).toBe('array');
