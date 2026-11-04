@@ -59,13 +59,15 @@ describe('incremental grading prompt contract', () => {
     expect(prompt).toContain('confidence vaut high');
   });
 
-  it('reuses only coordinates explicitly extracted by the document-reading stage', () => {
+  it('retains reliable page numbers and never proposes deprecated coordinates', () => {
     const prompt = buildIncrementalCriterionPrompt('Contexte issu de transcription', criterion);
 
-    expect(prompt).toContain('recopie exactement ses coordonnées dans locationBox');
-    expect(prompt).toContain('ne les invente pas');
+    expect(prompt).toContain('PAGE DE LA PREUVE');
     expect(prompt).toContain('pageNumber');
-    expect(prompt).toContain('locationHint');
+    expect(prompt).toContain('Ne propose jamais de coordonnées');
+    expect(prompt).not.toContain('ANCRE_VISUELLE');
+    expect(prompt).not.toContain('locationBox');
+    expect(prompt).not.toContain('locationHint');
   });
 
   it('makes uncertainty and teacher escalation conditional on a concrete ambiguity', () => {

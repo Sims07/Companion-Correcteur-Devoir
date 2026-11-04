@@ -8,13 +8,40 @@ import type { DiagnosticModelResult, ImageInput } from '../../ports/aiProvider.t
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 
 function diagnosticResult(request: { model: string; endpoint: string; images: ImageInput[]; apiCompatible?: boolean; onDiagnosticResult?: (result: DiagnosticModelResult) => void }, purpose: DiagnosticModelResult['purpose'], prompt: string, raw: string, startedAt: number, error?: string, requestPayload = ''): void {
-  request.onDiagnosticResult?.({
+  if (!request.onDiagnosticResult) return;
+  // Derive actual options from the already-redacted wire preview, including a
+  // provider's JSON-object fallback, rather than reporting guessed settings.
+  let effective: {
+    format?: unknown; response_format?: { type?: string };
+    options?: { num_ctx?: number; num_predict?: number; temperature?: number };
+    max_tokens?: number; max_completion_tokens?: number;
+  } = {};
+  try { effective = JSON.parse(requestPayload) as typeof effective; } catch { /* Unavailable after a network error. */ }
+  const jsonObject = effective.format === 'json_object' || effective.format === 'json'
+    || effective.response_format?.type === 'json_object';
+  const generationTokenLimit = effective.options?.num_predict
+    ?? effective.max_tokens ?? effective.max_completion_tokens
+    ?? (purpose === 'scientific-diagram-classification' ? 1024 : 2048);
+  request.onDiagnosticResult({
     kind: 'vision',
     stage: 'reading',
     purpose,
     model: request.model,
     requestPrompt: prompt,
-    requestMetadata: { provider: request.apiCompatible ? 'openai-compatible' : 'ollama', endpoint: request.endpoint, stream: false, think: false, format: 'json-schema', imageCount: request.images.length, keepAlive: '5m (Ollama default)', options: { contextTokens: 0, generationTokenLimit: purpose === 'scientific-diagram-classification' ? 1024 : 2048 } },
+    requestMetadata: {
+      provider: request.apiCompatible ? 'openai-compatible' : 'ollama',
+      endpoint: request.endpoint,
+      stream: false,
+      think: false,
+      format: jsonObject ? 'json' : 'json-schema',
+      imageCount: request.images.length,
+      keepAlive: request.apiCompatible ? 'non applicable' : '5m (Ollama default)',
+      options: {
+        contextTokens: effective.options?.num_ctx ?? 0,
+        generationTokenLimit,
+        ...(effective.options?.temperature !== undefined ? { temperature: effective.options.temperature } : {}),
+      },
+    },
     requestPayload,
     raw,
     ...(error ? { error } : {}),
@@ -22,11 +49,11 @@ function diagnosticResult(request: { model: string; endpoint: string; images: Im
   });
 }
 
-function classificationPrompt(pageNumber: number, previousRaw = ''): string {
+function classificationPrompt(pageNumber: number, previousRaw = '', repairReason = ''): string {
   return [
     `RÔLE : Classer la page ${pageNumber} pour la détection des schémas et indiquer une éventuelle rotation horaire à appliquer à toute la page.`,
     ['kind=text : texte manuscrit, réponse rédigée, liste ou tableau de données ; kind=scientific-diagram : schéma scientifique dessiné par l’étudiant.','kind=mixed : schéma scientifique et texte/tableau présents ensemble.','kind=ambiguous : contenu impossible à classer avec confiance.'].join('\n'),
-    ['FORMAT DE SORTIE','Réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown.','Champs obligatoires : pageNumber (entier), kind (text | scientific-diagram | mixed | ambiguous), confidence (nombre de 0 à 1), reason (une phrase courte), suggestedRotation (0 | 90 | 180 | 270, rotation horaire à appliquer ; 0 si la page est droite ou en cas de doute), orientationConfidence (nombre de 0 à 1).','Un tableau seul est text. Ne propose une rotation non nulle que si toute la page est tournée ; ne tourne pas une page pour un dessin isolé en paysage. La rotation est indépendante du type de contenu et concerne toujours la page entière. Toute rotation est une suggestion à valider par le professeur.',...(previousRaw ? [`Réponse précédente à réparer : ${previousRaw.slice(0, 1500)}. Corrige le JSON sans inventer de contenu.`] : []),'Exemple neutre : {"pageNumber":1,"kind":"text","confidence":0.9,"reason":"texte manuscrit","suggestedRotation":0,"orientationConfidence":0.9}.'].join('\n'),
+    ['FORMAT DE SORTIE','Réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown.','Champs obligatoires : pageNumber (entier), kind (text | scientific-diagram | mixed | ambiguous), confidence (nombre de 0 à 1), reason (une phrase courte), suggestedRotation (0 | 90 | 180 | 270, rotation horaire à appliquer ; 0 si la page est droite ou en cas de doute), orientationConfidence (nombre de 0 à 1).','Un tableau seul est text. Ne propose une rotation non nulle que si toute la page est tournée ; ne tourne pas une page pour un dessin isolé en paysage. La rotation est indépendante du type de contenu et concerne toujours la page entière. Toute rotation est une suggestion à valider par le professeur.',...(repairReason ? [`Erreur à corriger : ${repairReason.slice(0, 240)}. Réponse précédente à réparer : ${(previousRaw || '[réponse vide]').slice(0, 1500)}. Corrige le JSON sans inventer de contenu.`] : []),'Exemple neutre : {"pageNumber":1,"kind":"text","confidence":0.9,"reason":"texte manuscrit","suggestedRotation":0,"orientationConfidence":0.9}.'].join('\n'),
   ].join('\n\n');
 }
 function buildScientificPageClassificationSchema() {
@@ -45,7 +72,7 @@ function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequ
       properties: {
         diagrams: {
           type: 'array',
-          minItems: 1,
+          minItems: 0,
           items: {
             type: 'object',
             additionalProperties: false,
@@ -72,7 +99,7 @@ function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequ
         },
         criteria: {
           type: 'array',
-          minItems: request.rubric.criteria.length,
+          minItems: 0,
           maxItems: request.rubric.criteria.length,
           items: {
             type: 'object',
@@ -120,15 +147,15 @@ export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisR
   const subject = request.subjectTranscription?.trim();
   return [
     `Analyser les schémas de la page ${pageNumber} d’une copie universitaire. Une requête correspond toujours à une seule image ; un schéma est une preuve, jamais une unité de notation.`,
-    'OBLIGATION : cette image provient d’une page déjà classée comme contenant un schéma scientifique. Ne retourne JAMAIS diagrams: [] ni criteria: []. Analyse cette page uniquement ; au moins un schéma doit être décrit. Si la page est réellement illisible, crée une entrée avec uncertainties explicites et requiresTeacherReview à true au lieu de l’omettre.',
+    'La classification préalable suggère un schéma, mais elle peut être erronée. Vérifie l’image : si aucun schéma n’est identifiable, retourne diagrams: [], criteria: [] et explique brièvement pourquoi dans overallUncertainties. N’invente jamais de dessin ou de note.',
     'Retourne diagrams : tous les schémas détectés sur cette page, avec id neutre, pageNumber = 1, diagramType, summary court, bounds et uncertainties (tableau). Le champ bounds est obligatoire : retourne null si la localisation est incertaine.',
-    'Retourne criteria : exactement UNE évaluation pour CHAQUE critère du barème, portant sur l’ensemble des schémas pertinents de CETTE PAGE uniquement. Ne note jamais un critère séparément par schéma et ne répartis pas son maximum entre les schémas. Aucun critère ne doit être omis.',
+    'Si un schéma est identifiable, retourne criteria : exactement UNE évaluation pour CHAQUE critère du barème, portant sur l’ensemble des schémas pertinents de CETTE PAGE uniquement. Ne note jamais un critère séparément par schéma et ne répartis pas son maximum entre les schémas. En l’absence de schéma identifiable, retourne criteria: [] et une incertitude explicite.',
     'Le maximum n’est justifié que si tous les attendus essentiels sont démontrés sur l’ensemble des schémas de cette page. Si un élément essentiel est partiel ou manquant, attribue des points partiels.',
     'Le champ elements est toujours présent : retourne chaque sous-critère du barème avec son intitulé exact, son statut, une preuve courte et les points attribués. Les points peuvent être partiels et doivent respecter le maximum propre au sous-critère ; ne déduis jamais automatiquement un demi-point.',
     'Si le critère ne contient aucun sous-critère, retourne une seule note points sur son maximum. Ne retourne jamais de critère absent du barème.',
     'Ne pénalise pas deux fois la même erreur. Ne note jamais l’esthétique. N’invente aucun attendu absent de la consigne ou du barème.',
     'Ne juge jamais un dessin correct à partir d’une explication textuelle. Si un élément est illisible ou ambigu, signale-le dans uncertainties et mets requiresTeacherReview à true.',
-    'Les bounds sont normalisées de 0 à 1. Omet-les si incertain. Ne considère pas les tableaux de données comme des schémas.',
+    'Les bounds sont normalisées de 0 à 1 ; retourne null si elles sont incertaines. Ne considère pas les tableaux de données comme des schémas.',
     'Ignore les marques de correction manuscrites préexistantes (commentaires, coches, cercles, notes et traits) : elles ne font jamais partie de la production de l’étudiant. Si une marque recouvre ou touche un élément du schéma, mets requiresTeacherReview à true.',
     'CRITÈRES VISUELS (liste exhaustive) : ' + JSON.stringify(criteria),
     'QUESTION : ' + (request.question.trim() || 'Aucune question de référence fournie.'),
@@ -145,10 +172,31 @@ function buildScientificDiagramRepairPrompt(
 ): string {
   return [
     buildScientificDiagramPrompt(request),
-    'Réparer la réponse d’analyse des schémas : la réponse précédente est invalide. Les listes diagrams et criteria ne peuvent pas être vides : cette image provient d’une page déjà classée comme contenant un schéma scientifique. Retourne au moins un schéma sur cette page et une évaluation pour chaque critère du barème.',
+    'Réparer la réponse d’analyse des schémas : une classification préalable n’est pas une preuve de schéma. Si aucun dessin n’est identifiable, utilise diagrams: [], criteria: [] et overallUncertainties non vide ; sinon évalue chaque critère graphique du barème.',
     'Corrige précisément ce champ : ' + reason + '.',
     'Réponse précédente (extrait) : ' + previousRaw.slice(0, 3000),
     'FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown. Retourne le JSON complet conforme au schéma. Exemple neutre : {"diagrams":[{"id":"diagram-1","pageNumber":1,"diagramType":"schéma","summary":"Description courte.","uncertainties":[],"bounds":null}],"criteria":[{"criterionId":"criterion-id","points":0,"evidence":"Extrait exact.","confidence":0.5,"requiresTeacherReview":true,"diagramIds":[],"elements":null}],"overallUncertainties":[]}.',
+  ].join('\n\n');
+}
+
+/** A genuinely smaller second request after token-budget exhaustion.
+ * Keep the rubric and subject, but remove explanatory instructions and verbose examples.
+ */
+function buildConciseScientificDiagramPrompt(request: ScientificDiagramAnalysisRequest): string {
+  const criteria = request.rubric.criteria.map((criterion) => ({
+    id: criterion.id,
+    maxPoints: criterion.maxPoints,
+    subcriteria: getRubricSubcriteria(criterion).map((item) => ({ id: item.id, maxPoints: item.maxPoints })),
+  }));
+  return [
+    'RÔLE : évalue uniquement les schémas scientifiques réellement visibles sur cette image à partir du barème fourni.',
+    'La réponse précédente était tronquée : produis une réponse beaucoup plus courte. summary ≤ 10 mots ; evidence et chaque preuve de sous-critère ≤ 8 mots ; uncertainties ≤ 8 mots par entrée. Pas de reformulation ni de justification longue.',
+    'Si aucun schéma identifiable, retourne diagrams: [], criteria: [] et une explication courte dans overallUncertainties. N’invente ni schéma ni point.',
+    'Si un schéma est identifiable, retourne un critère par id du barème, tous les sous-critères prévus et des points justifiés. Un dessin n’est pas une unité de notation. PageNumber = 1, bounds = null si localisation incertaine.',
+    'BARÈME : ' + JSON.stringify(criteria),
+    'QUESTION : ' + request.question,
+    ...(request.subjectTranscription ? ['SUJET : ' + request.subjectTranscription] : []),
+    'FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON conforme au schéma transmis, sans Markdown, sans texte autour.',
   ].join('\n\n');
 }
 
@@ -161,10 +209,12 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       const classifications = [];
       for (const [index, image] of request.images.entries()) {
         const prompt = classificationPrompt(index + 1), schema = buildScientificPageClassificationSchema(), startedAt = Date.now();
+        let lastRequestStartedAt = startedAt;
         let raw = '';
         try {
-          const send = async (previousRaw = '') => {
-            const content = previousRaw ? classificationPrompt(index + 1, previousRaw) : prompt;
+          const send = async (repair?: { raw: string; reason: string }) => {
+            lastRequestStartedAt = Date.now();
+            const content = repair ? classificationPrompt(index + 1, repair.raw, repair.reason) : prompt;
             const body = {
               model: request.model,
               stream: false,
@@ -192,16 +242,25 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
             return { truncated: (result.done_reason ?? result.choices?.[0]?.finish_reason) === 'length', content };
           };
           let attempt = await send();
-          if (attempt.truncated) {
-            attempt = await send(raw);
+          let classification: ReturnType<typeof parseScientificPageClassifications>[number];
+          try {
+            if (attempt.truncated) throw new Error('Réponse tronquée : limite de génération atteinte.');
+            if (!raw.trim()) throw new Error('Réponse vide.');
+            [classification] = parseScientificPageClassifications(raw, 1);
+          } catch (cause) {
+            const reason = cause instanceof Error ? cause.message : String(cause);
+            diagnosticResult(request, 'scientific-diagram-classification', attempt.content, raw, lastRequestStartedAt, reason, requestPayload);
+            // A malformed JSON, empty output or truncation warrants one targeted repair.
+            // HTTP/provider failures are not handled here and never trigger retries.
+            attempt = await send({ raw, reason });
             if (attempt.truncated) throw new Error(`Réponse tronquée : la classification de la page ${index + 1} a atteint deux fois la limite de génération.`);
+            if (!raw.trim()) throw new Error(`Le modèle Vision n’a retourné aucune classification pour la page ${index + 1} après réparation.`);
+            [classification] = parseScientificPageClassifications(raw, 1);
           }
-          if (!raw.trim()) throw new Error(`Le modèle Vision n’a retourné aucune classification pour la page ${index + 1}.`);
-          const [classification] = parseScientificPageClassifications(raw, 1);
           classifications.push({ ...classification, pageNumber: index + 1 });
-          diagnosticResult(request, 'scientific-diagram-classification', attempt.content, raw, startedAt, undefined, requestPayload);
+          diagnosticResult(request, 'scientific-diagram-classification', attempt.content, raw, lastRequestStartedAt, undefined, requestPayload);
         } catch (cause) {
-          diagnosticResult(request, 'scientific-diagram-classification', prompt, raw, startedAt, cause instanceof Error ? cause.message : String(cause), requestPayload);
+          diagnosticResult(request, 'scientific-diagram-classification', prompt, raw, lastRequestStartedAt, cause instanceof Error ? cause.message : String(cause), requestPayload);
           throw cause;
         }
       }
@@ -216,12 +275,14 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       );
       if (request.images.length !== 1) throw new Error('L’analyse Vision des schémas attend une seule image par requête. Les pages doivent être traitées séquentiellement.');
       const startedAt = Date.now();
+      let lastRequestStartedAt = startedAt;
       let raw = '';
       let prompt = buildScientificDiagramPrompt(request);
 
       const schema = buildScientificDiagramJsonSchema(request);
 
       const send = async (promptOverride?: string) => {
+        lastRequestStartedAt = Date.now();
         prompt = promptOverride ?? buildScientificDiagramPrompt(request);
         const payload = {
           model: request.model,
@@ -238,14 +299,18 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
         };
         const post = (format: unknown) => {
           const body = JSON.stringify({ ...payload, format });
-          if (local) requestPayload = JSON.stringify({ ...payload, images: ['[IMAGE REDACTED]'], format });
+          if (local) requestPayload = JSON.stringify({
+            ...payload,
+            format,
+            messages: payload.messages.map((message) => ({ ...message, images: message.images.map(() => '[IMAGE REDACTED]') })),
+          });
           return compatibleFetch(
           request.endpoint.replace(/\/+$/, '') + '/api/chat',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body,
-          },
+          annotateNetworkRequest(
+            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
+            'Analyser les schémas scientifiques',
+            `Modèle ${request.model} · page ${request.pageNumbers?.[0] ?? 1}/${request.totalPageCount ?? 1}`,
+          ),
         );
         };
 
@@ -276,9 +341,16 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       };
 
       try {
-        const attempt = await send();
+        let attempt = await send();
+        let truncatedRetry = false;
         if (attempt.truncated) {
-          throw new Error('Réponse tronquée : l’analyse du schéma a atteint la limite de génération. Relancez l’analyse ou réduisez la quantité de contenu à analyser.');
+          diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, lastRequestStartedAt, 'Réponse tronquée : limite de génération atteinte.', requestPayload);
+          truncatedRetry = true;
+          // Exactly one shorter retry: never send the same oversized prompt twice.
+          attempt = await send(buildConciseScientificDiagramPrompt(request));
+          if (attempt.truncated) {
+            throw new Error('Réponse tronquée après une tentative allégée d’analyse du schéma.');
+          }
         }
 
         let result: ReturnType<typeof parseScientificDiagramAnalysis>;
@@ -286,7 +358,8 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           result = parseScientificDiagramAnalysis(raw, request.rubric, request.images.length, request.pageNumbers);
         } catch (firstError) {
           const reason = firstError instanceof Error ? firstError.message : String(firstError);
-          diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt, reason, requestPayload);
+          if (truncatedRetry) throw new Error('Réponse invalide après tentative allégée : ' + reason);
+          diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, lastRequestStartedAt, reason, requestPayload);
           const repairPrompt = buildScientificDiagramRepairPrompt(request, reason, raw);
           const repair = await send(repairPrompt);
           if (repair.truncated) throw new Error('Réponse tronquée lors de la tentative de réparation.');
@@ -299,7 +372,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           }
         }
 
-        diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt, undefined, requestPayload);
+        diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, lastRequestStartedAt, undefined, requestPayload);
         return result;
       } catch (cause) {
         diagnosticResult(
@@ -307,7 +380,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           'scientific-diagram-analysis',
           prompt,
           raw,
-          startedAt,
+          lastRequestStartedAt,
           cause instanceof Error ? cause.message : String(cause),
           requestPayload,
         );

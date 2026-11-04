@@ -21,6 +21,25 @@ describe('parseScientificDiagramAnalysis', () => {
     expect(result.diagrams).toHaveLength(1);
     expect(result.overallUncertainties).toEqual([]);
   });
+  it('keeps a wrongly classified page ungraded when the image contains no identifiable diagram', () => {
+    const analysis = parseScientificDiagramAnalysis(JSON.stringify({
+      diagrams: [], criteria: [], overallUncertainties: ['Tableau de données, sans dessin scientifique.'],
+    }), rubric, 1, [4]);
+    expect(analysis).toMatchObject({
+      diagrams: [], criteria: [], overallUncertainties: ['Tableau de données, sans dessin scientifique.'],
+    });
+    expect(analysis.warnings?.join(' ')).toContain('attribuée par l’enseignant');
+  });
+
+  it('refuses empty diagrams without uncertainty or when the model still assigns points', () => {
+    expect(() => parseScientificDiagramAnalysis(JSON.stringify({
+      diagrams: [], criteria: [], overallUncertainties: [],
+    }), rubric, 1)).toThrow(/Aucun schéma exploitable/);
+    expect(() => parseScientificDiagramAnalysis(JSON.stringify({
+      diagrams: [], criteria: [{ criterionId: 'labels', points: 2 }], overallUncertainties: ['aucun dessin'],
+    }), rubric, 1)).toThrow(/Aucun schéma exploitable/);
+  });
+
   it('explains when Vision omits the mandatory diagrams collection', () => {
     expect(() => parseScientificDiagramAnalysis(JSON.stringify({ result: 'no diagram list' }), rubric, 1))
       .toThrow(/diagrams/);
