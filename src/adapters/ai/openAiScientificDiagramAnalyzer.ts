@@ -221,7 +221,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
 
       const schema = buildScientificDiagramJsonSchema(request);
 
-      const send = async (compact: boolean, promptOverride?: string) => {
+      const send = async (promptOverride?: string) => {
         prompt = promptOverride ?? buildScientificDiagramPrompt(request);
         const payload = {
           model: request.model,
@@ -276,9 +276,9 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       };
 
       try {
-        let attempt = await send(false);
+        let attempt = await send();
         if (attempt.truncated) {
-          attempt = await send(true);
+          attempt = await send();
           if (attempt.truncated) {
             throw new Error('Réponse tronquée : la seconde tentative compacte a également atteint la limite de génération.');
           }
@@ -291,7 +291,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           const reason = firstError instanceof Error ? firstError.message : String(firstError);
           diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt, reason, requestPayload);
           const repairPrompt = buildScientificDiagramRepairPrompt(request, reason, raw);
-          const repair = await send(true, repairPrompt);
+          const repair = await send(repairPrompt);
           if (repair.truncated) throw new Error('Réponse tronquée lors de la tentative de réparation.');
 
           try {
