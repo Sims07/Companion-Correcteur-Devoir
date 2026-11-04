@@ -799,7 +799,7 @@ export function createOllamaProvider(
             parseModelJson(identityResponse);
           } catch (cause) {
             const reason = cause instanceof Error ? cause.message : String(cause);
-            if (signal?.aborted || !/JSON|réponse vide|message\\.content vide|Réponse tronquée/i.test(reason)) throw cause;
+            if (signal?.aborted || !/JSON|réponse vide|message\.content vide|Réponse tronquée/i.test(reason)) throw cause;
             // Some smaller vision models stop without a final message under strict
             // schema decoding. Retry once on the *same cropped header* in JSON mode.
             identityResponse = await sendStream(
@@ -807,7 +807,7 @@ export function createOllamaProvider(
               [
                 'Lis le prénom, le nom et le numéro étudiant dans cet en-tête. Ne devine rien ; utilise null si illisible.',
                 'FORMAT DE SORTIE : renvoie uniquement un objet JSON avec firstName, lastName, studentNumber (texte ou null) et confidence (low, medium ou high).',
-              ].join('\\n\\n'),
+              ].join('\n\n'),
               [providerImage(headerImage)],
               undefined,
               true,
