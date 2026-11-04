@@ -289,27 +289,6 @@ body {
   grid-template-columns: 40px minmax(0, 1fr) auto;
 }
 
-@media (max-width: 999px) {
-  .diagnostic-content-column:has(.evaluation-step-nav) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .diagnostic-content-column:has(.evaluation-step-nav) > .privacy-strip,
-  .diagnostic-content-column:has(.evaluation-step-nav) > .evaluation-page-header,
-  .diagnostic-content-column:has(.evaluation-step-nav) > .evaluation-step-nav,
-  .diagnostic-content-column:has(.evaluation-step-nav) > .evaluation-config-workspace,
-  .diagnostic-content-column:has(.evaluation-step-nav) > .evaluation-results-workspace {
-    grid-column: 1;
-    grid-row: auto;
-    width: auto;
-    margin-inline: 0;
-  }
-
-  .diagnostic-content-column:has(.evaluation-step-nav) > .evaluation-step-nav {
-    position: static;
-  }
-}
-
 @media (max-width: 760px) {
   .observability-intro {
     grid-template-columns: 36px minmax(0, 1fr);
