@@ -881,7 +881,7 @@ export function createOllamaProvider(
               const repaired = await sendStream(visionModel, repairPrompt, [providerImage(image)], undefined, annotationSchema, false, { kind: 'vision', stage: 'reading', temperature: 0, generationTokenLimit: 1024, allowTruncated: true, intent: 'Réparer la détection des annotations', context: 'Page ' + pageNumber });
               detection = parseTeacherAnnotationDetection(repaired);
             } catch (repairCause) {
-              const warning = `Détection des annotations non exploitable sur la page ${pageNumber} : ${repairCause instanceof Error ? repairCause.message : 'réponse invalide'}. La transcription initiale est conservée et la correction continue ; vérifiez les annotations manuellement.`;
+              const warning = `Détection des annotations non exploitable sur la page ${pageNumber} : ${repairCause instanceof Error ? repairCause.message : 'réponse invalide'}. La transcription initiale est conservée uniquement pour vérification ; la correction est interrompue.`;
               onTranscription?.(warning, 'warning');
               throw new Error(warning);
             }
