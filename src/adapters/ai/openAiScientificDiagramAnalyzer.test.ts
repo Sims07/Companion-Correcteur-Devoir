@@ -146,26 +146,18 @@ describe('OpenAI scientific diagram adapter', () => {
     await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(request))
       .resolves.toMatchObject({ diagrams: [{ criteria: [{ points: 2 }] }], overallUncertainties: [] });
   });
-  it('asks Vision for one global score per selected diagram criterion and makes the seven-dimension explanation optional when explicitly marked', async () => {
-    const detailedOutput = structuredClone(output) as { diagrams: Array<{ criteria: Array<{ qualityBreakdown?: Array<{ dimension: string; status: string; evidence: string }> }> }> };
-    detailedOutput.diagrams[0].criteria[0].qualityBreakdown = [
-      { dimension: 'title', status: 'fulfilled', evidence: 'Titre précis.' },
-      { dimension: 'scientific-accuracy', status: 'partial', evidence: 'Une structure est imprécise.' },
-      { dimension: 'completeness', status: 'fulfilled', evidence: 'Éléments essentiels présents.' },
-      { dimension: 'labels', status: 'partial', evidence: 'Deux légendes manquent.' },
-      { dimension: 'arrows-relations', status: 'not-applicable', evidence: 'Aucune relation à représenter.' },
-      { dimension: 'organization-conventions', status: 'fulfilled', evidence: 'Organisation logique.' },
-      { dimension: 'legibility', status: 'fulfilled', evidence: 'Lecture aisée.' },
-    ];
-    const markedRequest = { ...request, rubric: { title: 'Barème', criteria: [{ id: 'labels', title: 'Qualité du schéma', description: '', maxPoints: 10, analysisMode: 'scientific-diagram' as const }] } };
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(detailedOutput) } }] }), { status: 200 }));
-    const result = await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(markedRequest);
-    expect(result.diagrams[0].criteria[0].qualityBreakdown).toHaveLength(7);
+
+  it('asks Vision to evaluate only the teacher-defined subcriteria', async () => {
+    const markedRequest = { ...request, rubric: { title: 'Barème', criteria: [{ id: 'labels', title: 'Schéma', description: '', maxPoints: 3, analysisMode: 'scientific-diagram' as const, subcriteria: [{ id: 'membrane', title: 'Membrane', description: 'Contour fermé', maxPoints: 2 }, { id: 'nucleus', title: 'Noyau', description: '', maxPoints: 1 }] }] } };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
+    await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(markedRequest);
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
-    const prompt = body.messages[0].content[0].text as string;
-    expect(prompt).toContain('UNE seule évaluation par critère');
-    expect(prompt).toContain('arrows-relations');
-    expect(prompt).toContain('maximum n’est justifié que si tous les attendus essentiels');
+    const prompt = body.messages[0].content as string;
+    expect(prompt).toContain('Membrane');
+    expect(prompt).toContain('Noyau');
+    expect(prompt).not.toContain('arrows-relations');
+    expect(prompt).not.toContain('qualityBreakdown');
+    expect(prompt).toContain('ne déduis jamais automatiquement un demi-point');
   });
   it('records failed diagram Vision calls in observability', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('vision unavailable', { status: 503 }));
