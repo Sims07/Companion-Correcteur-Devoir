@@ -14,7 +14,7 @@ function diagnosticResult(request: { model: string; endpoint: string; images: Im
     purpose,
     model: request.model,
     requestPrompt: prompt,
-    requestMetadata: { provider: request.apiCompatible ? 'openai-compatible' : 'ollama', endpoint: request.endpoint, stream: false, think: false, format: 'json-schema', imageCount: request.images.length, keepAlive: 0, options: { contextTokens: 0, generationTokenLimit: purpose === 'scientific-diagram-classification' ? 1024 : 2048 } },
+    requestMetadata: { provider: request.apiCompatible ? 'openai-compatible' : 'ollama', endpoint: request.endpoint, stream: false, think: false, format: 'json-schema', imageCount: request.images.length, keepAlive: '5m (Ollama default)', options: { contextTokens: 0, generationTokenLimit: purpose === 'scientific-diagram-classification' ? 1024 : 2048 } },
     requestPayload,
     raw,
     ...(error ? { error } : {}),
@@ -168,7 +168,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
             const body = {
               model: request.model,
               stream: false,
-              ...(local ? { think: false, keep_alive: index < request.images.length - 1 ? '30s' : 0 } : { generation_token_parameter: 'max_tokens' as const }),
+              ...(local ? { think: false } : { generation_token_parameter: 'max_tokens' as const }),
               format: schema,
               options: { temperature: 0, num_predict: 1024 },
               messages: [{ role: 'user', content, imageDetail: 'high' as const, images: [local ? image.base64 : 'data:' + image.mimeType + ';base64,' + image.base64] }],
@@ -226,7 +226,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
         const payload = {
           model: request.model,
           stream: false,
-          ...(local ? { think: false, keep_alive: 0 } : { generation_token_parameter: 'max_tokens' as const }),
+          ...(local ? { think: false } : { generation_token_parameter: 'max_tokens' as const }),
           options: { temperature: 0, num_predict: 2048, ...(local ? { num_ctx: 8192 } : {}) },
           messages: [{
             role: 'user',
