@@ -26,6 +26,9 @@ function rubricFromJson(value: unknown, fileName: string): ImportedRubric {
       if (!subTitle || !Number.isFinite(subPoints)) throw new Error(`Le sous-critère ${subIndex + 1} du critère ${title} doit avoir un intitulé et un maximum valide.`);
       return { id: String(subcriterion.id ?? `${slugify(title, index)}-sub-${subIndex + 1}`), title: subTitle, description: String(subcriterion.description ?? ''), maxPoints: subPoints };
     }) : undefined;
+    if (criterion.expectedElements !== undefined && !Array.isArray(criterion.expectedElements)) {
+      throw new Error(`Les anciens éléments attendus du critère « ${title} » doivent être une liste.`);
+    }
     const expectedElements = Array.isArray(criterion.expectedElements) ? criterion.expectedElements.map((value, subIndex) => {
       if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw new Error(`L’ancien sous-critère ${subIndex + 1} du critère « ${title} » est invalide.`);
