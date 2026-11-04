@@ -1,6 +1,6 @@
 import { parseGradingProposal } from '../domain/grading.ts';
 import { sumGradeScores } from '../domain/scorePrecision.ts';
-import { transcribeSubjectReference } from './transcribeSubjectReference.ts';
+
 import { toBackgroundJobSummary, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import type { Rubric } from '../domain/rubric.ts';
 import type { BackgroundCorrectionRepository } from '../ports/backgroundCorrectionRepository.ts';
@@ -120,7 +120,15 @@ export function createBackgroundCorrectionService(
           if (visualRubric.diagramCriteria.length > 0) {
             if (current.correctionMode === 'separate' && !current.subjectTranscription && current.subjectImages.length > 0) {
               const reader = workspace.createProvider({ ...jobSettings, visionModel: current.visionModel, analysisModel: current.analysisModel, thinking: current.thinking });
-              const subject = await transcribeSubjectReference(reader, current.subjectImages, requestAbortController.signal);
+              const subject = await reader.generate({
+                question: 'Transcrire fidèlement le sujet de référence sans résoudre les exercices.',
+                rubric: '{"title":"Sujet de référence","criteria":[]}',
+                images: current.subjectImages,
+                subjectImages: current.subjectImages,
+                visionOnly: true,
+                subjectOnly: true,
+              }, undefined, undefined, undefined, undefined, undefined, undefined, undefined, requestAbortController.signal);
+              if (!subject.trim()) throw new Error('Le sujet de référence n’a pas pu être lu : aucune note ne peut en dépendre.');
               current = { ...current, subjectTranscription: subject, updatedAt: new Date().toISOString() };
               await persist(current);
             }
