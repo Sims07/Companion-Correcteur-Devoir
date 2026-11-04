@@ -86,6 +86,61 @@ describe('Ollama adapter', () => {
     expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({ stage: 'reading', kind: 'vision', requestMetadata: { format: 'json-schema', imageCount: 1 } });
   });
 
+  it('retries an empty Ollama identity response once in simpler JSON mode and preserves failure observability', async () => {
+    const identity = JSON.stringify({ firstName: 'Alice', lastName: 'Martin', studentNumber: null, confidence: 'high' });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse(''))
+      .mockResolvedValueOnce(streamingResponse(identity))
+      .mockResolvedValueOnce(streamingResponse('Transcription lisible.'));
+    const onTranscription = vi.fn();
+    const onDiagnosticResult = vi.fn();
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision-model', analysisModel: 'analysis-model' }, fetchMock);
+
+    await expect(provider.generate({ ...request, identifyStudent: true, visionOnly: true }, undefined, undefined, onTranscription, onDiagnosticResult))
+      .resolves.toContain('Transcription lisible.');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const initialRequest = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    const retryRequest = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(initialRequest.format.type).toBe('object');
+    expect(initialRequest.think).toBe(false);
+    expect(retryRequest.format).toBe('json');
+    expect(retryRequest.think).toBe(false);
+    expect(onTranscription).toHaveBeenCalledWith(identity, 'identity');
+    expect(onDiagnosticResult.mock.calls[0][0]).toMatchObject({
+      purpose: 'student-identity', raw: '', error: expect.stringContaining('réponse vide'),
+    });
+    expect(onDiagnosticResult.mock.calls[1][0]).toMatchObject({ purpose: 'student-identity', raw: identity });
+  });
+
+  it('uses the original first page for identity even when text grading starts at page two', async () => {
+    const identity = JSON.stringify({ firstName: null, lastName: 'Martin', studentNumber: null, confidence: 'high' });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse(identity))
+      .mockResolvedValueOnce(streamingResponse('Texte de la deuxième page.'));
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision-model', analysisModel: 'analysis-model' }, fetchMock);
+    const identityImage = { base64: 'cGFnZTE=', mimeType: 'image/png', fileName: 'page1.png' };
+    await provider.generate({ ...request, images: [{ base64: 'cGFnZTI=', mimeType: 'image/png', fileName: 'page2.png' }], identityImage, identifyStudent: true, visionOnly: true });
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).messages[0].images).toEqual(['cGFnZTE=']);
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).messages[0].images).toEqual(['cGFnZTI=']);
+  });
+
+  it('does not skip separate identity identification in legacy single-model grading', async () => {
+    const identity = JSON.stringify({ firstName: 'Alice', lastName: 'Martin', studentNumber: null, confidence: 'high' });
+    const grading = JSON.stringify({ summary: 'OK', criteria: [], questionsForTeacher: [], finalScore: 0 });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamingResponse(identity))
+      .mockResolvedValueOnce(streamingResponse('Réponse de copie.'))
+      .mockResolvedValueOnce(streamingResponse(grading));
+    const onTranscription = vi.fn();
+    const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', model: 'vision-and-analysis' }, fetchMock);
+
+    await provider.generate({ ...request, identifyStudent: true }, undefined, undefined, onTranscription);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(onTranscription).toHaveBeenCalledWith(identity, 'identity');
+  });
+
   it('continues transcription when the dedicated identity request fails or finds no identity', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response('unavailable', { status: 503 }))

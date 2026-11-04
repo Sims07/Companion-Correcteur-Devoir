@@ -166,6 +166,8 @@ describe('background correction service', () => {
     expect(f.workspace.checkReady).toHaveBeenCalledTimes(2);
     expect(f.workspace.prewarmModel).toHaveBeenCalledWith(expect.anything(), 'vision:4b', expect.any(AbortSignal));
     expect(f.createProvider).toHaveBeenCalledTimes(2);
+    expect(f.requests[0]).toMatchObject({ identifyStudent: true, identityImage: f.job.images[0] });
+    expect(f.requests[1].identifyStudent).toBeUndefined();
     expect(f.repository.getCachedTranscription).not.toHaveBeenCalled();
     expect(f.cache).toEqual(new Map());
     expect(completed?.status).toBe('ready');
