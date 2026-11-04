@@ -1,6 +1,6 @@
 import type { GradingProposal, CriterionProposal } from './grading.ts';
 import type { Rubric, RubricCriterion } from './rubric.ts';
-import type { ScientificDiagramAnalysis, ScientificDiagramQualityStatus } from './scientificDiagram.ts';
+import type { ScientificDiagramAnalysis } from './scientificDiagram.ts';
 
 export interface ScientificRubricPartition {
   textCriteria: RubricCriterion[];
@@ -57,27 +57,11 @@ export function mergeScientificDiagramCriteria(
     const confidence = Math.min(...assessments.map((item) => item.confidence));
     const requiresTeacherReview = legacy || pageLevelAnalysis || assessments.some((item) => item.requiresTeacherReview);
     const evidence = assessments.map((item) => item.evidence).join(' · ') + (legacy ? ' · Ancien format, vérifier la note.' : pageLevelAnalysis ? ' · Moyenne des évaluations page par page, à confirmer.' : ` · Pages concernées : ${(analysis?.diagrams ?? []).filter((diagram) => (assessments[0].diagramIds ?? []).includes(diagram.id)).map((diagram) => diagram.pageNumber).join(', ')}`);
-    const qualityBreakdown = criterion.analysisMode === 'scientific-diagram'
-      ? (assessments[0].qualityBreakdown ?? []).map((dimension) => {
-        const matching = assessments.flatMap((assessment) => (assessment.qualityBreakdown ?? []).filter((entry) => entry.dimension === dimension.dimension));
-        const statuses = matching.map((entry) => entry.status);
-        const status: ScientificDiagramQualityStatus = statuses.length === 0 ? 'uncertain'
-          : statuses.every((value) => value === 'not-applicable') ? 'not-applicable'
-          : statuses.includes('uncertain') ? 'uncertain'
-          : statuses.every((value) => value === 'fulfilled') ? 'fulfilled'
-          : statuses.every((value) => value === 'missing') ? 'missing'
-          : statuses.every((value) => value === 'partial') ? 'partial'
-          : statuses.includes('missing') || statuses.includes('partial') ? 'partial'
-          : 'fulfilled';
-        return { ...dimension, status, evidence: matching.map((entry) => entry.evidence).join(' · ') };
-      })
-      : undefined;
     diagramProposals.set(criterion.id, {
       criterionId: criterion.id,
       points,
       rationale: `Évaluation réalisée sur le ou les schémas visibles, conformément au critère « ${criterion.title} ».`,
       evidence,
-      ...(qualityBreakdown ? { qualityBreakdown } : {}),
       ...(assessments[0].elements ? { scientificDiagramElements: assessments[0].elements } : {}),
       scientificDiagramPages: [...new Set(assessments.flatMap((assessment) => (analysis?.diagrams ?? []).filter((diagram) => (assessment.diagramIds ?? []).includes(diagram.id)).map((diagram) => diagram.pageNumber)))],
       confidence: confidence < 0.5 ? 'low' : confidence < 0.8 ? 'medium' : 'high',
