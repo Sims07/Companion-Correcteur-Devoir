@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { backgroundCorrectionStatusLabel, createBackgroundCorrection, findBackgroundCorrectionToOpen, nextBackgroundCorrection } from '../src/domain/backgroundCorrection.ts';
+import { backgroundCorrectionStatusLabel, createBackgroundCorrection, findBackgroundCorrectionToOpen, nextBackgroundCorrection, toBackgroundJobSummary } from '../src/domain/backgroundCorrection.ts';
 import { getBackgroundCorrectionResult } from '../src/domain/backgroundCorrectionResult.ts';
 
 const base = {
@@ -62,9 +62,45 @@ describe('background correction jobs', () => {
         ] },
       }),
       status: 'ready' as const,
-      proposal: { summary: 'OK', criteria: [], questionsForTeacher: [], finalScore: 1.66 },
+      proposal: { summary: 'OK', criteria: [
+        { criterionId: 'a', points: 1.65, rationale: '', evidence: 'Preuve A', confidence: 'high' as const },
+        { criterionId: 'b', points: 0.01, rationale: '', evidence: 'Preuve B', confidence: 'high' as const },
+      ], questionsForTeacher: [], finalScore: 1.66 },
     };
     expect(getBackgroundCorrectionResult(job)).toEqual({ score: 1.66, maxScore: 1.66 });
+  });
+
+  it('never labels interrupted or incomplete evaluations as a complete score in overview summaries', () => {
+    const job = createBackgroundCorrection(base);
+    const assessed = {
+      criterionId: 'c1', points: 1.5, rationale: '', evidence: 'Mitose observée', confidence: 'high' as const,
+    };
+    const proposal = { summary: 'Analyse partielle', criteria: [assessed], questionsForTeacher: [], finalScore: 1.5 };
+
+    const pending = toBackgroundJobSummary({ ...job, status: 'pending', partialCriteria: [assessed] });
+    const processing = toBackgroundJobSummary({ ...job, status: 'processing', partialCriteria: [assessed] });
+    const failed = toBackgroundJobSummary({ ...job, status: 'failed', partialCriteria: [assessed], proposal });
+    const needsReview = toBackgroundJobSummary({ ...job, status: 'needs-review', partialCriteria: [assessed], proposal });
+    for (const result of [pending, processing, failed, needsReview]) {
+      expect(result.score).toBeNull();
+      expect(result.maximumPoints).toBe(2);
+      expect(result).not.toHaveProperty('images');
+    }
+
+    const ready = toBackgroundJobSummary({ ...job, status: 'ready', proposal });
+    expect(ready.score).toBe(1.5);
+    expect(ready.progress.totalCriteria).toBe(1);
+  });
+
+  it('does not mistake a diagram assessment placeholder for an awarded zero', () => {
+    const job = createBackgroundCorrection(base);
+    const unevaluated = {
+      criterionId: 'c1', points: 0, assessmentStatus: 'not-evaluated' as const,
+      rationale: 'Lecture impossible', evidence: 'Non lisible', confidence: 'low' as const,
+    };
+    const proposal = { summary: '', criteria: [unevaluated], finalScore: 0, questionsForTeacher: [] };
+    expect(toBackgroundJobSummary({ ...job, status: 'ready', proposal }).score).toBeNull();
+    expect(toBackgroundJobSummary({ ...job, status: 'needs-review', proposal }).score).toBeNull();
   });
 
   it('uses teacher-facing status labels', () => {
