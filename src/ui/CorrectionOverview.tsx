@@ -69,8 +69,8 @@ function scoreForCorrection(correction: LocalCorrection): { score: number; maxim
 }
 
 function jobLabel(job: BackgroundJobSummary): string {
-  if (!job.studentIdentity) return job.label || 'Étudiant non identifié';
-  return [job.studentIdentity.lastName, job.studentIdentity.firstName].filter(Boolean).join(' ') || job.label || 'Étudiant non identifié';
+  // The saved label is authoritative: it may have been edited by the teacher.
+  return job.label || 'Étudiant non identifié';
 }
 
 function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): string {
@@ -94,7 +94,7 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onF
         return {
           id: job.id,
           label,
-          searchText: `${label} ${job.label}`.toLocaleLowerCase('fr-FR'),
+          searchText: `${label} ${job.studentIdentity?.firstName ?? ''} ${job.studentIdentity?.lastName ?? ''} ${job.studentIdentity?.studentNumber ?? ''}`.toLocaleLowerCase('fr-FR'),
           status,
           updatedAt: job.updatedAt,
           pageCount: job.pageCount,
