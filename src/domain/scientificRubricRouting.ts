@@ -1,6 +1,8 @@
 import type { GradingProposal, CriterionProposal } from './grading.ts';
 import type { Rubric, RubricCriterion } from './rubric.ts';
-import type { ScientificDiagramAnalysis } from './scientificDiagram.ts';
+import type { DiagramCriterionAssessment, ScientificDiagramAnalysis } from './scientificDiagram.ts';
+import { getRubricSubcriteria } from './rubric.ts';
+import { normalizeGradeScore, sumGradeScores } from './scorePrecision.ts';
 
 export interface ScientificRubricPartition {
   textCriteria: RubricCriterion[];
@@ -23,7 +25,7 @@ export function partitionScientificRubric(rubric: Rubric): ScientificRubricParti
   return { textCriteria, diagramCriteria };
 }
 
-/** Merge Vision's visual assessments with text grading without double-evaluating visual criteria through OCR. */
+/** Merge visual evidence against the teacher rubric; never average independent page grades. */
 export function mergeScientificDiagramCriteria(
   rubric: Rubric,
   textProposal: GradingProposal | null,
@@ -32,97 +34,151 @@ export function mergeScientificDiagramCriteria(
   const { textCriteria, diagramCriteria } = partitionScientificRubric(rubric);
   const textById = new Map((textProposal?.criteria ?? []).map((criterion) => [criterion.criterionId, criterion]));
   const diagramProposals = new Map<string, CriterionProposal>();
-  const legacyAnalysis = Boolean(analysis && (analysis.warnings ?? []).some((warning) => warning.includes('Ancien format')));
-  const pageLevelAnalysis = Boolean(analysis && !analysis.criteria && (analysis.warnings ?? []).some((warning) => warning.startsWith('Évaluations page par page')));
+  const legacyAnalysis = Boolean(analysis?.warnings?.some((warning) => warning.includes('Ancien format')));
+  const pageLevelAnalysis = Boolean(analysis && !analysis.criteria
+    && analysis.warnings?.some((warning) => warning.startsWith('Évaluations page par page')));
+  const perPage = legacyAnalysis || pageLevelAnalysis;
+  const diagramPages = [...new Set((analysis?.diagrams ?? []).map((diagram) => diagram.pageNumber))];
+
+  const unevaluated = (criterion: RubricCriterion, pages: number[], reason: string): CriterionProposal => ({
+    criterionId: criterion.id,
+    points: 0, // Type-safe placeholder only: excluded from finalScore and never displayed as an awarded zero.
+    assessmentStatus: 'not-evaluated',
+    rationale: reason,
+    evidence: `Évaluation non disponible. Pages concernées : ${pages.join(', ') || 'non identifiées'}.`,
+    scientificDiagramPages: pages,
+    confidence: 'low',
+    questionForTeacher: `Évaluez manuellement « ${criterion.title} » sur la copie : ${reason}`,
+  });
 
   for (const criterion of diagramCriteria) {
-    const legacy = legacyAnalysis;
-    const assessments = legacy || pageLevelAnalysis
-      ? (analysis?.diagrams ?? []).flatMap((diagram) => (diagram.criteria ?? []).filter((assessment) => assessment.criterionId === criterion.id).map((assessment) => ({ ...assessment, pageNumber: diagram.pageNumber, diagramType: diagram.diagramType })))
+    const assessments: DiagramCriterionAssessment[] = perPage
+      ? (analysis?.diagrams ?? []).flatMap((diagram) => (diagram.criteria ?? [])
+        .filter((assessment) => assessment.criterionId === criterion.id))
       : (analysis?.criteria ?? []).filter((assessment) => assessment.criterionId === criterion.id);
     if (assessments.length === 0) {
-      diagramProposals.set(criterion.id, {
-        criterionId: criterion.id,
-        points: 0,
-        rationale: 'Aucune évaluation visuelle exploitable n’a été produite pour ce critère.',
-        evidence: 'À évaluer manuellement — aucune évaluation visuelle exploitable. Pages concernées : ' + ((analysis?.diagrams ?? []).map((diagram) => diagram.pageNumber).join(', ') || 'non identifiées') + '.',
-        scientificDiagramPages: [...new Set((analysis?.diagrams ?? []).map((diagram) => diagram.pageNumber))],
-        confidence: 'low',
-        questionForTeacher: 'Vérifiez le schéma sur la copie et attribuez les points de ce critère.',
-      });
+      diagramProposals.set(criterion.id, unevaluated(criterion, diagramPages, 'aucune évaluation visuelle exploitable'));
       continue;
     }
 
-    const points = legacy || pageLevelAnalysis ? Math.min(criterion.maxPoints, assessments.reduce((sum, item) => sum + item.points, 0) / assessments.length) : assessments[0].points;
-    const confidence = Math.min(...assessments.map((item) => item.confidence));
-    const aggregateSubcriteria = assessments.some((item) => item.elements)
-      ? (assessments[0].elements ?? []).map((element) => {
-          const matching = assessments.flatMap((assessment) => assessment.elements ?? [])
-            .filter((candidate) => candidate.subcriterionId === element.subcriterionId);
-          const subcriterionPoints = legacy || pageLevelAnalysis
-            ? matching.reduce((sum, candidate) => sum + candidate.points, 0) / Math.max(1, matching.length)
-            : matching[0]?.points ?? 0;
-          return {
-            ...element,
-            points: subcriterionPoints,
-            evidence: [...new Set(matching.map((candidate) => candidate.evidence).filter(Boolean))].join(' · ') || 'Preuve non fournie par le modèle',
-          };
-        })
-      : undefined;
-    const subcriteriaTotal = aggregateSubcriteria?.reduce((sum, item) => sum + item.points, 0);
-    const subcriteriaMismatch = subcriteriaTotal !== undefined && Math.abs(subcriteriaTotal - points) > 0.0001;
-    const requiresTeacherReview = legacy || pageLevelAnalysis || assessments.some((item) => item.requiresTeacherReview) || subcriteriaMismatch;
-    const evidence = assessments.map((item) => item.evidence).join(' · ') + (legacy ? ' · Ancien format, vérifier la note.' : pageLevelAnalysis ? ' · Moyenne des évaluations page par page, à confirmer.' : ` · Pages concernées : ${(analysis?.diagrams ?? []).filter((diagram) => (assessments[0].diagramIds ?? []).includes(diagram.id)).map((diagram) => diagram.pageNumber).join(', ')}`) + (subcriteriaMismatch ? ' · La somme des sous-critères ne correspond pas à la note du critère.' : '');
+    const sourcePages = [...new Set(assessments.flatMap((assessment) =>
+      (analysis?.diagrams ?? []).filter((diagram) => (assessment.diagramIds ?? []).includes(diagram.id)).map((diagram) => diagram.pageNumber),
+    ))];
+    const pages = sourcePages.length > 0 ? sourcePages : diagramPages;
+    const configuredSubcriteria = getRubricSubcriteria(criterion);
+    const assessmentEvidence = [...new Set(assessments.map((assessment) => assessment.evidence.trim()).filter(Boolean))];
+    let points = Number.NaN;
+    let elements: NonNullable<DiagramCriterionAssessment['elements']> | undefined;
+    let assessmentIncomplete = false;
+    let mismatch = false;
+
+    if (configuredSubcriteria.length > 0) {
+      // Evaluate each teacher-defined dimension once. Page-level observations may
+      // complement one another, but the same element can never earn points twice.
+      const aggregated = configuredSubcriteria.map((expected) => {
+        const candidates = assessments.flatMap((assessment) => assessment.elements ?? [])
+          .filter((element) => element.subcriterionId === expected.id);
+        const supported = candidates.filter((element) =>
+          Number.isFinite(element.points)
+          && element.points >= 0
+          && element.points <= expected.maxPoints
+          && element.maxPoints === expected.maxPoints
+          && element.status !== 'uncertain'
+          && Boolean(element.evidence.trim())
+          && element.evidence !== 'Preuve non fournie par le modèle',
+        );
+        if (!supported.length) return null;
+        const selected = perPage
+          ? supported.reduce((best, item) => item.points > best.points ? item : best)
+          : supported[0];
+        return {
+          ...selected,
+          label: expected.title,
+          maxPoints: expected.maxPoints,
+          points: normalizeGradeScore(selected.points),
+          evidence: [...new Set(supported.map((item) => item.evidence.trim()))].join(' · '),
+        };
+      });
+      if (aggregated.some((element) => element === null)) {
+        assessmentIncomplete = true;
+      } else {
+        elements = aggregated.filter((element): element is NonNullable<typeof element> => element !== null);
+        points = sumGradeScores(elements.map((element) => element.points));
+        // In the global format the model supplies one single rubric assessment.
+        mismatch = !perPage && Math.abs(points - assessments[0].points) > 0.0001;
+      }
+    } else if (perPage && assessments.length > 1) {
+      // Whole-criterion scores from separate pages cannot be mathematically
+      // combined or averaged: another page may complete the previous answer.
+      assessmentIncomplete = true;
+    } else {
+      points = normalizeGradeScore(assessments[0].points);
+    }
+
+    if (assessmentIncomplete || !Number.isFinite(points) || points < Math.min(0, criterion.maxPoints)
+      || points > Math.max(0, criterion.maxPoints)) {
+      diagramProposals.set(criterion.id, unevaluated(criterion, pages,
+        configuredSubcriteria.length > 0
+          ? 'preuves insuffisantes pour un ou plusieurs sous-critères du barème'
+          : 'les notes des différentes pages ne peuvent être consolidées sans inventer de règle'));
+      continue;
+    }
+
+    const confidence = Math.min(...assessments.map((assessment) => assessment.confidence));
+    const needsReview = perPage || mismatch || assessments.some((assessment) => assessment.requiresTeacherReview);
+    const questionForTeacher = mismatch
+      ? 'La note annoncée ne correspond pas à la somme des sous-critères : vérifiez les éléments relevés.'
+      : perPage ? 'Vérifiez la consolidation des preuves réparties sur plusieurs pages.' : needsReview
+        ? 'Un point de l’évaluation visuelle nécessite votre vérification sur la copie.' : undefined;
+    const evidence = [
+      ...assessmentEvidence,
+      `Pages concernées : ${pages.join(', ') || 'non identifiées'}`,
+      ...(mismatch ? ['La somme des sous-critères ne correspond pas à la note annoncée.'] : []),
+    ].join(' · ');
     diagramProposals.set(criterion.id, {
       criterionId: criterion.id,
       points,
-      rationale: `Évaluation réalisée sur le ou les schémas visibles, conformément au critère « ${criterion.title} ».`,
+      rationale: `Évaluation des éléments observés pour « ${criterion.title} », selon le barème fourni.`,
       evidence,
-      ...(aggregateSubcriteria ? {
-        subcriteria: aggregateSubcriteria.map((element) => ({
+      ...(elements ? {
+        subcriteria: elements.map((element) => ({
           subcriterionId: element.subcriterionId,
           title: element.label,
           points: element.points,
           maxPoints: element.maxPoints,
           evidence: element.evidence,
         })),
-        scientificDiagramElements: aggregateSubcriteria,
+        scientificDiagramElements: elements,
       } : {}),
-      scientificDiagramPages: [...new Set(assessments.flatMap((assessment) => (analysis?.diagrams ?? []).filter((diagram) => (assessment.diagramIds ?? []).includes(diagram.id)).map((diagram) => diagram.pageNumber)))],
+      scientificDiagramPages: pages,
       confidence: confidence < 0.5 ? 'low' : confidence < 0.8 ? 'medium' : 'high',
-      ...(requiresTeacherReview ? { questionForTeacher: subcriteriaMismatch ? 'La somme des sous-critères ne correspond pas à la note du critère. Vérifiez cette évaluation sur la copie.' : 'Un point de l’évaluation visuelle nécessite votre vérification sur la copie.' } : {}),
+      ...(questionForTeacher ? { questionForTeacher } : {}),
     });
   }
 
-  const criteria = rubric.criteria.map((criterion) => diagramProposals.get(criterion.id) ?? textById.get(criterion.id));
-  for (const criterion of textCriteria) {
-    if (!textById.has(criterion.id)) {
-      criteria.push({
-        criterionId: criterion.id,
-        points: 0,
-        rationale: 'Aucune proposition textuelle reçue pour ce critère.',
-        evidence: 'Une vérification enseignante est nécessaire.',
-        confidence: 'low',
-        questionForTeacher: 'Vérifiez ce critère et attribuez les points manuellement.',
-      });
-    }
-  }
-
-  const orderedCriteria = rubric.criteria
-    .map((criterion) => criteria.find((item) => item?.criterionId === criterion.id))
-    .filter((criterion): criterion is CriterionProposal => criterion !== undefined);
+  const orderedCriteria: CriterionProposal[] = rubric.criteria.map((criterion) => {
+    const visual = diagramProposals.get(criterion.id);
+    if (visual) return visual;
+    const textual = textById.get(criterion.id);
+    if (textual) return textual;
+    return unevaluated(criterion, [], 'aucune proposition reçue pour ce critère du barème');
+  });
+  const scoreIncomplete = orderedCriteria.some((criterion) => criterion.assessmentStatus === 'not-evaluated');
   const questionsForTeacher = [
     ...(textProposal?.questionsForTeacher ?? []),
     ...orderedCriteria.flatMap((criterion) => criterion.questionForTeacher ? [criterion.questionForTeacher] : []),
     ...(analysis?.overallUncertainties ?? []),
     ...(analysis?.warnings ?? []),
-    ...(legacyAnalysis ? ['Ancien format d’analyse par schéma : vérifier la note.'] : []),
+    ...(legacyAnalysis ? ['Ancien format d’analyse par schéma : vérifier les résultats.'] : []),
   ];
   return {
-    summary: textProposal?.summary ?? 'Proposition fondée sur l’analyse visuelle des schémas ; vérification enseignante requise.',
+    summary: scoreIncomplete
+      ? 'Évaluation partielle : des critères restent à noter par le professeur.'
+      : textProposal?.summary ?? 'Proposition fondée sur les preuves des schémas, à vérifier.',
     criteria: orderedCriteria,
     questionsForTeacher: [...new Set(questionsForTeacher)],
-    finalScore: orderedCriteria.reduce((sum, criterion) => sum + criterion.points, 0),
+    finalScore: sumGradeScores(orderedCriteria.filter((criterion) => criterion.assessmentStatus !== 'not-evaluated').map((criterion) => criterion.points)),
+    scoreIncomplete,
   };
 }
 
