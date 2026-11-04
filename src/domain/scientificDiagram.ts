@@ -147,27 +147,44 @@ function computeElementPoints(
   returned: unknown[],
   warnings: string[],
 ): NonNullable<DiagramCriterionAssessment['elements']> {
-  const returnedByLabel = returned.filter(isRecord);
-  const matchedByIndex = returned.length === configured.length;
-  const used = new Set<unknown>();
+  const candidates = returned.filter(isRecord);
+  const used = new Set<Record<string, unknown>>();
 
-  return configured.map((element, index) => {
-    const expectedLabel = normalizeElementLabel(element.title);
-    let found = returnedByLabel.find((candidate) =>
+  return configured.map((element) => {
+    const found = candidates.find((candidate) =>
+      !used.has(candidate) && candidate.subcriterionId === element.id,
+    ) ?? candidates.find((candidate) =>
       !used.has(candidate) &&
       typeof candidate.label === 'string' &&
-      normalizeElementLabel(candidate.label) === expectedLabel,
+      normalizeElementLabel(candidate.label) === normalizeElementLabel(element.title),
     );
-
-    if (!found && matchedByIndex && !used.has(returned[index])) found = returned[index] as Record<string, unknown>;
     if (found) used.add(found);
-    if (!found) warnings.push('Sous-critère « ' + element.title + ' » absent de la réponse Vision ; note à vérifier manuellement.');
 
     const returnedStatus = found?.status === 'partially-fulfilled' ? 'partial' : found?.status;
-    const status = ['present', 'partial', 'absent', 'uncertain'].includes(String(returnedStatus))
+    const validStatus = ['present', 'partial', 'absent', 'uncertain'].includes(String(returnedStatus));
+    const status = validStatus
       ? returnedStatus as 'present' | 'partial' | 'absent' | 'uncertain'
       : 'uncertain';
-    const evidence = typeof found?.evidence === 'string' && found.evidence.trim()
+    const suppliedPoints = found?.points;
+    const pointsAreValid = typeof suppliedPoints === 'number'
+      && Number.isFinite(suppliedPoints)
+      && suppliedPoints >= 0
+      && suppliedPoints <= element.maxPoints;
+    const statusMatchesPoints = pointsAreValid
+      && (status === 'absent' ? suppliedPoints === 0 : status === 'present' ? suppliedPoints > 0 : true);
+
+    if (!found) {
+      warnings.push('Sous-critère « ' + element.title + ' » absent de la réponse Vision ; aucune note ne peut être déduite.');
+    } else if (!pointsAreValid) {
+      warnings.push('Points absents ou hors limites pour le sous-critère « ' + element.title + ' » ; aucune note ne peut être déduite.');
+    } else if (!statusMatchesPoints) {
+      warnings.push('Points incohérents avec le statut « ' + status + ' » pour le sous-critère « ' + element.title + ' » ; aucune note ne peut être déduite.');
+    } else if (!validStatus) {
+      warnings.push('Statut invalide pour le sous-critère « ' + element.title + ' » ; vérification enseignante requise.');
+    }
+
+    const validAssessment = Boolean(found && validStatus && statusMatchesPoints);
+    const evidence = validAssessment && typeof found?.evidence === 'string' && found.evidence.trim()
       ? found.evidence.trim()
       : 'Preuve non fournie par le modèle';
 
@@ -177,9 +194,7 @@ function computeElementPoints(
       status,
       evidence,
       maxPoints: element.maxPoints,
-      points: typeof found?.points === 'number' && Number.isFinite(found.points) && found.points >= 0 && found.points <= element.maxPoints
-        ? found.points
-        : element.maxPoints * (status === 'present' ? 1 : status === 'partial' ? 0.5 : 0),
+      points: validAssessment ? suppliedPoints as number : 0,
     };
   });
 }
@@ -201,9 +216,11 @@ function assessCriterion(
 
   const configuredElements = legacyDiagramId ? [] : getRubricSubcriteria(criterion);
   const returnedElements = Array.isArray(value.elements) ? value.elements : [];
+  const warningsBeforeElements = warnings.length;
   const elements = configuredElements.length > 0
     ? computeElementPoints(configuredElements, returnedElements, warnings)
     : undefined;
+  const hasElementWarnings = warnings.length > warningsBeforeElements;
   const points = elements
     ? elements.reduce((sum, element) => sum + element.points, 0)
     : typeof value.points === 'number' ? value.points : Number.NaN;
@@ -218,7 +235,7 @@ function assessCriterion(
     ? value.confidence
     : 0;
   let requiresTeacherReview = typeof value.requiresTeacherReview === 'boolean' ? value.requiresTeacherReview : true;
-  if (evidence === 'Preuve non fournie par le modèle') requiresTeacherReview = true;
+  if (evidence === 'Preuve non fournie par le modèle' || hasElementWarnings) requiresTeacherReview = true;
 
   if (elements?.some((element) => ['partial', 'absent', 'uncertain'].includes(element.status))) requiresTeacherReview = true;
   if (elements?.some((element) => element.evidence === 'Preuve non fournie par le modèle')) requiresTeacherReview = true;
