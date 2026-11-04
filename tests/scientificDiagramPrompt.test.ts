@@ -3,6 +3,27 @@ import { buildScientificDiagramPrompt } from '../src/adapters/ai/openAiScientifi
 import type { ScientificDiagramAnalysisRequest } from '../src/ports/scientificDiagramAnalysis.ts';
 
 describe('scientific diagram prompt and professor marks', () => {
+  it('uses only teacher-defined subcriteria and does not request a fixed quality grid', () => {
+    const request: ScientificDiagramAnalysisRequest = {
+      images: [{ mimeType: 'image/png', base64: 'aGVsbG8=' }],
+      pageNumbers: [1],
+      question: 'Dessiner une cellule',
+      rubric: { title: 'Barème', criteria: [{ id: 'diagram', title: 'Schéma', description: '', maxPoints: 3, subcriteria: [
+        { id: 'membrane', title: 'Membrane', description: 'Contour fermé', maxPoints: 2 },
+        { id: 'nucleus', title: 'Noyau', description: '', maxPoints: 1 },
+      ] }] },
+      model: 'vision',
+      endpoint: 'http://localhost:11434',
+      apiKey: '',
+    };
+    const prompt = buildScientificDiagramPrompt(request);
+    expect(prompt).toContain('Membrane');
+    expect(prompt).toContain('Noyau');
+    expect(prompt).not.toContain('qualityBreakdown');
+    expect(prompt).not.toContain('arrows-relations');
+    expect(prompt).toContain('ne déduis jamais automatiquement un demi-point');
+  });
+
   it('instructs Vision to ignore correction marks and request teacher review when they overlap a diagram', () => {
     const request: ScientificDiagramAnalysisRequest = {
       images: [{ mimeType: 'image/png', base64: 'aGVsbG8=' }],
