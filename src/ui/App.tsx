@@ -42,6 +42,10 @@ import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision 
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
 import { AssignmentsHome } from './AssignmentsHome.tsx';
+import type { NewAssignmentDetails } from './components/AssignmentCreationPanel.tsx';
+import { RubricReusePanel } from './components/RubricReusePanel.tsx';
+import { duplicateAssignmentProfile } from '../domain/teacherWorkflow.ts';
+import './components/TeacherSetup.css';
 import { RubricExportPanel } from './components/RubricExportPanel.tsx';
 import { RubricImportPanel } from './components/RubricImportPanel.tsx';
 import { CorrectionOverview } from './CorrectionOverview.tsx';
@@ -308,6 +312,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric');
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
+  const [expandedCriterionId, setExpandedCriterionId] = useState<string | null>(() => readActiveAssignmentProfile().rubric.criteria[0]?.id ?? null);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
   const [rubricImportFileName, setRubricImportFileName] = useState('');
   const [rubricImportProgress, setRubricImportProgress] = useState<RubricImportProgress | null>(null);
@@ -652,7 +657,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   function addCriterion() {
-    const id = `criterion-${Date.now()}`;
+    const id = `criterion-${crypto.randomUUID()}`;
+    setExpandedCriterionId(id);
     setRubric((current) => ({ ...current, criteria: [...current.criteria, { id, title: 'Nouveau critère', description: '', maxPoints: 1 }] }));
     setScientificDiagramAnalysis(null);
   }
@@ -1614,6 +1620,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setAssignmentDescription(profile.description ?? '');
     setEducationLevel(profile.educationLevel ?? '');
     setRubric(profile.rubric);
+    setExpandedCriterionId(profile.rubric.criteria[0]?.id ?? null);
     setQuestion(profile.question);
     setCorrectionMode(profile.correctionMode);
     setHasScientificDiagrams(profile.hasScientificDiagrams ?? false);
@@ -1676,58 +1683,32 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  function createNewAssignment() {
-    if (isAnalyzing) return;
-    setShowOnlyFlagged(true);
+  function createNewAssignment(details: NewAssignmentDetails) {
+    if (isAnalyzing || !details.title.trim()) return;
     setAssignmentDrafts((current) => ({ ...current, [activeAssignmentId]: captureActiveDraft() }));
     const profile: AssignmentProfile = {
-      id: `assignment-${crypto.randomUUID()}`,
-      title: 'Nouveau devoir',
-      description: '',
-      educationLevel: '',
-      rubric: { title: 'Barème à définir', criteria: [] },
-      question: defaultQuestion,
+      id: 'assignment-' + crypto.randomUUID(),
+      title: details.title.trim(),
+      description: details.description.trim(),
+      educationLevel: details.educationLevel,
+      rubric: { title: 'Barème — ' + details.title.trim(), criteria: [] },
+      question: details.description.trim() || defaultQuestion,
       correctionMode: 'integrated',
       hasScientificDiagrams: false,
     };
     setAssignmentProfiles((current) => [...current, profile]);
-    setActiveAssignmentId(profile.id);
-    setAssignmentTitle(profile.title);
-    setAssignmentDescription(profile.description ?? '');
-    setEducationLevel(profile.educationLevel ?? '');
-    setRubric(profile.rubric);
-    setQuestion(profile.question);
-    setCorrectionMode(profile.correctionMode);
-    setHasScientificDiagrams(false);
-    setScientificDiagramAnalysis(null);
-    setPageClassifications(null);
-    setScientificDiagramError('');
-    setImages([]);
-    setOriginalImages([]);
-    setPageClassifications(null);
-    setScientificDiagramAnalysis(null);
-    setScientificDiagramError('');
-    setDetectTeacherAnnotations(false);
-    setAnnotationInkColor('none');
-    setAnnotationInkColorApplied(true);
-    setAnnotationInkColorPreview(null);
-    setTeacherAnnotations('');
-    setTranscription(null);
-    setSubjectImages([]);
-    setSubjectTranscription(null);
-    setProposal(null);
-    setReview([]);
-    setTeacherQuestions('');
-    setStudentLabel('');
-    setStudentIdentity(null);
-    setCurrentCorrectionId(null);
-    setReviewMessage('');
-    setError('');
-    setStreamedOutput('');
-    setDiagnosticRuns([]);
-    setIsFinalized(false);
-    setShowAiSettings(false);
+    applyAssignment(profile);
+    setExpandedCriterionId(null);
+  }
+
+  function duplicateAssignment(source: AssignmentProfile) {
+    if (isAnalyzing) return;
+    setAssignmentDrafts((current) => ({ ...current, [activeAssignmentId]: captureActiveDraft() }));
+    const duplicate = duplicateAssignmentProfile(source, 'assignment-' + crypto.randomUUID());
+    setAssignmentProfiles((current) => [...current, duplicate]);
+    applyAssignment(duplicate);
     setTeacherStep('rubric');
+    setShowAssignmentsHome(false);
   }
 
   async function enqueueBackgroundCopy(files: FileList | null) {
@@ -2251,7 +2232,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         archivedCorrections={archivedCorrections}
         backgroundJobs={allBackgroundJobs}
         currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ? { assignmentId: activeAssignmentId, status: isAnalyzing ? 'processing' : proposal ? 'to-review' : 'to-do' } : null}
-        onCreate={() => { createNewAssignment(); setShowAssignmentsHome(false); }}
+        onCreate={(details) => { createNewAssignment(details); setShowAssignmentsHome(false); }}
+        onDuplicate={duplicateAssignment}
         onOpen={(profile) => { switchAssignment(profile); setShowAssignmentsHome(false); }}
         onDelete={deleteAssignment}
         onReturn={() => setShowAssignmentsHome(false)}
@@ -2792,7 +2774,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <label className="field-label" htmlFor="rubric-title">Nom du barème (distinct du devoir)</label>
         <input id="rubric-title" value={rubric.title} placeholder="Ex. Barème du contrôle de biologie" onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
         {rubric.criteria.length === 0 && <div className="rubric-empty-state" role="status"><strong>Le barème n’est pas encore défini</strong><p>Importez un barème existant ou ajoutez les critères et leurs points ci-dessous. La correction restera indisponible tant qu’un barème valide n’est pas prêt.</p></div>}
-        <div className="rubric-import">
+        <details className="rubric-import rubric-document-import" defaultOpen={!rubric.criteria.length}><summary>Importer un barème depuis un document</summary><div className="rubric-document-import-content">
           <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Excel (.xlsx), CSV, TXT, Markdown ou JSON)</label>
           <FilePicker id="rubric-file" accept=".pdf,.xlsx,.csv,.txt,.md,.json" disabled={rubricFileImporting} onFilesSelected={(files) => { void importRubricFileFromInput(files?.[0]); }} title="Importer un document de barème" description={rubricFileImporting ? "Lecture par l’IA de vision locale en cours…" : "PDF, Excel, CSV, TXT, Markdown ou JSON"} actionLabel={rubricFileImporting ? "Analyse en cours…" : "Parcourir les fichiers"} />
           <p className="hint">Les PDF sont convertis en images dans le navigateur puis lus par votre modèle de vision Ollama local. Aucun service cloud n’est utilisé. Vérifiez les critères, les points et le total après import.</p>
@@ -2846,10 +2828,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             {rubricImportProgress?.stage === 'complete' && <p className="rubric-import-progress-review">Vérifiez le résultat extrait dans les champs modifiables ci-dessous, puis comparez chaque critère et ses points avec le document original avant de valider le barème.</p>}
           </section>}
           {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
-        </div>
+        </div></details>
+        <div className="rubric-editor-toolbar"><button type="button" className="primary-button" onClick={addCriterion}>＋ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
+        {interfaceMode === 'teacher' && <RubricReusePanel assignments={assignmentProfiles} activeAssignmentId={activeAssignmentId} rubric={rubric} onReuse={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); setExpandedCriterionId(criteria[0]?.id ?? null); }} />}
         <div className="criteria-list">
-          {rubric.criteria.map((criterion) => <div className="criterion-editor" key={criterion.id}>
-            <div className="criterion-fields">
+          {rubric.criteria.map((criterion) => <details className="criterion-editor" key={criterion.id} open={expandedCriterionId === criterion.id}>
+            <summary className="criterion-editor-summary" onClick={(event) => { event.preventDefault(); setExpandedCriterionId((current) => current === criterion.id ? null : criterion.id); }}><span><strong>{criterion.title.trim() || 'Critère sans titre'}</strong><small> · {getRubricSubcriteria(criterion).length} sous-critère(s)</small></span><span>{criterion.maxPoints} pt · {expandedCriterionId === criterion.id ? '⌃' : '⌄'}</span></summary>
+            <div className="criterion-editor-content"><div className="criterion-fields">
               <label><span className="field-label">Critère</span><input value={criterion.title} onChange={(event) => updateCriterion(criterion.id, { title: event.target.value })} /></label>
               <label><span className="field-label">Description / attendus</span><input value={criterion.description} onChange={(event) => updateCriterion(criterion.id, { description: event.target.value })} /></label>
             </div>
@@ -2870,11 +2855,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               {getRubricSubcriteria(criterion).length > 0 && <p className={Math.abs(getRubricSubcriteria(criterion).reduce((sum, item) => sum + item.maxPoints, 0) - criterion.maxPoints) < 0.0001 ? 'validation valid' : 'validation invalid'}>Total des sous-critères : {getRubricSubcriteria(criterion).reduce((sum, item) => sum + item.maxPoints, 0)} / {criterion.maxPoints} points{Math.abs(getRubricSubcriteria(criterion).reduce((sum, item) => sum + item.maxPoints, 0) - criterion.maxPoints) >= 0.0001 ? ' · Le total doit correspondre au maximum du critère.' : ''}</p>}
             </div>
             <button className="icon-button" type="button" aria-label={`Supprimer ${criterion.title}`} onClick={() => setRubric((current) => ({ ...current, criteria: current.criteria.filter((item) => item.id !== criterion.id) }))}>×</button>
-          </div>)}
+            </div></details>)}
         </div>
         {interfaceMode === 'teacher' && <RubricImportPanel rubric={rubric} onImport={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); }} />}
         <RubricExportPanel rubric={rubric} />
-        <div className="rubric-actions"><button className="secondary-button" onClick={addCriterion}>+ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
+        <div className="rubric-actions"><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
       </section>
 
       {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Le devoir est prêt ? Ajoutez les copies à corriger.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('overview')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
