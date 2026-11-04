@@ -14,9 +14,9 @@ test('a rubric criterion can be explicitly routed to scientific diagram Vision a
   await openActiveAssignment(page);
   await page.getByRole('button', { name: 'Mes devoirs' }).click();
   await page.getByRole('button', { name: /Créer un devoir/ }).click();
-  await page.locator('.assignment-details-collapsible > summary').click();
-  await page.getByLabel('Nom du devoir', { exact: true }).fill('Schéma de cellule');
-  await page.getByLabel('Description et objectifs pédagogiques').fill('Évaluer un schéma scientifique.');
+  await page.getByLabel(/Nom du devoir/).fill('Schéma de cellule');
+  await page.getByLabel('Objectif pédagogique').fill('Évaluer un schéma scientifique.');
+  await page.getByRole('button', { name: /Créer et préparer le barème/ }).click();
   await page.getByRole('button', { name: /Ajouter un critère/ }).click();
   const diagramCheckbox = page.getByRole('checkbox', { name: /Analyse de schéma scientifique/ }).first();
   await expect(diagramCheckbox).toBeVisible();
@@ -31,8 +31,8 @@ test('all rubric criteria can expose teacher-defined subcriteria with an exact e
   await openActiveAssignment(page);
   await page.getByRole('button', { name: 'Mes devoirs' }).click();
   await page.getByRole('button', { name: /Créer un devoir/ }).click();
-  await page.locator('.assignment-details-collapsible > summary').click();
-  await page.getByLabel('Nom du devoir', { exact: true }).fill('Schéma avec attendus');
+  await page.getByLabel(/Nom du devoir/).fill('Schéma avec attendus');
+  await page.getByRole('button', { name: /Créer et préparer le barème/ }).click();
   await page.getByRole('button', { name: /Ajouter un critère/ }).click();
   await page.getByRole('checkbox', { name: /Analyse de schéma scientifique/ }).first().uncheck();
   await expect(page.getByRole('button', { name: '+ Ajouter un sous-critère' })).toBeVisible();

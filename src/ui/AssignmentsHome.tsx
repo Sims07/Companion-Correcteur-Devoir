@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { AssignmentCreationPanel, type NewAssignmentDetails } from './components/AssignmentCreationPanel.tsx';
 import type { Rubric } from '../domain/rubric.ts';
 import type { BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import { countAssignmentCopies } from '../domain/copyOverview.ts';
@@ -21,7 +22,8 @@ type Props = {
   activeAssignmentId: string;
   archivedCorrections: ArchivedCopy[];
   backgroundJobs: BackgroundJobSummary[];
-  onCreate: () => void;
+  onCreate: (details: NewAssignmentDetails) => void;
+  onDuplicate: (profile: AssignmentCardProfile) => void;
   onOpen: (profile: AssignmentCardProfile) => void;
   onDelete: (profile: AssignmentCardProfile) => void;
   onReturn: () => void;
@@ -29,8 +31,9 @@ type Props = {
 };
 type Filter = 'all' | 'with-copies' | 'to-prepare';
 
-export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorrections, backgroundJobs, currentCopy, onCreate, onOpen, onDelete, onReturn, disabled }: Props) {
+export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorrections, backgroundJobs, currentCopy, onCreate, onDuplicate, onOpen, onDelete, onReturn, disabled }: Props) {
   const [query, setQuery] = useState('');
+  const [creating, setCreating] = useState(false);
   const [filter, setFilter] = useState<Filter>('all');
   const assignmentIdsWithCopies = [...backgroundJobs.filter((job) => job.status !== 'completed').map((job) => job.assignmentId), ...(currentCopy ? [currentCopy.assignmentId] : [])];
   const overview = useMemo(() => getAssignmentOverview(assignments, archivedCorrections, query, filter, assignmentIdsWithCopies), [assignments, archivedCorrections, assignmentIdsWithCopies.join('|'), currentCopy?.assignmentId, filter, query]);
@@ -39,8 +42,9 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
   return <section className="assignments-home" aria-labelledby="assignments-home-title">
     <div className="assignments-home-heading">
       <div><p className="eyebrow">ESPACE ENSEIGNANT</p><h2 id="assignments-home-title">Mes devoirs</h2><p>Retrouvez vos évaluations, reprenez une correction ou préparez un nouveau devoir.</p></div>
-      <button type="button" className="primary-button assignments-create-button" onClick={onCreate} disabled={disabled}><span aria-hidden="true">＋</span> Créer un devoir</button>
+      {!creating && <button type="button" className="primary-button assignments-create-button" onClick={() => setCreating(true)} disabled={disabled}><span aria-hidden="true">＋</span> Créer un devoir</button>}
     </div>
+    {creating ? <AssignmentCreationPanel onCreate={(details) => { onCreate(details); setCreating(false); }} onCancel={() => setCreating(false)} /> : <>
     <div className="assignments-home-toolbar">
       <label className="assignments-search"><span aria-hidden="true">⌕</span><input type="search" aria-label="Rechercher un devoir" placeholder="Rechercher par nom, formation…" value={query} onChange={(event) => setQuery(event.target.value)} /><kbd>⌘ K</kbd></label>
       <div className="assignments-filters" role="group" aria-label="Filtrer les devoirs">
@@ -65,9 +69,10 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
         {profile.description && <p className="assignment-overview-description">{profile.description}</p>}
         <div className="assignment-overview-stats"><strong>{totalCopies}</strong><span>copie(s)</span><span className="assignment-stat-separator">·</span><span>{profile.rubric.criteria.length} critères</span><span className="assignment-stat-separator">·</span><span>{maximumPoints} points</span></div>
         {copyCounts.active > 0 && <p className="assignment-overview-activity">{retryCount} à reprendre · {reviewCount} à réviser · {processingCount} en cours · {pendingCount} à corriger</p>}
-        <div className="assignment-overview-actions"><button type="button" className="assignment-open-button" onClick={() => onOpen(profile)} disabled={disabled}>{active ? 'Reprendre le devoir' : ready ? 'Ouvrir le devoir' : 'Configurer le devoir'} <span aria-hidden="true">→</span></button><details className="assignment-overview-menu"><summary aria-label={'Actions pour ' + (profile.title.trim() || 'devoir sans titre')}>···</summary><div><button type="button" onClick={() => onDelete(profile)} disabled={disabled || assignments.length <= 1}>Supprimer</button></div></details></div>
+        <div className="assignment-overview-actions"><button type="button" className="assignment-open-button" onClick={() => onOpen(profile)} disabled={disabled}>{active ? 'Reprendre le devoir' : ready ? 'Ouvrir le devoir' : 'Configurer le devoir'} <span aria-hidden="true">→</span></button><details className="assignment-overview-menu"><summary aria-label={'Actions pour ' + (profile.title.trim() || 'devoir sans titre')}>···</summary><div><button type="button" onClick={() => onDuplicate(profile)} disabled={disabled}>Dupliquer sans les copies</button><button type="button" onClick={() => onDelete(profile)} disabled={disabled || assignments.length <= 1}>Supprimer</button></div></details></div>
       </article>;
     })}</div> : <div className="assignments-empty"><span aria-hidden="true">⌕</span><h3>Aucun devoir trouvé</h3><p>Modifiez votre recherche ou créez un nouveau devoir.</p><button type="button" className="secondary-button" onClick={() => { setQuery(''); setFilter('all'); }}>Effacer les filtres</button></div>}
     <div className="assignments-home-footer"><span>Les devoirs et les corrections restent enregistrés localement sur cet appareil.</span><button type="button" className="text-button" onClick={onReturn} disabled={disabled}>Retour au devoir actif</button></div>
+    </>}
   </section>;
 }

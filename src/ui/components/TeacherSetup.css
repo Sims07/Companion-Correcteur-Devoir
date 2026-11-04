@@ -1,0 +1,39 @@
+.assignment-creation-panel{max-width:780px;margin:18px auto 36px;padding:var(--ds-space-8)}
+.assignment-creation-heading h3{font-size:clamp(1.35rem,2vw,1.75rem);margin:4px 0 8px}
+.assignment-creation-heading p:last-child{color:var(--ds-color-text-muted);line-height:1.5;margin:0 0 22px}
+.assignment-creation-form{display:grid;gap:var(--ds-space-5)}
+.assignment-creation-form .ds-field{min-width:0}
+.assignment-creation-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:var(--ds-space-3);padding-top:var(--ds-space-3)}
+.rubric-reuse-panel{border:1px solid var(--ds-color-border);border-radius:var(--ds-radius-lg);background:var(--ds-color-surface-subtle);margin:var(--ds-space-4) 0}
+.rubric-reuse-panel>summary{cursor:pointer;padding:var(--ds-space-4);color:var(--ds-color-brand-700);font-weight:700;list-style-position:inside}
+.rubric-reuse-panel>summary:hover{background:var(--ds-color-brand-100)}
+.rubric-reuse-content{display:grid;gap:var(--ds-space-3);padding:0 var(--ds-space-4) var(--ds-space-4)}
+.rubric-reuse-content>p{font-size:.85rem;color:var(--ds-color-text-muted);margin:0;line-height:1.5}
+.rubric-reuse-list{display:grid;gap:var(--ds-space-2);max-height:350px;overflow:auto}
+.rubric-reuse-item{display:flex;align-items:center;gap:var(--ds-space-3);background:var(--ds-color-surface);border:1px solid var(--ds-color-border);border-radius:var(--ds-radius-sm);padding:var(--ds-space-3);cursor:pointer}
+.rubric-reuse-item>span{flex:1;min-width:0;display:grid;gap:3px}
+.rubric-reuse-item small{color:var(--ds-color-text-muted)}
+.rubric-reuse-item input{accent-color:var(--ds-color-brand-700)}
+.rubric-reuse-actions{display:flex;align-items:center;justify-content:space-between;gap:var(--ds-space-3)}
+.rubric-editor .criterion-editor{display:block;margin-bottom:var(--ds-space-3);overflow:visible}
+.rubric-editor .criterion-editor-summary{display:flex;align-items:center;justify-content:space-between;gap:var(--ds-space-3);cursor:pointer;list-style:none;padding:var(--ds-space-4);font-size:.95rem;font-weight:650}
+.rubric-editor .criterion-editor-summary::-webkit-details-marker{display:none}
+.rubric-editor .criterion-editor-summary:hover{background:var(--ds-color-surface-subtle)}
+.rubric-editor .criterion-editor-summary strong{color:var(--ds-color-text)}
+.rubric-editor .criterion-editor-summary small{color:var(--ds-color-text-muted);font-weight:500}
+.rubric-editor .criterion-editor-content{padding:0 var(--ds-space-4) var(--ds-space-4);display:flex;flex-wrap:wrap;gap:var(--ds-space-3)}
+.rubric-editor .criterion-editor-content>.criterion-fields{flex:1 1 480px}
+.rubric-editor .criterion-editor-content>.subcriteria-editor{flex:1 1 100%;min-width:0}
+.rubric-editor .criterion-editor-content>.criterion-visual-toggle{flex:1 1 100%}
+.rubric-editor .criterion-editor-content>.icon-button{margin-left:auto}
+@media(max-width:720px){.assignment-creation-panel{padding:var(--ds-space-4)}.assignment-creation-actions>*{flex:1 1 100%}.rubric-reuse-item{flex-wrap:wrap}.rubric-reuse-actions{align-items:stretch;flex-direction:column}.rubric-reuse-actions button{width:100%}}
+
+.rubric-editor-toolbar{display:flex;align-items:center;justify-content:space-between;gap:var(--ds-space-3);flex-wrap:wrap;margin:var(--ds-space-4) 0}
+.rubric-editor-toolbar .validation{flex:1;text-align:right}
+.rubric-document-import{margin:var(--ds-space-4) 0;border:1px solid var(--ds-color-border);border-radius:var(--ds-radius-lg);background:var(--ds-color-surface-subtle)}
+.rubric-document-import>summary{cursor:pointer;font-weight:650;color:var(--ds-color-text);padding:var(--ds-space-3);list-style-position:inside}
+.rubric-document-import-content{display:grid;gap:var(--ds-space-3);padding:0 var(--ds-space-3) var(--ds-space-3)}
+.rubric-editor .criterion-editor{border:1px solid var(--ds-color-border);border-radius:var(--ds-radius-md);padding:0;background:var(--ds-color-surface);margin-bottom:var(--ds-space-2)}
+.rubric-editor .criterion-editor[open]{border-color:var(--ds-color-border-strong)}
+.rubric-editor .criterion-editor-content>.criterion-fields input,.rubric-editor .criterion-editor-content>.points-field input{min-width:0}
+@media(max-width:720px){.rubric-editor-toolbar .validation{text-align:left;flex-basis:100%}}

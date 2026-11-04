@@ -20,11 +20,11 @@ test('teacher can edit the collapsed assignment and rubric as one Devoir step', 
 
   await page.getByRole('button', { name: 'Mes devoirs' }).click();
   await page.getByRole('button', { name: /Créer un devoir/ }).click();
-  await expect(page.locator('.assignment-details-collapsible')).toBeVisible();
-  await page.locator('.assignment-details-collapsible > summary').click();
-  await page.getByLabel('Nom du devoir', { exact: true }).fill('Génétique moléculaire');
-  await page.getByLabel('Description et objectifs pédagogiques').fill('Comprendre les mécanismes de transmission génétique.');
-  await page.getByLabel('Niveau scolaire / universitaire').selectOption({ label: 'Université — Licence 2' });
+  await expect(page.getByRole('heading', { name: 'Préparer une évaluation' })).toBeVisible();
+  await page.getByLabel(/Nom du devoir/).fill('Génétique moléculaire');
+  await page.getByLabel('Objectif pédagogique').fill('Comprendre les mécanismes de transmission génétique.');
+  await page.getByLabel('Niveau', { exact: true }).selectOption({ label: 'Université — Licence 2' });
+  await page.getByRole('button', { name: /Créer et préparer le barème/ }).click();
   await expect(page.getByRole('button', { name: 'Continuer vers les copies' })).toBeDisabled();
 
   await page.getByRole('button', { name: 'Mes devoirs' }).click();
