@@ -58,6 +58,37 @@ describe('parseScientificDiagramAnalysis', () => {
     expect(parsed.criteria?.[0]).toMatchObject({ points: 3.75, requiresTeacherReview: true, confidence: 0 });
     expect(parsed.criteria?.[0].elements?.map((element) => element.points)).toEqual([2.5, 1.25, 0, 0]);
   });
+  it('migrates saved legacy scientific assessments with expectedElements and qualityBreakdown', () => {
+    const savedRubric: Rubric = {
+      title: 'Cellule',
+      criteria: [{
+        id: 'cell',
+        title: 'Schéma',
+        description: '',
+        maxPoints: 2,
+        expectedElements: [{ label: 'Membrane', points: 2 }],
+      }],
+    };
+    const savedAnalysis = {
+      diagrams: [{ pageNumber: 1 }],
+      criteria: [{
+        criterionId: 'cell',
+        points: 1.5,
+        evidence: 'Contour visible',
+        confidence: 0.8,
+        requiresTeacherReview: true,
+        qualityBreakdown: [{ dimension: 'legibility', status: 'fulfilled', evidence: 'Ancienne grille' }],
+        elements: [{ label: 'Membrane', status: 'partial', points: 1.5, evidence: 'Contour incomplet' }],
+      }],
+    };
+    const migrated = parseScientificDiagramAnalysis(JSON.stringify(savedAnalysis), savedRubric, 1);
+    expect(migrated.criteria?.[0]).toMatchObject({
+      points: 1.5,
+      elements: [{ subcriterionId: 'cell-subcriterion-1', points: 1.5, evidence: 'Contour incomplet' }],
+    });
+    expect(migrated.criteria?.[0]).not.toHaveProperty('qualityBreakdown');
+  });
+
   it('uses the teacher-defined subcriteria and preserves model-assigned partial points', () => {
     const subcriteriaRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 3, subcriteria: [
       { id: 'membrane', title: 'Membrane', description: 'Contour fermé', maxPoints: 2 },
