@@ -152,6 +152,27 @@ function buildScientificDiagramRepairPrompt(
   ].join('\n\n');
 }
 
+/** A genuinely smaller second request after token-budget exhaustion.
+ * Keep the rubric and subject, but remove explanatory instructions and verbose examples.
+ */
+function buildConciseScientificDiagramPrompt(request: ScientificDiagramAnalysisRequest): string {
+  const criteria = request.rubric.criteria.map((criterion) => ({
+    id: criterion.id,
+    maxPoints: criterion.maxPoints,
+    subcriteria: getRubricSubcriteria(criterion).map((item) => ({ id: item.id, maxPoints: item.maxPoints })),
+  }));
+  return [
+    'RÔLE : évalue uniquement les schémas scientifiques réellement visibles sur cette image à partir du barème fourni.',
+    'La réponse précédente était tronquée : produis une réponse beaucoup plus courte. summary ≤ 10 mots ; evidence et chaque preuve de sous-critère ≤ 8 mots ; uncertainties ≤ 8 mots par entrée. Pas de reformulation ni de justification longue.',
+    'Si aucun schéma identifiable, retourne diagrams: [], criteria: [] et une explication courte dans overallUncertainties. N’invente ni schéma ni point.',
+    'Si un schéma est identifiable, retourne un critère par id du barème, tous les sous-critères prévus et des points justifiés. Un dessin n’est pas une unité de notation. PageNumber = 1, bounds = null si localisation incertaine.',
+    'BARÈME : ' + JSON.stringify(criteria),
+    'QUESTION : ' + request.question,
+    ...(request.subjectTranscription ? ['SUJET : ' + request.subjectTranscription] : []),
+    'FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON conforme au schéma transmis, sans Markdown, sans texte autour.',
+  ].join('\n\n');
+}
+
 export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = currentFetch): ScientificDiagramAnalyzer {
   return {
     async classifyPages(request: ScientificPageClassificationRequest) {
@@ -289,9 +310,16 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       };
 
       try {
-        const attempt = await send();
+        let attempt = await send();
+        let truncatedRetry = false;
         if (attempt.truncated) {
-          throw new Error('Réponse tronquée : l’analyse du schéma a atteint la limite de génération. Relancez l’analyse ou réduisez la quantité de contenu à analyser.');
+          diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt, 'Réponse tronquée : limite de génération atteinte.', requestPayload);
+          truncatedRetry = true;
+          // Exactly one shorter retry: never send the same oversized prompt twice.
+          attempt = await send(buildConciseScientificDiagramPrompt(request));
+          if (attempt.truncated) {
+            throw new Error('Réponse tronquée après une tentative allégée d’analyse du schéma.');
+          }
         }
 
         let result: ReturnType<typeof parseScientificDiagramAnalysis>;
@@ -299,6 +327,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           result = parseScientificDiagramAnalysis(raw, request.rubric, request.images.length, request.pageNumbers);
         } catch (firstError) {
           const reason = firstError instanceof Error ? firstError.message : String(firstError);
+          if (truncatedRetry) throw new Error('Réponse invalide après tentative allégée : ' + reason);
           diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt, reason, requestPayload);
           const repairPrompt = buildScientificDiagramRepairPrompt(request, reason, raw);
           const repair = await send(repairPrompt);
