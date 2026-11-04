@@ -15,3 +15,18 @@
 .teacher-copy-intake-warning{color:var(--ds-color-danger-700);font-size:.85rem}
 .teacher-copy-intake-detailed{justify-self:start}
 @media(max-width:680px){.teacher-copy-intake-grouping{grid-template-columns:1fr}.teacher-copy-intake-header{flex-wrap:wrap}.teacher-copy-intake-header .ds-button{margin-left:auto}}
+
+.teacher-copy-work-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--ds-space-3);margin:var(--ds-space-4) 0}
+.teacher-copy-work-summary>div{display:grid;gap:var(--ds-space-1);padding:var(--ds-space-4);border-radius:var(--ds-radius-md);border:1px solid var(--ds-color-border);background:var(--ds-color-surface)}
+.teacher-copy-work-summary strong{font-size:1.4rem;font-variant-numeric:tabular-nums}
+.teacher-copy-work-summary span{font-size:.78rem;color:var(--ds-color-text-muted)}
+.teacher-copy-live{display:flex;align-items:center;justify-content:space-between;gap:var(--ds-space-4);border:1px solid var(--ds-color-border-strong);background:var(--ds-color-surface-subtle);padding:var(--ds-space-4);border-radius:var(--ds-radius-lg);margin-bottom:var(--ds-space-4)}
+.teacher-copy-live strong{font-size:.88rem}
+.teacher-copy-live p{margin:var(--ds-space-1) 0 0;font-size:.77rem;color:var(--ds-color-text-muted)}
+.teacher-copy-pages-details{margin:var(--ds-space-4) 0;min-width:0}
+.teacher-copy-pages-details>summary{font-size:.85rem;font-weight:650;cursor:pointer;padding:var(--ds-space-3)}
+.teacher-copy-pages-details>summary span{font-weight:400;color:var(--ds-color-text-muted)}
+.teacher-copy-pages-details .batch-copy-queue-list{margin-top:var(--ds-space-3)}
+.teacher-processing-copy-link{border:1px solid var(--ds-color-border-strong);background:var(--ds-color-surface);border-radius:var(--ds-radius-md);color:var(--ds-color-text);font-size:.78rem;font-weight:650;padding:var(--ds-space-2) var(--ds-space-3);max-width:270px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.teacher-processing-copy-link:hover{background:var(--ds-color-surface-subtle)}
+@media(max-width:680px){.teacher-copy-work-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.teacher-copy-live{align-items:stretch;flex-direction:column}.teacher-processing-copy-link{max-width:100%;width:100%}}
