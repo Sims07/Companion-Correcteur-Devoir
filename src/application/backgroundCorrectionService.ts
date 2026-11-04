@@ -175,7 +175,7 @@ export function createBackgroundCorrectionService(
             const remaining = remainingRubric(current.rubric, current.partialCriteria);
             if (!remaining.criteria.length) break;
             const criterion = remaining.criteria[0];
-            if (current.transcription && prewarmedModel && prewarmSettings) {
+            if (current.transcription && prewarmedModel && prewarmSettings && prewarmedModel !== current.analysisModel?.trim()) {
               await workspace.unloadModel?.(prewarmSettings, prewarmedModel).catch(() => undefined);
               prewarmedModel = null;
             }
