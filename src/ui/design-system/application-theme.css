@@ -265,3 +265,53 @@ body {
     padding-inline: 16px;
   }
 }
+
+
+.observability-workspace,
+.observability-workspace > *,
+.observability-workspace .observability-panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.observability-chart-grid,
+.observability-kpis,
+.observability-model-row,
+.observability-review-metric-grid {
+  min-width: 0;
+}
+
+.observability-chart-grid {
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.9fr);
+}
+
+.observability-intro {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+}
+
+@media (max-width: 760px) {
+  .observability-intro {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  .observability-intro > span {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 430px) {
+  .topbar-actions,
+  .topbar-actions .view-switch {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .topbar-actions .view-switch {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .view-switch-button {
+    white-space: normal;
+  }
+}
