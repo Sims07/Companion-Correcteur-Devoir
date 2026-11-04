@@ -70,7 +70,6 @@ export function createBackgroundCorrectionService(
   let prewarmFailedKey = '';
   let prewarmFailureCount = 0;
   let prewarmRetryAt = 0;
-  let prewarmedModel: string | null = null;
   let activeRequestAbortController: AbortController | null = null;
   const listeners = new Set<(jobs: BackgroundCorrectionJob[]) => void>();
   const summaryListeners = new Set<(jobs: BackgroundJobSummary[]) => void>();
@@ -344,7 +343,6 @@ export function createBackgroundCorrectionService(
         if (controller.signal.aborted || foregroundPriority || prewarmEpoch !== foregroundPriorityEpoch || !settings.visionModel?.trim()) return;
         await workspace.prewarmModel?.(settings, settings.visionModel, controller.signal);
         if (controller.signal.aborted) return;
-        prewarmedModel = settings.visionModel;
         prewarmKey = key;
         prewarmUntil = Date.now() + 5 * 60_000;
         prewarmFailedKey = '';
@@ -389,7 +387,6 @@ export function createBackgroundCorrectionService(
       activeRequestAbortController?.abort();
       if (activeLoop) await activeLoop;
       if (prewarmPromise) await prewarmPromise.catch(() => undefined);
-      prewarmedModel = null;
       prewarmKey = '';
       prewarmUntil = 0;
     },
