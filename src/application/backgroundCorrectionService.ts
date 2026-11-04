@@ -84,6 +84,37 @@ export function createBackgroundCorrectionService(
     for (const listener of summaryListeners) listener(summaries);
   }
 
+  /**
+   * Reconcile copies identified by an older version that saved the identity
+   * but retained the temporary filename. This is local and happens at most
+   * once per stale copy; running corrections are left untouched.
+   */
+  async function listWithIdentifiedLabels(assignmentId?: string): Promise<BackgroundCorrectionJob[]> {
+    const jobs = await repository.listJobs(assignmentId);
+    let changed = false;
+    const normalized: BackgroundCorrectionJob[] = [];
+    for (const job of jobs) {
+      const nextLabel = job.studentIdentity && job.status !== 'processing'
+        ? resolveIdentifiedCopyLabel(job.label, job.studentIdentity, job.images[0]?.fileName)
+        : job.label;
+      if (nextLabel !== job.label) {
+        const updated = { ...job, label: nextLabel, updatedAt: new Date().toISOString() };
+        await repository.saveJob(updated);
+        normalized.push(updated);
+        changed = true;
+      } else {
+        normalized.push(job);
+      }
+    }
+    if (changed) {
+      const allJobs = await repository.listJobs();
+      for (const listener of listeners) listener(allJobs);
+      const summaries = allJobs.map(toBackgroundJobSummary);
+      for (const listener of summaryListeners) listener(summaries);
+    }
+    return normalized;
+  }
+
   async function run(settings: OllamaSettings): Promise<void> {
     lastSettings = settings;
     if (activeLoop) return activeLoop;
@@ -328,8 +359,8 @@ export function createBackgroundCorrectionService(
         if (autoEnabled) await run(settings);
       })();
     },
-    listJobs: (assignmentId) => repository.listJobs(assignmentId),
-    listJobSummaries: async (assignmentId) => (await repository.listJobs(assignmentId)).map(toBackgroundJobSummary),
+    listJobs: (assignmentId) => listWithIdentifiedLabels(assignmentId),
+    listJobSummaries: async (assignmentId) => (await listWithIdentifiedLabels(assignmentId)).map(toBackgroundJobSummary),
     async prewarm(settings) {
       // A remote OpenAI-compatible endpoint must not receive background generation
       // requests just because a copy was imported or the application was opened.
