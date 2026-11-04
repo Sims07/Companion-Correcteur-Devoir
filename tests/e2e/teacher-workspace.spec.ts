@@ -80,8 +80,8 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Corrigées/ })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText('Aucune copie pour le moment')).toBeVisible();
-  await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter une copie/ }).click();
-  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
+  await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter des copies/ }).click();
+  await expect(page.getByRole('heading', { name: 'Ajouter des copies' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
   await expect(page.getByRole('tablist', { name: 'Sections du devoir' })).toHaveCount(0);
