@@ -143,6 +143,70 @@ describe('background correction service', () => {
     expect(f.jobs.get('copy-1')?.status).toBe('ready');
   });
 
+  it('persists the detected student name instead of a provisional PDF filename during batch correction', async () => {
+    const f = fixture();
+    f.job.label = 'partiel.pdf';
+    f.job.images[0].fileName = 'partiel.pdf · page 1';
+    f.job.originalImages[0].fileName = 'partiel.pdf · page 1';
+    const identity = { firstName: 'Alice', lastName: 'Martin', studentNumber: null, confidence: 'high' };
+    f.setGenerateImplementation(async (request, _chunk, _stage, onTranscription, _diagnostic, onCriterionUpdate) => {
+      const criterion = (JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> }).criteria[0];
+      if (!request.transcription) {
+        onTranscription?.(JSON.stringify(identity), 'identity');
+        onTranscription?.('Réponse manuscrite', 'copy');
+      }
+      const proposal = { criterionId: criterion.id, points: criterion.maxPoints, rationale: '', evidence: 'Preuve', confidence: 'high' as const };
+      await onCriterionUpdate?.({ criterionId: criterion.id, index: 1, total: 1, attempt: 1, status: 'completed', proposal });
+      return JSON.stringify({ summary: '', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+
+    const saved = f.jobs.get('copy-1');
+    expect(saved?.status).toBe('ready');
+    expect(saved?.studentIdentity).toEqual(identity);
+    expect(saved?.label).toBe('Martin Alice');
+    const summaries = await service.listJobSummaries('assignment-1');
+    expect(summaries[0].label).toBe('Martin Alice');
+    expect(f.repository.saveJob).toHaveBeenCalledWith(expect.objectContaining({ label: 'Martin Alice', studentIdentity: identity }));
+  });
+
+  it('keeps a teacher-provided label even when the detected identity is high confidence', async () => {
+    const f = fixture();
+    f.job.label = 'Copie à corriger en priorité';
+    f.setGenerateImplementation(async (request, _chunk, _stage, onTranscription, _diagnostic, onCriterionUpdate) => {
+      const criterion = (JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> }).criteria[0];
+      if (!request.transcription) {
+        onTranscription?.(JSON.stringify({ firstName: 'Alice', lastName: 'Martin', studentNumber: null, confidence: 'high' }), 'identity');
+        onTranscription?.('Réponse manuscrite', 'copy');
+      }
+      const proposal = { criterionId: criterion.id, points: criterion.maxPoints, rationale: '', evidence: 'Preuve', confidence: 'high' as const };
+      await onCriterionUpdate?.({ criterionId: criterion.id, index: 1, total: 1, attempt: 1, status: 'completed', proposal });
+      return JSON.stringify({ summary: '', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+    expect(f.jobs.get('copy-1')?.label).toBe('Copie à corriger en priorité');
+    expect(f.jobs.get('copy-1')?.studentIdentity).toMatchObject({ firstName: 'Alice', lastName: 'Martin' });
+  });
+
+  it('reconciles already identified PDF copies without another model call', async () => {
+    const f = fixture();
+    f.job.status = 'ready';
+    f.job.label = 'partiel.pdf';
+    f.job.images[0].fileName = 'partiel.pdf · page 1';
+    f.job.studentIdentity = { firstName: 'Alice', lastName: 'Martin', studentNumber: null, confidence: 'high' };
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+
+    const jobs = await service.listJobs('assignment-1');
+
+    expect(jobs[0].label).toBe('Martin Alice');
+    expect(f.jobs.get('copy-1')?.label).toBe('Martin Alice');
+    expect((await service.listJobSummaries('assignment-1'))[0].label).toBe('Martin Alice');
+    expect(f.repository.saveJob).toHaveBeenCalledTimes(1);
+    expect(f.workspace.createProvider).not.toHaveBeenCalled();
+  });
+
   it('keeps a prewarmed vision model resident when foreground correction pauses the background queue', async () => {
     const f = fixture();
     const service = createBackgroundCorrectionService(f.repository, f.workspace);

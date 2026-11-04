@@ -6,7 +6,7 @@ import type { Rubric } from '../domain/rubric.ts';
 import type { BackgroundCorrectionRepository } from '../ports/backgroundCorrectionRepository.ts';
 import type { GradingProgressEvent, OllamaSettings } from '../ports/aiProvider.ts';
 import type { OllamaGateway } from '../ports/correctionWorkspace.ts';
-import { formatStudentIdentityLabel, type StudentIdentity } from '../domain/studentIdentity.ts';
+import { resolveIdentifiedCopyLabel, type StudentIdentity } from '../domain/studentIdentity.ts';
 import { partitionScientificRubric, mergeScientificDiagramCriteria } from '../domain/scientificRubricRouting.ts';
 import { routeScientificPages } from '../domain/scientificPageClassification.ts';
 import type { ScientificDiagramAnalyzer } from '../ports/scientificDiagramAnalysis.ts';
@@ -82,6 +82,37 @@ export function createBackgroundCorrectionService(
     for (const listener of listeners) listener(jobs);
     const summaries = jobs.map(toBackgroundJobSummary);
     for (const listener of summaryListeners) listener(summaries);
+  }
+
+  /**
+   * Reconcile copies identified by an older version that saved the identity
+   * but retained the temporary filename. This is local and happens at most
+   * once per stale copy; running corrections are left untouched.
+   */
+  async function listWithIdentifiedLabels(assignmentId?: string): Promise<BackgroundCorrectionJob[]> {
+    const jobs = await repository.listJobs(assignmentId);
+    let changed = false;
+    const normalized: BackgroundCorrectionJob[] = [];
+    for (const job of jobs) {
+      const nextLabel = job.studentIdentity && job.status !== 'processing'
+        ? resolveIdentifiedCopyLabel(job.label, job.studentIdentity, job.images[0]?.fileName)
+        : job.label;
+      if (nextLabel !== job.label) {
+        const updated = { ...job, label: nextLabel, updatedAt: new Date().toISOString() };
+        await repository.saveJob(updated);
+        normalized.push(updated);
+        changed = true;
+      } else {
+        normalized.push(job);
+      }
+    }
+    if (changed) {
+      const allJobs = await repository.listJobs();
+      for (const listener of listeners) listener(allJobs);
+      const summaries = allJobs.map(toBackgroundJobSummary);
+      for (const listener of summaryListeners) listener(summaries);
+    }
+    return normalized;
   }
 
   async function run(settings: OllamaSettings): Promise<void> {
@@ -229,11 +260,9 @@ export function createBackgroundCorrectionService(
                   else if (kind === 'identity') {
                     try {
                       const studentIdentity = JSON.parse(text) as StudentIdentity;
-                      const suggestedLabel = formatStudentIdentityLabel(studentIdentity);
-                      const fallbackLabel = current.label === current.images[0]?.fileName || /^Copie \d+$/.test(current.label);
                       queueProgress({
                         studentIdentity,
-                        ...(studentIdentity.confidence === 'high' && suggestedLabel && fallbackLabel ? { label: suggestedLabel } : {}),
+                        label: resolveIdentifiedCopyLabel(current.label, studentIdentity, current.images[0]?.fileName),
                       });
                     } catch { /* Invalid identity metadata never changes the queued copy label. */ }
                   } else if (kind !== 'annotations' && kind !== 'warning') queueProgress({ transcription: text, transcriptionPageNumbers: textPageNumbers, phase: 'grading', completedPages: textPageNumbers.length });
@@ -330,8 +359,8 @@ export function createBackgroundCorrectionService(
         if (autoEnabled) await run(settings);
       })();
     },
-    listJobs: (assignmentId) => repository.listJobs(assignmentId),
-    listJobSummaries: async (assignmentId) => (await repository.listJobs(assignmentId)).map(toBackgroundJobSummary),
+    listJobs: (assignmentId) => listWithIdentifiedLabels(assignmentId),
+    listJobSummaries: async (assignmentId) => (await listWithIdentifiedLabels(assignmentId)).map(toBackgroundJobSummary),
     async prewarm(settings) {
       // A remote OpenAI-compatible endpoint must not receive background generation
       // requests just because a copy was imported or the application was opened.

@@ -51,6 +51,33 @@ export function formatStudentIdentityLabel(identity: StudentIdentity): string | 
   return name || identity.studentNumber;
 }
 
+/**
+ * Automatically names an imported copy once its identity is readable, while
+ * preserving labels intentionally entered by a teacher.
+ *
+ * PDF page renderers append "· page N" to the source filename, so the initial
+ * queue label and first image's fileName are not always identical.
+ */
+export function resolveIdentifiedCopyLabel(
+  currentLabel: string,
+  identity: StudentIdentity,
+  firstPageFileName?: string,
+): string {
+  const proposed = formatStudentIdentityLabel(identity);
+  if (!proposed || identity.confidence === 'low') return currentLabel;
+
+  const label = currentLabel.trim();
+  const importedFileName = firstPageFileName?.trim().replace(/\s*·\s*page\s+\d+$/i, '') ?? '';
+  const isProvisional =
+    label === '' ||
+    /^copie\s*\d+$/i.test(label) ||
+    /^copie\s+en\s+cours$/i.test(label) ||
+    label === firstPageFileName?.trim() ||
+    (importedFileName !== '' && label === importedFileName) ||
+    /\.(?:pdf|png|jpe?g|webp|heic|tiff?)$/i.test(label);
+  return isProvisional ? proposed : currentLabel;
+}
+
 
 /** Parses a dedicated, machine-readable Vision response without inferring missing identity fields. */
 export function parseStudentIdentityResponse(raw: string): StudentIdentity | null {
