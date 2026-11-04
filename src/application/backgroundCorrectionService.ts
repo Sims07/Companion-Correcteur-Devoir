@@ -71,8 +71,6 @@ export function createBackgroundCorrectionService(
   let prewarmFailureCount = 0;
   let prewarmRetryAt = 0;
   let prewarmedModel: string | null = null;
-  let prewarmSettings: OllamaSettings | null = null;
-  let activeModelToUnload: string | null = null;
   let activeRequestAbortController: AbortController | null = null;
   const listeners = new Set<(jobs: BackgroundCorrectionJob[]) => void>();
   const summaryListeners = new Set<(jobs: BackgroundJobSummary[]) => void>();
@@ -233,11 +231,6 @@ export function createBackgroundCorrectionService(
                 undefined,
                 (event: GradingProgressEvent) => {
                   if (event.type === 'phase') {
-                    if (event.phase === 'reading') activeModelToUnload = current.visionModel;
-                    if (event.phase === 'grading') {
-                      activeModelToUnload = current.analysisModel;
-                      prewarmedModel = null;
-                    }
                     queueProgress({ phase: event.phase });
                   }
                   if (event.type === 'page' && event.status !== 'started') queueProgress({ completedPages: Math.max(current.completedPages, event.pageIndex) });
@@ -251,7 +244,6 @@ export function createBackgroundCorrectionService(
             if (progressWriteError) throw progressWriteError;
             if (generationError) throw generationError;
             if (raw === null) throw new Error('Le modèle n’a retourné aucun résultat pour ce critère.');
-            if (remaining.criteria.length === 1) activeModelToUnload = null;
             const parsed = parseGradingProposal(raw, { ...remaining, criteria: [criterion] });
             current = {
               ...current,
@@ -263,8 +255,6 @@ export function createBackgroundCorrectionService(
             await persist(current);
           }
           if (paused) {
-            if (activeModelToUnload) await workspace.unloadModel?.(jobSettings, activeModelToUnload).catch(() => undefined);
-            activeModelToUnload = null;
             await persist({ ...current, status: 'pending', updatedAt: new Date().toISOString() });
             break;
           }
@@ -280,8 +270,6 @@ export function createBackgroundCorrectionService(
           });
           if (activeRequestAbortController === requestAbortController) activeRequestAbortController = null;
         } catch (cause) {
-          if (activeModelToUnload) await workspace.unloadModel?.(jobSettings, activeModelToUnload).catch(() => undefined);
-          activeModelToUnload = null;
           const cancelled = requestAbortController.signal.aborted;
           await persist({
             ...current,
@@ -357,7 +345,6 @@ export function createBackgroundCorrectionService(
         await workspace.prewarmModel?.(settings, settings.visionModel, controller.signal);
         if (controller.signal.aborted) return;
         prewarmedModel = settings.visionModel;
-        prewarmSettings = settings;
         prewarmKey = key;
         prewarmUntil = Date.now() + 5 * 60_000;
         prewarmFailedKey = '';
@@ -393,7 +380,7 @@ export function createBackgroundCorrectionService(
         await prewarmPromise.catch(() => undefined);
       }
       if (activeLoop) await activeLoop;
-      // Do not explicitly unload a model when foreground work changes roles.
+      // Ollama retains resident models across the entire batch and on pause/stop.
       // Ollama manages resident models and evicts them when memory pressure requires it.
     },
     async stopAndWait() {
@@ -402,7 +389,6 @@ export function createBackgroundCorrectionService(
       activeRequestAbortController?.abort();
       if (activeLoop) await activeLoop;
       if (prewarmPromise) await prewarmPromise.catch(() => undefined);
-      if (prewarmedModel && prewarmSettings) await workspace.unloadModel?.(prewarmSettings, prewarmedModel).catch(() => undefined);
       prewarmedModel = null;
       prewarmKey = '';
       prewarmUntil = 0;
