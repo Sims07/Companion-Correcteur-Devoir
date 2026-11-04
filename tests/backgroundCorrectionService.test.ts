@@ -190,6 +190,23 @@ describe('background correction service', () => {
     expect(f.jobs.get('copy-1')?.studentIdentity).toMatchObject({ firstName: 'Alice', lastName: 'Martin' });
   });
 
+  it('reconciles already identified PDF copies without another model call', async () => {
+    const f = fixture();
+    f.job.status = 'ready';
+    f.job.label = 'partiel.pdf';
+    f.job.images[0].fileName = 'partiel.pdf · page 1';
+    f.job.studentIdentity = { firstName: 'Alice', lastName: 'Martin', studentNumber: null, confidence: 'high' };
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+
+    const jobs = await service.listJobs('assignment-1');
+
+    expect(jobs[0].label).toBe('Martin Alice');
+    expect(f.jobs.get('copy-1')?.label).toBe('Martin Alice');
+    expect((await service.listJobSummaries('assignment-1'))[0].label).toBe('Martin Alice');
+    expect(f.repository.saveJob).toHaveBeenCalledTimes(1);
+    expect(f.workspace.createProvider).not.toHaveBeenCalled();
+  });
+
   it('keeps a prewarmed vision model resident when foreground correction pauses the background queue', async () => {
     const f = fixture();
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
