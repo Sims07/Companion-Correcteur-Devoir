@@ -8,13 +8,40 @@ import type { DiagnosticModelResult, ImageInput } from '../../ports/aiProvider.t
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 
 function diagnosticResult(request: { model: string; endpoint: string; images: ImageInput[]; apiCompatible?: boolean; onDiagnosticResult?: (result: DiagnosticModelResult) => void }, purpose: DiagnosticModelResult['purpose'], prompt: string, raw: string, startedAt: number, error?: string, requestPayload = ''): void {
-  request.onDiagnosticResult?.({
+  if (!request.onDiagnosticResult) return;
+  // Derive actual options from the already-redacted wire preview, including a
+  // provider's JSON-object fallback, rather than reporting guessed settings.
+  let effective: {
+    format?: unknown; response_format?: { type?: string };
+    options?: { num_ctx?: number; num_predict?: number; temperature?: number };
+    max_tokens?: number; max_completion_tokens?: number;
+  } = {};
+  try { effective = JSON.parse(requestPayload) as typeof effective; } catch { /* Unavailable after a network error. */ }
+  const jsonObject = effective.format === 'json_object' || effective.format === 'json'
+    || effective.response_format?.type === 'json_object';
+  const generationTokenLimit = effective.options?.num_predict
+    ?? effective.max_tokens ?? effective.max_completion_tokens
+    ?? (purpose === 'scientific-diagram-classification' ? 1024 : 2048);
+  request.onDiagnosticResult({
     kind: 'vision',
     stage: 'reading',
     purpose,
     model: request.model,
     requestPrompt: prompt,
-    requestMetadata: { provider: request.apiCompatible ? 'openai-compatible' : 'ollama', endpoint: request.endpoint, stream: false, think: false, format: 'json-schema', imageCount: request.images.length, keepAlive: request.apiCompatible ? 'non applicable' : '5m (Ollama default)', options: { contextTokens: 0, generationTokenLimit: purpose === 'scientific-diagram-classification' ? 1024 : 2048 } },
+    requestMetadata: {
+      provider: request.apiCompatible ? 'openai-compatible' : 'ollama',
+      endpoint: request.endpoint,
+      stream: false,
+      think: false,
+      format: jsonObject ? 'json' : 'json-schema',
+      imageCount: request.images.length,
+      keepAlive: request.apiCompatible ? 'non applicable' : '5m (Ollama default)',
+      options: {
+        contextTokens: effective.options?.num_ctx ?? 0,
+        generationTokenLimit,
+        ...(effective.options?.temperature !== undefined ? { temperature: effective.options.temperature } : {}),
+      },
+    },
     requestPayload,
     raw,
     ...(error ? { error } : {}),
@@ -182,9 +209,11 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       const classifications = [];
       for (const [index, image] of request.images.entries()) {
         const prompt = classificationPrompt(index + 1), schema = buildScientificPageClassificationSchema(), startedAt = Date.now();
+        let lastRequestStartedAt = startedAt;
         let raw = '';
         try {
           const send = async (repair?: { raw: string; reason: string }) => {
+            lastRequestStartedAt = Date.now();
             const content = repair ? classificationPrompt(index + 1, repair.raw, repair.reason) : prompt;
             const body = {
               model: request.model,
@@ -220,7 +249,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
             [classification] = parseScientificPageClassifications(raw, 1);
           } catch (cause) {
             const reason = cause instanceof Error ? cause.message : String(cause);
-            diagnosticResult(request, 'scientific-diagram-classification', attempt.content, raw, startedAt, reason, requestPayload);
+            diagnosticResult(request, 'scientific-diagram-classification', attempt.content, raw, lastRequestStartedAt, reason, requestPayload);
             // A malformed JSON, empty output or truncation warrants one targeted repair.
             // HTTP/provider failures are not handled here and never trigger retries.
             attempt = await send({ raw, reason });
@@ -229,9 +258,9 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
             [classification] = parseScientificPageClassifications(raw, 1);
           }
           classifications.push({ ...classification, pageNumber: index + 1 });
-          diagnosticResult(request, 'scientific-diagram-classification', attempt.content, raw, startedAt, undefined, requestPayload);
+          diagnosticResult(request, 'scientific-diagram-classification', attempt.content, raw, lastRequestStartedAt, undefined, requestPayload);
         } catch (cause) {
-          diagnosticResult(request, 'scientific-diagram-classification', prompt, raw, startedAt, cause instanceof Error ? cause.message : String(cause), requestPayload);
+          diagnosticResult(request, 'scientific-diagram-classification', prompt, raw, lastRequestStartedAt, cause instanceof Error ? cause.message : String(cause), requestPayload);
           throw cause;
         }
       }
@@ -246,12 +275,14 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       );
       if (request.images.length !== 1) throw new Error('L’analyse Vision des schémas attend une seule image par requête. Les pages doivent être traitées séquentiellement.');
       const startedAt = Date.now();
+      let lastRequestStartedAt = startedAt;
       let raw = '';
       let prompt = buildScientificDiagramPrompt(request);
 
       const schema = buildScientificDiagramJsonSchema(request);
 
       const send = async (promptOverride?: string) => {
+        lastRequestStartedAt = Date.now();
         prompt = promptOverride ?? buildScientificDiagramPrompt(request);
         const payload = {
           model: request.model,
@@ -313,7 +344,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
         let attempt = await send();
         let truncatedRetry = false;
         if (attempt.truncated) {
-          diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt, 'Réponse tronquée : limite de génération atteinte.', requestPayload);
+          diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, lastRequestStartedAt, 'Réponse tronquée : limite de génération atteinte.', requestPayload);
           truncatedRetry = true;
           // Exactly one shorter retry: never send the same oversized prompt twice.
           attempt = await send(buildConciseScientificDiagramPrompt(request));
@@ -328,7 +359,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
         } catch (firstError) {
           const reason = firstError instanceof Error ? firstError.message : String(firstError);
           if (truncatedRetry) throw new Error('Réponse invalide après tentative allégée : ' + reason);
-          diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt, reason, requestPayload);
+          diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, lastRequestStartedAt, reason, requestPayload);
           const repairPrompt = buildScientificDiagramRepairPrompt(request, reason, raw);
           const repair = await send(repairPrompt);
           if (repair.truncated) throw new Error('Réponse tronquée lors de la tentative de réparation.');
@@ -341,7 +372,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           }
         }
 
-        diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt, undefined, requestPayload);
+        diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, lastRequestStartedAt, undefined, requestPayload);
         return result;
       } catch (cause) {
         diagnosticResult(
@@ -349,7 +380,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           'scientific-diagram-analysis',
           prompt,
           raw,
-          startedAt,
+          lastRequestStartedAt,
           cause instanceof Error ? cause.message : String(cause),
           requestPayload,
         );
