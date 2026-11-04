@@ -3,6 +3,7 @@ export interface IncrementalGradingCriterion {
   title: string;
   description: string;
   maxPoints: number;
+  subcriteria?: Array<{ id: string; title: string; description: string; maxPoints: number }>;
 }
 
 /**
@@ -25,8 +26,9 @@ export function buildIncrementalCriterionPrompt(
     'COMMENTAIRE PÉDAGOGIQUE : annotationSuggestion contient au plus 12 mots, uniquement si une remarque concrète et utile peut être reportée sur la copie. Sinon, chaîne vide. Lorsque le maximum est attribué avec confidence vaut high, annotationSuggestion doit être une chaîne vide. Ne répète jamais rationale ou evidence.',
     'INCERTITUDE : confidence vaut exactement low, medium ou high et mesure la fiabilité de l’interprétation, pas le niveau de l’étudiant. questionForTeacher est une chaîne vide sauf si une ambiguïté concrète, explicitement décrite, pourrait changer la note. N’assimile jamais une transcription illisible à une erreur scientifique.',
     'LOCALISATION : la lecture des documents a pu fournir des ancres visuelles sous la forme [ANCRE_VISUELLE page=N id=... x=X y=Y width=W height=H] suivies du passage concerné. Si evidence correspond clairement à une ancre, recopie exactement ses coordonnées dans locationBox et sa page dans pageNumber. Ne modifie jamais ces coordonnées et ne les invente pas. Si aucune ancre ne correspond de façon fiable, omets locationBox et conserve éventuellement locationHint. pageNumber est facultatif et doit être un entier à partir de 1 ; locationHint décrit un repère textuel approximatif.',
-    'N’ajoute aucun autre champ. N’invente aucun sous-critère, attendu, pénalité ou point. Le code vérifiera l’identifiant, le maximum, la structure et la cohérence des résultats.',
-    ['FORMAT DE SORTIE', 'Réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown. Retourne exactement le critère demandé. Champs : criterionId (identifiant exact), points (nombre, jamais une chaîne, entre 0 et le maximum), rationale, evidence, confidence (low | medium | high), annotationSuggestion, pageNumber (entier ou null), questionForTeacher (chaîne). Respecte le schéma JSON contraint transmis avec la requête.', `Exemple neutre : ${JSON.stringify({ criterionId: 'criterion-id', points: 0, rationale: 'Justification courte.', evidence: 'Extrait exact.', confidence: 'medium', annotationSuggestion: '', pageNumber: null, questionForTeacher: '' })}`].join('\n'),
+    'Si le critère contient des sous-critères, évalue exactement chacun d’eux : retourne son subcriterionId exact, les points attribués dans sa limite et une preuve courte. Les points partiels sont libres et ne suivent pas une règle automatique de 50 %. La somme des sous-critères doit correspondre aux points du critère. N’invente aucun sous-critère. Si le critère n’en contient pas, omets le champ subcriteria.',
+    'N’ajoute aucun autre champ. N’invente aucun attendu, pénalité ou point. Le code vérifiera l’identifiant, le maximum, la structure et la cohérence des résultats.',
+    ['FORMAT DE SORTIE', 'Réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown. Retourne exactement le critère demandé. Champs : criterionId (identifiant exact), points (nombre, jamais une chaîne, entre 0 et le maximum), subcriteria (facultatif : liste de subcriterionId, points et evidence), rationale, evidence, confidence (low | medium | high), annotationSuggestion, pageNumber (entier ou null), questionForTeacher (chaîne). Respecte le schéma JSON contraint transmis avec la requête.', `Exemple neutre : ${JSON.stringify({ criterionId: 'criterion-id', points: 0, rationale: 'Justification courte.', evidence: 'Extrait exact.', confidence: 'medium', annotationSuggestion: '', pageNumber: null, questionForTeacher: '' })}`].join('\n'),
   ].join('\n\n');
 }
 
