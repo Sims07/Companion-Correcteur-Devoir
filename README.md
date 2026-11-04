@@ -65,6 +65,10 @@ Pour un sous-critère scientifique, les points doivent être explicitement fourn
 
 La confiance du modèle reste un indicateur de fiabilité de lecture, pas un plafond de note. Elle ne réduit donc plus mécaniquement les points. La revue enseignante remplace ce plafonnement : notamment, une note maximale attribuée alors qu’un sous-critère est partiel ou incertain doit être vérifiée par le professeur.
 
+## Réutilisation des critères du barème
+
+Depuis l’éditeur d’un barème, l’enseignant peut exporter un ou plusieurs critères dans un fichier JSON versionné (`companion-correcteur-rubric`, version 1). L’export conserve les identifiants, intitulés, descriptions, points maximum, mode d’analyse et sous-critères. Les anciens éléments `expectedElements` sont convertis vers `subcriteria` à l’export. Le fichier est généré directement dans le navigateur ; aucun contenu de copie ni aucune donnée du devoir source n’est ajouté. L’import de ces blocs dans un autre devoir sera traité dans un lot ultérieur.
+
 ## Confidentialité et limites
 
 - Les photos et PDF sont préparés dans le navigateur ; les PDF sont rendus en images localement. Aucun fichier n'est téléversé vers un service de stockage cloud par défaut.
