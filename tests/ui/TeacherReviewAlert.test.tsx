@@ -13,6 +13,29 @@ describe('alerte de revue enseignant', () => {
     roots.length = 0;
     containers.length = 0;
   });
+  it('copie réellement le commentaire sans avoir à lire la suggestion complète', async () => {
+    const writeText = vi.fn(async (_value: string) => undefined);
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    try {
+      const container = document.createElement('div'); document.body.appendChild(container); containers.push(container);
+      const root = createRoot(container); roots.push(root);
+      await act(async () => root.render(createElement(TeacherReviewAlert, {
+        reasons: ['Point retiré'],
+        rationale: 'Conclusion incomplète.',
+        annotationSuggestion: 'Précise le rôle du fuseau.',
+      })));
+      const copy = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Copier le commentaire'));
+      expect(copy).toBeTruthy();
+      await act(async () => { copy?.click(); await Promise.resolve(); });
+      expect(writeText).toHaveBeenCalledWith('Précise le rôle du fuseau.');
+      expect(container.textContent).toContain('Commentaire copié');
+      expect(container.textContent).not.toContain('Précise le rôle du fuseau.');
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
+    }
+  });
+
   it('réduit le texte visible mais affiche le doute, la page et la copie du commentaire', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
