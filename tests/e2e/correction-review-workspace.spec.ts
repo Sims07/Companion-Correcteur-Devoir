@@ -144,9 +144,12 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(flaggedCard.getByText('Point retiré', { exact: true })).toBeVisible();
   await expect(flaggedCard.getByText('Confiance à vérifier', { exact: true })).toBeVisible();
   await expect(flaggedCard.getByText('Le mécanisme est partiellement expliqué.')).toBeVisible();
-  await expect(flaggedCard.getByText('Précise le rôle de la membrane.')).toBeVisible();
+  await expect(flaggedCard.getByText('Précise le rôle de la membrane.')).toBeHidden();
+  await expect(flaggedCard.getByRole('button', { name: 'Copier le commentaire' })).toBeVisible();
+  await expect(flaggedCard.getByRole('button', { name: 'Voir la page 1' })).toBeVisible();
   const elementDetails = flaggedCard.locator('details.review-quality-details');
-  await expect(elementDetails).toHaveAttribute('open', '');
+  await expect(elementDetails).not.toHaveAttribute('open', '');
+  await elementDetails.locator('summary').click();
   await expect(elementDetails.getByText('Membrane plasmique')).toBeVisible();
   await expect(elementDetails.getByText('Le contour est incomplet.')).toBeVisible();
   await expect(elementDetails.getByText('Partiel · 1 / 2 pt')).toBeVisible();
@@ -154,7 +157,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.getByRole('button', { name: 'Afficher uniquement les points à examiner' }).click();
   const safeSummary = page.locator('details.review-safe-summary');
   await expect(safeSummary).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Tout confirmer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Tout confirmer' })).toHaveCount(0);
   await safeSummary.locator('summary').click();
   await expect(safeSummary.getByText('Transport membranaire')).toBeVisible();
   await expect(safeSummary.getByText('La membrane contrôle les échanges.')).toBeVisible();
@@ -164,6 +167,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(explanation).not.toHaveAttribute('open', '');
   await explanation.locator('summary').click();
   await expect(explanation.getByText('La réponse mentionne la membrane.')).toBeVisible();
+  await expect(explanation.getByText('Précise le rôle de la membrane.')).toBeVisible();
+  await expect(page.locator('.copy-review-header').getByRole('button', { name: /Valider et passer à la suivante/ })).toHaveCount(0);
   await expect(page.getByRole('img', { name: 'Page de travail 1 de la copie' })).toBeVisible();
   await expect(page.getByText('Transcription de la copie')).toBeVisible();
   const locateEvidence = page.getByRole('button', { name: 'Repérer la preuve du critère Rôle de la membrane sur la page 1' });
