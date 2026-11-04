@@ -60,11 +60,12 @@ describe('scientific rubric routing', () => {
 
   it('asks the teacher to review a visual criterion when Vision has no matching assessment', () => {
     const result = mergeScientificDiagramCriteria(rubric, textProposal, { diagrams: [], overallUncertainties: [] });
-    expect(result.criteria[0]).toMatchObject({ criterionId: 'diagram', points: 0, confidence: 'low', questionForTeacher: expect.stringContaining('Vérifiez le schéma') });
-    expect(result.questionsForTeacher).toContain('Vérifiez le schéma sur la copie et attribuez les points de ce critère.');
+    expect(result.criteria[0]).toMatchObject({ criterionId: 'diagram', points: 0, confidence: 'low', assessmentStatus: 'not-evaluated', questionForTeacher: expect.stringContaining('Évaluez manuellement') });
+    expect(result.scoreIncomplete).toBe(true);
+    expect(result.finalScore).toBe(9); // Only the evaluated text criterion contributes.
   });
 
-  it('averages sequential page-level Vision scores and requires review without labelling them as legacy data', () => {
+  it('never averages sequential page-level scores when no subcriteria can reconcile the evidence', () => {
     const pageLevel: ScientificDiagramAnalysis = {
       diagrams: [
         { ...diagramAnalysis.diagrams[0], id: 'diagram-1', pageNumber: 2, criteria: [{ ...diagramAnalysis.diagrams[0].criteria[0], points: 4, diagramIds: ['diagram-1'] }] },
@@ -76,16 +77,18 @@ describe('scientific rubric routing', () => {
     const visualRubric: Rubric = { ...rubric, criteria: rubric.criteria.map((criterion) => criterion.id === 'diagram' ? { ...criterion, maxPoints: 10, analysisMode: 'scientific-diagram' } : criterion) };
     const result = mergeScientificDiagramCriteria(visualRubric, textProposal, pageLevel);
     expect(result.criteria[0]).toMatchObject({
-      points: 5,
-      confidence: 'high',
+      points: 0,
+      assessmentStatus: 'not-evaluated',
+      confidence: 'low',
       questionForTeacher: expect.any(String),
-      evidence: expect.stringContaining('Moyenne des évaluations page par page'),
+      evidence: expect.stringContaining('Évaluation non disponible'),
     });
+    expect(result.scoreIncomplete).toBe(true);
     expect(result.questionsForTeacher).toContain('Évaluations page par page : la moyenne des notes constitue une proposition à vérifier par l’enseignant.');
     expect(result.questionsForTeacher).not.toContain('Ancien format d’analyse par schéma : vérifier la note.');
   });
 
-  it('keeps legacy per-diagram stored results readable and explicitly flags their averaged score for review', () => {
+  it('keeps legacy per-diagram evidence readable without manufacturing a page average', () => {
     const result = mergeScientificDiagramCriteria(rubric, textProposal, {
       diagrams: [
         diagramAnalysis.diagrams[0],
@@ -93,7 +96,7 @@ describe('scientific rubric routing', () => {
       ],
       overallUncertainties: ['Un schéma est partiellement illisible.'],
     });
-    expect(result.criteria[0]).toMatchObject({ points: 6, confidence: 'medium', questionForTeacher: expect.any(String) });
+    expect(result.criteria[0]).toMatchObject({ points: 0, assessmentStatus: 'not-evaluated', confidence: 'low', questionForTeacher: expect.any(String) });
     expect(result.questionsForTeacher).toContain('Un schéma est partiellement illisible.');
     expect(result.questionsForTeacher).toContain('Ancien format d’analyse par schéma : vérifier la note.');
   });
@@ -107,7 +110,7 @@ describe('scientific rubric routing', () => {
     expect(result.criteria[0].evidence).toContain('Pages concernées');
   });
 
-  it('averages subcriteria across page assessments and checks their sum against criterion points', () => {
+  it('consolidates each teacher-defined subcriterion once using evidenced page observations', () => {
     const visualRubric: Rubric = { title: 'Cellule', criteria: [{
       id: 'diagram', title: 'Schéma scientifique', description: '', maxPoints: 4, analysisMode: 'scientific-diagram',
       subcriteria: [
@@ -135,9 +138,9 @@ describe('scientific rubric routing', () => {
     };
     const result = mergeScientificDiagramCriteria(visualRubric, null, analysis);
     expect(result.criteria[0]).toMatchObject({
-      points: 2,
+      points: 3,
       subcriteria: [
-        { subcriterionId: 'membrane', points: 1 },
+        { subcriterionId: 'membrane', points: 2 },
         { subcriterionId: 'nucleus', points: 1 },
       ],
       questionForTeacher: expect.any(String),
@@ -165,10 +168,46 @@ describe('scientific rubric routing', () => {
       warnings: ['Évaluations page par page : moyenne à confirmer.'],
     });
     expect(result.criteria[0]).toMatchObject({
-      points: 4,
-      questionForTeacher: expect.stringContaining('somme des sous-critères'),
+      points: 2,
+      questionForTeacher: expect.stringContaining('note annoncée'),
     });
     expect(result.criteria[0].evidence).toContain('La somme des sous-critères ne correspond pas');
+  });
+
+  it('does not confuse an explicitly observed absent element (zero) with a failed analysis', () => {
+    const visualRubric: Rubric = { title: 'Cellule', criteria: [{
+      id: 'diagram', title: 'Schéma', description: '', maxPoints: 2,
+      subcriteria: [{ id: 'nucleus', title: 'Noyau', description: '', maxPoints: 2 }],
+    }] };
+    const result = mergeScientificDiagramCriteria(visualRubric, null, {
+      diagrams: [{ id: 'd1', pageNumber: 1, diagramType: 'Cellule', summary: '', criteria: [], uncertainties: [] }],
+      criteria: [{ criterionId: 'diagram', title: 'Schéma', points: 0, maxPoints: 2,
+        evidence: 'Aucun noyau sur le dessin', confidence: 0.9, requiresTeacherReview: false,
+        elements: [{ subcriterionId: 'nucleus', label: 'Noyau', status: 'absent', evidence: 'Noyau absent du schéma', points: 0, maxPoints: 2 }] }],
+      overallUncertainties: [],
+    });
+    expect(result.criteria[0]).toMatchObject({ points: 0, subcriteria: [{ points: 0 }] });
+    expect(result.criteria[0].assessmentStatus).toBeUndefined();
+    expect(result.scoreIncomplete).toBe(false);
+  });
+
+  it('does not infer missing subcriterion points from other pages', () => {
+    const visualRubric: Rubric = { title: 'Cellule', criteria: [{
+      id: 'diagram', title: 'Schéma', description: '', maxPoints: 4,
+      subcriteria: [{ id: 'membrane', title: 'Membrane', description: '', maxPoints: 2 }, { id: 'nucleus', title: 'Noyau', description: '', maxPoints: 2 }],
+    }] };
+    const result = mergeScientificDiagramCriteria(visualRubric, null, {
+      diagrams: [{ id: 'd1', pageNumber: 2, diagramType: 'Cellule', summary: '', uncertainties: [], criteria: [
+        { criterionId: 'diagram', title: 'Schéma', points: 2, maxPoints: 4, evidence: 'Membrane visible',
+          confidence: 0.9, requiresTeacherReview: false, diagramIds: ['d1'],
+          elements: [{ subcriterionId: 'membrane', label: 'Membrane', status: 'present', evidence: 'Contour visible', points: 2, maxPoints: 2 }] },
+      ] }],
+      overallUncertainties: [],
+      warnings: ['Évaluations page par page : preuves à rapprocher.'],
+    });
+    expect(result.criteria[0].assessmentStatus).toBe('not-evaluated');
+    expect(result.finalScore).toBe(0);
+    expect(result.scoreIncomplete).toBe(true);
   });
 
   it('recognizes a legend criterion tied to an anatomical figure', () => {
