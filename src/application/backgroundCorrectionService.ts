@@ -200,6 +200,7 @@ export function createBackgroundCorrectionService(
                   ...(current.transcription ? { transcription: current.transcription } : {}),
                   pageNumbers: textPageNumbers,
                   totalPageCount: current.images.length,
+                  ...(!current.transcription && !current.studentIdentity && current.images.length > 0 ? { identifyStudent: true, identityImage: current.images[0] } : {}),
                   ...(current.correctionMode === 'separate' ? { subjectImages: current.subjectImages, ...(current.subjectTranscription ? { subjectTranscription: current.subjectTranscription } : {}) } : {}),
                   detectTeacherAnnotations: current.detectTeacherAnnotations,
                   ...(current.detectTeacherAnnotations ? { teacherAnnotationImages: textPageNumbers.map((pageNumber) => current.originalImages[pageNumber - 1]), teacherAnnotationPageNumbers: textPageNumbers } : {}),
