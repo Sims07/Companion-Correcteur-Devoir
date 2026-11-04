@@ -13,6 +13,7 @@ const missingEvidencePattern = /aucun élément|pas de preuve|preuve non disponi
 /** Signals that deserve targeted teacher review; never changes or auto-accepts a mark. */
 export function getReviewInsights(criteria: readonly ReviewedCriterion[]): ReviewInsights {
   const lowConfidence = criteria.filter((criterion) => criterion.confidence === 'low');
+  const notEvaluated = criteria.filter((criterion) => criterion.assessmentStatus === 'not-evaluated');
   const missingEvidence = criteria.filter((criterion) => {
     const evidence = criterion.evidence.trim();
     return evidence.length === 0 || missingEvidencePattern.test(evidence);
@@ -23,6 +24,7 @@ export function getReviewInsights(criteria: readonly ReviewedCriterion[]): Revie
   const explicitQuestions = criteria.filter((criterion) => Boolean(criterion.questionForTeacher?.trim()));
   const flagged = new Set([
     ...lowConfidence.map((criterion) => criterion.criterionId),
+    ...notEvaluated.map((criterion) => criterion.criterionId),
     ...missingEvidence.map((criterion) => criterion.criterionId),
     ...unreadableEvidence.map((criterion) => criterion.criterionId),
     ...explicitQuestions.map((criterion) => criterion.criterionId),
@@ -62,7 +64,7 @@ export function getReviewFocus(
 
   for (const criterion of criteria) {
     const rubricCriterion = rubricById.get(criterion.criterionId);
-    if (!rubricCriterion || criterion.points < rubricCriterion.maxPoints || criterion.confidence !== 'high') {
+    if (!rubricCriterion || criterion.assessmentStatus === 'not-evaluated' || criterion.points < rubricCriterion.maxPoints || criterion.confidence !== 'high') {
       flagged.add(criterion.criterionId);
     }
   }
@@ -72,6 +74,7 @@ export function getReviewFocus(
       const rubricCriterion = rubricById.get(criterion.criterionId);
       return Boolean(
         rubricCriterion &&
+        criterion.assessmentStatus !== 'not-evaluated' &&
         !flagged.has(criterion.criterionId) &&
         criterion.points >= rubricCriterion.maxPoints &&
         criterion.confidence === 'high' &&
@@ -89,6 +92,7 @@ export function getReviewAlertReasons(
   maxPoints: number,
 ): string[] {
   const reasons: string[] = [];
+  if (criterion.assessmentStatus === 'not-evaluated') return ['Non évalué'];
   if (criterion.points < maxPoints) reasons.push('Point retiré');
   if (!criterion.evidence.trim() || missingEvidencePattern.test(criterion.evidence)) reasons.push('Preuve manquante');
   if (criterion.confidence === 'low') reasons.push('Confiance faible');
