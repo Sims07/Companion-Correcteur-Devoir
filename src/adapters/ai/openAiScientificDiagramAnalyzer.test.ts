@@ -84,6 +84,16 @@ describe('OpenAI scientific diagram adapter', () => {
 
 
 
+  it('fails clearly after one truncated full diagram analysis instead of repeating the same prompt', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      message: { content: '{"diagrams":' },
+      done_reason: 'length',
+    }), { status: 200 }));
+    await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({ ...request, apiCompatible: false }))
+      .rejects.toThrow(/Réponse tronquée.*analyse du schéma.*limite de génération/i);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('uses native Ollama chat and a JSON Schema for local diagram analysis too', async () => {
     const nativeResponse = { message: { content: JSON.stringify(output) }, done_reason: 'stop' };
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(nativeResponse), { status: 200 }));
