@@ -81,8 +81,8 @@ export function mergeScientificDiagramCriteria(
       const aggregated = configuredSubcriteria.map((expected) => {
         const candidates = assessments.flatMap((assessment) => assessment.elements ?? [])
           .filter((element) => element.subcriterionId === expected.id
-            || element.label.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim()
-              === expected.title.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim());
+            || element.label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+              === expected.title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim());
         const supported = candidates.filter((element) =>
           Number.isFinite(element.points)
           && element.points >= 0
