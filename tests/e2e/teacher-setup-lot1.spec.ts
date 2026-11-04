@@ -7,7 +7,7 @@ test('creation starts with a concise form, validates the title and then opens th
   await expect(page.locator('.criterion-editor')).toHaveCount(0);
   await page.getByRole('button', { name: /Créer et préparer le barème/ }).click();
   await expect(page.getByRole('alert')).toContainText('Donnez un nom');
-  await page.getByLabel('Nom du devoir', { exact: true }).fill('Partiel de mitose');
+  await page.getByLabel(/Nom du devoir/).fill('Partiel de mitose');
   await page.getByLabel('Niveau', { exact: true }).selectOption('Université — Licence 1');
   await page.getByLabel('Objectif pédagogique').fill('Identifier les étapes de la mitose.');
   await page.getByRole('button', { name: /Créer et préparer le barème/ }).click();
@@ -22,7 +22,7 @@ test('creation starts with a concise form, validates the title and then opens th
 test('teachers reuse selected criteria from an existing local assignment without JSON or linked mutations', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Créer un devoir/ }).click();
-  await page.getByLabel('Nom du devoir', { exact: true }).fill('Nouveau partiel');
+  await page.getByLabel(/Nom du devoir/).fill('Nouveau partiel');
   await page.getByRole('button', { name: /Créer et préparer le barème/ }).click();
 
   const reuse = page.locator('.rubric-reuse-panel');
