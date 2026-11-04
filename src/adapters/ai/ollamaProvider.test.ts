@@ -190,7 +190,7 @@ describe('Ollama readiness without loading models', () => {
   });
 
   it('only explicitly unloads on a dedicated unload request', async () => {
-    const mockFetch = vi.fn(async () => response({ done: true }));
+    const mockFetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => response({ done: true }));
     await unloadOllamaModel(settings, 'qwen3.5:4b', mockFetch as unknown as typeof fetch);
     const body = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
     expect(body).toMatchObject({ model: 'qwen3.5:4b', prompt: '', stream: false, keep_alive: 0 });
