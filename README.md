@@ -67,7 +67,7 @@ La confiance du modèle reste un indicateur de fiabilité de lecture, pas un pla
 
 ## Réutilisation des critères du barème
 
-Depuis l’éditeur d’un barème, l’enseignant peut exporter un ou plusieurs critères dans un fichier JSON versionné (`companion-correcteur-rubric`, version 1). L’export conserve les identifiants, intitulés, descriptions, points maximum, mode d’analyse et sous-critères. Les anciens éléments `expectedElements` sont convertis vers `subcriteria` à l’export. Le fichier est généré directement dans le navigateur ; aucun contenu de copie ni aucune donnée du devoir source n’est ajouté. L’import de ces blocs dans un autre devoir sera traité dans un lot ultérieur.
+Depuis l’éditeur d’un barème, l’enseignant peut exporter un ou plusieurs critères dans un fichier JSON versionné (`companion-correcteur-rubric`, version 1). L’export conserve les identifiants, intitulés, descriptions, points maximum, mode d’analyse et sous-critères. Les anciens éléments `expectedElements` sont convertis vers `subcriteria` à l’export. Le fichier est généré directement dans le navigateur ; aucun contenu de copie ni aucune donnée du devoir source n’est ajouté. L’enseignant peut ensuite importer ce JSON dans un autre devoir : un aperçu classe les nouveaux critères, les doublons exacts et les conflits d’identifiant ou d’intitulé. Seuls les critères sélectionnés sont ajoutés ; les éléments existants ne sont jamais écrasés. Les identifiants en collision sont régénérés.
 
 ## Confidentialité et limites
 
