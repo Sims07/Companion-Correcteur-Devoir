@@ -70,6 +70,17 @@ describe('validateReviewedCorrection — teacher archive safety', () => {
     ]).errors[0]).toContain('plusieurs fois');
   });
 
+  it('rejects a rubric edited into an inconsistent state before archive', () => {
+    const altered = { ...rubric, criteria: [
+      { ...rubric.criteria[0], maxPoints: Number.NaN },
+      ...rubric.criteria.slice(1),
+    ] };
+    const validation = validateReviewedCorrection(altered, reviewed);
+    expect(validation.valid).toBe(false);
+    expect(validation.total).toBeNull();
+    expect(validation.errors).toEqual(expect.arrayContaining([expect.stringContaining('nombre fini')]));
+  });
+
   it('does not require extra confirmations for valid model proposals accepted by default', () => {
     expect(validateReviewedCorrection(rubric, reviewed.map((item) => ({
       ...item, decision: 'accepted', teacherComment: '',
