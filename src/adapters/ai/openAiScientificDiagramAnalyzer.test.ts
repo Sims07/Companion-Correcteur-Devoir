@@ -152,7 +152,7 @@ describe('OpenAI scientific diagram adapter', () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 }));
     await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze(markedRequest);
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
-    const prompt = body.messages[0].content as string;
+    const prompt = body.messages[0].content[0].text as string;
     expect(prompt).toContain('Membrane');
     expect(prompt).toContain('Noyau');
     expect(prompt).not.toContain('arrows-relations');
