@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildStudentIdentityPrompt, buildTeacherAnnotationPrompt, checkOllamaReady, createOllamaProvider, prewarmOllamaModel } from './ollamaProvider.ts';
+import { buildStudentIdentityPrompt, buildTeacherAnnotationPrompt, checkOllamaReady, createOllamaProvider, prewarmOllamaModel, unloadOllamaModel } from './ollamaProvider.ts';
 import type { OllamaSettings } from '../../ports/aiProvider.ts';
 
 const settings: OllamaSettings = {
@@ -43,7 +43,7 @@ describe('Ollama readiness without loading models', () => {
     ]);
   });
 
-  it('keeps a genuinely prewarmed model loaded for the first real read, then unloads it when keep_alive is zero', async () => {
+  it('keeps a genuinely prewarmed model loaded for the first real read, and preserves it for the next copy', async () => {
     let modelLoaded = false;
     let modelLoadCount = 0;
     let generationCount = 0;
@@ -97,7 +97,7 @@ describe('Ollama readiness without loading models', () => {
     expect(transcription).toContain('Transcription de la copie.');
     expect(generationCount).toBe(2);
     expect(modelLoadCount).toBe(1);
-    expect(modelLoaded).toBe(false);
+    expect(modelLoaded).toBe(true);
     expect(progressEvents).toContainEqual({ type: 'first-token', role: 'reading', pageIndex: 1 });
   });
 
@@ -187,6 +187,13 @@ describe('Ollama readiness without loading models', () => {
 
     await expect(checkOllamaReady(settings, fetchImpl)).rejects.toThrow('n’est pas installé');
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('only explicitly unloads on a dedicated unload request', async () => {
+    const mockFetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => response({ done: true }));
+    await unloadOllamaModel(settings, 'qwen3.5:4b', mockFetch as unknown as typeof fetch);
+    const body = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
+    expect(body).toMatchObject({ model: 'qwen3.5:4b', prompt: '', stream: false, keep_alive: 0 });
   });
 
   it('keeps the background-prewarmed model resident for five minutes', async () => {

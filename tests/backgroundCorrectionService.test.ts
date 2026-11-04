@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createBackgroundCorrection } from '../src/domain/backgroundCorrection.ts';
 import { createBackgroundCorrectionService } from '../src/application/backgroundCorrectionService.ts';
+import { createScientificDiagramAnalysisService } from '../src/application/scientificDiagramAnalysisService.ts';
 import type { BackgroundCorrectionJob } from '../src/domain/backgroundCorrection.ts';
 import type { BackgroundCorrectionRepository } from '../src/ports/backgroundCorrectionRepository.ts';
 import type { GradingProvider, GradingRequest } from '../src/ports/aiProvider.ts';
+import type { ScientificDiagramAnalyzer } from '../src/ports/scientificDiagramAnalysis.ts';
 import type { CorrectionWorkspaceService } from '../src/application/correctionWorkspaceService.ts';
 
 function fixture() {
@@ -221,7 +223,7 @@ describe('background correction service', () => {
     const paused = f.jobs.get('copy-1');
     expect(paused?.status).toBe('pending');
     expect(paused?.partialCriteria.map((item) => item.criterionId)).toContain('c1');
-    expect(f.workspace.unloadModel).toHaveBeenCalledWith(expect.anything(), 'analysis:4b');
+    expect(f.workspace.unloadModel).not.toHaveBeenCalled();
     service.resume();
     for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
     expect(f.jobs.get('copy-1')?.status).toBe('ready');
@@ -361,6 +363,50 @@ describe('background correction service', () => {
     expect(f.requests[0].transcription).toBeUndefined();
     expect(f.jobs.get('copy-1')?.partialCriteria.map((criterion) => criterion.criterionId)).toEqual(['c1', 'c2']);
     expect(f.jobs.get('copy-1')?.status).toBe('ready');
+  });
+
+  it('runs multi-page scientific grading sequentially through the shared use case and preserves model residency', async () => {
+    const f = fixture();
+    const first = { base64: 'cGFnZTE=', mimeType: 'image/png', fileName: 'schema-1.png' };
+    const second = { base64: 'cGFnZTI=', mimeType: 'image/png', fileName: 'schema-2.png' };
+    const job = {
+      ...f.job,
+      images: [first, second],
+      originalImages: [first, second],
+      rubric: { title: 'Biologie', criteria: [
+        { id: 'c1', title: 'Schéma biologique', description: 'Cellule', maxPoints: 2, analysisMode: 'scientific-diagram' as const },
+      ] },
+      totalCriteria: 1,
+    };
+    const calls: number[] = [];
+    const analyzer = {
+      classifyPages: vi.fn(async () => [
+        { pageNumber: 1, kind: 'scientific-diagram' as const, confidence: 1, reason: 'Schéma' },
+        { pageNumber: 2, kind: 'scientific-diagram' as const, confidence: 1, reason: 'Schéma' },
+      ]),
+      analyze: vi.fn(async (input: Parameters<ScientificDiagramAnalyzer['analyze']>[0]) => {
+        expect(input.images).toHaveLength(1);
+        const page = input.pageNumbers?.[0] ?? 0;
+        calls.push(page);
+        return {
+          diagrams: [{ id: 'diagram-1', pageNumber: page, diagramType: 'Cellule', summary: '', criteria: [], uncertainties: [] }],
+          criteria: [{
+            criterionId: 'c1', title: 'Schéma biologique', points: 2, maxPoints: 2,
+            evidence: 'Cellule visible', confidence: 0.9, requiresTeacherReview: false, diagramIds: ['diagram-1'],
+          }],
+          overallUncertainties: [],
+        };
+      }),
+    };
+    const service = createBackgroundCorrectionService(f.repository, f.workspace, createScientificDiagramAnalysisService(analyzer));
+    await service.enqueue(job, { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'vision:4b' });
+    for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(calls).toEqual([1, 2]);
+    expect(analyzer.analyze).toHaveBeenCalledTimes(2);
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+    expect(f.workspace.unloadModel).not.toHaveBeenCalled();
   });
 
   it('persists a rotated page and invalidates every result derived from the previous image', async () => {
