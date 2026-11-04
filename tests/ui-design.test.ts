@@ -217,10 +217,11 @@ describe('UI design system', () => {
 
   it('makes multiple local assignments discoverable from the assignment library', () => {
     expect(appComponent).toContain('assignmentProfilesKey');
-    expect(appComponent).toContain('function createNewAssignment()');
+    expect(appComponent).toContain('function createNewAssignment(details: NewAssignmentDetails)');
     expect(appComponent).toContain('function switchAssignment(profile: AssignmentProfile)');
     expect(appComponent).toContain('assignments={assignmentProfiles}');
-    expect(appComponent).toContain('onCreate={() => { createNewAssignment(); setShowAssignmentsHome(false); }}');
+    expect(appComponent).toContain('onCreate={(details) => { createNewAssignment(details); setShowAssignmentsHome(false); }}');
+    expect(appComponent).toContain('onDuplicate={duplicateAssignment}');
     expect(appComponent).toContain('onOpen={(profile) => { switchAssignment(profile); setShowAssignmentsHome(false); }}');
     expect(appComponent).toContain('setRubric(profile.rubric)');
     expect(appComponent).toContain('setQuestion(profile.question)');
