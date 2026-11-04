@@ -1125,3 +1125,16 @@ footer { padding-top: 24px; line-height: 1.6; }
 @media(max-width:1280px){.copy-review-header{margin-right:-20px;margin-left:-20px;padding-right:20px;padding-left:20px}.copy-review-validation-bar{margin-right:-20px;margin-left:-20px;padding-right:20px;padding-left:20px}}
 @media(max-width:900px){.copy-review-header-main{flex-wrap:wrap}.copy-review-student-name{flex-basis:45%}.copy-review-header-main>.primary-button{flex:1}.copy-review-validation-bar{margin-right:-16px;margin-left:-16px;padding-right:16px;padding-left:16px}}
 @media(max-width:600px){.copy-review-header{margin-right:-16px;margin-left:-16px;padding:10px 16px}.copy-review-header-main{gap:8px}.copy-review-student-name{flex-basis:100%}.copy-review-header-main>.primary-button{min-width:100%;order:5}.copy-review-header-score{margin-left:auto}.copy-review-validation-bar{align-items:stretch;flex-direction:column;margin-right:-16px;margin-left:-16px;margin-bottom:-20px;padding-right:16px;padding-left:16px}.copy-review-validation-bar>.primary-button{width:100%}.copy-review-breadcrumb{font-size:10px}}
+
+
+/* Shared compact editor for teacher-defined rubric subcriteria. */
+.subcriteria-editor{display:grid;gap:8px;margin:8px 0 0;padding:10px 12px;border-left:2px solid var(--border-subtle,#dce3e8);border-radius:6px;background:var(--surface-subtle,#f8fafb)}
+.subcriteria-editor>strong{font-size:12px;font-weight:650;color:var(--text-secondary,#52606d)}
+.subcriteria-editor .criterion-fields{display:grid;grid-template-columns:minmax(120px,1.1fr) minmax(150px,1.5fr) minmax(76px,.55fr) 28px;align-items:end;gap:8px;padding:0;border:0;background:transparent}
+.subcriteria-editor .criterion-fields label{min-width:0}
+.subcriteria-editor .criterion-fields .field-label{font-size:10px}
+.subcriteria-editor .criterion-fields input{min-width:0}
+.subcriteria-editor .rubric-actions{display:flex;flex-wrap:wrap;gap:6px}
+.subcriteria-editor .rubric-actions button{font-size:11px;padding:6px 9px}
+.subcriteria-editor>.validation{margin:0;font-size:11px}
+@media(max-width:720px){.subcriteria-editor .criterion-fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 28px}.subcriteria-editor .criterion-fields label:nth-child(2){grid-column:1 / -1;grid-row:2}.subcriteria-editor .criterion-fields label:first-child{grid-column:1 / 2;grid-row:1}.subcriteria-editor .criterion-fields .points-field{grid-column:2 / 3;grid-row:1}.subcriteria-editor .criterion-fields>.icon-button{grid-column:3;grid-row:1}}
