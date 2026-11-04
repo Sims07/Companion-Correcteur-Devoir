@@ -996,12 +996,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           await service.checkReady({ endpoint, apiCompatible: false, model });
         }
       }
-      if (shouldRunTeacherScientificDiagramWorkflow(interfaceMode)) {
+      if (shouldRunTeacherScientificDiagramWorkflow(interfaceMode) && diagramRubric.criteria.length > 0) {
         try {
           let classifications = isFreshCorrection ? null : pageClassifications;
           if (!classifications || classifications.length !== images.length) {
             setCriterionProgressMessage('Détection du type et de l’orientation des pages…');
-            classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, onDiagnosticResult: captureDiagramDiagnostic });
+            classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, apiCompatible, onDiagnosticResult: captureDiagramDiagnostic });
             classificationWasJustCreated = true;
             const suggestions = await Promise.all(classifications.map(async (classification, index) => {
               const degrees = getConfidentDiagramRotation(classification, manualRotationAngles[index] !== undefined);
@@ -1020,7 +1020,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               if (autoRotateScientificDiagrams) {
                 try {
                   const [verification] = await diagramAnalysisService.classifyPages({
-                    images: [suggestion.preview], model: visionModel, endpoint, apiKey,
+                    images: [suggestion.preview], model: visionModel, endpoint, apiKey, apiCompatible,
                     onDiagnosticResult: captureDiagramDiagnostic,
                   });
                   if (verification?.kind === 'scientific-diagram' && verification.confidence >= 0.9 && verification.suggestedRotation === 0 && (verification.orientationConfidence ?? 0) >= 0.92) {
@@ -1065,6 +1065,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 model: visionModel,
                 endpoint,
                 apiKey,
+                apiCompatible,
                 onDiagnosticResult: captureDiagramDiagnostic,
               });
               diagramAnalysisResult = diagramResult;
@@ -1757,7 +1758,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           for (const job of jobs) {
             const rotation = await autoRotateScientificPages(
               job.images,
-              (pages) => diagramAnalysisService.classifyPages({ images: pages, model: visionModel, endpoint, apiKey }),
+              (pages) => diagramAnalysisService.classifyPages({ images: pages, model: visionModel, endpoint, apiKey, apiCompatible }),
               (image, degrees) => service.rotateImage(image, degrees),
             );
             automaticRotationCount += rotation.rotatedPages.length;
