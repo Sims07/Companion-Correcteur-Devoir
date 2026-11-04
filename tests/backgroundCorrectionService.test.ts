@@ -5,6 +5,7 @@ import { createScientificDiagramAnalysisService } from '../src/application/scien
 import type { BackgroundCorrectionJob } from '../src/domain/backgroundCorrection.ts';
 import type { BackgroundCorrectionRepository } from '../src/ports/backgroundCorrectionRepository.ts';
 import type { GradingProvider, GradingRequest } from '../src/ports/aiProvider.ts';
+import type { ScientificDiagramAnalyzer } from '../src/ports/scientificDiagramAnalysis.ts';
 import type { CorrectionWorkspaceService } from '../src/application/correctionWorkspaceService.ts';
 
 function fixture() {
@@ -383,7 +384,7 @@ describe('background correction service', () => {
         { pageNumber: 1, kind: 'scientific-diagram' as const, confidence: 1, reason: 'Schéma' },
         { pageNumber: 2, kind: 'scientific-diagram' as const, confidence: 1, reason: 'Schéma' },
       ]),
-      analyze: vi.fn(async (input: { images: typeof job.images; pageNumbers?: number[] }) => {
+      analyze: vi.fn(async (input: Parameters<ScientificDiagramAnalyzer['analyze']>[0]) => {
         expect(input.images).toHaveLength(1);
         const page = input.pageNumbers?.[0] ?? 0;
         calls.push(page);
