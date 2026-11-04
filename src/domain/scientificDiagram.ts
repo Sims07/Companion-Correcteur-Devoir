@@ -227,6 +227,13 @@ function assessCriterion(
   if (!Number.isFinite(points) || points < 0 || points > criterion.maxPoints) {
     throw new Error('Champ points hors barème pour « ' + criterion.title + ' ».');
   }
+  const criterionScoreMismatch = Boolean(elements)
+    && typeof value.points === 'number'
+    && Number.isFinite(value.points)
+    && Math.abs(value.points - points) > 0.0001;
+  if (criterionScoreMismatch) {
+    warnings.push('La somme des sous-critères ne correspond pas à la note annoncée pour le critère « ' + criterion.title + ' ».');
+  }
 
   const evidence = typeof value.evidence === 'string' && value.evidence.trim()
     ? value.evidence.trim()
@@ -235,7 +242,7 @@ function assessCriterion(
     ? value.confidence
     : 0;
   let requiresTeacherReview = typeof value.requiresTeacherReview === 'boolean' ? value.requiresTeacherReview : true;
-  if (evidence === 'Preuve non fournie par le modèle' || hasElementWarnings) requiresTeacherReview = true;
+  if (evidence === 'Preuve non fournie par le modèle' || hasElementWarnings || criterionScoreMismatch) requiresTeacherReview = true;
 
   if (elements?.some((element) => ['partial', 'absent', 'uncertain'].includes(element.status))) requiresTeacherReview = true;
   if (elements?.some((element) => element.evidence === 'Preuve non fournie par le modèle')) requiresTeacherReview = true;
