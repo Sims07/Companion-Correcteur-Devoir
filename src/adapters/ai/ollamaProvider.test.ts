@@ -43,7 +43,7 @@ describe('Ollama readiness without loading models', () => {
     ]);
   });
 
-  it('keeps a genuinely prewarmed model loaded for the first real read, then unloads it when keep_alive is zero', async () => {
+  it('keeps a genuinely prewarmed model loaded for the first real read, and preserves it for the next copy', async () => {
     let modelLoaded = false;
     let modelLoadCount = 0;
     let generationCount = 0;
@@ -97,7 +97,7 @@ describe('Ollama readiness without loading models', () => {
     expect(transcription).toContain('Transcription de la copie.');
     expect(generationCount).toBe(2);
     expect(modelLoadCount).toBe(1);
-    expect(modelLoaded).toBe(false);
+    expect(modelLoaded).toBe(true);
     expect(progressEvents).toContainEqual({ type: 'first-token', role: 'reading', pageIndex: 1 });
   });
 
