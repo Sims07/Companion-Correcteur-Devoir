@@ -1,3 +1,5 @@
+import { sumGradeScores } from './scorePrecision.ts';
+
 export type AssignmentOverviewFilter = 'all' | 'with-copies' | 'to-prepare';
 
 export interface AssignmentOverviewProfile {
@@ -59,7 +61,7 @@ export function getAssignmentOverview<T extends AssignmentOverviewProfile>(
   const assignmentsWithCopiesSet = new Set(assignmentsWithCopies);
   const cards = assignments.map((profile) => {
     const archivedCount = getArchivedCorrectionsForAssignment(assignments, archivedCorrections, profile.id).length;
-    const maximumPoints = profile.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
+    const maximumPoints = sumGradeScores(profile.rubric.criteria.map((criterion) => criterion.maxPoints));
     const ready = profile.rubric.criteria.length > 0 && maximumPoints > 0;
     return { profile, archivedCount, maximumPoints, ready };
   }).filter(({ profile, archivedCount, ready }) => {

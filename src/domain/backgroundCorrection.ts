@@ -5,6 +5,8 @@ import type { TeacherAnnotationInkColor } from './teacherAnnotationColor.ts';
 import type { ScientificPageClassification } from './scientificPageClassification.ts';
 import type { ScientificDiagramAnalysis } from './scientificDiagram.ts';
 import type { StudentIdentity } from './studentIdentity.ts';
+import { getBackgroundCorrectionResult } from './backgroundCorrectionResult.ts';
+import { sumGradeScores } from './scorePrecision.ts';
 
 export type BackgroundCorrectionStatus = 'pending' | 'processing' | 'ready' | 'needs-review' | 'reviewing' | 'completed' | 'failed';
 
@@ -71,10 +73,10 @@ export interface BackgroundCorrectionJob {
 }
 
 export function toBackgroundJobSummary(job: BackgroundCorrectionJob): BackgroundJobSummary {
-  const maximumPoints = job.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
-  const score = job.proposal?.finalScore ?? (job.partialCriteria.length
-    ? job.partialCriteria.reduce((sum, criterion) => sum + criterion.points, 0)
-    : null);
+  const result = getBackgroundCorrectionResult(job);
+  const maximumPoints = sumGradeScores(job.rubric.criteria.map((criterion) => criterion.maxPoints));
+  // Provisional partial criteria are intentionally not exposed as a complete grade.
+  const score = result?.score ?? null;
   return {
     id: job.id,
     assignmentId: job.assignmentId,
