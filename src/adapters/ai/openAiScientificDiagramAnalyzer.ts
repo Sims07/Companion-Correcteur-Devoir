@@ -163,8 +163,8 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
         const prompt = classificationPrompt(index + 1), schema = buildScientificPageClassificationSchema(), startedAt = Date.now();
         let raw = '';
         try {
-          const send = async (previousRaw = '') => {
-            const content = previousRaw ? classificationPrompt(index + 1, previousRaw) : prompt;
+          const send = async (repair?: { raw: string; reason: string }) => {
+            const content = repair ? classificationPrompt(index + 1, repair.raw, repair.reason) : prompt;
             const body = {
               model: request.model,
               stream: false,
@@ -192,12 +192,21 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
             return { truncated: (result.done_reason ?? result.choices?.[0]?.finish_reason) === 'length', content };
           };
           let attempt = await send();
-          if (attempt.truncated) {
-            attempt = await send(raw);
+          let classification: ReturnType<typeof parseScientificPageClassifications>[number];
+          try {
+            if (attempt.truncated) throw new Error('Réponse tronquée : limite de génération atteinte.');
+            if (!raw.trim()) throw new Error('Réponse vide.');
+            [classification] = parseScientificPageClassifications(raw, 1);
+          } catch (cause) {
+            const reason = cause instanceof Error ? cause.message : String(cause);
+            diagnosticResult(request, 'scientific-diagram-classification', attempt.content, raw, startedAt, reason, requestPayload);
+            // A malformed JSON, empty output or truncation warrants one targeted repair.
+            // HTTP/provider failures are not handled here and never trigger retries.
+            attempt = await send({ raw, reason });
             if (attempt.truncated) throw new Error(`Réponse tronquée : la classification de la page ${index + 1} a atteint deux fois la limite de génération.`);
+            if (!raw.trim()) throw new Error(`Le modèle Vision n’a retourné aucune classification pour la page ${index + 1} après réparation.`);
+            [classification] = parseScientificPageClassifications(raw, 1);
           }
-          if (!raw.trim()) throw new Error(`Le modèle Vision n’a retourné aucune classification pour la page ${index + 1}.`);
-          const [classification] = parseScientificPageClassifications(raw, 1);
           classifications.push({ ...classification, pageNumber: index + 1 });
           diagnosticResult(request, 'scientific-diagram-classification', attempt.content, raw, startedAt, undefined, requestPayload);
         } catch (cause) {
@@ -238,14 +247,18 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
         };
         const post = (format: unknown) => {
           const body = JSON.stringify({ ...payload, format });
-          if (local) requestPayload = JSON.stringify({ ...payload, images: ['[IMAGE REDACTED]'], format });
+          if (local) requestPayload = JSON.stringify({
+            ...payload,
+            format,
+            messages: payload.messages.map((message) => ({ ...message, images: message.images.map(() => '[IMAGE REDACTED]') })),
+          });
           return compatibleFetch(
           request.endpoint.replace(/\/+$/, '') + '/api/chat',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body,
-          },
+          annotateNetworkRequest(
+            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
+            'Analyser les schémas scientifiques',
+            `Modèle ${request.model} · page ${request.pageNumbers?.[0] ?? 1}/${request.totalPageCount ?? 1}`,
+          ),
         );
         };
 
