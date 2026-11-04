@@ -19,7 +19,7 @@ import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/diagnosticReference.ts';
 import { createDecisionMemoryEntries, fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_FINGERPRINT_KEY, LOCAL_MEMORY_RUBRIC_UPDATED_EVENT, LOCAL_MEMORY_UPDATED_EVENT } from '../domain/localMemory.ts';
 import type { LocalCorrection, CorrectionArchiveSnapshot } from '../domain/localCorrection.ts';
-import { formatStudentIdentityLabel, type StudentIdentity } from '../domain/studentIdentity.ts';
+import { resolveIdentifiedCopyLabel, type StudentIdentity } from '../domain/studentIdentity.ts';
 import type { TeacherAnnotationInkColor } from '../domain/teacherAnnotationColor.ts';
 import { AnnotationInkColorPicker } from './components/AnnotationInkColorPicker.tsx';
 import type { RubricImportProgress } from '../ports/correctionWorkspace.ts';
@@ -513,6 +513,25 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     : null;
   const copyNavigation = getCopyNavigation(activeAssignmentId, currentCopyId, backgroundJobs, archivedCorrectionsForActiveAssignment, currentDraftNavigationItem);
   const activeBackgroundJob = backgroundJobs.find((job) => job.id === currentBackgroundJobId) ?? null;
+  const previousActiveCopyRef = useRef<{ id: string; label: string; identityKey: string } | null>(null);
+  const activeIdentityKey = JSON.stringify(activeBackgroundJob?.studentIdentity ?? null);
+  useEffect(() => {
+    const previous = previousActiveCopyRef.current;
+    if (activeBackgroundJob && previous?.id === activeBackgroundJob.id) {
+      // A queued copy can be identified while its review screen is already open.
+      // Preserve any manually edited field instead of overwriting the teacher.
+      if (previous.label !== activeBackgroundJob.label) {
+        setStudentLabel((current) => current === previous.label ? activeBackgroundJob.label : current);
+      }
+      if (previous.identityKey !== activeIdentityKey) {
+        setStudentIdentity(activeBackgroundJob.studentIdentity ?? null);
+      }
+    }
+    previousActiveCopyRef.current = activeBackgroundJob
+      ? { id: activeBackgroundJob.id, label: activeBackgroundJob.label, identityKey: activeIdentityKey }
+      : null;
+  }, [activeBackgroundJob?.id, activeBackgroundJob?.label, activeIdentityKey]);
+
   const reviewPosition = copyNavigation.currentPosition ?? (copyNavigation.totalCopies > 0 ? 1 : 0);
   const reviewTotalCopies = copyNavigation.totalCopies;
   useEffect(() => {
@@ -1125,7 +1144,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           }))
           : undefined;
         const raw = await provider.generate(
-          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, identifyStudent: !gradingTranscription, ...(teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(effectiveSubjectTranscription ? { subjectTranscription: effectiveSubjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
+          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, identifyStudent: !gradingTranscription, ...(images[0] ? { identityImage: images[0] } : {}), ...(teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(effectiveSubjectTranscription ? { subjectTranscription: effectiveSubjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
           (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
           (stage) => {
             const now = Date.now();
@@ -1150,8 +1169,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               try {
                 const identity = JSON.parse(extracted) as StudentIdentity;
                 setStudentIdentity(identity);
-                const suggestedLabel = formatStudentIdentityLabel(identity);
-                if (suggestedLabel && !studentLabel.trim() && identity.confidence !== 'low') setStudentLabel(suggestedLabel);
+                setStudentLabel((current) => resolveIdentifiedCopyLabel(current, identity, images[0]?.fileName));
                 if (identity.confidence === 'medium') setReviewMessage('Identité de l’étudiant détectée avec une incertitude : confirmez le nom ou le numéro avant de finaliser.');
               } catch { setStudentIdentity(null); }
             }
@@ -1981,7 +1999,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setIsAnalyzing(false);
     setStreamedOutput('');
     setCurrentTimingRecordId(null);
-    setStudentLabel(next.studentIdentity ? (formatStudentIdentityLabel(next.studentIdentity) ?? next.label) : next.label);
+    setStudentLabel(next.label);
     setStudentIdentity(next.studentIdentity ?? null);
     setDetectTeacherAnnotations(next.detectTeacherAnnotations);
     setAnnotationInkColor(next.annotationInkColor);
@@ -2944,7 +2962,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         })()}
         <div className="correction-series-list-heading"><div><h4>Copies à corriger</h4><p>Vérifiez les pages et leur ordre avant de lancer les corrections.</p></div><span>{backgroundJobs.length} copie(s)</span></div>
         {backgroundJobs.length === 0 ? <p className="correction-series-empty">Aucune copie dans la session. Ajoutez les pages de la première copie ci-dessus.</p> : <ol className="correction-series-list">{backgroundJobs.map((job, index) => { const result = getBackgroundCorrectionResult(job); const hasProvisionalScore = job.partialCriteria.length > 0; const provisionalScore = job.partialCriteria.reduce((sum, criterion) => sum + criterion.points, 0); const provisionalMax = job.rubric.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0); const canOpenCorrection = ['ready', 'needs-review', 'failed', 'reviewing'].includes(job.status); const statusLabel = job.status === 'completed' ? 'Correction terminée' : job.status === 'processing' ? (job.phase === 'reading' ? 'Lecture de la copie' : job.phase === 'preparation' ? 'Préparation de la copie' : 'Correction en cours') : job.status === 'pending' ? 'À corriger' : job.status === 'failed' ? 'Correction à corriger' : job.status === 'needs-review' ? 'À vérifier' : 'Prête à consulter'; return <li key={job.id} className={['correction-series-card', `is-${job.status}`].join(' ')} aria-current={job.status === 'processing' ? 'step' : undefined}>
-          <div className="correction-series-card-heading"><span className="queue-position">{index + 1}</span><div className="correction-series-copy"><strong title={job.studentIdentity ? (formatStudentIdentityLabel(job.studentIdentity) ?? job.label) : job.label}>{job.studentIdentity ? (formatStudentIdentityLabel(job.studentIdentity) ?? job.label) : job.label}</strong><small>{job.images.length} page(s)</small></div></div>
+          <div className="correction-series-card-heading"><span className="queue-position">{index + 1}</span><div className="correction-series-copy"><strong title={job.label}>{job.label}</strong><small>{job.images.length} page(s)</small></div></div>
           <div className="correction-series-card-score">
             {result ? <><span className="correction-series-card-score-label">Note proposée</span><strong aria-label={`Note ${result.score}/${result.maxScore}`}>{result.score.toLocaleString('fr-FR')}<span> / {result.maxScore.toLocaleString('fr-FR')}</span></strong></> : hasProvisionalScore ? <><span className="correction-series-card-score-label">Note provisoire</span><strong>{provisionalScore.toLocaleString('fr-FR')}<span> / {provisionalMax.toLocaleString('fr-FR')}</span></strong></> : <><span className="correction-series-card-score-label">{job.status === 'failed' ? 'Note indisponible' : job.status === 'processing' ? 'Évaluation en cours' : 'Note à venir'}</span><strong className="is-pending">{job.status === 'failed' ? '—' : job.status === 'processing' ? `${job.completedCriteria}/${job.totalCriteria}` : '—'}</strong></>}
           </div>
@@ -2959,7 +2977,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           </div>
         </li>; })}</ol>}
         {selectedSeriesPreviewId && (() => { const selectedCopy = backgroundJobs.find((job) => job.id === selectedSeriesPreviewId && job.assignmentId === activeAssignmentId); return selectedCopy ? <section className="correction-series-preview-panel" aria-label={`Aperçu de ${selectedCopy.label}`}>
-          <div className="correction-series-preview-heading"><div><h4>{selectedCopy.studentIdentity ? (formatStudentIdentityLabel(selectedCopy.studentIdentity) ?? selectedCopy.label) : selectedCopy.label}</h4><p>{selectedCopy.images.length} page(s) · Vous pouvez vérifier l’ordre et l’orientation des pages.</p></div><button type="button" className="text-button" onClick={() => setSelectedSeriesPreviewId(null)}>Fermer</button></div>
+          <div className="correction-series-preview-heading"><div><h4>{selectedCopy.label}</h4><p>{selectedCopy.images.length} page(s) · Vous pouvez vérifier l’ordre et l’orientation des pages.</p></div><button type="button" className="text-button" onClick={() => setSelectedSeriesPreviewId(null)}>Fermer</button></div>
           <div className="correction-series-pages" aria-label={`Pages de ${selectedCopy.label}`}>{selectedCopy.images.map((page, pageIndex) => <figure key={`${selectedCopy.id}-page-${pageIndex}`}><img src={`data:${page.mimeType};base64,${page.base64}`} alt={`Page ${pageIndex + 1} de ${selectedCopy.label}`} loading="lazy" /><figcaption>Page {pageIndex + 1}{selectedCopy.rotationAngles?.[pageIndex] ? ` · tournée de ${selectedCopy.rotationAngles[pageIndex]}°` : ''}{page.fileName ? ` · ${page.fileName}` : ''}</figcaption><details className="batch-copy-page-full-preview"><summary>Agrandir</summary><img loading="lazy" src={`data:${page.mimeType};base64,${page.base64}`} alt={`Image agrandie de la page ${pageIndex + 1} de ${selectedCopy.label}`} /></details><div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${pageIndex + 1} de ${selectedCopy.label} à gauche de 90 degrés`} disabled={isPreparingSeriesCopies || rotatingQueuedPage !== null} onClick={() => { void rotateQueuedCopyPage(selectedCopy, pageIndex, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${pageIndex + 1} de ${selectedCopy.label} à droite de 90 degrés`} disabled={isPreparingSeriesCopies || rotatingQueuedPage !== null} onClick={() => { void rotateQueuedCopyPage(selectedCopy, pageIndex, 90); }}>↷ 90°</button></div></figure>)}</div>
         </section> : null; })()}
       </section>}
