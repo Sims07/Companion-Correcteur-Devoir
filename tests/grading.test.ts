@@ -44,7 +44,36 @@ describe('parseGradingProposal', () => {
     }), rubric)).toThrow(/preuve.*obligatoire/i);
   });
 
-  it('flags a score outside the rubric instead of silently correcting it', () => {
+  it('validates teacher-defined subcriteria and their independent partial scores', () => {
+  const rubricWithSubcriteria: Rubric = { title: 'Cellule', criteria: [{
+    id: 'diagram', title: 'Schéma', description: '', maxPoints: 3,
+    subcriteria: [
+      { id: 'membrane', title: 'Membrane', description: 'Contour', maxPoints: 2 },
+      { id: 'nucleus', title: 'Noyau', description: 'Position', maxPoints: 1 },
+    ],
+  }] };
+  const result = parseGradingProposal(JSON.stringify({
+    summary: 'Évaluation.',
+    criteria: [{ criterionId: 'diagram', points: 2, rationale: 'Partiellement exact.', evidence: 'Membrane visible', confidence: 'high', subcriteria: [
+      { subcriterionId: 'membrane', points: 1.25, evidence: 'Contour incomplet' },
+      { subcriterionId: 'nucleus', points: 0.75, evidence: 'Noyau visible' },
+    ] }],
+    finalScore: 2,
+  }), rubricWithSubcriteria);
+  expect(result.criteria[0].subcriteria?.map((item) => item.points)).toEqual([1.25, 0.75]);
+  expect(result.criteria[0].subcriteria?.map((item) => item.subcriterionId)).toEqual(['membrane', 'nucleus']);
+});
+
+it('rejects a criterion whose subcriterion scores do not add up to its score', () => {
+  const rubricWithSubcriteria: Rubric = { title: 'Cellule', criteria: [{
+    id: 'diagram', title: 'Schéma', description: '', maxPoints: 3,
+    subcriteria: [{ id: 'membrane', title: 'Membrane', description: '', maxPoints: 3 }],
+  }] };
+  const raw = JSON.stringify({ criteria: [{ criterionId: 'diagram', points: 2, rationale: '', evidence: 'Contour visible', confidence: 'high', subcriteria: [{ subcriterionId: 'membrane', points: 1, evidence: 'Contour visible' }] }], finalScore: 2 });
+  expect(() => parseGradingProposal(raw, rubricWithSubcriteria)).toThrow(/somme des sous-critères/);
+});
+
+it('flags a score outside the rubric instead of silently correcting it', () => {
     expect(() => parseGradingProposal(JSON.stringify({
       criteria: [{ ...validCriteria[0], points: 9 }, validCriteria[1]],
     }), rubric)).toThrow(/hors barème/);
