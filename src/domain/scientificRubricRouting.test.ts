@@ -139,8 +139,8 @@ describe('scientific rubric routing', () => {
         { id: 'diagram-2', pageNumber: 4, diagramType: 'Cellule', summary: '', criteria: [], uncertainties: [] },
       ],
       criteria: [{ criterionId: 'diagram', title: 'Schéma scientifique', points: 3, maxPoints: 4, evidence: 'Éléments partiellement visibles.', confidence: 0.6, requiresTeacherReview: true, diagramIds: ['diagram-1', 'diagram-2'], elements: [
-        { label: 'Membrane', status: 'present', evidence: 'Contour visible.', points: 2, maxPoints: 2 },
-        { label: 'Noyau', status: 'partial', evidence: 'Structure incomplète.', points: 1, maxPoints: 2 },
+        { subcriterionId: 'membrane', label: 'Membrane', status: 'present', evidence: 'Contour visible.', points: 2, maxPoints: 2 },
+        { subcriterionId: 'nucleus', label: 'Noyau', status: 'partial', evidence: 'Structure incomplète.', points: 1, maxPoints: 2 },
       ] }],
       overallUncertainties: [],
     };
