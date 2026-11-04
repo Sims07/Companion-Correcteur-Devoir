@@ -13,7 +13,9 @@
     "test:coverage": "vitest run --coverage",
     "test:coverage:core": "vitest run --coverage --coverage.include='src/domain/**' --coverage.include='src/application/**' --coverage.reportsDirectory=coverage-unit-core",
     "test:coverage:report": "node scripts/update-coverage-badge.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
@@ -24,6 +26,9 @@
     "read-excel-file": "latest"
   },
   "devDependencies": {
+    "@storybook/addon-a11y": "latest",
+    "@storybook/react-vite": "latest",
+    "storybook": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",

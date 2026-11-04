@@ -15,10 +15,35 @@ src/ui/design-system/
     TextArea.tsx
     TextInput.tsx
     index.ts
+  foundations/                # token reference stories
   index.ts
+
+.storybook/
+  main.ts                     # Storybook discovery, framework and addons
+  preview.ts                  # shared design-system styles and preview defaults
 ```
 
 Feature styles remain responsible for layout and domain-specific composition. They must not redefine the appearance of shared controls.
+
+## Storybook
+
+Storybook is the visual reference environment for shared UI foundations. It consumes the same token and control styles as the application without importing application-specific layout styles.
+
+Run it locally:
+
+```bash
+npm run storybook
+```
+
+Build the static reference:
+
+```bash
+npm run build-storybook
+```
+
+Stories are colocated with their components under `src/ui/design-system/components`. Each foundational component should document its meaningful variants and states (default, disabled, invalid, helper text, etc.). The `Fondations/Design tokens` page exposes the semantic color, spacing and radius scales.
+
+The accessibility addon is enabled in the Storybook toolbar. It supplements, but does not replace, keyboard, screen-reader and browser-level tests.
 
 ## Usage
 
@@ -46,7 +71,8 @@ import { Button, Checkbox, Field, TextArea, TextInput } from './design-system/in
 5. **Motion respects preferences.** Interactions must remain usable with reduced motion enabled.
 6. **Native semantics.** Shared text controls preserve native HTML form behavior and browser accessibility. The shared select retains native `<select>` semantics; its closed control is consistently styled, while the operating-system option popup remains browser-controlled. A fully custom listbox is a separate accessibility project and must not be introduced without keyboard and screen-reader tests.
 7. **Responsive by default.** Controls fill their available width and must not force a fixed-width form layout.
+8. **Stories are part of the component contract.** New shared components and meaningful variants must have Storybook stories. Keep stories representative of real teacher workflows, not arbitrary showcase content.
 
 ## Validation
 
-The design-system contract tests live in `tests/ui/designSystemContract.test.ts` and run with `npm test`. The normal CI typecheck/build validates the React component contracts. Add browser-level tests for any new interactive composite control.
+The design-system contract tests live in `tests/ui/designSystemContract.test.ts` and run with `npm test`. The normal CI typecheck/build validates the React component contracts. The CI also builds Storybook to ensure stories and their configuration remain valid. Add browser-level tests for any new interactive composite control.
