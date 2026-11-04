@@ -26,12 +26,25 @@ function rubricFromJson(value: unknown, fileName: string): ImportedRubric {
       if (!subTitle || !Number.isFinite(subPoints)) throw new Error(`Le sous-critère ${subIndex + 1} du critère ${title} doit avoir un intitulé et un maximum valide.`);
       return { id: String(subcriterion.id ?? `${slugify(title, index)}-sub-${subIndex + 1}`), title: subTitle, description: String(subcriterion.description ?? ''), maxPoints: subPoints };
     }) : undefined;
-    const expectedElements = Array.isArray(criterion.expectedElements) ? criterion.expectedElements as Array<{ label: string; points: number }> : undefined;
+    const expectedElements = Array.isArray(criterion.expectedElements) ? criterion.expectedElements.map((value, subIndex) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new Error(`L’ancien sous-critère ${subIndex + 1} du critère « ${title} » est invalide.`);
+      }
+      const element = value as Record<string, unknown>;
+      if (typeof element.label !== 'string' || !element.label.trim()) {
+        throw new Error(`L’ancien sous-critère ${subIndex + 1} du critère « ${title} » doit avoir un intitulé non vide (label).`);
+      }
+      if (typeof element.points !== 'number' || !Number.isFinite(element.points) || element.points < 0) {
+        throw new Error(`Les points de l’ancien sous-critère « ${element.label} » du critère « ${title} » doivent être un nombre fini positif ou nul.`);
+      }
+      return { id: `${slugify(title, index)}-sub-${subIndex + 1}`, title: element.label.trim(), description: '', maxPoints: element.points };
+    }) : undefined;
     const analysisMode = criterion.analysisMode === 'scientific-diagram' || criterion.analysisMode === 'text' ? criterion.analysisMode : undefined;
     return {
       id: String(criterion.id ?? slugify(title, index)), title,
       description: String(criterion.description ?? criterion.attendus ?? criterion.details ?? ''), maxPoints: points,
-      ...(analysisMode ? { analysisMode } : {}), ...(subcriteria ? { subcriteria } : {}), ...(expectedElements ? { expectedElements } : {}),
+      ...(analysisMode ? { analysisMode } : {}),
+      ...(subcriteria ? { subcriteria } : expectedElements ? { subcriteria: expectedElements } : {}),
     };
   });
   const rubric: Rubric = { title: String(source.title ?? source.titre ?? fileName.replace(/\.[^.]+$/, '')).trim(), criteria };
