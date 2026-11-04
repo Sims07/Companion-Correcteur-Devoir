@@ -295,6 +295,23 @@ export function parseScientificDiagramAnalysis(
     throw new Error('La réponse Vision ne contient pas la liste obligatoire "diagrams" (champ : diagrams).');
   }
 
+  // Classification is a hypothesis, not evidence. When a page contains no
+  // identifiable diagram, preserve that uncertainty instead of inventing a
+  // drawing or awarding a technical zero.
+  if (parsed.diagrams.length === 0) {
+    const uncertainties = normalizeStrings(parsed.overallUncertainties).map((item) => item.trim()).filter(Boolean);
+    const criteria = normalizeCriterionCollection(parsed.criteria);
+    if (criteria?.length !== 0 || uncertainties.length === 0) {
+      throw new Error('Aucun schéma exploitable : indiquez une incertitude et ne fournissez aucune note de critère.');
+    }
+    return {
+      diagrams: [],
+      criteria: [],
+      overallUncertainties: uncertainties,
+      warnings: ['Aucun schéma identifiable : la note visuelle doit être attribuée par l’enseignant.'],
+    };
+  }
+
   const warnings: string[] = [];
   const rows = normalizeDiagrams(parsed.diagrams, pageCount, allowedPageNumbers, warnings);
   const diagrams: ScientificDiagramFinding[] = rows.map((row) => ({
