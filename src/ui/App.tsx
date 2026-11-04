@@ -27,6 +27,7 @@ import type { LocalCorrectionService } from '../application/localCorrectionServi
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
 import { sumGradeScores } from '../domain/scorePrecision.ts';
+import { transcribeSubjectReference } from '../application/transcribeSubjectReference.ts';
 import { createBackgroundCorrection, backgroundCorrectionStatusLabel, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import { getBackgroundCorrectionResult } from '../domain/backgroundCorrectionResult.ts';
 import { getCopyNavigation } from '../domain/backgroundCorrectionReviewNavigation.ts';
@@ -957,6 +958,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     let diagramImages: ImageInput[] = [];
     let diagramPageNumbers: number[] = [];
     let diagramAnalysisResult = isFreshCorrection ? null : scientificDiagramAnalysis;
+    let effectiveSubjectTranscription: string | null = isFreshCorrection ? null : subjectTranscription;
     let classificationWasJustCreated = false;
     const rubricRouting = partitionScientificRubric(rubric);
     const gradingRubric: Rubric = interfaceMode === 'teacher' ? { ...rubric, criteria: rubricRouting.textCriteria } : rubric;
@@ -999,6 +1001,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         }
       }
       if (shouldRunTeacherScientificDiagramWorkflow(interfaceMode) && diagramRubric.criteria.length > 0) {
+        if (correctionMode === 'separate' && !effectiveSubjectTranscription) {
+          if (!subjectImages.length) throw new Error('Importez le sujet de référence avant la notation des schémas.');
+          setCriterionProgressMessage('Lecture du sujet de référence avant la notation des schémas…');
+          const subjectReader = service.createProvider({
+            endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking,
+            transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
+            transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
+          });
+          effectiveSubjectTranscription = await transcribeSubjectReference(
+            subjectReader, subjectImages, abortController.signal, captureDiagramDiagnostic,
+          );
+          setSubjectTranscription(effectiveSubjectTranscription);
+        }
         try {
           let classifications = isFreshCorrection ? null : pageClassifications;
           if (!classifications || classifications.length !== images.length) {
@@ -1062,7 +1077,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 pageNumbers: diagramPageNumbers,
                 totalPageCount: images.length,
                 question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
-                ...(!isFreshCorrection && subjectTranscription ? { subjectTranscription } : {}),
+                ...(effectiveSubjectTranscription ? { subjectTranscription: effectiveSubjectTranscription } : {}),
                 rubric: diagramRubric,
                 model: visionModel,
                 endpoint,
@@ -1110,7 +1125,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           }))
           : undefined;
         const raw = await provider.generate(
-          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, identifyStudent: !gradingTranscription, ...(teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(!isFreshCorrection && subjectTranscription ? { subjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
+          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, identifyStudent: !gradingTranscription, ...(teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(effectiveSubjectTranscription ? { subjectTranscription: effectiveSubjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
           (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
           (stage) => {
             const now = Date.now();
