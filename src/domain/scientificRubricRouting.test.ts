@@ -107,6 +107,70 @@ describe('scientific rubric routing', () => {
     expect(result.criteria[0].evidence).toContain('Pages concernées');
   });
 
+  it('averages subcriteria across page assessments and checks their sum against criterion points', () => {
+    const visualRubric: Rubric = { title: 'Cellule', criteria: [{
+      id: 'diagram', title: 'Schéma scientifique', description: '', maxPoints: 4, analysisMode: 'scientific-diagram',
+      subcriteria: [
+        { id: 'membrane', title: 'Membrane', description: '', maxPoints: 2 },
+        { id: 'nucleus', title: 'Noyau', description: '', maxPoints: 2 },
+      ],
+    }] };
+    const pageAssessment = (pageNumber: number, criterionPoints: number, membranePoints: number, nucleusPoints: number) => ({
+      id: `diagram-${pageNumber}`, pageNumber, diagramType: 'Cellule', summary: '',
+      criteria: [{
+        criterionId: 'diagram', title: 'Schéma scientifique', points: criterionPoints, maxPoints: 4,
+        evidence: `Preuve page ${pageNumber}`, confidence: 0.9, requiresTeacherReview: false,
+        diagramIds: [`diagram-${pageNumber}`],
+        elements: [
+          { subcriterionId: 'membrane', label: 'Membrane', status: 'present' as const, evidence: 'Membrane visible', points: membranePoints, maxPoints: 2 },
+          { subcriterionId: 'nucleus', label: 'Noyau', status: 'partial' as const, evidence: 'Noyau partiel', points: nucleusPoints, maxPoints: 2 },
+        ],
+      }],
+      uncertainties: [],
+    });
+    const analysis: ScientificDiagramAnalysis = {
+      diagrams: [pageAssessment(1, 3, 2, 1), pageAssessment(2, 1, 0, 1)],
+      overallUncertainties: [],
+      warnings: ['Évaluations page par page : moyenne à confirmer.'],
+    };
+    const result = mergeScientificDiagramCriteria(visualRubric, null, analysis);
+    expect(result.criteria[0]).toMatchObject({
+      points: 2,
+      subcriteria: [
+        { subcriterionId: 'membrane', points: 1 },
+        { subcriterionId: 'nucleus', points: 1 },
+      ],
+      questionForTeacher: expect.any(String),
+    });
+    expect(result.criteria[0].evidence).not.toContain('La somme des sous-critères ne correspond pas');
+  });
+
+  it('flags a multi-page mismatch between criterion points and aggregated subcriteria', () => {
+    const visualRubric: Rubric = { title: 'Cellule', criteria: [{
+      id: 'diagram', title: 'Schéma scientifique', description: '', maxPoints: 4, analysisMode: 'scientific-diagram',
+      subcriteria: [{ id: 'membrane', title: 'Membrane', description: '', maxPoints: 4 }],
+    }] };
+    const pageAssessment = (pageNumber: number, criterionPoints: number, subcriterionPoints: number) => ({
+      id: `diagram-${pageNumber}`, pageNumber, diagramType: 'Cellule', summary: '',
+      criteria: [{
+        criterionId: 'diagram', title: 'Schéma scientifique', points: criterionPoints, maxPoints: 4,
+        evidence: 'Preuve', confidence: 0.9, requiresTeacherReview: false, diagramIds: [`diagram-${pageNumber}`],
+        elements: [{ subcriterionId: 'membrane', label: 'Membrane', status: 'present' as const, evidence: 'Contour', points: subcriterionPoints, maxPoints: 4 }],
+      }],
+      uncertainties: [],
+    });
+    const result = mergeScientificDiagramCriteria(visualRubric, null, {
+      diagrams: [pageAssessment(1, 4, 2), pageAssessment(2, 4, 2)],
+      overallUncertainties: [],
+      warnings: ['Évaluations page par page : moyenne à confirmer.'],
+    });
+    expect(result.criteria[0]).toMatchObject({
+      points: 4,
+      questionForTeacher: expect.stringContaining('somme des sous-critères'),
+    });
+    expect(result.criteria[0].evidence).toContain('La somme des sous-critères ne correspond pas');
+  });
+
   it('recognizes a legend criterion tied to an anatomical figure', () => {
     const result = partitionScientificRubric({
       title: 'Biologie',
