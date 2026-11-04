@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createBackgroundCorrection, toBackgroundJobSummary } from '../../src/domain/backgroundCorrection.ts';
 
 describe('toBackgroundJobSummary', () => {
-  it('projects progress and score without exposing images or rubric payloads', () => {
+  it('projects progress without exposing a failed partial grade, images or rubric payloads', () => {
     const image = { base64: 'aGVsbG8=', mimeType: 'image/png', fileName: 'copie.png' };
     const job = createBackgroundCorrection({
       id: 'copy-1',
@@ -40,7 +40,7 @@ describe('toBackgroundJobSummary', () => {
       status: 'failed',
       phase: 'reading',
       progress: { completedPages: 1, totalPages: 1, completedCriteria: 0, totalCriteria: 1 },
-      score: 3,
+      score: null, // Failed OCR cannot publish its partial mark as a grade.
       maximumPoints: 8,
       pageCount: 1,
       error: 'Ollama indisponible',
