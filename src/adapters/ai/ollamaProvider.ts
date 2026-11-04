@@ -431,6 +431,16 @@ export function createOllamaProvider(
           return (parsed.criteria ?? []).flatMap((criterion) => typeof criterion.id === 'string' ? [criterion.id] : []);
         } catch { return []; }
       })();
+      const rubricCriteriaForSchema: RubricCriterion[] = (() => {
+        try {
+          const parsed = JSON.parse(request.rubric) as { criteria?: unknown[] };
+          return (parsed.criteria ?? []).filter((criterion): criterion is RubricCriterion =>
+            typeof criterion === 'object' && criterion !== null &&
+            'id' in criterion && typeof criterion.id === 'string' &&
+            'maxPoints' in criterion && typeof criterion.maxPoints === 'number',
+          );
+        } catch { return []; }
+      })();
       const identitySchema = {
         type: 'object', additionalProperties: false,
         required: ['firstName', 'lastName', 'studentNumber', 'confidence'],
@@ -457,10 +467,48 @@ export function createOllamaProvider(
           subcriteria: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['subcriterionId', 'points', 'evidence'], properties: { subcriterionId: { type: 'string' }, points: { type: 'number', minimum: 0 }, evidence: { type: 'string' } } } },
         },
       };
+      const completeCriterionSchemas = rubricCriteriaForSchema.map((criterion) => {
+        const subcriteria = getRubricSubcriteria(criterion);
+        return {
+          ...criterionSchema,
+          required: subcriteria.length > 0 ? [...criterionSchema.required, 'subcriteria'] : criterionSchema.required,
+          properties: {
+            ...criterionSchema.properties,
+            criterionId: { type: 'string', enum: [criterion.id] },
+            points: { type: 'number', minimum: 0, maximum: criterion.maxPoints },
+            ...(subcriteria.length > 0 ? {
+              subcriteria: {
+                type: 'array',
+                minItems: subcriteria.length,
+                maxItems: subcriteria.length,
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  required: ['subcriterionId', 'points', 'evidence'],
+                  properties: {
+                    subcriterionId: { type: 'string', enum: subcriteria.map((item) => item.id) },
+                    points: { type: 'number', minimum: 0, maximum: Math.max(...subcriteria.map((item) => item.maxPoints)) },
+                    evidence: { type: 'string' },
+                  },
+                },
+              },
+            } : {}),
+          },
+        };
+      });
       const gradingSchema = {
         type: 'object', additionalProperties: false,
         required: ['summary', 'criteria', 'questionsForTeacher', 'finalScore'],
-        properties: { summary: { type: 'string' }, criteria: { type: 'array', ...(rubricCriterionIds.length ? { minItems: rubricCriterionIds.length, maxItems: rubricCriterionIds.length } : {}), items: criterionSchema }, questionsForTeacher: { type: 'array', items: { type: 'string' } }, finalScore: { type: 'number' } },
+        properties: {
+          summary: { type: 'string' },
+          criteria: {
+            type: 'array',
+            ...(rubricCriterionIds.length ? { minItems: rubricCriterionIds.length, maxItems: rubricCriterionIds.length } : {}),
+            ...(completeCriterionSchemas.length > 0 ? { items: { oneOf: completeCriterionSchemas } } : { items: criterionSchema }),
+          },
+          questionsForTeacher: { type: 'array', items: { type: 'string' } },
+          finalScore: { type: 'number' },
+        },
       };
       async function sendStream(
         model: string,
