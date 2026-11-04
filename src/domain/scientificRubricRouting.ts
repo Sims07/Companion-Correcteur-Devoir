@@ -31,10 +31,12 @@ export function mergeScientificDiagramCriteria(
   textProposal: GradingProposal | null,
   analysis: ScientificDiagramAnalysis | null,
 ): GradingProposal {
-  const { textCriteria, diagramCriteria } = partitionScientificRubric(rubric);
+  const { diagramCriteria } = partitionScientificRubric(rubric);
   const textById = new Map((textProposal?.criteria ?? []).map((criterion) => [criterion.criterionId, criterion]));
   const diagramProposals = new Map<string, CriterionProposal>();
-  const legacyAnalysis = Boolean(analysis?.warnings?.some((warning) => warning.includes('Ancien format')));
+  const legacyAnalysis = Boolean(analysis && !analysis.criteria
+    && analysis.diagrams.some((diagram) => (diagram.criteria ?? []).length > 0)
+    && !(analysis.warnings ?? []).some((warning) => warning.startsWith('Évaluations page par page')));
   const pageLevelAnalysis = Boolean(analysis && !analysis.criteria
     && analysis.warnings?.some((warning) => warning.startsWith('Évaluations page par page')));
   const perPage = legacyAnalysis || pageLevelAnalysis;
