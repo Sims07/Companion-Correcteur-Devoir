@@ -13,15 +13,18 @@ const settings: OllamaSettings = {
 function createService() {
   const checkReady = vi.fn(async () => undefined);
   const prewarmModel = vi.fn(async () => undefined);
+  const unloadModel = vi.fn(async () => undefined);
   const repository = {} as unknown as BackgroundCorrectionRepository;
   const workspace = {
     checkReady,
     prewarmModel,
+    unloadModel,
   } as unknown as OllamaGateway;
   return {
     service: createBackgroundCorrectionService(repository, workspace),
     checkReady,
     prewarmModel,
+    unloadModel,
   };
 }
 
@@ -125,6 +128,15 @@ describe('background Ollama prewarming', () => {
     await expect(warming).resolves.toBeUndefined();
 
     expect(signal?.aborted).toBe(true);
+  });
+
+  it('does not explicitly unload a prewarmed model when foreground work switches model roles', async () => {
+    const { service, unloadModel } = createService();
+
+    await service.prewarm(settings);
+    await service.pauseAndWait('different-analysis-model:7b');
+
+    expect(unloadModel).not.toHaveBeenCalled();
   });
 
   it('skips a new prewarm as soon as foreground correction has priority', async () => {
