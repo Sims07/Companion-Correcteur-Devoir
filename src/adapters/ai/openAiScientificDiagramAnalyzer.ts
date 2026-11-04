@@ -276,12 +276,9 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       };
 
       try {
-        let attempt = await send();
+        const attempt = await send();
         if (attempt.truncated) {
-          attempt = await send();
-          if (attempt.truncated) {
-            throw new Error('Réponse tronquée : la seconde tentative compacte a également atteint la limite de génération.');
-          }
+          throw new Error('Réponse tronquée : l’analyse du schéma a atteint la limite de génération. Relancez l’analyse ou réduisez la quantité de contenu à analyser.');
         }
 
         let result: ReturnType<typeof parseScientificDiagramAnalysis>;
