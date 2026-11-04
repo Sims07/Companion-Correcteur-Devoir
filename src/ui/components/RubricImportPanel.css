@@ -1,0 +1,12 @@
+.rubric-import-panel{margin:10px 0 4px;border:1px solid var(--border-subtle,#dce3e8);border-radius:8px;background:var(--surface-subtle,#f8fafb);color:var(--text-primary,#24313d)}
+.rubric-import-panel>summary{padding:10px 12px;cursor:pointer;font-size:12px;font-weight:650;color:var(--text-secondary,#52606d);list-style-position:inside}
+.rubric-import-content{display:grid;gap:10px;padding:0 12px 12px}.rubric-import-content>p{margin:0;color:var(--text-secondary,#52606d);font-size:12px;line-height:1.5}
+.rubric-import-feedback{margin:0;font-size:12px;color:var(--text-secondary,#52606d)}.rubric-import-feedback.is-error{color:var(--danger,#a43d3d)}
+.rubric-import-preview{display:grid;gap:9px;padding-top:10px;border-top:1px solid var(--border-subtle,#dce3e8)}
+.rubric-import-preview-heading,.rubric-import-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;color:var(--text-secondary,#667582)}
+.rubric-import-preview-heading>div{display:grid;gap:2px}.rubric-import-preview-heading strong{font-size:12px;color:var(--text-primary,#24313d)}
+.rubric-import-preview-list{display:grid;gap:4px}.rubric-import-preview-item{display:flex;align-items:center;gap:9px;padding:8px;border-radius:6px;background:var(--surface,#fff);font-size:12px}
+.rubric-import-preview-item input{accent-color:var(--accent,#426b8a)}.rubric-import-preview-copy{display:grid;gap:2px;min-width:0;flex:1}.rubric-import-preview-copy small{font-size:11px;color:var(--text-secondary,#667582)}
+.rubric-import-status{font-size:10px;color:var(--text-secondary,#667582);text-align:right}.rubric-import-preview-item.is-id-conflict .rubric-import-status,.rubric-import-preview-item.is-title-conflict .rubric-import-status{color:var(--warning,#8b651b)}
+.rubric-import-preview-item.is-duplicate{opacity:.65}.rubric-import-hint{margin:0;font-size:11px;line-height:1.5;color:var(--text-secondary,#667582)}
+.rubric-import-actions{padding-top:8px;border-top:1px solid var(--border-subtle,#dce3e8)}@media(max-width:600px){.rubric-import-preview-item{flex-wrap:wrap}.rubric-import-status{margin-left:26px;text-align:left}.rubric-import-actions{align-items:stretch;flex-direction:column}.rubric-import-actions button{width:100%}}

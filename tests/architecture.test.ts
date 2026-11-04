@@ -12,6 +12,7 @@ describe('hexagonal architecture boundaries', () => {
       '../src/domain/localMemory.ts',
       '../src/domain/localMemoryContext.ts',
       '../src/domain/rubric.ts',
+      '../src/domain/rubricImport.ts',
       '../src/domain/observability.ts',
       '../src/domain/teacherAnnotations.ts',
       '../src/domain/backgroundCorrection.ts',
