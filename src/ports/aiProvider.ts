@@ -26,7 +26,6 @@ export interface GradingRequest {
   visionOnly?: boolean;
   detectTeacherAnnotations?: boolean;
   /** Keep the analysis model warm between background criteria; false unloads it after this call. */
-  keepAnalysisModelWarm?: boolean;
 }
 
 export interface DiagnosticModelResult {

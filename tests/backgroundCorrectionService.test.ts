@@ -164,8 +164,6 @@ describe('background correction service', () => {
     expect(f.workspace.checkReady).toHaveBeenCalledTimes(2);
     expect(f.workspace.prewarmModel).toHaveBeenCalledWith(expect.anything(), 'vision:4b', expect.any(AbortSignal));
     expect(f.createProvider).toHaveBeenCalledTimes(2);
-    expect(f.requests[0].keepAnalysisModelWarm).toBe(true);
-    expect(f.requests[1].keepAnalysisModelWarm).toBe(false);
     expect(f.repository.getCachedTranscription).not.toHaveBeenCalled();
     expect(f.cache).toEqual(new Map());
     expect(completed?.status).toBe('ready');
@@ -173,6 +171,30 @@ describe('background correction service', () => {
     expect(completed?.proposal?.finalScore).toBe(4);
     const calls = f.createProvider.mock.calls;
     expect(calls).toHaveLength(2);
+  });
+
+  it('does not unload models between sequential copies in the background queue', async () => {
+    const f = fixture();
+    const second = structuredClone(f.job);
+    second.id = 'copy-2';
+    second.label = 'Copie 2';
+    second.status = 'pending';
+    second.partialCriteria = [];
+    second.completedCriteria = 0;
+    second.completedPages = 0;
+    second.transcription = null;
+    second.phase = 'preparation';
+    second.proposal = null;
+    second.error = null;
+    second.updatedAt = '2026-11-01T09:01:00.000Z';
+    f.jobs.set(second.id, second);
+
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+    expect(f.jobs.get('copy-2')?.status).toBe('ready');
+    expect(f.workspace.unloadModel).not.toHaveBeenCalled();
   });
 
   it('keeps completed criteria and yields to the teacher between model calls', async () => {

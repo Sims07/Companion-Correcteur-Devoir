@@ -35,6 +35,34 @@ const request: GradingRequest = {
 };
 
 describe('Ollama adapter', () => {
+  it('leaves model retention to Ollama after the final vision request', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('Réponse manuscrite lisible.'));
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434',
+      visionModel: 'qwen3.5:4b',
+      analysisModel: 'qwen3.5:4b',
+    }, fetchMock);
+
+    await expect(provider.generate({ ...request, visionOnly: true })).resolves.toContain('Réponse manuscrite lisible.');
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as Record<string, unknown>;
+    expect(body).not.toHaveProperty('keep_alive');
+  });
+
+  it('does not force-unload vision when analysis uses a different model', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('Réponse manuscrite lisible.'));
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434',
+      visionModel: 'gemma3:4b',
+      analysisModel: 'qwen3.5:4b',
+    }, fetchMock);
+
+    await expect(provider.generate({ ...request, visionOnly: true })).resolves.toContain('Réponse manuscrite lisible.');
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as Record<string, unknown>;
+    expect(body).not.toHaveProperty('keep_alive');
+  });
+
   it('identifies the student in one dedicated first-page request before transcription', async () => {
     const identity = JSON.stringify({ firstName: 'Alice', lastName: 'Martin', studentNumber: '240018', confidence: 'high' });
     const fetchMock = vi.fn<typeof fetch>()
@@ -204,7 +232,7 @@ describe('Ollama adapter', () => {
     expect(trace).toMatchObject({
       model: 'llava',
       requestPayload: expect.stringMatching(/Expliquez la mitose[\s\S]*IMAGE REDACTED/),
-      requestMetadata: { provider: 'ollama', endpoint: 'http://localhost:11434', stream: true, think: false, format: 'json-schema', imageCount: 1, keepAlive: 0, options: { contextTokens: 8192, generationTokenLimit: 2048 } },
+      requestMetadata: { provider: 'ollama', endpoint: 'http://localhost:11434', stream: true, think: false, format: 'json-schema', imageCount: 1, keepAlive: '5m (Ollama default)', options: { contextTokens: 8192, generationTokenLimit: 2048 } },
       raw: rawProposal,
     });
     expect(JSON.stringify(trace)).not.toContain('aGVsbG8=');
@@ -435,7 +463,7 @@ describe('Ollama adapter', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const visionBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(visionBody.model).toBe('gemma3:4b');
-    expect(visionBody.keep_alive).toBe(0);
+    expect(visionBody).not.toHaveProperty('keep_alive');
     expect(visionBody.messages[0].content).toContain('Transcris fidèlement');
     expect(visionBody.messages[0].images).toEqual(['aGVsbG8=']);
     expect(visionBody.format).toBeUndefined();
@@ -486,7 +514,7 @@ describe('Ollama adapter', () => {
     }, fetchMock);
     await expect(provider.generate(request, undefined, undefined, (value) => transcriptions.push(value))).resolves.toBe('{"criteria":[]}');
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).keep_alive).toBe(0);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).not.toHaveProperty('keep_alive');
     expect(transcriptions[0]).toContain('LECTURE DOUTEUSE');
     expect(transcriptions[0]).toContain('Réponse avant le grand blanc.');
   });
@@ -582,8 +610,8 @@ describe('Ollama adapter', () => {
     expect(firstSuffix).toContain('N’évalue aucun autre critère');
     expect(secondSuffix).toContain('"id":"reasoning"');
     expect(first.options.num_predict).toBeGreaterThanOrEqual(1024);
-    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).keep_alive).toBe('30s');
-    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).keep_alive).toBe(0);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).not.toHaveProperty('keep_alive');
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).not.toHaveProperty('keep_alive');
     expect(JSON.parse(raw)).toMatchObject({ finalScore: 7, criteria: [{ criterionId: 'knowledge', points: 4 }, { criterionId: 'reasoning', points: 3, annotationSuggestion: 'Précise la conséquence de la division.' }] });
     expect(updates.filter((item) => item.status === 'completed').map((item) => item.criterionId)).toEqual(['knowledge', 'reasoning']);
   });
@@ -694,9 +722,9 @@ describe('Ollama adapter', () => {
     const firstAnalysis = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { model: string; keep_alive?: string | number };
     const secondAnalysis = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { model: string; keep_alive?: string | number };
     expect(firstAnalysis.model).toBe('qwen3.5:4b');
-    expect(firstAnalysis.keep_alive).toBe(0);
+    expect(firstAnalysis).not.toHaveProperty('keep_alive');
     expect(secondAnalysis.model).toBe('phi4-mini');
-    expect(secondAnalysis.keep_alive).toBe(0);
+    expect(secondAnalysis).not.toHaveProperty('keep_alive');
   });
 
   it('transcribes multiple pages sequentially without a separate region-localization request', async () => {
@@ -725,9 +753,9 @@ describe('Ollama adapter', () => {
     expect(identityBody.messages[0].images).toEqual(['cGFnZTE=']);
     expect(firstPage.messages[0].content).toContain('Transcris fidèlement');
     expect(firstPage.messages[0].images).toEqual(['cGFnZTE=']);
-    expect(firstPage.keep_alive).toBe('30s');
+    expect(firstPage).not.toHaveProperty('keep_alive');
     expect(lastPage.messages[0].images).toEqual(['cGFnZTI=']);
-    expect(lastPage.keep_alive).toBe(0);
+    expect(lastPage).not.toHaveProperty('keep_alive');
     expect(analysis.model).toBe('qwen3.5:4b');
     expect(analysis.messages[0].content).toContain('Transcription page 1');
     expect(analysis.messages[0].content).toContain('Transcription page 2');
@@ -746,10 +774,10 @@ describe('Ollama adapter', () => {
     const subjectBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { keep_alive?: string | number; messages: Array<{ content: string; images?: string[] }> };
     expect(subjectBody.messages[0].content).toContain('sans corriger ni résoudre les questions');
     expect(subjectBody.messages[0].images).toEqual(['c3ViamV0']);
-    expect(subjectBody.keep_alive).toBe('30s'); // Keep vision warm for the following copy page.
+    expect(subjectBody).not.toHaveProperty('keep_alive'); // Ollama's default idle retention spans the next operation.
     const copyBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { keep_alive?: string | number; messages: Array<{ content: string; images?: string[] }> };
     expect(copyBody.messages[0].content).toContain('Transcris fidèlement');
-    expect(copyBody.keep_alive).toBe(0); // Final vision page: release RAM before grading.
+    expect(copyBody).not.toHaveProperty('keep_alive'); // Do not force an unload at the page boundary.
     const gradingBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { messages: Array<{ content: string }> };
     expect(gradingBody.messages[0].content).toContain('<sujet_reference>');
     expect(gradingBody.messages[0].content).toContain('Question 1 : Décrire la mitose.');
@@ -842,7 +870,7 @@ describe('Ollama adapter', () => {
     expect(visionBody.model).toBe('qwen3.5:4b');
     expect(visionBody.stream).toBe(true);
     expect(visionBody.think).toBe(false);
-    expect(visionBody.keep_alive).toBe(0); // Single-page import: do not keep vision loaded for structuring.
+    expect(visionBody).not.toHaveProperty('keep_alive'); // Keep the model under Ollama's default idle timeout.
     expect(visionBody.format).toBeUndefined();
     expect(visionBody.messages[0].content).toContain('Transcris ce qui est réellement visible');
     expect(visionBody.messages[0].images).toEqual(['aGVsbG8=']);
@@ -853,7 +881,7 @@ describe('Ollama adapter', () => {
     expect(analysisBody.model).toBe('text-model');
     expect(analysisBody.stream).toBe(false);
     expect(analysisBody.think).toBe(false);
-    expect(analysisBody.keep_alive).toBe(0);
+    expect(analysisBody).not.toHaveProperty('keep_alive');
     expect(analysisBody.format.type).toBe('object');
     expect(analysisBody.format.properties).toHaveProperty('criteria');
     expect(analysisBody.messages[0].images).toBeUndefined();
@@ -871,7 +899,7 @@ describe('Ollama adapter', () => {
   });
 
 
-  it('keeps vision loaded between rubric pages and unloads it before structuring', async () => {
+  it('leaves rubric model retention to Ollama across page and structuring requests', async () => {
     const rubricJson = JSON.stringify({ title: 'Barème', criteria: [{ title: 'Connaissances', description: 'Notions exactes', maxPoints: 2 }] });
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: 'Page 1 du barème.' } }), { status: 200 }))
@@ -890,9 +918,9 @@ describe('Ollama adapter', () => {
     const firstPage = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { keep_alive?: string | number };
     const lastPage = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { keep_alive?: string | number };
     const analysis = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { keep_alive?: string | number };
-    expect(firstPage.keep_alive).toBe('30s');
-    expect(lastPage.keep_alive).toBe(0);
-    expect(analysis.keep_alive).toBe(0);
+    expect(firstPage).not.toHaveProperty('keep_alive');
+    expect(lastPage).not.toHaveProperty('keep_alive');
+    expect(analysis).not.toHaveProperty('keep_alive');
   });
 
   it('recovers a penalty criterion with an incomplete description without retrying another service', async () => {

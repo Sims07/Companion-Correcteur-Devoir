@@ -282,7 +282,7 @@ export async function unloadOllamaModel(settings: OllamaSettings, model: string,
   const response = await fetchImpl(`${normalizedEndpoint(settings.endpoint)}/api/generate`, annotateNetworkRequest({
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, prompt: '', stream: false, keep_alive: 0 }),
+    body: JSON.stringify({ model, prompt: '', stream: false }),
   }, 'Libérer le modèle en mémoire', `Modèle ${model}`));
   if (!response.ok) throw new Error(`Impossible de libérer le modèle ${model} (HTTP ${response.status}).`);
 }
@@ -298,7 +298,6 @@ export async function prewarmOllamaModel(settings: OllamaSettings, model: string
       model,
       stream: false,
       think: false,
-      keep_alive: '5m',
       messages: [{ role: 'user', content: 'Réponds uniquement par OK.' }],
       options: { num_predict: 1 },
     }),
@@ -519,7 +518,7 @@ export function createOllamaProvider(
         streamChunk?: (chunk: string) => void,
         json: boolean | Record<string, unknown> = false,
         think = false,
-        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; keepAlive?: string | number; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void; pageIndex?: number },
+        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void; pageIndex?: number },
       ): Promise<string> {
         const startedAt = Date.now();
         activeRequestPayloads = [];
@@ -555,7 +554,7 @@ export function createOllamaProvider(
               think,
               ...(json ? { format: json === true ? 'json' as const : 'json-schema' as const } : {}),
               imageCount: images?.length ?? 0,
-              keepAlive: tracking.keepAlive ?? 0,
+              keepAlive: '5m (Ollama default)',
               options: {
                 contextTokens: tracking.contextTokenLimit ?? (tracking.kind === 'vision' ? 4096 : 8192),
                 generationTokenLimit: tracking.generationTokenLimit ?? 2048,
@@ -585,9 +584,6 @@ export function createOllamaProvider(
               model,
               stream: true,
               think,
-              // Keep vision resident between pages, but unload it after the last page.
-              // All analysis/comparison/arbitration requests release their model immediately.
-              keep_alive: tracking?.keepAlive ?? 0,
               options: {
                 // Keep the analysis budget generous while limiting vision memory on Intel Macs.
                 num_ctx: tracking?.contextTokenLimit ?? (tracking?.kind === 'vision' ? 4096 : 8192),
@@ -672,7 +668,7 @@ export function createOllamaProvider(
                 think,
                 ...(json ? { format: json === true ? 'json' as const : 'json-schema' as const } : {}),
                 imageCount: images?.length ?? 0,
-                keepAlive: tracking?.keepAlive ?? 0,
+                keepAlive: '5m (Ollama default)',
                 options: {
                   contextTokens: tracking.contextTokenLimit ?? (tracking.kind === 'vision' ? 4096 : 8192),
                   generationTokenLimit: tracking.generationTokenLimit ?? 2048,
@@ -760,7 +756,6 @@ export function createOllamaProvider(
             allowTruncated: true,
             onDoneReason: (reason) => { subjectTruncated = reason === 'length'; },
             onSuspiciousStop: () => { subjectTruncated = true; },
-            keepAlive: index < subjectImages.length - 1 || (!request.transcription && (request.images?.length ?? 0) > 0) ? '30s' : 0,
           });
           const subjectStopReached = /(?:\r?\n){4}$/.test(pageText);
           const cleanedSubjectText = cleanTranscription(pageText);
@@ -792,7 +787,6 @@ export function createOllamaProvider(
               context: 'Première page · bande supérieure · en-tête gauche et droit',
               temperature: 0,
               generationTokenLimit: 256,
-              keepAlive: '30s',
               allowTruncated: true,
             },
           );
@@ -833,7 +827,6 @@ export function createOllamaProvider(
               repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
               allowTruncated: true,
               onDoneReason: (reason) => { transcriptionTruncated = reason === 'length'; },
-              keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
               onSuspiciousStop: () => { transcriptionTruncated = true; },
             },
           );
@@ -862,7 +855,6 @@ export function createOllamaProvider(
           try {
             annotationResponse = await sendStream(visionModel, buildTeacherAnnotationPrompt(originalPageText), [providerImage(image)], undefined, annotationSchema, false, {
               kind: 'vision', stage: 'reading', temperature: 0, generationTokenLimit: 2048,
-              keepAlive: index < annotationImages.length - 1 ? '30s' : 0,
             });
           } catch (cause) {
             const detail = cause instanceof Error ? cause.message : 'erreur inconnue du modèle de lecture';
@@ -1118,7 +1110,7 @@ export function createOllamaProvider(
                 onChunk,
                 currentCriterionSchema,
                 settings.thinking ?? false,
-                { kind: 'model', stage: 'analysis', generationTokenLimit: 1024, keepAlive: index < criteria.length - 1 || request.keepAnalysisModelWarm ? '30s' : 0, deferResult: diagnosticTracking, intent: `Analyser le critère ${criterion.title}`, context: `Modèle ${analysisModel} · critère ${index + 1}/${criteria.length} · ${request.images?.map((image) => image.fileName).filter(Boolean).join(', ') || 'copie'}` },
+                { kind: 'model', stage: 'analysis', generationTokenLimit: 1024, deferResult: diagnosticTracking, intent: `Analyser le critère ${criterion.title}`, context: `Modèle ${analysisModel} · critère ${index + 1}/${criteria.length} · ${request.images?.map((image) => image.fileName).filter(Boolean).join(', ') || 'copie'}` },
               );
               if (diagnosticTracking && lastDiagnosticMetrics) criterionDiagnosticMetrics.push(lastDiagnosticMetrics);
               previousRaw = raw;
@@ -1298,7 +1290,6 @@ export async function importRubricImageWithOllama(
           model: visionModel,
           stream: true,
           think: false,
-          keep_alive: page < images.length ? '30s' : 0,
           options: {
             temperature: 0,
             num_predict: Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048))),
@@ -1412,7 +1403,6 @@ export async function importRubricImageWithOllama(
           model: analysisModel,
           stream: false,
           think: settings.thinking ?? false,
-          keep_alive: 0,
           options: { temperature: 0, num_predict: outputTokens },
           ...(settings.apiCompatible ? { generation_token_parameter: 'max_completion_tokens' as const } : {}),
           format: schema,

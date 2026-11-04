@@ -175,10 +175,6 @@ export function createBackgroundCorrectionService(
             const remaining = remainingRubric(current.rubric, current.partialCriteria);
             if (!remaining.criteria.length) break;
             const criterion = remaining.criteria[0];
-            if (current.transcription && prewarmedModel && prewarmSettings) {
-              await workspace.unloadModel?.(prewarmSettings, prewarmedModel).catch(() => undefined);
-              prewarmedModel = null;
-            }
             const provider = workspace.createProvider({
               ...jobSettings,
               visionModel: current.visionModel,
@@ -209,7 +205,6 @@ export function createBackgroundCorrectionService(
                   totalPageCount: current.images.length,
                   ...(current.correctionMode === 'separate' ? { subjectImages: current.subjectImages, ...(current.subjectTranscription ? { subjectTranscription: current.subjectTranscription } : {}) } : {}),
                   detectTeacherAnnotations: current.detectTeacherAnnotations,
-                  keepAnalysisModelWarm: remaining.criteria.length > 1,
                   ...(current.detectTeacherAnnotations ? { teacherAnnotationImages: textPageNumbers.map((pageNumber) => current.originalImages[pageNumber - 1]), teacherAnnotationPageNumbers: textPageNumbers } : {}),
                 },
                 undefined,
@@ -398,14 +393,8 @@ export function createBackgroundCorrectionService(
         await prewarmPromise.catch(() => undefined);
       }
       if (activeLoop) await activeLoop;
-      if (modelToKeepWarm && prewarmedModel && prewarmedModel !== modelToKeepWarm && prewarmSettings) {
-        await workspace.unloadModel?.(prewarmSettings, prewarmedModel).catch(() => undefined);
-        prewarmedModel = null;
-        prewarmKey = '';
-        prewarmUntil = 0;
-      }
-      // If the foreground request uses the same model, let an already-issued
-      // prewarm finish in Ollama and start inference immediately without waiting.
+      // Do not explicitly unload a model when foreground work changes roles.
+      // Ollama manages resident models and evicts them when memory pressure requires it.
     },
     async stopAndWait() {
       paused = true;
