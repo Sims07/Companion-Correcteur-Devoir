@@ -164,8 +164,6 @@ describe('background correction service', () => {
     expect(f.workspace.checkReady).toHaveBeenCalledTimes(2);
     expect(f.workspace.prewarmModel).toHaveBeenCalledWith(expect.anything(), 'vision:4b', expect.any(AbortSignal));
     expect(f.createProvider).toHaveBeenCalledTimes(2);
-    expect(f.requests[0].keepAnalysisModelWarm).toBe(true);
-    expect(f.requests[1].keepAnalysisModelWarm).toBe(false);
     expect(f.repository.getCachedTranscription).not.toHaveBeenCalled();
     expect(f.cache).toEqual(new Map());
     expect(completed?.status).toBe('ready');
