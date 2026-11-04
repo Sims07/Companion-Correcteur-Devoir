@@ -870,7 +870,7 @@ describe('Ollama adapter', () => {
     expect(visionBody.model).toBe('qwen3.5:4b');
     expect(visionBody.stream).toBe(true);
     expect(visionBody.think).toBe(false);
-    expect(visionBody.keep_alive).toBe(0); // Single-page import: do not keep vision loaded for structuring.
+    expect(visionBody).not.toHaveProperty('keep_alive'); // Keep the model under Ollama's default idle timeout.
     expect(visionBody.format).toBeUndefined();
     expect(visionBody.messages[0].content).toContain('Transcris ce qui est réellement visible');
     expect(visionBody.messages[0].images).toEqual(['aGVsbG8=']);
@@ -899,7 +899,7 @@ describe('Ollama adapter', () => {
   });
 
 
-  it('keeps vision loaded between rubric pages and unloads it before structuring', async () => {
+  it('leaves rubric model retention to Ollama across page and structuring requests', async () => {
     const rubricJson = JSON.stringify({ title: 'Barème', criteria: [{ title: 'Connaissances', description: 'Notions exactes', maxPoints: 2 }] });
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: 'Page 1 du barème.' } }), { status: 200 }))
@@ -918,8 +918,8 @@ describe('Ollama adapter', () => {
     const firstPage = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { keep_alive?: string | number };
     const lastPage = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)) as { keep_alive?: string | number };
     const analysis = JSON.parse(String(fetchMock.mock.calls[2][1]?.body)) as { keep_alive?: string | number };
-    expect(firstPage.keep_alive).toBe('30s');
-    expect(lastPage.keep_alive).toBe(0);
+    expect(firstPage).not.toHaveProperty('keep_alive');
+    expect(lastPage).not.toHaveProperty('keep_alive');
     expect(analysis).not.toHaveProperty('keep_alive');
   });
 
