@@ -391,7 +391,7 @@ export function createOllamaProvider(
         'EXHAUSTIVITÉ : en correction complète, retourne exactement une entrée par critère du barème, sans doublon ni critère inconnu. En mode incrémental, retourne uniquement le critère explicitement demandé pour cet appel. Si une réponse semble présente mais est illisible, ne la traite pas comme absente ; signale la limite et demande une précision uniquement si elle peut changer la note.',
         'AUTO-CONTRÔLE : avant de répondre, vérifie les identifiants, l’unicité, la présence de tous les critères en correction complète (ou du seul critère cible en mode incrémental), les limites de points, la cohérence entre points/rationale/evidence et le fait que chaque note maximale est soutenue par tous les attendus essentiels. Le code validera également la structure et les limites mécaniques ; ne remplace pas le jugement pédagogique par une somme inventée.',
         'La correction produite est une proposition de travail et non une validation définitive.',
-        `BARÈME ACTUEL (JSON, référence de notation) :\n<barème>\n${request.rubric}\n</barème>`,
+        `BARÈME ACTUEL (JSON, référence de notation) :\n<barème>\n${rubricForPrompt}\n</barème>`,
         `CONSIGNE DE L’ENSEIGNANT :\n<consigne_enseignant>\n${request.question}\n</consigne_enseignant>`,
         ...(subjectTranscription ? [
           'SUJET DE RÉFÉRENCE : le texte ci-dessous provient du sujet fourni séparément par l’enseignant. Utilise-le pour comprendre les numéros de question, les consignes, les figures et les données expérimentales. Il ne remplace jamais le barème. Si la transcription du sujet est incertaine, ne devine pas.',
@@ -1019,7 +1019,7 @@ export function createOllamaProvider(
             index: index + 1,
             total: criteria.length,
           };
-          const criterionPrompt = buildIncrementalCriterionPrompt(gradingPrompt, criterion);
+          const criterionPrompt = buildIncrementalCriterionPrompt(gradingPrompt, { ...criterion, subcriteria: getRubricSubcriteria(criterion) });
           const expectedSubcriteria = getRubricSubcriteria(criterion);
           const currentCriterionSchema = {
             ...criterionSchema,
