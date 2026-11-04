@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildStudentIdentityPrompt, buildTeacherAnnotationPrompt, checkOllamaReady, createOllamaProvider, prewarmOllamaModel } from './ollamaProvider.ts';
+import { buildStudentIdentityPrompt, buildTeacherAnnotationPrompt, checkOllamaReady, createOllamaProvider, prewarmOllamaModel, unloadOllamaModel } from './ollamaProvider.ts';
 import type { OllamaSettings } from '../../ports/aiProvider.ts';
 
 const settings: OllamaSettings = {
@@ -187,6 +187,13 @@ describe('Ollama readiness without loading models', () => {
 
     await expect(checkOllamaReady(settings, fetchImpl)).rejects.toThrow('n’est pas installé');
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('only explicitly unloads on a dedicated unload request', async () => {
+    const mockFetch = vi.fn(async () => response({ done: true }));
+    await unloadOllamaModel(settings, 'qwen3.5:4b', mockFetch as unknown as typeof fetch);
+    const body = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
+    expect(body).toMatchObject({ model: 'qwen3.5:4b', prompt: '', stream: false, keep_alive: 0 });
   });
 
   it('keeps the background-prewarmed model resident for five minutes', async () => {
