@@ -35,6 +35,34 @@ const request: GradingRequest = {
 };
 
 describe('Ollama adapter', () => {
+  it('keeps the final vision request warm when vision and analysis use the same model', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('Réponse manuscrite lisible.'));
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434',
+      visionModel: 'qwen3.5:4b',
+      analysisModel: 'qwen3.5:4b',
+    }, fetchMock);
+
+    await expect(provider.generate({ ...request, visionOnly: true })).resolves.toContain('Réponse manuscrite lisible.');
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { keep_alive: string | number };
+    expect(body.keep_alive).toBe('30s');
+  });
+
+  it('unloads the final vision request when analysis uses a different model', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(streamingResponse('Réponse manuscrite lisible.'));
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434',
+      visionModel: 'gemma3:4b',
+      analysisModel: 'qwen3.5:4b',
+    }, fetchMock);
+
+    await expect(provider.generate({ ...request, visionOnly: true })).resolves.toContain('Réponse manuscrite lisible.');
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { keep_alive: string | number };
+    expect(body.keep_alive).toBe(0);
+  });
+
   it('identifies the student in one dedicated first-page request before transcription', async () => {
     const identity = JSON.stringify({ firstName: 'Alice', lastName: 'Martin', studentNumber: '240018', confidence: 'high' });
     const fetchMock = vi.fn<typeof fetch>()
