@@ -6,7 +6,7 @@ import type { Rubric } from '../domain/rubric.ts';
 import type { BackgroundCorrectionRepository } from '../ports/backgroundCorrectionRepository.ts';
 import type { GradingProgressEvent, OllamaSettings } from '../ports/aiProvider.ts';
 import type { OllamaGateway } from '../ports/correctionWorkspace.ts';
-import { formatStudentIdentityLabel, type StudentIdentity } from '../domain/studentIdentity.ts';
+import { resolveIdentifiedCopyLabel, type StudentIdentity } from '../domain/studentIdentity.ts';
 import { partitionScientificRubric, mergeScientificDiagramCriteria } from '../domain/scientificRubricRouting.ts';
 import { routeScientificPages } from '../domain/scientificPageClassification.ts';
 import type { ScientificDiagramAnalyzer } from '../ports/scientificDiagramAnalysis.ts';
@@ -229,11 +229,9 @@ export function createBackgroundCorrectionService(
                   else if (kind === 'identity') {
                     try {
                       const studentIdentity = JSON.parse(text) as StudentIdentity;
-                      const suggestedLabel = formatStudentIdentityLabel(studentIdentity);
-                      const fallbackLabel = current.label === current.images[0]?.fileName || /^Copie \d+$/.test(current.label);
                       queueProgress({
                         studentIdentity,
-                        ...(studentIdentity.confidence === 'high' && suggestedLabel && fallbackLabel ? { label: suggestedLabel } : {}),
+                        label: resolveIdentifiedCopyLabel(current.label, studentIdentity, current.images[0]?.fileName),
                       });
                     } catch { /* Invalid identity metadata never changes the queued copy label. */ }
                   } else if (kind !== 'annotations' && kind !== 'warning') queueProgress({ transcription: text, transcriptionPageNumbers: textPageNumbers, phase: 'grading', completedPages: textPageNumbers.length });
