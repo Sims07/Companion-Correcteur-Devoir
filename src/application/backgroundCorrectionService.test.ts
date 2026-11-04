@@ -139,6 +139,13 @@ describe('background Ollama prewarming', () => {
     expect(unloadModel).not.toHaveBeenCalled();
   });
 
+  it('keeps a prewarmed model resident on explicit stop so resume does not force a cold start', async () => {
+    const { service, unloadModel } = createService();
+    await service.prewarm(settings);
+    await service.stopAndWait();
+    expect(unloadModel).not.toHaveBeenCalled();
+  });
+
   it('skips a new prewarm as soon as foreground correction has priority', async () => {
     const { service, prewarmModel } = createService();
 
