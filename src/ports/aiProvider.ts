@@ -22,6 +22,8 @@ export interface GradingRequest {
   transcription?: string;
   /** Identify the student once from the first-page header before transcribing the copy. */
   identifyStudent?: boolean;
+  /** Original first page for identity extraction, even when it is not routed to text grading. */
+  identityImage?: ImageInput;
   /** Stop after local image transcription for an independent Vision benchmark. */
   visionOnly?: boolean;
   detectTeacherAnnotations?: boolean;
