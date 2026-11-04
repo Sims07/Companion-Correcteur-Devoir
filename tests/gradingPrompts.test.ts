@@ -40,7 +40,7 @@ describe('incremental grading prompt contract', () => {
     expect(prompt).toContain('ne suivent pas une règle automatique de 50 %');
   });
 
-it('requires the pedagogical evidence fields even when the criterion receives full points', () => {
+  it('requires the pedagogical evidence fields even when the criterion receives full points', () => {
     const prompt = buildIncrementalCriterionPrompt('Contexte', criterion);
 
     for (const field of ['criterionId', 'points', 'rationale', 'evidence', 'confidence', 'annotationSuggestion']) {
