@@ -1,5 +1,6 @@
 import { parseGradingProposal } from '../domain/grading.ts';
 import { sumGradeScores } from '../domain/scorePrecision.ts';
+import { transcribeSubjectReference } from './transcribeSubjectReference.ts';
 import { toBackgroundJobSummary, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import type { Rubric } from '../domain/rubric.ts';
 import type { BackgroundCorrectionRepository } from '../ports/backgroundCorrectionRepository.ts';
@@ -117,6 +118,12 @@ export function createBackgroundCorrectionService(
           let textPageNumbers = current.images.map((_, index) => index + 1);
           const visualRubric = partitionScientificRubric(current.rubric);
           if (visualRubric.diagramCriteria.length > 0) {
+            if (current.correctionMode === 'separate' && !current.subjectTranscription && current.subjectImages.length > 0) {
+              const reader = workspace.createProvider({ ...jobSettings, visionModel: current.visionModel, analysisModel: current.analysisModel, thinking: current.thinking });
+              const subject = await transcribeSubjectReference(reader, current.subjectImages, requestAbortController.signal);
+              current = { ...current, subjectTranscription: subject, updatedAt: new Date().toISOString() };
+              await persist(current);
+            }
             if (!diagramAnalysis) throw new Error('Le parcours de correction des schémas scientifiques n’est pas configuré. Aucune note visuelle ne sera estimée à partir de la seule transcription.');
             let classifications = current.scientificPageClassifications;
             if (!classifications || classifications.length !== current.images.length) {
@@ -296,7 +303,7 @@ export function createBackgroundCorrectionService(
         imageFingerprint: fingerprint,
         transcription: null,
         transcriptionPageNumbers: undefined,
-        subjectTranscription: undefined,
+        subjectTranscription: job.subjectTranscription,
         scientificPageClassifications: undefined,
         scientificDiagramAnalysis: null,
         studentIdentity: null,
