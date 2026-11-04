@@ -1094,10 +1094,12 @@ export function createOllamaProvider(
               points: { type: 'number', minimum: 0, maximum: criterion.maxPoints },
               ...(expectedSubcriteria.length > 0 ? { subcriteria: {
                 type: 'array', minItems: expectedSubcriteria.length, maxItems: expectedSubcriteria.length,
-                items: { type: 'object', additionalProperties: false, required: ['subcriterionId', 'points', 'evidence'], properties: {
-                  subcriterionId: { type: 'string', enum: expectedSubcriteria.map((item) => item.id) },
-                  points: { type: 'number', minimum: 0 }, evidence: { type: 'string' },
-                } },
+                items: { oneOf: expectedSubcriteria.map((subcriterion) => ({
+                  type: 'object', additionalProperties: false, required: ['subcriterionId', 'points', 'evidence'], properties: {
+                    subcriterionId: { type: 'string', enum: [subcriterion.id] },
+                    points: { type: 'number', minimum: 0, maximum: subcriterion.maxPoints }, evidence: { type: 'string' },
+                  },
+                })) },
               } } : {}),
             },
           };
@@ -1168,7 +1170,7 @@ export function createOllamaProvider(
               break;
             } catch (cause) {
               lastError = cause instanceof Error ? cause.message : 'Échec de l’analyse du critère.';
-              const retryable = /JSON invalide|JSON tronquée|réponse JSON|proposition valide|en dehors du barème|limite de génération|done_reason=length|réponse vide|tronqué|incomplet/i.test(lastError);
+              const retryable = /JSON invalide|JSON tronquée|réponse JSON|proposition valide|en dehors du barème|limite de génération|done_reason=length|réponse vide|tronqué|incomplet|somme des sous-critères|sous-critère manquant|évaluation invalide pour le sous-critère|ne contient pas tous les sous-critères/i.test(lastError);
               if (attempt === 1 && retryable) continue;
               break;
             }
