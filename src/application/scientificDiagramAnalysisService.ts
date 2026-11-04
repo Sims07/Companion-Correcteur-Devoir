@@ -56,9 +56,8 @@ export function createScientificDiagramAnalysisService(analyzer: ScientificDiagr
         diagrams.push(...pageDiagrams);
 
         const pageCriteria = pageResult.criteria ?? pageResult.diagrams.flatMap((diagram) => diagram.criteria ?? []);
-        // Store one assessment per page (not one per drawing). The existing rubric merge
-        // averages page-level assessments and flags them for teacher review rather than
-        // inventing a score by summing independent page grades.
+        // Preserve separate page observations. Rubric consolidation happens once
+        // in the domain; pages are never averaged or counted twice.
         if (pageDiagrams.length > 0 && pageCriteria.length > 0) {
           const firstDiagramForPage = pageDiagrams[0];
           if (firstDiagramForPage) {
@@ -75,7 +74,7 @@ export function createScientificDiagramAnalysisService(analyzer: ScientificDiagr
       return {
         diagrams,
         overallUncertainties: [...new Set(overallUncertainties)],
-        warnings: [...new Set([...warnings, 'Évaluations page par page : la moyenne des notes constitue une proposition à vérifier par l’enseignant.'])],
+        warnings: [...new Set([...warnings, 'Évaluations page par page : preuves à consolider selon les sous-critères ; aucune moyenne de notes n’est calculée.'])],
       };
     },
   };
