@@ -173,6 +173,30 @@ describe('background correction service', () => {
     expect(calls).toHaveLength(2);
   });
 
+  it('does not unload models between sequential copies in the background queue', async () => {
+    const f = fixture();
+    const second = structuredClone(f.job);
+    second.id = 'copy-2';
+    second.label = 'Copie 2';
+    second.status = 'pending';
+    second.partialCriteria = [];
+    second.completedCriteria = 0;
+    second.completedPages = 0;
+    second.transcription = null;
+    second.phase = 'preparation';
+    second.proposal = null;
+    second.error = null;
+    second.updatedAt = '2026-11-01T09:01:00.000Z';
+    f.jobs.set(second.id, second);
+
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+    expect(f.jobs.get('copy-2')?.status).toBe('ready');
+    expect(f.workspace.unloadModel).not.toHaveBeenCalled();
+  });
+
   it('keeps completed criteria and yields to the teacher between model calls', async () => {
     const f = fixture();
     let releaseFirst!: () => void;
