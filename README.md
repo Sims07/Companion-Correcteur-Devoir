@@ -86,7 +86,7 @@ La décision finale appartient toujours à l'enseignant.
 
 ## Design system
 
-The shared UI foundations are documented in [`docs/design-system.md`](docs/design-system.md).
+The shared UI foundations are documented in [`docs/design-system.md`](docs/design-system.md). The interactive component reference is available through Storybook (`npm run storybook` locally; `npm run build-storybook` to build it).
 
 - Design tokens live in `src/ui/design-system/tokens.css`.
 - Shared control styles live in `src/ui/design-system/controls.css`.
