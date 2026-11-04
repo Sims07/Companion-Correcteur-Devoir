@@ -73,7 +73,7 @@ describe('parseGradingProposal', () => {
     expect(() => parseGradingProposal(raw, rubricWithSubcriteria)).toThrow(/somme des sous-critères/);
   });
 
-it('flags a score outside the rubric instead of silently correcting it', () => {
+  it('flags a score outside the rubric instead of silently correcting it', () => {
     expect(() => parseGradingProposal(JSON.stringify({
       criteria: [{ ...validCriteria[0], points: 9 }, validCriteria[1]],
     }), rubric)).toThrow(/hors barème/);
