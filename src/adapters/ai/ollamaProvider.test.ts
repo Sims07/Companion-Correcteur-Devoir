@@ -336,6 +336,23 @@ describe('Ollama incremental grading with teacher-defined subcriteria', () => {
     expect(criterionSchemas[0].properties.subcriteria.items.anyOf[0].properties.points.maximum).toBe(2);
   });
 
+  it('repairs a syntactically valid whole-rubric JSON with incomplete pedagogical evidence', async () => {
+    const invalid = { summary: '', criteria: [{ ...validCriterion, evidence: '' }], questionsForTeacher: [], finalScore: 2 };
+    const valid = { ...invalid, criteria: [validCriterion] };
+    const fetchImpl = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(streamResponse(JSON.stringify(invalid)))
+      .mockResolvedValueOnce(streamResponse(JSON.stringify(valid)));
+    const provider = createOllamaProvider({ ...settings, criterionByCriterion: false, diagnosticStrategy: 'single' }, fetchImpl);
+    const output = await provider.generate({
+      question: 'Évaluer le schéma.',
+      rubric: JSON.stringify(rubric),
+      transcription: 'Membrane et noyau visibles.',
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(output).criteria[0].evidence).toBe(validCriterion.evidence);
+    expect(JSON.parse(String(fetchImpl.mock.calls[1][1]?.body)).messages[0].content).toContain('Réponse précédente à réparer');
+  });
+
   it('retries when an incremental response omits a configured subcriterion', async () => {
     let call = 0;
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL) => {
