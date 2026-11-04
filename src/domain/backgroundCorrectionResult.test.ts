@@ -30,6 +30,19 @@ describe('getBackgroundCorrectionResult', () => {
     expect(getBackgroundCorrectionResult(job(status))).toBeNull();
   });
 
+  it('does not publish a misleading total while a diagram criterion remains unevaluated', () => {
+    const incomplete = job('ready');
+    incomplete.proposal = {
+      summary: 'Note partielle',
+      finalScore: 8,
+      scoreIncomplete: true,
+      questionsForTeacher: ['Évaluer le schéma'],
+      criteria: [{ criterionId: 'knowledge', points: 0, rationale: 'Vision indisponible', evidence: 'À évaluer',
+        confidence: 'low', assessmentStatus: 'not-evaluated' }],
+    };
+    expect(getBackgroundCorrectionResult(incomplete)).toBeNull();
+  });
+
   it('does not expose a final score when the proposal is missing', () => {
     expect(getBackgroundCorrectionResult(job('ready', false))).toBeNull();
   });

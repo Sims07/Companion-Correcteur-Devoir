@@ -39,6 +39,8 @@ describe('correction launch feedback', () => {
     expect(gradeCopies).toContain('let classifications = isFreshCorrection ? null : pageClassifications;');
     expect(gradeCopies).toContain('const gradingTranscription = isFreshCorrection ? null : transcription;');
     expect(gradeCopies).toContain('images: textImages');
-    expect(gradeCopies).toContain("...(!isFreshCorrection && subjectTranscription ? { subjectTranscription } : {})");
+    expect(gradeCopies).toContain('let effectiveSubjectTranscription: string | null = isFreshCorrection ? null : subjectTranscription;');
+    expect(gradeCopies).toContain('transcribeSubjectReference(');
+    expect(gradeCopies).toContain('...(effectiveSubjectTranscription ? { subjectTranscription: effectiveSubjectTranscription } : {})');
   });
 });

@@ -330,6 +330,39 @@ describe('JSON prompt output contracts', () => {
     expect(prompt.split('\n\n').at(-1)).toContain('{"firstName":null,"lastName":null,"studentNumber":null,"confidence":"low"}');
   });
 
+  it('reads the reference subject alone without OCR or grading of the student copy', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(streamResponse('Question 1 : mitose.'));
+    const provider = createOllamaProvider(settings, fetchImpl);
+    const image = { base64: 'c3VqZXQ=', mimeType: 'image/png', fileName: 'sujet.png' };
+    const result = await provider.generate({
+      question: 'Transcrire le sujet',
+      rubric: '{}',
+      images: [image],
+      subjectImages: [image],
+      subjectOnly: true,
+      visionOnly: true,
+    });
+    expect(result).toContain('Question 1 : mitose.');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses to score when teacher-annotation detection fails', async () => {
+    let calls = 0;
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async () => {
+      calls += 1;
+      if (calls === 1) return streamResponse('Réponse étudiante manuscrite.');
+      throw new Error('Détecteur indisponible');
+    });
+    const provider = createOllamaProvider(settings, fetchImpl);
+    await expect(provider.generate({
+      question: 'Corrige la réponse.',
+      rubric: JSON.stringify({ title: 'Mitose', criteria: [{ id: 'k', title: 'Biologie', description: '', maxPoints: 2 }] }),
+      images: [{ base64: 'Y29waWU=', mimeType: 'image/png', fileName: 'copie.png' }],
+      detectTeacherAnnotations: true,
+    })).rejects.toThrow(/Détection des annotations non effectuée/);
+    expect(calls).toBe(2);
+  });
+
   it('places the annotation JSON contract after the initial transcription data', () => {
     const prompt = buildTeacherAnnotationPrompt('Réponse de l’étudiant.');
     expect(prompt.indexOf('TRANSCRIPTION INITIALE')).toBeLessThan(prompt.lastIndexOf('FORMAT DE SORTIE'));

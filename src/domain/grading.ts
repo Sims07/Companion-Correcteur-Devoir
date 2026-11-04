@@ -18,6 +18,8 @@ export interface CriterionProposal {
   /** Short teacher-facing comment that can be copied by hand onto the paper copy. */
   annotationSuggestion?: string;
   confidence: Confidence;
+  /** Distinguishes a missing/unusable assessment from a genuine zero awarded by the rubric. */
+  assessmentStatus?: 'not-evaluated' | 'evaluated';
   questionForTeacher?: string;
 }
 
@@ -27,6 +29,8 @@ export interface GradingProposal {
   questionsForTeacher: string[];
   /** Explicit total proposed by the model; validated against criterion points. */
   finalScore: number;
+  /** The numeric score only covers evaluated criteria until a teacher supplies missing marks. */
+  scoreIncomplete?: boolean;
 }
 
 export interface ReviewedCriterion extends CriterionProposal {
@@ -178,6 +182,6 @@ export function toReviewedCriteria(proposal: GradingProposal): ReviewedCriterion
     ...criterion,
     teacherPoints: criterion.points,
     teacherComment: '',
-    decision: 'accepted',
+    decision: criterion.assessmentStatus === 'not-evaluated' ? 'pending' : 'accepted',
   }));
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeGradeScore, parseGradingProposal } from './grading.ts';
+import { normalizeGradeScore, parseGradingProposal, toReviewedCriteria } from './grading.ts';
 import type { Rubric } from './rubric.ts';
 
 const rubric: Rubric = {
@@ -81,6 +81,25 @@ describe('parseGradingProposal final score', () => {
   });
 });
 
+
+describe('teacher decisions for unevaluated criteria', () => {
+  it('keeps an unknown mark pending rather than accepting a false zero', () => {
+    const proposal = {
+      summary: 'Note partielle',
+      finalScore: 2,
+      scoreIncomplete: true,
+      questionsForTeacher: ['Vérifier le schéma'],
+      criteria: [
+        { criterionId: 'science', points: 0, rationale: 'Lecture impossible', evidence: 'Non évalué', confidence: 'low' as const, assessmentStatus: 'not-evaluated' as const },
+        { criterionId: 'reasoning', points: 2, rationale: '', evidence: 'Texte', confidence: 'high' as const },
+      ],
+    };
+    expect(toReviewedCriteria(proposal)).toEqual([
+      expect.objectContaining({ criterionId: 'science', teacherPoints: 0, decision: 'pending', assessmentStatus: 'not-evaluated' }),
+      expect.objectContaining({ criterionId: 'reasoning', teacherPoints: 2, decision: 'accepted' }),
+    ]);
+  });
+});
 
 describe('grade score precision', () => {
   it('rounds individual scores to at most two decimal places', () => {
