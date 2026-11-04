@@ -9,13 +9,13 @@ describe('importRubricFile', () => {
     expect(result.rubric).toEqual({ title: 'Biologie cellulaire', criteria: [{ id: 'mitose', title: 'Mitose', description: 'Étapes exactes', maxPoints: 4 }] }); expect(result.warnings).toEqual([]);
   });
   it('preserves scientific routing and nested subcriteria from JSON', async () => {
-  const file = new File([JSON.stringify({ title: 'Cellule', criteria: [{
-    id: 'diagram', title: 'Schéma', description: 'Cellule végétale', maxPoints: 3, analysisMode: 'scientific-diagram',
-    subcriteria: [{ id: 'membrane', title: 'Membrane', description: 'Contour fermé', maxPoints: 2 }, { id: 'nucleus', title: 'Noyau', description: '', maxPoints: 1 }],
-  }] })], 'rubric.json', { type: 'application/json' });
-  const result = await importRubricFile(file);
-  expect(result.rubric.criteria[0]).toMatchObject({ analysisMode: 'scientific-diagram', subcriteria: [{ id: 'membrane', title: 'Membrane', maxPoints: 2 }, { id: 'nucleus', title: 'Noyau', maxPoints: 1 }] });
-});
+    const file = new File([JSON.stringify({ title: 'Cellule', criteria: [{
+      id: 'diagram', title: 'Schéma', description: 'Cellule végétale', maxPoints: 3, analysisMode: 'scientific-diagram',
+      subcriteria: [{ id: 'membrane', title: 'Membrane', description: 'Contour fermé', maxPoints: 2 }, { id: 'nucleus', title: 'Noyau', description: '', maxPoints: 1 }],
+    }] })], 'rubric.json', { type: 'application/json' });
+    const result = await importRubricFile(file);
+    expect(result.rubric.criteria[0]).toMatchObject({ analysisMode: 'scientific-diagram', subcriteria: [{ id: 'membrane', title: 'Membrane', maxPoints: 2 }, { id: 'nucleus', title: 'Noyau', maxPoints: 1 }] });
+  });
 
   it('migrates legacy expectedElements into current subcriteria and ignores removed qualityBreakdown data', async () => {
     const file = new File([JSON.stringify({
