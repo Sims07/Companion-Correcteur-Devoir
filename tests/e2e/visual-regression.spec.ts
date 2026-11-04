@@ -31,7 +31,7 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
 
   expect(
     dimensions.document,
-    `Unexpected horizontal overflow: document ${dimensions.document}px, viewport ${dimensions.viewport}px`,
+    `Unexpected horizontal overflow: document ${dimensions.document}px, viewport ${dimensions.viewport}px; offenders: ${JSON.stringify(dimensions.overflowingElements)}`,
   ).toBeLessThanOrEqual(dimensions.viewport);
 }
 
