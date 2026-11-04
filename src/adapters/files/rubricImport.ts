@@ -18,7 +18,21 @@ function rubricFromJson(value: unknown, fileName: string): ImportedRubric {
     const title = String(criterion.title ?? criterion.titre ?? criterion.name ?? '').trim();
     const points = Number(criterion.maxPoints ?? criterion.max_points ?? criterion.points ?? criterion.maximum);
     if (!title || !Number.isFinite(points)) throw new Error(`Le critère ${index + 1} doit avoir un titre et un maximum de points valide.`);
-    return { id: String(criterion.id ?? slugify(title, index)), title, description: String(criterion.description ?? criterion.attendus ?? criterion.details ?? ''), maxPoints: points };
+    const subcriteria = Array.isArray(criterion.subcriteria) ? criterion.subcriteria.map((value, subIndex) => {
+      if (!value || typeof value !== 'object') throw new Error(`Le sous-critère ${subIndex + 1} du critère ${title} est invalide.`);
+      const subcriterion = value as Record<string, unknown>;
+      const subTitle = String(subcriterion.title ?? subcriterion.label ?? '').trim();
+      const subPoints = Number(subcriterion.maxPoints ?? subcriterion.points);
+      if (!subTitle || !Number.isFinite(subPoints)) throw new Error(`Le sous-critère ${subIndex + 1} du critère ${title} doit avoir un intitulé et un maximum valide.`);
+      return { id: String(subcriterion.id ?? `${slugify(title, index)}-sub-${subIndex + 1}`), title: subTitle, description: String(subcriterion.description ?? ''), maxPoints: subPoints };
+    }) : undefined;
+    const expectedElements = Array.isArray(criterion.expectedElements) ? criterion.expectedElements as Array<{ label: string; points: number }> : undefined;
+    const analysisMode = criterion.analysisMode === 'scientific-diagram' || criterion.analysisMode === 'text' ? criterion.analysisMode : undefined;
+    return {
+      id: String(criterion.id ?? slugify(title, index)), title,
+      description: String(criterion.description ?? criterion.attendus ?? criterion.details ?? ''), maxPoints: points,
+      ...(analysisMode ? { analysisMode } : {}), ...(subcriteria ? { subcriteria } : {}), ...(expectedElements ? { expectedElements } : {}),
+    };
   });
   const rubric: Rubric = { title: String(source.title ?? source.titre ?? fileName.replace(/\.[^.]+$/, '')).trim(), criteria };
   const validation = validateRubric(rubric);
