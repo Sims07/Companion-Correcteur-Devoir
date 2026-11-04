@@ -8,7 +8,7 @@ import type { ModelEvaluationService } from '../application/modelEvaluationServi
 import { createAsyncActionGuard } from '../domain/asyncActionGuard.ts';
 import { normalizeGradeScore, parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion, type CriterionProposal } from '../domain/grading.ts';
 import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationRecords, getModelEvaluationStage, runModelEvaluation, sumReportedTokensForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot } from '../domain/modelEvaluation.ts';
-import { validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
+import { getRubricSubcriteria, validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import { getTeacherEntryStep } from '../domain/teacherJourney.ts';
 import { shouldRunScientificDiagramAnalysis, type ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
 import { resolveAmbiguousPageClassification, routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
@@ -2829,19 +2829,20 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </div>
             <label className="points-field"><span className="field-label">Points max.</span><input type="number" min="0" step="0.5" value={criterion.maxPoints} onChange={(event) => updateCriterion(criterion.id, { maxPoints: Number(event.target.value) })} /></label>
             <label className="criterion-visual-toggle"><input type="checkbox" checked={partitionScientificRubric({ title: rubric.title, criteria: [criterion] }).diagramCriteria.length > 0} onChange={(event) => updateCriterion(criterion.id, { analysisMode: event.target.checked ? 'scientific-diagram' : 'text' })} /><span><strong>Analyse de schéma scientifique</strong><small>Évaluer ce critère sur l’image avec Vision, jamais sur la transcription.</small></span></label>
-            {partitionScientificRubric({ title: rubric.title, criteria: [criterion] }).diagramCriteria.length > 0 && <div className="expected-elements-editor">
-              <strong>Éléments attendus (facultatif)</strong>
-              {(criterion.expectedElements ?? []).map((element, index) => <div className="criterion-fields" key={index}>
-                <label><span className="field-label">Élément attendu</span><input aria-label={`Élément attendu ${index + 1} — ${criterion.title}`} value={element.label} onChange={(event) => updateCriterion(criterion.id, { expectedElements: (criterion.expectedElements ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item) })} /></label>
-                <label className="points-field"><span className="field-label">Points</span><input type="number" min="0" step="0.25" value={element.points} onChange={(event) => updateCriterion(criterion.id, { expectedElements: (criterion.expectedElements ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, points: Number(event.target.value) } : item) })} /></label>
-                <button type="button" className="icon-button" aria-label={`Supprimer l’élément ${element.label || index + 1}`} onClick={() => updateCriterion(criterion.id, { expectedElements: (criterion.expectedElements ?? []).filter((_, itemIndex) => itemIndex !== index) })}>×</button>
+            <div className="subcriteria-editor">
+              <strong>Sous-critères (facultatifs)</strong>
+              {getRubricSubcriteria(criterion).map((subcriterion, index) => <div className="criterion-fields" key={subcriterion.id}>
+                <label><span className="field-label">Sous-critère</span><input aria-label={`Sous-critère ${index + 1} — ${criterion.title}`} value={subcriterion.title} onChange={(event) => updateCriterion(criterion.id, { subcriteria: getRubricSubcriteria(criterion).map((item, itemIndex) => itemIndex === index ? { ...item, title: event.target.value } : item), expectedElements: undefined })} /></label>
+                <label><span className="field-label">Précisions (facultatif)</span><input aria-label={`Précisions du sous-critère ${index + 1} — ${criterion.title}`} value={subcriterion.description} onChange={(event) => updateCriterion(criterion.id, { subcriteria: getRubricSubcriteria(criterion).map((item, itemIndex) => itemIndex === index ? { ...item, description: event.target.value } : item), expectedElements: undefined })} /></label>
+                <label className="points-field"><span className="field-label">Points</span><input type="number" min="0" step="0.01" value={subcriterion.maxPoints} onChange={(event) => updateCriterion(criterion.id, { subcriteria: getRubricSubcriteria(criterion).map((item, itemIndex) => itemIndex === index ? { ...item, maxPoints: Number(event.target.value) } : item), expectedElements: undefined })} /></label>
+                <button type="button" className="icon-button" aria-label={`Supprimer le sous-critère ${subcriterion.title || index + 1}`} onClick={() => updateCriterion(criterion.id, { subcriteria: getRubricSubcriteria(criterion).filter((_, itemIndex) => itemIndex !== index), expectedElements: undefined })}>×</button>
               </div>)}
               <div className="rubric-actions">
-                <button type="button" className="secondary-button" onClick={() => updateCriterion(criterion.id, { expectedElements: [...(criterion.expectedElements ?? []), { label: '', points: 0 }] })}>+ Ajouter un élément</button>
-                <button type="button" className="secondary-button" disabled={(criterion.expectedElements ?? []).length === 0} onClick={() => { const elements = criterion.expectedElements ?? []; const count = elements.length; const unit = count ? Math.floor((criterion.maxPoints / count) * 100) / 100 : 0; updateCriterion(criterion.id, { expectedElements: elements.map((item, index) => ({ ...item, points: index === count - 1 ? Number((criterion.maxPoints - unit * (count - 1)).toFixed(2)) : unit })) }); }}>Répartir également</button>
+                <button type="button" className="secondary-button" onClick={() => updateCriterion(criterion.id, { subcriteria: [...getRubricSubcriteria(criterion), { id: crypto.randomUUID(), title: '', description: '', maxPoints: 0 }], expectedElements: undefined })}>+ Ajouter un sous-critère</button>
+                <button type="button" className="secondary-button" disabled={getRubricSubcriteria(criterion).length === 0} onClick={() => { const items = getRubricSubcriteria(criterion); const count = items.length; const unit = count ? Math.floor((criterion.maxPoints / count) * 100) / 100 : 0; updateCriterion(criterion.id, { subcriteria: items.map((item, index) => ({ ...item, maxPoints: index === count - 1 ? Number((criterion.maxPoints - unit * (count - 1)).toFixed(2)) : unit })), expectedElements: undefined }); }}>Répartir également</button>
               </div>
-              {(criterion.expectedElements ?? []).length > 0 && <p className={Math.abs((criterion.expectedElements ?? []).reduce((sum, item) => sum + item.points, 0) - criterion.maxPoints) < 0.0001 ? 'validation valid' : 'validation invalid'}>Total des éléments : {(criterion.expectedElements ?? []).reduce((sum, item) => sum + item.points, 0)} / {criterion.maxPoints} points{Math.abs((criterion.expectedElements ?? []).reduce((sum, item) => sum + item.points, 0) - criterion.maxPoints) >= 0.0001 ? ' · Le total doit correspondre au maximum du critère.' : ''}</p>}
-            </div>}
+              {getRubricSubcriteria(criterion).length > 0 && <p className={Math.abs(getRubricSubcriteria(criterion).reduce((sum, item) => sum + item.maxPoints, 0) - criterion.maxPoints) < 0.0001 ? 'validation valid' : 'validation invalid'}>Total des sous-critères : {getRubricSubcriteria(criterion).reduce((sum, item) => sum + item.maxPoints, 0)} / {criterion.maxPoints} points{Math.abs(getRubricSubcriteria(criterion).reduce((sum, item) => sum + item.maxPoints, 0) - criterion.maxPoints) >= 0.0001 ? ' · Le total doit correspondre au maximum du critère.' : ''}</p>}
+            </div>
             <button className="icon-button" type="button" aria-label={`Supprimer ${criterion.title}`} onClick={() => setRubric((current) => ({ ...current, criteria: current.criteria.filter((item) => item.id !== criterion.id) }))}>×</button>
           </div>)}
         </div>
@@ -3326,27 +3327,21 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>
             </section>}
             {!isFlagged && <p className="rationale">{item.rationale}</p>}
-            {item.qualityBreakdown && (
-              <details className="scientific-diagram-quality-details review-quality-details">
-                <summary>Pourquoi cette note ? · Détail du schéma</summary>
-                <ul>
-                  {item.qualityBreakdown.map((dimension) => (
-                    <li key={dimension.dimension}>
-                      <div><strong>{({ title: 'Titre et identification', 'scientific-accuracy': 'Exactitude scientifique', completeness: 'Exhaustivité et pertinence', labels: 'Légendes et annotations', 'arrows-relations': 'Flèches et relations', 'organization-conventions': 'Organisation et conventions', legibility: 'Lisibilité et soin' })[dimension.dimension]}</strong><span className={`quality-status quality-status-${dimension.status}`}>{({ fulfilled: 'Conforme', partial: 'Partiel', missing: 'Manquant', 'not-applicable': 'Non applicable', uncertain: 'Incertain' })[dimension.status]}</span></div>
-                      <p>{dimension.evidence}</p>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
 
 
+            {item.subcriteria && <details className="scientific-diagram-quality-details review-quality-details" open={isFlagged}>
+              <summary>Sous-critères évalués · {item.subcriteria.length}</summary>
+              <ul>{item.subcriteria.map((subcriterion) => <li key={subcriterion.subcriterionId}>
+                <div><strong>{subcriterion.title}</strong><span className="quality-status">{subcriterion.points} / {subcriterion.maxPoints} pt</span></div>
+                <p>{subcriterion.evidence}</p>
+              </li>)}</ul>
+            </details>}
             {item.questionForTeacher && <p className="teacher-question"><strong>Question pour vous :</strong> {item.questionForTeacher}</p>}
             </details>
             {item.scientificDiagramPages && <details className="scientific-diagram-quality-details review-quality-details" open={isFlagged}>
               <summary>Évaluation du schéma · pages {(item.scientificDiagramPages ?? []).join(', ') || 'à identifier'}</summary>
               <p>{item.evidence}</p>
-              {item.scientificDiagramElements && <ul>{item.scientificDiagramElements.map((element) => <li key={element.label}>
+              {item.scientificDiagramElements && !item.subcriteria && <ul>{item.scientificDiagramElements.map((element) => <li key={element.label}>
                 <div><strong>{element.label}</strong><span className={`quality-status quality-status-${element.status}`}>{({ present: 'Présent', partial: 'Partiel', absent: 'Absent', uncertain: 'Incertain' })[element.status]} · {element.points} / {element.maxPoints} pt</span></div>
                 <p>{element.evidence}</p>
               </li>)}</ul>}

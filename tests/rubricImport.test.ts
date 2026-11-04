@@ -8,6 +8,51 @@ describe('importRubricFile', () => {
     const result = await importRubricFile(file);
     expect(result.rubric).toEqual({ title: 'Biologie cellulaire', criteria: [{ id: 'mitose', title: 'Mitose', description: 'Étapes exactes', maxPoints: 4 }] }); expect(result.warnings).toEqual([]);
   });
+  it('preserves scientific routing and nested subcriteria from JSON', async () => {
+    const file = new File([JSON.stringify({ title: 'Cellule', criteria: [{
+      id: 'diagram', title: 'Schéma', description: 'Cellule végétale', maxPoints: 3, analysisMode: 'scientific-diagram',
+      subcriteria: [{ id: 'membrane', title: 'Membrane', description: 'Contour fermé', maxPoints: 2 }, { id: 'nucleus', title: 'Noyau', description: '', maxPoints: 1 }],
+    }] })], 'rubric.json', { type: 'application/json' });
+    const result = await importRubricFile(file);
+    expect(result.rubric.criteria[0]).toMatchObject({ analysisMode: 'scientific-diagram', subcriteria: [{ id: 'membrane', title: 'Membrane', maxPoints: 2 }, { id: 'nucleus', title: 'Noyau', maxPoints: 1 }] });
+  });
+
+  it('migrates legacy expectedElements into current subcriteria and ignores removed qualityBreakdown data', async () => {
+    const file = new File([JSON.stringify({
+      title: 'Cellule',
+      criteria: [{
+        id: 'diagram',
+        title: 'Schéma',
+        maxPoints: 3,
+        analysisMode: 'scientific-diagram',
+        expectedElements: [{ label: 'Membrane', points: 2 }, { label: 'Noyau', points: 1 }],
+        qualityBreakdown: [{ dimension: 'legibility', status: 'fulfilled', evidence: 'Ancienne donnée' }],
+      }],
+    })], 'legacy.json', { type: 'application/json' });
+    const result = await importRubricFile(file);
+    expect(result.rubric.criteria[0]).toMatchObject({
+      analysisMode: 'scientific-diagram',
+      subcriteria: [
+        { id: 'schema-sub-1', title: 'Membrane', maxPoints: 2 },
+        { id: 'schema-sub-2', title: 'Noyau', maxPoints: 1 },
+      ],
+    });
+    expect(result.rubric.criteria[0]).not.toHaveProperty('expectedElements');
+  });
+
+  it.each([
+    [{ label: '', points: 1 }, /intitulé non vide/],
+    [{ label: 'Membrane', points: -1 }, /nombre fini positif ou nul/],
+    [{ label: 'Membrane', points: '1' }, /nombre fini positif ou nul/],
+    [{ label: 'Membrane', points: null }, /nombre fini positif ou nul/],
+  ])('rejects malformed legacy expectedElements: %j', async (element, expectedError) => {
+    const file = new File([JSON.stringify({
+      title: 'Cellule',
+      criteria: [{ title: 'Schéma', maxPoints: 1, expectedElements: [element] }],
+    })], 'malformed.json', { type: 'application/json' });
+    await expect(importRubricFile(file)).rejects.toThrow(expectedError);
+  });
+
   it('imports a CSV table with criterion, maximum points and description columns', async () => {
     const file = new File(['Critère,Points max,Description\nConnaissances,8,Notions exactes\nRaisonnement,12,Argumentation'], 'bareme.csv', { type: 'text/csv' });
     const result = await importRubricFile(file);

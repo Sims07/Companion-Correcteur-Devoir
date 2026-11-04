@@ -25,6 +25,21 @@ describe('incremental grading prompt contract', () => {
     expect(prompt).toContain('N’évalue aucun autre critère');
   });
 
+  it('includes the teacher-defined subcriteria and their scoring contract', () => {
+    const prompt = buildIncrementalCriterionPrompt('<consigne_enseignant>Évaluer la cellule.</consigne_enseignant>', {
+      id: 'diagram', title: 'Schéma', description: '', maxPoints: 3,
+      subcriteria: [
+        { id: 'membrane', title: 'Membrane', description: 'Contour fermé', maxPoints: 2 },
+        { id: 'nucleus', title: 'Noyau', description: 'Position centrale', maxPoints: 1 },
+      ],
+    });
+    expect(prompt).toContain('Membrane');
+    expect(prompt).toContain('Noyau');
+    expect(prompt).toContain('subcriterionId');
+    expect(prompt).toContain('La somme des sous-critères doit correspondre');
+    expect(prompt).toContain('ne suivent pas une règle automatique de 50 %');
+  });
+
   it('requires the pedagogical evidence fields even when the criterion receives full points', () => {
     const prompt = buildIncrementalCriterionPrompt('Contexte', criterion);
 

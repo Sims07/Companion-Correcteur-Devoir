@@ -1,14 +1,4 @@
-import type { Rubric } from './rubric.ts';
-
-export const SCIENTIFIC_DIAGRAM_QUALITY_DIMENSIONS = ['title', 'scientific-accuracy', 'completeness', 'labels', 'arrows-relations', 'organization-conventions', 'legibility'] as const;
-export type ScientificDiagramQualityDimension = typeof SCIENTIFIC_DIAGRAM_QUALITY_DIMENSIONS[number];
-export type ScientificDiagramQualityStatus = 'fulfilled' | 'partial' | 'missing' | 'not-applicable' | 'uncertain';
-
-export interface ScientificDiagramQualityAssessment {
-  dimension: ScientificDiagramQualityDimension;
-  status: ScientificDiagramQualityStatus;
-  evidence: string;
-}
+import { getRubricSubcriteria, type Rubric, type RubricSubcriterion } from './rubric.ts';
 
 export interface DiagramCriterionAssessment {
   criterionId: string;
@@ -19,9 +9,7 @@ export interface DiagramCriterionAssessment {
   confidence: number;
   requiresTeacherReview: boolean;
   diagramIds?: string[];
-  elements?: Array<{ label: string; status: 'present' | 'partial' | 'absent' | 'uncertain'; evidence: string; points: number; maxPoints: number }>;
-  /** Detailed explanation for criteria explicitly marked as scientific-diagram. */
-  qualityBreakdown?: ScientificDiagramQualityAssessment[];
+  elements?: Array<{ subcriterionId: string; label: string; status: 'present' | 'partial' | 'absent' | 'uncertain'; evidence: string; points: number; maxPoints: number }>;
 }
 
 export interface ScientificDiagramFinding {
@@ -155,40 +143,58 @@ function normalizeElementLabel(label: string): string {
 }
 
 function computeElementPoints(
-  configured: Array<{ label: string; points: number }>,
+  configured: RubricSubcriterion[],
   returned: unknown[],
   warnings: string[],
 ): NonNullable<DiagramCriterionAssessment['elements']> {
-  const returnedByLabel = returned.filter(isRecord);
-  const matchedByIndex = returned.length === configured.length;
-  const used = new Set<unknown>();
+  const candidates = returned.filter(isRecord);
+  const used = new Set<Record<string, unknown>>();
 
-  return configured.map((element, index) => {
-    const expectedLabel = normalizeElementLabel(element.label);
-    let found = returnedByLabel.find((candidate) =>
+  return configured.map((element) => {
+    const found = candidates.find((candidate) =>
+      !used.has(candidate) && candidate.subcriterionId === element.id,
+    ) ?? candidates.find((candidate) =>
       !used.has(candidate) &&
       typeof candidate.label === 'string' &&
-      normalizeElementLabel(candidate.label) === expectedLabel,
+      normalizeElementLabel(candidate.label) === normalizeElementLabel(element.title),
     );
-
-    if (!found && matchedByIndex && !used.has(returned[index])) found = returned[index] as Record<string, unknown>;
     if (found) used.add(found);
-    if (!found) warnings.push('Élément attendu « ' + element.label + ' » introuvable dans la réponse Vision ; note à vérifier manuellement.');
 
     const returnedStatus = found?.status === 'partially-fulfilled' ? 'partial' : found?.status;
-    const status = ['present', 'partial', 'absent', 'uncertain'].includes(String(returnedStatus))
+    const validStatus = ['present', 'partial', 'absent', 'uncertain'].includes(String(returnedStatus));
+    const status = validStatus
       ? returnedStatus as 'present' | 'partial' | 'absent' | 'uncertain'
       : 'uncertain';
-    const evidence = typeof found?.evidence === 'string' && found.evidence.trim()
+    const suppliedPoints = found?.points;
+    const pointsAreValid = typeof suppliedPoints === 'number'
+      && Number.isFinite(suppliedPoints)
+      && suppliedPoints >= 0
+      && suppliedPoints <= element.maxPoints;
+    const statusMatchesPoints = pointsAreValid
+      && (status === 'absent' ? suppliedPoints === 0 : status === 'present' ? suppliedPoints > 0 : true);
+
+    if (!found) {
+      warnings.push('Sous-critère « ' + element.title + ' » absent de la réponse Vision ; aucune note ne peut être déduite.');
+    } else if (!pointsAreValid) {
+      warnings.push('Points absents ou hors limites pour le sous-critère « ' + element.title + ' » ; aucune note ne peut être déduite.');
+    } else if (!statusMatchesPoints) {
+      warnings.push('Points incohérents avec le statut « ' + status + ' » pour le sous-critère « ' + element.title + ' » ; aucune note ne peut être déduite.');
+    } else if (!validStatus) {
+      warnings.push('Statut invalide pour le sous-critère « ' + element.title + ' » ; vérification enseignante requise.');
+    }
+
+    const validAssessment = Boolean(found && validStatus && statusMatchesPoints);
+    const evidence = validAssessment && typeof found?.evidence === 'string' && found.evidence.trim()
       ? found.evidence.trim()
       : 'Preuve non fournie par le modèle';
 
     return {
-      label: element.label,
+      subcriterionId: element.id,
+      label: element.title,
       status,
       evidence,
-      maxPoints: element.points,
-      points: element.points * (status === 'present' ? 1 : status === 'partial' ? 0.5 : 0),
+      maxPoints: element.maxPoints,
+      points: validAssessment ? suppliedPoints as number : 0,
     };
   });
 }
@@ -208,16 +214,31 @@ function assessCriterion(
   const criterion = rubric.criteria.find((item) => item.id === value.criterionId);
   if (!criterion) throw new Error('Champ criterionId inconnu : ' + value.criterionId + '.');
 
-  const configuredElements = legacyDiagramId ? [] : criterion.expectedElements ?? [];
+  const configuredElements = legacyDiagramId ? [] : getRubricSubcriteria(criterion);
   const returnedElements = Array.isArray(value.elements) ? value.elements : [];
+  const warningsBeforeElements = warnings.length;
   const elements = configuredElements.length > 0
     ? computeElementPoints(configuredElements, returnedElements, warnings)
     : undefined;
+  const hasElementWarnings = warnings.length > warningsBeforeElements;
   const points = elements
     ? elements.reduce((sum, element) => sum + element.points, 0)
     : typeof value.points === 'number' ? value.points : Number.NaN;
   if (!Number.isFinite(points) || points < 0 || points > criterion.maxPoints) {
     throw new Error('Champ points hors barème pour « ' + criterion.title + ' ».');
+  }
+  const criterionScoreInvalid = Boolean(elements) && (
+    typeof value.points !== 'number'
+    || !Number.isFinite(value.points)
+    || value.points < 0
+    || value.points > criterion.maxPoints
+  );
+  const criterionScoreMismatch = Boolean(elements) && !criterionScoreInvalid
+    && Math.abs((value.points as number) - points) > 0.0001;
+  if (criterionScoreInvalid) {
+    warnings.push('La note du critère « ' + criterion.title + ' » est absente ou invalide alors que des sous-critères ont été fournis.');
+  } else if (criterionScoreMismatch) {
+    warnings.push('La somme des sous-critères ne correspond pas à la note annoncée pour le critère « ' + criterion.title + ' ».');
   }
 
   const evidence = typeof value.evidence === 'string' && value.evidence.trim()
@@ -227,26 +248,8 @@ function assessCriterion(
     ? value.confidence
     : 0;
   let requiresTeacherReview = typeof value.requiresTeacherReview === 'boolean' ? value.requiresTeacherReview : true;
-  if (evidence === 'Preuve non fournie par le modèle') requiresTeacherReview = true;
+  if (evidence === 'Preuve non fournie par le modèle' || hasElementWarnings || criterionScoreInvalid || criterionScoreMismatch) requiresTeacherReview = true;
 
-  const qualityBreakdown: ScientificDiagramQualityAssessment[] = [];
-  if (Array.isArray(value.qualityBreakdown)) {
-    for (const item of value.qualityBreakdown) {
-      if (!isRecord(item) || !SCIENTIFIC_DIAGRAM_QUALITY_DIMENSIONS.includes(item.dimension as ScientificDiagramQualityDimension)) continue;
-      const status = item.status === 'partially-fulfilled' ? 'partial' : item.status;
-      if (!['fulfilled', 'partial', 'missing', 'not-applicable', 'uncertain'].includes(String(status))) continue;
-      qualityBreakdown.push({
-        dimension: item.dimension as ScientificDiagramQualityDimension,
-        status: status as ScientificDiagramQualityStatus,
-        evidence: typeof item.evidence === 'string' ? item.evidence.slice(0, 240) : '',
-      });
-    }
-  }
-
-  const accuracyOrCompletenessPartial = qualityBreakdown.some((item) =>
-    ['scientific-accuracy', 'completeness'].includes(item.dimension) &&
-    ['partial', 'missing'].includes(item.status),
-  );
   if (elements?.some((element) => ['partial', 'absent', 'uncertain'].includes(element.status))) requiresTeacherReview = true;
   if (elements?.some((element) => element.evidence === 'Preuve non fournie par le modèle')) requiresTeacherReview = true;
   if (elements && points < criterion.maxPoints * 0.3 && elements.every((element) => ['present', 'partial'].includes(element.status))) {
@@ -268,11 +271,10 @@ function assessCriterion(
     points,
     maxPoints: criterion.maxPoints,
     evidence,
-    confidence: points === criterion.maxPoints && accuracyOrCompletenessPartial ? Math.min(confidence, 0.5) : confidence,
+    confidence,
     requiresTeacherReview,
     diagramIds,
     ...(elements ? { elements } : {}),
-    ...(qualityBreakdown.length > 0 ? { qualityBreakdown } : {}),
   };
 }
 

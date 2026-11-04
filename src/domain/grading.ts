@@ -1,8 +1,7 @@
-import type { Rubric } from './rubric.ts';
+import { getRubricSubcriteria, type Rubric } from './rubric.ts';
 import { normalizeGradeScore, sumGradeScores } from './scorePrecision.ts';
 export { normalizeGradeScore } from './scorePrecision.ts';
 import { parseModelJson } from './modelJson.ts';
-import type { ScientificDiagramQualityAssessment } from './scientificDiagram.ts';
 
 export type Confidence = 'low' | 'medium' | 'high';
 
@@ -11,8 +10,7 @@ export interface CriterionProposal {
   points: number;
   rationale: string;
   evidence: string;
-  /** Visual quality evidence returned by Vision for scientific-diagram rubric criteria. */
-  qualityBreakdown?: ScientificDiagramQualityAssessment[];
+  subcriteria?: Array<{ subcriterionId: string; title: string; points: number; maxPoints: number; evidence: string }>;
   scientificDiagramElements?: Array<{ label: string; status: 'present' | 'partial' | 'absent' | 'uncertain'; points: number; maxPoints: number; evidence: string }>;
   scientificDiagramPages?: number[];
   /** One-based source page when the model can identify it reliably. */
@@ -109,6 +107,25 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     if (!Number.isFinite(points) || points < minimumPoints || points > maximumPoints) {
       throw new Error(`La proposition pour « ${rubricCriterion.title} » est hors barème. Vérifiez la réponse du modèle.`);
     }
+    const expectedSubcriteria = getRubricSubcriteria(rubricCriterion);
+    let subcriteria: NonNullable<CriterionProposal['subcriteria']> | undefined;
+    if (expectedSubcriteria.length > 0) {
+      if (!Array.isArray(item.subcriteria) || item.subcriteria.length !== expectedSubcriteria.length) {
+        throw new Error(`La proposition doit évaluer chacun des sous-critères du critère « ${rubricCriterion.title} ».`);
+      }
+      const returnedSubcriteria = item.subcriteria as unknown[];
+      subcriteria = expectedSubcriteria.map((expected) => {
+        const returned = returnedSubcriteria.find((entry: unknown) => isRecord(entry) && entry.subcriterionId === expected.id);
+        if (!isRecord(returned) || typeof returned.points !== 'number' || !Number.isFinite(returned.points) || returned.points < 0 || returned.points > expected.maxPoints) {
+          throw new Error(`Les points proposés pour le sous-critère « ${expected.title} » sont invalides.`);
+        }
+        const subcriterionEvidence = text(returned.evidence);
+        if (!subcriterionEvidence) throw new Error(`La preuve est obligatoire pour le sous-critère « ${expected.title} ».`);
+        return { subcriterionId: expected.id, title: expected.title, points: normalizeGradeScore(returned.points), maxPoints: expected.maxPoints, evidence: subcriterionEvidence };
+      });
+      const subcriteriaPoints = sumGradeScores(subcriteria.map((entry) => entry.points));
+      if (Math.abs(subcriteriaPoints - points) > 0.0001) throw new Error(`La somme des sous-critères du critère « ${rubricCriterion.title} » ne correspond pas à sa note.`);
+    }
     const rawConfidence = item.confidence ?? item.confiance;
     const confidence: Confidence = rawConfidence === 'low' || rawConfidence === 'medium' || rawConfidence === 'high' ? rawConfidence : 'low';
     const evidence = text(item.evidence ?? item.preuve);
@@ -119,6 +136,7 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
       points,
       rationale,
       evidence,
+      ...(subcriteria ? { subcriteria } : {}),
       ...(typeof item.pageNumber === 'number' && Number.isInteger(item.pageNumber) && item.pageNumber >= 1 ? { pageNumber: item.pageNumber } : {}),
       ...(text(item.annotationSuggestion) ? { annotationSuggestion: text(item.annotationSuggestion) } : {}),
       confidence,

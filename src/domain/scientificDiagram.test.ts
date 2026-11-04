@@ -3,15 +3,6 @@ import { parseScientificDiagramAnalysis, shouldRunScientificDiagramAnalysis } fr
 import type { Rubric } from './rubric.ts';
 
 const rubric: Rubric = { title: 'Schéma', criteria: [{ id: 'labels', title: 'Légendes', description: '', maxPoints: 2 }] };
-const qualityBreakdown = [
-  { dimension: 'title', status: 'fulfilled', evidence: 'Titre précis.' },
-  { dimension: 'scientific-accuracy', status: 'partially-fulfilled', evidence: 'Une structure est imprécise.' },
-  { dimension: 'completeness', status: 'fulfilled', evidence: 'Éléments essentiels présents.' },
-  { dimension: 'labels', status: 'partial', evidence: 'Deux légendes manquent.' },
-  { dimension: 'arrows-relations', status: 'not-applicable', evidence: 'Aucune relation à représenter.' },
-  { dimension: 'organization-conventions', status: 'fulfilled', evidence: 'Organisation logique.' },
-  { dimension: 'legibility', status: 'fulfilled', evidence: 'Lecture aisée.' },
-];
 const valid = { diagrams: [{ id: 'd1', pageNumber: 1, diagramType: 'Cellule', summary: 'Cellule végétale', bounds: { x: 0.1, y: 0.2, width: 0.5, height: 0.4 }, criteria: [{ criterionId: 'labels', points: 1.5, evidence: 'Deux légendes correctes', confidence: 0.8, requiresTeacherReview: false }], uncertainties: [] }], overallUncertainties: [] };
 
 describe('parseScientificDiagramAnalysis', () => {
@@ -34,32 +25,8 @@ describe('parseScientificDiagramAnalysis', () => {
     expect(() => parseScientificDiagramAnalysis(JSON.stringify({ result: 'no diagram list' }), rubric, 1))
       .toThrow(/diagrams/);
   });
-  it('keeps the global score when the optional quality breakdown is missing or incomplete', () => {
-    const visualRubric: Rubric = { title: 'Schéma', criteria: [{ id: 'labels', title: 'Qualité du schéma', description: '', maxPoints: 10, analysisMode: 'scientific-diagram' }] };
-    const withoutDetails = parseScientificDiagramAnalysis(JSON.stringify(valid), visualRubric, 1);
-    expect(withoutDetails.diagrams[0].criteria[0].points).toBe(1.5);
-    expect(withoutDetails.diagrams[0].criteria[0].qualityBreakdown).toBeUndefined();
-    const partial = structuredClone(valid);
-    (partial.diagrams[0].criteria[0] as { qualityBreakdown?: typeof qualityBreakdown }).qualityBreakdown = [qualityBreakdown[0], { dimension: 'labels', status: 'unknown', evidence: '' }];
-    const parsed = parseScientificDiagramAnalysis(JSON.stringify(partial), visualRubric, 1);
-    expect(parsed.diagrams[0].criteria[0].points).toBe(1.5);
-    expect(parsed.diagrams[0].criteria[0].qualityBreakdown) .toHaveLength(1);
-    expect(parsed.diagrams[0].criteria[0].qualityBreakdown?.[0].dimension).toBe('title');
-  });
-  it('validates a complete seven-dimension explanation when provided', () => {
-    const visualRubric: Rubric = { title: 'Schéma', criteria: [{ id: 'labels', title: 'Qualité du schéma', description: '', maxPoints: 10, analysisMode: 'scientific-diagram' }] };
-    const detailed = structuredClone(valid);
-    (detailed.diagrams[0].criteria[0] as { qualityBreakdown?: typeof qualityBreakdown }).qualityBreakdown = qualityBreakdown;
-    expect(parseScientificDiagramAnalysis(JSON.stringify(detailed), visualRubric, 1).diagrams[0].criteria[0].qualityBreakdown).toHaveLength(7);
-    const missing = structuredClone(valid);
-    expect(parseScientificDiagramAnalysis(JSON.stringify(missing), visualRubric, 1).diagrams[0].criteria[0].points).toBe(1.5);
-    const incomplete = structuredClone(detailed);
-    (incomplete.diagrams[0].criteria[0] as { qualityBreakdown?: typeof qualityBreakdown }).qualityBreakdown?.pop();
-    expect(parseScientificDiagramAnalysis(JSON.stringify(incomplete), visualRubric, 1).diagrams[0].criteria[0].qualityBreakdown).toHaveLength(6);
-    const invalidStatus = structuredClone(detailed);
-    ((invalidStatus.diagrams[0].criteria[0] as { qualityBreakdown?: Array<{ dimension: string; status: string; evidence: string }> }).qualityBreakdown![0]).status = 'excellent';
-    expect(parseScientificDiagramAnalysis(JSON.stringify(invalidStatus), visualRubric, 1).diagrams[0].criteria[0].qualityBreakdown?.some((item) => item.dimension === 'title')).toBe(false);
-  });
+
+
   it('rejects malformed JSON and criteria outside the rubric', () => {
     expect(() => parseScientificDiagramAnalysis('not json', rubric, 1)).toThrow(/JSON valide/);
     const invalid = structuredClone(valid);
@@ -86,11 +53,102 @@ describe('parseScientificDiagramAnalysis', () => {
   });
   it('calculates expected-element points deterministically', () => {
     const elementRubric: Rubric = { title: 'Mitose', criteria: [{ id: 'mitosis', title: 'Schéma Scientifique', description: '', maxPoints: 10, analysisMode: 'scientific-diagram', expectedElements: [{ label: 'Prophase', points: 2.5 }, { label: 'Métaphase', points: 2.5 }, { label: 'Anaphase', points: 2.5 }, { label: 'Télophase', points: 2.5 }] }] };
-    const raw = { diagrams: [{ pageNumber: 1, diagramType: 'phase', summary: '', uncertainties: [] }], criteria: [{ criterionId: 'mitosis', diagramIds: ['diagram-1'], elements: [{ label: 'Prophase', status: 'present', evidence: 'Chromosomes condensés.' }, { label: 'Métaphase', status: 'partial', evidence: 'Alignement incomplet.' }, { label: 'Anaphase', status: 'absent', evidence: 'Aucune séparation.' }, { label: 'Télophase', status: 'uncertain', evidence: 'Zone illisible.' }] }] };
+    const raw = { diagrams: [{ pageNumber: 1, diagramType: 'phase', summary: '', uncertainties: [] }], criteria: [{ criterionId: 'mitosis', diagramIds: ['diagram-1'], elements: [{ label: 'Prophase', status: 'present', evidence: 'Chromosomes condensés.', points: 2.5 }, { label: 'Métaphase', status: 'partial', evidence: 'Alignement incomplet.', points: 1.25 }, { label: 'Anaphase', status: 'absent', evidence: 'Aucune séparation.', points: 0 }, { label: 'Télophase', status: 'uncertain', evidence: 'Zone illisible.', points: 0 }] }] };
     const parsed = parseScientificDiagramAnalysis(JSON.stringify(raw), elementRubric, 1);
     expect(parsed.criteria?.[0]).toMatchObject({ points: 3.75, requiresTeacherReview: true, confidence: 0 });
     expect(parsed.criteria?.[0].elements?.map((element) => element.points)).toEqual([2.5, 1.25, 0, 0]);
   });
+  it('migrates saved legacy scientific assessments with expectedElements and qualityBreakdown', () => {
+    const savedRubric: Rubric = {
+      title: 'Cellule',
+      criteria: [{
+        id: 'cell',
+        title: 'Schéma',
+        description: '',
+        maxPoints: 2,
+        expectedElements: [{ label: 'Membrane', points: 2 }],
+      }],
+    };
+    const savedAnalysis = {
+      diagrams: [{ pageNumber: 1 }],
+      criteria: [{
+        criterionId: 'cell',
+        points: 1.5,
+        evidence: 'Contour visible',
+        confidence: 0.8,
+        requiresTeacherReview: true,
+        qualityBreakdown: [{ dimension: 'legibility', status: 'fulfilled', evidence: 'Ancienne grille' }],
+        elements: [{ label: 'Membrane', status: 'partial', points: 1.5, evidence: 'Contour incomplet' }],
+      }],
+    };
+    const migrated = parseScientificDiagramAnalysis(JSON.stringify(savedAnalysis), savedRubric, 1);
+    expect(migrated.criteria?.[0]).toMatchObject({
+      points: 1.5,
+      elements: [{ subcriterionId: 'cell-subcriterion-1', points: 1.5, evidence: 'Contour incomplet' }],
+    });
+    expect(migrated.criteria?.[0]).not.toHaveProperty('qualityBreakdown');
+  });
+
+  it('uses the teacher-defined subcriteria and preserves model-assigned partial points', () => {
+    const subcriteriaRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 3, subcriteria: [
+      { id: 'membrane', title: 'Membrane', description: 'Contour fermé', maxPoints: 2 },
+      { id: 'nucleus', title: 'Noyau', description: 'Position centrale', maxPoints: 1 },
+    ] }] };
+    const raw = { diagrams: [{ pageNumber: 1 }], criteria: [{ criterionId: 'cell', points: 2, elements: [
+      { label: 'Membrane', status: 'partial', evidence: 'Contour incomplet', points: 1.25 },
+      { label: 'Noyau', status: 'present', evidence: 'Noyau visible', points: 0.75 },
+    ] }] };
+    const parsed = parseScientificDiagramAnalysis(JSON.stringify(raw), subcriteriaRubric, 1);
+    expect(parsed.criteria?.[0].points).toBe(2);
+    expect(parsed.criteria?.[0].elements?.map((element) => element.points)).toEqual([1.25, 0.75]);
+    expect(parsed.criteria?.[0].elements?.map((element) => element.subcriterionId)).toEqual(['membrane', 'nucleus']);
+  });
+  it('flags a mismatch between the model criterion score and its subcriterion total', () => {
+    const elementRubric: Rubric = { title: 'Cellule', criteria: [{
+      id: 'cell', title: 'Schéma', description: '', maxPoints: 2,
+      subcriteria: [{ id: 'membrane', title: 'Membrane', description: '', maxPoints: 2 }],
+    }] };
+    const parsed = parseScientificDiagramAnalysis(JSON.stringify({
+      diagrams: [{ pageNumber: 1 }],
+      criteria: [{
+        criterionId: 'cell',
+        points: 1,
+        evidence: 'Contour visible',
+        confidence: 0.9,
+        elements: [{ subcriterionId: 'membrane', status: 'present', points: 2, evidence: 'Contour visible' }],
+      }],
+    }), elementRubric, 1);
+    expect(parsed.criteria?.[0]).toMatchObject({ points: 2, requiresTeacherReview: true });
+    expect(parsed.warnings?.some((warning) => warning.includes('note annoncée'))).toBe(true);
+
+    const missingCriterionScore = parseScientificDiagramAnalysis(JSON.stringify({
+      diagrams: [{ pageNumber: 1 }],
+      criteria: [{
+        criterionId: 'cell',
+        evidence: 'Contour visible',
+        confidence: 0.9,
+        elements: [{ subcriterionId: 'membrane', status: 'present', points: 2, evidence: 'Contour visible' }],
+      }],
+    }), elementRubric, 1);
+    expect(missingCriterionScore.criteria?.[0]).toMatchObject({ points: 2, requiresTeacherReview: true });
+    expect(missingCriterionScore.warnings?.some((warning) => warning.includes('absente ou invalide'))).toBe(true);
+  });
+
+  it('rejects missing, out-of-range and status-inconsistent model points without inventing a score', () => {
+    const elementRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 2, subcriteria: [{ id: 'membrane', title: 'Membrane', description: '', maxPoints: 2 }] }] };
+    for (const element of [
+      { subcriterionId: 'membrane', status: 'present', evidence: 'Contour visible' },
+      { subcriterionId: 'membrane', status: 'present', evidence: 'Contour visible', points: 3 },
+      { subcriterionId: 'membrane', status: 'absent', evidence: 'Aucun contour', points: 1 },
+      { subcriterionId: 'membrane', status: 'present', evidence: 'Contour visible', points: 0 },
+    ]) {
+      const parsed = parseScientificDiagramAnalysis(JSON.stringify({ diagrams: [{ pageNumber: 1 }], criteria: [{ criterionId: 'cell', elements: [element] }] }), elementRubric, 1);
+      expect(parsed.criteria?.[0]).toMatchObject({ points: 0, requiresTeacherReview: true });
+      expect(parsed.criteria?.[0].elements?.[0]).toMatchObject({ points: 0, evidence: 'Preuve non fournie par le modèle' });
+      expect(parsed.warnings?.length).toBeGreaterThan(0);
+    }
+  });
+
   it('drops invalid bounds and defaults invalid confidence to zero with teacher review', () => {
     const wrongBounds = structuredClone(valid);
     wrongBounds.diagrams[0].bounds.x = 0.8;
@@ -107,22 +165,18 @@ describe('parseScientificDiagramAnalysis', () => {
     expect(parsed.diagrams[1].uncertainties).toEqual(['doute']);
     expect(parsed.warnings?.some((warning) => warning.includes('parasite'))).toBe(true);
   });
-  it('caps confidence and requires review when a maximum score conflicts with partial scientific accuracy', () => {
-    const raw = structuredClone(valid);
-    raw.diagrams[0].criteria[0].points = 2;
-    (raw.diagrams[0].criteria[0] as { qualityBreakdown?: Array<{ dimension: string; status: string; evidence: string }> }).qualityBreakdown = [{ dimension: 'scientific-accuracy', status: 'partial', evidence: 'Une phase manque.' }];
-    const parsed = parseScientificDiagramAnalysis(JSON.stringify(raw), rubric, 1);
-    expect(parsed.diagrams[0].criteria[0]).toMatchObject({ confidence: 0.5, requiresTeacherReview: true });
-  });
+
   it('matches expected element labels despite accents, case and punctuation differences', () => {
     const elementRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 2, expectedElements: [{ label: 'Membrane plasmique', points: 2 }] }] };
-    const raw = { diagrams: [{ pageNumber: 1 }], criteria: [{ criterionId: 'cell', elements: [{ label: 'MEMBRANE-plasmique !', status: 'present', evidence: 'Contour cellulaire visible' }] }] };
+    const raw = { diagrams: [{ pageNumber: 1 }], criteria: [{ criterionId: 'cell', elements: [{ subcriterionId: 'cell-subcriterion-1', label: 'MEMBRANE-plasmique !', status: 'present', evidence: 'Contour cellulaire visible', points: 2 }] }] };
     expect(parseScientificDiagramAnalysis(JSON.stringify(raw), elementRubric, 1).criteria?.[0].elements?.[0]).toMatchObject({ status: 'present', points: 2 });
   });
-  it('falls back to element order when labels differ but the element count matches', () => {
+  it('does not match elements by position when IDs and labels differ', () => {
     const elementRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 2, expectedElements: [{ label: 'Membrane', points: 1 }, { label: 'Noyau', points: 1 }] }] };
-    const raw = { diagrams: [{ pageNumber: 1 }], criteria: [{ criterionId: 'cell', elements: [{ label: 'Contour', status: 'present', evidence: 'Contour visible' }, { label: 'Centre', status: 'partial', evidence: 'Zone centrale visible' }] }] };
-    expect(parseScientificDiagramAnalysis(JSON.stringify(raw), elementRubric, 1).criteria?.[0].points).toBe(1.5);
+    const raw = { diagrams: [{ pageNumber: 1 }], criteria: [{ criterionId: 'cell', elements: [{ label: 'Contour', status: 'present', evidence: 'Contour visible', points: 1 }, { label: 'Centre', status: 'partial', evidence: 'Zone centrale visible', points: 0.5 }] }] };
+    const parsed = parseScientificDiagramAnalysis(JSON.stringify(raw), elementRubric, 1);
+    expect(parsed.criteria?.[0]).toMatchObject({ points: 0, requiresTeacherReview: true });
+    expect(parsed.warnings?.filter((warning) => warning.includes('absent de la réponse Vision'))).toHaveLength(2);
   });
   it('warns and requires review instead of silently assigning zero when an expected element cannot be matched', () => {
     const elementRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 2, expectedElements: [{ label: 'Membrane', points: 2 }] }] };
@@ -135,12 +189,6 @@ describe('parseScientificDiagramAnalysis', () => {
     const raw = { diagrams: [{ pageNumber: 1 }, { pageNumber: 2 }], criteria: [{ criterionId: 'labels', points: 1, evidence: 'Preuve', confidence: 0.8, requiresTeacherReview: false, diagramIds: [] }] };
     expect(parseScientificDiagramAnalysis(JSON.stringify(raw), rubric, 2).criteria?.[0].diagramIds).toEqual(['diagram-1', 'diagram-2']);
   });
-  it('does not cap confidence for a partial non-accuracy dimension when the score is maximal', () => {
-    const raw = structuredClone(valid);
-    raw.diagrams[0].criteria[0].points = 2;
-    (raw.diagrams[0].criteria[0] as { qualityBreakdown?: Array<{ dimension: string; status: string; evidence: string }> }).qualityBreakdown = [{ dimension: 'labels', status: 'partial', evidence: 'Une légende est imprécise.' }];
-    expect(parseScientificDiagramAnalysis(JSON.stringify(raw), rubric, 1).diagrams[0].criteria[0].confidence).toBe(0.8);
-  });
 
   it('normalizes partially-fulfilled element statuses and keeps whole-criterion scoring without expected elements', () => {
     const noElementsRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 4 }] };
@@ -149,10 +197,10 @@ describe('parseScientificDiagramAnalysis', () => {
     expect(parsed.criteria?.[0]).toMatchObject({ points: 3, diagramIds: ['diagram-1', 'diagram-2'] });
     expect(parsed.criteria?.[0].elements).toBeUndefined();
   });
-  it('maps partially-fulfilled expected elements to the partial status', () => {
+  it('does not infer points from a partially-fulfilled status when points are omitted', () => {
     const elementRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 2, expectedElements: [{ label: 'Membrane', points: 2 }] }] };
     const raw = { diagrams: [{ pageNumber: 1 }], criteria: [{ criterionId: 'cell', elements: [{ label: 'Membrane', status: 'partially-fulfilled', evidence: 'Contour incomplet.' }] }] };
-    expect(parseScientificDiagramAnalysis(JSON.stringify(raw), elementRubric, 1).criteria?.[0].elements?.[0]).toMatchObject({ status: 'partial', points: 1 });
+    expect(parseScientificDiagramAnalysis(JSON.stringify(raw), elementRubric, 1).criteria?.[0]).toMatchObject({ points: 0, requiresTeacherReview: true, elements: [{ status: 'partial', points: 0, evidence: 'Preuve non fournie par le modèle' }] });
   });
 
   it('allows retry after a failed manual fallback but reuses a successful analysis', () => {

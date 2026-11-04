@@ -20,7 +20,7 @@ const textProposal: GradingProposal = {
 const diagramAnalysis: ScientificDiagramAnalysis = {
   diagrams: [{
     id: 'd1', pageNumber: 2, diagramType: 'Cellule', summary: 'Schéma de cellule.',
-    criteria: [{ criterionId: 'diagram', title: 'Schéma scientifique', points: 7, maxPoints: 8, evidence: 'Membrane et organites correctement légendés.', confidence: 0.94, requiresTeacherReview: false, qualityBreakdown: [{ dimension: 'title', status: 'fulfilled', evidence: 'Titre présent.' }, { dimension: 'scientific-accuracy', status: 'fulfilled', evidence: 'Structures exactes.' }, { dimension: 'completeness', status: 'partial', evidence: 'Un élément manque.' }, { dimension: 'labels', status: 'fulfilled', evidence: 'Légendes correctes.' }, { dimension: 'arrows-relations', status: 'not-applicable', evidence: 'Pas de relation à flécher.' }, { dimension: 'organization-conventions', status: 'fulfilled', evidence: 'Organisation claire.' }, { dimension: 'legibility', status: 'fulfilled', evidence: 'Lisible.' }] }],
+    criteria: [{ criterionId: 'diagram', title: 'Schéma scientifique', points: 7, maxPoints: 8, evidence: 'Membrane et organites correctement légendés.', confidence: 0.94, requiresTeacherReview: false }],
     uncertainties: [],
   }],
   overallUncertainties: [],
@@ -51,21 +51,12 @@ describe('scientific rubric routing', () => {
     const explicitlyMarkedRubric: Rubric = { ...rubric, criteria: rubric.criteria.map((criterion) => criterion.id === 'diagram' ? { ...criterion, analysisMode: 'scientific-diagram' } : criterion) };
     const result = mergeScientificDiagramCriteria(explicitlyMarkedRubric, textProposal, diagramAnalysis);
     expect(result.criteria).toEqual([
-      expect.objectContaining({ criterionId: 'diagram', points: 7, confidence: 'high', evidence: expect.stringContaining('Page 2'), qualityBreakdown: expect.arrayContaining([expect.objectContaining({ dimension: 'title', status: 'fulfilled' })]) }),
+      expect.objectContaining({ criterionId: 'diagram', points: 7, confidence: 'high', evidence: expect.stringContaining('Page 2') }),
       expect.objectContaining({ criterionId: 'text', points: 9, evidence: 'La transcription explique le mécanisme.' }),
     ]);
     expect(result.finalScore).toBe(16);
-    expect(result.criteria[0].qualityBreakdown).toHaveLength(7);
   });
 
-  it('preserves one global visual score when Vision omits the optional quality breakdown', () => {
-    const withoutBreakdown: ScientificDiagramAnalysis = { ...diagramAnalysis, diagrams: diagramAnalysis.diagrams.map((diagram) => ({ ...diagram, criteria: diagram.criteria.map(({ qualityBreakdown: _qualityBreakdown, ...criterion }) => criterion) })) };
-    const visualRubric: Rubric = { ...rubric, criteria: rubric.criteria.map((criterion) => criterion.id === 'diagram' ? { ...criterion, analysisMode: 'scientific-diagram' } : criterion) };
-    const result = mergeScientificDiagramCriteria(visualRubric, textProposal, withoutBreakdown);
-    expect(result.criteria[0]).toMatchObject({ criterionId: 'diagram', points: 7 });
-    expect(result.finalScore).toBe(16);
-    expect(result.criteria[0].qualityBreakdown).toBeUndefined();
-  });
 
   it('asks the teacher to review a visual criterion when Vision has no matching assessment', () => {
     const result = mergeScientificDiagramCriteria(rubric, textProposal, { diagrams: [], overallUncertainties: [] });
@@ -116,6 +107,70 @@ describe('scientific rubric routing', () => {
     expect(result.criteria[0].evidence).toContain('Pages concernées');
   });
 
+  it('averages subcriteria across page assessments and checks their sum against criterion points', () => {
+    const visualRubric: Rubric = { title: 'Cellule', criteria: [{
+      id: 'diagram', title: 'Schéma scientifique', description: '', maxPoints: 4, analysisMode: 'scientific-diagram',
+      subcriteria: [
+        { id: 'membrane', title: 'Membrane', description: '', maxPoints: 2 },
+        { id: 'nucleus', title: 'Noyau', description: '', maxPoints: 2 },
+      ],
+    }] };
+    const pageAssessment = (pageNumber: number, criterionPoints: number, membranePoints: number, nucleusPoints: number) => ({
+      id: `diagram-${pageNumber}`, pageNumber, diagramType: 'Cellule', summary: '',
+      criteria: [{
+        criterionId: 'diagram', title: 'Schéma scientifique', points: criterionPoints, maxPoints: 4,
+        evidence: `Preuve page ${pageNumber}`, confidence: 0.9, requiresTeacherReview: false,
+        diagramIds: [`diagram-${pageNumber}`],
+        elements: [
+          { subcriterionId: 'membrane', label: 'Membrane', status: 'present' as const, evidence: 'Membrane visible', points: membranePoints, maxPoints: 2 },
+          { subcriterionId: 'nucleus', label: 'Noyau', status: 'partial' as const, evidence: 'Noyau partiel', points: nucleusPoints, maxPoints: 2 },
+        ],
+      }],
+      uncertainties: [],
+    });
+    const analysis: ScientificDiagramAnalysis = {
+      diagrams: [pageAssessment(1, 3, 2, 1), pageAssessment(2, 1, 0, 1)],
+      overallUncertainties: [],
+      warnings: ['Évaluations page par page : moyenne à confirmer.'],
+    };
+    const result = mergeScientificDiagramCriteria(visualRubric, null, analysis);
+    expect(result.criteria[0]).toMatchObject({
+      points: 2,
+      subcriteria: [
+        { subcriterionId: 'membrane', points: 1 },
+        { subcriterionId: 'nucleus', points: 1 },
+      ],
+      questionForTeacher: expect.any(String),
+    });
+    expect(result.criteria[0].evidence).not.toContain('La somme des sous-critères ne correspond pas');
+  });
+
+  it('flags a multi-page mismatch between criterion points and aggregated subcriteria', () => {
+    const visualRubric: Rubric = { title: 'Cellule', criteria: [{
+      id: 'diagram', title: 'Schéma scientifique', description: '', maxPoints: 4, analysisMode: 'scientific-diagram',
+      subcriteria: [{ id: 'membrane', title: 'Membrane', description: '', maxPoints: 4 }],
+    }] };
+    const pageAssessment = (pageNumber: number, criterionPoints: number, subcriterionPoints: number) => ({
+      id: `diagram-${pageNumber}`, pageNumber, diagramType: 'Cellule', summary: '',
+      criteria: [{
+        criterionId: 'diagram', title: 'Schéma scientifique', points: criterionPoints, maxPoints: 4,
+        evidence: 'Preuve', confidence: 0.9, requiresTeacherReview: false, diagramIds: [`diagram-${pageNumber}`],
+        elements: [{ subcriterionId: 'membrane', label: 'Membrane', status: 'present' as const, evidence: 'Contour', points: subcriterionPoints, maxPoints: 4 }],
+      }],
+      uncertainties: [],
+    });
+    const result = mergeScientificDiagramCriteria(visualRubric, null, {
+      diagrams: [pageAssessment(1, 4, 2), pageAssessment(2, 4, 2)],
+      overallUncertainties: [],
+      warnings: ['Évaluations page par page : moyenne à confirmer.'],
+    });
+    expect(result.criteria[0]).toMatchObject({
+      points: 4,
+      questionForTeacher: expect.stringContaining('somme des sous-critères'),
+    });
+    expect(result.criteria[0].evidence).toContain('La somme des sous-critères ne correspond pas');
+  });
+
   it('recognizes a legend criterion tied to an anatomical figure', () => {
     const result = partitionScientificRubric({
       title: 'Biologie',
@@ -148,8 +203,8 @@ describe('scientific rubric routing', () => {
         { id: 'diagram-2', pageNumber: 4, diagramType: 'Cellule', summary: '', criteria: [], uncertainties: [] },
       ],
       criteria: [{ criterionId: 'diagram', title: 'Schéma scientifique', points: 3, maxPoints: 4, evidence: 'Éléments partiellement visibles.', confidence: 0.6, requiresTeacherReview: true, diagramIds: ['diagram-1', 'diagram-2'], elements: [
-        { label: 'Membrane', status: 'present', evidence: 'Contour visible.', points: 2, maxPoints: 2 },
-        { label: 'Noyau', status: 'partial', evidence: 'Structure incomplète.', points: 1, maxPoints: 2 },
+        { subcriterionId: 'membrane', label: 'Membrane', status: 'present', evidence: 'Contour visible.', points: 2, maxPoints: 2 },
+        { subcriterionId: 'nucleus', label: 'Noyau', status: 'partial', evidence: 'Structure incomplète.', points: 1, maxPoints: 2 },
       ] }],
       overallUncertainties: [],
     };

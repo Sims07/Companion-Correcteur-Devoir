@@ -1,4 +1,5 @@
 import { parseScientificDiagramAnalysis } from '../../domain/scientificDiagram.ts';
+import { getRubricSubcriteria } from '../../domain/rubric.ts';
 import { parseScientificPageClassifications } from '../../domain/scientificPageClassification.ts';
 import type { ScientificDiagramAnalyzer, ScientificDiagramAnalysisRequest, ScientificPageClassificationRequest } from '../../ports/scientificDiagramAnalysis.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
@@ -76,7 +77,7 @@ function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequ
           items: {
             type: 'object',
             additionalProperties: false,
-            required: ['criterionId', 'points', 'evidence', 'confidence', 'requiresTeacherReview', 'diagramIds', 'elements', 'qualityBreakdown'],
+            required: ['criterionId', 'points', 'evidence', 'confidence', 'requiresTeacherReview', 'diagramIds', 'elements'],
             properties: {
               criterionId: { type: 'string', enum: request.rubric.criteria.map((criterion) => criterion.id) },
               points: { type: ['number', 'null'] },
@@ -89,27 +90,16 @@ function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequ
                 items: {
                   type: 'object',
                   additionalProperties: false,
-                  required: ['label', 'status', 'evidence'],
+                  required: ['label', 'status', 'evidence', 'points'],
                   properties: {
                     label: { type: 'string' },
                     status: { type: 'string', enum: ['present', 'partial', 'absent', 'uncertain'] },
                     evidence: { type: 'string' },
+                    points: { type: 'number', minimum: 0 },
                   },
                 },
               },
-              qualityBreakdown: {
-                type: ['array', 'null'],
-                items: {
-                  type: 'object',
-                  additionalProperties: false,
-                  required: ['dimension', 'status'],
-                  properties: {
-                    dimension: { type: 'string' },
-                    status: { type: 'string' },
-                    evidence: { type: 'string' },
-                  },
-                },
-              },
+
             },
           },
         },
@@ -118,14 +108,14 @@ function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequ
     };
 }
 
-export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisRequest, compact = false): string {
+export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisRequest): string {
   const pageNumber = request.pageNumbers?.[0] ?? 1;
   const criteria = request.rubric.criteria.map((criterion) => ({
     criterionId: criterion.id,
     title: criterion.title,
     description: criterion.description,
     maxPoints: criterion.maxPoints,
-    expectedElements: criterion.expectedElements ?? [],
+    subcriteria: getRubricSubcriteria(criterion),
   }));
   const subject = request.subjectTranscription?.trim();
   return [
@@ -134,20 +124,17 @@ export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisR
     'Retourne diagrams : tous les schémas détectés sur cette page, avec id neutre, pageNumber = 1, diagramType, summary court, bounds et uncertainties (tableau). Le champ bounds est obligatoire : retourne null si la localisation est incertaine.',
     'Retourne criteria : exactement UNE évaluation pour CHAQUE critère du barème, portant sur l’ensemble des schémas pertinents de CETTE PAGE uniquement. Ne note jamais un critère séparément par schéma et ne répartis pas son maximum entre les schémas. Aucun critère ne doit être omis.',
     'Le maximum n’est justifié que si tous les attendus essentiels sont démontrés sur l’ensemble des schémas de cette page. Si un élément essentiel est partiel ou manquant, attribue des points partiels.',
-    'Le champ elements est toujours présent : si expectedElements est non vide, retourne chaque élément avec son label exact, status parmi present/partial/absent/uncertain et une preuve courte ; sinon retourne null. L’application calcule les points (present 100 %, partial 50 %, absent 0 %, uncertain 0 % et vérification enseignante).',
-    'Sans expectedElements, retourne une seule note points sur le maximum du critère, evidence, confidence, requiresTeacherReview et diagramIds pour cette page. Ne retourne jamais de critère absent du barème.',
+    'Le champ elements est toujours présent : retourne chaque sous-critère du barème avec son intitulé exact, son statut, une preuve courte et les points attribués. Les points peuvent être partiels et doivent respecter le maximum propre au sous-critère ; ne déduis jamais automatiquement un demi-point.',
+    'Si le critère ne contient aucun sous-critère, retourne une seule note points sur son maximum. Ne retourne jamais de critère absent du barème.',
     'Ne pénalise pas deux fois la même erreur. Ne note jamais l’esthétique. N’invente aucun attendu absent de la consigne ou du barème.',
     'Ne juge jamais un dessin correct à partir d’une explication textuelle. Si un élément est illisible ou ambigu, signale-le dans uncertainties et mets requiresTeacherReview à true.',
-    'Ne pénalise pas l’absence d’une flèche, d’un titre ou d’une légende qui ne sont pas exigés par la consigne ou le barème.',
-    'Le champ qualityBreakdown est toujours présent : retourne null si aucune précision utile, sinon uniquement les dimensions non satisfaites, avec status et 12 mots maximum. Dimensions : title, scientific-accuracy, completeness, labels, arrows-relations, organization-conventions, legibility.',
     'Les bounds sont normalisées de 0 à 1. Omet-les si incertain. Ne considère pas les tableaux de données comme des schémas.',
     'Ignore les marques de correction manuscrites préexistantes (commentaires, coches, cercles, notes et traits) : elles ne font jamais partie de la production de l’étudiant. Si une marque recouvre ou touche un élément du schéma, mets requiresTeacherReview à true.',
     'CRITÈRES VISUELS (liste exhaustive) : ' + JSON.stringify(criteria),
     'QUESTION : ' + (request.question.trim() || 'Aucune question de référence fournie.'),
     ...(subject ? ['SUJET DE RÉFÉRENCE (transcription fournie) : ' + subject] : []),
     'CORRESPONDANCE DES PAGES : ' + (request.pageNumbers ?? request.images.map((_, index) => index + 1)).map((page, index) => (index + 1) + ' → ' + page).join(', '),
-    compact ? 'Réponse compacte obligatoire : aucun qualityBreakdown.' : '',
-    ['FORMAT DE SORTIE', 'Réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown. Respecte le schéma JSON contraint transmis avec la requête. Les notes sont des nombres et restent dans les limites du barème ; n’invente aucune note.', 'Exemple neutre : {"diagrams":[{"id":"diagram-1","pageNumber":1,"diagramType":"schéma","summary":"Description courte.","uncertainties":[],"bounds":null}],"criteria":[{"criterionId":"criterion-id","points":0,"evidence":"Extrait exact.","confidence":0.5,"requiresTeacherReview":true,"diagramIds":[],"elements":null,"qualityBreakdown":null}],"overallUncertainties":[]}'].join('\n'),
+    ['FORMAT DE SORTIE', 'Réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown. Respecte le schéma JSON contraint transmis avec la requête. Les notes sont des nombres et restent dans les limites du barème ; n’invente aucune note.', 'Exemple neutre : {"diagrams":[{"id":"diagram-1","pageNumber":1,"diagramType":"schéma","summary":"Description courte.","uncertainties":[],"bounds":null}],"criteria":[{"criterionId":"criterion-id","points":0,"evidence":"Extrait exact.","confidence":0.5,"requiresTeacherReview":true,"diagramIds":[],"elements":null}],"overallUncertainties":[]}'].join('\n'),
   ].filter(Boolean).join('\n\n');
 }
 
@@ -157,11 +144,11 @@ function buildScientificDiagramRepairPrompt(
   previousRaw: string,
 ): string {
   return [
-    buildScientificDiagramPrompt(request, true),
+    buildScientificDiagramPrompt(request),
     'Réparer la réponse d’analyse des schémas : la réponse précédente est invalide. Les listes diagrams et criteria ne peuvent pas être vides : cette image provient d’une page déjà classée comme contenant un schéma scientifique. Retourne au moins un schéma sur cette page et une évaluation pour chaque critère du barème.',
     'Corrige précisément ce champ : ' + reason + '.',
     'Réponse précédente (extrait) : ' + previousRaw.slice(0, 3000),
-    'FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown. Retourne le JSON complet conforme au schéma. Exemple neutre : {"diagrams":[{"id":"diagram-1","pageNumber":1,"diagramType":"schéma","summary":"Description courte.","uncertainties":[],"bounds":null}],"criteria":[{"criterionId":"criterion-id","points":0,"evidence":"Extrait exact.","confidence":0.5,"requiresTeacherReview":true,"diagramIds":[],"elements":null,"qualityBreakdown":null}],"overallUncertainties":[]}.',
+    'FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown. Retourne le JSON complet conforme au schéma. Exemple neutre : {"diagrams":[{"id":"diagram-1","pageNumber":1,"diagramType":"schéma","summary":"Description courte.","uncertainties":[],"bounds":null}],"criteria":[{"criterionId":"criterion-id","points":0,"evidence":"Extrait exact.","confidence":0.5,"requiresTeacherReview":true,"diagramIds":[],"elements":null}],"overallUncertainties":[]}.',
   ].join('\n\n');
 }
 
@@ -234,8 +221,8 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
 
       const schema = buildScientificDiagramJsonSchema(request);
 
-      const send = async (compact: boolean, promptOverride?: string) => {
-        prompt = promptOverride ?? buildScientificDiagramPrompt(request, compact);
+      const send = async (promptOverride?: string) => {
+        prompt = promptOverride ?? buildScientificDiagramPrompt(request);
         const payload = {
           model: request.model,
           stream: false,
@@ -289,12 +276,9 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       };
 
       try {
-        let attempt = await send(false);
+        const attempt = await send();
         if (attempt.truncated) {
-          attempt = await send(true);
-          if (attempt.truncated) {
-            throw new Error('Réponse tronquée : la seconde tentative compacte a également atteint la limite de génération.');
-          }
+          throw new Error('Réponse tronquée : l’analyse du schéma a atteint la limite de génération. Relancez l’analyse ou réduisez la quantité de contenu à analyser.');
         }
 
         let result: ReturnType<typeof parseScientificDiagramAnalysis>;
@@ -304,7 +288,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           const reason = firstError instanceof Error ? firstError.message : String(firstError);
           diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, startedAt, reason, requestPayload);
           const repairPrompt = buildScientificDiagramRepairPrompt(request, reason, raw);
-          const repair = await send(true, repairPrompt);
+          const repair = await send(repairPrompt);
           if (repair.truncated) throw new Error('Réponse tronquée lors de la tentative de réparation.');
 
           try {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateRubric, type Rubric } from '../src/domain/rubric.ts';
+import { getRubricSubcriteria, validateRubric, type Rubric } from '../src/domain/rubric.ts';
 
 const validRubric: Rubric = {
   title: 'Biologie cellulaire',
@@ -31,6 +31,20 @@ describe('validateRubric', () => {
       { ...validRubric.criteria[1], maxPoints: 0.01 },
     ] });
     expect(result.maximumPoints).toBe(1.66);
+  });
+
+  it('validates reusable subcriteria on text and scientific criteria alike', () => {
+    const result = validateRubric({ title: 'Cellule', criteria: [
+      { id: 'text', title: 'Explication', description: '', maxPoints: 2, subcriteria: [{ id: 'definition', title: 'Définition', description: 'Notion exacte', maxPoints: 2 }] },
+      { id: 'diagram', title: 'Schéma', description: '', maxPoints: 3, analysisMode: 'scientific-diagram', subcriteria: [{ id: 'membrane', title: 'Membrane', description: 'Contour', maxPoints: 1.5 }, { id: 'nucleus', title: 'Noyau', description: '', maxPoints: 1.5 }] },
+    ] });
+    expect(result.valid).toBe(true);
+  });
+
+  it('reads legacy expected elements as subcriteria without losing their points', () => {
+    const criterion = { id: 'diagram', title: 'Schéma', description: '', maxPoints: 2, expectedElements: [{ label: 'Membrane', points: 1.25 }, { label: 'Noyau', points: 0.75 }] };
+    expect(getRubricSubcriteria(criterion).map((item) => [item.title, item.maxPoints])).toEqual([['Membrane', 1.25], ['Noyau', 0.75]]);
+    expect(validateRubric({ title: 'Cellule', criteria: [criterion] }).valid).toBe(true);
   });
 
   it('still rejects non-finite maximum points', () => {

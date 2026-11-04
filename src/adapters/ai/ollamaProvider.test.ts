@@ -12,6 +12,17 @@ function response(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
+function streamResponse(content: string): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content } }) + '\n'));
+      controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, done_reason: 'stop' }) + '\n'));
+      controller.close();
+    },
+  });
+  return new Response(stream, { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
+}
+
 describe('Ollama readiness without loading models', () => {
   afterEach(() => vi.useRealTimers());
   it('checks installed model metadata without issuing a generation request', async () => {
@@ -187,6 +198,121 @@ describe('Ollama readiness without loading models', () => {
     const init = mockFetch.mock.calls[0]?.[1];
     expect(init).toBeDefined();
     expect(JSON.parse(String(init?.body)).keep_alive).toBe('5m');
+  });
+});
+
+describe('Ollama incremental grading with teacher-defined subcriteria', () => {
+  const rubric = {
+    title: 'Cellule',
+    criteria: [{
+      id: 'diagram',
+      title: 'Schéma',
+      description: 'Identifier les structures',
+      maxPoints: 3,
+      subcriteria: [
+        { id: 'membrane', title: 'Membrane', description: 'Contour', maxPoints: 2 },
+        { id: 'nucleus', title: 'Noyau', description: 'Position', maxPoints: 1 },
+      ],
+    }],
+  };
+
+  const validCriterion = {
+    criterionId: 'diagram',
+    points: 2,
+    rationale: 'Deux structures identifiées.',
+    evidence: 'Membrane et noyau visibles',
+    confidence: 'high',
+    annotationSuggestion: '',
+    subcriteria: [
+      { subcriterionId: 'membrane', points: 1.5, evidence: 'Contour visible' },
+      { subcriterionId: 'nucleus', points: 0.5, evidence: 'Noyau visible' },
+    ],
+  };
+
+  it('retries an incoherent subcriterion sum and constrains each subcriterion ID and maximum', async () => {
+    let call = 0;
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      call += 1;
+      const body = JSON.parse(String(init?.body));
+      expect(body.format.required).toContain('subcriteria');
+      expect(body.format.properties.subcriteria.minItems).toBe(2);
+      expect(body.format.properties.subcriteria.maxItems).toBe(2);
+      const alternatives = body.format.properties.subcriteria.items.anyOf;
+      expect(alternatives).toHaveLength(2);
+      expect(alternatives[0].properties.subcriterionId.enum).toEqual(['membrane']);
+      expect(alternatives[0].properties.points.maximum).toBe(2);
+      expect(alternatives[1].properties.subcriterionId.enum).toEqual(['nucleus']);
+      expect(alternatives[1].properties.points.maximum).toBe(1);
+      const invalid = { ...validCriterion, subcriteria: [
+        { subcriterionId: 'membrane', points: 1, evidence: 'Contour visible' },
+        { subcriterionId: 'nucleus', points: 0, evidence: 'Noyau visible' },
+      ] };
+      return streamResponse(JSON.stringify({ ...invalid, points: call === 1 ? 2 : 1 }));
+    }) as unknown as typeof fetch;
+    const provider = createOllamaProvider({
+      ...settings,
+      criterionByCriterion: true,
+      diagnosticStrategy: 'single',
+    }, fetchImpl);
+    const result = await provider.generate({
+      question: 'Évaluer le schéma.',
+      rubric: JSON.stringify(rubric),
+      transcription: 'Membrane et noyau visibles.',
+    });
+    expect(call).toBe(2);
+    expect(JSON.parse(result).criteria[0].points).toBe(1);
+  });
+
+  it('constrains subcriteria in the complete-grading schema as well as incremental grading', async () => {
+    let requestSchema: Record<string, any> | undefined;
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      requestSchema = body.format;
+      return streamResponse(JSON.stringify({
+        summary: 'Proposition.',
+        criteria: [validCriterion],
+        questionsForTeacher: [],
+        finalScore: 2,
+      }));
+    }) as unknown as typeof fetch;
+    const provider = createOllamaProvider({
+      ...settings,
+      criterionByCriterion: false,
+      diagnosticStrategy: 'single',
+    }, fetchImpl);
+    await provider.generate({
+      question: 'Évaluer le schéma.',
+      rubric: JSON.stringify(rubric),
+      transcription: 'Membrane et noyau visibles.',
+    });
+    const criterionSchemas = requestSchema?.properties?.criteria?.items?.anyOf;
+    expect(criterionSchemas).toHaveLength(1);
+    expect(criterionSchemas[0].required).toContain('subcriteria');
+    expect(criterionSchemas[0].properties.subcriteria.minItems).toBe(2);
+    expect(criterionSchemas[0].properties.subcriteria.maxItems).toBe(2);
+    expect(criterionSchemas[0].properties.subcriteria.items.anyOf[0].properties.subcriterionId.enum).toEqual(['membrane']);
+    expect(criterionSchemas[0].properties.subcriteria.items.anyOf[0].properties.points.maximum).toBe(2);
+  });
+
+  it('retries when an incremental response omits a configured subcriterion', async () => {
+    let call = 0;
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL) => {
+      call += 1;
+      const missing = { ...validCriterion, subcriteria: [validCriterion.subcriteria[0]] };
+      return streamResponse(JSON.stringify(call === 1 ? missing : validCriterion));
+    }) as unknown as typeof fetch;
+    const provider = createOllamaProvider({
+      ...settings,
+      criterionByCriterion: true,
+      diagnosticStrategy: 'single',
+    }, fetchImpl);
+    const result = await provider.generate({
+      question: 'Évaluer le schéma.',
+      rubric: JSON.stringify(rubric),
+      transcription: 'Membrane et noyau visibles.',
+    });
+    expect(call).toBe(2);
+    expect(JSON.parse(result).criteria[0].subcriteria).toHaveLength(2);
   });
 });
 

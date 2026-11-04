@@ -18,7 +18,37 @@ function rubricFromJson(value: unknown, fileName: string): ImportedRubric {
     const title = String(criterion.title ?? criterion.titre ?? criterion.name ?? '').trim();
     const points = Number(criterion.maxPoints ?? criterion.max_points ?? criterion.points ?? criterion.maximum);
     if (!title || !Number.isFinite(points)) throw new Error(`Le critère ${index + 1} doit avoir un titre et un maximum de points valide.`);
-    return { id: String(criterion.id ?? slugify(title, index)), title, description: String(criterion.description ?? criterion.attendus ?? criterion.details ?? ''), maxPoints: points };
+    const subcriteria = Array.isArray(criterion.subcriteria) ? criterion.subcriteria.map((value, subIndex) => {
+      if (!value || typeof value !== 'object') throw new Error(`Le sous-critère ${subIndex + 1} du critère ${title} est invalide.`);
+      const subcriterion = value as Record<string, unknown>;
+      const subTitle = String(subcriterion.title ?? subcriterion.label ?? '').trim();
+      const subPoints = Number(subcriterion.maxPoints ?? subcriterion.points);
+      if (!subTitle || !Number.isFinite(subPoints)) throw new Error(`Le sous-critère ${subIndex + 1} du critère ${title} doit avoir un intitulé et un maximum valide.`);
+      return { id: String(subcriterion.id ?? `${slugify(title, index)}-sub-${subIndex + 1}`), title: subTitle, description: String(subcriterion.description ?? ''), maxPoints: subPoints };
+    }) : undefined;
+    if (criterion.expectedElements !== undefined && !Array.isArray(criterion.expectedElements)) {
+      throw new Error(`Les anciens éléments attendus du critère « ${title} » doivent être une liste.`);
+    }
+    const expectedElements = Array.isArray(criterion.expectedElements) ? criterion.expectedElements.map((value, subIndex) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new Error(`L’ancien sous-critère ${subIndex + 1} du critère « ${title} » est invalide.`);
+      }
+      const element = value as Record<string, unknown>;
+      if (typeof element.label !== 'string' || !element.label.trim()) {
+        throw new Error(`L’ancien sous-critère ${subIndex + 1} du critère « ${title} » doit avoir un intitulé non vide (label).`);
+      }
+      if (typeof element.points !== 'number' || !Number.isFinite(element.points) || element.points < 0) {
+        throw new Error(`Les points de l’ancien sous-critère « ${element.label} » du critère « ${title} » doivent être un nombre fini positif ou nul.`);
+      }
+      return { id: `${slugify(title, index)}-sub-${subIndex + 1}`, title: element.label.trim(), description: '', maxPoints: element.points };
+    }) : undefined;
+    const analysisMode = criterion.analysisMode === 'scientific-diagram' || criterion.analysisMode === 'text' ? criterion.analysisMode : undefined;
+    return {
+      id: String(criterion.id ?? slugify(title, index)), title,
+      description: String(criterion.description ?? criterion.attendus ?? criterion.details ?? ''), maxPoints: points,
+      ...(analysisMode ? { analysisMode } : {}),
+      ...(subcriteria ? { subcriteria } : expectedElements ? { subcriteria: expectedElements } : {}),
+    };
   });
   const rubric: Rubric = { title: String(source.title ?? source.titre ?? fileName.replace(/\.[^.]+$/, '')).trim(), criteria };
   const validation = validateRubric(rubric);
