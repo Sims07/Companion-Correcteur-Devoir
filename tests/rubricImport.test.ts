@@ -8,7 +8,16 @@ describe('importRubricFile', () => {
     const result = await importRubricFile(file);
     expect(result.rubric).toEqual({ title: 'Biologie cellulaire', criteria: [{ id: 'mitose', title: 'Mitose', description: 'Étapes exactes', maxPoints: 4 }] }); expect(result.warnings).toEqual([]);
   });
-  it('imports a CSV table with criterion, maximum points and description columns', async () => {
+  it('preserves scientific routing and nested subcriteria from JSON', async () => {
+  const file = new File([JSON.stringify({ title: 'Cellule', criteria: [{
+    id: 'diagram', title: 'Schéma', description: 'Cellule végétale', maxPoints: 3, analysisMode: 'scientific-diagram',
+    subcriteria: [{ id: 'membrane', title: 'Membrane', description: 'Contour fermé', maxPoints: 2 }, { id: 'nucleus', title: 'Noyau', description: '', maxPoints: 1 }],
+  }] })], 'rubric.json', { type: 'application/json' });
+  const result = await importRubricFile(file);
+  expect(result.rubric.criteria[0]).toMatchObject({ analysisMode: 'scientific-diagram', subcriteria: [{ id: 'membrane', title: 'Membrane', maxPoints: 2 }, { id: 'nucleus', title: 'Noyau', maxPoints: 1 }] });
+});
+
+it('imports a CSV table with criterion, maximum points and description columns', async () => {
     const file = new File(['Critère,Points max,Description\nConnaissances,8,Notions exactes\nRaisonnement,12,Argumentation'], 'bareme.csv', { type: 'text/csv' });
     const result = await importRubricFile(file);
     expect(result.rubric.criteria).toEqual([{ id: 'connaissances', title: 'Connaissances', description: 'Notions exactes', maxPoints: 8 }, { id: 'raisonnement', title: 'Raisonnement', description: 'Argumentation', maxPoints: 12 }]);
