@@ -26,6 +26,7 @@ import type { RubricImportProgress } from '../ports/correctionWorkspace.ts';
 import type { LocalCorrectionService } from '../application/localCorrectionService.ts';
 import { compareDiagnosticProposals } from '../domain/diagnosticComparison.ts';
 import { getReviewAlertReasons, getReviewFocus, hasUnreadableCopySignal } from '../domain/reviewInsights.ts';
+import { sumGradeScores } from '../domain/scorePrecision.ts';
 import { createBackgroundCorrection, backgroundCorrectionStatusLabel, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import { getBackgroundCorrectionResult } from '../domain/backgroundCorrectionResult.ts';
 import { getCopyNavigation } from '../domain/backgroundCorrectionReviewNavigation.ts';
@@ -498,6 +499,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
   const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
   const reviewedTotal = criterionProgress.provisionalPoints;
+  const unassessedCount = review.filter((item) => item.assessmentStatus === 'not-evaluated').length;
   const pendingCount = review.filter((item) => item.decision === 'pending').length;
   const currentCopyId = currentBackgroundJobId ?? currentCorrectionId ?? (images.length > 0 ? 'current-copy' : null);
   const currentDraftNavigationItem = images.length > 0 && !currentBackgroundJobId && !currentCorrectionId
@@ -1157,7 +1159,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 summary: 'Analyse en cours : les propositions sont affichées au fur et à mesure et restent à vérifier.',
                 criteria: orderedCriteria,
                 questionsForTeacher: orderedCriteria.flatMap((item) => item.questionForTeacher ? [item.questionForTeacher] : []),
-                finalScore: orderedCriteria.reduce((sum, item) => sum + item.points, 0),
+                finalScore: sumGradeScores(orderedCriteria.map((item) => item.points)),
               };
               setProposal(partialProposal);
               setReview((current) => toReviewedCriteria(partialProposal).map((item) => current.find((existing) => existing.criterionId === item.criterionId) ?? item));
@@ -1472,13 +1474,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (patch.teacherPoints !== undefined || patch.teacherComment !== undefined || patch.decision !== undefined) {
       updateCurrentReviewTraceMetrics((metrics) => markGroupConfirmedCriterionModified(metrics, id));
     }
-    setReview((current) => current.map((item) => item.criterionId === id ? { ...item, ...patch } : item));
+    setReview((current) => current.map((item) => item.criterionId === id
+      ? { ...item, ...patch, ...(patch.teacherPoints !== undefined ? { assessmentStatus: 'evaluated' as const } : {}) }
+      : item));
   }
 
   async function finalizeReview(advanceToNextCopy = false) {
     await finalizeReviewAction.current(async () => {
     if (!proposal) {
       setReviewMessage('Aucune proposition à archiver. Lancez d’abord l’analyse de la copie.');
+      return;
+    }
+    if (review.some((item) => item.assessmentStatus === 'not-evaluated')) {
+      setReviewMessage('Certains critères ne sont pas évalués. Attribuez une note à chacun avant de valider la correction.');
       return;
     }
     const now = new Date().toISOString();
@@ -3213,7 +3221,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       {(currentBackgroundJobId || currentCorrectionId) && interfaceMode === 'teacher' && !showAiSettings && <section className="review-section copy-navigation-only">
         <CopyReviewHeader studentLabel={studentLabel} onStudentLabelChange={setStudentLabel} position={reviewPosition} totalCopies={reviewTotalCopies}
           status={isFinalized ? 'Corrigée' : activeBackgroundJob?.status === 'pending' ? 'En attente' : activeBackgroundJob?.status === 'processing' ? 'Analyse en cours' : activeBackgroundJob?.status === 'failed' || activeBackgroundJob?.status === 'needs-review' || (activeBackgroundJob?.status === 'reviewing' && activeBackgroundJob.completedCriteria < activeBackgroundJob.totalCriteria) ? 'À reprendre' : 'À vérifier'}
-          score={reviewedTotal} maximumPoints={validation.maximumPoints} isAnalyzing={isAnalyzing} isFinalized={isFinalized} canValidate={review.length === rubric.criteria.length}
+          score={reviewedTotal} maximumPoints={validation.maximumPoints} isAnalyzing={isAnalyzing} isFinalized={isFinalized} canValidate={review.length === rubric.criteria.length && unassessedCount === 0}
           canPrevious={Boolean(copyNavigation.previousCopy)} canNext={Boolean(copyNavigation.nextCopy)}
           previousLabel={copyNavigation.previousCopy ? copyNavigation.previousCopy.label + ' · ' + copyNavigation.previousCopy.status : null}
           nextLabel={copyNavigation.nextCopy ? copyNavigation.nextCopy.label + ' · ' + copyNavigation.nextCopy.status : null}
@@ -3226,7 +3234,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
           event.preventDefault();
-          if (!isAnalyzing && !isFinalized && review.length === rubric.criteria.length) void finalizeReview(true);
+          if (!isAnalyzing && !isFinalized && unassessedCount === 0 && review.length === rubric.criteria.length) void finalizeReview(true);
         }
       }}>
         {reviewMessage && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
@@ -3276,11 +3284,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               const criterionId = target.dataset.criterionId;
               if (criterionId) {
                 event.preventDefault();
-                updateReview(criterionId, { decision: 'accepted' });
+                if (review.find((item) => item.criterionId === criterionId)?.assessmentStatus !== 'not-evaluated') updateReview(criterionId, { decision: 'accepted' });
               }
             }
           }}>
-            <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite"><strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : criterionProgress.isComplete ? 'Note proposée' : 'Note partielle · analyse incomplète'}</strong>{isAnalyzing && <small>Cette note n’est pas définitive et évoluera avec les prochains critères.</small>}<span>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente de la première note'} · {criterionProgress.completedCount} / {criterionProgress.totalCount} critères évalués</span>{proposal?.summary && <details className="review-summary-details"><summary>Voir la synthèse de l’analyse</summary><p>{proposal.summary}</p></details>}</div>
+            <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite"><strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : unassessedCount > 0 ? 'Note partielle · critères non évalués' : criterionProgress.isComplete ? 'Note proposée' : 'Note partielle · analyse incomplète'}</strong>{isAnalyzing && <small>Cette note n’est pas définitive et évoluera avec les prochains critères.</small>}<span>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente de la première note'} · {criterionProgress.completedCount - unassessedCount} / {criterionProgress.totalCount} critères évalués</span>{proposal?.summary && <details className="review-summary-details"><summary>Voir la synthèse de l’analyse</summary><p>{proposal.summary}</p></details>}</div>
         {flaggedCriteriaIds.size > 0 && <div className="review-criteria-toolbar">
           <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>
         </div>}
@@ -3311,7 +3319,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <div className="review-card-heading">
               <div><h3>{criterion.title}</h3><p>Maximum : {criterion?.maxPoints ?? 0} points</p></div>
               <div className="review-card-result">
-                <strong>{item.teacherPoints} / {criterion?.maxPoints ?? 0}</strong>
+                <strong>{item.assessmentStatus === 'not-evaluated' ? 'À évaluer' : item.teacherPoints + ' / ' + (criterion?.maxPoints ?? 0)}</strong>
                 <span className={item.decision === 'accepted' ? 'review-result-status is-confirmed' : flaggedCriteriaIds.has(item.criterionId) ? 'review-result-status needs-review' : 'review-result-status'}>{item.decision === 'accepted' ? 'Confirmé' : flaggedCriteriaIds.has(item.criterionId) ? 'À examiner' : 'Sans alerte'}</span>
               </div>
             </div>
@@ -3354,7 +3362,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </details>}
             {scientificDiagramAnalysis?.diagrams.some((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)) && <details className="scientific-diagram-criterion-details"><summary>Analyse du schéma scientifique · {scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).length} résultat(s)</summary>{scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).map((diagram) => { const result = diagram.criteria.find((entry) => entry.criterionId === item.criterionId)!; return <article key={diagram.id}><strong>{diagram.diagramType || 'Schéma'} · page {diagram.pageNumber}</strong><p>{diagram.summary}</p><p>{result.evidence}</p><small>Confiance indicative : {Math.round(result.confidence * 100)} %{result.requiresTeacherReview ? ' · Vérification requise' : ''}</small>{diagram.uncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</article>; })}{scientificDiagramAnalysis.overallUncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</details>}
             <div className="review-controls">
-              <label><span className="field-label">Votre note</span><input type="number" min="0" max={criterion?.maxPoints ?? 0} step="0.01" value={item.teacherPoints} onChange={(event) => updateReview(item.criterionId, { teacherPoints: normalizeGradeScore(Number(event.target.value)), decision: 'adjusted' })} /></label>
+              <label><span className="field-label">Votre note</span><input type="number" min="0" max={criterion?.maxPoints ?? 0} step="0.01" value={item.assessmentStatus === 'not-evaluated' ? '' : item.teacherPoints} placeholder={item.assessmentStatus === 'not-evaluated' ? 'À attribuer' : undefined} onChange={(event) => { if (event.target.value.trim()) updateReview(item.criterionId, { teacherPoints: normalizeGradeScore(Number(event.target.value)), decision: 'adjusted' }); }} /></label>
               <label className="comment-field"><span className="field-label">Commentaire enseignant</span><input value={item.teacherComment} onChange={(event) => updateReview(item.criterionId, { teacherComment: event.target.value })} placeholder="Précision ou correction éventuelle" /></label>
             </div>
           </article>;
@@ -3365,7 +3373,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
            <details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Export local pour conserver ou réutiliser les résultats de cette correction.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal?.summary ?? '', criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil.'); }}>{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>
            {reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}
          </details>
-         <div className="copy-review-validation-bar"><div><span>Total</span><strong>{reviewedTotal.toLocaleString('fr-FR')} / {validation.maximumPoints}</strong><small>{pendingCount} critère(s) restant(s) à valider</small></div><button type="button" className="primary-button" disabled={isAnalyzing || isFinalized || review.length !== rubric.criteria.length} onClick={() => void finalizeReview(true)}>{isFinalized ? 'Correction validée' : 'Valider et passer à la suivante'}</button></div>
+         <div className="copy-review-validation-bar"><div><span>Total</span><strong>{reviewedTotal.toLocaleString('fr-FR')} / {validation.maximumPoints}</strong><small>{unassessedCount > 0 ? unassessedCount + ' critère(s) à noter manuellement' : pendingCount + ' critère(s) restant(s) à valider'}</small></div><button type="button" className="primary-button" disabled={isAnalyzing || isFinalized || unassessedCount > 0 || review.length !== rubric.criteria.length} onClick={() => void finalizeReview(true)}>{isFinalized ? 'Correction validée' : 'Valider et passer à la suivante'}</button></div>
           </div>
         </div>
       </section>}
