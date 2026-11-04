@@ -221,7 +221,7 @@ describe('background correction service', () => {
     const paused = f.jobs.get('copy-1');
     expect(paused?.status).toBe('pending');
     expect(paused?.partialCriteria.map((item) => item.criterionId)).toContain('c1');
-    expect(f.workspace.unloadModel).toHaveBeenCalledWith(expect.anything(), 'analysis:4b');
+    expect(f.workspace.unloadModel).not.toHaveBeenCalled();
     service.resume();
     for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
     expect(f.jobs.get('copy-1')?.status).toBe('ready');
