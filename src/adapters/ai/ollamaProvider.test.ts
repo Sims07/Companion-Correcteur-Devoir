@@ -237,7 +237,7 @@ describe('Ollama incremental grading with teacher-defined subcriteria', () => {
       expect(body.format.required).toContain('subcriteria');
       expect(body.format.properties.subcriteria.minItems).toBe(2);
       expect(body.format.properties.subcriteria.maxItems).toBe(2);
-      const alternatives = body.format.properties.subcriteria.items.oneOf;
+      const alternatives = body.format.properties.subcriteria.items.anyOf;
       expect(alternatives).toHaveLength(2);
       expect(alternatives[0].properties.subcriterionId.enum).toEqual(['membrane']);
       expect(alternatives[0].properties.points.maximum).toBe(2);
@@ -285,13 +285,13 @@ describe('Ollama incremental grading with teacher-defined subcriteria', () => {
       rubric: JSON.stringify(rubric),
       transcription: 'Membrane et noyau visibles.',
     });
-    const criterionSchemas = requestSchema?.properties?.criteria?.items?.oneOf;
+    const criterionSchemas = requestSchema?.properties?.criteria?.items?.anyOf;
     expect(criterionSchemas).toHaveLength(1);
     expect(criterionSchemas[0].required).toContain('subcriteria');
     expect(criterionSchemas[0].properties.subcriteria.minItems).toBe(2);
     expect(criterionSchemas[0].properties.subcriteria.maxItems).toBe(2);
-    expect(criterionSchemas[0].properties.subcriteria.items.oneOf[0].properties.subcriterionId.enum).toEqual(['membrane']);
-    expect(criterionSchemas[0].properties.subcriteria.items.oneOf[0].properties.points.maximum).toBe(2);
+    expect(criterionSchemas[0].properties.subcriteria.items.anyOf[0].properties.subcriterionId.enum).toEqual(['membrane']);
+    expect(criterionSchemas[0].properties.subcriteria.items.anyOf[0].properties.points.maximum).toBe(2);
   });
 
   it('retries when an incremental response omits a configured subcriterion', async () => {
