@@ -2,7 +2,6 @@ import type { Rubric } from './rubric.ts';
 import { normalizeGradeScore, sumGradeScores } from './scorePrecision.ts';
 export { normalizeGradeScore } from './scorePrecision.ts';
 import { parseModelJson } from './modelJson.ts';
-import type { ScientificDiagramQualityAssessment } from './scientificDiagram.ts';
 
 export type Confidence = 'low' | 'medium' | 'high';
 
@@ -11,8 +10,6 @@ export interface CriterionProposal {
   points: number;
   rationale: string;
   evidence: string;
-  /** Visual quality evidence returned by Vision for scientific-diagram rubric criteria. */
-  qualityBreakdown?: ScientificDiagramQualityAssessment[];
   scientificDiagramElements?: Array<{ label: string; status: 'present' | 'partial' | 'absent' | 'uncertain'; points: number; maxPoints: number; evidence: string }>;
   scientificDiagramPages?: number[];
   /** One-based source page when the model can identify it reliably. */
