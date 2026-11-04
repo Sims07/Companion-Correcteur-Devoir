@@ -1,0 +1,174 @@
+/* Application-wide composition layer.
+ * Feature styles keep ownership of layout; this layer aligns their visual language
+ * with the shared design-system tokens introduced in the foundations lot.
+ */
+:root {
+  color-scheme: light;
+  --app-page-width: 1480px;
+  --app-page-gutter: clamp(16px, 3vw, 42px);
+  --app-surface-shadow: 0 2px 10px rgb(41 64 52 / 4%);
+  --app-panel-shadow: 0 4px 18px rgb(41 64 52 / 5%);
+}
+
+html {
+  background: var(--ds-color-surface-subtle);
+}
+
+body {
+  color: var(--ds-color-text);
+  background: var(--ds-color-surface-subtle);
+}
+
+.app-shell {
+  width: min(100%, var(--app-page-width));
+  max-width: var(--app-page-width);
+  padding-inline: var(--app-page-gutter);
+}
+
+.topbar h1,
+.workspace-heading h2,
+.assignments-home-heading h2,
+.observability-page-heading h1 {
+  color: var(--ds-color-text);
+}
+
+.eyebrow,
+.observability-eyebrow {
+  color: var(--ds-color-text-muted);
+}
+
+.panel,
+.assignment-overview-card,
+.observability-panel,
+.observability-kpi,
+.memory-panel {
+  border-color: var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+  box-shadow: var(--app-surface-shadow);
+}
+
+.panel,
+.observability-panel {
+  padding: var(--ds-space-6);
+}
+
+.assignment-overview-card,
+.observability-kpi {
+  transition: border-color var(--ds-transition-fast), box-shadow var(--ds-transition-fast), transform var(--ds-transition-fast);
+}
+
+.assignment-overview-card:hover,
+.observability-kpi:hover {
+  border-color: var(--ds-color-border-strong);
+  box-shadow: var(--app-panel-shadow);
+}
+
+.primary-button,
+.secondary-button,
+.text-button,
+.assignment-open-button,
+.teacher-ai-settings-button,
+.teacher-workspace-tabs button,
+.assignments-filters button,
+.observability-filter-buttons button {
+  transition: color var(--ds-transition-fast), background-color var(--ds-transition-fast), border-color var(--ds-transition-fast), box-shadow var(--ds-transition-fast);
+}
+
+.primary-button,
+.assignment-open-button {
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-brand-700);
+  color: #fff;
+}
+
+.primary-button:hover:not(:disabled),
+.assignment-open-button:hover:not(:disabled) {
+  background: var(--ds-color-brand-600);
+}
+
+.secondary-button,
+.teacher-ai-settings-button {
+  border-radius: var(--ds-radius-md);
+  border-color: var(--ds-color-border-strong);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+}
+
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.text-button:focus-visible,
+.assignment-open-button:focus-visible,
+.teacher-ai-settings-button:focus-visible,
+.teacher-workspace-tabs button:focus-visible,
+.assignments-filters button:focus-visible,
+.observability-filter-buttons button:focus-visible,
+.memory-panel button:focus-visible {
+  outline: none;
+  box-shadow: var(--ds-focus-ring);
+}
+
+.teacher-workspace-navigation {
+  border-color: var(--ds-color-border);
+}
+
+.teacher-copy-rail {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface);
+}
+
+.copy-review-header {
+  border-color: var(--ds-color-border);
+  background: rgb(255 255 255 / 96%);
+}
+
+.copy-review-validation-bar {
+  border-color: var(--ds-color-border);
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 -6px 20px rgb(41 64 52 / 5%);
+}
+
+.observability-workspace {
+  width: min(100%, var(--app-page-width));
+  padding-inline: var(--app-page-gutter);
+}
+
+.observability-kpi strong,
+.copy-review-header-score,
+.copy-review-validation-bar strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.memory-panel {
+  color: var(--ds-color-text);
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    padding-inline: 16px;
+  }
+
+  .panel,
+  .observability-panel {
+    padding: var(--ds-space-4);
+  }
+
+  .observability-workspace {
+    padding-inline: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assignment-overview-card,
+  .observability-kpi,
+  .primary-button,
+  .secondary-button,
+  .text-button,
+  .assignment-open-button,
+  .teacher-ai-settings-button,
+  .teacher-workspace-tabs button,
+  .assignments-filters button,
+  .observability-filter-buttons button {
+    transition: none;
+  }
+}
