@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import type { LocalCorrection } from '../domain/localCorrection.ts';
+import { sumGradeScores } from '../domain/scorePrecision.ts';
 import { countCopyOverviewStatuses, sortCopyOverviewItems, toCopyOverviewStatus, type CopyOverviewFilter, type CopyOverviewStatus } from '../domain/copyOverview.ts';
 
 type CurrentCopy = {
@@ -63,7 +64,7 @@ const number = (value: number) => new Intl.NumberFormat('fr-FR', { maximumFracti
 function scoreForCorrection(correction: LocalCorrection): { score: number; maximum: number } | null {
   if (!correction.snapshot) return null;
   return {
-    score: correction.snapshot.review.reduce((sum, criterion) => sum + criterion.teacherPoints, 0),
+    score: sumGradeScores(correction.snapshot.review.map((criterion) => criterion.teacherPoints)),
     maximum: correction.snapshot.maximumPoints,
   };
 }
