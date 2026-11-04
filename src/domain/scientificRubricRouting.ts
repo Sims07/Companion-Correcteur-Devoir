@@ -34,9 +34,10 @@ export function mergeScientificDiagramCriteria(
   const { diagramCriteria } = partitionScientificRubric(rubric);
   const textById = new Map((textProposal?.criteria ?? []).map((criterion) => [criterion.criterionId, criterion]));
   const diagramProposals = new Map<string, CriterionProposal>();
-  const legacyAnalysis = Boolean(analysis && !analysis.criteria
-    && analysis.diagrams.some((diagram) => (diagram.criteria ?? []).length > 0)
-    && !(analysis.warnings ?? []).some((warning) => warning.startsWith('Évaluations page par page')));
+  const legacyAnalysis = Boolean(analysis?.warnings?.some((warning) => warning.includes('Ancien format'))
+    || (analysis && !analysis.criteria
+      && analysis.diagrams.some((diagram) => (diagram.criteria ?? []).length > 0)
+      && !(analysis.warnings ?? []).some((warning) => warning.startsWith('Évaluations page par page'))));
   const pageLevelAnalysis = Boolean(analysis && !analysis.criteria
     && analysis.warnings?.some((warning) => warning.startsWith('Évaluations page par page')));
   const perPage = legacyAnalysis || pageLevelAnalysis;
