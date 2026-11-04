@@ -108,7 +108,7 @@ function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequ
     };
 }
 
-export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisRequest, compact = false): string {
+export function buildScientificDiagramPrompt(request: ScientificDiagramAnalysisRequest): string {
   const pageNumber = request.pageNumbers?.[0] ?? 1;
   const criteria = request.rubric.criteria.map((criterion) => ({
     criterionId: criterion.id,
@@ -144,7 +144,7 @@ function buildScientificDiagramRepairPrompt(
   previousRaw: string,
 ): string {
   return [
-    buildScientificDiagramPrompt(request, true),
+    buildScientificDiagramPrompt(request),
     'Réparer la réponse d’analyse des schémas : la réponse précédente est invalide. Les listes diagrams et criteria ne peuvent pas être vides : cette image provient d’une page déjà classée comme contenant un schéma scientifique. Retourne au moins un schéma sur cette page et une évaluation pour chaque critère du barème.',
     'Corrige précisément ce champ : ' + reason + '.',
     'Réponse précédente (extrait) : ' + previousRaw.slice(0, 3000),
