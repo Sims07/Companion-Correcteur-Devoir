@@ -2829,7 +2829,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </div>
             <label className="points-field"><span className="field-label">Points max.</span><input type="number" min="0" step="0.5" value={criterion.maxPoints} onChange={(event) => updateCriterion(criterion.id, { maxPoints: Number(event.target.value) })} /></label>
             <label className="criterion-visual-toggle"><input type="checkbox" checked={partitionScientificRubric({ title: rubric.title, criteria: [criterion] }).diagramCriteria.length > 0} onChange={(event) => updateCriterion(criterion.id, { analysisMode: event.target.checked ? 'scientific-diagram' : 'text' })} /><span><strong>Analyse de schéma scientifique</strong><small>Évaluer ce critère sur l’image avec Vision, jamais sur la transcription.</small></span></label>
-            <div className="expected-elements-editor subcriteria-editor">
+            <div className="subcriteria-editor">
               <strong>Sous-critères (facultatifs)</strong>
               {getRubricSubcriteria(criterion).map((subcriterion, index) => <div className="criterion-fields" key={subcriterion.id}>
                 <label><span className="field-label">Sous-critère</span><input aria-label={`Sous-critère ${index + 1} — ${criterion.title}`} value={subcriterion.title} onChange={(event) => updateCriterion(criterion.id, { subcriteria: getRubricSubcriteria(criterion).map((item, itemIndex) => itemIndex === index ? { ...item, title: event.target.value } : item), expectedElements: undefined })} /></label>
