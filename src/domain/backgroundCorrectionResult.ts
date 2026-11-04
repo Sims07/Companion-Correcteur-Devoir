@@ -14,6 +14,7 @@ export function getBackgroundCorrectionResult(
   job: Pick<BackgroundCorrectionJob, 'status' | 'proposal' | 'rubric'>,
 ): BackgroundCorrectionResult | null {
   if (!job.proposal || !['ready', 'reviewing', 'completed'].includes(job.status)) return null;
+  if (job.proposal.scoreIncomplete || job.proposal.criteria.some((criterion) => criterion.assessmentStatus === 'not-evaluated')) return null;
 
   return {
     score: job.proposal.finalScore,
