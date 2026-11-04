@@ -222,7 +222,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       const schema = buildScientificDiagramJsonSchema(request);
 
       const send = async (compact: boolean, promptOverride?: string) => {
-        prompt = promptOverride ?? buildScientificDiagramPrompt(request, compact);
+        prompt = promptOverride ?? buildScientificDiagramPrompt(request);
         const payload = {
           model: request.model,
           stream: false,
