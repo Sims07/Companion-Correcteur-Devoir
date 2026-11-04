@@ -40,10 +40,10 @@ describe('CorrectionOverview — comportement enseignant', () => {
   const onReviewNextCopy = vi.fn();
   const onFilterChange = vi.fn();
 
-  async function render(filter: 'all' | 'to-retry' | 'to-review' | 'processing' | 'to-do' | 'completed' = 'all') {
+  async function render(filter: 'all' | 'to-retry' | 'to-review' | 'processing' | 'to-do' | 'completed' = 'all', jobs: BackgroundJobSummary[] = [failedJob, reviewJob]) {
     await act(async () => {
       root.render(createElement(CorrectionOverview, {
-        jobs: [failedJob, reviewJob],
+        jobs,
         corrections: [],
         currentCopy: null,
         filter,
@@ -116,6 +116,25 @@ describe('CorrectionOverview — comportement enseignant', () => {
     await render();
     const positions = [...container.querySelectorAll('.queue-position')].map((node) => node.textContent);
     expect(positions).toEqual(['1', '2']);
+  });
+
+  it('displays the saved teacher label and still searches by detected student identity', async () => {
+    const customJob = {
+      ...reviewJob,
+      id: 'teacher-custom-copy',
+      label: 'Copie à corriger en priorité',
+      studentIdentity: { firstName: 'Alice', lastName: 'Martin', studentNumber: null, confidence: 'high' as const },
+    };
+    await render('all', [customJob]);
+    expect(container.querySelector('.correction-series-copy strong')?.textContent).toBe('Copie à corriger en priorité');
+    expect(container.querySelector('.correction-series-copy strong')?.textContent).not.toBe('Martin Alice');
+    const input = container.querySelector<HTMLInputElement>('input[type="search"]');
+    await act(async () => {
+      const setNativeValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      setNativeValue?.call(input, 'Martin');
+      input!.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    expect(container.querySelectorAll('.correction-series-card')).toHaveLength(1);
   });
 
   it('searches by student name or copy label and updates the result count', async () => {
