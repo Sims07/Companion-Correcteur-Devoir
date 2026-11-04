@@ -22,10 +22,10 @@ test('teachers can create and delete an assignment from the library', async ({ p
   await page.goto('/');
   await page.getByRole('button', { name: /Créer un devoir/ }).click();
   await expect(page.locator('.teacher-workspace-navigation')).toBeVisible();
-  const details = page.locator('.assignment-details-collapsible');
-  await expect(details).toBeVisible();
-  await details.locator('summary').click();
+  await expect(page.getByRole('heading', { name: 'Préparer une évaluation' })).toBeVisible();
   await page.getByLabel('Nom du devoir', { exact: true }).fill('Contrôle de biologie');
+  await page.getByRole('button', { name: /Créer et préparer le barème/ }).click();
+  await expect(page.locator('.assignment-details-collapsible')).toBeVisible();
   await page.getByRole('button', { name: 'Mes devoirs' }).click();
 
   const card = page.locator('.assignment-overview-card').filter({ hasText: 'Contrôle de biologie' });
@@ -40,6 +40,8 @@ test('the assignment library keeps 20 assignments discoverable in a responsive c
   await page.goto('/');
   for (let index = 0; index < 19; index += 1) {
     await page.getByRole('button', { name: /Créer un devoir/ }).click();
+    await page.getByLabel('Nom du devoir', { exact: true }).fill('Nouveau devoir ' + index);
+    await page.getByRole('button', { name: /Créer et préparer le barème/ }).click();
     await page.getByRole('button', { name: 'Mes devoirs' }).click();
   }
   await expect(page.locator('.assignment-overview-card')).toHaveCount(20);
