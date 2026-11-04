@@ -482,14 +482,16 @@ export function createOllamaProvider(
                 minItems: subcriteria.length,
                 maxItems: subcriteria.length,
                 items: {
-                  type: 'object',
-                  additionalProperties: false,
-                  required: ['subcriterionId', 'points', 'evidence'],
-                  properties: {
-                    subcriterionId: { type: 'string', enum: subcriteria.map((item) => item.id) },
-                    points: { type: 'number', minimum: 0, maximum: Math.max(...subcriteria.map((item) => item.maxPoints)) },
-                    evidence: { type: 'string' },
-                  },
+                  oneOf: subcriteria.map((subcriterion) => ({
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['subcriterionId', 'points', 'evidence'],
+                    properties: {
+                      subcriterionId: { type: 'string', enum: [subcriterion.id] },
+                      points: { type: 'number', minimum: 0, maximum: subcriterion.maxPoints },
+                      evidence: { type: 'string' },
+                    },
+                  })),
                 },
               },
             } : {}),
