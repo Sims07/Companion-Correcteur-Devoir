@@ -12,7 +12,10 @@ const rubric = {
 
 const proposal = {
   summary: 'Correction terminée.',
-  criteria: [],
+  criteria: [
+    { criterionId: 'knowledge', points: 6, rationale: '', evidence: 'Réplication semi-conservative', confidence: 'high' as const },
+    { criterionId: 'reasoning', points: 8, rationale: '', evidence: 'Les deux cellules filles', confidence: 'high' as const },
+  ],
   questionsForTeacher: [],
   finalScore: 14,
 };
@@ -41,6 +44,39 @@ describe('getBackgroundCorrectionResult', () => {
         confidence: 'low', assessmentStatus: 'not-evaluated' }],
     };
     expect(getBackgroundCorrectionResult(incomplete)).toBeNull();
+  });
+
+  it.each([
+    { name: 'missing criterion', criteria: [proposal.criteria[0]], finalScore: 6 },
+    { name: 'duplicate criterion', criteria: [proposal.criteria[0], proposal.criteria[0]], finalScore: 12 },
+    { name: 'unknown criterion', criteria: [proposal.criteria[0], { ...proposal.criteria[1], criterionId: 'invented' }], finalScore: 14 },
+    { name: 'out of rubric', criteria: [{ ...proposal.criteria[0], points: 9 }, proposal.criteria[1]], finalScore: 17 },
+    { name: 'nonfinite points', criteria: [{ ...proposal.criteria[0], points: Number.NaN }, proposal.criteria[1]], finalScore: 8 },
+    { name: 'false total', criteria: proposal.criteria, finalScore: 19 },
+    { name: 'technical zero', criteria: [{ ...proposal.criteria[0], points: 0, assessmentStatus: 'not-evaluated' as const }, proposal.criteria[1]], finalScore: 8 },
+  ])('does not publish $name as a complete grade', ({ criteria, finalScore }) => {
+    expect(getBackgroundCorrectionResult({
+      ...job('ready'), proposal: { ...proposal, criteria, finalScore },
+    })).toBeNull();
+  });
+
+  it('normalizes legitimate fractional marks before publication', () => {
+    const score = getBackgroundCorrectionResult({
+      ...job('ready'),
+      rubric: { title: 'Décimal', criteria: [
+        { id: 'knowledge', title: 'Biologie', description: '', maxPoints: 1.65 },
+        { id: 'reasoning', title: 'Analyse', description: '', maxPoints: 0.35 },
+      ] },
+      proposal: {
+        ...proposal,
+        finalScore: 0.1 + 0.2,
+        criteria: [
+          { ...proposal.criteria[0], points: 0.1 },
+          { ...proposal.criteria[1], points: 0.2 },
+        ],
+      },
+    });
+    expect(score).toEqual({ score: 0.3, maxScore: 2 });
   });
 
   it('does not expose a final score when the proposal is missing', () => {
