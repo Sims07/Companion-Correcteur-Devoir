@@ -8,6 +8,7 @@ import { parseArbitrationDecisions } from '../../domain/arbitrationDecision.ts';
 import { parseModelJson } from '../../domain/modelJson.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
 import { currentFetch } from './currentFetch.ts';
+import { cropStudentIdentityHeader } from './studentIdentityImage.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 import { formatTeacherAnnotations, isDeletionOnlyTranscription, parseTeacherAnnotationDetection, removeConfirmedTeacherAnnotation, type TeacherAnnotationReviewCandidate, type TeacherAnnotationReviewDecision } from '../../domain/teacherAnnotations.ts';
 import { buildRubricStructuringPrompt, formatRubricTranscriptionChunk, RUBRIC_STRUCTURING_CHUNK_OUTPUT_TOKENS, RUBRIC_STRUCTURING_MAX_OUTPUT_TOKENS, splitRubricTranscriptions } from './rubricStructuring.ts';
@@ -660,6 +661,7 @@ export function createOllamaProvider(
             const metrics: Omit<DiagnosticModelResult, 'raw'> = {
               kind: tracking.kind,
               stage: tracking.stage,
+              ...(tracking.purpose ? { purpose: tracking.purpose } : {}),
               model,
               ...(activeRequestPayloads?.length ? { requestPayload: JSON.stringify({ attempts: activeRequestPayloads }, null, 2) } : { requestPrompt: content }),
               requestMetadata: {
@@ -695,7 +697,7 @@ export function createOllamaProvider(
             };
             lastDiagnosticMetrics = metrics;
             if (!tracking.deferResult) {
-              onDiagnosticResult?.({ ...metrics, raw: result.content });
+              onDiagnosticResult?.({ ...metrics, raw: result.content, ...(!result.content.trim() ? { error: 'Ollama a retourné une réponse vide.' } : {}) });
               diagnosticResultEmitted = true;
             }
           }
@@ -731,7 +733,7 @@ export function createOllamaProvider(
         }
       }
 
-      if (!request.visionOnly && !useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription && !request.detectTeacherAnnotations) {
+      if (!request.visionOnly && !useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription && !request.detectTeacherAnnotations && !request.identifyStudent) {
         // Compatibility mode for existing callers configured with one model.
         return sendGradingWithRepair(analysisModel, buildPrompt(), (request.images ?? []).map(providerImage), onChunk, { kind: 'model', stage: 'analysis' });
       }
@@ -770,32 +772,57 @@ export function createOllamaProvider(
       const annotationImages = request.teacherAnnotationImages ?? request.images ?? [];
       const detectedTeacherAnnotations: Array<{ page: number; annotations: ReturnType<typeof parseTeacherAnnotationDetection>['annotations'] }> = [];
       const pageTranscriptions: Array<{ pageLabel: string; pageText: string; doubtfulMarker: string }> = [];
-      if (request.identifyStudent && !transcription && request.images?.[0]) {
+      if (request.identifyStudent && !transcription && (request.identityImage ?? request.images?.[0])) {
         onStage?.('reading');
         try {
-          let identityResponse = await sendStream(
-            visionModel,
-            buildStudentIdentityPrompt(),
-            [providerImage(request.images[0])],
-            undefined,
-            identitySchema,
-            false,
-            {
-              kind: 'vision',
-              stage: 'reading',
-              purpose: 'student-identity',
-              intent: 'Identifier l’étudiant',
-              context: 'Première page · bande supérieure · en-tête gauche et droit',
-              temperature: 0,
-              generationTokenLimit: 256,
-              allowTruncated: true,
-            },
-          );
-          try { parseModelJson(identityResponse); }
-          catch (cause) {
-            const reason = cause instanceof Error ? cause.message : 'JSON invalide';
-            const repairPrompt = [buildStudentIdentityPrompt(), 'Réponse précédente à réparer : ' + identityResponse.slice(0, 1500) + '. Erreur : ' + reason + '.', 'FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON sans texte ni Markdown. Exemple neutre : {"firstName":null,"lastName":null,"studentNumber":null,"confidence":"low"}.'].join('\n\n');
-            identityResponse = await sendStream(visionModel, repairPrompt, [providerImage(request.images[0])], undefined, identitySchema, false, { kind: 'vision', stage: 'reading', purpose: 'student-identity', intent: 'Réparer la réponse d’identification', temperature: 0, generationTokenLimit: 256, allowTruncated: true });
+          const headerImage = await cropStudentIdentityHeader((request.identityImage ?? request.images?.[0])!);
+          let identityResponse: string;
+          try {
+            identityResponse = await sendStream(
+              visionModel,
+              buildStudentIdentityPrompt(),
+              [providerImage(headerImage)],
+              undefined,
+              identitySchema,
+              false,
+              {
+                kind: 'vision',
+                stage: 'reading',
+                purpose: 'student-identity',
+                intent: 'Identifier l’étudiant',
+                context: 'Première page · bande supérieure · en-tête gauche et droit',
+                temperature: 0,
+                generationTokenLimit: 256,
+                allowTruncated: true,
+              },
+            );
+            parseModelJson(identityResponse);
+          } catch (cause) {
+            const reason = cause instanceof Error ? cause.message : String(cause);
+            if (signal?.aborted || !/JSON|réponse vide|message\\.content vide|Réponse tronquée/i.test(reason)) throw cause;
+            // Some smaller vision models stop without a final message under strict
+            // schema decoding. Retry once on the *same cropped header* in JSON mode.
+            identityResponse = await sendStream(
+              visionModel,
+              [
+                'Lis le prénom, le nom et le numéro étudiant dans cet en-tête. Ne devine rien ; utilise null si illisible.',
+                'FORMAT DE SORTIE : renvoie uniquement un objet JSON avec firstName, lastName, studentNumber (texte ou null) et confidence (low, medium ou high).',
+              ].join('\\n\\n'),
+              [providerImage(headerImage)],
+              undefined,
+              true,
+              false,
+              {
+                kind: 'vision',
+                stage: 'reading',
+                purpose: 'student-identity',
+                intent: 'Réessayer l’identification de l’étudiant',
+                context: 'Première page · en-tête recadré',
+                temperature: 0,
+                generationTokenLimit: 256,
+                allowTruncated: true,
+              },
+            );
           }
           const identity = parseStudentIdentityResponse(identityResponse);
           if (identity) onTranscription?.(JSON.stringify(identity), 'identity');
