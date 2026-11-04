@@ -113,8 +113,9 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
       if (!Array.isArray(item.subcriteria) || item.subcriteria.length !== expectedSubcriteria.length) {
         throw new Error(`La proposition doit évaluer chacun des sous-critères du critère « ${rubricCriterion.title} ».`);
       }
+      const returnedSubcriteria = item.subcriteria as unknown[];
       subcriteria = expectedSubcriteria.map((expected) => {
-        const returned = item.subcriteria!.find((entry) => isRecord(entry) && entry.subcriterionId === expected.id);
+        const returned = returnedSubcriteria.find((entry: unknown) => isRecord(entry) && entry.subcriterionId === expected.id);
         if (!isRecord(returned) || typeof returned.points !== 'number' || !Number.isFinite(returned.points) || returned.points < 0 || returned.points > expected.maxPoints) {
           throw new Error(`Les points proposés pour le sous-critère « ${expected.title} » sont invalides.`);
         }
