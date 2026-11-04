@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createOpenAiScientificDiagramAnalyzer } from './openAiScientificDiagramAnalyzer.ts';
+import { getNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
 
 const request = {
   endpoint: 'https://ai.example',
@@ -62,6 +63,27 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(body.format.properties.suggestedRotation.enum).toEqual([0, 90, 180, 270]);
   });
 
+  it('repairs malformed classification JSON once, records both attempts and does not hide the cause', async () => {
+    const valid = { message: { content: '{"pageNumber":1,"kind":"text","confidence":0.9,"reason":"texte manuscrit"}' }, done_reason: 'stop' };
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: '{"kind":' }, done_reason: 'stop' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(valid), { status: 200 }));
+    const diagnostic = vi.fn();
+    const result = await createOpenAiScientificDiagramAnalyzer(fetchMock).classifyPages({ ...request, apiCompatible: false, onDiagnosticResult: diagnostic });
+    expect(result[0].kind).toBe('text');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).messages[0].content).toContain('Erreur à corriger');
+    expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'scientific-diagram-classification', error: expect.stringContaining('JSON') }));
+    expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'scientific-diagram-classification', raw: valid.message.content }));
+    expect(JSON.stringify(diagnostic.mock.calls)).not.toContain('cG5n');
+  });
+
+  it('does not retry HTTP failures during classification', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('Service unavailable', { status: 503 }));
+    await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).classifyPages({ ...request, apiCompatible: false })).rejects.toThrow(/HTTP 503/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('repairs a truncated local classification once and reports a second truncation', async () => {
     const valid = { message: { content: '{"kind":"text","confidence":0.9}' }, done_reason: 'stop' };
     const fetchMock = vi.fn<typeof fetch>()
@@ -84,14 +106,47 @@ describe('OpenAI scientific diagram adapter', () => {
 
 
 
-  it('fails clearly after one truncated full diagram analysis instead of repeating the same prompt', async () => {
+  it('retries truncated diagram analysis once with a shorter prompt, then reports a second truncation', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
       message: { content: '{"diagrams":' },
       done_reason: 'length',
     }), { status: 200 }));
     await expect(createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({ ...request, apiCompatible: false }))
-      .rejects.toThrow(/Réponse tronquée.*analyse du schéma.*limite de génération/i);
+      .rejects.toThrow(/Réponse tronquée après une tentative allégée/i);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const first = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    const second = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(second.messages[0].content.length).toBeLessThan(first.messages[0].content.length);
+    expect(second.messages[0].content).toContain('summary ≤ 10 mots');
+    expect(second.messages[0].images).toEqual(first.messages[0].images);
+  });
+
+  it('accepts a page without an identifiable diagram only with explicit uncertainty, not an invented zero', async () => {
+    const result = { diagrams: [], criteria: [], overallUncertainties: ['Aucun schéma scientifique identifiable sur la page.'] };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      message: { content: JSON.stringify(result) }, done_reason: 'stop',
+    }), { status: 200 }));
+    const parsed = await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({ ...request, apiCompatible: false });
+    expect(parsed).toMatchObject({ diagrams: [], criteria: [], overallUncertainties: result.overallUncertainties });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    const prompt = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).messages[0].content as string;
+    expect(prompt).toContain('N’invente jamais de dessin ou de note');
+  });
+
+  it('keeps native scientific request traces image-free and labels the network intent', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      message: { content: JSON.stringify(output) }, done_reason: 'stop',
+    }), { status: 200 }));
+    const diagnostic = vi.fn();
+    await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({ ...request, apiCompatible: false, onDiagnosticResult: diagnostic });
+    const trace = diagnostic.mock.calls.at(-1)?.[0];
+    expect(trace.requestPayload).toContain('[IMAGE REDACTED]');
+    expect(trace.requestPayload).not.toContain('cG5n');
+    expect(trace.requestPayload).toContain('"messages"');
+    expect(trace.requestMetadata).toMatchObject({ provider: 'ollama', imageCount: 1 });
+    expect(getNetworkRequestMetadata(fetchMock.mock.calls[0][1])).toMatchObject({
+      intent: 'Analyser les schémas scientifiques',
+    });
   });
 
   it('uses native Ollama chat and a JSON Schema for local diagram analysis too', async () => {
@@ -140,8 +195,8 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(prompt.split('\\n\\n').at(-1)).toContain('FORMAT DE SORTIE');
     expect(body.response_format).toMatchObject({ type: 'json_schema', json_schema: { strict: true } });
     expect(schema.required).toEqual(['diagrams', 'criteria', 'overallUncertainties']);
-    expect(schema.properties.diagrams.minItems).toBe(1);
-    expect(schema.properties.criteria.minItems).toBe(1);
+    expect(schema.properties.diagrams.minItems).toBe(0);
+    expect(schema.properties.criteria.minItems).toBe(0);
     expect(schema.properties.criteria.maxItems).toBe(1);
     expect(schema.properties.criteria.items.required).toContain('criterionId');
     expect(schema.properties.criteria.items.properties.criterionId.enum).toEqual(['labels']);
@@ -239,7 +294,7 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(initialBody.messages[0].content[0].text).toContain('UNE SEULE PAGE');
     expect(initialBody.messages[0].content[0].text).toContain('CORRESPONDANCE DES PAGES : 1 → 4');
     expect(initialBody.max_tokens).toBe(2048);
-    expect(repairBody.messages[0].content[0].text).toContain('cette image provient d’une page déjà classée');
+    expect(repairBody.messages[0].content[0].text).toContain('classification préalable');
     expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({
       purpose: 'scientific-diagram-analysis',
       raw: JSON.stringify(empty),
