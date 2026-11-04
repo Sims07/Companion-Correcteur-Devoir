@@ -21,10 +21,11 @@ test('the assignment library is the entry point and opens the selected teacher w
 test('teachers can create and delete an assignment from the library', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Créer un devoir/ }).click();
-  await expect(page.locator('.teacher-workspace-navigation')).toBeVisible();
+  await expect(page.locator('.teacher-workspace-navigation')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Préparer une évaluation' })).toBeVisible();
   await page.getByLabel(/Nom du devoir/).fill('Contrôle de biologie');
   await page.getByRole('button', { name: /Créer et préparer le barème/ }).click();
+  await expect(page.locator('.teacher-workspace-navigation')).toBeVisible();
   await expect(page.locator('.assignment-details-collapsible')).toBeVisible();
   await page.getByRole('button', { name: 'Mes devoirs' }).click();
 
