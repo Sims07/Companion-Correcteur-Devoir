@@ -326,6 +326,50 @@ describe('background correction service', () => {
   });
 
 
+  it('reads the subject before assessing diagrams in a queued separate-mode correction', async () => {
+    const f = fixture();
+    const subjectImage = { base64: 'c3VqZXQ=', mimeType: 'image/png', fileName: 'sujet.png' };
+    const job = {
+      ...f.job,
+      correctionMode: 'separate' as const,
+      subjectImages: [subjectImage],
+      subjectTranscription: undefined,
+      rubric: { title: 'Biologie', criteria: [
+        { id: 'visual', title: 'Schéma de la mitose', description: '', maxPoints: 2, analysisMode: 'scientific-diagram' as const },
+      ] },
+      totalCriteria: 1,
+    };
+    const order: string[] = [];
+    f.setGenerateImplementation(async (request) => {
+      if (request.subjectOnly) {
+        order.push('sujet');
+        return 'Sujet : dessiner les phases de la mitose.';
+      }
+      throw new Error('Aucune notation textuelle n’est nécessaire dans ce test.');
+    });
+    const analyzer = {
+      classifyPages: vi.fn(async () => [{ pageNumber: 1, kind: 'scientific-diagram' as const, confidence: 0.99, reason: 'Schéma' }]),
+      analyze: vi.fn(async (request: Parameters<ScientificDiagramAnalyzer['analyze']>[0]) => {
+        order.push('schéma');
+        expect(request.subjectTranscription).toBe('Sujet : dessiner les phases de la mitose.');
+        return {
+          diagrams: [{ id: 'diagram-1', pageNumber: 1, diagramType: 'Mitose', summary: 'Phases', criteria: [], uncertainties: [] }],
+          criteria: [{ criterionId: 'visual', title: 'Schéma de la mitose', points: 2, maxPoints: 2,
+            evidence: 'Phases visibles', confidence: 0.9, requiresTeacherReview: false, diagramIds: ['diagram-1'] }],
+          overallUncertainties: [],
+        };
+      }),
+    };
+    const service = createBackgroundCorrectionService(f.repository, f.workspace, createScientificDiagramAnalysisService(analyzer));
+    await service.enqueue(job, { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+    for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+    expect(f.jobs.get('copy-1')?.subjectTranscription).toContain('mitose');
+    expect(order).toEqual(['sujet', 'schéma']);
+  });
+
   it('routes mixed scientific pages to high-detail Vision and sends only text pages to OCR', async () => {
     const f = fixture();
     const diagramPage = { base64: 'ZGlhZ3JhbQ==', mimeType: 'image/png', fileName: 'schema.png' };
