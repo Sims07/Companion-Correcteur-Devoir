@@ -766,6 +766,11 @@ export function createOllamaProvider(
         onTranscription?.(subjectTranscription, 'subject');
       }
 
+      if (request.subjectOnly) {
+        if (!subjectTranscription?.trim()) throw new Error('La transcription du sujet est vide : aucune correction ne peut en dépendre.');
+        return subjectTranscription;
+      }
+
       let transcription = request.transcription;
       const annotationImages = request.teacherAnnotationImages ?? request.images ?? [];
       const detectedTeacherAnnotations: Array<{ page: number; annotations: ReturnType<typeof parseTeacherAnnotationDetection>['annotations'] }> = [];
@@ -861,8 +866,8 @@ export function createOllamaProvider(
             const detail = cause instanceof Error ? cause.message : 'erreur inconnue du modèle de lecture';
             const warning = `Détection des annotations non effectuée sur la page ${pageNumber} : elles n'ont pas été retirées. ${detail}`;
             onTranscription?.(warning, 'warning');
-            // Annotation detection is advisory: keep the original student transcription and continue grading.
-            continue;
+            // Fail closed: teacher markings must never be graded as student evidence.
+            throw new Error(warning);
           }
           let detection = parseTeacherAnnotationDetection(annotationResponse);
           if (!detection.studentTranscription) {
@@ -878,7 +883,7 @@ export function createOllamaProvider(
             } catch (repairCause) {
               const warning = `Détection des annotations non exploitable sur la page ${pageNumber} : ${repairCause instanceof Error ? repairCause.message : 'réponse invalide'}. La transcription initiale est conservée et la correction continue ; vérifiez les annotations manuellement.`;
               onTranscription?.(warning, 'warning');
-              continue;
+              throw new Error(warning);
             }
           }
           if (detection.invalidAnnotationCount > 0) {
@@ -887,8 +892,8 @@ export function createOllamaProvider(
           if (!detection.studentTranscription) {
             const warning = `Détection des annotations non exploitable sur la page ${pageNumber} : la transcription nettoyée est absente. La correction ne peut pas continuer sans transcription fiable.`;
             onTranscription?.(warning, 'warning');
-            // The initial OCR remains authoritative when annotation cleanup cannot be validated.
-            continue;
+            // No grading is safe with an unverified teacher-marking removal.
+            throw new Error(warning);
           }
           if (!isDeletionOnlyTranscription(originalPageText, detection.studentTranscription)) {
             const warning = `Transcription nettoyée rejetée sur la page ${pageNumber} : le modèle a ajouté, reformulé ou réordonné du texte. Les annotations n'ont pas été retirées ; aucune note ne peut être calculée.`;
