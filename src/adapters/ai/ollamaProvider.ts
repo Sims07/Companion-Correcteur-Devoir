@@ -282,7 +282,7 @@ export async function unloadOllamaModel(settings: OllamaSettings, model: string,
   const response = await fetchImpl(`${normalizedEndpoint(settings.endpoint)}/api/generate`, annotateNetworkRequest({
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, prompt: '', stream: false }),
+    body: JSON.stringify({ model, prompt: '', stream: false, keep_alive: 0 }),
   }, 'Libérer le modèle en mémoire', `Modèle ${model}`));
   if (!response.ok) throw new Error(`Impossible de libérer le modèle ${model} (HTTP ${response.status}).`);
 }
@@ -298,6 +298,7 @@ export async function prewarmOllamaModel(settings: OllamaSettings, model: string
       model,
       stream: false,
       think: false,
+      keep_alive: '5m',
       messages: [{ role: 'user', content: 'Réponds uniquement par OK.' }],
       options: { num_predict: 1 },
     }),
