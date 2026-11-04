@@ -103,6 +103,25 @@ describe('parseScientificDiagramAnalysis', () => {
     expect(parsed.criteria?.[0].elements?.map((element) => element.points)).toEqual([1.25, 0.75]);
     expect(parsed.criteria?.[0].elements?.map((element) => element.subcriterionId)).toEqual(['membrane', 'nucleus']);
   });
+  it('flags a mismatch between the model criterion score and its subcriterion total', () => {
+    const elementRubric: Rubric = { title: 'Cellule', criteria: [{
+      id: 'cell', title: 'Schéma', description: '', maxPoints: 2,
+      subcriteria: [{ id: 'membrane', title: 'Membrane', description: '', maxPoints: 2 }],
+    }] };
+    const parsed = parseScientificDiagramAnalysis(JSON.stringify({
+      diagrams: [{ pageNumber: 1 }],
+      criteria: [{
+        criterionId: 'cell',
+        points: 1,
+        evidence: 'Contour visible',
+        confidence: 0.9,
+        elements: [{ subcriterionId: 'membrane', status: 'present', points: 2, evidence: 'Contour visible' }],
+      }],
+    }), elementRubric, 1);
+    expect(parsed.criteria?.[0]).toMatchObject({ points: 2, requiresTeacherReview: true });
+    expect(parsed.warnings?.some((warning) => warning.includes('note annoncée'))).toBe(true);
+  });
+
   it('rejects missing, out-of-range and status-inconsistent model points without inventing a score', () => {
     const elementRubric: Rubric = { title: 'Cellule', criteria: [{ id: 'cell', title: 'Schéma', description: '', maxPoints: 2, subcriteria: [{ id: 'membrane', title: 'Membrane', description: '', maxPoints: 2 }] }] };
     for (const element of [
