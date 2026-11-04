@@ -356,6 +356,20 @@ export function createOllamaProvider(
       if (!request.transcription && !request.images?.length) throw new Error('Ajoutez au moins une photo ou un PDF avant de lancer la correction.');
 
       const buildPrompt = (transcription?: string, subjectTranscription?: string) => {
+        let rubricForPrompt = request.rubric;
+        try {
+          const parsed: unknown = JSON.parse(request.rubric);
+          if (typeof parsed === 'object' && parsed !== null && 'criteria' in parsed && Array.isArray(parsed.criteria)) {
+            rubricForPrompt = JSON.stringify({
+              ...parsed,
+              criteria: parsed.criteria.map((criterion) => typeof criterion === 'object' && criterion !== null
+                ? { ...criterion, subcriteria: getRubricSubcriteria(criterion as RubricCriterion) }
+                : criterion),
+            });
+          }
+        } catch {
+          // Preserve legacy raw rubric text when it is not JSON.
+        }
         // Give the model the real IDs explicitly: generic schema placeholders such as
         // "identifiant exact" can be copied literally by smaller instruction-tuned models.
         let rubricCriteria: Array<{ id: string; title: string }> = [];
@@ -1072,8 +1086,9 @@ export function createOllamaProvider(
               let subcriteriaProposal: Array<{ subcriterionId: string; title: string; points: number; maxPoints: number; evidence: string }> | undefined;
               if (expectedSubcriteria.length > 0) {
                 if (!Array.isArray(candidate.subcriteria) || candidate.subcriteria.length !== expectedSubcriteria.length) throw new Error('La réponse ne contient pas tous les sous-critères du barème.');
+                const returnedSubcriteria = candidate.subcriteria as unknown[];
                 subcriteriaProposal = expectedSubcriteria.map((expected) => {
-                  const returned = candidate.subcriteria!.find((entry) => typeof entry === 'object' && entry !== null && !Array.isArray(entry) && (entry as Record<string, unknown>).subcriterionId === expected.id);
+                  const returned = returnedSubcriteria.find((entry: unknown) => typeof entry === 'object' && entry !== null && !Array.isArray(entry) && (entry as Record<string, unknown>).subcriterionId === expected.id);
                   if (!returned || typeof returned !== 'object' || Array.isArray(returned)) throw new Error(`Sous-critère manquant : ${expected.title}.`);
                   const entry = returned as Record<string, unknown>;
                   if (typeof entry.points !== 'number' || !Number.isFinite(entry.points) || entry.points < 0 || entry.points > expected.maxPoints || typeof entry.evidence !== 'string' || !entry.evidence.trim()) throw new Error(`Évaluation invalide pour le sous-critère ${expected.title}.`);
@@ -1177,7 +1192,7 @@ export function createOllamaProvider(
 }
 
 
-import { validateRubric, type Rubric, type RubricCriterion } from '../../domain/rubric.ts';
+import { validateRubric, type Rubric } from '../../domain/rubric.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import type { ImportedRubric, RubricImportProgress } from '../../ports/correctionWorkspace.ts';
 
