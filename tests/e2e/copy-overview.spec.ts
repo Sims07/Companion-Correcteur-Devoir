@@ -281,6 +281,6 @@ test('teacher can explicitly start correction for copies already loaded in the a
   await expect(launch).toBeEnabled();
   await launch.click();
   await expect.poll(() => correctionRequests).toBeGreaterThan(0);
-  await expect(page.getByText('Copie en attente 1')).toBeVisible();
-  await expect(page.getByText('Copie en attente 2')).toBeVisible();
+  await expect(page.locator('.copy-overview-grid .correction-series-card').filter({ hasText: 'Copie en attente 1' })).toBeVisible();
+  await expect(page.locator('.copy-overview-grid .correction-series-card').filter({ hasText: 'Copie en attente 2' })).toBeVisible();
 });
