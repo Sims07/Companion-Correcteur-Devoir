@@ -34,7 +34,8 @@ test('all rubric criteria can expose teacher-defined subcriteria with an exact e
   await page.locator('.assignment-details-collapsible > summary').click();
   await page.getByLabel('Nom du devoir', { exact: true }).fill('Schéma avec attendus');
   await page.getByRole('button', { name: /Ajouter un critère/ }).click();
-  await page.getByRole('checkbox', { name: /Analyse de schéma scientifique/ }).first().check();
+  await page.getByRole('checkbox', { name: /Analyse de schéma scientifique/ }).first().uncheck();
+  await expect(page.getByRole('button', { name: '+ Ajouter un sous-critère' })).toBeVisible();
   await page.getByRole('button', { name: '+ Ajouter un sous-critère' }).click();
   await page.getByRole('button', { name: '+ Ajouter un élément' }).click();
   await page.getByRole('button', { name: '+ Ajouter un élément' }).click();
