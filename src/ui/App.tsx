@@ -2848,7 +2848,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <button className="icon-button" type="button" aria-label={`Supprimer ${criterion.title}`} onClick={() => setRubric((current) => ({ ...current, criteria: current.criteria.filter((item) => item.id !== criterion.id) }))}>×</button>
           </div>)}
         </div>
-        <RubricImportPanel rubric={rubric} onImport={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); }} />
+        {interfaceMode === 'teacher' && <RubricImportPanel rubric={rubric} onImport={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); }} />}
         <RubricExportPanel rubric={rubric} />
         <div className="rubric-actions"><button className="secondary-button" onClick={addCriterion}>+ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
       </section>
