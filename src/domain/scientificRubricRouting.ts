@@ -79,7 +79,9 @@ export function mergeScientificDiagramCriteria(
       // complement one another, but the same element can never earn points twice.
       const aggregated = configuredSubcriteria.map((expected) => {
         const candidates = assessments.flatMap((assessment) => assessment.elements ?? [])
-          .filter((element) => element.subcriterionId === expected.id);
+          .filter((element) => element.subcriterionId === expected.id
+            || element.label.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim()
+              === expected.title.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim());
         const supported = candidates.filter((element) =>
           Number.isFinite(element.points)
           && element.points >= 0
@@ -107,7 +109,9 @@ export function mergeScientificDiagramCriteria(
         elements = aggregated.filter((element): element is NonNullable<typeof element> => element !== null);
         points = sumGradeScores(elements.map((element) => element.points));
         // In the global format the model supplies one single rubric assessment.
-        mismatch = !perPage && Math.abs(points - assessments[0].points) > 0.0001;
+        mismatch = assessments.some((assessment) => assessment.elements
+          && Math.abs(sumGradeScores(assessment.elements.map((element) => element.points)) - assessment.points) > 0.0001)
+          || (!perPage && Math.abs(points - assessments[0].points) > 0.0001);
       }
     } else if (perPage && assessments.length > 1) {
       // Whole-criterion scores from separate pages cannot be mathematically
