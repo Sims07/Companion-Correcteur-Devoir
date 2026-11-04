@@ -18,6 +18,7 @@ type Props = {
   filter: CopyOverviewFilter;
   onFilterChange: (filter: CopyOverviewFilter) => void;
   onAddCopy: () => void;
+  addCopyExpanded: boolean;
   pendingCount: number;
   isStartingCorrections: boolean;
   onStartCorrections: () => void;
@@ -83,7 +84,7 @@ function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): stri
   return 'Proposition prête à vérifier';
 }
 
-export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, pendingCount, isStartingCorrections, onStartCorrections, onOpenJob, onRetryJob, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
+export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, addCopyExpanded, pendingCount, isStartingCorrections, onStartCorrections, onOpenJob, onRetryJob, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
   const [query, setQuery] = useState('');
   const items = useMemo(() => {
     const jobItems: OverviewItem[] = jobs
@@ -142,6 +143,7 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onF
     (filter === 'all' || item.status === filter) &&
     (!normalizedQuery || item.searchText.includes(normalizedQuery)),
   );
+  const processingItem = items.find((item) => item.status === 'processing') ?? null;
   const countFor = (key: CopyOverviewFilter) => key === 'all' ? counts.all
     : key === 'to-do' ? counts.toDo
       : key === 'processing' ? counts.processing
@@ -159,9 +161,16 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onF
       <div className="copy-overview-primary-actions">
         {pendingCount > 0 && <button type="button" className="primary-button" onClick={onStartCorrections} disabled={isStartingCorrections}>{isStartingCorrections ? 'Démarrage des corrections…' : `Démarrer les corrections (${pendingCount})`}</button>}
         {counts.toReview > 0 && <button type="button" className="primary-button" onClick={onReviewNextCopy}>Vérifier la copie suivante</button>}
-        <button type="button" className="secondary-button" onClick={onAddCopy}>＋ Ajouter une copie</button>
+        <button type="button" className="secondary-button" onClick={onAddCopy} aria-expanded={addCopyExpanded} aria-controls="teacher-copy-intake">{addCopyExpanded ? 'Fermer l’ajout' : '＋ Ajouter des copies'}</button>
       </div>
     </header>
+    <div className="teacher-copy-work-summary" aria-label="État des corrections">
+      <div><strong>{counts.toReview}</strong><span>À vérifier</span></div>
+      <div><strong>{counts.processing}</strong><span>En cours</span></div>
+      <div><strong>{counts.toRetry}</strong><span>À reprendre</span></div>
+      <div><strong>{counts.completed}</strong><span>Corrigées</span></div>
+    </div>
+    {processingItem && <div className="teacher-copy-live" role="status"><div><strong>Copie en cours : {processingItem.label}</strong><p>{processingItem.message}</p></div><button type="button" className="secondary-button" onClick={() => { if (processingItem.kind === 'job') onOpenJob(processingItem.id); else onOpenCurrentCopy(); }}>Voir la copie</button></div>}
     <div className="copy-overview-toolbar">
       <label className="copy-overview-search">
         <span aria-hidden="true">⌕</span>
@@ -207,7 +216,6 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onF
     </ol> : <div className="correction-series-empty">
       <strong>{items.length === 0 ? 'Aucune copie pour le moment' : 'Aucun résultat'}</strong>
       <p>{items.length === 0 ? 'Ajoutez une première copie pour commencer.' : 'Modifiez votre recherche ou choisissez une autre catégorie.'}</p>
-      {items.length === 0 && <button type="button" className="primary-button" onClick={onAddCopy}>Ajouter une copie</button>}
     </div>}
   </section>;
 }
