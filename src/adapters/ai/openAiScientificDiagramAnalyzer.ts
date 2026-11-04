@@ -172,7 +172,7 @@ function buildScientificDiagramRepairPrompt(
 ): string {
   return [
     buildScientificDiagramPrompt(request),
-    'Réparer la réponse d’analyse : une classification préalable n’est pas une preuve de schéma. Si aucun dessin n’est identifiable, utilise diagrams: [], criteria: [] et overallUncertainties non vide ; sinon évalue chaque critère graphique du barème.',
+    'Réparer la réponse d’analyse des schémas : une classification préalable n’est pas une preuve de schéma. Si aucun dessin n’est identifiable, utilise diagrams: [], criteria: [] et overallUncertainties non vide ; sinon évalue chaque critère graphique du barème.',
     'Corrige précisément ce champ : ' + reason + '.',
     'Réponse précédente (extrait) : ' + previousRaw.slice(0, 3000),
     'FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON, sans texte avant ni après, sans Markdown. Retourne le JSON complet conforme au schéma. Exemple neutre : {"diagrams":[{"id":"diagram-1","pageNumber":1,"diagramType":"schéma","summary":"Description courte.","uncertainties":[],"bounds":null}],"criteria":[{"criterionId":"criterion-id","points":0,"evidence":"Extrait exact.","confidence":0.5,"requiresTeacherReview":true,"diagramIds":[],"elements":null}],"overallUncertainties":[]}.',
