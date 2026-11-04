@@ -1,5 +1,6 @@
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
+import { normalizeGradeScore, sumGradeScores } from '../../domain/scorePrecision.ts';
 import { getRubricSubcriteria, type RubricCriterion } from '../../domain/rubric.ts';
 import { parseStudentIdentityResponse } from '../../domain/studentIdentity.ts';
 import { buildIncrementalCriterionPrompt } from './gradingPrompts.ts';
@@ -1089,7 +1090,7 @@ export function createOllamaProvider(
             properties: {
               ...criterionSchema.properties,
               criterionId: { type: 'string', enum: [criterion.id] },
-              points: { type: 'number', minimum: 0, maximum: criterion.maxPoints },
+              points: { type: 'number', minimum: Math.min(0, criterion.maxPoints), maximum: Math.max(0, criterion.maxPoints) },
               ...(expectedSubcriteria.length > 0 ? { subcriteria: {
                 type: 'array', minItems: expectedSubcriteria.length, maxItems: expectedSubcriteria.length,
                 items: { anyOf: expectedSubcriteria.map((subcriterion) => ({
@@ -1130,7 +1131,7 @@ export function createOllamaProvider(
                 throw new Error('La réponse JSON ne contient pas une proposition valide pour le critère demandé.');
               }
               const points = candidatePoints;
-              if (!Number.isFinite(points) || points < 0 || points > criterion.maxPoints) {
+              if (!Number.isFinite(points) || points < Math.min(0, criterion.maxPoints) || points > Math.max(0, criterion.maxPoints)) {
                 throw new Error('La note proposée est en dehors du barème de ce critère.');
               }
               let subcriteriaProposal: Array<{ subcriterionId: string; title: string; points: number; maxPoints: number; evidence: string }> | undefined;
@@ -1144,18 +1145,21 @@ export function createOllamaProvider(
                   if (typeof entry.points !== 'number' || !Number.isFinite(entry.points) || entry.points < 0 || entry.points > expected.maxPoints || typeof entry.evidence !== 'string' || !entry.evidence.trim()) throw new Error(`Évaluation invalide pour le sous-critère ${expected.title}.`);
                   return { subcriterionId: expected.id, title: expected.title, points: entry.points, maxPoints: expected.maxPoints, evidence: entry.evidence.trim() };
                 });
-                const total = subcriteriaProposal.reduce((sum, entry) => sum + entry.points, 0);
+                const total = sumGradeScores(subcriteriaProposal.map((entry) => entry.points));
                 if (Math.abs(total - points) > 0.0001) throw new Error('La somme des sous-critères ne correspond pas à la note du critère.');
               }
+              const evidence = typeof (candidate.evidence ?? candidate.preuve) === 'string'
+                ? String(candidate.evidence ?? candidate.preuve).trim() : '';
+              if (!evidence) throw new Error('Preuve manquante pour le critère : impossible de justifier une note sans preuve.');
               const rawConfidence = candidate.confidence ?? candidate.confiance;
               const confidence: 'low' | 'medium' | 'high' = rawConfidence === 'high' || rawConfidence === 'medium' || rawConfidence === 'low'
                 ? rawConfidence : 'low';
               const proposal = {
                 criterionId: criterion.id,
-                points,
+                points: normalizeGradeScore(points),
                 confidence,
                 rationale: typeof (candidate.rationale ?? candidate.justification) === 'string' ? String(candidate.rationale ?? candidate.justification).trim() : '',
-                evidence: typeof (candidate.evidence ?? candidate.preuve) === 'string' ? String(candidate.evidence ?? candidate.preuve).trim() : '',
+                evidence,
                 ...(subcriteriaProposal ? { subcriteria: subcriteriaProposal } : {}),
                 ...(typeof (candidate.annotationSuggestion ?? candidate.commentaire) === 'string' && String(candidate.annotationSuggestion ?? candidate.commentaire).trim() ? { annotationSuggestion: String(candidate.annotationSuggestion ?? candidate.commentaire).trim() } : {}),
                 ...(typeof candidate.pageNumber === 'number' && Number.isInteger(candidate.pageNumber) && candidate.pageNumber >= 1 ? { pageNumber: candidate.pageNumber } : {}),
@@ -1168,7 +1172,7 @@ export function createOllamaProvider(
               break;
             } catch (cause) {
               lastError = cause instanceof Error ? cause.message : 'Échec de l’analyse du critère.';
-              const retryable = /JSON invalide|JSON tronquée|réponse JSON|proposition valide|en dehors du barème|limite de génération|done_reason=length|réponse vide|tronqué|incomplet|somme des sous-critères|sous-critère manquant|évaluation invalide pour le sous-critère|ne contient pas tous les sous-critères/i.test(lastError);
+              const retryable = /Preuve manquante|JSON invalide|JSON tronquée|réponse JSON|proposition valide|en dehors du barème|limite de génération|done_reason=length|réponse vide|tronqué|incomplet|somme des sous-critères|sous-critère manquant|évaluation invalide pour le sous-critère|ne contient pas tous les sous-critères/i.test(lastError);
               if (attempt === 1 && retryable) continue;
               break;
             }
@@ -1187,7 +1191,7 @@ export function createOllamaProvider(
           summary: 'Proposition de correction progressive ; vérification enseignante requise.',
           criteria: completed,
           questionsForTeacher: completed.flatMap((item) => typeof item.questionForTeacher === 'string' ? [item.questionForTeacher] : []),
-          finalScore: completed.reduce((sum, item) => sum + Number(item.points), 0),
+          finalScore: sumGradeScores(completed.map((item) => Number(item.points))),
         };
         const fullProposalRaw = JSON.stringify(fullProposal);
         if (diagnosticTracking && criterionDiagnosticMetrics.length > 0) {
