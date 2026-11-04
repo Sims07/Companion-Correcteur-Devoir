@@ -265,3 +265,110 @@ body {
     padding-inline: 16px;
   }
 }
+
+
+/* Model laboratory: use an explicit two-column layout instead of a float.
+   This keeps the step navigation and active workspace inside the page canvas. */
+.diagnostic-content-column:has(.evaluation-step-nav) {
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 24px;
+  min-width: 0;
+}
+
+.diagnostic-content-column:has(.evaluation-step-nav) > .privacy-strip,
+.diagnostic-content-column:has(.evaluation-step-nav) > .evaluation-page-header {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.diagnostic-content-column:has(.evaluation-step-nav) > .evaluation-step-nav {
+  grid-column: 1;
+  grid-row: 3;
+  position: sticky;
+  top: 18px;
+  float: none;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.diagnostic-content-column:has(.evaluation-step-nav) > .evaluation-config-workspace,
+.diagnostic-content-column:has(.evaluation-step-nav) > .evaluation-results-workspace {
+  grid-column: 2;
+  grid-row: 3;
+  width: auto;
+  min-width: 0;
+  margin: 0 0 22px;
+}
+
+.observability-workspace,
+.observability-workspace > *,
+.observability-workspace .observability-panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.observability-chart-grid,
+.observability-kpis,
+.observability-model-row,
+.observability-review-metric-grid {
+  min-width: 0;
+}
+
+.observability-chart-grid {
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.9fr);
+}
+
+.observability-intro {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+}
+
+@media (max-width: 999px) {
+  .diagnostic-content-column:has(.evaluation-step-nav) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .diagnostic-content-column:has(.evaluation-step-nav) > .privacy-strip,
+  .diagnostic-content-column:has(.evaluation-step-nav) > .evaluation-page-header,
+  .diagnostic-content-column:has(.evaluation-step-nav) > .evaluation-step-nav,
+  .diagnostic-content-column:has(.evaluation-step-nav) > .evaluation-config-workspace,
+  .diagnostic-content-column:has(.evaluation-step-nav) > .evaluation-results-workspace {
+    grid-column: 1;
+    grid-row: auto;
+    width: auto;
+    margin-inline: 0;
+  }
+
+  .diagnostic-content-column:has(.evaluation-step-nav) > .evaluation-step-nav {
+    position: static;
+  }
+}
+
+@media (max-width: 760px) {
+  .observability-intro {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  .observability-intro > span {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 430px) {
+  .topbar-actions,
+  .topbar-actions .view-switch {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .topbar-actions .view-switch {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .view-switch-button {
+    white-space: normal;
+  }
+}
