@@ -187,7 +187,15 @@ describe('Ollama adapter', () => {
   });
 
   it('includes the exact rubric criterion IDs instead of a generic placeholder in the grading prompt', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(streamingResponse('{"criteria":[]}'));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(streamingResponse(JSON.stringify({
+      summary: 'Proposition.',
+      criteria: [
+        { criterionId: 'replication-adn', points: 3, rationale: 'Étapes décrites.', evidence: 'Réplication semi-conservative', confidence: 'medium' },
+        { criterionId: 'enzyme-role', points: 2, rationale: 'Un rôle incomplet.', evidence: 'Rôle des enzymes', confidence: 'medium' },
+      ],
+      questionsForTeacher: [],
+      finalScore: 5,
+    })));
     const provider = createOllamaProvider({
       endpoint: 'http://localhost:11434',
       visionModel: 'gemma3:4b',
@@ -662,9 +670,9 @@ describe('Ollama adapter', () => {
       { id: 'second', title: 'Second critère', description: 'Attendu 2', maxPoints: 3 },
     ] });
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'first', points: 2, confidence: 'high' })))
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'first', points: 2, confidence: 'high', evidence: 'Attendu 1 observé' })))
       .mockResolvedValueOnce(streamingResponse('{"criterionId":'))
-      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'second', points: 1, confidence: 'medium', rationale: 'Partiel.' })));
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'second', points: 1, confidence: 'medium', rationale: 'Partiel.', evidence: 'Attendu 2 partiel' })));
     const updates: Array<{ status: string; criterionId: string }> = [];
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision-model', analysisModel: 'analysis-model' }, fetchMock);
     const raw = await provider.generate({ question: request.question, rubric, images: [], transcription: 'Réponse' }, undefined, undefined, undefined, undefined, (update) => updates.push({ status: update.status, criterionId: update.criterionId }));
@@ -682,10 +690,10 @@ describe('Ollama adapter', () => {
       { id: 'third', title: 'Troisième critère', description: 'Attendu 3', maxPoints: 5 },
     ] });
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'first', points: 2, confidence: 'high' })))
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'first', points: 2, confidence: 'high', evidence: 'Attendu 1 observé' })))
       .mockResolvedValueOnce(streamingResponse('{"criterionId":'))
       .mockResolvedValueOnce(streamingResponse('{"criterionId":'))
-      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'third', points: 4, confidence: 'medium', rationale: 'Un élément manque.' })));
+      .mockResolvedValueOnce(streamingResponse(JSON.stringify({ criterionId: 'third', points: 4, confidence: 'medium', rationale: 'Un élément manque.', evidence: 'Attendu 3 partiel' })));
     const updates: Array<{ status: string; criterionId: string }> = [];
     const provider = createOllamaProvider({ endpoint: 'http://localhost:11434', visionModel: 'vision-model', analysisModel: 'analysis-model' }, fetchMock);
     await expect(provider.generate({ question: request.question, rubric, images: [], transcription: 'Réponse' }, undefined, undefined, undefined, undefined, (update) => updates.push({ status: update.status, criterionId: update.criterionId })))
