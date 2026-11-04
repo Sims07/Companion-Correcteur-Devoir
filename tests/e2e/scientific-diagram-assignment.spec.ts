@@ -39,10 +39,10 @@ test('all rubric criteria can expose teacher-defined subcriteria with an exact e
   await page.getByRole('button', { name: '+ Ajouter un sous-critère' }).click();
   await page.getByRole('button', { name: '+ Ajouter un sous-critère' }).click();
   await page.getByRole('button', { name: '+ Ajouter un sous-critère' }).click();
-  const firstLabel = page.getByLabel('Sous-critère 1 — Nouveau critère');
+  const firstLabel = page.getByLabel('Sous-critère 1 — Nouveau critère', { exact: true });
   await firstLabel.fill('Membrane');
-  await page.getByLabel('Sous-critère 2 — Nouveau critère').fill('Noyau');
-  await page.getByLabel('Sous-critère 3 — Nouveau critère').fill('Cytoplasme');
+  await page.getByLabel('Sous-critère 2 — Nouveau critère', { exact: true }).fill('Noyau');
+  await page.getByLabel('Sous-critère 3 — Nouveau critère', { exact: true }).fill('Cytoplasme');
   await page.getByRole('button', { name: 'Répartir également' }).click();
   await expect(page.getByText('Total des sous-critères : 1 / 1 points')).toBeVisible();
   await expect(page.getByText(/Le total doit correspondre au maximum/)).toHaveCount(0);
