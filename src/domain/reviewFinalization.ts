@@ -1,5 +1,5 @@
 import type { ReviewedCriterion } from './grading.ts';
-import type { Rubric } from './rubric.ts';
+import { validateRubric, type Rubric } from './rubric.ts';
 import { sumGradeScores } from './scorePrecision.ts';
 
 export interface ReviewedCorrectionValidation {
@@ -18,7 +18,7 @@ export function validateReviewedCorrection(
   rubric: Rubric,
   reviewed: readonly ReviewedCriterion[],
 ): ReviewedCorrectionValidation {
-  const errors: string[] = [];
+  const errors: string[] = [...validateRubric(rubric).errors];
   const expected = new Map(rubric.criteria.map((criterion) => [criterion.id, criterion]));
   const seen = new Set<string>();
 
