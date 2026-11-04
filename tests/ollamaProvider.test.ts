@@ -232,7 +232,7 @@ describe('Ollama adapter', () => {
     expect(trace).toMatchObject({
       model: 'llava',
       requestPayload: expect.stringMatching(/Expliquez la mitose[\s\S]*IMAGE REDACTED/),
-      requestMetadata: { provider: 'ollama', endpoint: 'http://localhost:11434', stream: true, think: false, format: 'json-schema', imageCount: 1, options: { contextTokens: 8192, generationTokenLimit: 2048 } },
+      requestMetadata: { provider: 'ollama', endpoint: 'http://localhost:11434', stream: true, think: false, format: 'json-schema', imageCount: 1, keepAlive: '5m (Ollama default)', options: { contextTokens: 8192, generationTokenLimit: 2048 } },
       raw: rawProposal,
     });
     expect(JSON.stringify(trace)).not.toContain('aGVsbG8=');
