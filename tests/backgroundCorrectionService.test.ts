@@ -444,12 +444,14 @@ describe('background correction service', () => {
     };
     const service = createBackgroundCorrectionService(f.repository, f.workspace, createScientificDiagramAnalysisService(analyzer));
     await service.enqueue(job, { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'vision:4b' });
-    for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) {
+    for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'needs-review'; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
     expect(calls).toEqual([1, 2]);
     expect(analyzer.analyze).toHaveBeenCalledTimes(2);
-    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+    expect(f.jobs.get('copy-1')?.status).toBe('needs-review');
+    expect(f.jobs.get('copy-1')?.proposal?.scoreIncomplete).toBe(true);
+    expect(f.jobs.get('copy-1')?.proposal?.criteria[0].assessmentStatus).toBe('not-evaluated');
     expect(f.workspace.unloadModel).not.toHaveBeenCalled();
   });
 
