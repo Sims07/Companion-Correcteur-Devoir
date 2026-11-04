@@ -27,3 +27,13 @@
 .rubric-editor .criterion-editor-content>.criterion-visual-toggle{flex:1 1 100%}
 .rubric-editor .criterion-editor-content>.icon-button{margin-left:auto}
 @media(max-width:720px){.assignment-creation-panel{padding:var(--ds-space-4)}.assignment-creation-actions>*{flex:1 1 100%}.rubric-reuse-item{flex-wrap:wrap}.rubric-reuse-actions{align-items:stretch;flex-direction:column}.rubric-reuse-actions button{width:100%}}
+
+.rubric-editor-toolbar{display:flex;align-items:center;justify-content:space-between;gap:var(--ds-space-3);flex-wrap:wrap;margin:var(--ds-space-4) 0}
+.rubric-editor-toolbar .validation{flex:1;text-align:right}
+.rubric-document-import{margin:var(--ds-space-4) 0;border:1px solid var(--ds-color-border);border-radius:var(--ds-radius-lg);background:var(--ds-color-surface-subtle)}
+.rubric-document-import>summary{cursor:pointer;font-weight:650;color:var(--ds-color-text);padding:var(--ds-space-3);list-style-position:inside}
+.rubric-document-import-content{display:grid;gap:var(--ds-space-3);padding:0 var(--ds-space-3) var(--ds-space-3)}
+.rubric-editor .criterion-editor{border:1px solid var(--ds-color-border);border-radius:var(--ds-radius-md);padding:0;background:var(--ds-color-surface);margin-bottom:var(--ds-space-2)}
+.rubric-editor .criterion-editor[open]{border-color:var(--ds-color-border-strong)}
+.rubric-editor .criterion-editor-content>.criterion-fields input,.rubric-editor .criterion-editor-content>.points-field input{min-width:0}
+@media(max-width:720px){.rubric-editor-toolbar .validation{text-align:left;flex-basis:100%}}
