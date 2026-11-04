@@ -3,6 +3,8 @@ import { FilePicker } from './components/FilePicker.tsx';
 import type { ScientificDiagramAnalysisService } from '../application/scientificDiagramAnalysisService.ts';
 import { DesignSystemSelect } from './components/DesignSystemSelect.tsx';
 import { CopyReviewHeader } from './components/CopyReviewHeader.tsx';
+import { TeacherReviewAlert } from './components/TeacherReviewAlert.tsx';
+import { teacherReviewStatus } from '../domain/teacherReviewSummary.ts';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
 import type { ModelEvaluationService } from '../application/modelEvaluationService.ts';
 import { createAsyncActionGuard } from '../domain/asyncActionGuard.ts';
@@ -509,7 +511,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
   const reviewedTotal = criterionProgress.provisionalPoints;
   const unassessedCount = review.filter((item) => item.assessmentStatus === 'not-evaluated').length;
-  const pendingCount = review.filter((item) => item.decision === 'pending').length;
   const currentCopyId = currentBackgroundJobId ?? currentCorrectionId ?? (images.length > 0 ? 'current-copy' : null);
   const currentDraftNavigationItem = images.length > 0 && !currentBackgroundJobId && !currentCorrectionId
     ? {
@@ -3267,13 +3268,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       {(currentBackgroundJobId || currentCorrectionId) && interfaceMode === 'teacher' && !showAiSettings && <section className="review-section copy-navigation-only">
         <CopyReviewHeader studentLabel={studentLabel} onStudentLabelChange={setStudentLabel} position={reviewPosition} totalCopies={reviewTotalCopies}
           status={isFinalized ? 'Corrigée' : activeBackgroundJob?.status === 'pending' ? 'En attente' : activeBackgroundJob?.status === 'processing' ? 'Analyse en cours' : activeBackgroundJob?.status === 'failed' || activeBackgroundJob?.status === 'needs-review' || (activeBackgroundJob?.status === 'reviewing' && activeBackgroundJob.completedCriteria < activeBackgroundJob.totalCriteria) ? 'À reprendre' : 'À vérifier'}
-          score={reviewedTotal} scoreIncomplete={unassessedCount > 0} maximumPoints={validation.maximumPoints} isAnalyzing={isAnalyzing} isFinalized={isFinalized} canValidate={review.length === rubric.criteria.length && unassessedCount === 0}
+          score={reviewedTotal} scoreIncomplete={unassessedCount > 0} maximumPoints={validation.maximumPoints} isFinalized={isFinalized}
           canPrevious={Boolean(copyNavigation.previousCopy)} canNext={Boolean(copyNavigation.nextCopy)}
           previousLabel={copyNavigation.previousCopy ? copyNavigation.previousCopy.label + ' · ' + copyNavigation.previousCopy.status : null}
           nextLabel={copyNavigation.nextCopy ? copyNavigation.nextCopy.label + ' · ' + copyNavigation.nextCopy.status : null}
           onPrevious={() => { if (copyNavigation.previousCopy) void openCopyNavigationItem(copyNavigation.previousCopy.id); }}
           onNext={() => { if (copyNavigation.nextCopy) void openCopyNavigationItem(copyNavigation.nextCopy.id); }}
-          onValidate={() => void finalizeReview(true)}
         />
         {reviewMessage && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
       </section>}
@@ -3346,7 +3346,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               return <li key={item.criterionId}><strong>{criterion?.title ?? item.criterionId}</strong><span>{item.teacherPoints} / {criterion?.maxPoints ?? 0} points</span><small>{item.evidence.trim().split(/\\s+/u).slice(0, 12).join(' ')}{item.evidence.trim().split(/\\s+/u).length > 12 ? '…' : ''}</small></li>;
             })}</ul>
           </details>
-          <button type="button" className="secondary-button review-confirm-safe" onClick={() => review.filter((item) => reviewFocus.reliableCriteriaIds.includes(item.criterionId)).forEach((item) => updateReview(item.criterionId, { decision: 'accepted' }))}>Tout confirmer</button>
         </div>}
         {(isAnalyzing ? rubric.criteria : orderedReviewCriteria.filter((criterion) => !shouldFocusExceptions || flaggedCriteriaIds.has(criterion.id))).map((criterion, criterionIndex) => {
           const item = review.find((entry) => entry.criterionId === criterion.id);
@@ -3369,26 +3368,29 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 <span className={item.decision === 'accepted' ? 'review-result-status is-confirmed' : flaggedCriteriaIds.has(item.criterionId) ? 'review-result-status needs-review' : 'review-result-status'}>{item.decision === 'accepted' ? 'Confirmé' : flaggedCriteriaIds.has(item.criterionId) ? 'À examiner' : 'Sans alerte'}</span>
               </div>
             </div>
-            {isFlagged && <div className="review-alert-summary">
-              <div className="review-alert-reasons">{alertReasons.map((reason) => <span className="review-alert-reason" key={reason}>{reason}</span>)}</div>
-              <p className="rationale">{item.rationale || 'Justification non fournie.'}</p>
-              {item.annotationSuggestion && <section className="annotation-suggestion" aria-label={`Commentaire à reporter pour le critère ${criterion?.title ?? item.criterionId}`}>
-                <div className="annotation-suggestion-heading"><span className="eyebrow">COMMENTAIRE À REPORTER SUR LA COPIE</span><span className="annotation-suggestion-status">Suggestion IA</span></div>
-                <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>
-              </section>}
-            </div>}
+            {isFlagged && <TeacherReviewAlert
+              reasons={alertReasons}
+              rationale={item.rationale}
+              questionForTeacher={item.questionForTeacher}
+              annotationSuggestion={item.annotationSuggestion}
+              pageNumber={item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length ? item.pageNumber : undefined}
+              onShowEvidence={item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length ? () => {
+                setFocusedEvidencePage(item.pageNumber!);
+                document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              } : undefined}
+            />}
             <details className="review-explanation">
               <summary>Voir la preuve et la justification détaillées</summary>
             <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p>{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>
             {item.annotationSuggestion && item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Afficher la page ${item.pageNumber} pour le commentaire proposé`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Afficher la page liée</button>}
-            {!isFlagged && item.annotationSuggestion && <section className="annotation-suggestion" aria-label={`Suggestion d’annotation pour le critère ${criterion?.title ?? item.criterionId}`}>
+            {item.annotationSuggestion && <section className="annotation-suggestion" aria-label={`Suggestion d’annotation pour le critère ${criterion?.title ?? item.criterionId}`}>
               <div className="annotation-suggestion-heading"><span className="eyebrow">COMMENTAIRE ÉVENTUEL À REPORTER AU STYLO</span><span className="annotation-suggestion-status">Suggestion IA</span></div>
               <p className="annotation-suggestion-text">{item.annotationSuggestion}</p>
             </section>}
-            {!isFlagged && <p className="rationale">{item.rationale}</p>}
+            {item.rationale && <p className="rationale">{item.rationale}</p>}
 
 
-            {item.subcriteria && <details className="scientific-diagram-quality-details review-quality-details" open={isFlagged}>
+            {item.subcriteria && <details className="scientific-diagram-quality-details review-quality-details">
               <summary>Sous-critères évalués · {item.subcriteria.length}</summary>
               <ul>{item.subcriteria.map((subcriterion) => <li key={subcriterion.subcriterionId}>
                 <div><strong>{subcriterion.title}</strong><span className="quality-status">{subcriterion.points} / {subcriterion.maxPoints} pt</span></div>
@@ -3397,7 +3399,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </details>}
             {item.questionForTeacher && <p className="teacher-question"><strong>Question pour vous :</strong> {item.questionForTeacher}</p>}
             </details>
-            {item.scientificDiagramPages && <details className="scientific-diagram-quality-details review-quality-details" open={isFlagged}>
+            {item.scientificDiagramPages && <details className="scientific-diagram-quality-details review-quality-details">
               <summary>Évaluation du schéma · pages {(item.scientificDiagramPages ?? []).join(', ') || 'à identifier'}</summary>
               <p>{item.evidence}</p>
               {item.scientificDiagramElements && !item.subcriteria && <ul>{item.scientificDiagramElements.map((element) => <li key={element.label}>
@@ -3419,7 +3421,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
            <details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Export local pour conserver ou réutiliser les résultats de cette correction.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal?.summary ?? '', criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil.'); }}>{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>
            {reviewMessage && <p className="validation valid" role="status">{reviewMessage}</p>}
          </details>
-         <div className="copy-review-validation-bar"><div><span>{unassessedCount > 0 ? 'Total partiel' : 'Total'}</span><strong>{reviewedTotal.toLocaleString('fr-FR')} / {validation.maximumPoints}</strong><small>{unassessedCount > 0 ? unassessedCount + ' critère(s) à noter manuellement' : pendingCount + ' critère(s) restant(s) à valider'}</small></div><button type="button" className="primary-button" disabled={isAnalyzing || isFinalized || unassessedCount > 0 || review.length !== rubric.criteria.length} onClick={() => void finalizeReview(true)}>{isFinalized ? 'Correction validée' : 'Valider et passer à la suivante'}</button></div>
+         <div className="copy-review-validation-bar"><div><span>{unassessedCount > 0 ? 'Total partiel' : 'Total'}</span><strong>{reviewedTotal.toLocaleString('fr-FR')} / {validation.maximumPoints}</strong><small>{teacherReviewStatus(unassessedCount, flaggedCriteriaIds.size)}</small></div><button type="button" className="primary-button" aria-keyshortcuts="Control+Enter Meta+Enter" disabled={isAnalyzing || isFinalized || unassessedCount > 0 || review.length !== rubric.criteria.length} onClick={() => void finalizeReview(true)}>{isFinalized ? 'Correction validée' : 'Valider et passer à la suivante'}</button></div>
           </div>
         </div>
       </section>}
