@@ -1,4 +1,5 @@
 import { parseGradingProposal } from '../domain/grading.ts';
+import { sumGradeScores } from '../domain/scorePrecision.ts';
 import { toBackgroundJobSummary, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import type { Rubric } from '../domain/rubric.ts';
 import type { BackgroundCorrectionRepository } from '../ports/backgroundCorrectionRepository.ts';
@@ -46,7 +47,8 @@ function createProposal(rubric: Rubric, criteria: BackgroundCorrectionJob['parti
     summary: 'Correction préparée en arrière-plan : vérifiez les propositions avant de les valider.',
     criteria: ordered,
     questionsForTeacher: ordered.flatMap((criterion) => criterion.questionForTeacher ? [criterion.questionForTeacher] : []),
-    finalScore: ordered.reduce((sum, criterion) => sum + criterion.points, 0),
+    finalScore: sumGradeScores(ordered.filter((criterion) => criterion.assessmentStatus !== 'not-evaluated').map((criterion) => criterion.points)),
+    scoreIncomplete: ordered.length !== rubric.criteria.length || ordered.some((criterion) => criterion.assessmentStatus === 'not-evaluated'),
   };
 }
 
@@ -258,7 +260,8 @@ export function createBackgroundCorrectionService(
             break;
           }
           const proposal = createProposal(current.rubric, current.partialCriteria);
-          const complete = current.partialCriteria.length === current.rubric.criteria.length;
+          const complete = current.partialCriteria.length === current.rubric.criteria.length
+            && current.partialCriteria.every((criterion) => criterion.assessmentStatus !== 'not-evaluated');
           await persist({
             ...current,
             status: complete ? 'ready' : 'needs-review',
