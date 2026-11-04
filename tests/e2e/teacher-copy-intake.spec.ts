@@ -13,6 +13,7 @@ test.beforeEach(async ({ page }) => {
   });
   await page.reload();
   await openActiveAssignment(page);
+  await page.getByRole('tab', { name: /Copies/ }).click();
 });
 
 test('the only overview intake handles one multipage copy without splitting its photos', async ({ page }) => {
