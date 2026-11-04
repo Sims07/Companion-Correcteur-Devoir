@@ -37,6 +37,13 @@ describe('réutilisation locale des barèmes', () => {
     expect(() => reuseSelectedCriteria(source, withDuplicate, ['a'], idFactory())).toThrow(/identique/);
   });
 
+  it('reconnaît un critère déjà récupéré malgré la création de nouveaux identifiants', () => {
+    const first = reuseSelectedCriteria(source, target, ['a'], idFactory());
+    const reusedTarget: Rubric = { ...target, criteria: [...target.criteria, ...first] };
+    expect(previewReusableCriteria(source, reusedTarget)[0].status).toBe('duplicate');
+    expect(() => reuseSelectedCriteria(source, reusedTarget, ['a'], idFactory())).toThrow(/identique/);
+  });
+
   it('ne déduit pas les points et refuse les critères invalides ou les choix inconnus', () => {
     const invalid: Rubric = { title: 'Invalide', criteria: [{ ...source.criteria[0], maxPoints: 5 }] };
     expect(() => previewReusableCriteria(invalid, target)).toThrow(/totalisent/);
