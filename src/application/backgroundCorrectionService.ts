@@ -205,7 +205,6 @@ export function createBackgroundCorrectionService(
                   totalPageCount: current.images.length,
                   ...(current.correctionMode === 'separate' ? { subjectImages: current.subjectImages, ...(current.subjectTranscription ? { subjectTranscription: current.subjectTranscription } : {}) } : {}),
                   detectTeacherAnnotations: current.detectTeacherAnnotations,
-                  keepAnalysisModelWarm: remaining.criteria.length > 1,
                   ...(current.detectTeacherAnnotations ? { teacherAnnotationImages: textPageNumbers.map((pageNumber) => current.originalImages[pageNumber - 1]), teacherAnnotationPageNumbers: textPageNumbers } : {}),
                 },
                 undefined,
