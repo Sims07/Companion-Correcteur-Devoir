@@ -57,6 +57,14 @@ La règle produit centrale est de rendre la correction nettement plus rapide à 
 7. **Améliorer les corrections suivantes.** Les décisions et commentaires de l'enseignant sont conservés localement et peuvent alimenter un contexte de rappel léger, associé à la correction et/ou à l'empreinte exacte du barème. Ce mécanisme de recherche locale n'entraîne pas le modèle et ne remplace jamais le barème courant.
 8. **Comparer les modèles (diagnostic).** Le mode Diagnostic IA permet d'examiner les sorties et les notes globales/par critère, les durées et les stratégies de comparaison disponibles, y compris un arbitre expérimental. Ces options de diagnostic ne sont pas activées par défaut dans le parcours normal de correction enseignant.
 
+## Barème et sous-critères
+
+Le barème de l’enseignant est la source de vérité pour la notation. Chaque critère peut être décomposé en sous-critères réutilisables, avec un intitulé, une description et un maximum de points. Cette décomposition s’applique aux réponses textuelles comme aux schémas scientifiques ; l’IA ne doit ni créer de sous-critères ni déduire leurs points à partir d’un statut. Les anciens barèmes utilisant `expectedElements` sont migrés à la lecture vers cette structure commune.
+
+Pour un sous-critère scientifique, les points doivent être explicitement fournis et cohérents avec son statut : un élément absent vaut zéro, un élément présent doit recevoir strictement plus de zéro. Une donnée manquante ou incohérente ne déclenche aucun calcul de remplacement : la proposition est mise à zéro pour ce sous-critère, une preuve manquante est signalée et une vérification enseignante est exigée. De même, si la somme des sous-critères agrégés ne correspond pas à la note du critère, la proposition est signalée.
+
+La confiance du modèle reste un indicateur de fiabilité de lecture, pas un plafond de note. Elle ne réduit donc plus mécaniquement les points. La revue enseignante remplace ce plafonnement : notamment, une note maximale attribuée alors qu’un sous-critère est partiel ou incertain doit être vérifiée par le professeur.
+
 ## Confidentialité et limites
 
 - Les photos et PDF sont préparés dans le navigateur ; les PDF sont rendus en images localement. Aucun fichier n'est téléversé vers un service de stockage cloud par défaut.
