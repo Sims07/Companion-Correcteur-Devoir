@@ -88,10 +88,12 @@ test.describe('visual regression contracts', () => {
       await expect(page.locator('.evaluation-workspace-shell')).toBeVisible();
       await expect(page.locator('.evaluation-config-workspace')).toBeVisible();
       const hiddenFileInputs = page.locator('.file-picker-input');
-      await expect(hiddenFileInputs).toHaveCount(2);
-      await expect(hiddenFileInputs.first()).toHaveCSS('width', '1px');
-      await expect(hiddenFileInputs.first()).toHaveCSS('height', '1px');
-      await expect(hiddenFileInputs.first()).toHaveCSS('position', 'absolute');
+      await expect(hiddenFileInputs).toHaveCount(3);
+      for (let index = 0; index < 3; index += 1) {
+        await expect(hiddenFileInputs.nth(index)).toHaveCSS('width', '1px');
+        await expect(hiddenFileInputs.nth(index)).toHaveCSS('height', '1px');
+        await expect(hiddenFileInputs.nth(index)).toHaveCSS('position', 'absolute');
+      }
       await expectSharedSurfaceTokens(page, '.evaluation-config-workspace');
       await expectNoHorizontalOverflow(page);
       await captureVisualEvidence(page, testInfo, `model-evaluation-${viewport.name}.png`);
