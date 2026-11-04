@@ -346,6 +346,7 @@ export function createOllamaProvider(
       const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
       const analysisModel = settings.analysisModel?.trim() || settings.model?.trim() || '';
       const useTwoModels = Boolean(settings.visionModel?.trim() && settings.analysisModel?.trim());
+      const sameVisionAndAnalysisModel = visionModel === analysisModel;
       const providerImage = (image: import('../../ports/aiProvider.ts').ImageInput) => settings.apiCompatible
         ? `data:${image.mimeType};base64,${image.base64}`
         : image.base64;
@@ -587,7 +588,7 @@ export function createOllamaProvider(
               think,
               // Keep vision resident between pages, but unload it after the last page.
               // All analysis/comparison/arbitration requests release their model immediately.
-              keep_alive: tracking?.keepAlive ?? 0,
+              keep_alive: tracking?.keepAlive ?? (tracking?.kind === 'vision' && sameVisionAndAnalysisModel ? '30s' : 0),
               options: {
                 // Keep the analysis budget generous while limiting vision memory on Intel Macs.
                 num_ctx: tracking?.contextTokenLimit ?? (tracking?.kind === 'vision' ? 4096 : 8192),
@@ -833,7 +834,7 @@ export function createOllamaProvider(
               repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
               allowTruncated: true,
               onDoneReason: (reason) => { transcriptionTruncated = reason === 'length'; },
-              keepAlive: index < (request.images?.length ?? 0) - 1 ? '30s' : 0,
+              keepAlive: index < (request.images?.length ?? 0) - 1 || sameVisionAndAnalysisModel ? '30s' : 0,
               onSuspiciousStop: () => { transcriptionTruncated = true; },
             },
           );
@@ -862,7 +863,7 @@ export function createOllamaProvider(
           try {
             annotationResponse = await sendStream(visionModel, buildTeacherAnnotationPrompt(originalPageText), [providerImage(image)], undefined, annotationSchema, false, {
               kind: 'vision', stage: 'reading', temperature: 0, generationTokenLimit: 2048,
-              keepAlive: index < annotationImages.length - 1 ? '30s' : 0,
+              keepAlive: index < annotationImages.length - 1 || sameVisionAndAnalysisModel ? '30s' : 0,
             });
           } catch (cause) {
             const detail = cause instanceof Error ? cause.message : 'erreur inconnue du modèle de lecture';
