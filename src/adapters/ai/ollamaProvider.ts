@@ -554,6 +554,7 @@ export function createOllamaProvider(
               think,
               ...(json ? { format: json === true ? 'json' as const : 'json-schema' as const } : {}),
               imageCount: images?.length ?? 0,
+              keepAlive: '5m (Ollama default)',
               options: {
                 contextTokens: tracking.contextTokenLimit ?? (tracking.kind === 'vision' ? 4096 : 8192),
                 generationTokenLimit: tracking.generationTokenLimit ?? 2048,
@@ -667,6 +668,7 @@ export function createOllamaProvider(
                 think,
                 ...(json ? { format: json === true ? 'json' as const : 'json-schema' as const } : {}),
                 imageCount: images?.length ?? 0,
+                keepAlive: '5m (Ollama default)',
                 options: {
                   contextTokens: tracking.contextTokenLimit ?? (tracking.kind === 'vision' ? 4096 : 8192),
                   generationTokenLimit: tracking.generationTokenLimit ?? 2048,
