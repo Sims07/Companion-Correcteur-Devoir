@@ -15,7 +15,18 @@ export function duplicateAssignmentProfile<T extends { id: string; title: string
 export function previewReusableCriteria(source: Rubric, target: Rubric): RubricImportItem[] {
   if (!source.criteria.length) return [];
   const exported = createRubricExport(source, source.criteria.map((criterion) => criterion.id));
-  return previewRubricImport(exported, target).items;
+  const samePedagogicalContent = (left: RubricCriterion, right: RubricCriterion): boolean =>
+    left.title.trim().toLocaleLowerCase('fr-FR') === right.title.trim().toLocaleLowerCase('fr-FR') &&
+    left.description.trim() === right.description.trim() &&
+    left.maxPoints === right.maxPoints &&
+    (left.analysisMode ?? 'text') === (right.analysisMode ?? 'text') &&
+    JSON.stringify(getRubricSubcriteria(left).map(({ title, description, maxPoints }) => ({ title, description, maxPoints }))) ===
+    JSON.stringify(getRubricSubcriteria(right).map(({ title, description, maxPoints }) => ({ title, description, maxPoints })));
+  return previewRubricImport(exported, target).items.map((item) =>
+    target.criteria.some((existing) => samePedagogicalContent(existing, item.criterion))
+      ? { ...item, status: 'duplicate' as const }
+      : item
+  );
 }
 
 /** Every selected criterion is an independent copy with fresh criterion/subcriterion IDs. */
