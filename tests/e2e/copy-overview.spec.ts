@@ -141,8 +141,8 @@ test('adding a copy while another one is under review keeps the previous copy an
 
   await copyNavigation(page).click();
   await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
-  await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter une copie/ }).click();
-  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
+  await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter des copies/ }).click();
+  await expect(page.getByRole('heading', { name: 'Ajouter des copies' })).toBeVisible();
 
   await copyNavigation(page).click();
   await expect(page.getByText('Copie récente')).toBeVisible();
@@ -252,8 +252,8 @@ test('adding another copy automatically saves the imported foreground copy in th
 
   await copyNavigation(page).click();
   await expect(page.getByText('copie-a-conserver.png')).toBeVisible();
-  await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter une copie/ }).click();
-  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
+  await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter des copies/ }).click();
+  await expect(page.getByRole('heading', { name: 'Ajouter des copies' })).toBeVisible();
 
   await copyNavigation(page).click();
   await expect(page.getByText('copie-a-conserver.png')).toBeVisible();
@@ -281,6 +281,6 @@ test('teacher can explicitly start correction for copies already loaded in the a
   await expect(launch).toBeEnabled();
   await launch.click();
   await expect.poll(() => correctionRequests).toBeGreaterThan(0);
-  await expect(page.getByText('Copie en attente 1')).toBeVisible();
-  await expect(page.getByText('Copie en attente 2')).toBeVisible();
+  await expect(page.locator('.copy-overview-grid .correction-series-card').filter({ hasText: 'Copie en attente 1' })).toBeVisible();
+  await expect(page.locator('.copy-overview-grid .correction-series-card').filter({ hasText: 'Copie en attente 2' })).toBeVisible();
 });

@@ -11,6 +11,7 @@ const mainEntry = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf
 const appComponent = readFileSync(new URL('../src/ui/App.tsx', import.meta.url), 'utf8');
 const observabilityComponent = readFileSync(new URL('../src/ui/ObservabilityDashboard.tsx', import.meta.url), 'utf8');
 const observabilityStyles = readFileSync(new URL('../src/ui/observability.css', import.meta.url), 'utf8');
+const copyIntakeComponent = readFileSync(new URL('../src/ui/components/TeacherCopyIntake.tsx', import.meta.url), 'utf8');
 const dropdownComponent = readFileSync(new URL('../src/ui/components/DesignSystemSelect.tsx', import.meta.url), 'utf8');
 
 describe('UI design system', () => {
@@ -173,8 +174,9 @@ describe('UI design system', () => {
     expect(appComponent).toContain('function queueCurrentCopy()');
     expect(appComponent).toContain('function loadNextQueuedCopy(jobId?: string)');
     expect(appComponent).toContain('function enqueueBackgroundCopy(files: FileList | null)');
-    expect(appComponent).toContain('id="background-copy-files"');
-    expect(appComponent).toContain('Ouvrir la prochaine copie prête');
+    expect(appComponent).toContain('<TeacherCopyIntake');
+    expect(copyIntakeComponent).toContain('id="teacher-copy-intake-files"');
+    expect(copyIntakeComponent).toContain('Plusieurs fichiers pour une copie');
     expect(appComponent).toContain('backgroundService.retry(job.id');
     expect(appComponent).toContain('Mettre cette copie en file d’attente');
     expect(appComponent).toContain('Copies du devoir');

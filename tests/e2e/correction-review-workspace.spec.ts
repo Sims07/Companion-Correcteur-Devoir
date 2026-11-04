@@ -103,12 +103,13 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.reload();
   await openActiveAssignment(page);
   await page.getByRole('tab', { name: /Copies/ }).click();
-  await expect(page.locator('#background-copy-files')).toBeVisible();
+  await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter des copies/ }).click();
+  await expect(page.locator('#teacher-copy-intake-files')).toHaveCount(1);
   await page.locator('.copy-overview-filters').getByRole('button', { name: /Corrigées/ }).click();
   await expect(page.getByRole('button', { name: 'Consulter la correction' })).toHaveCount(1);
   await expect(page.getByText('Copie d’un autre devoir')).toHaveCount(0);
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
-  await expect(page.locator('#background-copy-files')).toHaveCount(0);
+  await expect(page.locator('#teacher-copy-intake-files')).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toContainText('Biologie cellulaire');
   await expect(page.getByRole('tab', { name: 'Copies' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('complementary', { name: 'Navigation entre les copies' })).toBeVisible();

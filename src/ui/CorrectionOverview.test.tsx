@@ -26,7 +26,7 @@ const criterion = (id: string, points: number) => ({
 const display = (current: BackgroundCorrectionJob) => renderToStaticMarkup(
   <CorrectionOverview
     jobs={[toBackgroundJobSummary(current)]} corrections={[]} currentCopy={null}
-    filter="all" onFilterChange={vi.fn()} onAddCopy={vi.fn()} pendingCount={0}
+    filter="all" onFilterChange={vi.fn()} onAddCopy={vi.fn()} addCopyExpanded={false} pendingCount={0}
     isStartingCorrections={false} onStartCorrections={vi.fn()}
     onOpenJob={vi.fn()} onRetryJob={vi.fn()}
     onOpenCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}

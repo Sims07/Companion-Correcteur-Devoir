@@ -49,6 +49,7 @@ describe('CorrectionOverview — comportement enseignant', () => {
         filter,
         onFilterChange,
         onAddCopy: vi.fn(),
+        addCopyExpanded: false,
         pendingCount: 0,
         isStartingCorrections: false,
         onStartCorrections: vi.fn(),
@@ -83,6 +84,25 @@ describe('CorrectionOverview — comportement enseignant', () => {
     expect(container.textContent).toContain('La correction n’a pas abouti. Vous pouvez corriger à nouveau cette copie.');
     expect(container.textContent).toContain('2 résultat(s)');
     expect(container.querySelectorAll('.correction-series-card')).toHaveLength(2);
+  });
+
+  it('shows a short overview and direct access to the processing copy', async () => {
+    const processingJob: BackgroundJobSummary = {
+      ...reviewJob,
+      id: 'running',
+      label: 'Copie 12',
+      status: 'processing',
+      phase: 'grading',
+      progress: { completedPages: 2, totalPages: 2, completedCriteria: 1, totalCriteria: 3 },
+      score: null,
+    };
+    await render('all', [processingJob]);
+    expect(container.querySelector('.teacher-copy-work-summary')?.textContent).toContain('En cours');
+    expect(container.querySelector('.teacher-copy-live')?.textContent).toContain('Copie en cours : Copie 12');
+    expect(container.querySelector('.teacher-copy-live')?.textContent).toContain('1/3 critères');
+    const button = container.querySelector<HTMLButtonElement>('.teacher-copy-live button');
+    await act(async () => button?.click());
+    expect(onOpenJob).toHaveBeenCalledWith('running');
   });
 
   it('filters failed copies separately and offers both retry and open actions', async () => {
