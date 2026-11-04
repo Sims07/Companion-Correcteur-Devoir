@@ -120,6 +120,18 @@ describe('parseScientificDiagramAnalysis', () => {
     }), elementRubric, 1);
     expect(parsed.criteria?.[0]).toMatchObject({ points: 2, requiresTeacherReview: true });
     expect(parsed.warnings?.some((warning) => warning.includes('note annoncée'))).toBe(true);
+
+    const missingCriterionScore = parseScientificDiagramAnalysis(JSON.stringify({
+      diagrams: [{ pageNumber: 1 }],
+      criteria: [{
+        criterionId: 'cell',
+        evidence: 'Contour visible',
+        confidence: 0.9,
+        elements: [{ subcriterionId: 'membrane', status: 'present', points: 2, evidence: 'Contour visible' }],
+      }],
+    }), elementRubric, 1);
+    expect(missingCriterionScore.criteria?.[0]).toMatchObject({ points: 2, requiresTeacherReview: true });
+    expect(missingCriterionScore.warnings?.some((warning) => warning.includes('absente ou invalide'))).toBe(true);
   });
 
   it('rejects missing, out-of-range and status-inconsistent model points without inventing a score', () => {
