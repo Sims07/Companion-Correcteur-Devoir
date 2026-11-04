@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import type { BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import type { LocalCorrection } from '../domain/localCorrection.ts';
 import { countCopyOverviewStatuses, sortCopyOverviewItems, toCopyOverviewStatus, type CopyOverviewFilter, type CopyOverviewStatus } from '../domain/copyOverview.ts';
@@ -12,6 +12,7 @@ type CurrentCopy = {
   updatedAt: string;
 };
 type Props = {
+  children?: ReactNode;
   jobs: BackgroundJobSummary[];
   corrections: LocalCorrection[];
   currentCopy: CurrentCopy | null;
@@ -84,7 +85,7 @@ function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): stri
   return 'Proposition prête à vérifier';
 }
 
-export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, addCopyExpanded, pendingCount, isStartingCorrections, onStartCorrections, onOpenJob, onRetryJob, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
+export function CorrectionOverview({ children, jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, addCopyExpanded, pendingCount, isStartingCorrections, onStartCorrections, onOpenJob, onRetryJob, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
   const [query, setQuery] = useState('');
   const items = useMemo(() => {
     const jobItems: OverviewItem[] = jobs
@@ -164,6 +165,7 @@ export function CorrectionOverview({ jobs, corrections, currentCopy, filter, onF
         <button type="button" className="secondary-button" onClick={onAddCopy} aria-expanded={addCopyExpanded} aria-controls="teacher-copy-intake">{addCopyExpanded ? 'Fermer l’ajout' : '＋ Ajouter des copies'}</button>
       </div>
     </header>
+    {children}
     <div className="teacher-copy-work-summary" aria-label="État des corrections">
       <div><strong>{counts.toReview}</strong><span>À vérifier</span></div>
       <div><strong>{counts.processing}</strong><span>En cours</span></div>
