@@ -24,6 +24,8 @@ export interface GradingRequest {
   identifyStudent?: boolean;
   /** Stop after local image transcription for an independent Vision benchmark. */
   visionOnly?: boolean;
+  /** Read only the reference subject with the dedicated subject prompt, without transcribing or grading a copy. */
+  subjectOnly?: boolean;
   detectTeacherAnnotations?: boolean;
   /** Keep the analysis model warm between background criteria; false unloads it after this call. */
 }
