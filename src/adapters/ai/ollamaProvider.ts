@@ -482,7 +482,7 @@ export function createOllamaProvider(
                 minItems: subcriteria.length,
                 maxItems: subcriteria.length,
                 items: {
-                  oneOf: subcriteria.map((subcriterion) => ({
+                  anyOf: subcriteria.map((subcriterion) => ({
                     type: 'object',
                     additionalProperties: false,
                     required: ['subcriterionId', 'points', 'evidence'],
@@ -506,7 +506,7 @@ export function createOllamaProvider(
           criteria: {
             type: 'array',
             ...(rubricCriterionIds.length ? { minItems: rubricCriterionIds.length, maxItems: rubricCriterionIds.length } : {}),
-            ...(completeCriterionSchemas.length > 0 ? { items: { oneOf: completeCriterionSchemas } } : { items: criterionSchema }),
+            ...(completeCriterionSchemas.length > 0 ? { items: { anyOf: completeCriterionSchemas } } : { items: criterionSchema }),
           },
           questionsForTeacher: { type: 'array', items: { type: 'string' } },
           finalScore: { type: 'number' },
@@ -1094,7 +1094,7 @@ export function createOllamaProvider(
               points: { type: 'number', minimum: 0, maximum: criterion.maxPoints },
               ...(expectedSubcriteria.length > 0 ? { subcriteria: {
                 type: 'array', minItems: expectedSubcriteria.length, maxItems: expectedSubcriteria.length,
-                items: { oneOf: expectedSubcriteria.map((subcriterion) => ({
+                items: { anyOf: expectedSubcriteria.map((subcriterion) => ({
                   type: 'object', additionalProperties: false, required: ['subcriterionId', 'points', 'evidence'], properties: {
                     subcriterionId: { type: 'string', enum: [subcriterion.id] },
                     points: { type: 'number', minimum: 0, maximum: subcriterion.maxPoints }, evidence: { type: 'string' },
