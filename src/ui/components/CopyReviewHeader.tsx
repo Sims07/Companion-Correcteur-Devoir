@@ -7,6 +7,7 @@ export interface CopyReviewHeaderProps {
   totalCopies: number;
   status: 'En attente' | 'Analyse en cours' | 'À vérifier' | 'À reprendre' | 'Corrigée';
   score: number;
+  scoreIncomplete?: boolean;
   maximumPoints: number;
   isAnalyzing: boolean;
   isFinalized: boolean;
@@ -21,7 +22,7 @@ export interface CopyReviewHeaderProps {
 }
 
 export function CopyReviewHeader({
-  studentLabel, onStudentLabelChange, position, totalCopies, status, score, maximumPoints,
+  studentLabel, onStudentLabelChange, position, totalCopies, status, score, scoreIncomplete = false, maximumPoints,
   isAnalyzing, isFinalized, canValidate, canPrevious, canNext, previousLabel, nextLabel,
   onPrevious, onNext, onValidate,
 }: CopyReviewHeaderProps) {
@@ -40,7 +41,7 @@ export function CopyReviewHeader({
           <button type="button" aria-label="Copie suivante" title={nextTitle} disabled={!canNext} onClick={onNext}>→</button>
         </div>
         <span className={'copy-review-status ' + (isFinalized ? 'is-completed' : 'needs-attention')}>{status}</span>
-        <strong className="copy-review-header-score">{score.toLocaleString('fr-FR')} / {maximumPoints}</strong>
+        <strong className="copy-review-header-score">{scoreIncomplete ? 'Note partielle : ' : ''}{score.toLocaleString('fr-FR')} / {maximumPoints}</strong>
         <button type="button" className="primary-button" aria-keyshortcuts="Control+Enter Meta+Enter" disabled={isAnalyzing || isFinalized || !canValidate} onClick={onValidate}>{isFinalized ? 'Correction validée' : 'Valider et passer à la suivante'}</button>
       </div>
     </section>
