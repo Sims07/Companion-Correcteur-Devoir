@@ -1,5 +1,6 @@
 import type { GradingProposal } from './grading.ts';
 import type { Rubric } from './rubric.ts';
+import { sumGradeScores } from './scorePrecision.ts';
 
 export interface CriterionDisagreement {
   criterionId: string;
@@ -38,12 +39,12 @@ export function compareDiagnosticProposals(
       maxPoints: criterion.maxPoints,
     }];
   });
-  const firstTotal = first.criteria.reduce((sum, criterion) => sum + criterion.points, 0);
-  const secondTotal = second.criteria.reduce((sum, criterion) => sum + criterion.points, 0);
+  const firstTotal = sumGradeScores(first.criteria.map((criterion) => criterion.points));
+  const secondTotal = sumGradeScores(second.criteria.map((criterion) => criterion.points));
   return {
     firstTotal,
     secondTotal,
-    totalDifference: Math.round((secondTotal - firstTotal) * 100) / 100,
+    totalDifference: sumGradeScores([secondTotal, -firstTotal]),
     disagreements,
   };
 }
