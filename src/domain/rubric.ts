@@ -1,8 +1,17 @@
 import { sumGradeScores } from './scorePrecision.ts';
 
-export interface RubricSubcriterion { id: string; title: string; description: string; maxPoints: number; }
+export interface RubricSubcriterion {
+  id: string;
+  title: string;
+  description: string;
+  maxPoints: number;
+}
+
 export interface RubricCriterion {
-  id: string; title: string; description: string; maxPoints: number;
+  id: string;
+  title: string;
+  description: string;
+  maxPoints: number;
   /** Explicitly route this criterion to image-based scientific diagram analysis. */
   analysisMode?: 'text' | 'scientific-diagram';
   /** Teacher-defined scoring dimensions, available for every criterion type. */
@@ -10,8 +19,16 @@ export interface RubricCriterion {
   /** @deprecated Kept only to migrate rubrics saved by older versions. */
   expectedElements?: Array<{ label: string; points: number }>;
 }
-export interface Rubric { title: string; criteria: RubricCriterion[]; }
-export interface RubricValidation { valid: boolean; errors: string[]; maximumPoints: number; }
+export interface Rubric {
+  title: string;
+  criteria: RubricCriterion[];
+}
+
+export interface RubricValidation {
+  valid: boolean;
+  errors: string[];
+  maximumPoints: number;
+}
 
 /** Read the current structure while transparently migrating legacy expectedElements. */
 export function getRubricSubcriteria(criterion: RubricCriterion): RubricSubcriterion[] {
