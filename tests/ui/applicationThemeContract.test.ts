@@ -19,7 +19,7 @@ describe('application design-system integration', () => {
     const theme = read('src/ui/design-system/application-theme.css');
 
     for (const selector of [
-      '.app-shell',
+      '.app-shell',\n      '.evaluation-workspace-shell',\n      '.evaluation-step-nav button',\n      '.evaluation-config-workspace',\n      '.evaluation-results-workspace',\n      '.evaluation-history-option',\n      '.view-switch',
       '.panel',
       '.assignment-overview-card',
       '.teacher-workspace-navigation',
@@ -36,7 +36,7 @@ describe('application design-system integration', () => {
     expect(theme).toContain('var(--ds-color-surface-subtle)');
     expect(theme).toContain('var(--ds-color-border)');
     expect(theme).toContain('var(--ds-radius-lg)');
-    expect(theme).toContain('var(--ds-focus-ring)');
+    expect(theme).toContain('var(--ds-focus-ring)');\n    expect(theme).toContain('.view-switch-button.active');\n    expect(theme).toContain('.evaluation-history-option.is-selected');
   });
 
   it('keeps interactive states accessible and respects reduced-motion preferences', () => {
