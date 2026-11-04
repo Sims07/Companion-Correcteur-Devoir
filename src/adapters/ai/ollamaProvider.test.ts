@@ -263,11 +263,41 @@ describe('Ollama incremental grading with teacher-defined subcriteria', () => {
     expect(JSON.parse(result).criteria[0].points).toBe(1);
   });
 
+  it('constrains subcriteria in the complete-grading schema as well as incremental grading', async () => {
+    let requestSchema: Record<string, any> | undefined;
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      requestSchema = body.format;
+      return streamResponse(JSON.stringify({
+        summary: 'Proposition.',
+        criteria: [validCriterion],
+        questionsForTeacher: [],
+        finalScore: 2,
+      }));
+    }) as unknown as typeof fetch;
+    const provider = createOllamaProvider({
+      ...settings,
+      criterionByCriterion: false,
+      diagnosticStrategy: 'single',
+    }, fetchImpl);
+    await provider.generate({
+      question: 'Évaluer le schéma.',
+      rubric: JSON.stringify(rubric),
+      transcription: 'Membrane et noyau visibles.',
+    });
+    const criterionSchemas = requestSchema?.properties?.criteria?.items?.oneOf;
+    expect(criterionSchemas).toHaveLength(1);
+    expect(criterionSchemas[0].required).toContain('subcriteria');
+    expect(criterionSchemas[0].properties.subcriteria.minItems).toBe(2);
+    expect(criterionSchemas[0].properties.subcriteria.maxItems).toBe(2);
+    expect(criterionSchemas[0].properties.subcriteria.items.oneOf[0].properties.subcriterionId.enum).toEqual(['membrane']);
+    expect(criterionSchemas[0].properties.subcriteria.items.oneOf[0].properties.points.maximum).toBe(2);
+  });
+
   it('retries when an incremental response omits a configured subcriterion', async () => {
     let call = 0;
-    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL) => {
       call += 1;
-      const body = JSON.parse(String(init?.body));
       const missing = { ...validCriterion, subcriteria: [validCriterion.subcriteria[0]] };
       return streamResponse(JSON.stringify(call === 1 ? missing : validCriterion));
     }) as unknown as typeof fetch;
