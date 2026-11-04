@@ -3329,12 +3329,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             {!isFlagged && <p className="rationale">{item.rationale}</p>}
 
 
+            {item.subcriteria && <details className="scientific-diagram-quality-details review-quality-details" open={isFlagged}>
+              <summary>Sous-critères évalués · {item.subcriteria.length}</summary>
+              <ul>{item.subcriteria.map((subcriterion) => <li key={subcriterion.subcriterionId}>
+                <div><strong>{subcriterion.title}</strong><span className="quality-status">{subcriterion.points} / {subcriterion.maxPoints} pt</span></div>
+                <p>{subcriterion.evidence}</p>
+              </li>)}</ul>
+            </details>}
             {item.questionForTeacher && <p className="teacher-question"><strong>Question pour vous :</strong> {item.questionForTeacher}</p>}
             </details>
             {item.scientificDiagramPages && <details className="scientific-diagram-quality-details review-quality-details" open={isFlagged}>
               <summary>Évaluation du schéma · pages {(item.scientificDiagramPages ?? []).join(', ') || 'à identifier'}</summary>
               <p>{item.evidence}</p>
-              {item.scientificDiagramElements && <ul>{item.scientificDiagramElements.map((element) => <li key={element.label}>
+              {item.scientificDiagramElements && !item.subcriteria && <ul>{item.scientificDiagramElements.map((element) => <li key={element.label}>
                 <div><strong>{element.label}</strong><span className={`quality-status quality-status-${element.status}`}>{({ present: 'Présent', partial: 'Partiel', absent: 'Absent', uncertain: 'Incertain' })[element.status]} · {element.points} / {element.maxPoints} pt</span></div>
                 <p>{element.evidence}</p>
               </li>)}</ul>}
