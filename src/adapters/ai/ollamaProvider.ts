@@ -971,6 +971,11 @@ export function createOllamaProvider(
         const validateObject = (raw: string) => {
           const parsed = parseModelJson(raw);
           if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('La réponse de correction doit être un objet JSON.');
+          // Syntactically valid but incomplete JSON (missing rubric IDs, evidence or
+          // subcriteria) must also trigger the one targeted repair.
+          if (rubricCriteriaForSchema.length > 0 && rubricCriteriaForSchema.length === rubricCriterionIds.length) {
+            parseGradingProposal(raw, { title: 'Barème courant', criteria: rubricCriteriaForSchema });
+          }
         };
         const raw = await sendStream(model, prompt, images, streamChunk, gradingSchema, settings.thinking ?? false, { ...tracking, allowTruncated: true });
         try { validateObject(raw); return raw; }
