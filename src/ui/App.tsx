@@ -2009,18 +2009,18 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setTeacherStep(canReview || next.status === 'processing' || next.status === 'pending' ? 'review' : 'copy');
   }
 
-  async function startNextCopy(options: { forceNew?: boolean } = {}) {
-    if (isAnalyzing) return;
+  async function startNextCopy(options: { forceNew?: boolean; stayInOverview?: boolean } = {}) {
+    if (isAnalyzing) return false;
     const forceNew = options.forceNew ?? false;
     const readyExists = !forceNew && backgroundJobs.some((job) => job.assignmentId === activeAssignmentId && (job.status === 'ready' || (job.status === 'reviewing' && Boolean(job.proposal))) && job.id !== currentBackgroundJobId);
-    if (readyExists) { await loadNextQueuedCopy(); return; }
+    if (readyExists) { await loadNextQueuedCopy(); return true; }
 
     if (currentBackgroundJobId && !isFinalized) {
       try {
         await backgroundService.saveReviewDraft(currentBackgroundJobId, structuredClone(review), teacherQuestions);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Impossible de sauvegarder votre vérification avant de passer à la copie suivante.');
-        return;
+        return false;
       }
     }
 
@@ -2029,7 +2029,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (!currentBackgroundJobId && images.length > 0 && !isFinalized) {
       if (!validation.valid) {
         setError('Vérifiez le barème avant de sauvegarder cette copie dans le suivi.');
-        return;
+        return false;
       }
       try {
         const now = new Date().toISOString();
@@ -2083,7 +2083,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Impossible de sauvegarder la copie avant de passer à la suivante.');
-        return;
+        return false;
       }
     }
 
@@ -2112,7 +2112,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setCurrentTimingRecordId(null);
     setDiagnosticRuns([]);
     setStreamedOutput('');
-    setTeacherStep('copy');
+    setTeacherStep(options.stayInOverview ? 'overview' : 'copy');
+    return true;
   }
 
   async function openCopyNavigationItem(copyId: string) {
@@ -2738,7 +2739,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         filter={copyOverviewFilter}
         onFilterChange={(filter) => { setCopyOverviewFilterTouched(true); setCopyOverviewFilter(filter); }}
         currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ? { label: studentLabel || images[0]?.fileName || 'Copie en cours', pageCount: images.length, status: isAnalyzing ? 'processing' : proposal ? 'to-review' : 'to-do', score: proposal ? reviewedTotal : null, maximumPoints: validation.maximumPoints, updatedAt: '9999-12-31T23:59:59.999Z' } : null}
-        onAddCopy={() => setShowCopyIntake((opened) => !opened)}
+        onAddCopy={() => {
+          if (showCopyIntake) { setShowCopyIntake(false); return; }
+          void (async () => {
+            if (images.length && !isFinalized && !currentBackgroundJobId) {
+              const saved = await startNextCopy({ forceNew: true, stayInOverview: true });
+              if (!saved) return;
+            }
+            setShowCopyIntake(true);
+          })();
+        }}
         addCopyExpanded={showCopyIntake}
         pendingCount={allBackgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').length}
         isStartingCorrections={isStartingSeriesCorrections}
