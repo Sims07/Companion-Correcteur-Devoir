@@ -99,7 +99,7 @@ export function buildLocalDecisionBenchmark(traces: readonly LocalBenchmarkTrace
     meanTotalError: group.comparedCopies ? precision(group.errorSum / group.comparedCopies) : null,
     averageSeconds: group.durationCount ? precision(group.durationSum / group.durationCount) : null,
     averageCalls: group.measuredCallRuns ? precision(group.callsSum / group.measuredCallRuns) : null,
-    maturity: group.comparedCopies < 10 ? 'exploratory'
-      : group.comparedCopies < 30 ? 'preliminary' : 'extended',
+    maturity: (group.comparedCopies < 10 ? 'exploratory'
+      : group.comparedCopies < 30 ? 'preliminary' : 'extended') as LocalBenchmarkSummary['maturity'],
   })).sort((a, b) => a.assignment.localeCompare(b.assignment) || a.method.localeCompare(b.method) || a.model.localeCompare(b.model));
 }
