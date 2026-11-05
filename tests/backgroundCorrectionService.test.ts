@@ -612,7 +612,6 @@ describe('background correction service', () => {
         createdAt: new Date(Date.UTC(2026, 10, 1, 9, index)).toISOString(),
       });
     }
-    f.jobs.delete('copy-1');
     f.repository.fingerprintImages = vi.fn(async (images: BackgroundCorrectionJob['images']) =>
       images.map((image) => image.base64).join('|'));
     let subjectReads = 0;
