@@ -1,6 +1,6 @@
 import type { DiagnosticModelResult } from '../../ports/aiProvider.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
-import type { SystemOneEnvelope, SystemOnePrepared } from '../../domain/systemOneDecision.ts';
+import type { SystemOneEnvelope, SystemOnePayload } from '../../domain/systemOneDecision.ts';
 
 /**
  * Native local decision-model transport. Unlike /api/chat it neither generates text
@@ -9,7 +9,7 @@ import type { SystemOneEnvelope, SystemOnePrepared } from '../../domain/systemOn
 export async function requestSystemOneDecision(input: {
   endpoint: string;
   model: string;
-  prepared: SystemOnePrepared;
+  prepared: SystemOnePayload;
   fetchImpl: typeof fetch;
   signal?: AbortSignal;
   onDiagnosticResult?: (result: DiagnosticModelResult) => void;
