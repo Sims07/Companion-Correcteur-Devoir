@@ -24,3 +24,8 @@ export function buildIncrementalGradingRepairPrompt(criterionPrompt: string, pre
 export function buildGradingRepairPrompt(prompt: string, raw: string, reason: string): string {
   return [prompt, 'Réponse précédente à réparer : ' + raw.slice(0, 3000) + '. Erreur : ' + reason + '.', 'FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON, sans texte ni Markdown. Exemple neutre : {"summary":"Proposition à vérifier.","criteria":[{"criterionId":"criterion-id","points":0,"rationale":"Justification courte.","evidence":"Extrait exact.","confidence":"medium","annotationSuggestion":""}],"questionsForTeacher":[],"finalScore":0}.'].join('\n\n');
 }
+
+/** Closed-decision JSON contract repair (legacy separators preserved). */
+export function buildCriterionDecisionRepairPrompt(prompt: string, previousError: string): string {
+  return prompt + '\\n\\nLa précédente réponse ne respectait pas le contrat : ' + previousError + '. Corrige uniquement la structure JSON.';
+}
