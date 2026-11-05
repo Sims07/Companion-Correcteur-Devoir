@@ -1,5 +1,6 @@
 import { promptTrace } from './prompts/promptRegistry.ts';
 import type { DiagnosticModelResult } from '../../ports/aiProvider.ts';
+import type { ImageInput } from '../../domain/imageInput.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 import type { SystemOneEnvelope, SystemOnePayload } from '../../domain/systemOneDecision.ts';
 
@@ -11,12 +12,16 @@ export async function requestSystemOneDecision(input: {
   endpoint: string;
   model: string;
   prepared: SystemOnePayload;
+  images?: ImageInput[];
   fetchImpl: typeof fetch;
   signal?: AbortSignal;
   onDiagnosticResult?: (result: DiagnosticModelResult) => void;
 }): Promise<SystemOneEnvelope> {
-  const { endpoint, model, prepared, fetchImpl, signal, onDiagnosticResult } = input;
-  const payload = { model, state: prepared.state, questions: prepared.questions };
+  const { endpoint, model, prepared, images, fetchImpl, signal, onDiagnosticResult } = input;
+  const payload = { model, state: prepared.state, questions: prepared.questions,
+    ...(images?.length ? { images: images.map((item) => item.base64) } : {}) };
+  // The network request carries image bytes; diagnostic history must never do so.
+  const safePayload = { ...payload, ...(images?.length ? { images: images.map(() => '[IMAGE_REDACTED]') } : {}) };
   const startedAt = Date.now();
   let responseRaw = '';
   const trace = (error?: string, tokens?: { input_tokens?: number; output_tokens?: number }) => {
@@ -25,10 +30,10 @@ export async function requestSystemOneDecision(input: {
       stage: 'analysis',
       ...promptTrace('decision.system-one'),
       model,
-      requestPayload: JSON.stringify(payload, null, 2),
+      requestPayload: JSON.stringify(safePayload, null, 2),
       requestMetadata: {
         provider: 'ollama', endpoint: endpoint + '/v1/systemone',
-        stream: false, think: false, imageCount: 0,
+        stream: false, think: false, imageCount: images?.length ?? 0,
         keepAlive: 'Ollama default',
         // This API does not accept generation controls or a stream token budget.
         options: { contextTokens: 0, generationTokenLimit: 0 },
@@ -41,10 +46,18 @@ export async function requestSystemOneDecision(input: {
     });
   };
   try {
+    if (images?.some((item) => !/^image\/(?:jpeg|png|webp)$/.test(item.mimeType)
+      || !/^[A-Za-z0-9+/]+={0,2}$/.test(item.base64))) {
+      throw new Error('System One attend des images PNG, JPEG ou WebP encodées en Base64, sans préfixe data:.');
+    }
+    const body = JSON.stringify(payload);
+    if (body.length > 32 * 1024 * 1024) {
+      throw new Error('Les images dépassent la limite locale de 32 Mio de l’API System One. Réduisez le nombre de pages ou la taille des images.');
+    }
     const response = await fetchImpl(endpoint + '/v1/systemone', annotateNetworkRequest({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body,
       ...(signal ? { signal } : {}),
     }, 'Décider des attendus du barème', 'API System One · modèle ' + model));
     responseRaw = await response.text();

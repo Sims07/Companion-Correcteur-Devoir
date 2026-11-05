@@ -7,7 +7,7 @@ import { buildFullGradingPrompt } from './prompts/fullGradingPrompt.ts';
 import { buildTranscriptionPrompt, buildStudentIdentityPrompt, buildTeacherAnnotationPrompt } from './prompts/visionPrompts.ts';
 import { requireCorrectionMethodAvailable } from '../../domain/correctionMethod.ts';
 import { scoreCriterionDecisions } from '../../domain/criterionDecision.ts';
-import { isNativeDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from '../../domain/systemOneDecision.ts';
+import { isNativeDecisionModel, isVisualDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from '../../domain/systemOneDecision.ts';
 import { requestSystemOneDecision } from './systemOneTransport.ts';
 import { buildCriterionDecisionPrompt, criterionDecisionSchema } from './decisionPrompts.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
@@ -305,9 +305,10 @@ export function createOllamaProvider(
       const endpoint = normalizedEndpoint(settings.endpoint);
       const providerName = settings.apiCompatible ? 'API compatible OpenAI' : 'Ollama';
       const visionOnly = request.visionOnly === true;
+      const directVisualDecision = request.directVisualDecision === true;
       onProgress?.({ type: 'phase', phase: 'preparation' });
       const hasTranscription = Boolean(request.transcription?.trim());
-      if (!visionOnly && !hasTranscription && !(settings.visionModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
+      if (!visionOnly && !directVisualDecision && !hasTranscription && !(settings.visionModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
       if (!visionOnly && !(settings.analysisModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle d’analyse pour noter la transcription.');
       if (visionOnly && !(settings.visionModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de vision pour évaluer la lecture des images.');
       const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
@@ -316,16 +317,28 @@ export function createOllamaProvider(
       if (!visionOnly && settings.correctionMethod !== 'decision' && isNativeDecisionModel(analysisModel)) {
         throw new Error('Le modèle « ' + analysisModel + ' » est décisionnel et ne prend pas en charge le chat. Sélectionnez la méthode de correction décisionnelle ou un modèle génératif.');
       }
-      if (!hasTranscription && isNativeDecisionModel(visionModel)) {
+      if (!directVisualDecision && !hasTranscription && isNativeDecisionModel(visionModel)) {
         throw new Error('Le modèle de lecture « ' + visionModel + ' » ne prend pas en charge la transcription via le chat. Choisissez un modèle Vision génératif.');
       }
       if (settings.correctionMethod === 'decision' && isNativeDecisionModel(analysisModel) && settings.apiCompatible) {
         throw new Error('Le modèle « ' + analysisModel + ' » nécessite l’API System One d’Ollama. Sélectionnez Ollama local comme fournisseur, et non l’API compatible Chat Completions.');
       }
+      if (directVisualDecision) {
+        if (settings.correctionMethod !== 'decision' || !isVisualDecisionModel(analysisModel) || settings.apiCompatible) {
+          throw new Error('La décision sur image exige un modèle Ollama local D1 ou D3 et la méthode décisionnelle.');
+        }
+        if (!request.images?.length || request.transcription?.trim() || request.visionOnly
+          || request.detectTeacherAnnotations || request.identifyStudent) {
+          throw new Error('La décision sur image nécessite les pages originales seules, sans transcription ni annotations à détecter.');
+        }
+        if (request.subjectImages?.length && !request.subjectTranscription?.trim()) {
+          throw new Error('Pour ce test, transcrivez le sujet de référence séparément avant la décision sur image.');
+        }
+      }
       const providerImage = (image: import('../../ports/aiProvider.ts').ImageInput) => settings.apiCompatible
         ? `data:${image.mimeType};base64,${image.base64}`
         : image.base64;
-      if (!visionModel && !request.transcription) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
+      if (!visionModel && !request.transcription && !directVisualDecision) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
       if (!analysisModel && !request.visionOnly) throw new Error('Choisissez un modèle d’analyse pour noter la transcription.');
 
       if (!request.question.trim()) throw new Error('La consigne de correction est vide.');
@@ -741,7 +754,7 @@ export function createOllamaProvider(
         }
       }
 
-      if (!transcription) {
+      if (!transcription && !directVisualDecision) {
         onStage?.('reading');
         onProgress?.({ type: 'phase', phase: 'reading' });
         
@@ -898,6 +911,7 @@ export function createOllamaProvider(
           const prepared = prepareSystemOneRubric({
             criteria, transcription: transcription ?? '', question: request.question,
             ...(subjectTranscription ? { subjectTranscription } : {}),
+            ...(directVisualDecision ? { visualEvidence: true } : {}),
           });
           for (const [index, criterion] of criteria.entries()) {
             onCriterionUpdate?.({ criterionId: criterion.id, index: index + 1, total: criteria.length, attempt: 1, status: 'started' });
@@ -906,9 +920,10 @@ export function createOllamaProvider(
           try {
             const result = await requestSystemOneDecision({
               endpoint, model: analysisModel, prepared, fetchImpl,
+              ...(directVisualDecision ? { images: request.images } : {}),
               ...(signal ? { signal } : {}), onDiagnosticResult,
             });
-            const scored = scoreSystemOneRubric(transcription ?? '', prepared, result);
+            const scored = scoreSystemOneRubric(transcription ?? '', prepared, result, directVisualDecision);
             scored.forEach((proposal, index) => {
               proposals.push(proposal);
               onCriterionUpdate?.({ criterionId: proposal.criterionId, index: index + 1, total: criteria.length, attempt: 1, status: 'completed', proposal });
@@ -967,7 +982,7 @@ export function createOllamaProvider(
           }
         }
         return JSON.stringify({
-          summary: 'Décisions structurées selon les attendus du barème.',
+          summary: directVisualDecision ? 'Décisions provisoires directement sur les photos, à vérifier par le professeur.' : 'Décisions structurées selon les attendus du barème.',
           criteria: proposals,
           questionsForTeacher: proposals.flatMap((item) => item.questionForTeacher ? [item.questionForTeacher] : []),
           finalScore: sumGradeScores(proposals.map((item) => item.points)),

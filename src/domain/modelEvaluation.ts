@@ -14,6 +14,8 @@ export interface ModelEvaluationConfiguration {
   thinking: boolean;
   criterionByCriterion?: boolean;
   correctionMethod?: CorrectionMethod;
+  /** Direct image decisions are an experimental evaluation option, not a teacher default. */
+  directVisualDecision?: boolean;
 }
 
 export interface ModelEvaluationOutput<T> {
@@ -40,6 +42,7 @@ export interface ModelEvaluationOptions<T> {
   configurations: ModelEvaluationConfiguration[];
   /** Restrict progress accounting to the independently evaluated stage(s). */
   stages?: Array<'reading' | 'analysis'>;
+  stagesForConfiguration?: (configuration: ModelEvaluationConfiguration) => Array<'reading' | 'analysis'>;
   execute: (configuration: ModelEvaluationConfiguration, isCancelled: () => boolean, onStage: (stage: 'reading' | 'analysis') => void) => Promise<T>;
   isCancelled?: () => boolean;
   onProgress?: (progress: ModelEvaluationProgress) => void;
@@ -57,7 +60,8 @@ export async function runModelEvaluation<T>(options: ModelEvaluationOptions<T>):
   const now = options.now ?? Date.now;
   const outputs: ModelEvaluationOutput<T>[] = [];
   const stages = options.stages?.length ? options.stages : ['reading', 'analysis'];
-  const totalSteps = configurations.length * stages.length;
+  const totalSteps = configurations.reduce((sum, configuration) => sum +
+    (options.stagesForConfiguration?.(configuration) ?? stages).length, 0);
   let completedSteps = 0;
   const report = (currentConfiguration: ModelEvaluationConfiguration | null, status: ModelEvaluationProgress['status'], currentStage: ModelEvaluationProgress['currentStage'] = null) => {
     onProgress?.({ completed: outputs.length, total: configurations.length, currentConfiguration, status, completedSteps, totalSteps, currentStage });
@@ -65,18 +69,19 @@ export async function runModelEvaluation<T>(options: ModelEvaluationOptions<T>):
 
   for (const configuration of configurations) {
     if (isCancelled()) break;
+    const activeStages = options.stagesForConfiguration?.(configuration) ?? stages;
     let currentStage: 'reading' | 'analysis' | null = null;
     report(configuration, 'running');
     const started = now();
     const startedAt = new Date(started).toISOString();
     try {
       const value = await execute(configuration, isCancelled, (stage) => {
-        if (currentStage === 'reading' && stage === 'analysis' && stages.includes('reading')) completedSteps += 1;
+        if (currentStage === 'reading' && stage === 'analysis' && activeStages.includes('reading')) completedSteps += 1;
         currentStage = stage;
         report(configuration, 'running', currentStage);
       });
       const finished = now();
-      if (currentStage && stages.includes(currentStage)) completedSteps += 1;
+      if (currentStage && activeStages.includes(currentStage)) completedSteps += 1;
       outputs.push({ configuration, startedAt, finishedAt: new Date(finished).toISOString(), elapsedMs: Math.max(0, finished - started), status: 'success', value });
       if (isCancelled()) break;
     } catch (cause) {
@@ -191,6 +196,8 @@ export interface ModelEvaluationResultSnapshot {
   error?: string;
   /** Per-call local LLM traces, including prompt and raw response (never image bytes). */
   diagnosticRuns?: ModelEvaluationCallTrace[];
+  /** Provenance persisted with a result so the benchmark remains interpretable. */
+  directVisualDecision?: boolean;
 }
 
 export interface ModelEvaluationRecord {
