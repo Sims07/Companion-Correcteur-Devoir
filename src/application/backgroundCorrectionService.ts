@@ -110,7 +110,7 @@ export function createBackgroundCorrectionService(
     const fingerprint = await repository.fingerprintImages(job.subjectImages);
     return JSON.stringify([
       job.assignmentId,
-      settings.endpoint.trim().replace(/\\/+$/, ''),
+      settings.endpoint.trim().replace(/[/]+$/, ''),
       settings.apiCompatible === true,
       settings.visionModel?.trim() || job.visionModel,
       settings.transcriptionPromptMode ?? 'auto',
