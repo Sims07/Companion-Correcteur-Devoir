@@ -46,4 +46,4 @@ describe('local observability incident triage', () => {
     expect(recentObservabilityIncidents([])).toEqual([]);
     expect(recentObservabilityIncidents([sample('one', 'error', '2026-11-03T10:00:00.000Z')], -1)).toEqual([]);
   });
-}
+});
