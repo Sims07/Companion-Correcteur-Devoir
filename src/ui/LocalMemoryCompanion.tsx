@@ -4,7 +4,7 @@ import { fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_
 import type { LocalCorrection } from '../domain/localCorrection.ts';
 import { buildLocalMemoryContext, createTeacherMemoryEntry } from '../domain/localMemoryContext.ts';
 import './localMemory.css';
-import { Button, Dialog } from './design-system/index.ts';
+import { Button, Dialog, StatusNotice, type StatusTone } from './design-system/index.ts';
 
 const CORRECTION_LABEL_KEY = 'companion-current-correction-label';
 
@@ -38,6 +38,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
   const [entries, setEntries] = useState<LocalMemoryEntry[]>([]);
   const [suggestions, setSuggestions] = useState<LocalMemoryEntry[]>([]);
   const [status, setStatus] = useState('');
+  const [statusTone, setStatusTone] = useState<StatusTone>('info');
   const importRef = useRef<HTMLInputElement>(null);
 
   const scope = useMemo(() => ({ correctionId, rubricFingerprint: rubric.fingerprint }), [correctionId, rubric.fingerprint]);
@@ -59,6 +60,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
         setSuggestions(candidateEntries.slice(0, 5));
       }
     } catch (cause) {
+      setStatusTone('error');
       setStatus(cause instanceof Error ? cause.message : 'Impossible de charger vos règles de correction.');
     }
   }
@@ -111,6 +113,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
     setLabel(selected.label);
     setFeedback('');
     setSuggestions([]);
+    setStatusTone('info');
     setStatus(`Correction « ${selected.label} » reprise. Les retours de cette correction sont à nouveau actifs.`);
   }
 
@@ -123,6 +126,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
     setLabel(newLabel);
     setFeedback('');
     setSuggestions([]);
+    setStatusTone('info');
     setStatus('Nouvelle correction : les retours précédents ne seront pas utilisés automatiquement. Les règles explicitement promues au barème restent disponibles.');
   }
 
@@ -134,10 +138,12 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
       await service.saveMemory(createTeacherMemoryEntry({ correctionId, rubricFingerprint: rubric.fingerprint, text, promotedToRubric: promote }));
       setFeedback('');
       setPromote(false);
+      setStatusTone('success');
       setStatus(promote ? 'Règle enregistrée pour ce barème.' : 'Retour enregistré pour cette correction.');
       await refresh();
       await refreshCorrections();
     } catch (cause) {
+      setStatusTone('error');
       setStatus(cause instanceof Error ? cause.message : 'Impossible d’enregistrer cette décision sur cet appareil.');
     }
   }
@@ -146,6 +152,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
     await service.deleteMemoryForCorrection(correctionId);
     setEntries([]);
     setSuggestions([]);
+    setStatusTone('success');
     setStatus('Les retours de cette correction ont été effacés de cet appareil.');
   }
 
@@ -155,6 +162,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
     await service.deleteCorrection(id);
     if (id === correctionId) startNewCorrection();
     await refreshCorrections();
+    setStatusTone('success');
     setStatus(`Correction « ${selected.label} » supprimée.`);
   }
 
@@ -175,9 +183,11 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
       const payload = JSON.parse(await file.text()) as { entries?: LocalMemoryEntry[] };
       const imported = (payload.entries ?? []).filter((entry) => entry.text && entry.rubricFingerprint === rubric.fingerprint);
       for (const entry of imported) await service.saveMemory({ ...entry, correctionId });
+      setStatusTone('success');
       setStatus(`${imported.length} retour(s) importé(s) pour ce barème.`);
       await refresh();
     } catch (cause) {
+      setStatusTone('error');
       setStatus(cause instanceof Error ? cause.message : 'Fichier de mémoire invalide.');
     } finally {
       if (importRef.current) importRef.current.value = '';
@@ -241,7 +251,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
             }}>Supprimer cette correction</button></div>
         </section>
         <input ref={importRef} className="visually-hidden" type="file" accept="application/json,.json" onChange={(event) => void importMemory(event.currentTarget.files?.[0])} />
-        {status && <p className="memory-status" role="status">{status}</p>}
+        {status && <StatusNotice tone={statusTone}>{status}</StatusNotice>}
         <details className="memory-details"><summary>Voir les notes utilisées pour aider l’IA</summary><p>{promptContext || 'Aucune note pertinente sélectionnée pour cette analyse. Les règles du barème et les retours de ce devoir peuvent être transmis au modèle local comme contexte complémentaire.'}</p></details>
       </aside>}
       {pendingCorrectionDeletion && <Dialog

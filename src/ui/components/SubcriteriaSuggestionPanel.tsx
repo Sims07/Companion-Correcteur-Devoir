@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { appendSuggestedSubcriteria, normalizedSubcriterionTitle, suggestSubcriteriaFromDescription, type SuggestedSubcriterion } from '../../domain/rubricSubcriteriaSuggestion.ts';
 import { getRubricSubcriteria, type RubricCriterion } from '../../domain/rubric.ts';
 import { sumGradeScores } from '../../domain/scorePrecision.ts';
-import { Button } from '../design-system/index.ts';
+import { Button, StatusNotice, type StatusTone } from '../design-system/index.ts';
 import './SubcriteriaSuggestionPanel.css';
 
 interface Props {
@@ -19,6 +19,7 @@ export function SubcriteriaSuggestionPanel({ criterion, onApply }: Props) {
   const [source, setSource] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<SuggestedSubcriterion[]>([]);
   const [message, setMessage] = useState('');
+  const [messageTone, setMessageTone] = useState<StatusTone>('info');
   const current = signature(criterion);
   const unchanged = source === current;
   const existing = getRubricSubcriteria(criterion);
@@ -34,6 +35,7 @@ export function SubcriteriaSuggestionPanel({ criterion, onApply }: Props) {
     const suggestions = suggestSubcriteriaFromDescription(criterion);
     setSource(current);
     setDrafts(suggestions);
+    setMessageTone('warning');
     setMessage(suggestions.length === 0
       ? 'Aucun nouvel attendu distinct trouvé. Séparez les éléments par un point-virgule ou un retour à la ligne.'
       : '');
@@ -47,13 +49,14 @@ export function SubcriteriaSuggestionPanel({ criterion, onApply }: Props) {
       setSource(null);
       setMessage('');
     } catch (cause) {
+      setMessageTone('error');
       setMessage(cause instanceof Error ? cause.message : 'Impossible de créer ces sous-critères.');
     }
   }
 
   return <div className="rubric-subcriteria-suggestion">
     <Button variant="secondary" disabled={!criterion.description.trim()} onClick={propose}>Proposer des sous-critères depuis les attendus</Button>
-    {unchanged && message && <p className="rubric-subcriteria-suggestion-feedback" role="status">{message}</p>}
+    {unchanged && message && <StatusNotice tone={messageTone}>{message}</StatusNotice>}
     {unchanged && drafts.length > 0 && <section className="rubric-subcriteria-suggestion-preview" role="region" aria-label="Proposition de sous-critères">
       <div className="rubric-subcriteria-suggestion-heading"><strong>{drafts.length} sous-critère{drafts.length > 1 ? 's' : ''} proposé{drafts.length > 1 ? 's' : ''}</strong><span>À vérifier avant ajout</span></div>
       <p>Vérifiez les intitulés et les points. Les attendus d’origine et les sous-critères existants seront conservés.</p>
@@ -64,10 +67,10 @@ export function SubcriteriaSuggestionPanel({ criterion, onApply }: Props) {
           <button type="button" className="icon-button" aria-label={`Écarter l’attendu ${index + 1}`} onClick={() => setDrafts((items) => items.filter((_, i) => i !== index))}>×</button>
         </div>)}
       </div>
-      <p className={valid ? 'validation valid' : 'validation invalid'} role="status">
+      <StatusNotice tone={valid ? 'success' : 'warning'}>
         Total après ajout : {total} / {criterion.maxPoints} points
         {drafts.some((item) => item.maxPoints === null) ? ' · Complétez les points non précisés.' : !valid ? ' · Vérifiez les intitulés et la répartition.' : ' · Prêt à ajouter.'}
-      </p>
+      </StatusNotice>
       <div className="rubric-subcriteria-suggestion-actions">
         <Button disabled={!valid} onClick={apply}>Ajouter {drafts.length} sous-critère{drafts.length > 1 ? 's' : ''}</Button>
         <Button variant="secondary" onClick={() => { setSource(null); setDrafts([]); setMessage(''); }}>Annuler</Button>

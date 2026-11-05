@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createRubricExport } from '../../domain/rubricExport.ts';
 import type { Rubric } from '../../domain/rubric.ts';
+import { StatusNotice, type StatusTone } from '../design-system/index.ts';
 import './RubricExportPanel.css';
 interface RubricExportPanelProps { rubric: Rubric }
 function fileName(value: string): string {
@@ -10,6 +11,7 @@ function fileName(value: string): string {
 export function RubricExportPanel({ rubric }: RubricExportPanelProps) {
  const [selectedIds, setSelectedIds] = useState<string[]>(() => rubric.criteria.map((criterion) => criterion.id));
  const [message, setMessage] = useState('');
+ const [messageTone, setMessageTone] = useState<StatusTone>('success');
  const criteriaKey = rubric.criteria.map((criterion) => criterion.id).join('|');
  useEffect(() => { setSelectedIds(rubric.criteria.map((criterion) => criterion.id)); }, [criteriaKey]);
  const allSelected = rubric.criteria.length > 0 && rubric.criteria.every((criterion) => selectedIds.includes(criterion.id));
@@ -19,8 +21,9 @@ export function RubricExportPanel({ rubric }: RubricExportPanelProps) {
    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
    const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
    anchor.href = url; anchor.download = fileName(rubric.title); anchor.click(); URL.revokeObjectURL(url);
+   setMessageTone('success');
    setMessage(`${payload.criteria.length} critère(s) exporté(s).`);
-  } catch (cause) { setMessage(cause instanceof Error ? cause.message : 'Impossible de préparer cet export.'); }
+  } catch (cause) { setMessageTone('error'); setMessage(cause instanceof Error ? cause.message : 'Impossible de préparer cet export.'); }
  }
  if (!rubric.criteria.length) return null;
  return <details className="rubric-export-panel"><summary>Exporter des critères</summary><div className="rubric-export-content">
@@ -31,6 +34,6 @@ export function RubricExportPanel({ rubric }: RubricExportPanelProps) {
    <span><strong>{criterion.title || 'Critère sans titre'}</strong><small>{criterion.maxPoints} point(s) · {criterion.subcriteria?.length ?? criterion.expectedElements?.length ?? 0} sous-critère(s)</small></span>
   </label>)}</div>
   <div className="rubric-export-footer"><span>{selectedIds.filter((id) => rubric.criteria.some((criterion) => criterion.id === id)).length} sélectionné(s)</span><button type="button" className="secondary-button" disabled={!selectedIds.length} onClick={exportSelection}>Télécharger le JSON</button></div>
-  {message && <p className="rubric-export-message" role="status">{message}</p>}
+  {message && <StatusNotice tone={messageTone}>{message}</StatusNotice>}
  </div></details>;
 }

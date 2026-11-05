@@ -6,7 +6,8 @@ test('teacher decisions stay available locally after reloading the page', async 
 
   await page.getByLabel('Votre décision').fill('Pour ce barème, accepter le terme diffusion facilitée si le mécanisme est expliqué.');
   await page.getByRole('button', { name: 'Enregistrer la décision' }).click();
-  await expect(page.locator('.memory-status')).toContainText('Retour enregistré');
+  await expect(page.locator('.memory-panel .ds-status-notice')).toContainText('Retour enregistré');
+  await expect(page.locator('.memory-panel .ds-status-notice')).toHaveCSS('border-left-color', 'rgb(39, 98, 58)');
   await expect(page.locator('.memory-entry')).toContainText('accepter le terme diffusion facilitée');
 
   await page.reload();
@@ -27,5 +28,5 @@ test('deleting a local correction uses a cancellable Atelier dialog', async ({ p
   await page.getByRole('button', { name: 'Supprimer cette correction' }).click();
   await dialog.getByRole('button', { name: 'Supprimer la correction' }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.locator('.memory-status')).toContainText('supprimée');
+  await expect(page.locator('.memory-panel .ds-status-notice')).toContainText('supprimée');
 });
