@@ -7,6 +7,7 @@ import { TeacherReviewAlert } from './components/TeacherReviewAlert.tsx';
 import { teacherReviewStatus } from '../domain/teacherReviewSummary.ts';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
 import { isModelEvaluationQuotaError, type ModelEvaluationService } from '../application/modelEvaluationService.ts';
+import type { StorageDiagnosticsService } from '../application/storageDiagnosticsService.ts';
 import { createAsyncActionGuard } from '../domain/asyncActionGuard.ts';
 import { normalizeGradeScore, parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion, type CriterionProposal } from '../domain/grading.ts';
 import { validateReviewedCorrection } from '../domain/reviewFinalization.ts';
@@ -291,7 +292,7 @@ function getLocalMemoryCorrectionId(): string | null {
   }
 }
 
-export function App({ service, archiveService, evaluationService, backgroundCorrectionService, diagramAnalysisService, loadSalukiModel }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; backgroundCorrectionService?: BackgroundCorrectionService; diagramAnalysisService: ScientificDiagramAnalysisService; loadSalukiModel: (settings: { endpoint: string; apiKey: string }) => Promise<void> }) {
+export function App({ service, archiveService, evaluationService, backgroundCorrectionService, diagramAnalysisService, loadSalukiModel, storageDiagnosticsService }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; backgroundCorrectionService?: BackgroundCorrectionService; diagramAnalysisService: ScientificDiagramAnalysisService; storageDiagnosticsService?: StorageDiagnosticsService; loadSalukiModel: (settings: { endpoint: string; apiKey: string }) => Promise<void> }) {
   const backgroundService: BackgroundCorrectionService = backgroundCorrectionService ?? {
     enqueue: async () => undefined,
     updateImages: async () => undefined,
@@ -2487,7 +2488,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <p className="hint">Aucun basculement automatique vers un autre fournisseur n’est effectué.</p>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}
-      {interfaceMode === 'observability' && <ObservabilityDashboard records={observabilityRecords} onInspectNetworkErrors={() => { setNetworkInitialFilter('error'); setInterfaceMode('debug'); }} />}
+      {interfaceMode === 'observability' && <ObservabilityDashboard records={observabilityRecords} storageDiagnosticsService={storageDiagnosticsService} onManageEvaluations={() => { setInterfaceMode('diagnostic'); setEvaluationWorkspaceStep('history'); }} onInspectNetworkErrors={() => { setNetworkInitialFilter('error'); setInterfaceMode('debug'); }} />}
       {interfaceMode === 'diagnostic' && <section className="evaluation-page-header" aria-labelledby="evaluation-page-title">
         <div><p className="eyebrow">LABORATOIRE IA · OUTILS AVANCÉS</p><h1 id="evaluation-page-title">Évaluation des modèles</h1><p>Testez de une à trois configurations sur la même copie et le même barème. Les résultats sont enregistrés localement ; les requêtes sont envoyées au serveur de chaque profil choisi.</p><div className="evaluation-page-badges"><span>Résultats locaux</span><span>1 à 3 configurations</span><span>Validation humaine</span></div></div>
       </section>}
