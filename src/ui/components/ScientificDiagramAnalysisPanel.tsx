@@ -84,11 +84,8 @@ export function ScientificDiagramAnalysisPanel({
             <article className="scientific-diagram-result" key={diagram.id}>
               <div className="panel-heading"><div><strong>{diagram.diagramType || 'Schéma'} · page {diagram.pageNumber}</strong><p>{diagram.summary}</p></div></div>
               {images[diagram.pageNumber - 1] && <figure className="scientific-diagram-evidence">
-                <div style={{ position: 'relative', maxWidth: '560px' }}>
-                  <img src={`data:${images[diagram.pageNumber - 1].mimeType};base64,${images[diagram.pageNumber - 1].base64}`} alt={`Page ${diagram.pageNumber} contenant le schéma détecté`} style={{ display: 'block', width: '100%', height: 'auto' }} />
-                  {diagram.bounds && <div role="img" aria-label="Zone du schéma repérée par Vision" style={{ position: 'absolute', left: `${diagram.bounds.x * 100}%`, top: `${diagram.bounds.y * 100}%`, width: `${diagram.bounds.width * 100}%`, height: `${diagram.bounds.height * 100}%`, border: '2px solid #d97706', boxSizing: 'border-box', pointerEvents: 'none' }} />}
-                </div>
-                <figcaption>Repère proposé par Vision sur la page originale. Vérifiez la zone avant de retenir le commentaire.</figcaption>
+                <img src={`data:${images[diagram.pageNumber - 1].mimeType};base64,${images[diagram.pageNumber - 1].base64}`} alt={`Page ${diagram.pageNumber} contenant le schéma détecté`} style={{ display: 'block', width: '100%', maxWidth: '560px', height: 'auto' }} />
+                <figcaption>Schéma scientifique sur la page originale. Vérifiez les preuves avant de retenir la note.</figcaption>
               </figure>}
               {(diagram.criteria ?? []).map((criterion) => (
                 <div className="scientific-diagram-criterion" key={criterion.criterionId}>
