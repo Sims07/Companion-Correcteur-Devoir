@@ -16,7 +16,8 @@ describe('subcriteria suggestion from teacher expectations', () => {
       { title: 'O2', maxPoints: 1 },
       { title: 'Chloroplastes', maxPoints: 1 },
     ]);
-    const patch = appendSuggestedSubcriteria(source, suggestSubcriteriaFromDescription(source), () => 'generated-id');
+    let id = 0;
+    const patch = appendSuggestedSubcriteria(source, suggestSubcriteriaFromDescription(source), () => `generated-id-${++id}`);
     expect(validateRubric({ title: 'Biologie', criteria: [{ ...source, ...patch }] }).valid).toBe(true);
     expect(source.description).toContain('Référence');
   });
@@ -58,6 +59,6 @@ describe('subcriteria suggestion from teacher expectations', () => {
   it('ignores duplicate fragments and protects a reference paragraph', () => {
     const source = criterion('✓ Compréhension (2 pts); Compréhension (2 pts); Référence : 4/4; Synthèse (2 points)', 4);
     const proposals = suggestSubcriteriaFromDescription(source);
-    expect(proposals).toEqual([{ title: '✓ Compréhension', maxPoints: 2 }, { title: 'Compréhension', maxPoints: 2 }, { title: 'Synthèse', maxPoints: 2 }]);
+    expect(proposals).toEqual([{ title: 'Compréhension', maxPoints: 2 }, { title: 'Synthèse', maxPoints: 2 }]);
   });
 });

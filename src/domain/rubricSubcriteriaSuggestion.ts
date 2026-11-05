@@ -29,7 +29,7 @@ export function suggestSubcriteriaFromDescription(criterion: RubricCriterion): S
   const suggestions: SuggestedSubcriterion[] = [];
 
   for (const fragment of fragments) {
-    const clean = fragment.replace(/^(?:(?:[-•*]\s+)|(?:\d+[.)]\s+))+/u, '').trim();
+    const clean = fragment.replace(/^(?:(?:[-•*✓✔☑]\s+)|(?:\d+[.)]\s+))+/u, '').trim();
     if (referenceHeading.test(clean)) continue;
     const points = clean.match(pointsSuffix);
     const title = (points ? clean.slice(0, points.index) : clean).replace(/[\s.:,;–—-]+$/u, '').trim();
