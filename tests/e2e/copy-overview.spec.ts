@@ -330,3 +330,31 @@ test('teacher can explicitly start correction for copies already loaded in the a
   await expect(page.locator('.copy-overview-grid .correction-series-card').filter({ hasText: 'Copie en attente 1' })).toBeVisible();
   await expect(page.locator('.copy-overview-grid .correction-series-card').filter({ hasText: 'Copie en attente 2' })).toBeVisible();
 });
+
+test('the copy search has one border and a single accessible focus ring', async ({ page }) => {
+  await prepareLocalWorkspace(page);
+  await seedJobs(page, [
+    { id: 'search-target', label: 'Copie ciblée', status: 'ready', updatedAt: '2026-11-02T09:00:00.000Z' },
+    { id: 'search-other', label: 'Copie de contrôle', status: 'ready', updatedAt: '2026-11-02T08:00:00.000Z' },
+  ]);
+  await page.reload();
+  await openActiveAssignment(page);
+  await copyNavigation(page).click();
+  await page.locator('.copy-overview-filters').getByRole('button', { name: /Toutes/ }).click();
+
+  const search = page.getByRole('searchbox', { name: 'Rechercher par nom d’étudiant ou libellé' });
+  const container = page.locator('.copy-overview-search');
+  await expect(search).toBeVisible();
+  await expect.poll(() => search.evaluate((input) => getComputedStyle(input).borderTopWidth)).toBe('0px');
+  await expect.poll(() => search.evaluate((input) => getComputedStyle(input).boxShadow)).toBe('none');
+
+  await search.focus();
+  await expect.poll(() => search.evaluate((input) => getComputedStyle(input).borderTopWidth)).toBe('0px');
+  await expect.poll(() => search.evaluate((input) => getComputedStyle(input).boxShadow)).toBe('none');
+  await expect.poll(() => container.evaluate((label) => getComputedStyle(label).boxShadow)).not.toBe('none');
+
+  await search.fill('ciblée');
+  await expect(page.locator('.copy-overview-grid .correction-series-card')).toHaveCount(1);
+  await expect(page.locator('.copy-overview-grid')).toContainText('Copie ciblée');
+  await expect(page.locator('.copy-overview-grid')).not.toContainText('Copie de contrôle');
+});
