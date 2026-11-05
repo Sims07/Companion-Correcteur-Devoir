@@ -98,7 +98,7 @@
 .teacher-flow-shell .teacher-content-column.has-copy-rail {
   display: grid;
   width: 100%;
-  grid-template-columns: 218px minmax(0, 1fr);
+  grid-template-columns: 218px clamp(18px, 2.2vw, 34px) minmax(0, 1fr) clamp(18px, 2.2vw, 34px);
   column-gap: 0;
   row-gap: 0;
   align-items: start;
@@ -106,9 +106,10 @@
 }
 .teacher-flow-shell .teacher-content-column > :not(.atelier-assignment-sidebar),
 .teacher-flow-shell .teacher-content-column.has-copy-rail > :not(.atelier-assignment-sidebar) {
-  grid-column: 2;
+  grid-column: 3;
   min-width: 0;
-  margin-inline: clamp(18px, 2.2vw, 34px);
+  max-width: 100%;
+  margin-inline: 0;
 }
 .teacher-flow-shell .teacher-content-column > .atelier-assignment-sidebar,
 .teacher-flow-shell .teacher-content-column.has-copy-rail > .atelier-assignment-sidebar {
@@ -118,7 +119,7 @@
   margin: 0;
 }
 .teacher-flow-shell .teacher-content-column > .teacher-workspace-navigation {
-  grid-column: 2;
+  grid-column: 3;
 }
 .atelier-assignment-sidebar {
   position: sticky;
@@ -387,17 +388,17 @@
 }
 @media (max-width: 1050px) {
   .teacher-flow-shell .teacher-content-column,
-  .teacher-flow-shell .teacher-content-column.has-copy-rail { grid-template-columns: 190px minmax(0,1fr); }
+  .teacher-flow-shell .teacher-content-column.has-copy-rail { grid-template-columns: 190px 18px minmax(0,1fr) 18px; }
   .atelier-assignment-sidebar { padding: 20px 12px; }
   .atelier-sidebar-tabs button { padding: 8px 6px; }
   .teacher-assignments-home .assignments-card-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media (max-width: 760px) {
   .teacher-flow-shell .teacher-content-column,
-  .teacher-flow-shell .teacher-content-column.has-copy-rail { display: grid; grid-template-columns: minmax(0,1fr); }
+  .teacher-flow-shell .teacher-content-column.has-copy-rail { display: grid; grid-template-columns: 16px minmax(0,1fr) 16px; }
   .teacher-flow-shell .teacher-content-column > .atelier-assignment-sidebar,
   .teacher-flow-shell .teacher-content-column.has-copy-rail > .atelier-assignment-sidebar {
-    grid-column: 1;
+    grid-column: 1 / -1;
     grid-row: auto;
     position: static;
     min-height: 0;
@@ -417,8 +418,8 @@
   .teacher-flow-shell .teacher-content-column > :not(.atelier-assignment-sidebar),
   .teacher-flow-shell .teacher-content-column.has-copy-rail > :not(.atelier-assignment-sidebar),
   .teacher-flow-shell .teacher-content-column > .teacher-workspace-navigation {
-    grid-column: 1;
-    margin-inline: 16px;
+    grid-column: 2;
+    margin-inline: 0;
   }
   .teacher-flow-shell .teacher-workspace-navigation { gap: 6px; flex-wrap: wrap; min-height: 54px; }
   .teacher-flow-shell .review-workspace { grid-template-columns: minmax(0,1fr); }
@@ -435,4 +436,30 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .atelier-assignment-sidebar *, .teacher-assignments-home .assignment-overview-card { transition: none; animation: none; }
+}
+
+/* The teacher memory launcher must not cover the primary grade action. */
+body:has(.teacher-flow-shell .copy-review-validation-bar) .memory-fab {
+  left: 20px;
+  right: auto;
+  bottom: 18px;
+  width: 180px;
+  padding: 9px 11px;
+  border-radius: var(--ds-radius-sm);
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+  box-shadow: var(--app-surface-shadow);
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  body:has(.teacher-flow-shell .copy-review-validation-bar) .memory-fab {
+    left: 12px;
+    right: auto;
+    bottom: 12px;
+    width: auto;
+    max-width: min(180px, 46vw);
+    padding: 7px 9px;
+    font-size: 10px;
+  }
 }
