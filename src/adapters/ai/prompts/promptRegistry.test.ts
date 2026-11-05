@@ -6,7 +6,7 @@ describe('stable prompt metadata', () => {
   it('tracks distinct prompts for local decision, native System One and vision diagrams', () => {
     expect(promptTrace('decision.chat')).toEqual({ promptId: 'decision.chat', promptVersion: 1 });
     expect(promptTrace('decision.system-one')).toEqual({ promptId: 'decision.system-one', promptVersion: 1 });
-    expect(promptTrace('diagram.scientific-analysis')).toEqual({ promptId: 'diagram.scientific-analysis', promptVersion: 3 });
+    expect(promptTrace('diagram.scientific-analysis')).toEqual({ promptId: 'diagram.scientific-analysis', promptVersion: 4 });
     expect(promptTrace('vision.copy-transcription').promptId).not.toBe(promptTrace('grading.incremental').promptId);
   });
 
