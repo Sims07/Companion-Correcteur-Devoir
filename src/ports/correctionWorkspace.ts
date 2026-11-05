@@ -15,6 +15,8 @@ export type RubricImportProgress = {
   diagnosticRun?: {
     kind: 'vision' | 'model';
     model: string;
+    promptId?: string;
+    promptVersion?: number;
     elapsedMs: number;
     raw: string;
     promptTokens?: number;
