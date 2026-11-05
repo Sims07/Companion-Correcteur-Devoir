@@ -1,9 +1,17 @@
-import type { NetworkRequestRecord } from '../adapters/network/networkInspector.ts';
 import { getObservabilityStage, type ObservabilityTrace } from './observability.ts';
+
+/** Minimal metadata contract: the domain must not depend on the HTTP adapter. */
+export type SupportNetworkRequest = {
+  method: string;
+  startedAt: string;
+  durationMs: number | null;
+  state: 'pending' | 'success' | 'error';
+  status: number | null;
+};
 
 type SupportDiagnosticInput = {
   traces: ObservabilityTrace[];
-  requests: NetworkRequestRecord[];
+  requests: SupportNetworkRequest[];
   generatedAt: string;
 };
 
