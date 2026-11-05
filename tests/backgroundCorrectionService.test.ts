@@ -611,11 +611,13 @@ describe('background correction service', () => {
 
   it('can still prewarm at idle when automatic correction is disabled', async () => {
     const f = fixture();
+    const prewarmModel = vi.fn(async () => undefined);
+    f.workspace.prewarmModel = prewarmModel;
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
     const settings = { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b', autoBackgroundCorrection: false };
 
     await service.enqueue(f.job, settings);
-    for (let attempt = 0; attempt < 50 && vi.mocked(f.workspace.prewarmModel).mock.calls.length === 0; attempt += 1) {
+    for (let attempt = 0; attempt < 50 && prewarmModel.mock.calls.length === 0; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
 
