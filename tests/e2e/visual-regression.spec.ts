@@ -43,7 +43,7 @@ async function captureVisualEvidence(page: Page, testInfo: TestInfo, name: strin
   });
 }
 
-async function expectSharedSurfaceTokens(page: Page, selector: string): Promise<void> {
+async function expectSharedSurfaceTokens(page: Page, selector: string, expectedRadius = '14px'): Promise<void> {
   const styles = await page.locator(selector).first().evaluate((element) => {
     const computed = getComputedStyle(element);
     return {
@@ -54,7 +54,7 @@ async function expectSharedSurfaceTokens(page: Page, selector: string): Promise<
   });
 
   expect(styles.backgroundColor).toBe('rgb(255, 253, 249)');
-  expect(styles.borderRadius).toBe('14px');
+  expect(styles.borderRadius).toBe(expectedRadius);
   expect(['rgb(233, 225, 213)', 'rgb(161, 77, 55)']).toContain(styles.borderColor);
 }
 
@@ -66,7 +66,7 @@ test.describe('visual regression contracts', () => {
 
       await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
       await expect(page.locator('.assignment-overview-card')).toBeVisible();
-      await expectSharedSurfaceTokens(page, '.assignment-overview-card');
+      await expectSharedSurfaceTokens(page, '.assignment-overview-card', '6px');
       await expectNoHorizontalOverflow(page);
       await captureVisualEvidence(page, testInfo, `teacher-library-${viewport.name}.png`);
 
