@@ -48,6 +48,9 @@ describe('catalogue des prompts', () => {
     expect(classificationPrompt(2, 'cassé', 'JSON')).toContain('Réponse précédente à réparer');
     expect(buildScientificDiagramPrompt(request)).toContain('CRITÈRES VISUELS');
     expect(buildScientificDiagramPrompt(request)).toContain('Ignore les marques de correction');
+    expect(buildScientificDiagramPrompt(request)).toContain('qualité graphique scientifique');
+    expect(buildScientificDiagramPrompt(request)).toContain('Ne juge jamais la beauté subjective');
+    expect(buildConciseScientificDiagramPrompt(request)).toContain('qualité graphique scientifique');
     expect(buildConciseScientificDiagramPrompt(request)).toContain('réponse beaucoup plus courte');
     expect(buildScientificDiagramRepairPrompt(request, 'JSON', 'ancien')).toContain('ancien');
   });

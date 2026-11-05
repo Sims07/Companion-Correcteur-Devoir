@@ -358,8 +358,9 @@ export function scoreSystemOneCriterion(
     const answer = selectedChoice(result.answers['expected_' + (index + 1)], ['present','absent','partial','uncertain']);
     const evidence = answer.choice === 'present' || answer.choice === 'partial'
       ? findLiteralStudentEvidence(transcription, target.title) : '';
-    const points = answer.choice === 'present' ? target.maxPoints
-      : answer.choice === 'partial' ? target.maxPoints / 2 : 0;
+    // A closed 'partial' decision has no teacher-defined numeric allocation. Keep
+    // the decision visible but do not invent a half-credit mark.
+    const points = answer.choice === 'present' ? target.maxPoints : 0;
     return { ...target, answer, evidence, points: normalizeGradeScore(points) };
   });
   // A confidently unrelated question is likely a wrong rubric, never a poor student answer.
@@ -385,6 +386,10 @@ export function scoreSystemOneCriterion(
     alignment.choice !== 'aligned' || (alignment.weak && alignment.probability < 0.5)
   );
   const incomplete = reviewed.length > 0 || alignmentReview;
+  // Partial and uncertain targets make the criterion unscored until a teacher
+  // resolves them. Weak confidence alone keeps the provisional score visible.
+  const unresolved = observations.some((observation) =>
+    observation.answer.choice === 'partial' || observation.answer.choice === 'uncertain');
   const points = sumGradeScores(observations.map((observation) => observation.points));
   const evidence = observations.find((observation) => observation.evidence)?.evidence
     ?? (observations.some((observation) => observation.answer.choice === 'present')
@@ -394,7 +399,7 @@ export function scoreSystemOneCriterion(
   return {
     criterionId: criterion.id,
     points,
-    assessmentStatus: 'evaluated',
+    assessmentStatus: unresolved ? 'not-evaluated' : 'evaluated',
     evidence,
     rationale: incomplete
       ? 'Note proposée à confirmer sur les seuls attendus signalés.'
