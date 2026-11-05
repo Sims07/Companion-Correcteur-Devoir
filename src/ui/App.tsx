@@ -1053,7 +1053,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           let classifications = isFreshCorrection ? null : pageClassifications;
           if (!classifications || classifications.length !== images.length) {
             setCriterionProgressMessage('Détection du type et de l’orientation des pages…');
-            classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, apiCompatible, onDiagnosticResult: captureDiagramDiagnostic });
+            classifications = await diagramAnalysisService.classifyPages({ images: textImages, model: visionModel, endpoint, apiKey, apiCompatible, onDiagnosticResult: captureDiagramDiagnostic, signal: abortController.signal });
             classificationWasJustCreated = true;
             const suggestions = await Promise.all(classifications.map(async (classification, index) => {
               const degrees = getConfidentDiagramRotation(classification, manualRotationAngles[index] !== undefined);
@@ -1073,13 +1073,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 try {
                   const [verification] = await diagramAnalysisService.classifyPages({
                     images: [suggestion.preview], model: visionModel, endpoint, apiKey, apiCompatible,
-                    onDiagnosticResult: captureDiagramDiagnostic,
+                    onDiagnosticResult: captureDiagramDiagnostic, signal: abortController.signal,
                   });
                   if (verification?.kind === 'scientific-diagram' && verification.confidence >= 0.9 && verification.suggestedRotation === 0 && (verification.orientationConfidence ?? 0) >= 0.92) {
                     acceptedAutomaticRotations[suggestion.index] = suggestion.preview;
                     continue;
                   }
                 } catch {
+                  if (abortController.signal.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
                   // A failed second check cancels automation; the teacher can still inspect the suggestion.
                 }
               }
@@ -1119,10 +1120,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 apiKey,
                 apiCompatible,
                 onDiagnosticResult: captureDiagramDiagnostic,
+                signal: abortController.signal,
               });
               diagramAnalysisResult = diagramResult;
               setScientificDiagramAnalysis(diagramResult);
             } catch (cause) {
+              if (abortController.signal.aborted) throw cause;
               const message = cause instanceof Error ? cause.message : 'La correction des schémas a échoué.';
               setScientificDiagramError(message);
               const manualFallback: ScientificDiagramAnalysis = {
@@ -1137,6 +1140,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           }
           if (classificationWasJustCreated && diagramImages.length > 0 && transcription) setTranscription(null);
         } catch (cause) {
+          if (abortController.signal.aborted) throw cause;
           setPageClassifications(null);
           setScientificDiagramError(cause instanceof Error ? cause.message : 'La détection des types de page a échoué. Le parcours textuel utilisera toutes les pages.');
           textImages = images;
@@ -1255,7 +1259,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       outcome = 'success';
     } catch (cause) {
       if (interfaceMode === 'teacher') setTeacherStep(textImages.length === 0 || partialCriteria.length > 0 || analysisStartedAt !== null ? 'review' : 'copy');
-      setError(abortController.signal.aborted ? 'Traitement interrompu. Les éléments déjà lus et les critères déjà évalués sont conservés.' : cause instanceof Error ? cause.message : 'La correction a échoué.');
+      if (abortController.signal.aborted) setReviewMessage('Correction arrêtée. Les éléments déjà lus restent disponibles ; vous pouvez relancer la correction.');
+      else setError(cause instanceof Error ? cause.message : 'La correction a échoué.');
     } finally {
       const finishedAt = Date.now();
       if (readingDurationMs !== null) setReadingElapsedMs(readingDurationMs);
@@ -2266,17 +2271,17 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (isStoppingOperation) return;
     setIsStoppingOperation(true);
     activeCorrectionAbortController.current?.abort();
-    rubricImportAbortController.current?.abort();
-    evaluationCancelledRef.current = true;
     try {
       await backgroundService.stopAndWait();
-      setError('Traitement interrompu à votre demande. Les copies en attente restent conservées et pourront être relancées.');
+      setCopyOverviewNotice('Correction arrêtée. Les copies restent enregistrées et pourront être reprises.');
+      setReviewMessage('Correction arrêtée à votre demande. Vous pouvez reprendre la correction quand vous le souhaitez.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de terminer l’arrêt de la correction.');
     } finally {
       setIsStoppingOperation(false);
     }
   }
 
-  const hasInterruptibleOperation = isStoppingOperation || isStartingSeriesCorrections || isAnalyzing || rubricImageImporting || evaluationProgress?.status === 'running' || allBackgroundJobs.some((job) => job.status === 'processing');
   const processingCopy = allBackgroundJobs.find((job) => job.assignmentId === activeAssignmentId && job.status === 'processing') ?? null;
   const preparingCopy = isStartingSeriesCorrections && !processingCopy
     ? [...allBackgroundJobs].filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0] ?? null
@@ -2289,7 +2294,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}{hasInterruptibleOperation && <button type="button" className="global-stop-button" onClick={() => { void stopCurrentOperations(); }} disabled={isStoppingOperation}>{isStoppingOperation ? 'Arrêt en cours…' : '■ Arrêter le traitement'}</button>}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode !== 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode !== 'teacher'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(interfaceMode === 'teacher' ? 'observability' : interfaceMode); }}>Outils IA</button></div></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode !== 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode !== 'teacher'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(interfaceMode === 'teacher' ? 'observability' : interfaceMode); }}>Outils IA</button></div></div>
       </header>
 
       {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
@@ -2802,6 +2807,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         addCopyExpanded={showCopyIntake}
         pendingCount={allBackgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').length}
         isStartingCorrections={isStartingSeriesCorrections}
+        isStoppingCorrections={isStoppingOperation}
+        onStopCorrections={() => { void stopCurrentOperations(); }}
         onStartCorrections={() => { void startSeriesCorrections(); }}
         onOpenJob={(jobId) => { void loadNextQueuedCopy(jobId); }}
         onRemoveJob={(jobId) => { void (async () => { const job = (await backgroundService.listJobs(activeAssignmentId)).find((item) => item.id === jobId); if (job) requestRemoveSeriesCopy(job); })(); }}
@@ -2975,6 +2982,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </section>}
       {interfaceMode === 'teacher' && correctionSessionMode === 'series' && <section className="panel correction-series-workspace" aria-label="Copies du devoir">
         <div className="correction-series-heading"><div><p className="eyebrow">SESSION DU DEVOIR</p><h3>{assignmentTitle.trim() || 'Devoir sans titre'}</h3><p>Ajoutez les copies de plusieurs étudiants. Chaque fichier est une copie distincte ; les pages d’un même PDF restent regroupées.</p></div><span className="correction-series-order">Correction des copies</span></div>
+        {(processingCopy || isStartingSeriesCorrections) && <div className="correction-series-current-stop"><span>{processingCopy ? 'En cours : ' + processingCopy.label : 'Préparation de la première copie…'}</span><button type="button" className="context-stop-button" onClick={() => { void stopCurrentOperations(); }} disabled={isStoppingOperation}>{isStoppingOperation ? 'Arrêt en cours…' : 'Arrêter les corrections'}</button></div>
         <div className="correction-series-metrics" aria-label="Bilan de la session">
           <article><strong>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status === 'completed').length}</strong><span>Terminées</span></article>
           <article><strong>{backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && (job.status === 'processing' || job.status === 'reviewing')).length}</strong><span>Correction en cours</span></article>
@@ -3249,6 +3257,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           {criterionProgressMessage && !criterionProgressMessage.startsWith('Chargement du modèle') && <p className="teacher-progress-hint">{criterionProgressMessage}</p>}
           {lastModelLoadDurationMs !== null && <p className="teacher-progress-hint">Chargement réel du modèle : {formatElapsed(Math.round(lastModelLoadDurationMs / 1000))}.</p>}
           <div className="teacher-progress-page-list" aria-label="État de lecture des pages">{images.map((image, index) => { const status = pageProgress[index + 1]; return <span className={status === 'doubtful' ? 'is-doubtful' : status === 'completed' ? 'is-complete' : ''} key={`${image.fileName}-${index}`}>{status === 'completed' ? '✓' : status === 'doubtful' ? '!' : '·'} Page {index + 1}</span>; })}</div>
+          <div className="context-stop-action"><button type="button" className="context-stop-button" onClick={() => { void stopCurrentOperations(); }} disabled={isStoppingOperation}>{isStoppingOperation ? 'Arrêt en cours…' : 'Arrêter cette correction'}</button></div>
           {Object.entries(pageProgress).filter(([, status]) => status === 'doubtful').map(([page]) => <p className="teacher-progress-warning" key={page}>Page {page} : lecture douteuse. <button type="button" className="text-button" onClick={() => setCopyViewerPage(Number(page) - 1)}>Voir la page</button> avant de valider la correction.</p>)}
         </div>
         <div className="analysis-timer" aria-label={`Temps écoulé : ${formatElapsed(elapsedSeconds)}`}><span>TEMPS ÉCOULÉ</span><strong>{formatElapsed(elapsedSeconds)}</strong></div>
@@ -3298,6 +3307,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <div className={activeBackgroundJob.phase === 'reading' ? 'teacher-progress-phase current' : activeBackgroundJob.phase === 'grading' || activeBackgroundJob.phase === 'complete' ? 'teacher-progress-phase complete' : 'teacher-progress-phase'}><span>{activeBackgroundJob.phase === 'grading' || activeBackgroundJob.phase === 'complete' ? '✓' : '2'}</span><div><strong>Lecture de la copie</strong><small>{activeBackgroundJob.completedPages}/{activeBackgroundJob.images.length} pages lues</small></div></div>
             <div className={activeBackgroundJob.phase === 'grading' ? 'teacher-progress-phase current' : 'teacher-progress-phase'}><span>3</span><div><strong>Correction des réponses</strong><small>{activeBackgroundJob.completedCriteria}/{activeBackgroundJob.totalCriteria} critères traités</small></div></div>
           </div>
+          <div className="context-stop-action"><button type="button" className="context-stop-button" onClick={() => { void stopCurrentOperations(); }} disabled={isStoppingOperation}>{isStoppingOperation ? 'Arrêt en cours…' : 'Arrêter cette correction'}</button></div>
         </div>
       </section>}
       {currentBackgroundJobId && activeBackgroundJob?.status === 'processing' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="live-copy-preview panel background-copy-progress" aria-labelledby="background-copy-progress-title">
