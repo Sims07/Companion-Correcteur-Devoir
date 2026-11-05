@@ -6,6 +6,50 @@ const rubric: Rubric = { title: 'Schéma', criteria: [{ id: 'labels', title: 'L�
 const valid = { diagrams: [{ id: 'd1', pageNumber: 1, diagramType: 'Cellule', summary: 'Cellule végétale', bounds: { x: 0.1, y: 0.2, width: 0.5, height: 0.4 }, criteria: [{ criterionId: 'labels', points: 1.5, evidence: 'Deux légendes correctes', confidence: 0.8, requiresTeacherReview: false }], uncertainties: [] }], overallUncertainties: [] };
 
 describe('parseScientificDiagramAnalysis', () => {
+  it('does not grade printed title or ambiguous drawing as student evidence', () => {
+    const mitosis: Rubric = { title: 'Mitose', criteria: [{
+      id: 'titles', title: 'Titre', description: 'Titre global du schéma', maxPoints: 2,
+      analysisMode: 'scientific-diagram', subcriteria: [
+        { id: 'global-title', title: 'Titre global', description: 'Titre manuscrit pertinent', maxPoints: 1 },
+        { id: 'phase-title', title: 'Noms des phases', description: 'Prophase et métaphase', maxPoints: 1 },
+      ],
+    }] };
+    const response = {
+      diagrams: [{ id: 'd1', pageNumber: 1, diagramType: 'mitose', summary: 'Quatre étapes', bounds: null, uncertainties: [] }],
+      criteria: [{
+        criterionId: 'titles', points: 2, evidence: 'Mitose et prophase', confidence: 0.8, requiresTeacherReview: false,
+        diagramIds: ['d1'], elements: [
+          { subcriterionId: 'global-title', label: 'Titre global', status: 'present', evidence: 'MITOSE imprimé dans la consigne',
+            points: 1, origin: 'printed-subject', uncertainty: 'Titre seulement visible dans la question imprimée.' },
+          { subcriterionId: 'phase-title', label: 'Noms des phases', status: 'present', evidence: 'PROPHASE écrit sous le dessin',
+            points: 1, origin: 'student-diagram', uncertainty: '' },
+        ],
+      }],
+      overallUncertainties: [],
+    };
+    const result = parseScientificDiagramAnalysis(JSON.stringify(response), mitosis, 1);
+    expect(result.criteria?.[0].points).toBe(1);
+    expect(result.criteria?.[0].requiresTeacherReview).toBe(true);
+    expect(result.criteria?.[0].elements).toEqual([
+      expect.objectContaining({ subcriterionId: 'global-title', status: 'uncertain', points: 0,
+        origin: 'printed-subject', uncertainty: 'Titre seulement visible dans la question imprimée.' }),
+      expect.objectContaining({ subcriterionId: 'phase-title', status: 'present', points: 1,
+        origin: 'student-diagram' }),
+    ]);
+    expect(result.warnings?.join(' ')).toContain('Titre seulement visible');
+  });
+
+  it('keeps historic responses without observation provenance readable', () => {
+    const withElements: Rubric = { title: 'Cellule', criteria: [{ id: 'mem', title: 'Membrane', description: '',
+      maxPoints: 1, subcriteria: [{ id: 'outline', title: 'Contour', description: '', maxPoints: 1 }] }] };
+    const legacy = { diagrams: [{ id: 'd1', pageNumber: 1, diagramType: 'cellule', summary: '', uncertainties: [] }],
+      criteria: [{ criterionId: 'mem', points: 1, evidence: 'Contour visible', confidence: 0.9, requiresTeacherReview: false,
+        elements: [{ label: 'Contour', status: 'present', points: 1, evidence: 'Contour visible' }] }] };
+    const result = parseScientificDiagramAnalysis(JSON.stringify(legacy), withElements, 1);
+    expect(result.criteria?.[0].elements?.[0]).toMatchObject({ status: 'present', points: 1 });
+    expect(result.criteria?.[0].elements?.[0].origin).toBeUndefined();
+  });
+
   it('accepts a valid result and derives maximum points from the teacher rubric', () => {
     const result = parseScientificDiagramAnalysis(JSON.stringify(valid), rubric, 2);
     expect(result.diagrams[0].criteria[0]).toMatchObject({ points: 1.5, maxPoints: 2, title: 'Légendes' });
