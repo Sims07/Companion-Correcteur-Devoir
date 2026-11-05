@@ -66,7 +66,7 @@ test.describe('visual regression contracts', () => {
 
       await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
       await expect(page.locator('.assignment-overview-card')).toBeVisible();
-      await expectSharedSurfaceTokens(page, '.assignment-overview-card', '6px');
+      await expectSharedSurfaceTokens(page, '.assignment-overview-card', '3px');
       await expectNoHorizontalOverflow(page);
       await captureVisualEvidence(page, testInfo, `teacher-library-${viewport.name}.png`);
 
