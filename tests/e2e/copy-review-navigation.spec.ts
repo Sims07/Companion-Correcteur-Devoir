@@ -60,7 +60,7 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
   await page.locator('.copy-overview-filters').getByRole('button', { name: /À vérifier/ }).click();
   await page.locator('.copy-overview-grid li').filter({ hasText: '01-reprendre' }).getByRole('button', { name: 'Ouvrir', exact: true }).click();
 
-  await expect(page.getByText('Copie 1 sur 8')).toBeVisible();
+  await expect(page.locator('.copy-review-position-label')).toHaveText('Copie 1 / 8');
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('01-reprendre');
   await expect(page.getByRole('button', { name: 'Modifier le nom de l’étudiant' })).toBeVisible();
   await expect(page.locator('#student-label')).toHaveCount(0);
@@ -78,7 +78,7 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
     await expect(nextButton, 'La navigation doit rester disponible avant d’ouvrir ' + expectedLabels[index]).toBeVisible();
     await expect(nextButton, 'La copie suivante doit être accessible : ' + expectedLabels[index]).toBeEnabled();
     await nextButton.click();
-    await expect(page.locator('.copy-review-position strong')).toHaveText('Copie ' + (index + 2) + ' sur 8');
+    await expect(page.locator('.copy-review-position-label')).toHaveText('Copie ' + (index + 2) + ' / 8');
     await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText(expectedLabels[index]);
   }
   await expect(page.getByRole('button', { name: 'Copie suivante' })).toBeDisabled();
