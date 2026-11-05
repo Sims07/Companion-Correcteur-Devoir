@@ -54,39 +54,34 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
 
 
 test('pending HTTP requests are informational rather than warnings', async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem('companion-correcteur:network-inspector:v1', JSON.stringify([{
-      id: 'network-pending-palette-fixture',
-      method: 'POST',
-      url: 'http://127.0.0.1:4173/network-pending-palette-fixture',
-      intent: 'Analyse en cours',
-      context: 'Palette B',
-      startedAt: new Date().toISOString(),
-      durationMs: null,
-      state: 'pending',
-      status: null,
-      statusText: '',
-      requestHeaders: {},
-      responseHeaders: {},
-      requestBody: '',
-      responseBody: '',
-      error: null,
-    }]));
+  // An old pending record becomes an interrupted error on reload. A live
+  // request, held open by the test server, is the correct fixture here.
+  let releaseRequest: () => void = () => undefined;
+  await page.route('**/network-pending-palette-fixture', async (route) => {
+    await new Promise<void>((resolve) => { releaseRequest = resolve; });
+    await route.fulfill({ status: 200, body: 'ok' });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Inspecteur réseau/ }).click();
-  await page.getByRole('group', { name: 'Filtrer par statut' }).getByRole('button', { name: 'En cours' }).click();
-  const progress = await page.evaluate(() => {
-    const probe = document.createElement('span');
-    probe.style.color = 'var(--ds-color-progress)';
-    document.body.append(probe);
-    const value = getComputedStyle(probe).color;
-    probe.remove();
-    return value;
+  await page.evaluate(() => {
+    void fetch('/network-pending-palette-fixture');
   });
-  const row = page.getByRole('listitem').filter({ hasText: 'network-pending-palette-fixture' });
-  await expect(row).toBeVisible();
-  await expect(row.locator('.network-state.pending')).toHaveCSS('color', progress);
-  await expect(page.locator('.network-pending-badge')).toHaveCSS('color', progress);
+  try {
+    await page.getByRole('button', { name: 'Outils IA' }).click();
+    await page.getByRole('button', { name: /Inspecteur réseau/ }).click();
+    await page.getByRole('group', { name: 'Filtrer par statut' }).getByRole('button', { name: 'En cours' }).click();
+    const progress = await page.evaluate(() => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--ds-color-progress)';
+      document.body.append(probe);
+      const value = getComputedStyle(probe).color;
+      probe.remove();
+      return value;
+    });
+    const row = page.getByRole('listitem').filter({ hasText: 'network-pending-palette-fixture' });
+    await expect(row).toBeVisible();
+    await expect(row.locator('.network-state.pending')).toHaveCSS('color', progress);
+    await expect(page.locator('.network-pending-badge')).toHaveCSS('color', progress);
+  } finally {
+    releaseRequest();
+  }
 });
