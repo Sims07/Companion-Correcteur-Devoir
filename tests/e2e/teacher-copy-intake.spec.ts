@@ -75,7 +75,8 @@ test('a teacher can cancel or confirm removing one imported copy without affecti
     expect(dialog.message()).toContain('1 page(s)');
     await dialog.accept();
   });
-  await remove.click();
+  // Dispatch directly: the removed card can unmount before Playwright's click retry finishes.
+  await remove.dispatchEvent('click');
   await expect(cards).toHaveCount(1);
   await expect(cards.first()).toContainText('etudiant-b.png');
   await expect(page.getByRole('button', { name: /En attente/ })).toContainText('1');
