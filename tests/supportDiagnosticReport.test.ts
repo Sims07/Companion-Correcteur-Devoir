@@ -35,6 +35,14 @@ describe('privacy-safe support diagnostics', () => {
     }
   });
 
+  it('redacts a model field that unexpectedly contains a URL or free-form private data', () => {
+    const unsafe = { ...trace, diagnosticRuns: [{ model: 'https://PRIVATE-URL-SECRET.example/token', stage: 'analysis', elapsedMs: 100, error: 'failed' }] };
+    const result = buildSupportDiagnosticReport({ traces: [unsafe], requests: [], generatedAt: '2026-11-05T06:10:00.000Z' });
+    expect(result).toContain('modèle non communiqué');
+    expect(result).not.toContain('PRIVATE');
+    expect(result).not.toContain('https://');
+  });
+
   it('reports empty histories without fabricating requests or error details', () => {
     const report = buildSupportDiagnosticReport({ traces: [], requests: [], generatedAt: '2026-11-05T06:10:00.000Z' });
     expect(report).toContain('Exécutions enregistrées : 0 · Échecs : 0');
