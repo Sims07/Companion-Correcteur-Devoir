@@ -8,5 +8,6 @@ describe('teacher correction strategy safeguard', () => {
     expect(app).toContain('<option value="generative">Classique — vision et analyse</option>');
     expect(app).toContain('<option value="decision">');
     expect(app).toContain('correctionMethod, ...((interfaceMode');
+    expect(app).toContain("profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'");
   });
 });

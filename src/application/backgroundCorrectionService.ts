@@ -8,6 +8,7 @@ import type { GradingProgressEvent, OllamaSettings } from '../ports/aiProvider.t
 import type { OllamaGateway } from '../ports/correctionWorkspace.ts';
 import { resolveIdentifiedCopyLabel, type StudentIdentity } from '../domain/studentIdentity.ts';
 import { partitionScientificRubric, mergeScientificDiagramCriteria } from '../domain/scientificRubricRouting.ts';
+import { mergeDecisionScientificDiagramCriteria } from '../domain/scientificDiagramDecisions.ts';
 import { routeScientificPages } from '../domain/scientificPageClassification.ts';
 import type { ScientificDiagramAnalyzer } from '../ports/scientificDiagramAnalysis.ts';
 
@@ -310,7 +311,10 @@ export function createBackgroundCorrectionService(
                 signal: requestAbortController.signal,
               }));
             }
-            const visualProposal = mergeScientificDiagramCriteria(
+            const mergeVisual = (current.correctionMethod ?? 'generative') === 'decision'
+              ? mergeDecisionScientificDiagramCriteria
+              : mergeScientificDiagramCriteria;
+            const visualProposal = mergeVisual(
               { ...current.rubric, criteria: visualRubric.diagramCriteria },
               null,
               visualAnalysis,

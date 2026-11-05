@@ -17,6 +17,7 @@ import { shouldRunScientificDiagramAnalysis, type ScientificDiagramAnalysis } fr
 import { resolveAmbiguousPageClassification, routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
 import { accumulateClockwiseRotation, getConfidentDiagramRotation } from '../domain/scientificPageOrientation.ts';
 import { mergeScientificDiagramCriteria, partitionScientificRubric, shouldRunTeacherScientificDiagramWorkflow } from '../domain/scientificRubricRouting.ts';
+import { mergeDecisionScientificDiagramCriteria } from '../domain/scientificDiagramDecisions.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, GradingProgressEvent, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/diagnosticReference.ts';
@@ -1270,7 +1271,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         setCriterionProgressMessage('Les critères graphiques sont évalués directement sur les schémas ; les critères textuels sans page rédigée restent à vérifier.');
       }
       const parsed = interfaceMode === 'teacher'
-        ? mergeScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult)
+        ? (correctionMethod === 'decision'
+          ? mergeDecisionScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult)
+          : mergeScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult))
         : textProposal;
       if (!parsed) throw new Error('Aucune proposition de correction exploitable n’a été produite.');
       diagnosticProposal = parsed;
@@ -2392,7 +2395,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <div className="ai-profile-row">
             <DesignSystemSelect id="ai-model-profile" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else setSelectedAiModelProfileId(''); }}>
               <option value="">Configuration actuelle</option>
-              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'}</option>)}
+              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'} · {profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}
             </DesignSystemSelect>
             <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
           </div>
@@ -2508,7 +2511,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <div className="ai-profile-row">
             <DesignSystemSelect id="debug-ai-model-profile" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else setSelectedAiModelProfileId(''); }}>
               <option value="">Configuration actuelle</option>
-              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'}</option>)}
+              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'} · {profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}
             </DesignSystemSelect>
             <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
           </div>
