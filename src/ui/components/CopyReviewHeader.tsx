@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
 import { Button } from '../design-system/components/Button.tsx';
 import { TextInput } from '../design-system/components/TextInput.tsx';
 
@@ -33,17 +33,12 @@ export function CopyReviewHeader({
 }: CopyReviewHeaderProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState(studentLabel);
-  const nameInputRef = useRef<HTMLInputElement>(null);
   const previousTitle = previousLabel ? 'Copie précédente : ' + previousLabel : 'Aucune copie précédente';
   const nextTitle = nextLabel ? 'Copie suivante : ' + nextLabel : 'Aucune copie suivante';
   // Queued/running copies are not graded, even if a draft score is zero.
   const gradeAvailable = score !== null && status !== 'En attente' && status !== 'Analyse en cours';
   const gradeLabel = status === 'Analyse en cours' ? 'Évaluation en cours' : status === 'À reprendre' ? 'Note indisponible' : 'Note à venir';
   const gradeCaption = isFinalized ? 'Note enregistrée' : scoreIncomplete ? 'Note partielle · à vérifier' : 'Note proposée';
-
-  useEffect(() => {
-    if (isEditing) nameInputRef.current?.focus();
-  }, [isEditing]);
 
   // Reset an unfinished edit when navigating to a different copy.
   useEffect(() => {
@@ -74,7 +69,7 @@ export function CopyReviewHeader({
           <span className="copy-review-student-caption">Copie de l’étudiant</span>
           <div className="copy-review-identity-title">
             {isEditing ? (
-              <TextInput id="student-label" ref={nameInputRef} className="copy-review-name-input"
+              <TextInput id="student-label" autoFocus className="copy-review-name-input"
                 aria-label="Nom de l’étudiant" value={draftName} placeholder="Étudiant à identifier"
                 onChange={(event) => setDraftName(event.target.value)}
                 onBlur={saveName} onKeyDown={handleNameKeyDown} />
