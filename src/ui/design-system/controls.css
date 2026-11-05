@@ -303,3 +303,30 @@ dialog.ds-dialog--viewer { width: min(96vw, 1200px); height: min(94dvh, 950px); 
   .ds-dialog__footer .ds-button { flex: 1; }
   .ds-dialog--viewer .ds-dialog__body { padding: 0; }
 }
+
+/* Semantic inline feedback is neutral by default: brand color is never used as an error or success state. */
+.ds-status-notice {
+  --ds-status-accent: var(--ds-color-text-muted);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-3);
+  margin: var(--ds-space-3) 0 0;
+  padding: var(--ds-space-3);
+  border: 1px solid var(--ds-color-border);
+  border-left: 3px solid var(--ds-status-accent);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.ds-status-notice__icon {
+  flex: 0 0 auto;
+  color: var(--ds-status-accent);
+  font-weight: 800;
+}
+.ds-status-notice--success { --ds-status-accent: var(--ds-color-success); }
+.ds-status-notice--info { --ds-status-accent: var(--ds-color-text-muted); }
+.ds-status-notice--warning { --ds-status-accent: var(--ds-color-warning); }
+.ds-status-notice--error { --ds-status-accent: var(--ds-color-danger); }

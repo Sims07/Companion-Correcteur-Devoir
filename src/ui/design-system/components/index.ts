@@ -10,3 +10,5 @@ export { TextArea } from './TextArea.tsx';
 export type { TextAreaProps } from './TextArea.tsx';
 export { TextInput } from './TextInput.tsx';
 export type { TextInputProps } from './TextInput.tsx';
+export { StatusNotice } from './StatusNotice.tsx';
+export type { StatusTone } from './StatusNotice.tsx';
