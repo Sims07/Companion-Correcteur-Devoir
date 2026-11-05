@@ -101,4 +101,36 @@ describe('hybrid scientific diagram decisions', () => {
     expect(result.finalScore).toBe(1);
     expect(result.criteria[0].questionForTeacher).toContain('fiabilité');
   });
+
+  it('holds the proposed diagram mark for teacher review when Vision reports an overall ambiguity', () => {
+    const analysis = diagramAnalysis([
+      { id: 'membrane', status: 'present', evidence: 'Membrane visible' },
+      { id: 'cristae', status: 'present', evidence: 'Crêtes visibles' },
+    ]);
+    analysis.overallUncertainties.push('Orientation du dessin à confirmer');
+    const result = mergeDecisionScientificDiagramCriteria(rubric, textProposal, analysis);
+    expect(result.criteria[0].assessmentStatus).toBe('not-evaluated');
+    expect(result.finalScore).toBe(1);
+    expect(result.criteria[0].questionForTeacher).toContain('fiabilité');
+  });
+  it('does not silently award full points for contradictory observations across pages', () => {
+    const analysis = diagramAnalysis([
+      { id: 'membrane', status: 'present', evidence: 'Membrane visible' },
+      { id: 'cristae', status: 'present', evidence: 'Crêtes visibles' },
+    ]);
+    analysis.criteria!.push({
+      ...analysis.criteria![0],
+      diagramIds: ['diagram-2'],
+      elements: [
+        { subcriterionId: 'membrane', label: 'Double membrane', status: 'absent', evidence: '', points: 0, maxPoints: 1.25 },
+        { subcriterionId: 'cristae', label: 'Crêtes', status: 'present', evidence: 'Crêtes visibles', points: 1.75, maxPoints: 1.75 },
+      ],
+    });
+    analysis.diagrams.push({ id: 'diagram-2', pageNumber: 3, diagramType: 'mitochondrie', summary: '', criteria: [], uncertainties: [] });
+    const result = mergeDecisionScientificDiagramCriteria(rubric, textProposal, analysis);
+    expect(result.criteria[0].assessmentStatus).toBe('not-evaluated');
+    expect(result.criteria[0].questionForTeacher).toContain('observations contradictoires');
+    expect(result.finalScore).toBe(1);
+    expect(result.criteria[0].subcriteria?.map((element) => element.points)).toEqual([1.25, 1.75]);
+  });
 });
