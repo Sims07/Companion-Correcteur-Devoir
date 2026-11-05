@@ -255,6 +255,7 @@ dialog.ds-dialog {
   border-radius: var(--ds-radius-lg);
   background: var(--ds-color-surface);
   color: var(--ds-color-text);
+  font: inherit;
   box-shadow: var(--ds-shadow-dialog);
 }
 dialog.ds-dialog::backdrop { background: var(--ds-color-dialog-backdrop); }
