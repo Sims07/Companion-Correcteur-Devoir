@@ -10,6 +10,19 @@ describe('Atelier pédagogique correction workspace', () => {
     expect(read('.storybook/preview.ts')).toContain('../src/ui/correctionAtelier.css');
   });
 
+  it('uses only the search wrapper for the border and keyboard focus feedback', () => {
+    const css = read('src/ui/correctionAtelier.css');
+    const input = css.match(/\\.copy-overview-search input\\[type="search"\\]\\s*\\{([^}]+)\\}/)?.[1];
+    const focusedInput = css.match(/\\.copy-overview-search input\\[type="search"\\]:focus-visible\\s*\\{([^}]+)\\}/)?.[1];
+    const wrapperFocus = css.match(/\\.copy-overview-search:focus-within\\s*\\{([^}]+)\\}/)?.[1];
+
+    expect(input).toContain('border: 0;');
+    expect(input).toContain('box-shadow: none;');
+    expect(focusedInput).toContain('box-shadow: none;');
+    expect(wrapperFocus).toContain('border-color: var(--ds-color-brand-600)');
+    expect(wrapperFocus).toContain('box-shadow: var(--ds-focus-ring)');
+  });
+
   it('marks flagged criteria instead of styling every review criterion as a problem', () => {
     const app = read('src/ui/App.tsx');
     expect(app).toContain('isFlagged ? "panel review-card is-flagged" : "panel review-card"');
