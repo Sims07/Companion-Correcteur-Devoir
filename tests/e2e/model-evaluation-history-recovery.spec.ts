@@ -54,8 +54,8 @@ test('two compact local evaluations remain comparable after a page reload withou
   await comparisons.getByRole('checkbox').nth(0).check();
   await comparisons.getByRole('checkbox').nth(1).check();
   await expect(page.getByRole('heading', { name: 'Comparer les notes par critère' })).toBeVisible();
-  await expect(page.getByText('11.75 / 20')).toBeVisible();
-  await expect(page.getByText('12.5 / 20')).toBeVisible();
+  await expect(page.getByText('11.75 / 20').first()).toBeVisible();
+  await expect(page.getByText('12.5 / 20').first()).toBeVisible();
   await expect(page.getByText(/sans images originales/).first()).toBeVisible();
 
   await page.getByRole('button', { name: 'Consulter les résultats' }).first().click();
