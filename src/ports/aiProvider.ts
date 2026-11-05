@@ -1,3 +1,4 @@
+import type { CorrectionMethod } from '../domain/correctionMethod.ts';
 import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/teacherAnnotations.ts';
 import type { ImageInput } from '../domain/imageInput.ts';
 export type { ImageInput } from '../domain/imageInput.ts';
@@ -120,6 +121,8 @@ export interface OllamaSettings {
   thinking?: boolean;
   /** Evaluate one rubric criterion per sequential analysis request instead of sending the whole rubric at once. */
   criterionByCriterion?: boolean;
+  /** Assessment policy: absent means the historic generative algorithm. */
+  correctionMethod?: CorrectionMethod;
   /** Experimental multi-model evaluation, enabled only from the diagnostic UI. */
   diagnosticStrategy?: DiagnosticStrategy | 'arbitrate-only';
   /** Previously captured model outputs for rerunning arbitration without repeating analysis. */

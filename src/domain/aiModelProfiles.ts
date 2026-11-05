@@ -1,3 +1,5 @@
+import { DEFAULT_CORRECTION_METHOD, parseCorrectionMethod, type CorrectionMethod } from './correctionMethod.ts';
+
 export type AiModelStrategy = 'single' | 'compare' | 'arbitrate';
 
 export interface AiModelConfiguration {
@@ -16,6 +18,8 @@ export interface AiModelConfiguration {
   diagnosticStrategy: AiModelStrategy;
   analysisThinking: boolean;
   criterionByCriterion: boolean;
+  /** Copy assessment policy, independent of the diagnostic comparison strategy. */
+  correctionMethod: CorrectionMethod;
 }
 
 export interface AiModelProfile {
@@ -27,7 +31,7 @@ export interface AiModelProfile {
 }
 
 export const defaultAiModelConfiguration: AiModelConfiguration = {
-  endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '', visionModel: '', transcriptionTokenLimit: 2048, transcriptionPromptMode: 'auto', transcriptionRepeatPenalty: 1.05, transcriptionPenaltyParameter: 'none', transcriptionFrequencyPenalty: 0, analysisModel: '', secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single', analysisThinking: false, criterionByCriterion: true,
+  endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '', visionModel: '', transcriptionTokenLimit: 2048, transcriptionPromptMode: 'auto', transcriptionRepeatPenalty: 1.05, transcriptionPenaltyParameter: 'none', transcriptionFrequencyPenalty: 0, analysisModel: '', secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single', analysisThinking: false, criterionByCriterion: true, correctionMethod: DEFAULT_CORRECTION_METHOD,
 };
 
 function isStrategy(value: unknown): value is AiModelStrategy { return value === 'single' || value === 'compare' || value === 'arbitrate'; }
@@ -56,6 +60,7 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
       diagnosticStrategy: isStrategy(candidate.diagnosticStrategy) ? candidate.diagnosticStrategy : 'single',
       analysisThinking: candidate.analysisThinking === true,
       criterionByCriterion: candidate.criterionByCriterion !== false,
+      correctionMethod: parseCorrectionMethod(candidate.correctionMethod),
     };
   } catch { return { ...defaultAiModelConfiguration }; }
 }
@@ -64,7 +69,7 @@ function isConfiguration(value: unknown): value is AiModelConfiguration {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<AiModelConfiguration>;
   return typeof candidate.endpoint === 'string' && (candidate.apiCompatible === undefined || typeof candidate.apiCompatible === 'boolean') && (candidate.apiKey === undefined || typeof candidate.apiKey === 'string') && typeof candidate.visionModel === 'string' && (candidate.transcriptionTokenLimit === undefined || typeof candidate.transcriptionTokenLimit === 'number') && (candidate.transcriptionPromptMode === undefined || candidate.transcriptionPromptMode === 'auto' || candidate.transcriptionPromptMode === 'ocr' || candidate.transcriptionPromptMode === 'general') && (candidate.transcriptionRepeatPenalty === undefined || typeof candidate.transcriptionRepeatPenalty === 'number') && (candidate.transcriptionPenaltyParameter === undefined || candidate.transcriptionPenaltyParameter === 'none' || candidate.transcriptionPenaltyParameter === 'frequency_penalty' || candidate.transcriptionPenaltyParameter === 'repeat_penalty') && (candidate.transcriptionFrequencyPenalty === undefined || typeof candidate.transcriptionFrequencyPenalty === 'number') && typeof candidate.analysisModel === 'string' &&
-    typeof candidate.secondAnalysisModel === 'string' && typeof candidate.arbitratorModel === 'string' && isStrategy(candidate.diagnosticStrategy) && typeof candidate.analysisThinking === 'boolean' && (candidate.criterionByCriterion === undefined || typeof candidate.criterionByCriterion === 'boolean');
+    typeof candidate.secondAnalysisModel === 'string' && typeof candidate.arbitratorModel === 'string' && isStrategy(candidate.diagnosticStrategy) && typeof candidate.analysisThinking === 'boolean' && (candidate.criterionByCriterion === undefined || typeof candidate.criterionByCriterion === 'boolean') && (candidate.correctionMethod === undefined || candidate.correctionMethod === 'generative' || candidate.correctionMethod === 'decision');
 }
 
 export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {
@@ -79,7 +84,7 @@ export function parseAiModelProfiles(raw: string | null): AiModelProfile[] {
         delete legacyConfiguration.detectTeacherAnnotations;
         delete legacyConfiguration.regionsEnabled;
         delete legacyConfiguration.regionsModel;
-        const configuration = { ...defaultAiModelConfiguration, ...legacyConfiguration };
+        const configuration = { ...defaultAiModelConfiguration, ...legacyConfiguration, correctionMethod: parseCorrectionMethod(legacyConfiguration.correctionMethod) };
         if (configuration.transcriptionPenaltyParameter === 'frequency_penalty' && configuration.transcriptionFrequencyPenalty === 0.5) {
           configuration.transcriptionPenaltyParameter = 'none';
           configuration.transcriptionFrequencyPenalty = 0;
