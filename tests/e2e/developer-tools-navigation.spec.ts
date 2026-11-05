@@ -26,3 +26,39 @@ test('teacher correction stays simple while the AI tools remain available for tr
   await expect(page.getByRole('navigation', { name: 'Navigation des outils IA' })).toHaveCount(0);
   await expect(primaryNavigation.getByRole('button', { name: 'Correction' })).toHaveAttribute('aria-pressed', 'true');
 });
+
+test('support diagnostic can be copied without sharing copy contents or configured endpoint URLs', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async (report: string) => {
+        (window as Window & { __copiedSupportReport?: string }).__copiedSupportReport = report;
+      } },
+    });
+    localStorage.setItem('companion-correcteur:timing-history:v1', JSON.stringify([{
+      id: 'copy-test',
+      completedAt: '2026-11-05T06:00:00.000Z',
+      visionModel: 'qwen3.5:4b',
+      analysisModel: 'qwen3.5:4b',
+      pageCount: 1, readingSeconds: 10, analysisSeconds: 5, totalSeconds: 15,
+      outcome: 'error', modelScore: null, criterionScores: [],
+      assignmentTitle: 'PRIVATE-STUDENT-COPY-SECRET',
+      diagnosticRuns: [{ model: 'qwen3.5:4b', stage: 'analysis', kind: 'model', elapsedMs: 5000,
+        error: 'RAW-ERROR-SECRET', raw: 'RAW-RESPONSE-SECRET', requestPrompt: 'PROMPT-SECRET',
+        requestMetadata: { endpoint: 'https://PRIVATE-URL-SECRET.example', stream: true, think: false,
+          imageCount: 1, keepAlive: 0, options: { contextTokens: 100, generationTokenLimit: 100 } },
+      }],
+    }]));
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: 'Copier un diagnostic technique' }).click();
+  await expect(page.getByRole('status').getByText(/Diagnostic technique copié/)).toBeVisible();
+  const report = await page.evaluate(() => (window as Window & { __copiedSupportReport?: string }).__copiedSupportReport ?? '');
+  expect(report).toContain('diagnostic technique');
+  expect(report).toContain('modèle qwen3.5:4b');
+  expect(report).not.toContain('SECRET');
+  expect(report).not.toContain('PRIVATE');
+  expect(report).not.toContain('PROMPT');
+  expect(report).not.toContain('https://');
+});
