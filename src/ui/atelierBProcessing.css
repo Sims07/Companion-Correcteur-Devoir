@@ -274,7 +274,6 @@
   color: #fff;
   animation: none;
 }
-.teacher-flow-shell .atelier-processing-columns .is-active .background-copy-activity-criteria small,
 .teacher-flow-shell .atelier-processing-columns .background-copy-activity-criteria li.is-active small {
   color: var(--ds-color-progress);
 }
