@@ -120,8 +120,8 @@ export function findLiteralStudentEvidence(transcription: string, title: string)
   const start = transcription.search(/r[eé]ponse (?:de l['’]étudiant|de l['’][eé]l[eè]ve)\s*[:\n]/i);
   const body = start >= 0 ? transcription.slice(start).replace(/^.*?\n/, '') : transcription;
   const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const ignored = new Set(['attendu','attendue','attendus','correct','correctement','reponse','reactifs','produit','produits','source','energie','localisation','element','elements','forme','cellule','dans','avec','pour','sont','plus','bien','meme','role','point','points']);
-  const words = [...new Set((normalize(title).match(/[a-z0-9]{3,}/g) ?? []).filter((word) => !ignored.has(word)))];
+  const ignored = new Set(['de','du','et','en','la','le','les','un','une','au','ou','des','attendu','attendue','attendus','correct','correctement','reponse','reactifs','produit','produits','source','energie','localisation','element','elements','forme','cellule','dans','avec','pour','sont','plus','bien','meme','role','point','points']);
+  const words = [...new Set((normalize(title).match(/[a-z0-9]{2,}/g) ?? []).filter((word) => !ignored.has(word)))];
   if (!words.length) return '';
   const slices = body.split(/\n+|(?<=[.!?])\s+/).map((piece) => piece.trim()).filter(Boolean);
   let best = '';
