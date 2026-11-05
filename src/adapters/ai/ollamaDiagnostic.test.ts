@@ -104,7 +104,7 @@ describe('Ollama diagnostic multi-model strategy', () => {
       prompt_eval_duration: 500_000_000,
       eval_duration: 2_000_000_000,
     }));
-    const events: Array<{ kind: string; model: string; promptTokens?: number; generatedTokens?: number; totalTokens?: number; generationMs?: number; loadMs?: number; promptEvaluationMs?: number; tokensPerSecond?: number }> = [];
+    const events: Array<{ kind: string; model: string; promptTokens?: number; generatedTokens?: number; totalTokens?: number; generationMs?: number; loadMs?: number; promptEvaluationMs?: number; tokensPerSecond?: number; promptId?: string; promptVersion?: number }> = [];
     const provider = createOllamaProvider({ ...settings, diagnosticStrategy: 'single' }, fetchMock as typeof fetch);
 
     await provider.generate(request, undefined, undefined, undefined, (event) => events.push(event));
@@ -114,6 +114,8 @@ describe('Ollama diagnostic multi-model strategy', () => {
       kind: 'model',
       stage: 'analysis',
       model: 'model-one',
+      promptId: 'grading.full',
+      promptVersion: 1,
       promptTokens: 123,
       generatedTokens: 45,
       totalTokens: 168,

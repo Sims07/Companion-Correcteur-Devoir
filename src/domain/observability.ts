@@ -8,6 +8,8 @@ export type ObservabilitySpan = {
   stage?: string;
   purpose?: 'scientific-diagram-classification' | 'scientific-diagram-analysis' | 'student-identity';
   elapsedMs: number;
+  promptId?: string;
+  promptVersion?: number;
   promptTokens?: number;
   generatedTokens?: number;
   totalTokens?: number;

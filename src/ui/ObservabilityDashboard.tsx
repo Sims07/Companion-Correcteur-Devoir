@@ -64,6 +64,7 @@ function TraceDetails({ trace, expanded }: { trace: ObservabilityTrace; expanded
             {span.error && <p className="observability-call-error" role="alert"><strong>Erreur pendant cet appel</strong><span>{span.error}</span></p>}
             <div className="observability-call-section"><strong>Requête envoyée au modèle</strong>
               {span.requestMetadata && <dl className="observability-request-metadata">
+                {span.promptId && <div><dt>Prompt utilisé</dt><dd><code>{span.promptId}</code>{span.promptVersion !== undefined ? ` · v${span.promptVersion}` : ' · version non renseignée'}</dd></div>}
                 {span.requestMetadata.provider && <div><dt>Transport</dt><dd>{span.requestMetadata.provider === 'openai-compatible' ? 'API compatible OpenAI' : 'Ollama natif'}</dd></div>}
                 {span.requestMetadata.endpoint && <div><dt>Endpoint</dt><dd>{span.requestMetadata.endpoint}</dd></div>}
                 <div><dt>Mode</dt><dd>{span.requestMetadata.stream ? 'Streaming' : 'Sans streaming'}</dd></div>

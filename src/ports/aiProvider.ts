@@ -40,6 +40,9 @@ export interface DiagnosticModelResult {
   /** Identifies specialist Vision calls in observability without changing the normal stage metrics. */
   purpose?: 'scientific-diagram-classification' | 'scientific-diagram-analysis' | 'student-identity';
   model: string;
+  /** Stable versioned prompt identity for reproducible local evaluations. */
+  promptId?: string;
+  promptVersion?: number;
   /** Legacy standalone prompt preview. New traces keep the full sanitized request in requestPayload. */
   requestPrompt?: string;
   /** Effective non-sensitive provider settings; never contains image bytes or endpoint credentials. */

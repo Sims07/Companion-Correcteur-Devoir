@@ -94,3 +94,9 @@ Critère de succès : réduire **à la fois** les écarts avec les références
 enseignantes et la charge de vérification. Ne jamais déclarer un modèle
 « fiable » sur la seule base d'un 6/6 de faible confiance ou de 0
 question à vérifier.
+
+## Version des prompts et comparaison locale
+
+Pour comparer deux modèles ou deux versions de prompts, conserver **le même jeu de copies, le même barème et la même transcription de référence** lorsque l'on mesure uniquement l'analyse. Refaire la lecture des images dans une série séparée pour mesurer le pipeline complet sans masquer les erreurs OCR.
+
+Relever par copie et par configuration : identifiants et versions des prompts effectivement utilisés, appels du modèle (dont réparations), temps total incluant le chargement, tokens d'entrée et de sortie lorsqu'ils sont remontés, note et statut non évalué, motifs de contrôle enseignant et écart avec la référence. Pour System One natif, compter les questions fermées et les appels `/v1/systemone`, sans assimiler les probabilités à une note ni à une preuve. Ne conclure à un gain qu'après comparaison sur des copies variées et validation par l'enseignant.
