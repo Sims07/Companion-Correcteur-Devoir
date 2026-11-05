@@ -1,6 +1,6 @@
 # Espaces de travail
 
-Correction et Évaluation de modèle partagent un même cadre de page afin de conserver une identité visuelle cohérente.
+Correction et Outils IA partagent un même cadre de page afin de conserver une identité visuelle cohérente, sans mélanger les usages des professeurs et ceux du développeur.
 
 ## Règles communes
 
@@ -13,7 +13,10 @@ Correction et Évaluation de modèle partagent un même cadre de page afin de co
 ## Variantes métier
 
 - **Correction** conserve une navigation latérale persistante pour le devoir, les étapes et le suivi du traitement. Le contenu principal bénéficie d'une colonne flexible et de panneaux plus spacieux.
-- **Évaluation de modèle** conserve sa navigation horizontale par étapes, adaptée à la comparaison de configurations et de résultats.
+- **Outils IA** constitue une section distincte, destinée au développeur et au dépannage ponctuel avec un professeur. Elle regroupe trois vues sous une navigation secondaire commune : **Observabilité** (exécutions et prompts conservés), **Inspecteur réseau** (requêtes HTTP en direct) et **Évaluation des modèles** (expériences contrôlées). Une seule entrée « Outils IA » apparaît dans la navigation principale, à côté de « Correction ».
+- **Évaluation des modèles** conserve sa navigation interne par étapes, adaptée à la comparaison de configurations et de résultats. Les historiques des trois outils ne sont pas fusionnés : les traces IA, les requêtes HTTP et les essais ont chacun leur source et leur durée de conservation.
+- L'interface enseignant n'affiche ni prompts, ni payloads, ni métriques techniques. Le professeur peut toutefois ouvrir les Outils IA à la demande pendant une séance de dépannage, sans configuration de rôle ni verrouillage supplémentaires.
+- Les libellés de confidentialité suivent le transport effectivement configuré : un profil Ollama local et un profil API compatible OpenAI n'ont pas les mêmes garanties de localisation des données.
 
 Les layouts partagent les dimensions et le rythme, pas les composants métier. Éviter de fusionner les parcours dans un composant conditionnel géant.
 

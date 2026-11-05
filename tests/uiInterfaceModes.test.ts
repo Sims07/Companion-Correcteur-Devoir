@@ -92,8 +92,9 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('exposes an independent local observability workspace with privacy-safe trace exploration', () => {
     const text = app();
-    expect(text).toContain('>Observabilité</button>');
-    expect(text).toContain("aria-pressed={interfaceMode === 'observability'}");
+    const navigation = source('../src/ui/DeveloperToolsNavigation.tsx');
+    expect(navigation).toContain("title: 'Observabilité'");
+    expect(navigation).toContain("aria-current={activeTool === tool.id ? 'page' : undefined}");
     expect(text).toContain('<ObservabilityDashboard records={observabilityRecords} />');
     expect(text).toContain('const timingHistoryLimit = 100;');
   });
@@ -174,9 +175,11 @@ describe('teacher and AI diagnostic interface modes', () => {
   it('replaces the legacy Debug workspace with the live network inspector', () => {
     const text = app();
     const bootstrap = source('../src/main.tsx');
-    expect(text).toContain('>Évaluation des modèles</button>');
-    expect(text).toContain('>Inspecteur réseau</button>');
-    expect(text).toContain("if ((interfaceMode as string) === 'debug')");
+    const navigation = source('../src/ui/DeveloperToolsNavigation.tsx');
+    expect(text).toContain('>Outils IA</button>');
+    expect(navigation).toContain("title: 'Évaluation des modèles'");
+    expect(navigation).toContain("title: 'Inspecteur réseau'");
+    expect(text).toContain("{interfaceMode === 'debug' && <NetworkInspector />}");
     expect(text).toContain("import { NetworkInspector } from './NetworkInspector.tsx'");
     expect(text).toContain('<NetworkInspector />');
     expect(bootstrap.startsWith("import './instrumentation.ts';")).toBe(true);
@@ -187,9 +190,13 @@ describe('teacher and AI diagnostic interface modes', () => {
     const text = app();
     expect(text).toContain('role="group" aria-label="Mode d’interface"');
     expect(text).toContain("aria-pressed={interfaceMode === 'teacher'}");
-    expect(text).toContain("aria-pressed={interfaceMode === 'diagnostic'}");
+    expect(text).toContain("aria-pressed={interfaceMode !== 'teacher'}");
     expect(text).toContain("onClick={() => setInterfaceMode('teacher')}");
-    expect(text).toContain("setInterfaceMode('diagnostic')");
+    expect(text).toContain("setInterfaceMode(interfaceMode === 'teacher' ? 'observability' : interfaceMode)");
+    const switcher = text.slice(text.indexOf('<div className="view-switch"'), text.indexOf('</header>', text.indexOf('<div className="view-switch"')));
+    expect(switcher).not.toContain('>Inspecteur réseau</button>');
+    expect(switcher).not.toContain('>Évaluation des modèles</button>');
+    expect(switcher).toContain('>Outils IA</button>');
   });
 
   it('keeps local AI setup and processing status visible in the workspace navigation', () => {
@@ -291,7 +298,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     const text = app();
     expect(text).toContain('className="evaluation-page-header"');
     expect(text).toContain('Évaluation des modèles');
-    expect(text).toContain('ESPACE EXPÉRIMENTAL · OLLAMA LOCAL');
+    expect(text).toContain('LABORATOIRE IA · OUTILS AVANCÉS');
     expect(text).toContain('className="evaluation-step-nav"');
     expect(text).toContain('Modèles, barème et copie');
     expect(text).toContain('Notes, temps et tokens');

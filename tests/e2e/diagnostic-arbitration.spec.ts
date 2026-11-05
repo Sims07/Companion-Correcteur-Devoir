@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test';
 
 test('evaluation presents four focused spaces and keeps launch disabled until the test copy is ready', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
 
   const navigation = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   await expect(navigation).toBeVisible();
@@ -30,10 +31,11 @@ test('evaluation presents four focused spaces and keeps launch disabled until th
 
 test('Debug is now a dedicated network inspector, separate from model evaluation', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Évaluation des modèles' }).click();
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await expect(page.getByRole('heading', { name: 'Sélection pour cette expérience' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Inspecteur réseau', exact: true }).click();
+  await page.getByRole('button', { name: /Inspecteur réseau/ }).click();
   await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Sélection pour cette expérience' })).toHaveCount(0);
 });

@@ -71,7 +71,8 @@ test('opens the local observability workspace and explores a trace without expos
   });
   await page.reload();
 
-  await page.getByRole('button', { name: 'Observabilité' }).click();
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await expect(page.getByRole('button', { name: /Observabilité/ })).toHaveAttribute('aria-current', 'page');
 
   await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
   await expect(page.getByText('Exécutions observées')).toBeVisible();

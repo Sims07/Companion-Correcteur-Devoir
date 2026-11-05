@@ -29,7 +29,8 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
     await fetch('/network-inspector-probe', { method: 'GET' });
   });
 
-  await page.getByRole('button', { name: 'Inspecteur réseau' }).click();
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Inspecteur réseau/ }).click();
   await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
   const request = page.getByRole('listitem').filter({ hasText: 'network-inspector-probe' });
   await expect(request).toBeVisible();
