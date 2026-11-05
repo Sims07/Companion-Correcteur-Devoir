@@ -1,0 +1,352 @@
+/* Evaluation des modeles: un seul canvas et une progression lisible.
+   Charge apres les styles historiques pour isoler ce parcours des ecrans professeurs. */
+.evaluation-workspace-shell .diagnostic-content-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-5);
+  min-width: 0;
+}
+.evaluation-workspace-shell .diagnostic-content-column > * {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin-inline: 0;
+}
+.evaluation-workspace-shell .evaluation-page-header {
+  margin-block: var(--ds-space-5) 0;
+  padding: clamp(22px, 3vw, 36px);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+  box-shadow: var(--ds-shadow-panel);
+}
+.evaluation-workspace-shell .evaluation-page-header h1 {
+  font: 700 clamp(1.8rem, 3vw, 2.7rem)/1.12 var(--ds-font-editorial);
+  letter-spacing: -.035em;
+  color: var(--ds-color-text);
+}
+.evaluation-workspace-shell .evaluation-page-header p:not(.eyebrow) {
+  max-width: 75ch;
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .evaluation-page-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+  margin-top: var(--ds-space-4);
+}
+.evaluation-workspace-shell .evaluation-page-badges span {
+  border: 1px solid var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text-muted);
+}
+/* Replaces the former sticky float + 248px margin; every section uses this canvas. */
+.evaluation-workspace-shell .evaluation-step-nav {
+  float: none;
+  position: static;
+  inset: auto;
+  z-index: auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: var(--ds-space-3);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.evaluation-workspace-shell .evaluation-step-nav button {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  align-items: center;
+  gap: var(--ds-space-1) var(--ds-space-3);
+  width: 100%;
+  min-width: 0;
+  min-height: 94px;
+  padding: var(--ds-space-4);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+  text-align: left;
+  box-shadow: none;
+  transition: background var(--ds-transition-fast), border-color var(--ds-transition-fast);
+}
+.evaluation-workspace-shell .evaluation-step-nav button > span {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .evaluation-step-nav button strong {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  font-size: .87rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.evaluation-workspace-shell .evaluation-step-nav button small {
+  grid-column: 2;
+  grid-row: 2;
+  margin: 0;
+  min-width: 0;
+  font-size: .7rem;
+  line-height: 1.4;
+  color: var(--ds-color-text-muted);
+  overflow-wrap: anywhere;
+}
+.evaluation-workspace-shell .evaluation-step-nav button:hover:not(.is-active) {
+  background: var(--ds-color-surface-subtle);
+  border-color: var(--ds-color-border-strong);
+}
+.evaluation-workspace-shell .evaluation-step-nav button.is-active,
+.evaluation-workspace-shell .evaluation-step-nav button[aria-current="step"] {
+  border-color: var(--ds-color-brand-700);
+  background: var(--ds-color-brand-100);
+  box-shadow: inset 0 3px var(--ds-color-brand-700);
+}
+.evaluation-workspace-shell .evaluation-step-nav button.is-active > span {
+  background: var(--ds-color-brand-700);
+  color: var(--ds-color-surface);
+}
+.evaluation-workspace-shell .evaluation-step-nav button.is-active strong {
+  color: var(--ds-color-text);
+}
+.evaluation-workspace-shell .evaluation-step-nav button:focus-visible,
+.evaluation-workspace-shell .evaluation-stage-picker button:focus-visible {
+  outline: none;
+  box-shadow: var(--ds-focus-ring);
+}
+.evaluation-workspace-shell :is(
+  .evaluation-config-workspace, .evaluation-results-workspace, .rubric-editor,
+  .setup-grid, .evaluation-launch-panel, .workspace-heading
+) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
+.evaluation-workspace-shell :is(.evaluation-config-workspace, .evaluation-results-workspace) {
+  margin-block: 0;
+  padding: clamp(20px, 2.5vw, 32px);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+  box-shadow: var(--ds-shadow-panel);
+}
+.evaluation-workspace-shell .evaluation-section-heading {
+  min-width: 0;
+  gap: var(--ds-space-4);
+}
+.evaluation-workspace-shell .evaluation-section-heading > div {
+  min-width: 0;
+}
+.evaluation-workspace-shell .evaluation-section-heading :is(h2, h3),
+.evaluation-workspace-shell .workspace-heading h2,
+.evaluation-workspace-shell .evaluation-launch-intro h2 {
+  color: var(--ds-color-text);
+  font-family: var(--ds-font-editorial);
+  letter-spacing: -.025em;
+}
+.evaluation-workspace-shell :is(.evaluation-section-heading, .workspace-heading) p:not(.eyebrow) {
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .evaluation-step-chip {
+  flex: 0 0 auto;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .evaluation-stage-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ds-space-3);
+}
+.evaluation-workspace-shell .evaluation-stage-picker button {
+  min-width: 0;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+}
+.evaluation-workspace-shell .evaluation-stage-picker button.is-active {
+  border-color: var(--ds-color-brand-700);
+  background: var(--ds-color-brand-100);
+  box-shadow: inset 0 0 0 1px var(--ds-color-brand-700);
+}
+.evaluation-workspace-shell .evaluation-stage-picker button strong {
+  color: var(--ds-color-text);
+}
+.evaluation-workspace-shell .evaluation-stage-picker button small,
+.evaluation-workspace-shell .evaluation-stage-guidance {
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .evaluation-config-editor {
+  min-width: 0;
+  margin-top: var(--ds-space-5);
+  border: 1px solid var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+  border-radius: var(--ds-radius-lg);
+}
+.evaluation-workspace-shell .evaluation-config-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.evaluation-workspace-shell .evaluation-config-field,
+.evaluation-workspace-shell .evaluation-config-field > :is(input, select),
+.evaluation-workspace-shell .evaluation-config-fields > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.evaluation-workspace-shell .evaluation-selection-block {
+  border-top: 1px solid var(--ds-color-border);
+}
+.evaluation-workspace-shell .evaluation-profile-options {
+  min-width: 0;
+}
+.evaluation-workspace-shell .evaluation-profile-option {
+  min-width: 0;
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface);
+  overflow-wrap: anywhere;
+}
+.evaluation-workspace-shell .evaluation-profile-option.is-selected {
+  border-color: var(--ds-color-brand-700);
+  background: var(--ds-color-brand-100);
+}
+.evaluation-workspace-shell .workspace-heading {
+  margin-block: var(--ds-space-4) 0;
+  align-items: flex-start;
+}
+.evaluation-workspace-shell .workspace-heading h2 {
+  margin-block: 0 var(--ds-space-2);
+}
+.evaluation-workspace-shell .workspace-heading .step-count {
+  flex: 0 0 auto;
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .rubric-editor,
+.evaluation-workspace-shell .setup-grid > .panel {
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+  box-shadow: var(--ds-shadow-panel);
+}
+.evaluation-workspace-shell .setup-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--ds-space-4);
+  margin: 0;
+}
+.evaluation-workspace-shell .setup-grid > .panel {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.evaluation-workspace-shell .evaluation-launch-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ds-space-5);
+  margin-top: var(--ds-space-3);
+  padding: clamp(20px, 2.5vw, 30px);
+  border: 1px solid var(--ds-color-border-strong);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+  box-shadow: var(--ds-shadow-panel);
+}
+.evaluation-workspace-shell .evaluation-launch-intro {
+  flex: 1 1 250px;
+  min-width: 0;
+}
+.evaluation-workspace-shell .evaluation-launch-intro h2 {
+  margin: 0 0 var(--ds-space-2);
+  font-size: clamp(1.3rem, 2vw, 1.65rem);
+}
+.evaluation-workspace-shell .evaluation-launch-intro p:last-child {
+  margin: 0;
+  color: var(--ds-color-text-muted);
+  font-size: .85rem;
+  line-height: 1.55;
+}
+.evaluation-workspace-shell .evaluation-config-launch {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.evaluation-workspace-shell .evaluation-config-launch > div {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.evaluation-workspace-shell .evaluation-config-launch > .primary-button {
+  flex: 0 1 auto;
+}
+.evaluation-workspace-shell :is(.evaluation-history-workspace, .evaluation-history-comparison,
+  .evaluation-history-chart, .evaluation-current-results, .evaluation-progress) {
+  min-width: 0;
+  max-width: 100%;
+}
+.evaluation-workspace-shell .evaluation-history-comparison,
+.evaluation-workspace-shell .evaluation-analysis-subsection {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+}
+.evaluation-workspace-shell .evaluation-history-chart-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.evaluation-workspace-shell .evaluation-history-chart {
+  min-width: 0;
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface);
+}
+.evaluation-workspace-shell :is(pre, .evaluation-history-table-scroll) {
+  max-width: 100%;
+  overflow-x: auto;
+}
+@media (max-width: 1050px) {
+  .evaluation-workspace-shell .evaluation-step-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .evaluation-workspace-shell .evaluation-launch-panel { align-items: stretch; }
+}
+@media (max-width: 760px) {
+  .evaluation-workspace-shell .diagnostic-content-column { gap: var(--ds-space-4); }
+  .evaluation-workspace-shell .evaluation-page-header { margin-top: var(--ds-space-4); }
+  .evaluation-workspace-shell .evaluation-config-fields,
+  .evaluation-workspace-shell .evaluation-history-chart-grid { grid-template-columns: minmax(0, 1fr); }
+  .evaluation-workspace-shell .evaluation-stage-picker { grid-template-columns: minmax(0, 1fr); }
+  .evaluation-workspace-shell .evaluation-section-heading,
+  .evaluation-workspace-shell .workspace-heading { flex-direction: column; }
+  .evaluation-workspace-shell .evaluation-launch-panel { flex-direction: column; }
+  .evaluation-workspace-shell .evaluation-launch-intro,
+  .evaluation-workspace-shell .evaluation-config-launch { flex: initial; width: 100%; }
+}
+@media (max-width: 520px) {
+  .evaluation-workspace-shell .evaluation-step-nav { grid-template-columns: minmax(0, 1fr); gap: var(--ds-space-2); }
+  .evaluation-workspace-shell .evaluation-step-nav button { min-height: 66px; padding: var(--ds-space-3); }
+  .evaluation-workspace-shell .evaluation-step-nav button small { font-size: .72rem; }
+  .evaluation-workspace-shell .evaluation-config-launch { flex-direction: column; align-items: stretch; }
+  .evaluation-workspace-shell .evaluation-config-launch > .primary-button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .evaluation-workspace-shell .evaluation-step-nav button { transition: none; }
+}
