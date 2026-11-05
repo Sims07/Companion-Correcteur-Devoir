@@ -64,7 +64,8 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
   await expect(page.locator('.copy-review-identity-title h2')).toHaveText('01-reprendre');
   await expect(page.getByRole('button', { name: 'Modifier le nom de l’étudiant' })).toBeVisible();
   await expect(page.locator('#student-label')).toHaveCount(0);
-  await expect(page.locator('.copy-review-grade-caption')).toHaveText('Note proposée');
+  await expect(page.locator('.copy-review-grade-caption')).toHaveText('Évaluation');
+  await expect(page.locator('.copy-review-header-score')).toHaveText('Note indisponible');
   await page.getByRole('button', { name: 'Modifier le nom de l’étudiant' }).click();
   await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toBeFocused();
   await page.getByRole('textbox', { name: 'Nom de l’étudiant' }).press('Escape');
