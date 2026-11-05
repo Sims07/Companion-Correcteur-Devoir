@@ -48,8 +48,9 @@ describe('design system foundations', () => {
     expect(states).toContain('network-state pending');
     expect(states).toContain('evaluation-archive-feedback is-failed');
     expect(states).toContain('review-card is-flagged');
-    expect(states).toContain('var(--ds-color-progress)');
-    expect(states).toContain('var(--ds-color-warning)');
+    expect(states).toContain("token: '--ds-color-progress'");
+    expect(states).toContain("token: '--ds-color-warning'");
+    expect(states).toContain("background: 'var(' + item.token + ')'");
   });
 
   it('connects field labels, hints and validation errors to the rendered control', () => {
