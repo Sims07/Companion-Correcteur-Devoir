@@ -234,8 +234,10 @@ test('series session keeps copy cards uniform and opens the correction separatel
   expect(Math.abs(firstBox!.height - secondBox!.height)).toBeLessThanOrEqual(1);
   await expect(series.getByRole('button', { name: 'Démarrer les corrections (2)' })).toBeVisible();
 
-  page.once('dialog', (dialog) => dialog.accept());
   await cards.nth(0).getByRole('button', { name: 'Supprimer' }).click();
+  const confirmation = page.getByRole('dialog', { name: 'Retirer cette copie ?' });
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button', { name: 'Retirer la copie' }).click();
   await expect(cards).toHaveCount(1);
   await expect(series.getByRole('button', { name: 'Démarrer les corrections (2)' })).toHaveCount(0);
 });
