@@ -18,7 +18,6 @@ export interface DiagramCriterionAssessment {
 export interface ScientificDiagramFinding {
   id: string;
   pageNumber: number;
-  bounds?: { x: number; y: number; width: number; height: number };
   diagramType: string;
   summary: string;
   criteria: DiagramCriterionAssessment[];
@@ -69,7 +68,6 @@ type DiagramRow = {
   pageNumber: number;
   diagramType: string;
   summary: string;
-  bounds?: ScientificDiagramFinding['bounds'];
   uncertainties: string[];
 };
 
@@ -97,30 +95,12 @@ function normalizeDiagrams(
       throw new Error('Champ pageNumber invalide pour le schéma ' + (index + 1) + '.');
     }
 
-    let bounds: ScientificDiagramFinding['bounds'];
-    if (isRecord(value.bounds)) {
-      const candidate = value.bounds;
-      const validNumbers = [candidate.x, candidate.y, candidate.width, candidate.height]
-        .every((number) => typeof number === 'number' && Number.isFinite(number));
-      const validPosition = Number(candidate.x) >= 0 && Number(candidate.y) >= 0;
-      const validSize = Number(candidate.width) > 0 && Number(candidate.height) > 0;
-      const withinPage = Number(candidate.x) + Number(candidate.width) <= 1 && Number(candidate.y) + Number(candidate.height) <= 1;
-      if (validNumbers && validPosition && validSize && withinPage) {
-        bounds = { x: Number(candidate.x), y: Number(candidate.y), width: Number(candidate.width), height: Number(candidate.height) };
-      } else {
-        warnings.push('Bounds invalides supprimés pour le schéma ' + (index + 1) + '.');
-      }
-    } else if (value.bounds != null) {
-      warnings.push('Bounds invalides supprimés pour le schéma ' + (index + 1) + '.');
-    }
-
     rows.push({
       source: value,
       id: 'diagram-' + (index + 1),
       pageNumber: allowedPageNumbers[Number(localPage) - 1],
       diagramType: typeof value.diagramType === 'string' ? value.diagramType : 'schéma',
       summary: typeof value.summary === 'string' ? value.summary : '',
-      ...(bounds ? { bounds } : {}),
       uncertainties: normalizeStrings(value.uncertainties),
     });
   });
@@ -331,7 +311,6 @@ export function parseScientificDiagramAnalysis(
   const diagrams: ScientificDiagramFinding[] = rows.map((row) => ({
     id: row.id,
     pageNumber: row.pageNumber,
-    ...(row.bounds ? { bounds: row.bounds } : {}),
     diagramType: row.diagramType,
     summary: row.summary,
     criteria: [],
@@ -364,6 +343,77 @@ export function parseScientificDiagramAnalysis(
     overallUncertainties: normalizeStrings(parsed.overallUncertainties),
     warnings,
   };
+}
+
+
+/**
+ * A length-limited Ollama response may contain complete rubric assessments
+ * followed by an unfinished fourth criterion. Recover only JSON objects that
+ * were fully generated; never guess missing scores or repair incomplete JSON.
+ */
+function closedJsonEnd(raw: string, start: number): number {
+  const stack: string[] = [];
+  let quoted = false;
+  let escaped = false;
+  for (let index = start; index < raw.length; index += 1) {
+    const char = raw[index];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === '"') quoted = false;
+      continue;
+    }
+    if (char === '"') { quoted = true; continue; }
+    if (char === '{' || char === '[') stack.push(char);
+    else if (char === '}' || char === ']') {
+      const opening = stack.pop();
+      if ((char === '}' && opening !== '{') || (char === ']' && opening !== '[')) return -1;
+      if (stack.length === 0) return index + 1;
+    }
+  }
+  return -1;
+}
+
+export function recoverTruncatedScientificDiagramAnalysis(
+  raw: string,
+  rubric: Rubric,
+  pageCount: number,
+  allowedPageNumbers: number[] = Array.from({ length: pageCount }, (_, index) => index + 1),
+): ScientificDiagramAnalysis | null {
+  const diagramStart = /"diagrams"\s*:\s*\[/.exec(raw);
+  if (!diagramStart) return null;
+  const arrayStart = diagramStart.index + diagramStart[0].length - 1;
+  const arrayEnd = closedJsonEnd(raw, arrayStart);
+  if (arrayEnd < 0) return null;
+  const criteriaMatch = /"criteria"\s*:\s*\[/.exec(raw.slice(arrayEnd));
+  if (!criteriaMatch) return null;
+  const criteriaStart = arrayEnd + criteriaMatch.index + criteriaMatch[0].length;
+  const completeCriteria: unknown[] = [];
+  let cursor = criteriaStart;
+  try {
+    while (cursor < raw.length) {
+      while (cursor < raw.length && /[\s,]/.test(raw[cursor])) cursor += 1;
+      if (raw[cursor] !== '{') break;
+      const end = closedJsonEnd(raw, cursor);
+      if (end < 0) break;
+      completeCriteria.push(JSON.parse(raw.slice(cursor, end)));
+      cursor = end;
+    }
+    if (completeCriteria.length === 0) return null;
+    const diagrams = JSON.parse(raw.slice(arrayStart, arrayEnd));
+    const parsed = parseScientificDiagramAnalysis(
+      JSON.stringify({ diagrams, criteria: completeCriteria, overallUncertainties: [] }),
+      rubric, pageCount, allowedPageNumbers,
+    );
+    if (!parsed.criteria?.length) return null;
+    return {
+      ...parsed,
+      warnings: [...(parsed.warnings ?? []),
+        'Réponse Vision interrompue : seules les évaluations JSON complètes ont été conservées.'],
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** Failed manual fallbacks are displayable but never reusable as a completed Vision analysis. */

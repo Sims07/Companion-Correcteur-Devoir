@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createOpenAiScientificDiagramAnalyzer } from './openAiScientificDiagramAnalyzer.ts';
 import { getNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
+import { mergeScientificDiagramCriteria } from '../../domain/scientificRubricRouting.ts';
 
 const request = {
   endpoint: 'https://ai.example',
@@ -134,6 +135,71 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(second.messages[0].images).toEqual(first.messages[0].images);
   });
 
+
+  it('retains three finished Qwen scores and asks only for the unfinished fourth criterion after truncation', async () => {
+    const visualRubric = { title: 'Mitose', criteria: [
+      { id: 'drawing', title: 'Qualité du dessin', description: 'Traits lisibles', maxPoints: 4, analysisMode: 'scientific-diagram' as const },
+      { id: 'title', title: 'Titre', description: 'Titre sous la figure', maxPoints: 2, analysisMode: 'scientific-diagram' as const },
+      { id: 'legend', title: 'Légendes', description: 'Étiquettes structurales', maxPoints: 2, analysisMode: 'scientific-diagram' as const },
+      { id: 'phases', title: 'Composition', description: 'Mitose végétale', maxPoints: 2, analysisMode: 'scientific-diagram' as const,
+        subcriteria: [{ id: 'expected-phases', title: 'Phases attendues', description: 'Interphase et télophase avec phragmoplaste', maxPoints: 2 }] },
+    ] };
+    const diagrams = [{ id: 'd1', pageNumber: 1, diagramType: 'mitose', summary: 'Quatre phases de division', uncertainties: [] }];
+    const firstScores = [
+      { criterionId: 'drawing', points: 3, evidence: 'Traits nets et visibles', confidence: 0.9, requiresTeacherReview: false, diagramIds: ['d1'], elements: null },
+      { criterionId: 'title', points: 1, evidence: 'Titres manuscrits des phases', confidence: 0.85, requiresTeacherReview: false, diagramIds: ['d1'], elements: null },
+      { criterionId: 'legend', points: 1.5, evidence: 'Légendes en regard', confidence: 0.8, requiresTeacherReview: false, diagramIds: ['d1'], elements: null },
+    ];
+    const prefix = JSON.stringify({ diagrams, criteria: firstScores });
+    const truncated = prefix.slice(0, -2) + ',{"criterionId":"phases","points":';
+    const retryOutput = { diagrams, criteria: [{
+      criterionId: 'phases', points: 1.5, evidence: 'Phases retrouvées', confidence: 0.86,
+      requiresTeacherReview: true, diagramIds: ['d1'], elements: [{
+        label: 'Phases attendues', status: 'partial', evidence: 'Télophase visible',
+        points: 1.5, origin: 'student-diagram', uncertainty: '',
+      }],
+    }], overallUncertainties: [] };
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: truncated }, done_reason: 'length' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: JSON.stringify(retryOutput) }, done_reason: 'stop' }), { status: 200 }));
+    const result = await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({
+      ...request, apiCompatible: false, rubric: visualRubric,
+    });
+    expect(result.criteria?.map((score) => [score.criterionId, score.points])).toEqual([
+      ['drawing', 3], ['title', 1], ['legend', 1.5], ['phases', 1.5],
+    ]);
+    const graded = mergeScientificDiagramCriteria(visualRubric, null, result);
+    expect(graded.finalScore).toBe(7);
+    expect(graded.scoreIncomplete).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const retry = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(retry.format.properties.criteria.items.properties.criterionId.enum).toEqual(['phases']);
+    expect(retry.messages[0].content).toContain('Interphase et télophase avec phragmoplaste');
+    expect(retry.messages[0].content).toContain('Phases attendues');
+    expect(retry.messages[0].content).not.toContain('Qualité du dessin');
+    expect(retry.messages[0].images).toEqual(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).messages[0].images);
+  });
+
+  it('retains completed Qwen criteria when both attempts hit the token limit, without giving missing criteria false zeros', async () => {
+    const visualRubric = { title: 'Mitose', criteria: [
+      { id: 'drawing', title: 'Qualité du dessin', description: '', maxPoints: 4, analysisMode: 'scientific-diagram' as const },
+      { id: 'phases', title: 'Phases de mitose', description: '', maxPoints: 6, analysisMode: 'scientific-diagram' as const },
+    ] };
+    const first = '{"diagrams":[{"id":"d1","pageNumber":1,"diagramType":"mitose","summary":"","uncertainties":[]}],"criteria":[{"criterionId":"drawing","points":3,"evidence":"traits nets","confidence":0.9,"requiresTeacherReview":false,"diagramIds":["d1"],"elements":null},{"criterionId":"phases","points":';
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: first }, done_reason: 'length' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: '{"diagrams":' }, done_reason: 'length' }), { status: 200 }));
+    const result = await createOpenAiScientificDiagramAnalyzer(fetchMock).analyze({
+      ...request, apiCompatible: false, rubric: visualRubric,
+    });
+    expect(result.criteria?.map((item) => [item.criterionId, item.points])).toEqual([['drawing', 3]]);
+    const graded = mergeScientificDiagramCriteria(visualRubric, null, result);
+    expect(graded.criteria[0]).toMatchObject({ criterionId: 'drawing', points: 3 });
+    expect(graded.criteria[1]).toMatchObject({ criterionId: 'phases', assessmentStatus: 'not-evaluated' });
+    expect(graded.scoreIncomplete).toBe(true);
+    expect(graded.finalScore).toBe(3);
+  });
+
   it('accepts a page without an identifiable diagram only with explicit uncertainty, not an invented zero', async () => {
     const result = { diagrams: [], criteria: [], overallUncertainties: ['Aucun schéma scientifique identifiable sur la page.'] };
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
@@ -157,7 +223,7 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(trace.requestPayload).not.toContain('cG5n');
     expect(trace.requestPayload).toContain('"messages"');
     expect(trace.requestMetadata).toMatchObject({ provider: 'ollama', imageCount: 1 });
-    expect(trace).toMatchObject({ promptId: 'diagram.scientific-analysis', promptVersion: 3 });
+    expect(trace).toMatchObject({ promptId: 'diagram.scientific-analysis', promptVersion: 4 });
     expect(getNetworkRequestMetadata(fetchMock.mock.calls[0][1])).toMatchObject({
       intent: 'Analyser les schémas scientifiques',
     });
@@ -190,6 +256,9 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(body.options.num_ctx).toBe(8192);
     expect(body.options.num_predict).toBe(2048);
     expect(body.format.properties.criteria.type).toBe('array');
+    expect(body.format.properties.diagrams.items.required).not.toContain('bounds');
+    expect(body.format.properties.diagrams.items.properties).not.toHaveProperty('bounds');
+    expect(body.messages[0].content).not.toContain('bounds');
     expect(body.messages[0].images[0]).toBe('cG5n');
   });
 

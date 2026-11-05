@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseScientificDiagramAnalysis, shouldRunScientificDiagramAnalysis } from './scientificDiagram.ts';
+import { parseScientificDiagramAnalysis, recoverTruncatedScientificDiagramAnalysis, shouldRunScientificDiagramAnalysis } from './scientificDiagram.ts';
 import type { Rubric } from './rubric.ts';
 
 const rubric: Rubric = { title: 'Schéma', criteria: [{ id: 'labels', title: 'Légendes', description: '', maxPoints: 2 }] };
@@ -212,14 +212,37 @@ describe('parseScientificDiagramAnalysis', () => {
     }
   });
 
-  it('drops invalid bounds and defaults invalid confidence to zero with teacher review', () => {
-    const wrongBounds = structuredClone(valid);
-    wrongBounds.diagrams[0].bounds.x = 0.8;
-    expect(parseScientificDiagramAnalysis(JSON.stringify(wrongBounds), rubric, 1).diagrams[0].bounds).toBeUndefined();
+  it('ignores historical bounding boxes without calculating regions, and rejects invalid confidence', () => {
+    const historical = parseScientificDiagramAnalysis(JSON.stringify(valid), rubric, 1);
+    expect(historical.diagrams[0]).not.toHaveProperty('bounds');
     const wrongConfidence = structuredClone(valid);
     wrongConfidence.diagrams[0].criteria[0].confidence = 1.2;
     expect(parseScientificDiagramAnalysis(JSON.stringify(wrongConfidence), rubric, 1).diagrams[0].criteria[0]).toMatchObject({ confidence: 0, requiresTeacherReview: true });
   });
+
+  it('recovers complete rubric decisions from a truncated Qwen-style JSON without fabricating the unfinished criterion', () => {
+    const mitosis: Rubric = { title: 'Mitose', criteria: [
+      { id: 'drawing', title: 'Qualité du dessin', description: '', maxPoints: 4 },
+      { id: 'title', title: 'Titre', description: '', maxPoints: 2 },
+      { id: 'missing', title: 'Composition des phases', description: '', maxPoints: 4 },
+    ] };
+    const prefix = JSON.stringify({
+      diagrams: [{ id: 'diagram-1', pageNumber: 1, diagramType: 'mitose', summary: 'Quatre phases', uncertainties: [], bounds: { x: 0, y: 0, width: 1, height: 1 } }],
+      criteria: [
+        { criterionId: 'drawing', points: 3, evidence: 'Contours nets', confidence: 0.9, requiresTeacherReview: false, diagramIds: ['diagram-1'], elements: null },
+        { criterionId: 'title', points: 1, evidence: 'Noms des phases', confidence: 0.9, requiresTeacherReview: true, diagramIds: ['diagram-1'], elements: null },
+      ],
+      overallUncertainties: [],
+    });
+    const truncated = prefix.slice(0, prefix.indexOf('],"overallUncertainties"')) + ',{"criterionId":"missing","points":';
+    const recovered = recoverTruncatedScientificDiagramAnalysis(truncated, mitosis, 1);
+    expect(recovered?.criteria?.map((item) => [item.criterionId, item.points])).toEqual([['drawing', 3], ['title', 1]]);
+    expect(recovered?.diagrams[0]).not.toHaveProperty('bounds');
+    expect(recovered?.warnings?.join(' ')).toContain('interrompue');
+    expect(recoverTruncatedScientificDiagramAnalysis('{"diagrams":[', mitosis, 1)).toBeNull();
+    expect(recoverTruncatedScientificDiagramAnalysis(truncated.replace('"points":3', '"points":99'), mitosis, 1)).toBeNull();
+  });
+
   it('normalizes missing descriptive fields, null/string uncertainties, ids and criteria objects', () => {
     const raw = { diagrams: [{ pageNumber: 1, uncertainties: null, criteria: { labels: { points: 1, evidence: 'preuve' } } }, { pageNumber: 1, uncertainties: 'doute', criteria: [{ dimension: 'legibility', status: 'partial' }] }] };
     const parsed = parseScientificDiagramAnalysis(JSON.stringify(raw), rubric, 1);
