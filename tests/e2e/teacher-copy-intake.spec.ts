@@ -55,3 +55,36 @@ test('multiple files become separate copies and the active follow-up summarizes 
   await page.locator('.teacher-copy-pages-details summary').click();
   await expect(page.locator('.batch-copy-page-preview')).toHaveCount(2);
 });
+
+test('a teacher can cancel or confirm removing one imported copy without affecting the others', async ({ page }) => {
+  await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter des copies/ }).click();
+  await page.locator('#teacher-copy-intake-files').setInputFiles([
+    { name: 'etudiant-a.png', mimeType: 'image/png', buffer: png },
+    { name: 'etudiant-b.png', mimeType: 'image/png', buffer: png },
+  ]);
+  const cards = page.locator('.copy-overview-grid .correction-series-card');
+  await expect(cards).toHaveCount(2);
+  const first = cards.filter({ hasText: 'etudiant-a.png' });
+  const remove = first.getByRole('button', { name: 'Retirer la copie « etudiant-a.png »' });
+
+  // Native confirmation: dismissal must leave both imported copies untouched.
+  await remove.click();
+  await expect(cards).toHaveCount(2);
+  page.once('dialog', async (dialog) => {
+    expect(dialog.message()).toContain('etudiant-a.png');
+    expect(dialog.message()).toContain('1 page(s)');
+    await dialog.accept();
+  });
+  // Dispatch directly: the removed card can unmount before Playwright's click retry finishes.
+  await remove.dispatchEvent('click');
+  await expect(cards).toHaveCount(1);
+  await expect(cards.first()).toContainText('etudiant-b.png');
+  await expect(page.getByRole('button', { name: /En attente/ })).toContainText('1');
+  await expect(page.getByRole('status').filter({ hasText: 'a été retirée du devoir' })).toBeVisible();
+
+  await page.reload();
+  await openActiveAssignment(page);
+  await page.getByRole('tab', { name: /Copies/ }).click();
+  await expect(page.locator('.copy-overview-grid .correction-series-card')).toHaveCount(1);
+  await expect(page.locator('.copy-overview-grid .correction-series-card')).toContainText('etudiant-b.png');
+});

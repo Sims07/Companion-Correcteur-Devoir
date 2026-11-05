@@ -648,6 +648,15 @@ describe('background correction service', () => {
     expect(listener).toHaveBeenCalledWith([]);
   });
 
+  it('preserves an archived copy and its existing correction', async () => {
+    const f = fixture();
+    f.jobs.set('copy-1', { ...f.job, status: 'completed' });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await expect(service.remove('copy-1')).rejects.toThrow('correction archivée');
+    expect(f.repository.deleteJob).not.toHaveBeenCalled();
+    expect(f.jobs.has('copy-1')).toBe(true);
+  });
+
   it('does not remove a copy while it is processing', async () => {
     const f = fixture();
     const processing = { ...f.job, status: 'processing' as const };

@@ -310,6 +310,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [showAssignmentsHome, setShowAssignmentsHome] = useState(true);
   const [copyOverviewFilter, setCopyOverviewFilter] = useState<CopyOverviewFilter>('all');
   const [showCopyIntake, setShowCopyIntake] = useState(false);
+  const [copyOverviewNotice, setCopyOverviewNotice] = useState('');
   const [copyOverviewFilterTouched, setCopyOverviewFilterTouched] = useState(false);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, AssignmentDraft>>({});
   const [assignmentTitle, setAssignmentTitle] = useState(() => readActiveAssignmentProfile().title);
@@ -1673,6 +1674,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setCurrentCorrectionId(draft?.currentCorrectionId ?? null);
     setIsFinalized(draft?.isFinalized ?? false);
     setReviewMessage(draft?.reviewMessage ?? '');
+    setCopyOverviewNotice('');
     setError('');
     setStreamedOutput('');
     setDiagnosticRuns([]);
@@ -1741,6 +1743,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (!validation.valid) { setError(validation.errors.join(' ')); return; }
     if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant d’ajouter des copies.'); return; }
     setIsPreparingSeriesCopies(true);
+    setCopyOverviewNotice('');
     setError('');
     try {
       const selectedFiles = Array.from(files);
@@ -1859,15 +1862,39 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function removeSeriesCopy(job: BackgroundCorrectionJob) {
-    if (job.status === 'processing' || job.id === currentBackgroundJobId) return;
-    const confirmed = window.confirm(`Supprimer ${job.label} et ses ${job.images.length} page(s) de cette session ?`);
+    if (job.status === 'processing' || job.status === 'completed') return;
+    const confirmed = window.confirm(`Retirer la copie « ${job.label} » et ses ${job.images.length} page(s) de ce devoir ? Les données locales de cette copie seront supprimées.`);
     if (!confirmed) return;
     try {
       await backgroundService.remove(job.id);
-      setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
-      setReviewMessage(`${job.label} a été retirée de la session.`);
+      const remainingJobs = await backgroundService.listJobs(activeAssignmentId);
+      setBackgroundJobs(remainingJobs);
+      if (selectedSeriesPreviewId === job.id) setSelectedSeriesPreviewId(null);
+      if (currentBackgroundJobId === job.id) {
+        // A copy opened before returning to the overview must not remain as a ghost draft.
+        setCurrentBackgroundJobId(null);
+        setCurrentCorrectionId(null);
+        setStudentLabel('');
+        setStudentIdentity(null);
+        setImages([]);
+        setOriginalImages([]);
+        setManualRotationAngles({});
+        setTranscription(null);
+        setScientificDiagramAnalysis(null);
+        setPageClassifications(null);
+        setProposal(null);
+        setReview([]);
+        setTeacherQuestions('');
+        setTeacherAnnotations('');
+        setIsFinalized(false);
+      }
+      setReviewMessage(`La copie « ${job.label} » a été retirée du devoir.`);
+      setCopyOverviewNotice(`La copie « ${job.label} » a été retirée du devoir.`);
+      setError('');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible de supprimer cette copie.');
+      const message = cause instanceof Error ? cause.message : 'Impossible de retirer cette copie.';
+      setCopyOverviewNotice('');
+      setError(message);
     }
   }
 
@@ -2728,6 +2755,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </details>
 </section> : (interfaceMode === 'diagnostic' || !showAiSettings) && <>      {interfaceMode === 'teacher' && teacherStep === 'overview' && <CorrectionOverview
         jobs={allBackgroundJobs.filter((job) => job.assignmentId === activeAssignmentId)}
+        notice={copyOverviewNotice}
         corrections={archivedCorrectionsForActiveAssignment}
         filter={copyOverviewFilter}
         onFilterChange={(filter) => { setCopyOverviewFilterTouched(true); setCopyOverviewFilter(filter); }}
@@ -2747,6 +2775,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         isStartingCorrections={isStartingSeriesCorrections}
         onStartCorrections={() => { void startSeriesCorrections(); }}
         onOpenJob={(jobId) => { void loadNextQueuedCopy(jobId); }}
+        onRemoveJob={(jobId) => { void (async () => { const job = (await backgroundService.listJobs(activeAssignmentId)).find((item) => item.id === jobId); if (job) await removeSeriesCopy(job); })(); }}
         onRetryJob={(jobId) => { void backgroundService.retry(jobId, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}
         onReviewNextCopy={() => {
           if (images.length > 0 && !currentBackgroundJobId && proposal) {
@@ -2976,7 +3005,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               {canOpenCorrection && <button type="button" className="secondary-button correction-series-view" disabled={isAnalyzing} onClick={() => { void loadNextQueuedCopy(job.id); }}>Consulter la correction</button>}
               {['pending', 'processing'].includes(job.status) && <button type="button" className="secondary-button correction-series-view" onClick={() => setSelectedSeriesPreviewId((current) => current === job.id ? null : job.id)}>{selectedSeriesPreviewId === job.id ? 'Masquer la copie' : 'Voir la copie'}</button>}
               {['needs-review', 'failed'].includes(job.status) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Corriger</button>}
-              {job.status !== 'processing' && job.id !== currentBackgroundJobId && <button type="button" className="text-button correction-series-remove" onClick={() => { void removeSeriesCopy(job); }}>Supprimer</button>}
+              {job.status !== 'processing' && job.status !== 'completed' && <button type="button" className="text-button correction-series-remove" onClick={() => { void removeSeriesCopy(job); }}>Supprimer</button>}
             </div>
           </div>
         </li>; })}</ol>}

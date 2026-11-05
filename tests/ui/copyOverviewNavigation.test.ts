@@ -36,6 +36,7 @@ describe('CorrectionOverview — comportement enseignant', () => {
   let container: HTMLDivElement;
   let root: Root;
   const onRetryJob = vi.fn();
+  const onRemoveJob = vi.fn();
   const onOpenJob = vi.fn();
   const onReviewNextCopy = vi.fn();
   const onFilterChange = vi.fn();
@@ -55,6 +56,8 @@ describe('CorrectionOverview — comportement enseignant', () => {
         onStartCorrections: vi.fn(),
         onOpenJob,
         onRetryJob,
+        onRemoveJob,
+        notice: '',
         onOpenCorrection: vi.fn(),
         onOpenCurrentCopy: vi.fn(),
         onReviewNextCopy,
@@ -67,6 +70,7 @@ describe('CorrectionOverview — comportement enseignant', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     onRetryJob.mockClear();
+    onRemoveJob.mockClear();
     onOpenJob.mockClear();
     onReviewNextCopy.mockClear();
     onFilterChange.mockClear();
@@ -114,6 +118,19 @@ describe('CorrectionOverview — comportement enseignant', () => {
     await act(async () => buttons.find((button) => button.textContent?.trim() === 'Ouvrir')?.click());
     expect(onRetryJob).toHaveBeenCalledWith('failed-copy');
     expect(onOpenJob).toHaveBeenCalledWith('failed-copy');
+  });
+
+  it('exposes a discrete removal action for an unarchived copy, never for a running copy', async () => {
+    await render();
+    const remove = container.querySelector<HTMLButtonElement>('button[aria-label="Retirer la copie « Alice Martin »"]');
+    expect(remove).not.toBeNull();
+    await act(async () => remove?.click());
+    expect(onRemoveJob).toHaveBeenCalledWith('failed-copy');
+
+    onRemoveJob.mockClear();
+    await render('all', [{ ...failedJob, status: 'processing' }]);
+    expect(container.querySelector('.correction-series-remove')).toBeNull();
+    expect(onRemoveJob).not.toHaveBeenCalled();
   });
 
   it('changes the selected category when a filter is activated', async () => {
