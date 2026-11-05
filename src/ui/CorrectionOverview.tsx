@@ -23,6 +23,8 @@ type Props = {
   addCopyExpanded: boolean;
   pendingCount: number;
   isStartingCorrections: boolean;
+  isStoppingCorrections: boolean;
+  onStopCorrections: () => void;
   onStartCorrections: () => void;
   onOpenJob: (jobId: string) => void;
   onRetryJob: (jobId: string) => void;
@@ -90,7 +92,7 @@ function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): stri
   return 'Proposition prête à vérifier';
 }
 
-export function CorrectionOverview({ children, jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, addCopyExpanded, pendingCount, isStartingCorrections, onStartCorrections, onOpenJob, onRetryJob, onRemoveJob, notice, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
+export function CorrectionOverview({ children, jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, addCopyExpanded, pendingCount, isStartingCorrections, isStoppingCorrections, onStopCorrections, onStartCorrections, onOpenJob, onRetryJob, onRemoveJob, notice, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
   const [query, setQuery] = useState('');
   const items = useMemo(() => {
     const jobItems: OverviewItem[] = jobs
@@ -182,8 +184,8 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
       <div><strong>{counts.toRetry}</strong><span>À reprendre</span></div>
       <div><strong>{counts.completed}</strong><span>Corrigées</span></div>
     </div>
-    {preparingJob && <div className="teacher-copy-live is-preparing" role="status"><div><strong>Préparation : {jobLabel(preparingJob)}</strong><p>Le modèle IA se prépare. La lecture de cette copie commencera ensuite.</p></div><button type="button" className="secondary-button" onClick={() => onOpenJob(preparingJob.id)}>Voir la copie</button></div>}
-    {processingItem && <div className="teacher-copy-live" role="status"><div><strong>Copie en cours : {processingItem.label}</strong><p>{processingItem.message}</p></div><button type="button" className="secondary-button" onClick={() => { if (processingItem.kind === 'job') onOpenJob(processingItem.id); else onOpenCurrentCopy(); }}>Voir la copie</button></div>}
+    {preparingJob && <div className="teacher-copy-live is-preparing" role="status"><div><strong>Préparation : {jobLabel(preparingJob)}</strong><p>Le modèle IA se prépare. La lecture de cette copie commencera ensuite.</p></div><div className="teacher-copy-live-actions"><button type="button" className="secondary-button" onClick={() => onOpenJob(preparingJob.id)}>Voir la copie</button><button type="button" className="context-stop-button" disabled={isStoppingCorrections} onClick={onStopCorrections}>{isStoppingCorrections ? 'Arrêt en cours…' : 'Arrêter'}</button></div></div>}
+    {processingItem && <div className="teacher-copy-live" role="status"><div><strong>Copie en cours : {processingItem.label}</strong><p>{processingItem.message}</p></div><div className="teacher-copy-live-actions"><button type="button" className="secondary-button" onClick={() => { if (processingItem.kind === 'job') onOpenJob(processingItem.id); else onOpenCurrentCopy(); }}>Voir la copie</button><button type="button" className="context-stop-button" disabled={isStoppingCorrections} onClick={onStopCorrections}>{isStoppingCorrections ? 'Arrêt en cours…' : 'Arrêter'}</button></div></div>}
     <div className="copy-overview-toolbar">
       <label className="copy-overview-search">
         <span aria-hidden="true">⌕</span>
