@@ -274,3 +274,116 @@
   outline-offset: 2px;
 }
 .teacher-copy-rail-score { color: var(--ds-color-text); }
+
+
+/* Copy cards: a compact editorial hierarchy, with saved date never stuck to status. */
+.copy-overview-grid > li.correction-series-card {
+  gap: var(--ds-space-3);
+  min-height: 0;
+  padding: var(--ds-space-5);
+  transition: border-color var(--ds-transition-fast), box-shadow var(--ds-transition-fast);
+}
+.copy-overview-grid > li.correction-series-card:hover {
+  box-shadow: var(--ds-shadow-panel);
+}
+.copy-overview-grid .correction-series-card-heading {
+  align-items: flex-start;
+}
+.copy-overview-grid .correction-series-card-heading .queue-position {
+  background: var(--ds-color-surface-subtle);
+  border: 1px solid var(--ds-color-border);
+  color: var(--ds-color-text-muted);
+}
+.copy-overview-grid .correction-series-card-heading .correction-series-copy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  line-height: 1.4;
+  color: var(--ds-color-text);
+}
+.copy-overview-grid .correction-series-card-score {
+  min-height: 0;
+  padding: var(--ds-space-3) 0;
+  border-color: var(--ds-color-border);
+}
+.copy-overview-grid .correction-series-card-score-label {
+  color: var(--ds-color-text-muted);
+}
+.copy-overview-grid .correction-series-card-score > strong {
+  color: var(--ds-color-text);
+  font-size: 2rem;
+}
+.copy-overview-grid .correction-series-card-footer {
+  gap: var(--ds-space-3);
+  align-items: stretch;
+}
+.copy-overview-grid .correction-series-card-info {
+  display: grid;
+  gap: var(--ds-space-2);
+  min-width: 0;
+}
+.copy-overview-grid .correction-series-card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: var(--ds-space-3);
+  row-gap: var(--ds-space-2);
+  min-width: 0;
+}
+.copy-overview-grid .correction-series-card-status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 3px 8px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text-muted);
+  line-height: 1.5;
+}
+.copy-overview-grid .correction-series-card-status.is-completed {
+  color: var(--ds-color-text);
+}
+.copy-overview-grid .correction-series-card-status.is-to-retry {
+  border-color: var(--ds-color-border-strong);
+  background: var(--ds-color-warning-surface);
+  color: var(--ds-color-warning);
+}
+.copy-overview-grid .correction-series-card-date {
+  color: var(--ds-color-text-muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.copy-overview-grid .correction-series-actions {
+  padding-top: var(--ds-space-3);
+  border-top: 1px solid var(--ds-color-border);
+}
+.copy-overview-grid .correction-series-actions > button.correction-series-view {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text);
+  font-weight: 700;
+  text-align: left;
+  white-space: normal;
+}
+.copy-overview-grid .correction-series-actions > button.correction-series-view:hover:not(:disabled) {
+  border-color: var(--ds-color-border-strong);
+  background: var(--ds-color-brand-100);
+}
+.copy-overview-grid .correction-series-actions > button.correction-series-view:focus-visible {
+  outline: 2px solid var(--ds-color-brand-700);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .copy-overview-grid > li.correction-series-card { transition: none; }
+}
