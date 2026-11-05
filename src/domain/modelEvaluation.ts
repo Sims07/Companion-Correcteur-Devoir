@@ -276,6 +276,6 @@ export function canCompareModelEvaluationRecords(records: readonly ModelEvaluati
   return first.question === second.question &&
     first.correctionMode === second.correctionMode &&
     first.subjectTranscription === second.subjectTranscription &&
-    sameImages(first.subjectImages, second.subjectImages) &&
+    sameImages(first.subjectImages, second.subjectImages, first.subjectImageSignatures, second.subjectImageSignatures) &&
     sameRubric(first.rubricSnapshot, second.rubricSnapshot);
 }
