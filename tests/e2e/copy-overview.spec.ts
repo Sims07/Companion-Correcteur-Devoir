@@ -173,8 +173,8 @@ test('adding a copy while another one is under review keeps the previous copy an
   await expect(page.getByRole('heading', { name: 'Ajouter des copies' })).toBeVisible();
 
   await copyNavigation(page).click();
-  await expect(page.getByText('Copie récente')).toBeVisible();
-  await expect(page.getByText('Copie ancienne')).toBeVisible();
+  await expect(page.locator('.copy-overview-grid').getByText('Copie récente')).toBeVisible();
+  await expect(page.locator('.copy-overview-grid').getByText('Copie ancienne')).toBeVisible();
 });
 
 test('teacher verifies a flagged criterion, validates the copy and lands on the next one', async ({ page }) => {
