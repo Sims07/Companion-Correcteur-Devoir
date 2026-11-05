@@ -5,7 +5,7 @@ import { getNewlyAvailableReviewJob } from '../../src/domain/backgroundCorrectio
 const baseJob = createBackgroundCorrection({
   id: 'copy-current', assignmentId: 'biology', label: 'Copie 1', question: 'Mitose',
   rubric: { title: 'Biologie', criteria: [{ id: 'c1', title: 'Mitose', description: '', maxPoints: 10 }] },
-  correctionMode: 'integrated', images: [], originalImages: [], subjectImages: [],
+  correctionMode: 'integrated', images: [{ fileName: 'copie.png', mimeType: 'image/png', base64: 'aA==' }], originalImages: [], subjectImages: [],
   detectTeacherAnnotations: false, annotationInkColor: 'none', annotationInkColorApplied: true,
   visionModel: 'qwen', analysisModel: 'qwen', thinking: false,
   createdAt: '2026-11-05T09:00:00Z', updatedAt: '2026-11-05T09:00:00Z',
