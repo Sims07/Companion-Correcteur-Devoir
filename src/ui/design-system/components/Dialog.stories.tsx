@@ -23,6 +23,7 @@ const meta = {
   title: 'Composants/Dialog',
   component: Dialog,
   tags: ['autodocs'],
+  args: { title: 'Fenêtre de confirmation', children: 'Contenu de confirmation' },
 } satisfies Meta<typeof Dialog>;
 
 export default meta;
