@@ -70,7 +70,7 @@ export function buildConciseScientificDiagramPrompt(request: ScientificDiagramAn
     'RÔLE : évalue uniquement les schémas scientifiques réellement visibles sur cette image à partir du barème fourni.',
     'La réponse précédente était tronquée : produis une réponse beaucoup plus courte. summary ≤ 10 mots ; evidence et chaque preuve de sous-critère ≤ 8 mots ; uncertainties ≤ 8 mots par entrée. Pas de reformulation ni de justification longue.',
     'Si aucun schéma identifiable, retourne diagrams: [], criteria: [] et une explication courte dans overallUncertainties. N’invente ni schéma ni point.',
-    'Retourne un critère par id, tous ses sous-critères et leurs points justifiés. origin=student-diagram si vu sur la copie, printed-subject si seulement imprimé, uncertain sinon ; uncertainty indique le doute ou vaut chaîne vide. Aucune note pour les preuves imprimées/incertaines. Une phase ne vaut pas titre global. Quatre phases liées = un ensemble de dessins, pas quatre barèmes. PageNumber = 1. La qualité scientifique observable se note si exigée, jamais la beauté subjective.',
+    'Retourne un critère par id, tous ses sous-critères et leurs points justifiés. origin=student-diagram si vu sur la copie, printed-subject si seulement imprimé, uncertain sinon ; uncertainty indique le doute ou vaut chaîne vide. Aucune note pour les preuves imprimées/incertaines. Une phase ne vaut pas titre global. Quatre phases liées = un ensemble de dessins, pas quatre barèmes. PageNumber = 1. La qualité graphique scientifique observable se note si exigée, jamais la beauté subjective.',
     'BARÈME : ' + JSON.stringify(criteria),
     'QUESTION : ' + request.question,
     ...(request.subjectTranscription ? ['SUJET : ' + request.subjectTranscription] : []),
