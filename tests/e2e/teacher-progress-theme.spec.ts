@@ -33,9 +33,20 @@ test('la progression de correction utilise les surfaces Atelier plutôt que le d
   await expect(shell.locator('.analysis-progress')).toHaveCSS('background-color', 'rgb(255, 253, 249)');
   await expect(shell.locator('.analysis-progress')).toHaveCSS('background-image', 'none');
   await expect(shell.locator('.analysis-progress')).toHaveCSS('border-top-color', 'rgb(233, 225, 213)');
-  await expect(shell.locator('.analysis-spinner')).toHaveCSS('border-top-color', 'rgb(161, 77, 55)');
-  await expect(shell.locator('.teacher-progress-phase.current')).toHaveCSS('background-color', 'rgb(247, 232, 220)');
-  await expect(shell.locator('.analysis-step.current')).toHaveCSS('background-color', 'rgb(247, 232, 220)');
+  const progress = await page.evaluate(() => {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'background:var(--ds-color-progress-surface);border:1px solid var(--ds-color-progress);color:var(--ds-color-progress-border)';
+    document.body.append(probe);
+    const style = getComputedStyle(probe);
+    const result = { surface: style.backgroundColor, accent: style.borderTopColor, border: style.color };
+    probe.remove();
+    return result;
+  });
+  await expect(shell.locator('.analysis-spinner')).toHaveCSS('border-top-color', progress.accent);
+  await expect(shell.locator('.teacher-progress-phase.current')).toHaveCSS('background-color', progress.surface);
+  await expect(shell.locator('.teacher-progress-phase.current')).toHaveCSS('border-top-color', progress.border);
+  await expect(shell.locator('.teacher-progress-phase.current > span')).toHaveCSS('background-color', progress.accent);
+  await expect(shell.locator('.analysis-step.current')).toHaveCSS('background-color', progress.surface);
   await expect(shell.locator('.teacher-progress-phase.complete > span')).toHaveCSS('color', 'rgb(39, 98, 58)');
   await expect(shell.locator('.teacher-progress-phase.complete')).toHaveCSS('background-color', 'rgb(251, 248, 242)');
 });

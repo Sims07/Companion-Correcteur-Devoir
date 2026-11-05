@@ -34,7 +34,21 @@ test('correction en cours : le vrai composant React respecte la maquette B', asy
   await expect(left).toHaveCSS('border-radius', '3px');
   await expect(right).toHaveCSS('border-radius', '3px');
   await expect(surface.locator('.background-copy-activity-criteria li').first()).toHaveCSS('border-radius', '0px');
-  await expect(surface.locator('.atelier-processing-phases .is-current')).toHaveCSS('border-bottom-color', 'rgb(161, 77, 55)');
+  const progress = await page.evaluate(() => {
+    const probe = document.createElement('div');
+    probe.style.background = 'var(--ds-color-progress)';
+    probe.style.color = 'var(--ds-color-progress-surface)';
+    document.body.append(probe);
+    const style = getComputedStyle(probe);
+    const color = style.backgroundColor;
+    const surface = style.color;
+    probe.remove();
+    return { color, surface };
+  });
+  await expect(surface.locator('.atelier-processing-phases .is-current')).toHaveCSS('border-bottom-color', progress.color);
+  await expect(surface.locator('.atelier-processing-phases .is-current .atelier-processing-phase-number')).toHaveCSS('background-color', progress.color);
+  await expect(surface.locator('.atelier-processing-current')).toHaveCSS('background-color', progress.surface);
+  await expect(surface.locator('.background-copy-activity-criteria li.is-active .background-copy-activity-marker')).toHaveCSS('background-color', progress.color);
   await expect(surface.locator('.analysis-progress.teacher-progress-card.background-copy-progress')).toHaveCount(0);
 
   const leftBox = await left.boundingBox();
