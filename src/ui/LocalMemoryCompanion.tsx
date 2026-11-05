@@ -4,6 +4,7 @@ import { fingerprintRubric, LOCAL_MEMORY_CORRECTION_ID_KEY, LOCAL_MEMORY_RUBRIC_
 import type { LocalCorrection } from '../domain/localCorrection.ts';
 import { buildLocalMemoryContext, createTeacherMemoryEntry } from '../domain/localMemoryContext.ts';
 import './localMemory.css';
+import { Button, Dialog } from './design-system/index.ts';
 
 const CORRECTION_LABEL_KEY = 'companion-current-correction-label';
 
@@ -27,6 +28,7 @@ function readRubricFingerprint(): { title: string; fingerprint: string } {
 
 export function LocalMemoryCompanion({ service }: { service: LocalCorrectionService }) {
   const [open, setOpen] = useState(false);
+  const [pendingCorrectionDeletion, setPendingCorrectionDeletion] = useState<LocalCorrection | null>(null);
   const [correctionId, setCorrectionId] = useState(getOrCreateCorrectionId);
   const [label, setLabel] = useState(() => window.localStorage.getItem(CORRECTION_LABEL_KEY) ?? 'Correction actuelle');
   const [rubric, setRubric] = useState(readRubricFingerprint);
@@ -149,7 +151,7 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
 
   async function removeCorrection(id: string) {
     const selected = corrections.find((item) => item.id === id);
-    if (!selected || !window.confirm(`Supprimer la correction « ${selected.label} » et ses retours locaux ?`)) return;
+    if (!selected) return;
     await service.deleteCorrection(id);
     if (id === correctionId) startNewCorrection();
     await refreshCorrections();
@@ -233,12 +235,28 @@ export function LocalMemoryCompanion({ service }: { service: LocalCorrectionServ
 
         <section className="memory-tools" aria-label="Gestion des règles locales">
           <div><strong>Gérer les données locales</strong><p>Exporter, importer ou effacer les décisions conservées sur cet appareil.</p></div>
-          <div className="memory-actions"><button type="button" onClick={exportMemory} disabled={!entries.length}>Exporter</button><button type="button" onClick={() => importRef.current?.click()}>Importer</button><button type="button" onClick={() => void deleteCurrentMemory()} disabled={!entries.length}>Effacer les retours de ce devoir</button><button type="button" onClick={() => void removeCorrection(correctionId)}>Supprimer cette correction</button></div>
+          <div className="memory-actions"><button type="button" onClick={exportMemory} disabled={!entries.length}>Exporter</button><button type="button" onClick={() => importRef.current?.click()}>Importer</button><button type="button" onClick={() => void deleteCurrentMemory()} disabled={!entries.length}>Effacer les retours de ce devoir</button><button type="button" onClick={() => {
+              const selected = corrections.find((item) => item.id === correctionId);
+              if (selected) setPendingCorrectionDeletion(selected);
+            }}>Supprimer cette correction</button></div>
         </section>
         <input ref={importRef} className="visually-hidden" type="file" accept="application/json,.json" onChange={(event) => void importMemory(event.currentTarget.files?.[0])} />
         {status && <p className="memory-status" role="status">{status}</p>}
         <details className="memory-details"><summary>Voir les notes utilisées pour aider l’IA</summary><p>{promptContext || 'Aucune note pertinente sélectionnée pour cette analyse. Les règles du barème et les retours de ce devoir peuvent être transmis au modèle local comme contexte complémentaire.'}</p></details>
       </aside>}
+      {pendingCorrectionDeletion && <Dialog
+        title="Supprimer cette correction ?"
+        subtitle={pendingCorrectionDeletion.label}
+        onClose={() => setPendingCorrectionDeletion(null)}
+        actions={<>
+          <Button variant="secondary" onClick={() => setPendingCorrectionDeletion(null)}>Annuler</Button>
+          <Button variant="danger" onClick={() => {
+            const selected = pendingCorrectionDeletion;
+            setPendingCorrectionDeletion(null);
+            if (selected) void removeCorrection(selected.id);
+          }}>Supprimer la correction</Button>
+        </>}
+      ><p>Cette correction et ses retours locaux seront supprimés de cet appareil.</p></Dialog>}
     </>
   );
 }
