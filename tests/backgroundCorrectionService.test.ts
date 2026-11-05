@@ -116,6 +116,71 @@ describe('background correction service', () => {
     expect(listener.mock.calls[0][0][0]).not.toHaveProperty('originalImages');
   });
 
+  it('corrects only the requested assignment when another assignment has older pending copies', async () => {
+    const f = fixture();
+    const otherJob: BackgroundCorrectionJob = {
+      ...structuredClone(f.job),
+      id: 'copy-other',
+      assignmentId: 'assignment-2',
+      label: 'Copie du devoir B',
+      question: 'Décrivez la méiose.',
+      createdAt: '2026-10-01T09:00:00.000Z',
+    };
+    f.jobs.set(otherJob.id, otherJob);
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'https://provider.example/v1', apiCompatible: true, visionModel: 'vision', analysisModel: 'analysis' };
+
+    await service.processPending(settings, 'assignment-1');
+
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+    expect(f.jobs.get('copy-other')?.status).toBe('pending');
+    expect(f.repository.listJobs).toHaveBeenCalledWith('assignment-1');
+    expect(f.requests).toHaveLength(2);
+    expect(f.requests.every((request) => request.question.includes('mitose'))).toBe(true);
+
+    await service.processPending(settings, 'assignment-2');
+    expect(f.jobs.get('copy-other')?.status).toBe('ready');
+    expect(f.requests).toHaveLength(4);
+  });
+
+  it('automatically processes only the assignment of a newly imported copy', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const newJob: BackgroundCorrectionJob = {
+      ...structuredClone(f.job),
+      id: 'copy-other',
+      assignmentId: 'assignment-2',
+      question: 'Décrivez la méiose.',
+    };
+    const settings = { endpoint: 'https://provider.example/v1', apiCompatible: true, visionModel: 'vision', analysisModel: 'analysis', autoBackgroundCorrection: true };
+
+    await service.enqueue(newJob, settings);
+    for (let attempt = 0; attempt < 50 && f.jobs.get('copy-other')?.status !== 'ready'; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    expect(f.jobs.get('copy-other')?.status).toBe('ready');
+    expect(f.jobs.get('copy-1')?.status).toBe('pending');
+    expect(f.requests).toHaveLength(2);
+    expect(f.requests.every((request) => request.question.includes('méiose'))).toBe(true);
+  });
+
+  it('does not restart pending copies of other assignments on an explicit retry', async () => {
+    const f = fixture();
+    f.jobs.set('copy-1', { ...f.job, status: 'failed', error: 'Réponse invalide' });
+    f.jobs.set('copy-other', {
+      ...structuredClone(f.job),
+      id: 'copy-other',
+      assignmentId: 'assignment-2',
+      createdAt: '2026-10-01T09:00:00.000Z',
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.retry('copy-1', { endpoint: 'https://provider.example/v1', apiCompatible: true, visionModel: 'vision', analysisModel: 'analysis' });
+
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+    expect(f.jobs.get('copy-other')?.status).toBe('pending');
+  });
+
   it('uses the latest AI models when a queued copy starts', async () => {
     const f = fixture();
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
@@ -132,7 +197,7 @@ describe('background correction service', () => {
     };
 
     await service.enqueue(f.job, importSettings);
-    await service.processPending(currentSettings);
+    await service.processPending(currentSettings, 'assignment-1');
 
     expect(f.createProvider).toHaveBeenCalled();
     expect(f.createProvider.mock.calls[0][0]).toMatchObject({
@@ -160,7 +225,7 @@ describe('background correction service', () => {
       return JSON.stringify({ summary: '', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
     });
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
-    await service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+    await service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' }, 'assignment-1');
 
     const saved = f.jobs.get('copy-1');
     expect(saved?.status).toBe('ready');
@@ -185,7 +250,7 @@ describe('background correction service', () => {
       return JSON.stringify({ summary: '', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
     });
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
-    await service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+    await service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' }, 'assignment-1');
     expect(f.jobs.get('copy-1')?.label).toBe('Copie à corriger en priorité');
     expect(f.jobs.get('copy-1')?.studentIdentity).toMatchObject({ firstName: 'Alice', lastName: 'Martin' });
   });
@@ -258,7 +323,7 @@ describe('background correction service', () => {
     f.jobs.set(second.id, second);
 
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
-    await service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+    await service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' }, 'assignment-1');
 
     expect(f.jobs.get('copy-1')?.status).toBe('ready');
     expect(f.jobs.get('copy-2')?.status).toBe('ready');
@@ -290,7 +355,7 @@ describe('background correction service', () => {
     expect(paused?.status).toBe('pending');
     expect(paused?.partialCriteria.map((item) => item.criterionId)).toContain('c1');
     expect(f.workspace.unloadModel).not.toHaveBeenCalled();
-    service.resume();
+    service.resume('assignment-1');
     for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
     expect(f.jobs.get('copy-1')?.status).toBe('ready');
     expect(call).toBe(2);
@@ -312,10 +377,10 @@ describe('background correction service', () => {
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
     const settings = { endpoint: 'https://provider.example/v1', apiCompatible: true, apiKey: 'secret', visionModel: 'vision', analysisModel: 'analysis' };
     await service.enqueue(f.job, { ...settings, autoBackgroundCorrection: false });
-    await service.setAutomatic(false, settings);
-    const firstLaunch = service.processPending(settings);
+    await service.setAutomatic(false, settings, 'assignment-1');
+    const firstLaunch = service.processPending(settings, 'assignment-1');
     for (let attempt = 0; attempt < 50 && calls === 0; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
-    const secondLaunch = service.processPending(settings);
+    const secondLaunch = service.processPending(settings, 'assignment-1');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(calls).toBe(1);
     release();
@@ -336,7 +401,7 @@ describe('background correction service', () => {
     expect(f.jobs.get('copy-1')).toMatchObject({ status: 'pending', error: null });
     expect(f.createProvider).not.toHaveBeenCalled();
 
-    service.resume();
+    service.resume('assignment-1');
     for (let attempt = 0; attempt < 50 && f.jobs.get('copy-1')?.status !== 'ready'; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
@@ -682,7 +747,7 @@ describe('background correction cancellation', () => {
         signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
       });
     });
-    const processing = service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
+    const processing = service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' }, 'assignment-1');
     await started;
     await service.stopAndWait();
     await processing;
