@@ -55,7 +55,7 @@ import { RubricImportPanel } from './components/RubricImportPanel.tsx';
 import { CorrectionOverview } from './CorrectionOverview.tsx';
 import { TeacherCopyIntake } from './components/TeacherCopyIntake.tsx';
 import { TeacherWorkspaceNavigation } from './components/TeacherWorkspaceNavigation.tsx';
-import { Button, Dialog } from './design-system/index.ts';
+import { Button, Checkbox, Dialog } from './design-system/index.ts';
 
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
@@ -3485,10 +3485,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       >
         <div className="annotation-review-content">
           <p>Le modèle a repéré des marques dont l’origine n’est pas certaine. Par défaut, elles restent dans la transcription et peuvent être prises en compte dans la correction. Cochez uniquement celles qui ont bien été ajoutées par le professeur : elles seront retirées du texte noté.</p>
-          {pendingTeacherAnnotationReview.map((candidate) => <label className="analysis-thinking-option annotation-review-option" key={candidate.id}>
-            <input type="checkbox" checked={teacherAnnotationReviewDecisions[candidate.id] === true} onChange={(event) => setTeacherAnnotationReviewDecisions((current) => ({ ...current, [candidate.id]: event.target.checked }))} />
-            <span><strong>{candidate.text}</strong><small>Page {candidate.page} · {candidate.location || 'Emplacement non précisé'} · Confiance {candidate.confidence === 'medium' ? 'moyenne' : 'faible'}</small><small>Cocher si cette marque provient du professeur et non de l’étudiant.</small></span>
-          </label>)}
+          {pendingTeacherAnnotationReview.map((candidate) => <Checkbox className="annotation-review-option" key={candidate.id}
+            checked={teacherAnnotationReviewDecisions[candidate.id] === true}
+            onChange={(event) => setTeacherAnnotationReviewDecisions((current) => ({ ...current, [candidate.id]: event.target.checked }))}
+          >
+            <strong>{candidate.text}</strong>
+            <small>Page {candidate.page} · {candidate.location || 'Emplacement non précisé'} · Confiance {candidate.confidence === 'medium' ? 'moyenne' : 'faible'}</small>
+            <small>Cocher si cette marque provient du professeur et non de l’étudiant.</small>
+          </Checkbox>)}
         </div>
       </Dialog>}
       {copyViewerPage !== null && images[copyViewerPage] && <Dialog
