@@ -15,6 +15,7 @@ describe('Atelier pédagogique correction workspace', () => {
     expect(app).toContain('isFlagged ? "panel review-card is-flagged" : "panel review-card"');
     const css = read('src/ui/correctionAtelier.css');
     expect(css).toContain('.review-main-column .review-card.is-flagged');
+    expect(css).toContain('.teacher-copy-rail-list button.is-active');
     expect(css).not.toContain('.review-main-column .review-card:not(.is-flagged)');
   });
 
