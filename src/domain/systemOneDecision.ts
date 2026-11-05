@@ -107,14 +107,24 @@ const alignmentQuestion: SystemOneQuestion = {
   },
 };
 
+const rubricAlignmentQuestion: SystemOneQuestion = {
+  type: 'choice',
+  instructions: 'La réponse de l’étudiant porte-t-elle globalement sur le même devoir que le sujet et le barème ? Les rubriques Introduction, Méthodes, Résultats, Discussion ou Conclusion sont des dimensions d’un même travail, pas des questions scientifiques distinctes. Ne choisis « different » que si la copie traite manifestement d’un autre sujet ou d’une autre question. Une réponse incomplète ou médiocre au bon sujet reste « aligned ». Ne confonds pas des mots communs avec une correspondance scientifique.',
+  criteria: {
+    aligned: 'La copie répond globalement au sujet prévu, même si certains attendus sont absents ou incorrects.',
+    different: 'La copie traite manifestement un autre sujet ou une autre question scientifique.',
+    uncertain: 'La transcription ne permet pas de déterminer la correspondance du sujet.',
+  },
+};
+
 function expectedQuestion(target: { title: string; description: string }): SystemOneQuestion {
   return {
     type: 'choice',
-    instructions: 'Évalue uniquement cet attendu dans la RÉPONSE de l’étudiant (pas dans l’énoncé). Respecte le sens scientifique, notamment les rôles réactif/produit : ' + target.title + (target.description ? '. ' + target.description : ''),
+    instructions: 'Évalue uniquement cet attendu dans la RÉPONSE de l’étudiant (pas dans l’énoncé). Respecte le sens scientifique, notamment les rôles réactif/produit. Une information voisine ou un terme isolé ne suffit pas. Ne choisis « partial » que si plusieurs composantes de cet attendu sont distinctes et que certaines seulement sont correctement démontrées ; pour une affirmation unique, choisis « present » ou « absent ». ATTENDU : ' + target.title + (target.description ? '. ' + target.description : ''),
     criteria: {
       present: 'Correct et complètement démontré dans la réponse.',
       absent: 'Non démontré ou incorrect dans la réponse.',
-      partial: 'Une partie seulement est correctement démontrée.',
+      partial: 'Plusieurs éléments sont exigés dans le même attendu ; au moins un est démontré correctement, mais un autre manque.',
       uncertain: 'La réponse à cet attendu est réellement illisible ou indécidable.',
     },
   };
@@ -203,11 +213,13 @@ export function prepareSystemOneRubric(input: {
   subjectTranscription?: string;
 }): SystemOneBatchPrepared {
   if (!input.criteria.length) throw new Error('Le barème ne contient aucun critère.');
-  const questions: Record<string, SystemOneQuestion> = {};
+  const sharedAlignment = input.criteria.length > 1;
+  const questions: Record<string, SystemOneQuestion> = sharedAlignment ? { alignment: rubricAlignmentQuestion } : {};
   const entries = input.criteria.map((criterion, index) => {
     const { questions: criterionChoices, ...prepared } = criterionQuestions(criterion);
     const prefix = input.criteria.length === 1 ? '' : 'criterion_' + (index + 1) + '_';
     for (const [key, question] of Object.entries(criterionChoices)) {
+      if (sharedAlignment && key === 'alignment') continue;
       questions[prefix + key] = {
         ...question,
         instructions: 'CRITÈRE « ' + criterion.title + ' » : ' + question.instructions,
@@ -246,7 +258,9 @@ function selectedChoice(answer: unknown, allowed: readonly string[]): Choice {
   ).map(([, value]) => value);
   const runnerUp = Math.max(0, ...other);
   // Probabilities are a review signal, not a grade or a rule converting a choice to "uncertain".
-  return { choice: candidate.choice!, probability, weak: probability < 0.65 || probability - runnerUp < 0.15 };
+  // A low raw probability is normal when System One compares many choices;
+  // only nearly tied answers justify a confidence-based teacher alert.
+  return { choice: candidate.choice!, probability, weak: runnerUp > 0 && probability - runnerUp < 0.12 };
 }
 
 /** Evidence is a verbatim sentence from the student's answer only; no LLM-generated citation. */
@@ -276,6 +290,8 @@ export function scoreSystemOneCriterion(
   transcription: string,
   prepared: SystemOnePrepared,
   result: SystemOneEnvelope,
+  /** A shared alignment verdict is reported once, not on every rubric criterion. */
+  suppressSharedAlignmentReview = false,
 ): CriterionProposal {
   if (!result || typeof result !== 'object' || !result.answers || typeof result.answers !== 'object') {
     throw new Error('La réponse System One ne contient aucune décision.');
@@ -319,7 +335,9 @@ export function scoreSystemOneCriterion(
     const closeMaterialAlternative = Boolean(runnerUp
       && runnerUp[1] >= choice.probability - 0.12
       && Math.abs(competitorPoints - grade) >= Math.min(1, criterion.maxPoints));
-    const alignmentReview = alignment.choice !== 'aligned' || alignment.weak;
+    const alignmentReview = !suppressSharedAlignmentReview && (
+      alignment.choice !== 'aligned' || (alignment.weak && alignment.probability < 0.5)
+    );
     const needsReview = closeMaterialAlternative || alignmentReview;
     return {
       criterionId: criterion.id, points: grade, assessmentStatus: 'evaluated',
@@ -359,9 +377,13 @@ export function scoreSystemOneCriterion(
   const reviewed = observations.filter((observation) =>
     observation.answer.weak || observation.answer.choice === 'partial'
     || observation.answer.choice === 'uncertain'
-    || (observation.answer.choice === 'present' && !observation.evidence)
   );
-  const alignmentReview = alignment.choice !== 'aligned' || alignment.weak;
+  // Native choice models do not generate text excerpts. A heuristic keyword
+  // lookup is useful as a hint, but its failure never proves that an otherwise
+  // decisive answer needs human arbitration.
+  const alignmentReview = !suppressSharedAlignmentReview && (
+    alignment.choice !== 'aligned' || (alignment.weak && alignment.probability < 0.5)
+  );
   const incomplete = reviewed.length > 0 || alignmentReview;
   const points = sumGradeScores(observations.map((observation) => observation.points));
   const evidence = observations.find((observation) => observation.evidence)?.evidence
@@ -405,10 +427,14 @@ export function scoreSystemOneRubric(
   prepared: SystemOneBatchPrepared,
   response: SystemOneEnvelope,
 ): CriterionProposal[] {
-  return prepared.entries.map(({ criterion, prepared: criterionPrepared, prefix }) => {
+  const sharedAlignment = prepared.entries.length > 1;
+  return prepared.entries.map(({ criterion, prepared: criterionPrepared, prefix }, index) => {
     const answers = Object.fromEntries(Object.keys(criterionPrepared.questions).map((key) => [
-      key, response.answers[prefix + key],
+      key, sharedAlignment && key === 'alignment' ? response.answers.alignment : response.answers[prefix + key],
     ]));
-    return scoreSystemOneCriterion(criterion, transcription, criterionPrepared, { answers });
+    return scoreSystemOneCriterion(
+      criterion, transcription, criterionPrepared, { answers },
+      sharedAlignment && index > 0,
+    );
   });
 }
