@@ -144,6 +144,7 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
       ...(typeof item.pageNumber === 'number' && Number.isInteger(item.pageNumber) && item.pageNumber >= 1 ? { pageNumber: item.pageNumber } : {}),
       ...(text(item.annotationSuggestion) ? { annotationSuggestion: text(item.annotationSuggestion) } : {}),
       confidence,
+      ...(item.assessmentStatus === 'not-evaluated' ? { assessmentStatus: 'not-evaluated' as const } : {}),
       ...(text(item.questionForTeacher) ? { questionForTeacher: text(item.questionForTeacher) } : {}),
     });
   }
