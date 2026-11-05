@@ -61,6 +61,7 @@ describe('decision grading Ollama integration', () => {
     const raw = await provider.generate({ question: 'Rôle des mitochondries', rubric: JSON.stringify(rubric), transcription });
     const proposed = parseGradingProposal(raw, rubric);
     expect(proposed.criteria[0].assessmentStatus).toBe('not-evaluated');
+    expect(proposed.scoreIncomplete).toBe(true);
     expect(proposed.criteria[0].questionForTeacher).toContain('Respiration');
     expect(toReviewedCriteria(proposed)[0].decision).toBe('pending');
   });
