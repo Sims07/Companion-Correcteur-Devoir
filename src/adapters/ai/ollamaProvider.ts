@@ -1,3 +1,5 @@
+import { MODEL_READINESS_PROBE_PROMPT } from './prompts/modelProbePrompt.ts';
+import { buildCriterionDecisionRepairPrompt } from './prompts/repairPrompts.ts';
 import { buildArbitrationPrompt, buildArbitrationRepairPrompt, buildIncrementalGradingRepairPrompt, buildGradingRepairPrompt } from './prompts/repairPrompts.ts';
 import { buildSubjectReferencePrompt, buildStudentIdentityFallbackPrompt, buildTeacherAnnotationRepairPrompt, buildRubricPageTranscriptionPrompt } from './prompts/visionPrompts.ts';
 import { buildFullGradingPrompt } from './prompts/fullGradingPrompt.ts';
@@ -205,7 +207,7 @@ export async function checkOllamaReady(
       response = await requestFetch(`${endpoint}/api/chat`, annotateNetworkRequest({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, stream: false, messages: [{ role: 'user', content: 'Réponds uniquement par OK.' }] }),
+        body: JSON.stringify({ model, stream: false, messages: [{ role: 'user', content: MODEL_READINESS_PROBE_PROMPT }] }),
       }, 'Vérifier la disponibilité du modèle', `Modèle ${model}`));
     } catch {
       throw new Error('Serveur compatible OpenAI injoignable. Vérifiez son adresse et sa disponibilité.');
@@ -262,7 +264,7 @@ export async function prewarmOllamaModel(settings: OllamaSettings, model: string
       stream: false,
       think: false,
       keep_alive: '5m',
-      messages: [{ role: 'user', content: 'Réponds uniquement par OK.' }],
+      messages: [{ role: 'user', content: MODEL_READINESS_PROBE_PROMPT }],
       options: { num_predict: 1 },
     }),
     ...(signal ? { signal } : {}),
@@ -935,7 +937,7 @@ export function createOllamaProvider(
               try {
                 const raw = await sendStream(
                   analysisModel,
-                  attempt === 1 ? prompt : prompt + '\\n\\nLa précédente réponse ne respectait pas le contrat : ' + previousError + '. Corrige uniquement la structure JSON.',
+                  attempt === 1 ? prompt : buildCriterionDecisionRepairPrompt(prompt, previousError),
                   undefined, onChunk, criterionDecisionSchema(criterion), false,
                   { kind: 'model', stage: 'analysis', temperature: 0,
                     generationTokenLimit: Math.min(1024, 256 + 96 * Math.max(1, getRubricSubcriteria(criterion).length)),
