@@ -78,6 +78,19 @@ describe('Model evaluation workspace layout contract', () => {
     expect(layout).toContain('.evaluation-active-pill::before { animation: none; }');
   });
 
+  it('styles evaluation archive outcomes by actual meaning, not the terracotta brand', () => {
+    const archiveBase = layout.split('.evaluation-archive-feedback {')[1]?.split('}')[0] ?? '';
+    expect(archiveBase).not.toContain('var(--ds-color-brand-700)');
+    for (const [state, token] of [
+      ['saving', '--ds-color-progress'],
+      ['saved', '--ds-color-success'],
+      ['without-images', '--ds-color-warning'],
+      ['failed', '--ds-color-danger'],
+    ]) {
+      expect(layout).toContain(`.evaluation-archive-feedback.is-${state} { border-left-color: var(${token}); }`);
+    }
+  });
+
   it('uses shared design tokens and defines tablet, mobile and reduced-motion behavior', () => {
     expect(layout).toContain('var(--ds-color-surface)');
     expect(layout).toContain('var(--ds-color-border)');

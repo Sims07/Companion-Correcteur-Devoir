@@ -63,7 +63,7 @@ export function StorageUsagePanel({ service, onManageEvaluations }: Props) {
       <button type="button" className="secondary-button" onClick={() => void refresh()} disabled={!service || loading}>{loading ? 'Mesure en cours…' : 'Actualiser'}</button>
     </div>
     {!service && <p className="storage-usage-notice">Les mesures de stockage ne sont pas configurées sur cet appareil.</p>}
-    {error && <p className="storage-usage-notice" role="alert">Mesure impossible : {error}</p>}
+    {error && <p className="storage-usage-notice is-error" role="alert">Mesure impossible : {error}</p>}
     {snapshot && <>
       <div className="storage-usage-kpis">
         <div><small>Utilisé par le site</small><strong>{formatStorageBytes(snapshot.originUsageBytes)}</strong></div>
@@ -86,7 +86,7 @@ export function StorageUsagePanel({ service, onManageEvaluations }: Props) {
         </div> : <p className="storage-usage-notice">Aucune catégorie mesurée, ou base IndexedDB inaccessible.</p>}
         <p>Les tailles par catégorie sont des <strong>ordres de grandeur calculés sur les valeurs</strong> (chaînes UTF-16). Elles ne doivent pas être additionnées au quota réel, ni confondues avec la taille physique sur disque.</p>
       </div>
-      {occupancy !== null && occupancy >= 80 && <p className="storage-usage-notice">L’occupation approche du quota annoncé : pensez à vérifier vos archives locales et l’espace disque disponible.</p>}
+      {occupancy !== null && occupancy >= 80 && <p className="storage-usage-notice is-warning" role="status">L’occupation approche du quota annoncé : pensez à vérifier vos archives locales et l’espace disque disponible.</p>}
       {snapshot.warnings.length > 0 && <ul className="storage-usage-warnings">{snapshot.warnings.map((message, index) => <li key={index}>{message}</li>)}</ul>}
       <div className="storage-usage-actions">
         {onManageEvaluations && <button type="button" className="secondary-button" onClick={onManageEvaluations}>Gérer les évaluations enregistrées</button>}
@@ -95,6 +95,6 @@ export function StorageUsagePanel({ service, onManageEvaluations }: Props) {
       </div>
       <small className="storage-usage-updated">Dernière mesure : {new Date(snapshot.measuredAt).toLocaleString('fr-FR')}</small>
     </>}
-    {!snapshot && loading && <p className="storage-usage-notice" role="status">Lecture des catégories IndexedDB sur cet appareil…</p>}
+    {!snapshot && loading && <p className="storage-usage-notice is-loading" role="status">Lecture des catégories IndexedDB sur cet appareil…</p>}
   </section>;
 }

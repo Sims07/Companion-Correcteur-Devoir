@@ -101,9 +101,22 @@ Les tailles disponibles sont `compact` (confirmations), `wide` (revue des annota
 
 ### Espace technique « Outils IA »
 
-Les trois vues (Observabilité, Inspecteur réseau et Évaluation des modèles) partagent une navigation Atelier pédagogique : fond papier, surfaces ivoire, typographie éditoriale pour les titres et accent terre cuite réservé à la navigation, aux sélections et aux graphiques neutres. Vert / rouge / ambre restent réservés aux états de succès / échec / attente. La feuille `src/ui/aiToolsAtelier.css` est chargée après les styles historiques et bornée à `.ai-tools-view` afin de ne pas modifier le parcours professeur.
+Les trois vues (Observabilité, Inspecteur réseau et Évaluation des modèles) partagent une navigation Atelier pédagogique : fond papier, surfaces ivoire, typographie éditoriale pour les titres et accent terre cuite réservé à la navigation, aux sélections et aux graphiques neutres. Le **bleu ardoise** signale un traitement actif, le gris une attente simple, le vert un succès, l'ambre une intervention nécessaire et le rouge une erreur réelle. Les éléments de navigation et les choix sélectionnés conservent l'accent terre cuite. La feuille `src/ui/aiToolsAtelier.css` est chargée après les styles historiques et bornée à `.ai-tools-view` afin de ne pas modifier le parcours professeur.
 
 Le partage d'un diagnostic technique est replié par défaut, sans déplacer ni supprimer les données d'observabilité. L'inspecteur présente six colonnes alignées sur ordinateur et privilégie heure, méthode, intention et statut sur mobile. Les tests de navigation, de contrat et de navigateur vérifient ces choix.
+
+### Contrat transversal des états
+
+| Situation | Traitement visuel | Exemples |
+| --- | --- | --- |
+| Action ou sélection | Terre cuite (marque) | Onglet choisi, bouton principal, profil sélectionné |
+| Traitement actif | Ardoise informative `--ds-color-progress*` | Lecture d'une copie, analyse en cours, requête HTTP en attente de réponse, sauvegarde en cours |
+| Simple attente | Gris neutre | Copies à corriger, prochaines étapes |
+| Résultat obtenu | Vert de succès | Copie corrigée, historique enregistré |
+| Attention requise | Ambre | Barème à compléter, stockage proche du quota, copie à reprendre |
+| Erreur véritable | Rouge de danger | Appel IA échoué, stockage impossible, historique non enregistré |
+
+Le code ne doit pas déduire un état métier de la couleur de marque. Les cartes et panneaux sont **neutres par défaut** : seuls les statuts utiles sont accentués. Les messages utilisent `StatusNotice` lorsqu'il s'agit d'un feedback court. Les tokens informatifs et les statuts sont documentés dans Storybook `Fondations/Design tokens`. Les tests de contrat et Playwright vérifient le rendu sur les deux parcours.
 
 ### Messages de statut
 

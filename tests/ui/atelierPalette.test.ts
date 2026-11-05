@@ -38,6 +38,8 @@ describe('Atelier pédagogique visual identity', () => {
     expect(contrast(getToken(tokens, 'ds-color-text-muted'), surface)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(getToken(tokens, 'ds-color-brand-700'), surface)).toBeGreaterThanOrEqual(4.5);
     expect(contrast('#ffffff', getToken(tokens, 'ds-color-brand-700'))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(getToken(tokens, 'ds-color-progress'), surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(getToken(tokens, 'ds-color-progress'), getToken(tokens, 'ds-color-progress-surface'))).toBeGreaterThanOrEqual(4.5);
   });
 
   it('shares the theme with the teacher flow and preserves focus and motion rules', () => {

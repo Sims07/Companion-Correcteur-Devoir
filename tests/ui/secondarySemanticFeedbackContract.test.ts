@@ -31,6 +31,19 @@ describe('semantics on secondary teacher tools', () => {
     expect(suggested).toContain("setMessageTone('error')");
   });
 
+  it('keeps local memory and storage telemetry neutral until a semantic warning or error occurs', () => {
+    const memory = file('src/ui/localMemory.css');
+    const storage = file('src/ui/storageUsagePanel.css');
+    const panel = file('src/ui/StorageUsagePanel.tsx');
+    expect(memory).toContain('.memory-step { background: var(--ds-color-surface-subtle); color: var(--ds-color-text-muted); }');
+    expect(memory).toContain('border-left-color: var(--ds-color-border-strong)');
+    expect(storage).toContain('background:var(--ds-color-progress); border-radius:inherit; transition: width');
+    expect(storage).toContain('.storage-usage-notice.is-warning');
+    expect(storage).toContain('.storage-usage-notice.is-error');
+    expect(panel).toContain('className="storage-usage-notice is-error" role="alert"');
+    expect(panel).toContain('className="storage-usage-notice is-warning" role="status"');
+  });
+
   it('no longer uses the retired blue-green token fallbacks in rubric panels', () => {
     for (const name of ['RubricImportPanel.css', 'RubricExportPanel.css']) {
       const css = file(`src/ui/components/${name}`);

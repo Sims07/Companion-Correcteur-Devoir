@@ -23,7 +23,7 @@
 }
 .memory-section, .memory-tools { border-color: var(--ds-color-border); }
 .memory-section-heading h3, .memory-tools > div:first-child strong { color: var(--ds-color-text); }
-.memory-step { background: var(--ds-color-brand-100); color: var(--ds-color-brand-700); }
+.memory-step { background: var(--ds-color-surface-subtle); color: var(--ds-color-text-muted); }
 .memory-count, .memory-step-muted { background: var(--ds-color-surface-subtle); color: var(--ds-color-text-muted); }
 .memory-label { color: var(--ds-color-text); }
 .memory-label input, .memory-label textarea, .memory-label select {
@@ -48,7 +48,7 @@
 .memory-primary:hover:not(:disabled) { background: var(--ds-color-brand-600); }
 .memory-rubric-card { border-color: var(--ds-color-border); border-radius: var(--ds-radius-md); background: var(--ds-color-surface-subtle); }
 .memory-rubric-card strong { color: var(--ds-color-text); }
-.memory-entry { background: var(--ds-color-surface-subtle); border-left-color: var(--ds-color-brand-700); }
+.memory-entry { background: var(--ds-color-surface-subtle); border-left-color: var(--ds-color-border-strong); }
 .memory-checkbox input { accent-color: var(--ds-color-brand-700); }
 .memory-fab:focus-visible, .memory-close:focus-visible, .memory-secondary:focus-visible,
 .memory-primary:focus-visible, .memory-actions button:focus-visible {
