@@ -96,3 +96,9 @@ Les accents et textes visibles respectent au minimum un contraste WCAG AA de 4,5
 Les confirmations et fenêtres modales utilisent le composant partagé `Dialog` (`src/ui/design-system/components/Dialog.tsx`) et les boutons `Button`. Le navigateur gère la modalité native, le focus, la touche Échap et son retour à l'élément déclencheur. La croix et le fond ne ferment que les dialogues annulables ; `dismissible={false}` est réservé aux décisions indispensables à un traitement en cours.
 
 Les tailles disponibles sont `compact` (confirmations), `wide` (revue des annotations) et `viewer` (pages). La surface, la typographie, les boutons, les couleurs, les bordures, l'ombre et le fond proviennent des tokens du design system. Ne pas utiliser `window.confirm` ou une surcouche `div[role="dialog"]` pour les parcours professeur. Un nouveau dialogue doit posséder un scénario Storybook et des tests ciblés de ses interactions au clavier et sur mobile.
+
+### Espace technique « Outils IA »
+
+Les trois vues (Observabilité, Inspecteur réseau et Évaluation des modèles) partagent une navigation Atelier pédagogique : fond papier, surfaces ivoire, typographie éditoriale pour les titres et accent terre cuite réservé à la navigation, aux sélections et aux graphiques neutres. Vert / rouge / ambre restent réservés aux états de succès / échec / attente. La feuille `src/ui/aiToolsAtelier.css` est chargée après les styles historiques et bornée à `.ai-tools-view` afin de ne pas modifier le parcours professeur.
+
+Le partage d'un diagnostic technique est replié par défaut, sans déplacer ni supprimer les données d'observabilité. L'inspecteur présente six colonnes alignées sur ordinateur et privilégie heure, méthode, intention et statut sur mobile. Les tests de navigation, de contrat et de navigateur vérifient ces choix.

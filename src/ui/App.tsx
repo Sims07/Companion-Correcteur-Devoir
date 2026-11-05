@@ -2271,7 +2271,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
 
   return (
-    <main className={interfaceMode === 'teacher' ? `app-shell teacher-flow-shell${showAssignmentsHome ? ' teacher-assignments-home' : ''}` : interfaceMode === 'diagnostic' ? 'app-shell evaluation-workspace-shell' : 'app-shell'}>
+    <main className={interfaceMode === 'teacher' ? `app-shell teacher-flow-shell${showAssignmentsHome ? ' teacher-assignments-home' : ''}` : interfaceMode === 'diagnostic' ? 'app-shell evaluation-workspace-shell ai-tools-view' : 'app-shell ai-tools-view'}>
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>

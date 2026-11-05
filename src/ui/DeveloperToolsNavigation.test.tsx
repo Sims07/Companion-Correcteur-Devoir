@@ -36,8 +36,11 @@ describe('DeveloperToolsNavigation', () => {
     const buttons = [...(navigation?.querySelectorAll('button') ?? [])];
     expect(buttons.map((button) => button.querySelector('strong')?.textContent)).toEqual(['Observabilité', 'Inspecteur réseau', 'Évaluation des modèles']);
     expect(buttons[0]?.getAttribute('aria-current')).toBe('page');
+    expect(buttons[0]?.querySelector('.developer-tools-link-index')?.textContent).toBe('01');
+    expect(container.querySelector('.developer-tools-support')?.hasAttribute('open')).toBe(false);
     expect(container.textContent).toContain('1 exécution(s) en échec');
     expect(container.textContent).toContain('1 requête(s) en erreur');
+    expect(container.querySelector('summary')?.textContent).toContain('Aide au diagnostic');
     await act(async () => { buttons[1]?.click(); });
     expect(onNavigate).toHaveBeenCalledWith('debug');
   });

@@ -55,7 +55,7 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
   const liveDuration = (record: NetworkRequestRecord) => record.state === 'pending' ? Math.max(0, clock - Date.parse(record.startedAt)) : record.durationMs;
   const waitingForServer = (record: NetworkRequestRecord) => record.state === 'pending' && (liveDuration(record) ?? 0) >= 15_000;
 
-  return <main className="network-inspector" aria-label="Inspecteur réseau">
+  return <section className="network-inspector" aria-label="Inspecteur réseau">
     <header className="network-inspector-heading">
       <div><p className="eyebrow">OUTILS DE DÉVELOPPEMENT</p><h1>Inspecteur réseau</h1><p>Suivez les requêtes HTTP de l’application en direct et consultez leur historique local.</p></div>
       <div className="network-inspector-actions"><span className="network-local-indicator">● Historique local</span><button type="button" className="secondary-button" onClick={() => { clearNetworkHistory(); setRecords([]); setSelectedId(null); setStorageStatus(getNetworkInspectorStatus()); }}>Effacer l’historique</button></div>
@@ -85,5 +85,5 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
       </section>
     </div>
     <p className="network-inspector-footnote">Les corps complets restent en mémoire pendant la session ; seuls 4 000 caractères par corps sont persistés localement. Les clés, tokens et données binaires sont masqués. L’historique est limité aux 100 dernières requêtes.</p>
-  </main>;
+  </section>;
 }
