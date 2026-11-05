@@ -20,7 +20,7 @@ test('teacher previews and adds expectations with explicitly assigned points', a
   await expect(preview.getByLabel('Points proposés 2')).toHaveValue('3');
   await expect(preview.getByText('Total après ajout : 8 / 8 points')).toBeVisible();
   await preview.getByRole('button', { name: 'Ajouter 3 sous-critères' }).click();
-  await expect(criterion.getByLabel('Sous-critère 1 — Connaissances scientifiques')).toHaveValue('Réactifs : CO2 et H2O');
+  await expect(criterion.getByRole('textbox', { name: 'Sous-critère 1 — Connaissances scientifiques', exact: true })).toHaveValue('Réactifs : CO2 et H2O');
   await expect(criterion.getByLabel('Description / attendus')).toHaveValue(source);
   await expect(criterion.locator('.subcriteria-editor .criterion-fields')).toHaveCount(3);
 });
