@@ -3458,24 +3458,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </section>}
 
       </>}
-      {pendingRemoval && <Dialog
-        title={pendingRemoval.kind === 'assignment' ? 'Supprimer ce devoir ?' : 'Retirer cette copie ?'}
-        subtitle={pendingRemoval.kind === 'assignment' ? pendingRemoval.profile.title.trim() || 'Devoir sans titre' : pendingRemoval.job.label}
-        onClose={() => setPendingRemoval(null)}
-        actions={<>
-          <Button variant="secondary" onClick={() => setPendingRemoval(null)}>Annuler</Button>
-          <Button variant="danger" onClick={() => {
-            const target = pendingRemoval;
-            setPendingRemoval(null);
-            if (target?.kind === 'assignment') deleteAssignment(target.profile);
-            else if (target?.kind === 'copy') void removeSeriesCopy(target.job);
-          }}>{pendingRemoval.kind === 'assignment' ? 'Supprimer le devoir' : 'Retirer la copie'}</Button>
-        </>}
-      >
-        {pendingRemoval.kind === 'assignment'
-          ? <p>Ce devoir sera retiré de votre liste. Les corrections déjà archivées seront conservées.</p>
-          : <p>Cette copie et ses {pendingRemoval.job.images.length} page(s) seront retirées du devoir. Les données locales associées à cette copie seront supprimées.</p>}
-      </Dialog>}
       {pendingTeacherAnnotationReview.length > 0 && <Dialog
         title="Vérifier les annotations incertaines"
         subtitle={pendingTeacherAnnotationReview.length + ' élément(s) à confirmer'}
@@ -3521,6 +3503,24 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </Dialog>}
       {(interfaceMode === 'diagnostic' || !showAiSettings) && <footer><span>Compagnon Correcteur de Devoirs</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>}
       </div>}
+      {pendingRemoval && <Dialog
+        title={pendingRemoval.kind === 'assignment' ? 'Supprimer ce devoir ?' : 'Retirer cette copie ?'}
+        subtitle={pendingRemoval.kind === 'assignment' ? pendingRemoval.profile.title.trim() || 'Devoir sans titre' : pendingRemoval.job.label}
+        onClose={() => setPendingRemoval(null)}
+        actions={<>
+          <Button variant="secondary" onClick={() => setPendingRemoval(null)}>Annuler</Button>
+          <Button variant="danger" onClick={() => {
+            const target = pendingRemoval;
+            setPendingRemoval(null);
+            if (target?.kind === 'assignment') deleteAssignment(target.profile);
+            else if (target?.kind === 'copy') void removeSeriesCopy(target.job);
+          }}>{pendingRemoval.kind === 'assignment' ? 'Supprimer le devoir' : 'Retirer la copie'}</Button>
+        </>}
+      >
+        {pendingRemoval.kind === 'assignment'
+          ? <p>Ce devoir sera retiré de votre liste. Les corrections déjà archivées seront conservées.</p>
+          : <p>Cette copie et ses {pendingRemoval.job.images.length} page(s) seront retirées du devoir. Les données locales associées à cette copie seront supprimées.</p>}
+      </Dialog>}
     </main>
   );
 }
