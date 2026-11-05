@@ -10,6 +10,7 @@ Les instructions destinées aux modèles sont centralisées et versionnées avec
 | Correction incrémentale par critère | `src/adapters/ai/gradingPrompts.ts` |
 | Classification de page et analyse de schémas | `src/adapters/ai/prompts/scientificDiagramPrompts.ts` |
 | Arbitrage et reprise après réponse invalide | `src/adapters/ai/prompts/repairPrompts.ts` |
+| Sondage minimal de disponibilité du modèle | `src/adapters/ai/prompts/modelProbePrompt.ts` |
 | Structuration et consolidation de barème | `src/adapters/ai/rubricStructuring.ts` |
 
 Les trois constructeurs déjà spécialisés (décision, incrémental et structuration du barème) restent en place pour préserver leurs API et leurs tests existants.
