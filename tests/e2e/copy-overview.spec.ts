@@ -115,6 +115,9 @@ test('opening a copy whose analysis is running shows its individual correction p
   await expect(page.getByText('La copie en cours de correction')).toBeVisible();
   await expect(page.getByText('1/1 pages lues')).toBeVisible();
   await expect(page.getByText('1/3 critères traités')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Avancement du barème' })).toBeVisible();
+  await expect(page.getByRole('progressbar', { name: 'Critères du barème traités' })).toHaveAttribute('aria-valuenow', '1');
+  await page.getByText('Consulter le texte reconnu').click();
   await expect(page.getByText('Transcription de test en cours.')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
 });
