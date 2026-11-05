@@ -175,6 +175,7 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     criteria,
     questionsForTeacher: [...new Set(questions)],
     finalScore: calculatedFinalScore,
+    ...(criteria.some((item) => item.assessmentStatus === 'not-evaluated') ? { scoreIncomplete: true } : {}),
   };
 }
 
