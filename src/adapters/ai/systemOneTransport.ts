@@ -1,3 +1,4 @@
+import { promptTrace } from './prompts/promptRegistry.ts';
 import type { DiagnosticModelResult } from '../../ports/aiProvider.ts';
 import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 import type { SystemOneEnvelope, SystemOnePayload } from '../../domain/systemOneDecision.ts';
@@ -22,6 +23,7 @@ export async function requestSystemOneDecision(input: {
     onDiagnosticResult?.({
       kind: 'model',
       stage: 'analysis',
+      ...promptTrace('decision.system-one'),
       model,
       requestPayload: JSON.stringify(payload, null, 2),
       requestMetadata: {
