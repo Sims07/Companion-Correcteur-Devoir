@@ -1,7 +1,7 @@
 import { promptTrace } from './prompts/promptRegistry.ts';
 import { classificationPrompt, buildScientificDiagramPrompt, buildScientificDiagramRepairPrompt, buildConciseScientificDiagramPrompt } from './prompts/scientificDiagramPrompts.ts';
 export { buildScientificDiagramPrompt } from './prompts/scientificDiagramPrompts.ts';
-import { parseScientificDiagramAnalysis } from '../../domain/scientificDiagram.ts';
+import { parseScientificDiagramAnalysis, recoverTruncatedScientificDiagramAnalysis, type ScientificDiagramAnalysis } from '../../domain/scientificDiagram.ts';
 import { parseScientificPageClassifications } from '../../domain/scientificPageClassification.ts';
 import type { ScientificDiagramAnalyzer, ScientificDiagramAnalysisRequest, ScientificPageClassificationRequest } from '../../ports/scientificDiagramAnalysis.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
@@ -72,24 +72,13 @@ function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequ
           items: {
             type: 'object',
             additionalProperties: false,
-            required: ['id', 'pageNumber', 'diagramType', 'summary', 'uncertainties', 'bounds'],
+            required: ['id', 'pageNumber', 'diagramType', 'summary', 'uncertainties'],
             properties: {
               id: { type: 'string' },
               pageNumber: { type: 'integer', minimum: 1 },
               diagramType: { type: 'string' },
               summary: { type: 'string' },
               uncertainties: { type: 'array', items: { type: 'string' } },
-              bounds: {
-                type: ['object', 'null'],
-                additionalProperties: false,
-                required: ['x', 'y', 'width', 'height'],
-                properties: {
-                  x: { type: 'number' },
-                  y: { type: 'number' },
-                  width: { type: 'number' },
-                  height: { type: 'number' },
-                },
-              },
             },
           },
         },
@@ -131,6 +120,40 @@ function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequ
         overallUncertainties: { type: 'array', items: { type: 'string' } },
       },
     };
+}
+
+
+/** Preserve independently validated scores across a truncated response and its narrow retry. */
+function combineDiagramAssessments(
+  first: ScientificDiagramAnalysis | null,
+  second: ScientificDiagramAnalysis | null,
+  rubric: ScientificDiagramAnalysisRequest['rubric'],
+): ScientificDiagramAnalysis {
+  const diagrams = first?.diagrams.length ? first.diagrams : second?.diagrams ?? [];
+  const criteria = new Map<string, NonNullable<ScientificDiagramAnalysis['criteria']>[number]>();
+  for (const item of first?.criteria ?? []) criteria.set(item.criterionId, item);
+  for (const item of second?.criteria ?? []) {
+    if (!criteria.has(item.criterionId)) {
+      criteria.set(item.criterionId, first?.diagrams.length
+        ? { ...item, diagramIds: diagrams.map((diagram) => diagram.id) }
+        : item);
+    }
+  }
+  const ordered = rubric.criteria.flatMap((criterion) => {
+    const match = criteria.get(criterion.id);
+    return match ? [match] : [];
+  });
+  const missing = rubric.criteria.filter((criterion) => !criteria.has(criterion.id)).map((criterion) => criterion.title);
+  return {
+    diagrams,
+    criteria: ordered,
+    overallUncertainties: [...new Set([...(first?.overallUncertainties ?? []), ...(second?.overallUncertainties ?? [])])],
+    warnings: [...new Set([
+      ...(first?.warnings ?? []), ...(second?.warnings ?? []),
+      'Réponse Vision tronquée : conservation des seules évaluations complètes et vérifiées.',
+      ...(missing.length ? ['Critères non évalués après troncature : ' + missing.join(', ') + '.'] : []),
+    ])],
+  };
 }
 
 export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = currentFetch): ScientificDiagramAnalyzer {
@@ -214,11 +237,10 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       let raw = '';
       let prompt = buildScientificDiagramPrompt(request);
 
-      const schema = buildScientificDiagramJsonSchema(request);
-
-      const send = async (promptOverride?: string) => {
+      const send = async (promptOverride?: string, scopedRequest: ScientificDiagramAnalysisRequest = request) => {
+        const schema = buildScientificDiagramJsonSchema(scopedRequest);
         lastRequestStartedAt = Date.now();
-        prompt = promptOverride ?? buildScientificDiagramPrompt(request);
+        prompt = promptOverride ?? buildScientificDiagramPrompt(scopedRequest);
         const payload = {
           model: request.model,
           stream: false,
@@ -278,35 +300,57 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       try {
         let attempt = await send();
         let truncatedRetry = false;
+        let recovered: ScientificDiagramAnalysis | null = null;
+        let retryRequest = request;
         if (attempt.truncated) {
           diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, lastRequestStartedAt, 'Réponse tronquée : limite de génération atteinte.', requestPayload);
           truncatedRetry = true;
-          // Exactly one shorter retry: never send the same oversized prompt twice.
-          attempt = await send(buildConciseScientificDiagramPrompt(request));
+          recovered = recoverTruncatedScientificDiagramAnalysis(raw, request.rubric, request.images.length, request.pageNumbers);
+          if (recovered) {
+            const missing = request.rubric.criteria.filter((criterion) =>
+              !recovered?.criteria?.some((item) => item.criterionId === criterion.id));
+            if (missing.length === 0) return combineDiagramAssessments(recovered, null, request.rubric);
+            retryRequest = { ...request, rubric: { ...request.rubric, criteria: missing } };
+          }
+          // One targeted, compact retry. Never re-evaluate already recovered criteria.
+          attempt = await send(buildConciseScientificDiagramPrompt(retryRequest), retryRequest);
           if (attempt.truncated) {
+            const retryPartial = recoverTruncatedScientificDiagramAnalysis(
+              raw, retryRequest.rubric, request.images.length, request.pageNumbers,
+            );
+            if (recovered || retryPartial) {
+              diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, lastRequestStartedAt,
+                'Réponse de reprise tronquée : critères complets conservés.', requestPayload);
+              return combineDiagramAssessments(recovered, retryPartial, request.rubric);
+            }
             throw new Error('Réponse tronquée après une tentative allégée d’analyse du schéma.');
           }
         }
 
         let result: ReturnType<typeof parseScientificDiagramAnalysis>;
         try {
-          result = parseScientificDiagramAnalysis(raw, request.rubric, request.images.length, request.pageNumbers);
+          result = parseScientificDiagramAnalysis(raw, retryRequest.rubric, request.images.length, request.pageNumbers);
         } catch (firstError) {
           const reason = firstError instanceof Error ? firstError.message : String(firstError);
-          if (truncatedRetry) throw new Error('Réponse invalide après tentative allégée : ' + reason);
-          diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, lastRequestStartedAt, reason, requestPayload);
-          const repairPrompt = buildScientificDiagramRepairPrompt(request, reason, raw);
-          const repair = await send(repairPrompt);
-          if (repair.truncated) throw new Error('Réponse tronquée lors de la tentative de réparation.');
+          if (truncatedRetry) {
+            if (!recovered) throw new Error('Réponse invalide après tentative allégée : ' + reason);
+            result = combineDiagramAssessments(recovered, null, request.rubric);
+          } else {
+            diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, lastRequestStartedAt, reason, requestPayload);
+            const repairPrompt = buildScientificDiagramRepairPrompt(request, reason, raw);
+            const repair = await send(repairPrompt);
+            if (repair.truncated) throw new Error('Réponse tronquée lors de la tentative de réparation.');
 
-          try {
-            result = parseScientificDiagramAnalysis(raw, request.rubric, request.images.length, request.pageNumbers);
-          } catch (secondError) {
-            const detail = secondError instanceof Error ? secondError.message : String(secondError);
-            throw new Error(detail + ' Extrait de la réponse brute : ' + raw.slice(0, 500));
+            try {
+              result = parseScientificDiagramAnalysis(raw, request.rubric, request.images.length, request.pageNumbers);
+            } catch (secondError) {
+              const detail = secondError instanceof Error ? secondError.message : String(secondError);
+              throw new Error(detail + ' Extrait de la réponse brute : ' + raw.slice(0, 500));
+            }
           }
         }
 
+        if (recovered) result = combineDiagramAssessments(recovered, result, request.rubric);
         diagnosticResult(request, 'scientific-diagram-analysis', prompt, raw, lastRequestStartedAt, undefined, requestPayload);
         return result;
       } catch (cause) {
