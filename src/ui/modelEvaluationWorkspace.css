@@ -111,7 +111,9 @@
   border-color: var(--ds-color-border-strong);
 }
 .evaluation-workspace-shell .evaluation-step-nav button.is-active,
-.evaluation-workspace-shell .evaluation-step-nav button[aria-current="step"] {
+.evaluation-workspace-shell .evaluation-step-nav button[aria-current="step"],
+.evaluation-workspace-shell .evaluation-step-nav button.is-active:hover:not(:disabled),
+.evaluation-workspace-shell .evaluation-step-nav button[aria-current="step"]:hover:not(:disabled) {
   border-color: var(--ds-color-progress-border);
   background: var(--ds-color-progress-surface);
   box-shadow: inset 0 2px var(--ds-color-progress);
