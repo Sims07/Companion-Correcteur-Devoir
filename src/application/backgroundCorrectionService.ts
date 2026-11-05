@@ -100,6 +100,33 @@ export function createBackgroundCorrectionService(
   let activeLoop: Promise<void> | null = null;
   let activeLoopAssignmentId: string | null = null;
   const settingsByAssignment = new Map<string, OllamaSettings>();
+  // Only teacher-provided reference subjects are reusable, never student copies.
+  // Keep the cache in this worker session: do not reuse text across restarts or
+  // changed Ollama endpoints/models without a fresh reading.
+  const subjectTranscriptionCache = new Map<string, string>();
+
+  async function getSubjectCacheKey(job: BackgroundCorrectionJob, settings: OllamaSettings): Promise<string | null> {
+    if (job.correctionMode !== 'separate' || job.subjectImages.length === 0) return null;
+    const fingerprint = await repository.fingerprintImages(job.subjectImages);
+    return JSON.stringify([
+      job.assignmentId,
+      settings.endpoint.trim().replace(/\\/+$/, ''),
+      settings.apiCompatible === true,
+      settings.visionModel?.trim() || job.visionModel,
+      settings.transcriptionPromptMode ?? 'auto',
+      settings.transcriptionRepeatPenalty ?? 1.05,
+      settings.transcriptionPenaltyParameter ?? 'none',
+      settings.transcriptionFrequencyPenalty ?? null,
+      fingerprint,
+    ]);
+  }
+
+  function rememberSubject(cacheKey: string | null, text: string): void {
+    // Never spread a potentially truncated or unverified transcription across copies.
+    if (cacheKey && text.trim() && !text.includes('[LECTURE DOUTEUSE')) {
+      subjectTranscriptionCache.set(cacheKey, text);
+    }
+  }
   let prewarmUntil = 0;
   let prewarmKey = '';
   let prewarmPromise: Promise<void> | null = null;
@@ -209,6 +236,17 @@ export function createBackgroundCorrectionService(
         const requestAbortController = new AbortController();
         activeRequestAbortController = requestAbortController;
         try {
+          const subjectCacheKey = await getSubjectCacheKey(current, jobSettings);
+          if (subjectCacheKey) {
+            if (current.subjectTranscription) rememberSubject(subjectCacheKey, current.subjectTranscription);
+            else {
+              const reusableSubject = subjectTranscriptionCache.get(subjectCacheKey);
+              if (reusableSubject) {
+                current = { ...current, subjectTranscription: reusableSubject, updatedAt: new Date().toISOString() };
+                await persist(current);
+              }
+            }
+          }
           let textPageNumbers = current.images.map((_, index) => index + 1);
           const visualRubric = partitionScientificRubric(current.rubric);
           if (visualRubric.diagramCriteria.length > 0) {
@@ -223,6 +261,7 @@ export function createBackgroundCorrectionService(
                 subjectOnly: true,
               }, undefined, undefined, undefined, undefined, undefined, undefined, undefined, requestAbortController.signal));
               if (!subject.trim()) throw new Error('Le sujet de référence n’a pas pu être lu : aucune note ne peut en dépendre.');
+              rememberSubject(subjectCacheKey, subject);
               current = { ...current, subjectTranscription: subject, updatedAt: new Date().toISOString() };
               await persist(current);
             }
@@ -332,7 +371,10 @@ export function createBackgroundCorrectionService(
                 () => { markActivity(); },
                 undefined,
                 (text, kind) => {
-                  if (kind === 'subject') queueProgress({ subjectTranscription: text });
+                  if (kind === 'subject') {
+                    rememberSubject(subjectCacheKey, text);
+                    queueProgress({ subjectTranscription: text });
+                  }
                   else if (kind === 'identity') {
                     try {
                       const studentIdentity = JSON.parse(text) as StudentIdentity;
@@ -469,7 +511,10 @@ export function createBackgroundCorrectionService(
       prewarmAbortController = controller;
       const operation = (async () => {
         await withModelInactivityTimeout(controller, () => workspace.checkReady({ ...settings, model: settings.visionModel }));
-        if (settings.analysisModel?.trim()) await withModelInactivityTimeout(controller, () => workspace.checkReady({ ...settings, model: settings.analysisModel }));
+        // Same-model vision + analysis needs one metadata check, not two.
+        if (settings.analysisModel?.trim() && settings.analysisModel.trim() !== settings.visionModel?.trim()) {
+          await withModelInactivityTimeout(controller, () => workspace.checkReady({ ...settings, model: settings.analysisModel }));
+        }
         if (controller.signal.aborted || foregroundPriority || prewarmEpoch !== foregroundPriorityEpoch || !settings.visionModel?.trim()) return;
         await withModelInactivityTimeout(controller, async () => { await workspace.prewarmModel?.(settings, settings.visionModel!, controller.signal); });
         if (controller.signal.aborted) return;
