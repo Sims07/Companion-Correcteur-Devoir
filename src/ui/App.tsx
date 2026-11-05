@@ -54,7 +54,7 @@ import { RubricExportPanel } from './components/RubricExportPanel.tsx';
 import { RubricImportPanel } from './components/RubricImportPanel.tsx';
 import { CorrectionOverview } from './CorrectionOverview.tsx';
 import { TeacherCopyIntake } from './components/TeacherCopyIntake.tsx';
-import { BackgroundCopyActivity } from './components/BackgroundCopyActivity.tsx';
+import { ActiveCopyProcessingWorkspace } from './components/ActiveCopyProcessingWorkspace.tsx';
 import { TeacherWorkspaceNavigation } from './components/TeacherWorkspaceNavigation.tsx';
 import { Button, Checkbox, Dialog } from './design-system/index.ts';
 
@@ -322,7 +322,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric');
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
-  const [expandedCriterionId, setExpandedCriterionId] = useState<string | null>(() => readActiveAssignmentProfile().rubric.criteria[0]?.id ?? null);
+  const [expandedCriterionId, setExpandedCriterionId] = useState<string | null>(null);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
   const [rubricImportFileName, setRubricImportFileName] = useState('');
   const [rubricImportProgress, setRubricImportProgress] = useState<RubricImportProgress | null>(null);
@@ -2286,7 +2286,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setIsStoppingOperation(false);
     }
   }
-
   const processingCopy = allBackgroundJobs.find((job) => job.assignmentId === activeAssignmentId && job.status === 'processing') ?? null;
   const preparingCopy = isStartingSeriesCorrections && !processingCopy
     ? [...allBackgroundJobs].filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0] ?? null
@@ -2299,7 +2298,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode !== 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode !== 'teacher'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(interfaceMode === 'teacher' ? 'observability' : interfaceMode); }}>Outils IA</button></div></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode !== 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode !== 'teacher'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(interfaceMode === 'teacher' ? 'observability' : interfaceMode); }}>Outils IA</button></div></div>
       </header>
 
       {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
@@ -2328,7 +2327,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         educationLevel={assignmentProfiles.find((profile) => profile.id === activeAssignmentId)?.educationLevel}
         maximumPoints={validation.maximumPoints}
         activeSection={teacherStep === 'rubric' || teacherStep === 'details' ? 'rubric' : 'copies'}
-        showCopyRail={(teacherStep === 'review' || (teacherStep === 'copy' && Boolean(currentBackgroundJobId || currentCorrectionId))) && !showAiSettings}
+        showCopyRail={(teacherStep === 'review' || (teacherStep === 'rubric' && copyNavigation.copies.length > 0) || (teacherStep === 'copy' && Boolean(currentBackgroundJobId || currentCorrectionId))) && !showAiSettings}
         copies={copyNavigation.copies.map((copy) => ({
           id: copy.id,
           label: copy.label,
@@ -2425,7 +2424,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div><p className="eyebrow">LABORATOIRE IA · OUTILS AVANCÉS</p><h1 id="evaluation-page-title">Évaluation des modèles</h1><p>Testez de une à trois configurations sur la même copie et le même barème. Les résultats sont enregistrés localement ; les requêtes sont envoyées au serveur de chaque profil choisi.</p><div className="evaluation-page-badges"><span>Résultats locaux</span><span>1 à 3 configurations</span><span>Validation humaine</span></div></div>
       </section>}
       {interfaceMode === 'diagnostic' && <nav className="evaluation-step-nav" aria-label="Espaces de l’évaluation">
-        <p className="evaluation-sidebar-label">LABORATOIRE IA</p>
         <button type="button" className={evaluationWorkspaceStep === 'configuration' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'configuration' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('configuration')}><span>1</span><strong>Configuration</strong><small>Modèles, barème et copie</small></button>
         <button type="button" className={evaluationWorkspaceStep === 'execution' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'execution' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('execution')}><span>2</span><strong>Exécution</strong><small>Progression en direct</small></button>
         <button type="button" className={evaluationWorkspaceStep === 'results' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'results' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('results')}><span>3</span><strong>Résultats</strong><small>Notes, temps et tokens</small></button>
@@ -2463,7 +2461,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </section>}
         <div className="evaluation-selection-block"><div className="evaluation-section-heading compact"><div><h3>Sélection pour cette expérience</h3><p>Choisissez une à trois configurations. Une seule suffit pour mesurer ses performances ; plusieurs permettent de comparer leurs résultats sur les mêmes pages et le même barème.</p></div><span aria-live="polite" className={selectedEvaluationProfileIds.length >= 1 ? 'evaluation-step-chip ready' : 'evaluation-step-chip'}>{selectedEvaluationProfileIds.length} / 3 sélectionnée(s)</span></div>
           {aiModelProfiles.length < 1 ? <div className="evaluation-empty-inline"><strong>Aucune configuration enregistrée.</strong><p>Créez un profil ci-dessus pour pouvoir lancer une première évaluation.</p></div> : <fieldset className="evaluation-profile-list" aria-describedby="evaluation-profile-selection-help"><legend>Configurations à exécuter</legend><p id="evaluation-profile-selection-help" className="evaluation-selection-help">La même copie sera relue et notée par chaque configuration. L’ordre reste séquentiel pour limiter la mémoire utilisée par Ollama.</p><div className="evaluation-profile-options">{aiModelProfiles.map((profile) => { const selected = selectedEvaluationProfileIds.includes(profile.id); const disabled = busy || (!selected && selectedEvaluationProfileIds.length >= 3); return <label key={profile.id} className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}><input className="evaluation-profile-checkbox" type="checkbox" checked={selected} disabled={disabled} onChange={(event) => setSelectedEvaluationProfileIds((current) => event.target.checked ? [...current, profile.id].slice(-3) : current.filter((id) => id !== profile.id))} /><span className="evaluation-profile-card-content"><strong>{profile.name}</strong><span className="evaluation-profile-models"><span><small>LECTURE</small><b>{profile.configuration.visionModel || 'Modèle non défini'}</b></span><span><small>ANALYSE</small><b>{profile.configuration.analysisModel || 'Modèle non défini'}</b></span></span>{profile.configuration.analysisThinking && <span className="evaluation-profile-thinking">Thinking activé</span>}</span><span className="evaluation-profile-selection-mark" aria-hidden="true">{selected ? '✓' : '+'}</span></label>; })}</div></fieldset>}
-        <div className="evaluation-run-actions evaluation-config-launch"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>Le lancement passera à l’espace Exécution pour afficher la progression en direct.</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => { setEvaluationWorkspaceStep('execution'); void startModelEvaluation(); }}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button></div>
         </div>
       </section>}
       {(interfaceMode as string) === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
@@ -2875,8 +2872,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </>}
 
       {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration') || (interfaceMode === 'teacher' && teacherStep === 'rubric')) && <>
-      <div id={interfaceMode === 'diagnostic' ? 'evaluation-rubric' : undefined} className="workspace-heading diagnostic-setup-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 · DEVOIR' : 'EXPÉRIENCE · ÉTAPE 1'}</p><h2>{interfaceMode === 'teacher' ? 'Devoir et barème' : 'Préparer le barème de correction'}</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
-      <section className="panel rubric-editor">
+      <div id={interfaceMode === 'diagnostic' ? 'evaluation-rubric' : undefined} className="workspace-heading diagnostic-setup-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 · DEVOIR' : 'JEU D’ESSAI · BARÈME'}</p><h2>{interfaceMode === 'teacher' ? 'Devoir et barème' : 'Préparer le barème de correction'}</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
+      <div className={interfaceMode === "teacher" ? "atelier-rubric-grid" : "atelier-rubric-grid is-diagnostic"}>
+      <section className={interfaceMode === "teacher" ? "panel rubric-editor atelier-rubric-editor" : "panel rubric-editor"}>
         <div className="rubric-assignment-context"><span className="eyebrow">BARÈME ASSOCIÉ AU DEVOIR</span><strong>{assignmentTitle.trim() || 'Devoir sans titre'}</strong><p>Vous pouvez donner au barème un nom différent de celui du devoir.</p></div>
         <label className="field-label" htmlFor="rubric-title">Nom du barème (distinct du devoir)</label>
         <input id="rubric-title" value={rubric.title} placeholder="Ex. Barème du contrôle de biologie" onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
@@ -2939,8 +2937,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="rubric-editor-toolbar"><button type="button" className="primary-button" onClick={addCriterion}>＋ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
         {interfaceMode === 'teacher' && <RubricReusePanel assignments={assignmentProfiles} activeAssignmentId={activeAssignmentId} rubric={rubric} onReuse={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); setExpandedCriterionId(criteria[0]?.id ?? null); }} />}
         <div className="criteria-list">
-          {rubric.criteria.map((criterion) => <details className="criterion-editor" key={criterion.id} open={expandedCriterionId === criterion.id}>
-            <summary className="criterion-editor-summary" onClick={(event) => { event.preventDefault(); setExpandedCriterionId((current) => current === criterion.id ? null : criterion.id); }}><span><strong>{criterion.title.trim() || 'Critère sans titre'}</strong><small> · {getRubricSubcriteria(criterion).length} sous-critère(s)</small></span><span>{criterion.maxPoints} pt · {expandedCriterionId === criterion.id ? '⌃' : '⌄'}</span></summary>
+          {rubric.criteria.map((criterion, criterionIndex) => <details className="criterion-editor" key={criterion.id} open={expandedCriterionId === criterion.id}>
+            <summary className="criterion-editor-summary" onClick={(event) => { event.preventDefault(); setExpandedCriterionId((current) => current === criterion.id ? null : criterion.id); }}><span className="atelier-criterion-index" aria-hidden="true">{String(criterionIndex + 1).padStart(2, "0")}</span><span><strong>{criterion.title.trim() || 'Critère sans titre'}</strong><small> · {getRubricSubcriteria(criterion).length} sous-critère(s)</small></span><span>{criterion.maxPoints} pt · {expandedCriterionId === criterion.id ? '⌃' : '⌄'}</span></summary>
             <div className="criterion-editor-content"><div className="criterion-fields">
               <label><span className="field-label">Critère</span><input value={criterion.title} onChange={(event) => updateCriterion(criterion.id, { title: event.target.value })} /></label>
               <label><span className="field-label">Description / attendus</span><input value={criterion.description} onChange={(event) => updateCriterion(criterion.id, { description: event.target.value })} /></label>
@@ -2968,12 +2966,37 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <RubricExportPanel rubric={rubric} />
         <div className="rubric-actions"><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
       </section>
+      {interfaceMode === 'teacher' && <aside className="atelier-rubric-synthesis" aria-label="Synthèse du barème">
+        <p className="eyebrow">SYNTHÈSE</p>
+        <h3>{validation.valid ? 'Un barème prêt à corriger' : 'Un barème à compléter'}</h3>
+        <dl>
+          <div><dt>Critères définis</dt><dd>{rubric.criteria.length} critère{rubric.criteria.length > 1 ? 's' : ''}</dd></div>
+          <div><dt>Total de points</dt><dd>{validation.maximumPoints.toLocaleString('fr-FR')} points</dd></div>
+          <div><dt>Niveau pédagogique</dt><dd>{assignmentProfiles.find((profile) => profile.id === activeAssignmentId)?.educationLevel || 'Non renseigné'}</dd></div>
+        </dl>
+        <div className={validation.valid ? 'atelier-rubric-synthesis-status is-ready' : 'atelier-rubric-synthesis-status is-incomplete'}>
+          <strong>{validation.valid ? '✓ Barème cohérent' : 'À vérifier avant la correction'}</strong>
+          <span>{validation.valid ? 'Les critères et leurs points sont définis.' : 'Complétez les critères et vérifiez leurs points.'}</span>
+        </div>
+        <div className="atelier-rubric-reuse-hint">
+          <strong>Gagnez du temps</strong>
+          <p>Vous pouvez reprendre des critères d’un autre devoir et les adapter librement.</p>
+          <button type="button" className="text-button" onClick={() => {
+            const panel = document.querySelector<HTMLDetailsElement>('.rubric-reuse-panel');
+            if (!panel) return;
+            panel.open = true;
+            panel.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            panel.querySelector('summary')?.focus();
+          }}>Voir les critères disponibles →</button>
+        </div>
+      </aside>}
+      </div>
 
       {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Le devoir est prêt ? Ajoutez les copies à corriger.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('overview')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
       </>}
 
-      {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration') || (interfaceMode === 'teacher' && teacherStep === 'copy')) && <>
-      <div id={interfaceMode === 'diagnostic' ? 'evaluation-copy' : undefined} className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 2 SUR 3' : 'ÉTAPE 2 · JEU D’ESSAI'}</p><h2>{interfaceMode === 'teacher' && correctionSessionMode === 'series' ? 'Copies du devoir' : 'Ajouter une copie'}</h2></div><span className="step-count">{interfaceMode === 'teacher' && correctionSessionMode === 'series' ? `${backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').length} COPIE(S) À TRAITER` : `${images.length} PAGE(S) · ${transcription ? 'LECTURE DISPONIBLE' : 'À LIRE'}`}</span></div>
+      {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && evaluationStageMode !== 'analysis') || (interfaceMode === 'teacher' && teacherStep === 'copy')) && <>
+      <div id={interfaceMode === 'diagnostic' ? 'evaluation-copy' : undefined} className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 2 SUR 3' : 'JEU D’ESSAI · COPIE'}</p><h2>{interfaceMode === 'teacher' && correctionSessionMode === 'series' ? 'Copies du devoir' : 'Ajouter une copie'}</h2></div><span className="step-count">{interfaceMode === 'teacher' && correctionSessionMode === 'series' ? `${backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').length} COPIE(S) À TRAITER` : `${images.length} PAGE(S) · ${transcription ? 'LECTURE DISPONIBLE' : 'À LIRE'}`}</span></div>
       {interfaceMode === 'teacher' && <section className="correction-session-mode" aria-label="Choisir le mode de correction">
         <div className="correction-session-mode-heading"><p className="eyebrow">VOTRE ORGANISATION</p><h3>Comment souhaitez-vous corriger ?</h3><p>Vous pourrez changer de mode à tout moment. Le barème et les réglages du devoir restent les mêmes.</p></div>
         <div className="correction-session-mode-options" role="group" aria-label="Mode de correction">
@@ -3090,6 +3113,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
       </>}
       </>}
+      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && <section className="evaluation-launch-panel" aria-label="Lancer l’expérience">
+        <div className="evaluation-launch-intro"><p className="eyebrow">PRÊT POUR L’EXPÉRIENCE ?</p><h2>Lancer l’évaluation</h2><p>{!validation.valid ? 'Vérifiez le barème pour continuer.' : !selectedEvaluationProfileIds.length ? 'Sélectionnez au moins une configuration.' : evaluationStageMode !== 'analysis' && !images.length ? 'Ajoutez les pages de la copie à évaluer.' : evaluationStageMode === 'analysis' && !transcription?.trim() ? 'Renseignez la transcription de référence.' : 'Votre jeu d’essai est prêt. Les configurations seront évaluées l’une après l’autre.'}</p></div>
+        <div className="evaluation-run-actions evaluation-config-launch"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>Le lancement passera à l’espace Exécution pour afficher la progression en direct.</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => { setEvaluationWorkspaceStep('execution'); void startModelEvaluation(); }}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button></div>
+      </section>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep !== 'configuration' && <section id="evaluation-results" data-evaluation-step={evaluationWorkspaceStep} className="panel evaluation-results-workspace" aria-labelledby="evaluation-results-title">
         <div className="evaluation-section-heading"><div><p className="eyebrow">{evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION' : evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS' : 'ÉTAPE 4 · ANALYSE & HISTORIQUE'}</p><h2 id="evaluation-results-title">{evaluationWorkspaceStep === 'execution' ? 'Exécution de l’expérience' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Résultats de la lecture Vision' : evaluationStageMode === 'analysis' ? 'Résultats de l’analyse' : 'Résultats du parcours complet') : 'Analyser et comparer les expériences'}</h2><p>{evaluationWorkspaceStep === 'execution' ? 'Suivez la progression des modèles locaux et le détail de chaque étape de traitement.' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Examinez les transcriptions produites et les performances des modèles de lecture.' : evaluationStageMode === 'analysis' ? 'Examinez les notes proposées, les justifications et les écarts entre modèles à partir de la même transcription.' : 'Examinez successivement la transcription, la notation et les performances des deux étapes.') : 'Retrouvez les essais précédents et comparez leurs performances grâce aux indicateurs graphiques.'}</p></div><span className="evaluation-step-chip">{evaluationWorkspaceStep === 'history' ? savedModelEvaluations.length + ' essai(s)' : modelEvaluationResults.length + ' résultat(s)'}</span></div>
         {evaluationWorkspaceStep === 'execution' && <div className="evaluation-run-actions"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>{!validation.valid ? 'Vérifiez le barème avant de lancer l’expérience.' : evaluationStageMode !== 'analysis' && !images.length ? 'Importez les pages de la copie dans l’étape précédente.' : evaluationStageMode === 'analysis' && !transcription?.trim() ? 'Ajoutez ou vérifiez la transcription de référence dans la configuration.' : selectedEvaluationProfileIds.length < 1 ? 'Sélectionnez au moins une configuration.' : 'Le jeu d’essai est prêt à être lancé.'}</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => void startModelEvaluation()}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>}
@@ -3303,27 +3330,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </details>
       </section>}
 
-      {currentBackgroundJobId && activeBackgroundJob?.status === 'processing' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="analysis-progress teacher-progress-card background-copy-progress" role="status" aria-live="polite" aria-atomic="true">
-        <div className="analysis-spinner" aria-hidden="true" />
-        <div className="analysis-progress-copy">
-          <div className="teacher-progress-heading"><div><p className="eyebrow">ESPACE ENSEIGNANT · COPIE INDIVIDUELLE</p><h2>Correction en cours</h2><p>{studentLabel || activeBackgroundJob.label} · Le traitement continue en arrière-plan.</p></div><span className="step-count">{activeBackgroundJob.phase === 'reading' ? 'Lecture de la copie' : activeBackgroundJob.phase === 'grading' ? 'Analyse des réponses' : 'Préparation'}</span></div>
-          <div className="teacher-progress-phases" aria-label="Progression de la correction">
-            <div className={activeBackgroundJob.phase === 'preparation' ? 'teacher-progress-phase current' : 'teacher-progress-phase complete'}><span>{activeBackgroundJob.phase === 'preparation' ? '1' : '✓'}</span><div><strong>Préparation</strong><small>{activeBackgroundJob.phase === 'preparation' ? 'En cours' : 'Terminée'}</small></div></div>
-            <div className={activeBackgroundJob.phase === 'reading' ? 'teacher-progress-phase current' : activeBackgroundJob.phase === 'grading' || activeBackgroundJob.phase === 'complete' ? 'teacher-progress-phase complete' : 'teacher-progress-phase'}><span>{activeBackgroundJob.phase === 'grading' || activeBackgroundJob.phase === 'complete' ? '✓' : '2'}</span><div><strong>Lecture de la copie</strong><small>{activeBackgroundJob.completedPages}/{activeBackgroundJob.images.length} pages lues</small></div></div>
-            <div className={activeBackgroundJob.phase === 'grading' ? 'teacher-progress-phase current' : 'teacher-progress-phase'}><span>3</span><div><strong>Correction des réponses</strong><small>{activeBackgroundJob.completedCriteria}/{activeBackgroundJob.totalCriteria} critères traités</small></div></div>
-          </div>
-          <div className="context-stop-action"><button type="button" className="context-stop-button" onClick={() => { void stopCurrentOperations(); }} disabled={isStoppingOperation}>{isStoppingOperation ? 'Arrêt en cours…' : 'Arrêter cette correction'}</button></div>
-        </div>
-      </section>}
-      {currentBackgroundJobId && activeBackgroundJob?.status === 'processing' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="live-copy-preview panel background-copy-progress" aria-labelledby="background-copy-progress-title">
-        <div className="live-preview-heading"><div><p className="eyebrow">SUIVI INDIVIDUEL</p><h3 id="background-copy-progress-title">La copie en cours de correction</h3><p>Les pages restent accessibles pendant que le barème se complète.</p></div><span className="live-preview-state">Traitement en cours</span></div>
-        <div className="live-copy-layout">
-          <div className="live-copy-pages" aria-label="Pages de la copie en cours">
-            {activeBackgroundJob.images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-background-progress-' + index}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page ${index + 1} de la copie en cours de correction`} /><figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption></figure>)}
-          </div>
-          <BackgroundCopyActivity job={activeBackgroundJob} />
-        </div>
-      </section>}
+      {currentBackgroundJobId && activeBackgroundJob?.status === 'processing' && interfaceMode === 'teacher' && teacherStep === 'review' && (
+        <ActiveCopyProcessingWorkspace job={activeBackgroundJob} studentLabel={studentLabel} onStopCorrections={() => { void stopCurrentOperations(); }} isStoppingCorrections={isStoppingOperation} />
+      )}
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 
@@ -3336,10 +3345,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </section>}
 
       {activeBackgroundJob?.status === 'pending' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="analysis-progress teacher-progress-card" role="status"><strong>{preparingCopy?.id === activeBackgroundJob.id ? 'Préparation de cette copie' : 'Copie en attente de correction'}</strong><p>{preparingCopy?.id === activeBackgroundJob.id ? 'Le modèle IA se prépare. La lecture commencera ensuite.' : 'La copie sera analysée lorsque viendra son tour. Aucune note n’a encore été attribuée.'}</p></section>}
-      {(currentBackgroundJobId || currentCorrectionId) && interfaceMode === 'teacher' && !showAiSettings && <section className="review-section copy-navigation-only">
+      {(currentBackgroundJobId || currentCorrectionId) && activeBackgroundJob?.status !== 'processing' && interfaceMode === 'teacher' && !showAiSettings && <section className="review-section copy-navigation-only">
         <CopyReviewHeader studentLabel={studentLabel} onStudentLabelChange={setStudentLabel} position={reviewPosition} totalCopies={reviewTotalCopies}
-          status={isFinalized ? 'Corrigée' : activeBackgroundJob?.status === 'pending' ? 'En attente' : activeBackgroundJob?.status === 'processing' ? 'Analyse en cours' : activeBackgroundJob?.status === 'failed' || activeBackgroundJob?.status === 'needs-review' || (activeBackgroundJob?.status === 'reviewing' && activeBackgroundJob.completedCriteria < activeBackgroundJob.totalCriteria) ? 'À reprendre' : 'À vérifier'}
-          score={isFinalized || (proposal && review.length > 0 && activeBackgroundJob?.status !== 'pending' && activeBackgroundJob?.status !== 'processing') ? reviewedTotal : null} scoreIncomplete={unassessedCount > 0 || review.length !== rubric.criteria.length} maximumPoints={validation.maximumPoints} isFinalized={isFinalized}
+          status={isFinalized ? 'Corrigée' : activeBackgroundJob?.status === 'pending' ? 'En attente' : activeBackgroundJob?.status === 'failed' || activeBackgroundJob?.status === 'needs-review' || (activeBackgroundJob?.status === 'reviewing' && activeBackgroundJob.completedCriteria < activeBackgroundJob.totalCriteria) ? 'À reprendre' : 'À vérifier'}
+          score={isFinalized || (proposal && review.length > 0 && activeBackgroundJob?.status !== 'pending') ? reviewedTotal : null} scoreIncomplete={unassessedCount > 0 || review.length !== rubric.criteria.length} maximumPoints={validation.maximumPoints} isFinalized={isFinalized}
           canPrevious={Boolean(copyNavigation.previousCopy)} canNext={Boolean(copyNavigation.nextCopy)}
           previousLabel={copyNavigation.previousCopy ? copyNavigation.previousCopy.label + ' · ' + copyNavigation.previousCopy.status : null}
           nextLabel={copyNavigation.nextCopy ? copyNavigation.nextCopy.label + ' · ' + copyNavigation.nextCopy.status : null}
@@ -3348,7 +3357,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         />
         {reviewMessage && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
       </section>}
-      {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => {
+      {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && !(currentBackgroundJobId && activeBackgroundJob?.status === 'processing') && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
           event.preventDefault();
           if (!isAnalyzing && !isFinalized && unassessedCount === 0 && review.length === rubric.criteria.length) void finalizeReview(true);
