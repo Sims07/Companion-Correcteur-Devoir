@@ -471,7 +471,7 @@ export function createBackgroundCorrectionService(
         await withModelInactivityTimeout(controller, () => workspace.checkReady({ ...settings, model: settings.visionModel }));
         if (settings.analysisModel?.trim()) await withModelInactivityTimeout(controller, () => workspace.checkReady({ ...settings, model: settings.analysisModel }));
         if (controller.signal.aborted || foregroundPriority || prewarmEpoch !== foregroundPriorityEpoch || !settings.visionModel?.trim()) return;
-        await withModelInactivityTimeout(controller, async () => { await workspace.prewarmModel?.(settings, settings.visionModel, controller.signal); });
+        await withModelInactivityTimeout(controller, async () => { await workspace.prewarmModel?.(settings, settings.visionModel!, controller.signal); });
         if (controller.signal.aborted) return;
         prewarmKey = key;
         prewarmUntil = Date.now() + 5 * 60_000;
