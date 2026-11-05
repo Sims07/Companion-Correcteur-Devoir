@@ -44,6 +44,7 @@ import { defaultCopyOverviewFilter, toCopyOverviewStatus, type CopyOverviewFilte
 import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/teacherAnnotations.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
+import { DeveloperToolsNavigation, type DeveloperTool } from './DeveloperToolsNavigation.tsx';
 import { AssignmentsHome } from './AssignmentsHome.tsx';
 import type { NewAssignmentDetails } from './components/AssignmentCreationPanel.tsx';
 import { RubricReusePanel } from './components/RubricReusePanel.tsx';
@@ -2227,29 +2228,17 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const hasInterruptibleOperation = isStoppingOperation || isAnalyzing || rubricImageImporting || evaluationProgress?.status === 'running' || allBackgroundJobs.some((job) => job.status === 'processing');
   const processingCopy = allBackgroundJobs.find((job) => job.assignmentId === activeAssignmentId && job.status === 'processing') ?? null;
 
-  if ((interfaceMode as string) === 'debug') {
-    return <main className="app-shell">
-      <header className="topbar">
-        <div className="brand-mark" aria-hidden="true">CC</div>
-        <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span><div className="view-switch" role="group" aria-label="Mode d’interface">
-          <button type="button" className="view-switch-button" onClick={() => { setShowAssignmentsHome(false); setInterfaceMode('teacher'); }}>Correction</button>
-          <button type="button" className="view-switch-button" onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button>
-          <button type="button" className="view-switch-button active" aria-pressed="true">Inspecteur réseau</button>
-          <button type="button" className="view-switch-button" onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('observability'); }}>Observabilité</button>
-        </div></div>
-      </header>
-      <NetworkInspector />
-    </main>;
-  }
 
   return (
     <main className={interfaceMode === 'teacher' ? `app-shell teacher-flow-shell${showAssignmentsHome ? ' teacher-assignments-home' : ''}` : interfaceMode === 'diagnostic' ? 'app-shell evaluation-workspace-shell' : 'app-shell'}>
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (processingCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (processingCopy) void loadNextQueuedCopy(processingCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> Copie en cours : {processingCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}{hasInterruptibleOperation && <button type="button" className="global-stop-button" onClick={() => { void stopCurrentOperations(); }} disabled={isStoppingOperation}>{isStoppingOperation ? 'Arrêt en cours…' : '■ Arrêter le traitement'}</button>}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagnostic'} onClick={() => { setShowAiSettings(false); setInterfaceMode('diagnostic'); }}>Évaluation des modèles</button><button type="button" className={(interfaceMode as string) === 'debug' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={(interfaceMode as string) === 'debug'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('debug'); }}>Inspecteur réseau</button><button type="button" className={interfaceMode === 'observability' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'observability'} onClick={() => { setShowAiSettings(false); setInterfaceMode('observability'); }}>Observabilité</button></div></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (processingCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (processingCopy) void loadNextQueuedCopy(processingCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> Copie en cours : {processingCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}{hasInterruptibleOperation && <button type="button" className="global-stop-button" onClick={() => { void stopCurrentOperations(); }} disabled={isStoppingOperation}>{isStoppingOperation ? 'Arrêt en cours…' : '■ Arrêter le traitement'}</button>}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode !== 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode !== 'teacher'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(interfaceMode === 'teacher' ? 'observability' : interfaceMode); }}>Outils IA</button></div></div>
       </header>
+
+      {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(tool); }} />}
+      {interfaceMode === 'debug' && <NetworkInspector />}
 
       {interfaceMode === 'teacher' && showAssignmentsHome && <AssignmentsHome
         assignments={assignmentProfiles}
@@ -2267,7 +2256,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
 
 
-      {!(interfaceMode === 'teacher' && showAssignmentsHome) && <div className={interfaceMode === 'teacher' ? 'teacher-content-column' + (teacherStep === 'review' && !showAiSettings ? ' has-copy-rail' : '') : 'diagnostic-content-column'}>
+      {interfaceMode !== 'debug' && !(interfaceMode === 'teacher' && showAssignmentsHome) && <div className={interfaceMode === 'teacher' ? 'teacher-content-column' + (teacherStep === 'review' && !showAiSettings ? ' has-copy-rail' : '') : 'diagnostic-content-column'}>
       {interfaceMode === 'teacher' && <TeacherWorkspaceNavigation
         assignmentTitle={assignmentTitle}
         studentLabel={studentLabel}
