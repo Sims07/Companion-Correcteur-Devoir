@@ -143,7 +143,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(flaggedCard).toBeInViewport();
   await expect(flaggedCard.getByText('Point retiré', { exact: true })).toBeVisible();
   await expect(flaggedCard.getByText('Confiance à vérifier', { exact: true })).toBeVisible();
-  await expect(flaggedCard.getByText('Le mécanisme est partiellement expliqué.')).toBeVisible();
+  await expect(flaggedCard.locator('.teacher-review-alert .rationale')).toHaveText('Le mécanisme est partiellement expliqué.');
   await expect(flaggedCard.getByText('Précise le rôle de la membrane.')).toBeHidden();
   await expect(flaggedCard.getByRole('button', { name: 'Copier le commentaire' })).toBeVisible();
   await expect(flaggedCard.getByRole('button', { name: 'Voir la page 1' })).toBeVisible();
