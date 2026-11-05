@@ -3319,12 +3319,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       }}>
         {reviewMessage && !(currentBackgroundJobId || currentCorrectionId) && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
         
-        {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || (studentIdentity !== null && studentIdentity.confidence !== 'high')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
-          {flaggedCriteriaIds.size > 0 && <button type="button" onClick={() => { setShowOnlyFlagged(true); document.querySelector('.review-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>⚠ {flaggedCriteriaIds.size} critère(s) à examiner</button>}
-          {studentIdentity && studentIdentity.confidence !== 'high' && <button type="button" className="copy-review-alert-chip" onClick={() => document.getElementById('student-label')?.focus()}>Nom à confirmer</button>}
-          {pageClassifications?.filter((page) => page.kind === 'ambiguous').map((page) => <div className="copy-review-alert-chip copy-review-classification-alert" role="group" aria-label={`Classification incertaine de la page ${page.pageNumber}`} key={page.pageNumber}><span role="alert">{page.warning ?? (page.confidence < 0.75 ? `Page ${page.pageNumber} : schéma possible, confiance faible.` : `Page ${page.pageNumber} : classification incertaine, à vérifier.`)}</span><button type="button" className="secondary-button" onClick={() => setPageClassifications((current) => current ? resolveAmbiguousPageClassification(current, page.pageNumber, 'scientific-diagram') : current)}>Analyser comme schéma</button><button type="button" className="text-button" onClick={() => setPageClassifications((current) => current ? resolveAmbiguousPageClassification(current, page.pageNumber, 'text') : current)}>Ignorer</button></div>)}
-          {unreadableCopySignal && !pageClassifications?.some((page) => page.kind === 'ambiguous') && <span className="copy-review-alert-chip" role="alert">Lecture à vérifier sur l’image</span>}
-        </section>}
+
         {interfaceMode !== 'teacher' && isAnalyzing && <p className="diagnostic-progress-message">{criterionProgressMessage || 'Analyse progressive en cours'}</p>}
         {interfaceMode !== 'teacher' && (readingElapsedMs !== null || analysisElapsedMs !== null) && <p className="completed-stage-timings" aria-label="Durée des étapes de traitement"><span>Lecture de l’image : {readingElapsedMs === null ? 'non mesurée' : formatElapsed(Math.round(readingElapsedMs / 1000))}</span><span>Analyse et notation : {analysisElapsedMs === null ? 'non mesurée' : formatElapsed(Math.round(analysisElapsedMs / 1000))}</span></p>}
         {scientificDiagramError && <p className="review-alert review-alert-warning" role="alert">{scientificDiagramError}</p>}
@@ -3368,6 +3363,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               }
             }
           }}>
+        {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || (studentIdentity !== null && studentIdentity.confidence !== 'high')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
+          {flaggedCriteriaIds.size > 0 && <button type="button" onClick={() => { setShowOnlyFlagged(true); document.querySelector('.review-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>⚠ {flaggedCriteriaIds.size} critère(s) à examiner</button>}
+          {studentIdentity && studentIdentity.confidence !== 'high' && <button type="button" className="copy-review-alert-chip" onClick={() => document.getElementById('student-label')?.focus()}>Nom à confirmer</button>}
+          {pageClassifications?.filter((page) => page.kind === 'ambiguous').map((page) => <div className="copy-review-alert-chip copy-review-classification-alert" role="group" aria-label={`Classification incertaine de la page ${page.pageNumber}`} key={page.pageNumber}><span role="alert">{page.warning ?? (page.confidence < 0.75 ? `Page ${page.pageNumber} : schéma possible, confiance faible.` : `Page ${page.pageNumber} : classification incertaine, à vérifier.`)}</span><button type="button" className="secondary-button" onClick={() => setPageClassifications((current) => current ? resolveAmbiguousPageClassification(current, page.pageNumber, 'scientific-diagram') : current)}>Analyser comme schéma</button><button type="button" className="text-button" onClick={() => setPageClassifications((current) => current ? resolveAmbiguousPageClassification(current, page.pageNumber, 'text') : current)}>Ignorer</button></div>)}
+          {unreadableCopySignal && !pageClassifications?.some((page) => page.kind === 'ambiguous') && <span className="copy-review-alert-chip" role="alert">Lecture à vérifier sur l’image</span>}
+        </section>}
             <div className="atelier-review-decision-heading">
               <strong>{flaggedCriteriaIds.size > 0 ? `${flaggedCriteriaIds.size} critère${flaggedCriteriaIds.size > 1 ? 's' : ''} à examiner` : 'Proposition de correction'}</strong>
               <span>{reliableCriteriaCount > 0 ? `${reliableCriteriaCount} autre${reliableCriteriaCount > 1 ? 's' : ''} critère${reliableCriteriaCount > 1 ? 's' : ''} sans alerte` : 'Décisions fondées sur le barème'}</span>
