@@ -54,7 +54,7 @@ import { RubricExportPanel } from './components/RubricExportPanel.tsx';
 import { RubricImportPanel } from './components/RubricImportPanel.tsx';
 import { CorrectionOverview } from './CorrectionOverview.tsx';
 import { TeacherCopyIntake } from './components/TeacherCopyIntake.tsx';
-import { BackgroundCopyActivity } from './components/BackgroundCopyActivity.tsx';
+import { ActiveCopyProcessingWorkspace } from './components/ActiveCopyProcessingWorkspace.tsx';
 import { TeacherWorkspaceNavigation } from './components/TeacherWorkspaceNavigation.tsx';
 import { Button, Checkbox, Dialog } from './design-system/index.ts';
 
@@ -3315,26 +3315,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </details>
       </section>}
 
-      {currentBackgroundJobId && activeBackgroundJob?.status === 'processing' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="analysis-progress teacher-progress-card background-copy-progress" role="status" aria-live="polite" aria-atomic="true">
-        <div className="analysis-spinner" aria-hidden="true" />
-        <div className="analysis-progress-copy">
-          <div className="teacher-progress-heading"><div><p className="eyebrow">ESPACE ENSEIGNANT · COPIE INDIVIDUELLE</p><h2>Correction en cours</h2><p>{studentLabel || activeBackgroundJob.label} · Le traitement continue en arrière-plan.</p></div><span className="step-count">{activeBackgroundJob.phase === 'reading' ? 'Lecture de la copie' : activeBackgroundJob.phase === 'grading' ? 'Analyse des réponses' : 'Préparation'}</span></div>
-          <div className="teacher-progress-phases" aria-label="Progression de la correction">
-            <div className={activeBackgroundJob.phase === 'preparation' ? 'teacher-progress-phase current' : 'teacher-progress-phase complete'}><span>{activeBackgroundJob.phase === 'preparation' ? '1' : '✓'}</span><div><strong>Préparation</strong><small>{activeBackgroundJob.phase === 'preparation' ? 'En cours' : 'Terminée'}</small></div></div>
-            <div className={activeBackgroundJob.phase === 'reading' ? 'teacher-progress-phase current' : activeBackgroundJob.phase === 'grading' || activeBackgroundJob.phase === 'complete' ? 'teacher-progress-phase complete' : 'teacher-progress-phase'}><span>{activeBackgroundJob.phase === 'grading' || activeBackgroundJob.phase === 'complete' ? '✓' : '2'}</span><div><strong>Lecture de la copie</strong><small>{activeBackgroundJob.completedPages}/{activeBackgroundJob.images.length} pages lues</small></div></div>
-            <div className={activeBackgroundJob.phase === 'grading' ? 'teacher-progress-phase current' : 'teacher-progress-phase'}><span>3</span><div><strong>Correction des réponses</strong><small>{activeBackgroundJob.completedCriteria}/{activeBackgroundJob.totalCriteria} critères traités</small></div></div>
-          </div>
-        </div>
-      </section>}
-      {currentBackgroundJobId && activeBackgroundJob?.status === 'processing' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="live-copy-preview panel background-copy-progress" aria-labelledby="background-copy-progress-title">
-        <div className="live-preview-heading"><div><p className="eyebrow">SUIVI INDIVIDUEL</p><h3 id="background-copy-progress-title">La copie en cours de correction</h3><p>Les pages restent accessibles pendant que le barème se complète.</p></div><span className="live-preview-state">Traitement en cours</span></div>
-        <div className="live-copy-layout">
-          <div className="live-copy-pages" aria-label="Pages de la copie en cours">
-            {activeBackgroundJob.images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-background-progress-' + index}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page ${index + 1} de la copie en cours de correction`} /><figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption></figure>)}
-          </div>
-          <BackgroundCopyActivity job={activeBackgroundJob} />
-        </div>
-      </section>}
+      {currentBackgroundJobId && activeBackgroundJob?.status === 'processing' && interfaceMode === 'teacher' && teacherStep === 'review' && (
+        <ActiveCopyProcessingWorkspace job={activeBackgroundJob} studentLabel={studentLabel} />
+      )}
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 
