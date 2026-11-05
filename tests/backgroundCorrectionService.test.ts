@@ -151,6 +151,79 @@ describe('background correction service', () => {
     expect(f.jobs.get('copy-1')).toMatchObject({ status: 'pending', activeCriterionId: null });
   });
 
+  it.each(['classification', 'diagram-analysis'] as const)('stops a stuck %s immediately and leaves the copy resumable', async (stage) => {
+    const f = fixture();
+    const visualJob = {
+      ...f.job,
+      rubric: { title: 'Biologie', criteria: [
+        { id: 'visual', title: 'Schéma de la mitose', description: '', maxPoints: 2, analysisMode: 'scientific-diagram' as const },
+      ] },
+      totalCriteria: 1,
+    };
+    f.jobs.set(visualJob.id, visualJob);
+    let started!: () => void;
+    const inFlight = new Promise<void>((resolve) => { started = resolve; });
+    let activeSignal: AbortSignal | undefined;
+    const analyzer: ScientificDiagramAnalyzer = {
+      classifyPages: vi.fn(async (request) => {
+        activeSignal = request.signal;
+        if (stage === 'classification') {
+          started();
+          return new Promise(() => undefined);
+        }
+        return [{ pageNumber: 1, kind: 'scientific-diagram', confidence: 0.99, reason: 'Schéma' }];
+      }),
+      analyze: vi.fn(async (request) => {
+        activeSignal = request.signal;
+        started();
+        return new Promise(() => undefined);
+      }),
+    };
+    const service = createBackgroundCorrectionService(f.repository, f.workspace, createScientificDiagramAnalysisService(analyzer));
+    const process = service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' }, 'assignment-1');
+    await inFlight;
+
+    await service.stopAndWait();
+    await process;
+
+    expect(activeSignal?.aborted).toBe(true);
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'pending', activeCriterionId: null });
+    expect(f.jobs.get('copy-1')?.proposal).toBeNull();
+  });
+
+  it('releases a stuck subject reading before visual grading', async () => {
+    const f = fixture();
+    f.jobs.set('copy-1', {
+      ...f.job,
+      correctionMode: 'separate',
+      subjectImages: f.job.images,
+      rubric: { title: 'Biologie', criteria: [
+        { id: 'visual', title: 'Schéma', description: '', maxPoints: 2, analysisMode: 'scientific-diagram' },
+      ] },
+      totalCriteria: 1,
+    });
+    let announceStarted!: () => void;
+    const started = new Promise<void>((resolve) => { announceStarted = resolve; });
+    let activeSignal: AbortSignal | undefined;
+    f.setGenerateImplementation(async (_request, _chunk, _stage, _transcription, _diagnostic, _update, _annotations, _progress, signal) => {
+      activeSignal = signal;
+      announceStarted();
+      return new Promise<string>(() => undefined);
+    });
+    const analyzer: ScientificDiagramAnalyzer = {
+      classifyPages: vi.fn(),
+      analyze: vi.fn(),
+    };
+    const service = createBackgroundCorrectionService(f.repository, f.workspace, createScientificDiagramAnalysisService(analyzer));
+    const processing = service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' }, 'assignment-1');
+    await started;
+    await service.stopAndWait();
+    await processing;
+    expect(activeSignal?.aborted).toBe(true);
+    expect(f.jobs.get('copy-1')?.status).toBe('pending');
+    expect(analyzer.classifyPages).not.toHaveBeenCalled();
+  });
+
   it('releases an unresponsive LLM call after prolonged inactivity and allows retry', async () => {
     vi.useFakeTimers();
     try {
