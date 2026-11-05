@@ -86,3 +86,7 @@ Les accents et textes visibles respectent au minimum un contraste WCAG AA de 4,5
 ### Application aux écrans du professeur
 
 `src/ui/teacherAtelier.css` regroupe uniquement la composition métier des fiches « Mes devoirs », du formulaire de création et de l'éditeur de barème. Il est chargé après le thème commun, sans remplacer les styles de contrôles partagés. Les états métier (corrections à réviser, devoir prêt, préparation) restent sémantiques et les champs restent éditables au clavier. Une vérification Playwright traverse la création et l'ouverture du barème ; Storybook importe également cette feuille afin de présenter les vrais composants dans le même thème.
+
+### Espace de vérification des copies
+
+`src/ui/correctionAtelier.css` décline la maquette B sur le suivi des copies et le poste de relecture. Sur desktop, l'original et les décisions disposent d'une largeur comparable ; sous 1100 px, la copie et les critères s'empilent pour éviter une colonne de texte étriquée. Seuls les critères qui demandent réellement l'attention du professeur portent la classe `is-flagged` et un liseré d'accent. Les critères sans alerte, les preuves longues et les justifications restent consultables sans être développés par défaut. Les tests de contrat et le parcours Playwright vérifient la classe d'alerte, la disposition et la lisibilité.
