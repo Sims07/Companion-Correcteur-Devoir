@@ -8,6 +8,7 @@ test('active evaluation navigation is informational rather than a red error or b
   const navigation = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   for (const label of [/Configuration/, /Exécution/, /Résultats/]) {
     await navigation.getByRole('button', { name: label }).click();
+    await navigation.getByRole('button', { name: label }).hover();
     const state = await page.evaluate(() => {
       const active = document.querySelector<HTMLElement>('.evaluation-step-nav [aria-current="step"]');
       const probe = document.createElement('div');
