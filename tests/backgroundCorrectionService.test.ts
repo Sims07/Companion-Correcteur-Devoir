@@ -4,7 +4,7 @@ import { createBackgroundCorrectionService } from '../src/application/background
 import { createScientificDiagramAnalysisService } from '../src/application/scientificDiagramAnalysisService.ts';
 import type { BackgroundCorrectionJob } from '../src/domain/backgroundCorrection.ts';
 import type { BackgroundCorrectionRepository } from '../src/ports/backgroundCorrectionRepository.ts';
-import type { GradingProvider, GradingRequest } from '../src/ports/aiProvider.ts';
+import type { GradingProvider, GradingRequest, OllamaSettings } from '../src/ports/aiProvider.ts';
 import type { ScientificDiagramAnalyzer } from '../src/ports/scientificDiagramAnalysis.ts';
 import type { CorrectionWorkspaceService } from '../src/application/correctionWorkspaceService.ts';
 
@@ -707,7 +707,7 @@ describe('background correction service', () => {
     let announceStarted!: () => void;
     const started = new Promise<void>((resolve) => { announceStarted = resolve; });
     let obsoleteSignal: AbortSignal | undefined;
-    f.workspace.prewarmModel = vi.fn(async (_settings, _model, signal) => {
+    f.workspace.prewarmModel = vi.fn(async (_settings: OllamaSettings, _model: string, signal?: AbortSignal) => {
       obsoleteSignal = signal;
       announceStarted();
       await new Promise<void>((_resolve, reject) => {
