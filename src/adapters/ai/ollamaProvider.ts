@@ -1,6 +1,6 @@
 import { requireCorrectionMethodAvailable } from '../../domain/correctionMethod.ts';
 import { scoreCriterionDecisions } from '../../domain/criterionDecision.ts';
-import { isNativeDecisionModel, prepareSystemOneCriterion, scoreSystemOneCriterion } from '../../domain/systemOneDecision.ts';
+import { isNativeDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from '../../domain/systemOneDecision.ts';
 import { requestSystemOneDecision } from './systemOneTransport.ts';
 import { buildCriterionDecisionPrompt, criterionDecisionSchema } from './decisionPrompts.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
@@ -1009,38 +1009,57 @@ export function createOllamaProvider(
         const criteria = parsedRubric.criteria ?? [];
         if (!criteria.length) throw new Error('Le mode décisionnel requiert un barème structuré avec au moins un critère.');
         const proposals: import('../../domain/grading.ts').CriterionProposal[] = [];
-        for (const [index, criterion] of criteria.entries()) {
-          const progress = { criterionId: criterion.id, index: index + 1, total: criteria.length };
-          onCriterionUpdate?.({ ...progress, attempt: 1, status: 'started' });
-          onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'started' });
-          const nativeDecision = isNativeDecisionModel(analysisModel);
-          const prompt = nativeDecision ? '' : buildCriterionDecisionPrompt({
-            criterion, transcription: transcription ?? '', teacherQuestion: request.question,
+        if (isNativeDecisionModel(analysisModel)) {
+          // System One accepts multiple closed questions in one request. Reuse the
+          // student's transcription ONCE, including on larger 20-point rubrics.
+          const prepared = prepareSystemOneRubric({
+            criteria, transcription: transcription ?? '', question: request.question,
             ...(subjectTranscription ? { subjectTranscription } : {}),
           });
-          let proposal: import('../../domain/grading.ts').CriterionProposal | null = null;
-          let previousError = '';
-          for (let attempt = 1; attempt <= 2; attempt += 1) {
-            if (attempt > 1) {
-              onCriterionUpdate?.({ ...progress, attempt, status: 'retrying' });
-              onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'retrying' });
-            }
-            try {
-              if (nativeDecision) {
-                const prepared = prepareSystemOneCriterion({
-                  criterion, transcription: transcription ?? '', question: request.question,
-                  ...(subjectTranscription ? { subjectTranscription } : {}),
-                });
-                const response = await requestSystemOneDecision({
-                  endpoint, model: analysisModel, prepared, fetchImpl,
-                  ...(signal ? { signal } : {}),
-                  onDiagnosticResult,
-                });
-                proposal = scoreSystemOneCriterion(criterion, transcription ?? '', prepared, response);
-              } else {
+          for (const [index, criterion] of criteria.entries()) {
+            onCriterionUpdate?.({ criterionId: criterion.id, index: index + 1, total: criteria.length, attempt: 1, status: 'started' });
+            onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'started' });
+          }
+          try {
+            const result = await requestSystemOneDecision({
+              endpoint, model: analysisModel, prepared, fetchImpl,
+              ...(signal ? { signal } : {}), onDiagnosticResult,
+            });
+            const scored = scoreSystemOneRubric(transcription ?? '', prepared, result);
+            scored.forEach((proposal, index) => {
+              proposals.push(proposal);
+              onCriterionUpdate?.({ criterionId: proposal.criterionId, index: index + 1, total: criteria.length, attempt: 1, status: 'completed', proposal });
+              onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'completed' });
+            });
+          } catch (cause) {
+            const detail = cause instanceof Error ? cause.message : 'Réponse décisionnelle inexploitable.';
+            criteria.forEach((criterion, index) => {
+              onCriterionUpdate?.({ criterionId: criterion.id, index: index + 1, total: criteria.length, attempt: 1, status: 'failed', error: detail });
+              onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'failed' });
+            });
+            throw new Error('Décision native indisponible : ' + detail);
+          }
+        } else {
+          // Prompt-based closed decisions remain supported for chat-capable LLMs.
+          for (const [index, criterion] of criteria.entries()) {
+            const progress = { criterionId: criterion.id, index: index + 1, total: criteria.length };
+            onCriterionUpdate?.({ ...progress, attempt: 1, status: 'started' });
+            onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'started' });
+            const prompt = buildCriterionDecisionPrompt({
+              criterion, transcription: transcription ?? '', teacherQuestion: request.question,
+              ...(subjectTranscription ? { subjectTranscription } : {}),
+            });
+            let proposal: import('../../domain/grading.ts').CriterionProposal | null = null;
+            let previousError = '';
+            for (let attempt = 1; attempt <= 2; attempt += 1) {
+              if (attempt > 1) {
+                onCriterionUpdate?.({ ...progress, attempt, status: 'retrying' });
+                onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'retrying' });
+              }
+              try {
                 const raw = await sendStream(
                   analysisModel,
-                  attempt === 1 ? prompt : prompt + '\n\nLa précédente réponse ne respectait pas le contrat : ' + previousError + '. Corrige uniquement la structure JSON.',
+                  attempt === 1 ? prompt : prompt + '\\n\\nLa précédente réponse ne respectait pas le contrat : ' + previousError + '. Corrige uniquement la structure JSON.',
                   undefined, onChunk, criterionDecisionSchema(criterion), false,
                   { kind: 'model', stage: 'analysis', temperature: 0,
                     generationTokenLimit: Math.min(1024, 256 + 96 * Math.max(1, getRubricSubcriteria(criterion).length)),
@@ -1048,21 +1067,21 @@ export function createOllamaProvider(
                     context: 'Décisions structurées · critère ' + (index + 1) + '/' + criteria.length },
                 );
                 proposal = scoreCriterionDecisions(criterion, parseModelJson(raw), transcription ?? '');
+                break;
+              } catch (cause) {
+                previousError = cause instanceof Error ? cause.message : 'Réponse décisionnelle inexploitable.';
+                if (signal?.aborted) break;
               }
-              break;
-            } catch (cause) {
-              previousError = cause instanceof Error ? cause.message : 'Réponse décisionnelle inexploitable.';
-              if (signal?.aborted || (nativeDecision && /HTTP 4\d\d|API décisionnelle|n’est pas disponible/i.test(previousError))) break;
             }
+            if (!proposal) {
+              onCriterionUpdate?.({ ...progress, attempt: 2, status: 'failed', error: previousError });
+              onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'failed' });
+              throw new Error('Décision indisponible pour « ' + criterion.title + ' » : ' + previousError);
+            }
+            proposals.push(proposal);
+            onCriterionUpdate?.({ ...progress, attempt: 1, status: 'completed', proposal });
+            onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'completed' });
           }
-          if (!proposal) {
-            onCriterionUpdate?.({ ...progress, attempt: 2, status: 'failed', error: previousError });
-            onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'failed' });
-            throw new Error('Décision indisponible pour « ' + criterion.title + ' » : ' + previousError);
-          }
-          proposals.push(proposal);
-          onCriterionUpdate?.({ ...progress, attempt: 1, status: 'completed', proposal });
-          onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'completed' });
         }
         return JSON.stringify({
           summary: 'Décisions structurées selon les attendus du barème.',
