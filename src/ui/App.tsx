@@ -3330,7 +3330,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </section>}
 
       {activeBackgroundJob?.status === 'pending' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="analysis-progress teacher-progress-card" role="status"><strong>{preparingCopy?.id === activeBackgroundJob.id ? 'Préparation de cette copie' : 'Copie en attente de correction'}</strong><p>{preparingCopy?.id === activeBackgroundJob.id ? 'Le modèle IA se prépare. La lecture commencera ensuite.' : 'La copie sera analysée lorsque viendra son tour. Aucune note n’a encore été attribuée.'}</p></section>}
-      {(currentBackgroundJobId || currentCorrectionId) && interfaceMode === 'teacher' && !showAiSettings && <section className="review-section copy-navigation-only">
+      {(currentBackgroundJobId || currentCorrectionId) && activeBackgroundJob?.status !== 'processing' && interfaceMode === 'teacher' && !showAiSettings && <section className="review-section copy-navigation-only">
         <CopyReviewHeader studentLabel={studentLabel} onStudentLabelChange={setStudentLabel} position={reviewPosition} totalCopies={reviewTotalCopies}
           status={isFinalized ? 'Corrigée' : activeBackgroundJob?.status === 'pending' ? 'En attente' : activeBackgroundJob?.status === 'processing' ? 'Analyse en cours' : activeBackgroundJob?.status === 'failed' || activeBackgroundJob?.status === 'needs-review' || (activeBackgroundJob?.status === 'reviewing' && activeBackgroundJob.completedCriteria < activeBackgroundJob.totalCriteria) ? 'À reprendre' : 'À vérifier'}
           score={isFinalized || (proposal && review.length > 0 && activeBackgroundJob?.status !== 'pending' && activeBackgroundJob?.status !== 'processing') ? reviewedTotal : null} scoreIncomplete={unassessedCount > 0 || review.length !== rubric.criteria.length} maximumPoints={validation.maximumPoints} isFinalized={isFinalized}
@@ -3342,7 +3342,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         />
         {reviewMessage && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
       </section>}
-      {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => {
+      {(proposal || isAnalyzing || review.length > 0 || Boolean(pageClassifications?.some((page) => page.kind !== 'text')) || (analysisStage === 'grading' && teacherStep === 'review')) && !(currentBackgroundJobId && activeBackgroundJob?.status === 'processing') && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="review-section" onKeyDown={(event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
           event.preventDefault();
           if (!isAnalyzing && !isFinalized && unassessedCount === 0 && review.length === rubric.criteria.length) void finalizeReview(true);
