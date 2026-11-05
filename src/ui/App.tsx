@@ -17,6 +17,7 @@ import { shouldRunScientificDiagramAnalysis, type ScientificDiagramAnalysis } fr
 import { resolveAmbiguousPageClassification, routeScientificPages, type ScientificPageClassification } from '../domain/scientificPageClassification.ts';
 import { accumulateClockwiseRotation, getConfidentDiagramRotation } from '../domain/scientificPageOrientation.ts';
 import { mergeScientificDiagramCriteria, partitionScientificRubric, shouldRunTeacherScientificDiagramWorkflow } from '../domain/scientificRubricRouting.ts';
+import { mergeDecisionScientificDiagramCriteria } from '../domain/scientificDiagramDecisions.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, DiagnosticStrategy, GradingProgressEvent, ImageInput } from '../ports/aiProvider.ts';
 import { buildDiagnosticScore } from '../domain/diagnosticScore.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference, type ReferenceCriterionScore } from '../domain/diagnosticReference.ts';
@@ -1270,7 +1271,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         setCriterionProgressMessage('Les critères graphiques sont évalués directement sur les schémas ; les critères textuels sans page rédigée restent à vérifier.');
       }
       const parsed = interfaceMode === 'teacher'
-        ? mergeScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult)
+        ? (correctionMethod === 'decision'
+          ? mergeDecisionScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult)
+          : mergeScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult))
         : textProposal;
       if (!parsed) throw new Error('Aucune proposition de correction exploitable n’a été produite.');
       diagnosticProposal = parsed;
