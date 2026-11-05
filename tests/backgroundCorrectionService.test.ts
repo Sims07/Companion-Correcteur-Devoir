@@ -4,7 +4,7 @@ import { createBackgroundCorrectionService } from '../src/application/background
 import { createScientificDiagramAnalysisService } from '../src/application/scientificDiagramAnalysisService.ts';
 import type { BackgroundCorrectionJob } from '../src/domain/backgroundCorrection.ts';
 import type { BackgroundCorrectionRepository } from '../src/ports/backgroundCorrectionRepository.ts';
-import type { GradingProvider, GradingRequest } from '../src/ports/aiProvider.ts';
+import type { GradingProvider, GradingRequest, OllamaSettings } from '../src/ports/aiProvider.ts';
 import type { ScientificDiagramAnalyzer } from '../src/ports/scientificDiagramAnalysis.ts';
 import type { CorrectionWorkspaceService } from '../src/application/correctionWorkspaceService.ts';
 
@@ -574,7 +574,7 @@ describe('background correction service', () => {
     expect(f.workspace.unloadModel).not.toHaveBeenCalled();
   });
 
-  it('prewarms, caches transcription and grades one criterion per sequential provider call', async () => {
+  it('starts useful OCR immediately and grades one criterion per sequential provider call', async () => {
     const f = fixture();
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
     await service.enqueue(f.job, { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
@@ -582,8 +582,8 @@ describe('background correction service', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
     const completed = f.jobs.get('copy-1');
-    expect(f.workspace.checkReady).toHaveBeenCalledTimes(2);
-    expect(f.workspace.prewarmModel).toHaveBeenCalledWith(expect.anything(), 'vision:4b', expect.any(AbortSignal));
+    expect(f.workspace.checkReady).not.toHaveBeenCalled();
+    expect(f.workspace.prewarmModel).not.toHaveBeenCalled();
     expect(f.createProvider).toHaveBeenCalledTimes(2);
     expect(f.requests[0]).toMatchObject({ identifyStudent: true, identityImage: f.job.images[0] });
     expect(f.requests[1].identifyStudent).toBeUndefined();
@@ -594,6 +594,144 @@ describe('background correction service', () => {
     expect(completed?.proposal?.finalScore).toBe(4);
     const calls = f.createProvider.mock.calls;
     expect(calls).toHaveLength(2);
+  });
+
+  it('keeps 30 sequential copies to one shared subject read without any placeholder warmup', async () => {
+    const f = fixture();
+    const subjectImages = [{ base64: 'c3VqZXQtY29tbXVu', mimeType: 'image/png', fileName: 'sujet.png' }];
+    for (let index = 0; index < 30; index += 1) {
+      const page = { base64: `Y29waWU=${index}`, mimeType: 'image/png', fileName: `copie-${index}.png` };
+      f.jobs.set(`copy-${index}`, {
+        ...structuredClone(f.job),
+        id: `copy-${index}`,
+        label: `Copie ${index}`,
+        correctionMode: 'separate',
+        subjectImages,
+        images: [page],
+        originalImages: [page],
+        createdAt: new Date(Date.UTC(2026, 10, 1, 9, index)).toISOString(),
+      });
+    }
+    f.repository.fingerprintImages = vi.fn(async (images: BackgroundCorrectionJob['images']) =>
+      images.map((image) => image.base64).join('|'));
+    let subjectReads = 0;
+    let copyReads = 0;
+    let criterionCalls = 0;
+    f.setGenerateImplementation(async (request, _chunk, _stage, onTranscription) => {
+      criterionCalls += 1;
+      if (!request.subjectTranscription) {
+        subjectReads += 1;
+        onTranscription?.('Sujet de référence commun.', 'subject');
+      }
+      if (!request.transcription) {
+        copyReads += 1;
+        onTranscription?.('Réponse de la copie.', 'copy');
+      }
+      const criterion = (JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> }).criteria[0];
+      return JSON.stringify({ summary: '', criteria: [{
+        criterionId: criterion.id, points: criterion.maxPoints,
+        rationale: '', evidence: 'preuve', confidence: 'high',
+      }], questionsForTeacher: [], finalScore: criterion.maxPoints });
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.processPending({
+      endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'vision:4b',
+    }, 'assignment-1');
+
+    expect(subjectReads).toBe(1);
+    expect(copyReads).toBe(30);
+    expect(criterionCalls).toBe(60);
+    expect(f.workspace.prewarmModel).not.toHaveBeenCalled();
+    expect(f.workspace.checkReady).not.toHaveBeenCalled();
+    expect((await service.listJobs('assignment-1')).filter((job) => job.status === 'ready')).toHaveLength(30);
+  });
+
+  it('starts a manual local correction without a new placeholder warmup request', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' };
+
+    await service.processPending(settings, 'assignment-1');
+
+    expect(f.createProvider).toHaveBeenCalledTimes(2);
+    expect(f.workspace.checkReady).not.toHaveBeenCalled();
+    expect(f.workspace.prewarmModel).not.toHaveBeenCalled();
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+  });
+
+  it('can still prewarm at idle when automatic correction is disabled', async () => {
+    const f = fixture();
+    const prewarmModel = vi.fn(async () => undefined);
+    f.workspace.prewarmModel = prewarmModel;
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b', autoBackgroundCorrection: false };
+
+    await service.enqueue(f.job, settings);
+    for (let attempt = 0; attempt < 50 && prewarmModel.mock.calls.length === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    expect(f.workspace.checkReady).toHaveBeenCalledTimes(2);
+    expect(f.workspace.prewarmModel).toHaveBeenCalledTimes(1);
+    expect(f.createProvider).not.toHaveBeenCalled();
+    expect(f.jobs.get('copy-1')?.status).toBe('pending');
+  });
+
+  it('does not overlap a previous idle prewarm with the first manual OCR request', async () => {
+    const f = fixture();
+    let releasePrewarm!: () => void;
+    let announcePrewarm!: () => void;
+    const started = new Promise<void>((resolve) => { announcePrewarm = resolve; });
+    const released = new Promise<void>((resolve) => { releasePrewarm = resolve; });
+    f.workspace.prewarmModel = vi.fn(async () => {
+      announcePrewarm();
+      await released;
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b', autoBackgroundCorrection: false };
+
+    await service.enqueue(f.job, settings);
+    await started;
+    const processing = service.processPending(settings, 'assignment-1');
+    await Promise.resolve();
+    expect(f.createProvider).not.toHaveBeenCalled();
+
+    releasePrewarm();
+    await processing;
+    expect(f.workspace.prewarmModel).toHaveBeenCalledTimes(1);
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+  });
+
+  it('cancels an obsolete prewarm when the teacher changes local models before launch', async () => {
+    const f = fixture();
+    let announceStarted!: () => void;
+    const started = new Promise<void>((resolve) => { announceStarted = resolve; });
+    let obsoleteSignal: AbortSignal | undefined;
+    f.workspace.prewarmModel = vi.fn(async (_settings: OllamaSettings, _model: string, signal?: AbortSignal) => {
+      obsoleteSignal = signal;
+      announceStarted();
+      await new Promise<void>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new DOMException('Superseded', 'AbortError')), { once: true });
+      });
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const oldSettings = {
+      endpoint: 'http://localhost:11434', visionModel: 'old-vision:4b',
+      analysisModel: 'old-analysis:4b', autoBackgroundCorrection: false,
+    };
+    await service.enqueue(f.job, oldSettings);
+    await started;
+
+    await service.processPending({
+      ...oldSettings, visionModel: 'new-vision:4b', analysisModel: 'new-analysis:4b',
+    }, 'assignment-1');
+
+    expect(obsoleteSignal?.aborted).toBe(true);
+    expect(f.createProvider).toHaveBeenCalledTimes(2);
+    expect(f.createProvider.mock.calls[0][0]).toMatchObject({
+      visionModel: 'new-vision:4b', analysisModel: 'new-analysis:4b',
+    });
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
   });
 
   it('does not unload models between sequential copies in the background queue', async () => {
