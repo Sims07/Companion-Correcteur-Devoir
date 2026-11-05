@@ -40,6 +40,7 @@ export function createScientificDiagramAnalysisService(analyzer: ScientificDiagr
       // Do not send multiple images in one Vision message. Reuse the exact individual
       // analysis path, one page at a time, and preserve the original copy page number.
       for (const [index, image] of request.images.entries()) {
+        if (request.signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
         const originalPageNumber = request.pageNumbers?.[index] ?? index + 1;
         const pageResult = await analyzer.analyze({
           ...request,
