@@ -22,6 +22,8 @@ describe('scientific diagram prompt and professor marks', () => {
     expect(prompt).not.toContain('qualityBreakdown');
     expect(prompt).not.toContain('arrows-relations');
     expect(prompt).toContain('ne déduis jamais automatiquement un demi-point');
+    expect(prompt).toContain('origin=student-diagram');
+    expect(prompt).toContain('une légende de phase ne constitue pas à elle seule un titre global');
   });
 
   it('instructs Vision to ignore correction marks and request teacher review when they overlap a diagram', () => {
