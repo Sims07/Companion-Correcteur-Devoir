@@ -1,5 +1,6 @@
 import type { CriterionProposal } from './grading.ts';
 import { getRubricSubcriteria, type RubricCriterion, type RubricSubcriterion } from './rubric.ts';
+import { suggestSubcriteriaFromDescription } from './rubricSubcriteriaSuggestion.ts';
 import { normalizeGradeScore, sumGradeScores } from './scorePrecision.ts';
 
 /** Native System One models classify choices; they cannot generate evidence or scores. */
@@ -32,18 +33,18 @@ export interface SystemOnePayload {
 export function expectedDecisionTargets(criterion: RubricCriterion): RubricSubcriterion[] {
   const explicit = getRubricSubcriteria(criterion);
   if (explicit.length) return explicit;
-  const segments = criterion.description.split(';');
-  const parsed = segments.map((segment, index) => {
-    const match = segment.match(/^\s*(.+?)\s*\((\d+(?:[.,]\d+)?)\s*pts?\)/i);
-    if (!match) return null;
-    return {
-      id: criterion.id + '-expected-' + (index + 1),
-      title: match[1].trim(), description: '',
-      maxPoints: Number(match[2].replace(',', '.')),
-    };
-  });
-  if (segments.length < 2 || parsed.some((item) => item === null)) return [];
-  const targets = parsed.filter((item): item is RubricSubcriterion => item !== null);
+  // Reuse the teacher-facing parser: multiline lists, decimal points, and
+  // non-scoring reference paragraphs follow the same rules as the rubric UI.
+  // No inferred allocation is allowed when even one item has no weight.
+  // Legacy barèmes sometimes append a prose 'Référence : ...' immediately
+  // after the final weighted expectation, not after a semicolon.
+  const description = criterion.description.replace(/\s*\.\s*R[eé]f[eé]rence\s*:[^\n]*/giu, '');
+  const suggested = suggestSubcriteriaFromDescription({ ...criterion, description });
+  if (suggested.length < 2 || suggested.some((item) => item.maxPoints === null)) return [];
+  const targets = suggested.map((item, index) => ({
+    id: criterion.id + '-expected-' + (index + 1),
+    title: item.title, description: '', maxPoints: item.maxPoints!,
+  }));
   const total = sumGradeScores(targets.map((item) => item.maxPoints));
   return Math.abs(total - criterion.maxPoints) <= 0.0001 ? targets : [];
 }
@@ -51,6 +52,7 @@ export function expectedDecisionTargets(criterion: RubricCriterion): RubricSubcr
 export interface SystemOnePrepared extends SystemOnePayload {
   targetIds: string[];
   scoringCriterion: RubricCriterion;
+  scoringMode: 'targets' | 'points-scale';
 }
 
 export interface StudentAnswerSections {
@@ -118,17 +120,58 @@ function expectedQuestion(target: { title: string; description: string }): Syste
   };
 }
 
-function criterionQuestions(criterion: RubricCriterion): { questions: Record<string, SystemOneQuestion>; targetIds: string[]; scoringCriterion: RubricCriterion } {
+/**
+ * For a holistic criterion, ask for a bounded point value rather than mapping
+ * every 'partial' choice to half the criterion. Never split the teacher's
+ * weighting into invented subcriteria.
+ */
+export function systemOnePointChoices(maxPoints: number): Record<string, string> {
+  if (!Number.isFinite(maxPoints) || maxPoints <= 0) return {};
+  const step = maxPoints <= 4 ? 0.5 : maxPoints <= 12 ? 1 : Math.ceil(maxPoints / 10);
+  const points = [0];
+  for (let value = step; value < maxPoints - 0.0001; value += step) {
+    points.push(normalizeGradeScore(value));
+  }
+  points.push(normalizeGradeScore(maxPoints));
+  const values = [...new Set(points)];
+  const result: Record<string, string> = {
+    unreadable: 'La réponse pertinente est illisible ou absente de la transcription ; impossible de proposer une note fiable.',
+  };
+  for (const value of values) {
+    const key = 'points_' + String(value).replace('.', '_');
+    result[key] = value === 0
+      ? '0 point : l’attendu du critère n’est pas démontré dans la réponse.'
+      : value === maxPoints
+        ? value + ' point(s) : tous les attendus de ce critère sont correctement démontrés.'
+        : value + ' point(s) sur ' + maxPoints + ' : attribuer cette note uniquement si le contenu de la réponse démontre ce niveau de réalisation du critère, avec les erreurs ou manques correspondants.';
+  }
+  return result;
+}
+
+function pointsScaleQuestion(criterion: RubricCriterion): SystemOneQuestion {
+  return {
+    type: 'choice',
+    instructions: 'Attribue une note sur ce seul critère, à partir de ce qui est effectivement démontré dans la réponse. Prends en compte l’ensemble des attendus du barème, leur précision scientifique, les erreurs et omissions. Aucun coefficient supplémentaire n’est autorisé. CRITÈRE : ' + criterion.title + '. ATTENDUS ENSEIGNANT : ' + criterion.description,
+    criteria: systemOnePointChoices(criterion.maxPoints),
+  };
+}
+
+function criterionQuestions(criterion: RubricCriterion): Pick<SystemOnePrepared, 'questions' | 'targetIds' | 'scoringCriterion' | 'scoringMode'> {
   const targets = expectedDecisionTargets(criterion);
+  if (targets.length > 60) throw new Error('Trop d’attendus pour une seule requête décisionnelle.');
+  const questions: Record<string, SystemOneQuestion> = { alignment: alignmentQuestion };
+  if (targets.length === 0 && criterion.maxPoints > 0) {
+    questions.score = pointsScaleQuestion(criterion);
+    return { questions, targetIds: [criterion.id], scoringCriterion: criterion, scoringMode: 'points-scale' };
+  }
   const selected = targets.length ? targets
     : [{ id: criterion.id, title: criterion.title, description: criterion.description, maxPoints: criterion.maxPoints }];
-  if (selected.length > 60) throw new Error('Trop d’attendus pour une seule requête décisionnelle.');
-  const questions: Record<string, SystemOneQuestion> = { alignment: alignmentQuestion };
   selected.forEach((target, index) => { questions['expected_' + (index + 1)] = expectedQuestion(target); });
   return {
     questions,
     targetIds: selected.map((target) => target.id),
     scoringCriterion: targets.length ? { ...criterion, subcriteria: targets } : criterion,
+    scoringMode: 'targets',
   };
 }
 
@@ -238,6 +281,58 @@ export function scoreSystemOneCriterion(
     throw new Error('La réponse System One ne contient aucune décision.');
   }
   const alignment = selectedChoice(result.answers.alignment, ['aligned','different','uncertain']);
+  if (prepared.scoringMode === 'points-scale') {
+    const allowed = Object.keys(prepared.questions.score?.criteria ?? {});
+    const choice = selectedChoice(result.answers.score, allowed);
+    if (choice.choice === 'unreadable') {
+      return {
+        criterionId: criterion.id, points: 0, assessmentStatus: 'not-evaluated', confidence: 'low',
+        evidence: 'Réponse illisible ou transcription insuffisante.',
+        rationale: 'Impossible de proposer une note sans lire la réponse.',
+        questionForTeacher: 'Relisez la réponse de « ' + criterion.title + ' » ou corrigez sa transcription.',
+      };
+    }
+    const key = choice.choice.replace(/^points_/, '').replace('_', '.');
+    const points = Number(key);
+    if (!Number.isFinite(points) || !allowed.includes(choice.choice)
+        || points < 0 || points > criterion.maxPoints) {
+      throw new Error('Note System One hors des choix autorisés du barème.');
+    }
+    const grade = normalizeGradeScore(points);
+    if (alignment.choice === 'different' && alignment.probability >= 0.75) {
+      return {
+        criterionId: criterion.id, points: 0, assessmentStatus: 'not-evaluated', confidence: 'low',
+        evidence: 'La réponse ne correspond pas au barème sélectionné.',
+        rationale: 'Correspondance entre copie et barème à vérifier.',
+        questionForTeacher: 'Vérifiez que le barème correspond à la copie.',
+      };
+    }
+    // On a numeric scale, the winner need not exceed 65%: with seven choices
+    // even a well-separated answer often has < 65% probability. Alert only
+    // when another plausible grade differs substantially and is nearly tied.
+    const competitors = Object.entries(result.answers.score?.probabilities ?? {})
+      .filter(([name, probability]) => name !== choice.choice && allowed.includes(name)
+        && typeof probability === 'number' && Number.isFinite(probability))
+      .sort((first, second) => second[1] - first[1]);
+    const runnerUp = competitors[0];
+    const competitorPoints = runnerUp ? Number(runnerUp[0].replace(/^points_/, '').replace('_', '.')) : grade;
+    const closeMaterialAlternative = Boolean(runnerUp
+      && runnerUp[1] >= choice.probability - 0.12
+      && Math.abs(competitorPoints - grade) >= Math.min(1, criterion.maxPoints));
+    const alignmentReview = alignment.choice !== 'aligned' || alignment.weak;
+    const needsReview = closeMaterialAlternative || alignmentReview;
+    return {
+      criterionId: criterion.id, points: grade, assessmentStatus: 'evaluated',
+      confidence: needsReview ? 'low' : 'medium',
+      evidence: 'Note basée sur les éléments de la réponse transcrite ; modèle à décisions fermées sans citation littérale.',
+      rationale: needsReview ? 'Note proposée, à vérifier sur un point précis.' : 'Note choisie sur l’échelle autorisée par le barème.',
+      ...(needsReview ? {
+        questionForTeacher: alignmentReview
+          ? 'Vérifiez que la réponse correspond au barème de « ' + criterion.title + ' ».'
+          : 'Deux notes restent proches pour « ' + criterion.title + ' » : ' + grade + ' et ' + competitorPoints + ' point(s).',
+      } : {}),
+    };
+  }
   const targets = getRubricSubcriteria(prepared.scoringCriterion);
   const effectiveTargets = targets.length ? targets
     : [{ id: criterion.id, title: criterion.title, maxPoints: criterion.maxPoints }];

@@ -45,14 +45,14 @@ describe('System One scoring coverage without fabricated certainty', () => {
       transcription:'Réponse de l\'étudiant\nRéponse sur les quatre thèmes.',
     });
     expect(Object.keys(prepared.questions)).toEqual([
-      'criterion_1_alignment','criterion_1_expected_1',
-      'criterion_2_alignment','criterion_2_expected_1',
-      'criterion_3_alignment','criterion_3_expected_1',
-      'criterion_4_alignment','criterion_4_expected_1',
+      'criterion_1_alignment','criterion_1_score',
+      'criterion_2_alignment','criterion_2_score',
+      'criterion_3_alignment','criterion_3_score',
+      'criterion_4_alignment','criterion_4_score',
     ]);
     expect(prepared.state.match(/RÉPONSE DE L’ÉTUDIANT/g)).toHaveLength(1);
     expect(prepared.questions.criterion_1_alignment.instructions).not.toMatch(/respiration cellulaire ne traite PAS de la photosynthèse/i);
-    expect(prepared.questions.criterion_1_expected_1.instructions).toContain('Photosynthèse');
+    expect(prepared.questions.criterion_1_score.instructions).toContain('Photosynthèse');
   });
 
   it('can propose 20/20 with 4 aligned criteria even with low probabilities, flags only uncertain decisions', () => {
@@ -60,7 +60,9 @@ describe('System One scoring coverage without fabricated certainty', () => {
     const prepared = prepareSystemOneRubric({criteria:rubric,transcription,question:'Biologie'});
     const answers = Object.fromEntries(rubric.flatMap((_, i) => [
       ['criterion_'+(i+1)+'_alignment', choice('aligned')],
-      ['criterion_'+(i+1)+'_expected_1', choice('present', i === 2 ? 0.53 : 0.98)],
+      ['criterion_'+(i+1)+'_score', i === 2
+        ? { type: 'choice' as const, choice: 'points_5', probabilities: { points_5: 0.53, points_4: 0.45, unreadable: 0.02 }, confidence: 0.26 }
+        : choice('points_5', 0.98)],
     ]));
     const scored = scoreSystemOneRubric(transcription, prepared, { answers });
     expect(scored.map((s)=>s.points)).toEqual([5,5,5,5]);
@@ -70,19 +72,20 @@ describe('System One scoring coverage without fabricated certainty', () => {
     expect(scored[0].questionForTeacher).toBeUndefined();
   });
 
-  it('assigns a reviewable provisional half-credit to partial instead of declaring the whole criterion unassessed', () => {
-    const prepared = prepareSystemOneCriterion({criterion:rubric[0],transcription:'Réponse de l\'étudiant\nLa lumière intervient.',question:'Biologie'});
-    const result = scoreSystemOneCriterion(rubric[0],'Réponse de l\'étudiant\nLa lumière intervient.',prepared, {
-      answers:{alignment:choice('aligned'),expected_1:choice('partial',0.83)},
+  it('scores holistic criteria on discrete teacher-bounded points, never blindly assigns fifty percent', () => {
+    const introduction = {...rubric[0], maxPoints: 3, title: 'Introduction', description: 'Problématique et contexte scientifique' };
+    const prepared = prepareSystemOneCriterion({criterion:introduction,transcription:'Réponse de l\'étudiant\nLe contexte est posé.',question:'Biologie'});
+    const result = scoreSystemOneCriterion(introduction,'Réponse de l\'étudiant\nLe contexte est posé.',prepared, {
+      answers:{alignment:choice('aligned'),score:choice('points_2',0.83)},
     });
-    expect(result).toMatchObject({points:2.5,assessmentStatus:'evaluated',confidence:'low'});
-    expect(result.questionForTeacher).toContain('Photosynthèse');
+    expect(result).toMatchObject({points:2,assessmentStatus:'evaluated',confidence:'medium'});
+    expect(result.questionForTeacher).toBeUndefined();
   });
 
   it('keeps unrelated confirmed topics unassessed, even when the model claims the answer is present', () => {
     const prepared=prepareSystemOneCriterion({criterion:rubric[0],transcription:'Respiration',question:'Biologie'});
     const scored=scoreSystemOneCriterion(rubric[0],'Respiration',prepared,{
-      answers:{alignment:choice('different',0.989), expected_1:choice('present',0.98)},
+      answers:{alignment:choice('different',0.989), score:choice('points_5',0.98)},
     });
     expect(scored.assessmentStatus).toBe('not-evaluated');
     expect(scored.points).toBe(0);
@@ -91,7 +94,7 @@ describe('System One scoring coverage without fabricated certainty', () => {
   it('leaves a wholly unreadable answer unassessed, instead of masking the uncertainty as a zero', () => {
     const prepared=prepareSystemOneCriterion({criterion:rubric[0],transcription:'[illisible]',question:'Biologie'});
     const scored=scoreSystemOneCriterion(rubric[0],'[illisible]',prepared,{
-      answers:{alignment:choice('aligned'),expected_1:choice('uncertain',0.99)},
+      answers:{alignment:choice('aligned'),score:choice('unreadable',0.99)},
     });
     expect(scored.assessmentStatus).toBe('not-evaluated');
     expect(scored.points).toBe(0);
