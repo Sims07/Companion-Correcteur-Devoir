@@ -65,25 +65,32 @@
   gap: var(--ds-space-4);
   padding: var(--ds-space-4);
   border: 1px solid var(--ds-color-border);
-  border-left: 3px solid var(--ds-color-brand-700);
+  border-left: 3px solid var(--ds-color-progress);
   border-radius: var(--ds-radius-sm);
 }
 .teacher-copy-live strong { color: var(--ds-color-text); }
 .teacher-copy-live p { margin: var(--ds-space-1) 0 0; color: var(--ds-color-text-muted); font-size: .85rem; }
-.copy-overview-grid > li.correction-series-card.is-preparing { border-color: var(--ds-color-progress-border); }
 @media (max-width: 700px) {
   .teacher-copy-live { align-items: stretch; flex-direction: column; }
 }
 .copy-overview-grid > li.correction-series-card {
   border: 1px solid var(--ds-color-border);
-  border-top: 3px solid var(--ds-color-brand-700);
   background: var(--ds-color-surface);
   border-radius: var(--ds-radius-sm);
   box-shadow: none;
 }
-.copy-overview-grid .correction-series-card.is-to-retry {
+/* Colour only the state, never every card: active, needs action, failure. */
+.copy-overview-grid > li.correction-series-card.is-processing,
+.copy-overview-grid > li.correction-series-card.is-preparing {
+  border-left: 3px solid var(--ds-color-progress);
+}
+.copy-overview-grid > li.correction-series-card.is-to-retry {
+  border-left: 3px solid var(--ds-color-warning);
   background: var(--ds-color-warning-surface);
-  border-color: var(--ds-color-border-strong);
+}
+.copy-overview-grid > li.correction-series-card.is-failed {
+  border-left: 3px solid var(--ds-color-danger);
+  background: var(--ds-color-danger-surface);
 }
 .teacher-copy-work-summary > div {
   background: var(--ds-color-surface);
@@ -97,6 +104,13 @@
   background: var(--ds-color-surface);
   border-color: var(--ds-color-border);
   box-shadow: var(--ds-shadow-panel);
+}
+/* Ongoing teacher grading is informational, not a dangerous action. */
+.teacher-flow-shell .grade-button[aria-busy="true"]:disabled {
+  border-color: var(--ds-color-progress);
+  background: var(--ds-color-progress);
+  color: #fff;
+  opacity: 1;
 }
 .teacher-flow-shell .analysis-progress .analysis-spinner {
   border-color: var(--ds-color-border);
@@ -362,8 +376,19 @@
   color: var(--ds-color-text-muted);
   line-height: 1.5;
 }
+.copy-overview-grid .correction-series-card-status.is-processing {
+  border-color: var(--ds-color-progress-border);
+  background: var(--ds-color-progress-surface);
+  color: var(--ds-color-progress);
+}
 .copy-overview-grid .correction-series-card-status.is-completed {
-  color: var(--ds-color-text);
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-success-surface);
+  color: var(--ds-color-success);
+}
+.copy-overview-grid .correction-series-card-status.is-to-review {
+  background: var(--ds-color-warning-surface);
+  color: var(--ds-color-warning);
 }
 .copy-overview-grid .correction-series-card-status.is-to-retry {
   border-color: var(--ds-color-border-strong);

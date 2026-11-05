@@ -1,5 +1,5 @@
 import { FilePicker } from './FilePicker.tsx';
-import { Button, Field, TextInput } from '../design-system/index.ts';
+import { Button, Field, StatusNotice, TextInput } from '../design-system/index.ts';
 import './TeacherCopyIntake.css';
 
 type Props = {
@@ -45,7 +45,7 @@ export function TeacherCopyIntake({
       <summary>Options pour les copies annotées</summary>
       <label><input type="checkbox" checked={hasTeacherAnnotations} onChange={(event) => onTeacherAnnotationsChange(event.target.checked)} />Ces copies contiennent des annotations du professeur</label>
     </details>
-    {!rubricReady ? <p className="teacher-copy-intake-warning" role="alert">Complétez le barème avant d’ajouter les copies.</p> : <FilePicker
+    {!rubricReady ? <StatusNotice tone="warning">Complétez le barème avant d’ajouter les copies.</StatusNotice> : <FilePicker
       id="teacher-copy-intake-files"
       accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
       multiple

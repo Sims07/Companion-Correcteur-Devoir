@@ -35,6 +35,9 @@ describe('ajout de copies pour le professeur', () => {
   it('empêche l’import tant que le barème est incomplet', () => {
     const html = renderToStaticMarkup(createElement(TeacherCopyIntake, { ...props, rubricReady: false }));
     expect(html).toContain('Complétez le barème');
+    expect(html).toContain('ds-status-notice--warning');
+    expect(html).toContain('role="status"');
+    expect(html).not.toContain('role="alert"');
     expect(html).not.toContain('teacher-copy-intake-files');
   });
 });

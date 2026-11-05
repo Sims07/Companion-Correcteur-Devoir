@@ -29,6 +29,16 @@ describe('Atelier B rubric composition', () => {
     expect(css).toContain('.rubric-actions .validation.valid');
   });
 
+  it('shows active rubric extraction in progress colour and completed steps in success colour', () => {
+    const active = css.split('.rubric-import-step.is-active {')[1]?.split('}')[0] ?? '';
+    const done = css.split('.rubric-import-step.is-complete .rubric-import-step-number {')[1]?.split('}')[0] ?? '';
+    expect(active).toContain('var(--ds-color-progress-border)');
+    expect(active).toContain('var(--ds-color-progress-surface)');
+    expect(active).not.toContain('var(--ds-color-brand-700)');
+    expect(done).toContain('var(--ds-color-success)');
+    expect(css).toContain('.rubric-import-step.is-active .rubric-import-step-number');
+  });
+
   it('keeps diagnostic settings unchanged and the teacher layout responsive', () => {
     expect(app).toContain('atelier-rubric-grid is-diagnostic');
     expect(css).toContain('.atelier-rubric-grid.is-diagnostic { display: block; }');
