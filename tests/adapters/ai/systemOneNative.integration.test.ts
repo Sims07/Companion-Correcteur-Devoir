@@ -66,4 +66,47 @@ describe('native Ollama System One routing', () => {
     await expect(provider.generate({question:'Photosynthèse',rubric:JSON.stringify(rubric),transcription:'Réponse.'})).rejects.toThrow(/décisionnel/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it('grades a complete four-criterion, twenty-point rubric in ONE native request, without withholding low-probability proposals', async () => {
+    const fullRubric: Rubric = {
+      title: 'Biologie 20 points',
+      criteria: [
+        {id:'a',title:'Photosynthèse',description:'Lumière et chloroplastes',maxPoints:5},
+        {id:'b',title:'Respiration',description:'Mitochondries et ATP',maxPoints:5},
+        {id:'c',title:'Génétique',description:'Chromosomes et ADN',maxPoints:5},
+        {id:'d',title:'Écologie',description:'Relations des êtres vivants',maxPoints:5},
+      ],
+    };
+    const native = {
+      model:'d3:4b',
+      answers: Object.fromEntries(fullRubric.criteria.flatMap((_,i)=>[
+        ['criterion_'+(i+1)+'_alignment',answer('aligned')],
+        ['criterion_'+(i+1)+'_expected_1',{
+          type:'choice',
+          choice:'present',
+          confidence:0.19,
+          probabilities:{present:i===2?0.46:0.98,absent:i===2?0.31:0.01,partial:i===2?0.21:0.005,uncertain:i===2?0.02:0.005},
+        }],
+      ])),
+      usage:{input_tokens:1200,output_tokens:0},
+    };
+    const fetchMock=vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(native),{status:200}));
+    const provider=createOllamaProvider({
+      endpoint:'http://localhost:11434',visionModel:'qwen3.5:4b',analysisModel:'d3:4b',correctionMethod:'decision',
+    },fetchMock);
+    const raw=await provider.generate({
+      question:'Quatre questions de biologie',rubric:JSON.stringify(fullRubric),
+      transcription:'Réponse de l\'étudiant\nLa photosynthèse se déroule dans les chloroplastes avec la lumière. La respiration produit ATP dans les mitochondries. La génétique repose sur les chromosomes et ADN. En écologie, les êtres vivants interagissent.',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const sent=JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(Object.keys(sent.questions)).toHaveLength(8);
+    expect(sent.state.match(/RÉPONSE DE L’ÉTUDIANT/g)).toHaveLength(1);
+    expect(sent).not.toHaveProperty('stream');
+    const graded=parseGradingProposal(raw,fullRubric);
+    expect(graded.criteria).toHaveLength(4);
+    expect(graded.criteria.map(item=>item.points)).toEqual([5,5,5,5]);
+    expect(graded.scoreIncomplete).not.toBe(true);
+    expect(graded.criteria[2].questionForTeacher).toBeTruthy();
+  });
+
 });
