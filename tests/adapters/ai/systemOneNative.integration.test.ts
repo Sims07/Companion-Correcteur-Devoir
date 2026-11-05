@@ -78,15 +78,17 @@ describe('native Ollama System One routing', () => {
     };
     const native = {
       model:'d3:4b',
-      answers: Object.fromEntries(fullRubric.criteria.flatMap((_,i)=>[
-        ['criterion_'+(i+1)+'_alignment',answer('aligned')],
-        ['criterion_'+(i+1)+'_score',{
+      answers: {
+        alignment: answer('aligned'),
+        ...Object.fromEntries(fullRubric.criteria.map((_,i)=>[
+        'criterion_'+(i+1)+'_score',{
           type:'choice',
           choice:'points_5',
           confidence:0.19,
           probabilities:{points_5:i===2?0.53:0.98,points_4:i===2?0.45:0.01,points_3:i===2?0.02:0.01},
-        }],
+        },
       ])),
+      },
       usage:{input_tokens:1200,output_tokens:0},
     };
     const fetchMock=vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(native),{status:200}));
@@ -99,7 +101,7 @@ describe('native Ollama System One routing', () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const sent=JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
-    expect(Object.keys(sent.questions)).toHaveLength(8);
+    expect(Object.keys(sent.questions)).toHaveLength(5);
     expect(sent.state.match(/RÉPONSE DE L’ÉTUDIANT/g)).toHaveLength(1);
     expect(sent).not.toHaveProperty('stream');
     const graded=parseGradingProposal(raw,fullRubric);
