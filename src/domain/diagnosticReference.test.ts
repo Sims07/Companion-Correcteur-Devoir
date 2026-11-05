@@ -36,6 +36,20 @@ describe('diagnosticReference', () => {
     });
   });
 
+  it('refuses incomplete model scores and non-evaluated placeholders instead of comparing a false zero', () => {
+    const complete = [
+      { criterionId: 'a', title: 'Connaissances', points: 3, maxPoints: 4 },
+      { criterionId: 'b', title: 'Raisonnement', points: 0, maxPoints: 6,
+        assessmentStatus: 'not-evaluated' as const },
+    ];
+    expect(compareWithDiagnosticReference(complete, reference, rubric)).toBeNull();
+    expect(compareWithDiagnosticReference(complete.slice(0, 1), reference, rubric)).toBeNull();
+    expect(compareWithDiagnosticReference([complete[0], complete[0]], reference, rubric)).toBeNull();
+    expect(compareWithDiagnosticReference([
+      complete[0], { ...complete[1], assessmentStatus: 'evaluated' },
+    ], reference, rubric)?.absoluteTotalError).toBe(5);
+  });
+
   it('returns no comparison for an incomplete reference', () => {
     expect(compareWithDiagnosticReference([], reference.slice(0, 1), rubric)).toBeNull();
   });
