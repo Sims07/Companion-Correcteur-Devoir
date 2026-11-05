@@ -118,4 +118,22 @@ describe('System One scoring coverage without fabricated certainty', () => {
     expect(scored.subcriteria).toHaveLength(2);
     expect(scored.questionForTeacher).toContain('ATP');
   });
+  it('preserves per-attendu System One decisions without inventing half-points for a partial result', () => {
+    const detailed: RubricCriterion = {
+      id: 'photosynthesis', title: 'Photosynthèse', description: 'Réactifs et produit', maxPoints: 2,
+      subcriteria: [
+        { id: 'reactants', title: 'Réactifs', description: 'CO2 et eau', maxPoints: 1 },
+        { id: 'product', title: 'Produit', description: 'Glucose', maxPoints: 1 },
+      ],
+    };
+    const prepared = prepareSystemOneCriterion({ criterion: detailed, transcription: 'Le CO2 entre dans les feuilles.', question: 'Photosynthèse' });
+    const result = scoreSystemOneCriterion(detailed, 'Le CO2 entre dans les feuilles.', prepared, {
+      answers: { alignment: choice('aligned'), expected_1: choice('partial'), expected_2: choice('present') },
+    });
+    expect(result.assessmentStatus).toBe('not-evaluated');
+    expect(result.points).toBe(1);
+    expect(result.subcriteria?.map((item) => item.points)).toEqual([0, 1]);
+    expect(result.questionForTeacher).toContain('Réactifs');
+  });
+
 });
