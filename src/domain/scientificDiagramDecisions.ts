@@ -36,7 +36,7 @@ function decisionFromVisualEvidence(
     const evidencedPresent = observations.find((element) =>
       element.status === 'present' && meaningfulVisualEvidence(element.evidence));
     const allAbsent = observations.length > 0 && observations.every((element) => element.status === 'absent');
-    const status = evidencedPresent ? 'present'
+    const status: 'present' | 'absent' | 'partial' | 'uncertain' = evidencedPresent ? 'present'
       : allAbsent ? 'absent'
         : observations.some((element) => element.status === 'partial') ? 'partial'
           : 'uncertain';
