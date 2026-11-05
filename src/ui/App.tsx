@@ -2301,6 +2301,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       {interfaceMode === 'teacher' && <TeacherWorkspaceNavigation
         assignmentTitle={assignmentTitle}
         studentLabel={studentLabel}
+        educationLevel={assignmentProfiles.find((profile) => profile.id === activeAssignmentId)?.educationLevel}
+        maximumPoints={validation.maximumPoints}
         activeSection={teacherStep === 'rubric' || teacherStep === 'details' ? 'rubric' : 'copies'}
         showCopyRail={(teacherStep === 'review' || (teacherStep === 'copy' && Boolean(currentBackgroundJobId || currentCorrectionId))) && !showAiSettings}
         copies={copyNavigation.copies.map((copy) => ({
@@ -3366,6 +3368,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               }
             }
           }}>
+            <div className="atelier-review-decision-heading">
+              <strong>{flaggedCriteriaIds.size > 0 ? `${flaggedCriteriaIds.size} critère${flaggedCriteriaIds.size > 1 ? 's' : ''} à examiner` : 'Proposition de correction'}</strong>
+              <span>{reliableCriteriaCount > 0 ? `${reliableCriteriaCount} autre${reliableCriteriaCount > 1 ? 's' : ''} critère${reliableCriteriaCount > 1 ? 's' : ''} sans alerte` : 'Décisions fondées sur le barème'}</span>
+            </div>
             <div className={`summary-panel review-score-summary ${isAnalyzing ? 'is-provisional' : ''}`} aria-live="polite"><strong>{isAnalyzing ? 'Note provisoire · calcul en cours' : unassessedCount > 0 ? 'Note partielle · critères non évalués' : criterionProgress.isComplete ? 'Note proposée' : 'Note partielle · analyse incomplète'}</strong>{isAnalyzing && <small>Cette note n’est pas définitive et évoluera avec les prochains critères.</small>}<span>{criterionProgress.completedCount > 0 ? `${reviewedTotal} / ${validation.maximumPoints} points` : 'En attente de la première note'} · {criterionProgress.completedCount - unassessedCount} / {criterionProgress.totalCount} critères évalués</span>{proposal?.summary && <details className="review-summary-details"><summary>Voir la synthèse de l’analyse</summary><p>{proposal.summary}</p></details>}</div>
         {flaggedCriteriaIds.size > 0 && <div className="review-criteria-toolbar">
           <button type="button" className="text-action" onClick={() => setShowOnlyFlagged((current) => !current)}>{shouldFocusExceptions ? 'Afficher tous les critères' : 'Afficher uniquement les points à examiner'}</button>
@@ -3441,10 +3447,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               {!item.scientificDiagramElements && <p>{item.rationale}</p>}
             </details>}
             {scientificDiagramAnalysis?.diagrams.some((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)) && <details className="scientific-diagram-criterion-details"><summary>Analyse du schéma scientifique · {scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).length} résultat(s)</summary>{scientificDiagramAnalysis.diagrams.filter((diagram) => diagram.criteria.some((result) => result.criterionId === item.criterionId)).map((diagram) => { const result = diagram.criteria.find((entry) => entry.criterionId === item.criterionId)!; return <article key={diagram.id}><strong>{diagram.diagramType || 'Schéma'} · page {diagram.pageNumber}</strong><p>{diagram.summary}</p><p>{result.evidence}</p><small>Confiance indicative : {Math.round(result.confidence * 100)} %{result.requiresTeacherReview ? ' · Vérification requise' : ''}</small>{diagram.uncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</article>; })}{scientificDiagramAnalysis.overallUncertainties.map((uncertainty, index) => <p className="review-alert review-alert-warning" key={index}>{uncertainty}</p>)}</details>}
-            <div className="review-controls">
+            <details className="review-quick-edit">
+              <summary>Ajuster la note ou ajouter un commentaire</summary>
+              <div className="review-controls">
               <label><span className="field-label">Votre note</span><input type="number" min={Math.min(0, criterion?.maxPoints ?? 0)} max={Math.max(0, criterion?.maxPoints ?? 0)} step="0.01" value={item.assessmentStatus === 'not-evaluated' ? '' : item.teacherPoints} placeholder={item.assessmentStatus === 'not-evaluated' ? 'À attribuer' : undefined} onChange={(event) => { if (event.target.value.trim()) updateReview(item.criterionId, { teacherPoints: normalizeGradeScore(Number(event.target.value)), decision: 'adjusted' }); }} /></label>
               <label className="comment-field"><span className="field-label">Commentaire enseignant</span><input value={item.teacherComment} onChange={(event) => updateReview(item.criterionId, { teacherComment: event.target.value })} placeholder="Précision ou correction éventuelle" /></label>
-            </div>
+              </div>
+            </details>
           </article>;
         })}
         {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Cette correction est enregistrée sur cet appareil</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" onClick={() => startNextCopy()}>Corriger une autre copie</button><button type="button" className="secondary-button" onClick={() => { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); setShowAiSettings(false); }}>Voir les copies corrigées</button></div></div>}
