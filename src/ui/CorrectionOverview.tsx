@@ -87,7 +87,7 @@ function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): stri
     : job.phase === 'reading'
       ? `Lecture de la copie · ${job.progress.completedPages}/${job.progress.totalPages} pages lues`
       : `Correction · ${job.progress.completedCriteria}/${job.progress.totalCriteria} critères évalués`;
-  if (status === 'to-do') return 'En attente de correction';
+  if (status === 'to-do') return job.error?.startsWith('Correction interrompue par l’enseignant') ? 'Interrompue à votre demande. La copie est conservée.' : 'En attente de correction';
   if (job.status === 'needs-review') return 'Des éléments restent à vérifier avant de poursuivre';
   return 'Proposition prête à vérifier';
 }
@@ -213,13 +213,13 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
           </div>
           <div className="correction-series-card-footer">
             <div>
-              <span className={`correction-series-card-status is-${item.status}`}>{preparingJob?.id === item.id ? 'Préparation en cours' : statusLabels[item.status]}</span>
+              <span className={`correction-series-card-status is-${item.status}`}>{preparingJob?.id === item.id ? 'Préparation en cours' : item.status === 'to-do' && item.job?.error?.startsWith('Correction interrompue par l’enseignant') ? 'En attente · interrompue' : statusLabels[item.status]}</span>
               {item.message && <p className={item.status === 'to-retry' ? 'copy-overview-error' : 'copy-overview-message'}>{item.message}</p>}
               {item.kind === 'correction' && <small>Enregistrée le {new Date(item.updatedAt).toLocaleDateString('fr-FR')}</small>}
             </div>
             <div className="correction-series-actions">
               {item.kind === 'job' && item.job && <>
-                {item.status === 'to-retry' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Relancer</button>}
+                {item.status === 'to-retry' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Relancer</button>}{item.status === 'to-do' && item.job.error?.startsWith('Correction interrompue par l’enseignant') && <button type="button" className="primary-button" onClick={onStartCorrections}>Reprendre les corrections</button>}
                 <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenJob(item.job!.id)}>Ouvrir</button>
                 {item.status !== 'processing' && <button type="button" className="text-button correction-series-remove" aria-label={`Retirer la copie « ${item.label} »`} onClick={() => onRemoveJob(item.id)}>Retirer</button>}
               </>}
