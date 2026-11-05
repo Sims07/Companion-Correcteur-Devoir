@@ -36,8 +36,8 @@ jobs:
       - run: npm run build
       - name: Build Storybook design-system reference
         run: npm run build-storybook
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright Chromium headless shell
+        run: npx playwright install chromium --only-shell
       - name: Run browser-level diagnostic workflow tests
         run: npm run test:e2e
       - name: Upload visual regression evidence

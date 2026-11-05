@@ -95,7 +95,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     const navigation = source('../src/ui/DeveloperToolsNavigation.tsx');
     expect(navigation).toContain("title: 'Observabilité'");
     expect(navigation).toContain("aria-current={activeTool === tool.id ? 'page' : undefined}");
-    expect(text).toContain('<ObservabilityDashboard records={observabilityRecords} onInspectNetworkErrors=');
+    expect(text).toContain('<ObservabilityDashboard records={observabilityRecords} storageDiagnosticsService={storageDiagnosticsService} onManageEvaluations=');
     expect(text).toContain('const timingHistoryLimit = 100;');
   });
 

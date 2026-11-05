@@ -19,7 +19,7 @@ interface StoredMemoryEntry extends LocalMemoryEntry {
   searchText: string;
 }
 
-function openDatabase(): Promise<IDBDatabase> {
+export function openDatabase(): Promise<IDBDatabase> {
   if (typeof indexedDB === 'undefined') return Promise.reject(new Error('IndexedDB n’est pas disponible dans cet environnement.'));
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);

@@ -1,0 +1,37 @@
+/* Technical storage observability uses the shared design tokens, not a new palette. */
+.storage-usage-panel { display: flex; flex-direction: column; gap: var(--ds-space-4, 16px); }
+.storage-usage-panel .observability-panel-heading { align-items: flex-start; }
+.storage-usage-kpis { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: var(--ds-space-3,12px); }
+.storage-usage-kpis > div { min-width:0; display:flex; flex-direction:column; gap:var(--ds-space-2,8px); padding:var(--ds-space-4,16px); border:1px solid var(--ds-color-border); border-radius:var(--ds-radius-md); background:var(--ds-color-surface-subtle); }
+.storage-usage-kpis small { color:var(--ds-color-text-muted); font-size:.76rem; }
+.storage-usage-kpis strong { color:var(--ds-color-text); font-size:clamp(.95rem,1.65vw,1.35rem); font-weight:650; overflow-wrap:anywhere; }
+.storage-quota-chart,.storage-breakdown { min-width:0; display:flex; flex-direction:column; gap:var(--ds-space-3,12px); }
+.storage-chart-heading { display:flex; justify-content:space-between; align-items:center; gap:var(--ds-space-3,12px); flex-wrap:wrap; }
+.storage-chart-heading strong { color:var(--ds-color-text); font-size:.94rem; }
+.storage-chart-heading span { color:var(--ds-color-text-muted); font-size:.83rem; }
+.storage-quota-track,.storage-breakdown-track { width:100%; overflow:hidden; border-radius:var(--ds-radius-pill); background:var(--ds-color-surface-subtle); border:1px solid var(--ds-color-border); }
+.storage-quota-track { height:24px; }
+.storage-breakdown-track { height:11px; }
+.storage-quota-track > span,.storage-breakdown-track > span { display:block; height:100%; background:var(--ds-color-brand-700); border-radius:inherit; transition: width var(--ds-transition-fast,180ms); }
+.storage-quota-chart > p,.storage-breakdown > p { margin:0; color:var(--ds-color-text-muted); font-size:.81rem; line-height:1.55; }
+.storage-breakdown-bars { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--ds-space-4,16px); }
+.storage-breakdown-item { min-width:0; display:flex; flex-direction:column; gap:var(--ds-space-2,8px); }
+.storage-breakdown-label { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:var(--ds-space-2,8px); color:var(--ds-color-text); font-size:.82rem; }
+.storage-breakdown-label strong { font-weight:600; }
+.storage-breakdown-label span { color:var(--ds-color-text-muted); font-size:.77rem; }
+.storage-usage-notice { margin:0; padding:var(--ds-space-3,12px); border-radius:var(--ds-radius-md); background:var(--ds-color-surface-subtle); border:1px solid var(--ds-color-border); font-size:.85rem; color:var(--ds-color-text); }
+.storage-usage-warnings { display:flex; flex-direction:column; gap:var(--ds-space-1,4px); color:var(--ds-color-text-muted); font-size:.8rem; margin:0; padding-left:1.2rem; }
+.storage-usage-actions { display:flex; gap:var(--ds-space-3,12px); align-items:center; flex-wrap:wrap; padding-top:var(--ds-space-3,12px); border-top:1px solid var(--ds-color-border); }
+.storage-usage-actions > span,.storage-usage-updated { color:var(--ds-color-text-muted); font-size:.76rem; }
+.storage-usage-updated { display:block; }
+@media (max-width: 950px) {
+ .storage-usage-kpis,.storage-breakdown-bars { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 540px) {
+ .storage-usage-kpis,.storage-breakdown-bars { grid-template-columns:minmax(0,1fr); }
+ .storage-usage-actions { align-items:stretch; flex-direction:column; }
+ .storage-usage-panel .observability-panel-heading { flex-direction:column; }
+}
+@media (prefers-reduced-motion:reduce) {
+ .storage-quota-track > span,.storage-breakdown-track > span { transition:none; }
+}
