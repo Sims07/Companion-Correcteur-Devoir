@@ -1,6 +1,7 @@
 import type { GradingProposal } from './grading.ts';
 import type { CorrectionMethod } from './correctionMethod.ts';
 import type { Rubric } from './rubric.ts';
+import { modelEvaluationImageSignature } from './modelEvaluationImageIdentity.ts';
 
 export interface ModelEvaluationConfiguration {
   id: string;
@@ -209,6 +210,10 @@ export interface ModelEvaluationRecord {
   stage?: 'vision' | 'analysis' | 'integrated';
   /** False when storage quota required archiving results without their original images. */
   originalImagesArchived?: boolean;
+  /** Retained only when an emergency archive omits original images. */
+  imageSignatures?: string[];
+  subjectImageSignatures?: string[];
+  originalImageCount?: number;
 }
 
 
@@ -222,10 +227,18 @@ export function getModelEvaluationStage(record: ModelEvaluationRecord): 'vision'
  * configurations. Two experiments can be compared only when they measure
  * the same stage; mixing Vision, Analysis and full-pipeline metrics is invalid.
  */
-function sameImages(first: readonly ModelEvaluationImage[], second: readonly ModelEvaluationImage[]): boolean {
-  return first.length === second.length && first.every((image, index) =>
-    image.mimeType === second[index]!.mimeType && image.base64 === second[index]!.base64
-  );
+function sameImages(
+  first: readonly ModelEvaluationImage[], second: readonly ModelEvaluationImage[],
+  firstSignatures?: readonly string[], secondSignatures?: readonly string[],
+): boolean {
+  if (!firstSignatures && !secondSignatures) {
+    return first.length === second.length && first.every((image, index) =>
+      image.mimeType === second[index]!.mimeType && image.base64 === second[index]!.base64
+    );
+  }
+  const firstIds = firstSignatures ?? first.map(modelEvaluationImageSignature);
+  const secondIds = secondSignatures ?? second.map(modelEvaluationImageSignature);
+  return firstIds.length === secondIds.length && firstIds.every((identity, index) => identity === secondIds[index]);
 }
 
 function sameRubric(first: Rubric, second: Rubric): boolean {
@@ -242,7 +255,7 @@ function sameAnalysisInput(first: ModelEvaluationRecord, second: ModelEvaluation
     first.question === second.question &&
     first.correctionMode === second.correctionMode &&
     first.subjectTranscription === second.subjectTranscription &&
-    sameImages(first.subjectImages, second.subjectImages) &&
+    sameImages(first.subjectImages, second.subjectImages, first.subjectImageSignatures, second.subjectImageSignatures) &&
     sameRubric(first.rubricSnapshot, second.rubricSnapshot);
 }
 
@@ -255,7 +268,7 @@ export function canCompareModelEvaluationRecords(records: readonly ModelEvaluati
   if (getModelEvaluationStage(first) !== getModelEvaluationStage(second) || first.assignmentId !== second.assignmentId) return false;
   const stage = getModelEvaluationStage(first);
   if (stage === 'analysis') return sameAnalysisInput(first, second);
-  if (!sameImages(first.images, second.images)) return false;
+  if (!sameImages(first.images, second.images, first.imageSignatures, second.imageSignatures)) return false;
   if (stage === 'vision') return first.question === second.question && sameRubric(first.rubricSnapshot, second.rubricSnapshot);
   return first.question === second.question &&
     first.correctionMode === second.correctionMode &&
