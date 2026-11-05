@@ -237,14 +237,13 @@ export function createBackgroundCorrectionService(
         activeRequestAbortController = requestAbortController;
         try {
           const subjectCacheKey = await getSubjectCacheKey(current, jobSettings);
-          if (subjectCacheKey) {
-            if (current.subjectTranscription) rememberSubject(subjectCacheKey, current.subjectTranscription);
-            else {
-              const reusableSubject = subjectTranscriptionCache.get(subjectCacheKey);
-              if (reusableSubject) {
-                current = { ...current, subjectTranscription: reusableSubject, updatedAt: new Date().toISOString() };
-                await persist(current);
-              }
+          if (subjectCacheKey && !current.subjectTranscription) {
+            // Only cache OCR observed from this session, not an unverified
+            // subjectTranscription supplied by an older saved job.
+            const reusableSubject = subjectTranscriptionCache.get(subjectCacheKey);
+            if (reusableSubject) {
+              current = { ...current, subjectTranscription: reusableSubject, updatedAt: new Date().toISOString() };
+              await persist(current);
             }
           }
           let textPageNumbers = current.images.map((_, index) => index + 1);
