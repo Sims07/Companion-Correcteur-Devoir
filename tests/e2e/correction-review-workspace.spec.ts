@@ -127,6 +127,8 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(diagramDetails.getByText('Schéma de cellule végétale')).toBeVisible();
   await expect(diagramDetails.getByText('La membrane est représentée.')).toBeVisible();
 
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: testInfo.outputPath('atelier-b-first-impression-desktop.png'), animations: 'disabled' });
   await expect(page.locator('.copy-review-header')).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toBeVisible();
   await expect(page.getByText('Nom lu sur la copie')).toBeVisible();
