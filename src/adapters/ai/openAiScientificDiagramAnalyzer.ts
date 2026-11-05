@@ -113,10 +113,12 @@ function buildScientificDiagramJsonSchema(request: ScientificDiagramAnalysisRequ
                 items: {
                   type: 'object',
                   additionalProperties: false,
-                  required: ['label', 'status', 'evidence', 'points'],
+                  required: ['label', 'status', 'evidence', 'points', 'origin', 'uncertainty'],
                   properties: {
                     label: { type: 'string' },
                     status: { type: 'string', enum: ['present', 'partial', 'absent', 'uncertain'] },
+                    origin: { type: 'string', enum: ['student-diagram', 'printed-subject', 'uncertain'] },
+                    uncertainty: { type: 'string' },
                     evidence: { type: 'string' },
                     points: { type: 'number', minimum: 0 },
                   },
