@@ -260,6 +260,18 @@ test('Atelier B sidebar replaces horizontal tabs without breaking teacher naviga
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(rail).toBeVisible();
   await expect(rail.getByRole('tab', { name: 'Copies' })).toBeVisible();
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-  expect(overflow).toBeLessThanOrEqual(1);
+  const { overflow, offenders } = await page.evaluate(() => {
+    const viewport = document.documentElement.clientWidth;
+    const overflowing = Array.from(document.querySelectorAll<HTMLElement>('body *'))
+      .map((element) => ({
+        label: element.tagName.toLowerCase() + (typeof element.className === 'string' ? '.' + element.className.split(' ').join('.') : ''),
+        right: Math.round(element.getBoundingClientRect().right),
+        left: Math.round(element.getBoundingClientRect().left),
+      }))
+      .filter(({ right, left }) => right > viewport + 1 || left < -1)
+      .sort((a, b) => b.right - a.right)
+      .slice(0, 8);
+    return { overflow: document.documentElement.scrollWidth - viewport, offenders: overflowing };
+  });
+  expect(overflow, JSON.stringify(offenders)).toBeLessThanOrEqual(1);
 });
