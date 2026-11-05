@@ -246,3 +246,29 @@
   outline-offset: 2px;
 }
 .teacher-flow-shell .diagnostic-setup-heading .step-count { display: none; }
+
+/* Sur le barème, garder l'accès aux règles de correction dans l'espace latéral. */
+body:has(.atelier-rubric-grid:not(.is-diagnostic)) .memory-fab {
+  left: 22px;
+  right: auto;
+  bottom: 14px;
+  width: 174px;
+  padding: 8px 11px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-surface);
+  box-shadow: var(--app-surface-shadow);
+  color: var(--ds-color-text);
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  body:has(.atelier-rubric-grid:not(.is-diagnostic)) .memory-fab {
+    left: 12px;
+    right: auto;
+    bottom: 10px;
+    width: auto;
+    max-width: min(180px, 44vw);
+    padding: 7px 9px;
+    font-size: 10px;
+  }
+}
