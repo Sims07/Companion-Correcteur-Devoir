@@ -109,6 +109,10 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.getByRole('button', { name: 'Consulter la correction' })).toHaveCount(1);
   await expect(page.getByText('Copie d’un autre devoir')).toHaveCount(0);
   await page.getByRole('button', { name: 'Consulter la correction' }).click();
+  await expect(page.locator('.copy-review-navigation-message')).toHaveCount(1);
+  await expect(page.locator('.copy-review-navigation-message')).toHaveText('Correction enregistrée ouverte en lecture et vérification locale.');
+  await page.locator('.review-extra-tools > summary').click();
+  await expect(page.getByText('Correction enregistrée ouverte en lecture et vérification locale.')).toHaveCount(1);
   await expect(page.locator('#teacher-copy-intake-files')).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toContainText('Biologie cellulaire');
   await expect(page.getByRole('tab', { name: 'Copies' })).toHaveAttribute('aria-selected', 'true');
