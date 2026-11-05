@@ -100,3 +100,25 @@ question à vérifier.
 Pour comparer deux modèles ou deux versions de prompts, conserver **le même jeu de copies, le même barème et la même transcription de référence** lorsque l'on mesure uniquement l'analyse. Refaire la lecture des images dans une série séparée pour mesurer le pipeline complet sans masquer les erreurs OCR.
 
 Relever par copie et par configuration : identifiants et versions des prompts effectivement utilisés, appels du modèle (dont réparations), temps total incluant le chargement, tokens d'entrée et de sortie lorsqu'ils sont remontés, note et statut non évalué, motifs de contrôle enseignant et écart avec la référence. Pour System One natif, compter les questions fermées et les appels `/v1/systemone`, sans assimiler les probabilités à une note ni à une preuve. Ne conclure à un gain qu'après comparaison sur des copies variées et validation par l'enseignant.
+
+## Comparaison visible dans Observabilité
+
+La section **Fiabilité face aux corrections de référence** utilise les notes de
+référence déjà saisies par le professeur dans les outils de diagnostic. Elle
+regroupe uniquement les exécutions du même devoir, même barème (y compris
+description et pondérations), même lecture Vision, même modèle d'analyse et
+même méthode (générative, décision chat ou System One natif). Aucune photo
+supplémentaire n'est stockée pour ce tableau.
+
+Une copie partiellement évaluée, une erreur de transport et un critère ayant
+un score provisoire nul en attendant l'enseignant ne doivent **jamais** être
+comptés comme des notes 0 dans l'écart à la référence. Ils sont comptabilisés
+séparément comme copies non comparables. Les anciennes traces qui ne
+mémorisent pas la méthode de correction ne sont pas agrégées par hypothèse.
+
+Les moyennes présentées concernent les copies entièrement comparables ; les
+durées incluent les exécutions avec référence, même en cas d'échec. Les
+mesures sont **exploratoires avant 10 copies**, préliminaires entre 10 et 29,
+et nécessitent encore une validation pédagogique avec 30 copies ou plus.
+Un écart de note proche de zéro ne garantit pas à lui seul l'exactitude des
+justifications biologiques ou des preuves graphiques.
