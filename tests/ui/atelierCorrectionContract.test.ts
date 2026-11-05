@@ -28,6 +28,9 @@ describe('Atelier pédagogique correction workspace', () => {
     expect(app).toContain('isFlagged ? "panel review-card is-flagged" : "panel review-card"');
     const css = read('src/ui/correctionAtelier.css');
     expect(css).toContain('.review-main-column .review-card.is-flagged');
+    const flagged = css.split('.review-main-column .review-card.is-flagged {')[1]?.split('}')[0] ?? '';
+    expect(flagged).toContain('border-left: 3px solid var(--ds-color-warning)');
+    expect(flagged).not.toContain('var(--ds-color-brand-700)');
     expect(css).toContain('.teacher-copy-rail-list button.is-active');
     expect(css).not.toContain('.review-main-column .review-card:not(.is-flagged)');
   });
@@ -80,6 +83,21 @@ describe('Atelier pédagogique correction workspace', () => {
     const layout = read('src/ui/atelierBLayout.css');
     expect(layout).toContain('.teacher-workspace-processing.is-active');
     expect(layout).toContain('color: var(--ds-color-progress)');
+  });
+
+  it('keeps legacy batch cards and live criteria consistent with the Atelier B status vocabulary', () => {
+    const css = read('src/ui/correctionAtelier.css');
+    const styles = (selector: string) => css.split(selector + ' {')[1]?.split('}')[0] ?? '';
+    const batch = '.teacher-flow-shell .correction-series-list:not(.copy-overview-grid) > li.correction-series-card';
+    expect(styles(batch)).toContain('var(--ds-color-border)');
+    expect(styles(batch + '.is-processing')).toContain('border-left: 3px solid var(--ds-color-progress)');
+    expect(styles(batch + '.is-needs-review')).toContain('border-left: 3px solid var(--ds-color-warning)');
+    expect(styles(batch + '.is-failed')).toContain('border-left: 3px solid var(--ds-color-danger)');
+    expect(styles('.teacher-flow-shell .review-card-pending.is-active')).toContain('var(--ds-color-progress-border)');
+    expect(styles('.teacher-flow-shell .review-card-pending.is-active .review-pending-status')).toContain('var(--ds-color-progress)');
+    expect(styles('.teacher-flow-shell .correction-series-progress-track > span')).toContain('var(--ds-color-progress)');
+    expect(styles('.teacher-flow-shell .copy-overview-notice')).toContain('var(--ds-color-surface-subtle)');
+    expect(css).not.toContain('.review-main-column .review-card.is-flagged {\n  border-left: 3px solid var(--ds-color-brand-700)');
   });
 
   it('places stopping beside the active copy instead of in the permanent application header', () => {

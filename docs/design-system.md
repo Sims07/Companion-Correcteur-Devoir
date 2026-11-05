@@ -91,7 +91,7 @@ Les accents et textes visibles respectent au minimum un contraste WCAG AA de 4,5
 
 ### Espace de vérification des copies
 
-`src/ui/correctionAtelier.css` décline la maquette B sur le suivi des copies et le poste de relecture. Sur desktop, l'original et les décisions disposent d'une largeur comparable ; sous 1100 px, la copie et les critères s'empilent pour éviter une colonne de texte étriquée. Seuls les critères qui demandent réellement l'attention du professeur portent la classe `is-flagged` et un liseré d'accent. Les critères sans alerte, les preuves longues et les justifications restent consultables sans être développés par défaut. Les tests de contrat et le parcours Playwright vérifient la classe d'alerte, la disposition et la lisibilité.
+`src/ui/correctionAtelier.css` décline la maquette B sur le suivi des copies et le poste de relecture. Sur desktop, l'original et les décisions disposent d'une largeur comparable ; sous 1100 px, la copie et les critères s'empilent pour éviter une colonne de texte étriquée. Seuls les critères qui demandent réellement l'attention du professeur portent la classe `is-flagged` et un liseré **ambre**, distinct du bleu ardoise des critères en cours de traitement. Les critères sans alerte, les preuves longues et les justifications restent consultables sans être développés par défaut. Les cartes du suivi par copies et celles de la correction en série appliquent les mêmes états : neutre par défaut, ardoise pour le traitement, ambre pour une intervention et rouge pour un échec réel. Les tests de contrat et les parcours Playwright vérifient les états, la disposition et la lisibilité.
 
 ## Fenêtres de dialogue
 

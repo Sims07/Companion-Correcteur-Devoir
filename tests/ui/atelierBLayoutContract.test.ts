@@ -55,6 +55,8 @@ describe('Atelier B : organisation réelle du poste enseignant', () => {
     expect(layout).toContain('@media (max-width: 760px)');
     expect(layout).toContain('.atelier-sidebar-tabs');
     expect(layout).toContain('.atelier-review-decision-heading');
+    const flagged = layout.split('.teacher-flow-shell .review-main-column .review-card.is-flagged {')[1]?.split('}')[0] ?? '';
+    expect(flagged).toContain('border-left: 3px solid var(--ds-color-warning)');
     expect(entrypoint.indexOf('./ui/atelierBLayout.css')).toBeGreaterThan(entrypoint.indexOf('./ui/correctionAtelier.css'));
     expect(layout).toContain('focus-visible');
     expect(layout).toContain('/* Atelier B reference: a quiet, single-row reading header, never a bordered card. */');
