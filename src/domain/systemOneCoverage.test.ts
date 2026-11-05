@@ -45,12 +45,12 @@ describe('System One scoring coverage without fabricated certainty', () => {
       transcription:'Réponse de l\'étudiant\nRéponse sur les quatre thèmes.',
     });
     expect(Object.keys(prepared.questions)).toEqual([
-      'criterion_1_alignment','criterion_1_score',
-      'criterion_2_alignment','criterion_2_score',
-      'criterion_3_alignment','criterion_3_score',
-      'criterion_4_alignment','criterion_4_score',
+      'alignment',
+      'criterion_1_score','criterion_2_score','criterion_3_score','criterion_4_score',
     ]);
     expect(prepared.state.match(/RÉPONSE DE L’ÉTUDIANT/g)).toHaveLength(1);
+    expect(prepared.questions.alignment.instructions).toContain('même devoir');
+    expect(prepared.questions.alignment.instructions).toContain('Introduction');
     expect(prepared.questions.criterion_1_alignment.instructions).not.toMatch(/respiration cellulaire ne traite PAS de la photosynthèse/i);
     expect(prepared.questions.criterion_1_score.instructions).toContain('Photosynthèse');
   });
@@ -59,11 +59,11 @@ describe('System One scoring coverage without fabricated certainty', () => {
     const transcription='Réponse de l\'étudiant\nLa lumière et les chloroplastes permettent la photosynthèse. La mitochondrie fabrique ATP par respiration. Les chromosomes transmettent la génétique. Un écosystème appartient à l\'écologie.';
     const prepared = prepareSystemOneRubric({criteria:rubric,transcription,question:'Biologie'});
     const answers = Object.fromEntries(rubric.flatMap((_, i) => [
-      ['criterion_'+(i+1)+'_alignment', choice('aligned')],
       ['criterion_'+(i+1)+'_score', i === 2
         ? { type: 'choice' as const, choice: 'points_5', probabilities: { points_5: 0.53, points_4: 0.45, unreadable: 0.02 }, confidence: 0.26 }
         : choice('points_5', 0.98)],
     ]));
+    answers.alignment = choice('aligned');
     const scored = scoreSystemOneRubric(transcription, prepared, { answers });
     expect(scored.map((s)=>s.points)).toEqual([5,5,5,5]);
     expect(scored.every((s)=>s.assessmentStatus === 'evaluated')).toBe(true);

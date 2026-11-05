@@ -51,7 +51,46 @@ signalement, pas de note définitive automatiquement.
   par les points du barème.
 - La transcription et l'analyse visuelle sont des sources d'erreurs distinctes.
   Une décision structurée ne corrige pas une mauvaise lecture de la copie.
-- Le parcours décisionnel proposé utilise actuellement un LLM local
-  conventionnel avec sortie JSON fermée. L'API native System One reste
-  une extension future, conditionnée à la compatibilité et à un benchmark
-  pédagogique.
+- Le parcours décisionnel dispose de l'API native System One sur Ollama
+  pour les modèles compatibles (D1, TEV1, D3...). Son transport
+  `/v1/systemone` n'est **pas** un streaming de texte.
+- Pour un critère avec sous-critères pondérés, chaque attendu est vérifié
+  séparément ; le score est calculé selon les pondérations explicites.
+  Si une liste d'attendus figure dans une description avec des points
+  valides et une somme exacte, elle peut être interprétée localement ;
+  aucune répartition implicite n'est inventée.
+- Pour un critère *global* sans sous-critères, System One choisit une
+  **valeur de points autorisée par le maximum enseignant**, au lieu
+  d'appliquer systématiquement 50 % dès qu'il répond « partiel ».
+  **Une échelle plus fine n'est pas une preuve de précision pédagogique** :
+  elle reste provisoire tant qu'elle n'a pas été comparée à des corrections
+  d'enseignants.
+- L'alignement global du sujet et du barème est évalué une seule fois
+  par copie multi-critères. Un barème manifestement étranger à la copie
+  ou une transcription illisible ne doit pas recevoir une note inventée.
+- Les modèles System One ne rendent pas de citations textuelles :
+  la recherche locale de mots dans la transcription est une aide,
+  jamais une preuve de correction. Son absence ne déclenche pas à elle
+  seule une alerte. Les décisions ambigües, partielles ou illisibles
+  restent signalées avec un motif ciblé.
+
+## Jeu de validation pédagogique recommandé
+
+Pour confirmer que cette amélioration allège le travail au lieu de simplement
+réduire les alertes affichées, comparer **D1, TEV1, D3 et un modèle génératif**
+sur les mêmes 10 premières copies puis 30 copies, avec un même modèle Vision
+et un barème validé comportant des attentes explicites.
+
+Relever : note de référence /10 ou /20, différence absolue avec la note
+enseignante, erreurs graves (hors sujet noté, réponse illisible comptée 0),
+proportion de critères réellement à examiner, temps de reprise par le
+professeur, durée et consommation. Tester des copies correctes, partielles,
+fausses, à contresens scientifique, hors sujet et illisibles. Tester un cas
+où les mots de l'intitulé ne figurent pas littéralement dans une réponse
+correcte et un cas où le sujet imprimé contient le mot attendu mais la
+réponse ne le contient pas.
+
+Critère de succès : réduire **à la fois** les écarts avec les références
+enseignantes et la charge de vérification. Ne jamais déclarer un modèle
+« fiable » sur la seule base d'un 6/6 de faible confiance ou de 0
+question à vérifier.
