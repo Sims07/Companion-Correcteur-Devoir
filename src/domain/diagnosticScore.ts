@@ -7,17 +7,21 @@ export interface DiagnosticCriterionScore {
   title: string;
   points: number;
   maxPoints: number;
+  assessmentStatus?: 'evaluated' | 'not-evaluated';
 }
 
 export interface DiagnosticScore {
-  modelScore: number;
+  modelScore: number | null;
   criterionScores: DiagnosticCriterionScore[];
 }
 
 /** Capture the model's original scores against the rubric used for this run. */
 export function buildDiagnosticScore(proposal: GradingProposal, rubric: Rubric): DiagnosticScore {
   return {
-    modelScore: sumGradeScores(proposal.criteria.map((criterion) => criterion.points)),
+    modelScore: proposal.scoreIncomplete || rubric.criteria.some((item) =>
+      !proposal.criteria.some((criterion) => criterion.criterionId === item.id
+        && criterion.assessmentStatus !== 'not-evaluated'))
+      ? null : sumGradeScores(proposal.criteria.map((criterion) => criterion.points)),
     criterionScores: proposal.criteria.map((criterion) => {
       const rubricCriterion = rubric.criteria.find((item) => item.id === criterion.criterionId);
       return {
@@ -25,6 +29,7 @@ export function buildDiagnosticScore(proposal: GradingProposal, rubric: Rubric):
         title: rubricCriterion?.title ?? criterion.criterionId,
         points: criterion.points,
         maxPoints: rubricCriterion?.maxPoints ?? 0,
+        ...(criterion.assessmentStatus ? { assessmentStatus: criterion.assessmentStatus } : {}),
       };
     }),
   };
