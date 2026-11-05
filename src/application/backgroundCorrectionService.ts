@@ -214,14 +214,14 @@ export function createBackgroundCorrectionService(
           if (visualRubric.diagramCriteria.length > 0) {
             if (current.correctionMode === 'separate' && !current.subjectTranscription && current.subjectImages.length > 0) {
               const reader = workspace.createProvider({ ...jobSettings, visionModel: current.visionModel, analysisModel: current.analysisModel, thinking: current.thinking });
-              const subject = await reader.generate({
+              const subject = await withModelInactivityTimeout(requestAbortController, () => reader.generate({
                 question: 'Transcrire fidèlement le sujet de référence sans résoudre les exercices.',
                 rubric: '{"title":"Sujet de référence","criteria":[]}',
                 images: current.subjectImages,
                 subjectImages: current.subjectImages,
                 visionOnly: true,
                 subjectOnly: true,
-              }, undefined, undefined, undefined, undefined, undefined, undefined, undefined, requestAbortController.signal);
+              }, undefined, undefined, undefined, undefined, undefined, undefined, undefined, requestAbortController.signal));
               if (!subject.trim()) throw new Error('Le sujet de référence n’a pas pu être lu : aucune note ne peut en dépendre.');
               current = { ...current, subjectTranscription: subject, updatedAt: new Date().toISOString() };
               await persist(current);
@@ -231,13 +231,14 @@ export function createBackgroundCorrectionService(
             if (!classifications || classifications.length !== current.images.length) {
               // Older cached transcriptions may include pages that must now be assessed visually.
               current = { ...current, transcription: null, scientificDiagramAnalysis: null, phase: 'preparation' };
-              classifications = await diagramAnalysis.classifyPages({
+              classifications = await withModelInactivityTimeout(requestAbortController, () => diagramAnalysis.classifyPages({
                 images: current.images,
                 model: current.visionModel,
                 endpoint: jobSettings.endpoint,
                 apiKey: jobSettings.apiKey ?? '',
                 apiCompatible: jobSettings.apiCompatible,
-              });
+                signal: requestAbortController.signal,
+              }));
             }
             const routing = routeScientificPages(classifications, current.images.length);
             textPageNumbers = routing.textPageNumbers;
@@ -251,7 +252,7 @@ export function createBackgroundCorrectionService(
             }
             let visualAnalysis = current.scientificDiagramAnalysis ?? null;
             if (routing.diagramPageNumbers.length > 0 && !visualAnalysis) {
-              visualAnalysis = await diagramAnalysis.analyze({
+              visualAnalysis = await withModelInactivityTimeout(requestAbortController, () => diagramAnalysis.analyze({
                 images: routing.diagramPageNumbers.map((pageNumber) => current.images[pageNumber - 1]),
                 pageNumbers: routing.diagramPageNumbers,
                 question: current.question,
@@ -261,7 +262,8 @@ export function createBackgroundCorrectionService(
                 endpoint: jobSettings.endpoint,
                 apiKey: jobSettings.apiKey ?? '',
                 apiCompatible: jobSettings.apiCompatible,
-              });
+                signal: requestAbortController.signal,
+              }));
             }
             const visualProposal = mergeScientificDiagramCriteria(
               { ...current.rubric, criteria: visualRubric.diagramCriteria },
