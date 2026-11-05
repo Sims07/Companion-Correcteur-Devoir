@@ -574,7 +574,7 @@ describe('background correction service', () => {
     expect(f.workspace.unloadModel).not.toHaveBeenCalled();
   });
 
-  it('prewarms, caches transcription and grades one criterion per sequential provider call', async () => {
+  it('starts useful OCR immediately and grades one criterion per sequential provider call', async () => {
     const f = fixture();
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
     await service.enqueue(f.job, { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' });
@@ -582,8 +582,8 @@ describe('background correction service', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
     const completed = f.jobs.get('copy-1');
-    expect(f.workspace.checkReady).toHaveBeenCalledTimes(2);
-    expect(f.workspace.prewarmModel).toHaveBeenCalledWith(expect.anything(), 'vision:4b', expect.any(AbortSignal));
+    expect(f.workspace.checkReady).not.toHaveBeenCalled();
+    expect(f.workspace.prewarmModel).not.toHaveBeenCalled();
     expect(f.createProvider).toHaveBeenCalledTimes(2);
     expect(f.requests[0]).toMatchObject({ identifyStudent: true, identityImage: f.job.images[0] });
     expect(f.requests[1].identifyStudent).toBeUndefined();
@@ -594,6 +594,60 @@ describe('background correction service', () => {
     expect(completed?.proposal?.finalScore).toBe(4);
     const calls = f.createProvider.mock.calls;
     expect(calls).toHaveLength(2);
+  });
+
+  it('starts a manual local correction without a new placeholder warmup request', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' };
+
+    await service.processPending(settings, 'assignment-1');
+
+    expect(f.createProvider).toHaveBeenCalledTimes(2);
+    expect(f.workspace.checkReady).not.toHaveBeenCalled();
+    expect(f.workspace.prewarmModel).not.toHaveBeenCalled();
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+  });
+
+  it('can still prewarm at idle when automatic correction is disabled', async () => {
+    const f = fixture();
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b', autoBackgroundCorrection: false };
+
+    await service.enqueue(f.job, settings);
+    for (let attempt = 0; attempt < 50 && vi.mocked(f.workspace.prewarmModel).mock.calls.length === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    expect(f.workspace.checkReady).toHaveBeenCalledTimes(2);
+    expect(f.workspace.prewarmModel).toHaveBeenCalledTimes(1);
+    expect(f.createProvider).not.toHaveBeenCalled();
+    expect(f.jobs.get('copy-1')?.status).toBe('pending');
+  });
+
+  it('does not overlap a previous idle prewarm with the first manual OCR request', async () => {
+    const f = fixture();
+    let releasePrewarm!: () => void;
+    let announcePrewarm!: () => void;
+    const started = new Promise<void>((resolve) => { announcePrewarm = resolve; });
+    const released = new Promise<void>((resolve) => { releasePrewarm = resolve; });
+    f.workspace.prewarmModel = vi.fn(async () => {
+      announcePrewarm();
+      await released;
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b', autoBackgroundCorrection: false };
+
+    await service.enqueue(f.job, settings);
+    await started;
+    const processing = service.processPending(settings, 'assignment-1');
+    await Promise.resolve();
+    expect(f.createProvider).not.toHaveBeenCalled();
+
+    releasePrewarm();
+    await processing;
+    expect(f.workspace.prewarmModel).toHaveBeenCalledTimes(1);
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
   });
 
   it('does not unload models between sequential copies in the background queue', async () => {
