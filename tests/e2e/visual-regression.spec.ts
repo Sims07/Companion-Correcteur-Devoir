@@ -53,9 +53,9 @@ async function expectSharedSurfaceTokens(page: Page, selector: string): Promise<
     };
   });
 
-  expect(styles.backgroundColor).toBe('rgb(255, 255, 255)');
+  expect(styles.backgroundColor).toBe('rgb(255, 253, 249)');
   expect(styles.borderRadius).toBe('14px');
-  expect(['rgb(223, 232, 222)', 'rgb(125, 169, 132)']).toContain(styles.borderColor);
+  expect(['rgb(233, 225, 213)', 'rgb(161, 77, 55)']).toContain(styles.borderColor);
 }
 
 test.describe('visual regression contracts', () => {
