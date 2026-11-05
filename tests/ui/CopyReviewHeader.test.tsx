@@ -23,6 +23,29 @@ describe('CopyReviewHeader', () => {
     expect(html).toContain('title="Copie précédente : Martin · À reprendre"');
   });
 
+  it('does not present a queued or running copy as graded zero', () => {
+    const render = (status: 'En attente' | 'Analyse en cours' | 'À reprendre', score: number | null) => renderToStaticMarkup(<CopyReviewHeader
+      studentLabel="Copie sans nom" {...callbacks} position={1} totalCopies={1}
+      status={status} score={score} maximumPoints={11} isFinalized={false}
+      canPrevious={false} canNext={false}
+    />);
+    expect(render('En attente', null)).toContain('Note à venir');
+    expect(render('En attente', 0)).toContain('Note à venir');
+    expect(render('Analyse en cours', 0)).toContain('Évaluation en cours');
+    expect(render('À reprendre', null)).toContain('Note indisponible');
+    expect(render('En attente', null)).not.toContain('0 / 11');
+  });
+
+  it('keeps a real zero readable once the grade is available', () => {
+    const html = renderToStaticMarkup(<CopyReviewHeader
+      studentLabel="Copie à vérifier" {...callbacks} position={1} totalCopies={1}
+      status="À vérifier" score={0} maximumPoints={11} isFinalized={false}
+      canPrevious={false} canNext={false}
+    />);
+    expect(html).toContain('0 / 11');
+    expect(html).not.toContain('Note à venir');
+  });
+
   it('blocks unavailable directions, but keeps completed grade readable', () => {
     const render = (isFinalized: boolean) => renderToStaticMarkup(<CopyReviewHeader
       studentLabel="Marie Dupont" {...callbacks} position={1} totalCopies={1}

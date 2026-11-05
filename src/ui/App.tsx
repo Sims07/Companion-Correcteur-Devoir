@@ -1968,7 +1968,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (!pendingCount) return;
     isStartingSeriesCorrectionsRef.current = true;
     setIsStartingSeriesCorrections(true);
-    setReviewMessage(`Démarrage de la correction de ${pendingCount} copie(s)…`);
+    setCopyOverviewNotice('');
+    setReviewMessage(`Préparation de la première copie avant la correction de ${pendingCount} copie(s)…`);
     try {
       await backgroundService.processPending({ endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection: false, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty });
     } catch (cause) {
@@ -2034,7 +2035,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setReview(canReview && next.proposal ? structuredClone(next.reviewDraft ?? toReviewedCriteria(next.proposal)) : []);
     setTeacherQuestions(canReview && next.proposal ? next.teacherQuestionsDraft ?? next.proposal.questionsForTeacher.join('\\n') : '');
     setShowOnlyFlagged(true);
-    setReviewMessage(canReview ? 'Correction prête. Examinez les propositions signalées avant validation. Examinez les propositions signalées avant validation.' : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés localement.');
+    setReviewMessage(canReview ? 'Correction prête. Examinez les propositions signalées avant validation.'
+      : next.status === 'pending' ? 'Cette copie attend sa correction. Aucune note n’a encore été attribuée.'
+      : next.status === 'processing' ? 'La lecture et l’évaluation de cette copie sont en cours.'
+      : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés localement.');
     setError(next.error ?? '');
     setCurrentCorrectionId(null);
     setIsFinalized(false);
@@ -2253,8 +2257,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  const hasInterruptibleOperation = isStoppingOperation || isAnalyzing || rubricImageImporting || evaluationProgress?.status === 'running' || allBackgroundJobs.some((job) => job.status === 'processing');
+  const hasInterruptibleOperation = isStoppingOperation || isStartingSeriesCorrections || isAnalyzing || rubricImageImporting || evaluationProgress?.status === 'running' || allBackgroundJobs.some((job) => job.status === 'processing');
   const processingCopy = allBackgroundJobs.find((job) => job.assignmentId === activeAssignmentId && job.status === 'processing') ?? null;
+  const preparingCopy = isStartingSeriesCorrections && !processingCopy
+    ? [...allBackgroundJobs].filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0] ?? null
+    : null;
+  const activeQueueCopy = processingCopy ?? preparingCopy;
 
 
   return (
@@ -2262,7 +2270,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (processingCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (processingCopy) void loadNextQueuedCopy(processingCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> Copie en cours : {processingCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}{hasInterruptibleOperation && <button type="button" className="global-stop-button" onClick={() => { void stopCurrentOperations(); }} disabled={isStoppingOperation}>{isStoppingOperation ? 'Arrêt en cours…' : '■ Arrêter le traitement'}</button>}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode !== 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode !== 'teacher'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(interfaceMode === 'teacher' ? 'observability' : interfaceMode); }}>Outils IA</button></div></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}{hasInterruptibleOperation && <button type="button" className="global-stop-button" onClick={() => { void stopCurrentOperations(); }} disabled={isStoppingOperation}>{isStoppingOperation ? 'Arrêt en cours…' : '■ Arrêter le traitement'}</button>}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode !== 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode !== 'teacher'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(interfaceMode === 'teacher' ? 'observability' : interfaceMode); }}>Outils IA</button></div></div>
       </header>
 
       {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
@@ -3283,11 +3291,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
 
-      {activeBackgroundJob?.status === 'pending' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="analysis-progress teacher-progress-card" role="status"><strong>Copie en attente de traitement</strong><p>La copie sera traitée dès que le poste pourra démarrer la prochaine analyse.</p></section>}
+      {activeBackgroundJob?.status === 'pending' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="analysis-progress teacher-progress-card" role="status"><strong>{preparingCopy?.id === activeBackgroundJob.id ? 'Préparation de cette copie' : 'Copie en attente de correction'}</strong><p>{preparingCopy?.id === activeBackgroundJob.id ? 'Le modèle IA se prépare. La lecture commencera ensuite.' : 'La copie sera analysée lorsque viendra son tour. Aucune note n’a encore été attribuée.'}</p></section>}
       {(currentBackgroundJobId || currentCorrectionId) && interfaceMode === 'teacher' && !showAiSettings && <section className="review-section copy-navigation-only">
         <CopyReviewHeader studentLabel={studentLabel} onStudentLabelChange={setStudentLabel} position={reviewPosition} totalCopies={reviewTotalCopies}
           status={isFinalized ? 'Corrigée' : activeBackgroundJob?.status === 'pending' ? 'En attente' : activeBackgroundJob?.status === 'processing' ? 'Analyse en cours' : activeBackgroundJob?.status === 'failed' || activeBackgroundJob?.status === 'needs-review' || (activeBackgroundJob?.status === 'reviewing' && activeBackgroundJob.completedCriteria < activeBackgroundJob.totalCriteria) ? 'À reprendre' : 'À vérifier'}
-          score={reviewedTotal} scoreIncomplete={unassessedCount > 0} maximumPoints={validation.maximumPoints} isFinalized={isFinalized}
+          score={isFinalized || (proposal && review.length > 0 && activeBackgroundJob?.status !== 'pending' && activeBackgroundJob?.status !== 'processing') ? reviewedTotal : null} scoreIncomplete={unassessedCount > 0 || review.length !== rubric.criteria.length} maximumPoints={validation.maximumPoints} isFinalized={isFinalized}
           canPrevious={Boolean(copyNavigation.previousCopy)} canNext={Boolean(copyNavigation.nextCopy)}
           previousLabel={copyNavigation.previousCopy ? copyNavigation.previousCopy.label + ' · ' + copyNavigation.previousCopy.status : null}
           nextLabel={copyNavigation.nextCopy ? copyNavigation.nextCopy.label + ' · ' + copyNavigation.nextCopy.status : null}

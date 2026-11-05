@@ -80,9 +80,11 @@ function jobLabel(job: BackgroundJobSummary): string {
 
 function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): string {
   if (status === 'to-retry') return 'La correction n’a pas abouti. Vous pouvez corriger à nouveau cette copie.';
-  if (status === 'processing') return job.phase === 'reading'
-    ? `Lecture de la copie · ${job.progress.completedPages}/${job.progress.totalPages} pages`
-    : `Correction · ${job.progress.completedCriteria}/${job.progress.totalCriteria} critères`;
+  if (status === 'processing') return job.phase === 'preparation'
+    ? 'Préparation de la copie et du modèle IA…'
+    : job.phase === 'reading'
+      ? `Lecture de la copie · ${job.progress.completedPages}/${job.progress.totalPages} pages lues`
+      : `Correction · ${job.progress.completedCriteria}/${job.progress.totalCriteria} critères évalués`;
   if (status === 'to-do') return 'En attente de correction';
   if (job.status === 'needs-review') return 'Des éléments restent à vérifier avant de poursuivre';
   return 'Proposition prête à vérifier';
@@ -148,6 +150,10 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
     (!normalizedQuery || item.searchText.includes(normalizedQuery)),
   );
   const processingItem = items.find((item) => item.status === 'processing') ?? null;
+  // The model can take time to preload before a queued copy becomes processing.
+  const preparingJob = isStartingCorrections && !processingItem
+    ? [...jobs].filter((job) => job.status === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0] ?? null
+    : null;
   const countFor = (key: CopyOverviewFilter) => key === 'all' ? counts.all
     : key === 'to-do' ? counts.toDo
       : key === 'processing' ? counts.processing
@@ -163,7 +169,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
         <p>Retrouvez les copies en attente, celles à vérifier et les corrections validées.</p>
       </div>
       <div className="copy-overview-primary-actions">
-        {pendingCount > 0 && <button type="button" className="primary-button" onClick={onStartCorrections} disabled={isStartingCorrections}>{isStartingCorrections ? 'Démarrage des corrections…' : `Démarrer les corrections (${pendingCount})`}</button>}
+        {pendingCount > 0 && !processingItem && <button type="button" className="primary-button" onClick={onStartCorrections} disabled={isStartingCorrections}>{isStartingCorrections ? 'Préparation en cours…' : `Démarrer les corrections (${pendingCount})`}</button>}
         {counts.toReview > 0 && <button type="button" className="primary-button" onClick={onReviewNextCopy}>Vérifier la copie suivante</button>}
         <button type="button" className="secondary-button" onClick={onAddCopy} aria-expanded={addCopyExpanded} aria-controls="teacher-copy-intake">{addCopyExpanded ? 'Fermer l’ajout' : '＋ Ajouter des copies'}</button>
       </div>
@@ -176,6 +182,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
       <div><strong>{counts.toRetry}</strong><span>À reprendre</span></div>
       <div><strong>{counts.completed}</strong><span>Corrigées</span></div>
     </div>
+    {preparingJob && <div className="teacher-copy-live is-preparing" role="status"><div><strong>Préparation : {jobLabel(preparingJob)}</strong><p>Le modèle IA se prépare. La lecture de cette copie commencera ensuite.</p></div><button type="button" className="secondary-button" onClick={() => onOpenJob(preparingJob.id)}>Voir la copie</button></div>}
     {processingItem && <div className="teacher-copy-live" role="status"><div><strong>Copie en cours : {processingItem.label}</strong><p>{processingItem.message}</p></div><button type="button" className="secondary-button" onClick={() => { if (processingItem.kind === 'job') onOpenJob(processingItem.id); else onOpenCurrentCopy(); }}>Voir la copie</button></div>}
     <div className="copy-overview-toolbar">
       <label className="copy-overview-search">
@@ -193,7 +200,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
     </div>
     {visibleItems.length ? <ol className="correction-series-list copy-overview-grid">
       {visibleItems.map((item, index) => (
-        <li className={`correction-series-card is-${item.status}`} key={item.id}>
+        <li className={`correction-series-card is-${item.status}${preparingJob?.id === item.id ? ' is-preparing' : ''}`} key={item.id}>
           <div className="correction-series-card-heading">
             <span className="queue-position">{index + 1}</span>
             <div className="correction-series-copy"><strong title={item.label}>{item.label}</strong><small>{item.pageCount} page(s)</small></div>
@@ -204,7 +211,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
           </div>
           <div className="correction-series-card-footer">
             <div>
-              <span className={`correction-series-card-status is-${item.status}`}>{statusLabels[item.status]}</span>
+              <span className={`correction-series-card-status is-${item.status}`}>{preparingJob?.id === item.id ? 'Préparation en cours' : statusLabels[item.status]}</span>
               {item.message && <p className={item.status === 'to-retry' ? 'copy-overview-error' : 'copy-overview-message'}>{item.message}</p>}
               {item.kind === 'correction' && <small>Enregistrée le {new Date(item.updatedAt).toLocaleDateString('fr-FR')}</small>}
             </div>

@@ -23,17 +23,34 @@ const criterion = (id: string, points: number) => ({
   criterionId: id, points, confidence: 'high' as const,
   evidence: 'Réponse observée', rationale: '',
 });
-const display = (current: BackgroundCorrectionJob) => renderToStaticMarkup(
+const display = (current: BackgroundCorrectionJob, isStartingCorrections = false) => renderToStaticMarkup(
   <CorrectionOverview
     jobs={[toBackgroundJobSummary(current)]} corrections={[]} currentCopy={null}
-    filter="all" onFilterChange={vi.fn()} onAddCopy={vi.fn()} addCopyExpanded={false} pendingCount={0}
-    isStartingCorrections={false} onStartCorrections={vi.fn()}
+    filter="all" onFilterChange={vi.fn()} onAddCopy={vi.fn()} addCopyExpanded={false} pendingCount={1}
+    isStartingCorrections={isStartingCorrections} onStartCorrections={vi.fn()}
     onOpenJob={vi.fn()} onRetryJob={vi.fn()} onRemoveJob={vi.fn()} notice=""
     onOpenCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}
   />,
 );
 
 describe('teacher correction overview and partial grade safety', () => {
+  it('names the first queued copy while the model is starting and exposes its preview', () => {
+    const html = display(job, true);
+    expect(html).toContain('Préparation : Copie de biologie');
+    expect(html).toContain('Le modèle IA se prépare.');
+    expect(html).toContain('Préparation en cours…');
+    expect(html).toContain('Voir la copie');
+    expect(html).toContain('Note à venir');
+    expect(html).not.toContain('0<span> / 4</span>');
+  });
+
+  it('labels page-reading and criterion progress with explicit units', () => {
+    expect(display({ ...job, status: 'processing', phase: 'preparation' })).toContain('Préparation de la copie et du modèle IA');
+    expect(display({ ...job, status: 'processing', phase: 'reading', completedPages: 1 })).toContain('1/1 pages lues');
+    expect(display({ ...job, status: 'processing', phase: 'grading', completedCriteria: 1 })).toContain('1/2 critères évalués');
+  });
+
+
   it('offers removal for a waiting copy, without showing it during processing or after archiving', () => {
     expect(display(job)).toContain('Retirer la copie « Copie de biologie »');
     expect(display({ ...job, status: 'ready' })).toContain('Retirer la copie « Copie de biologie »');
