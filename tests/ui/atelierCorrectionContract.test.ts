@@ -36,6 +36,6 @@ describe('Atelier pédagogique correction workspace', () => {
     expect(app).toContain('<details className="review-explanation">');
     expect(app).toContain('className="comment-field"');
     expect(app).toContain('normalizeGradeScore(Number(event.target.value))');
-    expect(app).toContain('Copier le commentaire');
+    expect(read('src/ui/components/TeacherReviewAlert.tsx')).toContain('Copier le commentaire');
   });
 });
