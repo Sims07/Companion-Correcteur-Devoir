@@ -18,6 +18,7 @@ Correction et Outils IA partagent un même cadre de page afin de conserver une i
 - L'interface enseignant n'affiche ni prompts, ni payloads, ni métriques techniques. Le professeur peut toutefois ouvrir les Outils IA à la demande pendant une séance de dépannage, sans configuration de rôle ni verrouillage supplémentaires.
 - Les libellés de confidentialité suivent le transport effectivement configuré : un profil Ollama local et un profil API compatible OpenAI n'ont pas les mêmes garanties de localisation des données.
 - Le dépannage commence dans Observabilité par les exécutions en échec, avec accès direct à leur trace. Un raccourci ouvre l'Inspecteur réseau filtré sur les erreurs HTTP, sans prétendre corréler automatiquement une requête à une exécution. Les boutons de navigation classiques conservent la consultation complète. Les prompts et réponses restent repliés par défaut.
+- Un bouton « Copier un diagnostic technique » permet au professeur, à la demande du développeur, de partager un résumé exploitable sans extraire les copies : dates, statuts, durées, modèles et codes HTTP seulement. Aucun nom d'étudiant/devoir, note, barème, transcription, prompt, réponse brute, URL, en-tête ou corps réseau. Le contenu est généré localement uniquement après action de l'utilisateur et doit être relu avant partage.
 
 Les layouts partagent les dimensions et le rythme, pas les composants métier. Éviter de fusionner les parcours dans un composant conditionnel géant.
 
