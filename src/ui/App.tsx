@@ -7,6 +7,7 @@ import { TeacherReviewAlert } from './components/TeacherReviewAlert.tsx';
 import { teacherReviewStatus } from '../domain/teacherReviewSummary.ts';
 import type { CorrectionWorkspaceService } from '../application/correctionWorkspaceService.ts';
 import type { ModelEvaluationService } from '../application/modelEvaluationService.ts';
+import { explainModelEvaluationStorageError, saveModelEvaluationWithFallback } from '../domain/modelEvaluationArchive.ts';
 import { createAsyncActionGuard } from '../domain/asyncActionGuard.ts';
 import { normalizeGradeScore, parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion, type CriterionProposal } from '../domain/grading.ts';
 import { validateReviewedCorrection } from '../domain/reviewFinalization.ts';
@@ -370,6 +371,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
   const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
   const [savedModelEvaluations, setSavedModelEvaluations] = useState<ModelEvaluationRecord[]>([]);
+  const [evaluationSessionOnlyIds, setEvaluationSessionOnlyIds] = useState<string[]>([]);
+  const [evaluationArchiveMessage, setEvaluationArchiveMessage] = useState('');
+  const [evaluationSuggestedComparison, setEvaluationSuggestedComparison] = useState<string[] | null>(null);
   const [evaluationProgress, setEvaluationProgress] = useState<ModelEvaluationProgress | null>(null);
   const [evaluationStage, setEvaluationStage] = useState<'idle' | 'preparing' | 'reading' | 'grading' | 'parsing' | 'saving' | 'completed'>('idle');
   const selectedEvaluationProfiles = aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
@@ -1337,6 +1341,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (evaluationStageMode === 'integrated' && correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
     evaluationCancelledRef.current = false;
     setModelEvaluationResults([]);
+    setEvaluationArchiveMessage('');
+    setEvaluationSuggestedComparison(null);
     const measuredStages = evaluationStageMode === 'vision' ? ['reading'] as const : evaluationStageMode === 'analysis' ? ['analysis'] as const : ['reading', 'analysis'] as const;
     setEvaluationProgress({ completed: 0, total: selectedProfiles.length, currentConfiguration: null, status: 'running', completedSteps: 0, totalSteps: selectedProfiles.length * measuredStages.length, currentStage: null });
     setEvaluationStage('preparing');
@@ -1491,14 +1497,24 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       results,
       stage: evaluationStageMode,
     };
+    const previousComparable = savedModelEvaluations.find((record) => canCompareModelEvaluationRecords([record, savedRecord]));
+    if (previousComparable) setEvaluationSuggestedComparison([previousComparable.id, savedRecord.id]);
+    let recordForHistory = savedRecord;
     try {
-      await evaluationService.save(savedRecord);
-      setSavedModelEvaluations((current) => [savedRecord, ...current.filter((item) => item.id !== savedRecord.id)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)));
-    } catch {
-      setError('Les résultats sont disponibles dans cette session, mais leur sauvegarde dans l’historique local a échoué.');
+      const saved = await saveModelEvaluationWithFallback(savedRecord, evaluationService.save);
+      recordForHistory = saved.record;
+      if (saved.mode === 'without-images') {
+        setEvaluationArchiveMessage('Résultats enregistrés localement en format allégé : l’espace de stockage a empêché de conserver les images originales. Notes, barème et traces restent disponibles. Pour relancer cet essai, réimportez la copie.');
+      }
+    } catch (cause) {
+      setEvaluationSessionOnlyIds((current) => [...current, savedRecord.id]);
+      setEvaluationArchiveMessage('Enregistrement impossible : ' + explainModelEvaluationStorageError(cause) + ' Les résultats restent consultables et comparables dans cette session, mais disparaîtront au rechargement de la page.');
     }
+    // Even without IndexedDB, do not lose a finished experiment or its traces.
+    setSavedModelEvaluations((current) => [recordForHistory, ...current.filter((item) => item.id !== recordForHistory.id)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)));
     setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: evaluationCancelledRef.current ? 'cancelled' : 'completed' } : current);
     setEvaluationStage('completed');
+    setEvaluationWorkspaceStep('results');
     setIsAnalyzing(false);
     setBusy(false);
   }
