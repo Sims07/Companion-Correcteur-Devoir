@@ -36,6 +36,9 @@ describe('Vérification Atelier B : identité modifiable et navigation', () => {
     const { container, onStudentLabelChange } = await render();
     expect(container.querySelector('.copy-review-identity-title h2')?.textContent).toBe('Camille Durand');
     expect(container.querySelector('#student-label')).toBeNull();
+    expect(container.querySelector('.copy-review-student-name .copy-review-status')?.textContent).toBe('À vérifier');
+    expect(container.querySelector('.copy-review-header-actions .copy-review-position')).toBeTruthy();
+    expect(container.querySelector('.copy-review-header-actions .copy-review-grade')).toBeTruthy();
     await act(async () => {
       container.querySelector<HTMLButtonElement>('[aria-label="Modifier le nom de l’étudiant"]')?.click();
     });
@@ -60,6 +63,6 @@ describe('Vérification Atelier B : identité modifiable et navigation', () => {
       root.render(<CopyReviewHeader {...props} position={3} canPrevious canNext={false} />);
     });
     expect(container.querySelector<HTMLButtonElement>('[aria-label="Copie suivante"]')?.disabled).toBe(true);
-    expect(container.textContent).toContain('Copie 3 sur 3');
+    expect(container.textContent).toContain('Copie 3 / 3');
   });
 });

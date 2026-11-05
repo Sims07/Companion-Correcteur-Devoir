@@ -12,13 +12,17 @@ describe('CopyReviewHeader', () => {
       isFinalized={false} canPrevious canNext
       previousLabel="Martin · À reprendre" nextLabel="Dupont · En attente"
     />);
-    expect(html).toContain('Copie de l’étudiant');
+    expect(html).not.toContain('copy-review-student-caption');
+    expect(html).not.toContain('copy-review-header-footer');
+    expect(html).toContain('copy-review-header-actions');
+    expect(html).toContain('copy-review-position-label');
     expect(html).toContain('Modifier le nom de l’étudiant');
     expect(html).toContain('Note proposée');
     expect(html).toContain('Parcourir les copies');
     expect(html).not.toContain('id="student-label"');
     expect(html).toContain('Marie Dupont');
-    expect(html).toContain('Copie 3 sur 12');
+    expect(html).toContain('Copie 3 / 12');
+    expect(html).toContain('aria-label="Copie 3 sur 12"');
     expect(html).toContain('À vérifier');
     expect(html).toContain('14,5 / 20');
     expect(html).not.toContain('Valider et passer à la suivante');
