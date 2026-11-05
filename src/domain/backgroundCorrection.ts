@@ -1,6 +1,7 @@
 import type { ImageInput } from './imageInput.ts';
 import type { GradingProposal, CriterionProposal, ReviewedCriterion } from './grading.ts';
 import type { Rubric } from './rubric.ts';
+import type { CorrectionMethod } from './correctionMethod.ts';
 import type { TeacherAnnotationInkColor } from './teacherAnnotationColor.ts';
 import type { ScientificPageClassification } from './scientificPageClassification.ts';
 import type { ScientificDiagramAnalysis } from './scientificDiagram.ts';
@@ -53,6 +54,8 @@ export interface BackgroundCorrectionJob {
   visionModel: string;
   analysisModel: string;
   thinking: boolean;
+  /** Captured at enqueue time to avoid a queued copy changing strategy silently. */
+  correctionMethod?: CorrectionMethod;
   createdAt: string;
   updatedAt: string;
   status: BackgroundCorrectionStatus;
