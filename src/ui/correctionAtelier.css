@@ -70,12 +70,6 @@
 }
 .teacher-copy-live strong { color: var(--ds-color-text); }
 .teacher-copy-live p { margin: var(--ds-space-1) 0 0; color: var(--ds-color-text-muted); font-size: .85rem; }
-/* An active copy is an informational state; neutral cards stay neutral. */
-.copy-overview-grid > li.correction-series-card.is-preparing,
-.copy-overview-grid > li.correction-series-card.is-processing {
-  border-left: 3px solid var(--ds-color-progress);
-  background: var(--ds-color-surface);
-}
 @media (max-width: 700px) {
   .teacher-copy-live { align-items: stretch; flex-direction: column; }
 }
