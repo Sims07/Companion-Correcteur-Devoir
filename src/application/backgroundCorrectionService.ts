@@ -405,7 +405,7 @@ export function createBackgroundCorrectionService(
             activeCriterionId: null,
             ...(current.partialCriteria.length ? { proposal: createProposal(current.rubric, current.partialCriteria) } : {}),
             updatedAt: new Date().toISOString(),
-            error: cancelled ? null : cause instanceof Error ? cause.message : 'La correction en arrière-plan a échoué.',
+            error: cancelled ? 'Correction interrompue par l’enseignant. Vous pouvez la reprendre.' : cause instanceof Error ? cause.message : 'La correction en arrière-plan a échoué.'
           });
           if (activeRequestAbortController === requestAbortController) activeRequestAbortController = null;
         }
