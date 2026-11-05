@@ -7,7 +7,7 @@ describe('Atelier B rubric composition', () => {
   const app = read('src/ui/App.tsx');
   const css = read('src/ui/atelierBRubric.css');
 
-  it('renders the teacher's live rubric totals and validation state in a separate summary', () => {
+  it('renders live rubric totals and validation state in a separate summary', () => {
     expect(app).toContain('className="atelier-rubric-synthesis"');
     expect(app).toContain('aria-label="Synthèse du barème"');
     expect(app).toContain("validation.valid ? 'Un barème prêt à corriger' : 'Un barème à compléter'");
