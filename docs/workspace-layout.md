@@ -17,6 +17,7 @@ Correction et Outils IA partagent un même cadre de page afin de conserver une i
 - **Évaluation des modèles** conserve sa navigation interne par étapes, adaptée à la comparaison de configurations et de résultats. Les historiques des trois outils ne sont pas fusionnés : les traces IA, les requêtes HTTP et les essais ont chacun leur source et leur durée de conservation.
 - L'interface enseignant n'affiche ni prompts, ni payloads, ni métriques techniques. Le professeur peut toutefois ouvrir les Outils IA à la demande pendant une séance de dépannage, sans configuration de rôle ni verrouillage supplémentaires.
 - Les libellés de confidentialité suivent le transport effectivement configuré : un profil Ollama local et un profil API compatible OpenAI n'ont pas les mêmes garanties de localisation des données.
+- Le dépannage commence dans Observabilité par les exécutions en échec, avec accès direct à leur trace. Un raccourci ouvre l'Inspecteur réseau filtré sur les erreurs HTTP, sans prétendre corréler automatiquement une requête à une exécution. Les boutons de navigation classiques conservent la consultation complète. Les prompts et réponses restent repliés par défaut.
 
 Les layouts partagent les dimensions et le rythme, pas les composants métier. Éviter de fusionner les parcours dans un composant conditionnel géant.
 
