@@ -207,6 +207,8 @@ export interface ModelEvaluationRecord {
   referenceTranscription?: string | null;
   /** Stage measured by this experiment; absent means a legacy full-pipeline run. */
   stage?: 'vision' | 'analysis' | 'integrated';
+  /** False when storage quota required archiving results without their original images. */
+  originalImagesArchived?: boolean;
 }
 
 
@@ -247,7 +249,7 @@ function sameAnalysisInput(first: ModelEvaluationRecord, second: ModelEvaluation
 /** Compare only experiments that share the same measured stage and the same input. */
 export function canCompareModelEvaluationRecords(records: readonly ModelEvaluationRecord[]): boolean {
   if (records.length === 1) return records[0]!.results.length > 1;
-  if (records.length !== 2 || records.some((record) => record.results.length === 0)) return false;
+  if (records.length !== 2 || records.some((record) => record.results.length === 0 || record.originalImagesArchived === false)) return false;
   const first = records[0]!;
   const second = records[1]!;
   if (getModelEvaluationStage(first) !== getModelEvaluationStage(second) || first.assignmentId !== second.assignmentId) return false;

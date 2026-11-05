@@ -34,6 +34,27 @@ describe('Model evaluation workspace layout contract', () => {
     expect(app).toContain('aria-label="Lancer l’expérience"');
   });
 
+  it('opens results before the history write and offers a retry if IndexedDB fails', () => {
+    const finished = app.indexOf('setModelEvaluationResults(results);');
+    const navigation = app.indexOf("if (results.length > 0) setEvaluationWorkspaceStep('results');", finished);
+    const persistence = app.indexOf('await persistModelEvaluationRecord(savedRecord);', finished);
+    expect(finished).toBeGreaterThan(0);
+    expect(navigation).toBeGreaterThan(finished);
+    expect(persistence).toBeGreaterThan(navigation);
+    expect(app).toContain('Réessayer la sauvegarde');
+    expect(app).toContain("evaluationArchiveStatus === 'failed'");
+    expect(app).not.toContain('Les résultats sont disponibles dans cette session, mais leur sauvegarde dans l’historique local a échoué.');
+  });
+
+  it('overrides the remaining green evaluation surfaces with palette B tokens', () => {
+    expect(layout).toContain('.evaluation-run-actions:not(.evaluation-config-launch)');
+    expect(layout).toContain('.evaluation-progress-counter');
+    expect(layout).toContain('.evaluation-configuration-step.is-complete');
+    expect(layout).toContain('.evaluation-archive-feedback');
+    expect(layout).toContain('var(--ds-color-brand-700)');
+    expect(layout).toContain('var(--ds-color-success-surface)');
+  });
+
   it('uses shared design tokens and defines tablet, mobile and reduced-motion behavior', () => {
     expect(layout).toContain('var(--ds-color-surface)');
     expect(layout).toContain('var(--ds-color-border)');

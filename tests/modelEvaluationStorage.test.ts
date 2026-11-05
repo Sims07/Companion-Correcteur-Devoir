@@ -42,6 +42,14 @@ describe('local model evaluation archive', () => {
     });
   });
 
+  it('persists a reduced archive without photos when storage space is constrained', async () => {
+    const compact: ModelEvaluationRecord = { ...record, images: [], subjectImages: [], originalImagesArchived: false };
+    await saveModelEvaluation(compact);
+    const archived = (await listModelEvaluations()).find((entry) => entry.id === compact.id);
+    expect(archived).toEqual(compact);
+    expect(archived?.results[0]?.score).toBe(3);
+  });
+
   it('updates a saved experiment and sorts history newest first', async () => {
     await saveModelEvaluation(record);
     await saveModelEvaluation({ ...record, completedAt: '2026-10-29T11:00:00.000Z', assignmentTitle: 'Updated title' });

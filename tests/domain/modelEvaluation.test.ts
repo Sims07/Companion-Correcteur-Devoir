@@ -117,6 +117,13 @@ describe('model evaluation history comparison scope', () => {
     ])).toBe(false);
   });
 
+  it('keeps same-run comparison while preventing false matches between records archived without photos', () => {
+    const compact = { ...savedRecord('vision-a', 'vision', ['model-a', 'model-b']), images: [], originalImagesArchived: false };
+    const other = { ...savedRecord('vision-b', 'vision', ['model-a', 'model-c']), images: [], originalImagesArchived: false };
+    expect(canCompareModelEvaluationRecords([compact])).toBe(true);
+    expect(canCompareModelEvaluationRecords([compact, other])).toBe(false);
+  });
+
   it('treats legacy records without a stage as full-pipeline experiments', () => {
     const legacy = savedRecord('legacy', undefined, ['model-a', 'model-b']);
     expect(getModelEvaluationStage(legacy)).toBe('integrated');
