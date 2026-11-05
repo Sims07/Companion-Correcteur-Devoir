@@ -7,6 +7,8 @@ import { installLocalMemoryFetchBridge } from './adapters/ai/localMemoryFetchBri
 import { currentFetch } from './adapters/ai/currentFetch.ts';
 import { loadSalukiModel } from './adapters/ai/modelLoadClient.ts';
 import { IndexedDbBackgroundCorrectionRepository, IndexedDbLocalCorrectionRepository, IndexedDbModelEvaluationRepository } from './adapters/storage/indexedDbMemory.ts';
+import { IndexedDbStorageDiagnosticsRepository } from './adapters/storage/indexedDbStorageDiagnostics.ts';
+import { createStorageDiagnosticsService } from './application/storageDiagnosticsService.ts';
 import { createLocalCorrectionService } from './application/localCorrectionService.ts';
 import { createModelEvaluationService } from './application/modelEvaluationService.ts';
 import { createBackgroundCorrectionService } from './application/backgroundCorrectionService.ts';
@@ -35,6 +37,7 @@ import './ui/atelierBProcessing.css';
 const localCorrectionRepository = new IndexedDbLocalCorrectionRepository();
 const localCorrectionService = createLocalCorrectionService(localCorrectionRepository);
 const modelEvaluationService = createModelEvaluationService(new IndexedDbModelEvaluationRepository());
+const storageDiagnosticsService = createStorageDiagnosticsService(new IndexedDbStorageDiagnosticsRepository());
 const scientificDiagramAnalyzer = createOpenAiScientificDiagramAnalyzer();
 const scientificDiagramAnalysisService = createScientificDiagramAnalysisService(scientificDiagramAnalyzer);
 const backgroundCorrectionService = createBackgroundCorrectionService(new IndexedDbBackgroundCorrectionRepository(), { checkReady: checkOllamaReady, prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), unloadModel: unloadOllamaModel, listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) }, scientificDiagramAnalysisService);
@@ -46,7 +49,7 @@ const correctionWorkspaceService = createCorrectionWorkspaceService(
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App service={correctionWorkspaceService} archiveService={localCorrectionService} evaluationService={modelEvaluationService} backgroundCorrectionService={backgroundCorrectionService} diagramAnalysisService={scientificDiagramAnalysisService} loadSalukiModel={loadSalukiModel} />
+    <App service={correctionWorkspaceService} archiveService={localCorrectionService} evaluationService={modelEvaluationService} storageDiagnosticsService={storageDiagnosticsService} backgroundCorrectionService={backgroundCorrectionService} diagramAnalysisService={scientificDiagramAnalysisService} loadSalukiModel={loadSalukiModel} />
     <LocalMemoryCompanion service={localCorrectionService} />
   </React.StrictMode>,
 );
