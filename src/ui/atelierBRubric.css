@@ -147,6 +147,41 @@
 .atelier-rubric-editor > .rubric-export-panel { order: 8; }
 .atelier-rubric-editor > .rubric-actions { order: 9; }
 
+/* Imported rubric: Vision and extraction are long-running work, never an error.
+   The rule applies in the teacher workspace and in model evaluation. */
+.rubric-import-progress {
+  border-color: var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface-subtle);
+}
+.rubric-import-step {
+  border-color: var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+}
+.rubric-import-step.is-active {
+  border-color: var(--ds-color-progress-border);
+  background: var(--ds-color-progress-surface);
+  box-shadow: inset 3px 0 var(--ds-color-progress);
+}
+.rubric-import-step.is-active .rubric-import-step-number {
+  background: var(--ds-color-progress);
+  color: #fff;
+}
+.rubric-import-step.is-complete { border-color: var(--ds-color-border); }
+.rubric-import-step.is-complete .rubric-import-step-number {
+  background: var(--ds-color-success-surface);
+  color: var(--ds-color-success);
+}
+.rubric-import-step-content > p { color: var(--ds-color-text-muted); }
+.rubric-import-raw-response {
+  border-color: var(--ds-color-border);
+}
+.rubric-import-raw-response pre {
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text);
+}
+
 /* La synthèse reste discrète : chiffres décisionnels, état et réutilisation. */
 .atelier-rubric-synthesis {
   position: sticky;

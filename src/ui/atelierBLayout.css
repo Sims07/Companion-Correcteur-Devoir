@@ -254,6 +254,10 @@
 .teacher-flow-shell .teacher-breadcrumb button { color: var(--ds-color-text-muted); }
 .teacher-flow-shell .teacher-workspace-navigation-actions { margin-left: auto; }
 .teacher-flow-shell .teacher-workspace-processing:not(.is-active) { display: none; }
+/* A running correction is not a success or a brand action. */
+.teacher-flow-shell .teacher-workspace-processing.is-active {
+  color: var(--ds-color-progress);
+}
 .teacher-flow-shell .teacher-ai-settings-button:not(.is-required) {
   border: 0;
   background: transparent;

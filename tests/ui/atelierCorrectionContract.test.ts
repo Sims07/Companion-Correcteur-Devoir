@@ -66,6 +66,20 @@ describe('Atelier pédagogique correction workspace', () => {
     expect(css).toContain('color: var(--ds-color-success)');
   });
 
+  it('separates active copy work, actionable warnings, success and real failures on cards', () => {
+    const css = read('src/ui/correctionAtelier.css');
+    expect(css).toContain('border-left: 3px solid var(--ds-color-progress)');
+    expect(css).not.toContain('border-top: 3px solid var(--ds-color-brand-700)');
+    expect(css).toContain('.correction-series-card.is-processing');
+    expect(css).toContain('border-left: 3px solid var(--ds-color-warning)');
+    expect(css).toContain('border-left: 3px solid var(--ds-color-danger)');
+    expect(css).toContain('.correction-series-card-status.is-to-review');
+    expect(css).toContain('background: var(--ds-color-success-surface)');
+    const layout = read('src/ui/atelierBLayout.css');
+    expect(layout).toContain('.teacher-workspace-processing.is-active');
+    expect(layout).toContain('color: var(--ds-color-progress)');
+  });
+
   it('places stopping beside the active copy instead of in the permanent application header', () => {
     const app = read('src/ui/App.tsx');
     const overview = read('src/ui/CorrectionOverview.tsx');
