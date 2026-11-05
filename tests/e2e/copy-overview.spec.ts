@@ -98,7 +98,7 @@ function copyNavigation(page: Page) {
 }
 
 
-test('opening a copy whose analysis is running shows its individual correction progress', async ({ page }) => {
+test('a processing copy without an active worker is recovered as retryable after reload', async ({ page }) => {
   await prepareLocalWorkspace(page);
   await seedJobs(page, [
     { id: 'copy-processing', label: 'Copie en cours', status: 'processing', updatedAt: '2026-11-02T09:00:00.000Z' },
@@ -107,20 +107,18 @@ test('opening a copy whose analysis is running shows its individual correction p
   await openActiveAssignment(page);
   await copyNavigation(page).click();
 
-  await page.getByRole('button', { name: /Analyse en cours/ }).click();
-  const processingCard = page.locator('.copy-overview-grid .correction-series-card');
-  await expect(processingCard).toContainText('Copie en cours');
-  await processingCard.getByRole('button', { name: 'Ouvrir' }).click();
+  // A reloaded browser cannot have the worker that owned this saved processing
+  // state. It must not show a never-ending spinner or hide the retry action.
+  await page.locator('.copy-overview-filters').getByRole('button', { name: /À reprendre/ }).click();
+  const interruptedCard = page.locator('.copy-overview-grid .correction-series-card');
+  await expect(interruptedCard).toContainText('Copie en cours');
+  await expect(interruptedCard).toContainText('L’IA n’a pas terminé cette copie');
+  await expect(interruptedCard.getByRole('button', { name: 'Relancer' })).toBeVisible();
+  await interruptedCard.getByRole('button', { name: 'Ouvrir' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Correction en cours' })).toBeVisible();
-  await expect(page.getByText('La copie en cours de correction')).toBeVisible();
-  await expect(page.getByText('1/1 pages lues')).toBeVisible();
-  await expect(page.getByText('1/3 critères traités')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Avancement du barème' })).toBeVisible();
-  await expect(page.getByRole('progressbar', { name: 'Critères du barème traités' })).toHaveAttribute('aria-valuenow', '1');
-  await page.getByText('Consulter le texte reconnu').click();
-  await expect(page.getByText('Transcription de test en cours.')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Correction interrompue' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Relancer la correction' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Correction en cours' })).toHaveCount(0);
 });
 
 test('adding a copy while another one is under review keeps the previous copy and opens the next copy by priority', async ({ page }) => {
@@ -223,7 +221,7 @@ test('a copy without alerts can be validated in one action and advances to the n
   await expect(studentName).toHaveValue('Copie suivante');
 });
 
-test('a failed copy is kept in À corriger and the Corriger action starts a new attempt', async ({ page }) => {
+test('a failed copy remains À reprendre and the Relancer action starts a new attempt', async ({ page }) => {
   await prepareLocalWorkspace(page);
   await seedJobs(page, [
     { id: 'copy-failed', label: 'Copie en échec', status: 'failed', updatedAt: '2026-11-02T09:00:00.000Z', error: 'La correction n’a pas abouti. Vous pouvez corriger à nouveau cette copie.' },
@@ -237,14 +235,14 @@ test('a failed copy is kept in À corriger and the Corriger action starts a new 
   await openActiveAssignment(page);
   await copyNavigation(page).click();
 
-  await page.getByRole('button', { name: /À corriger/ }).click();
+  await page.locator('.copy-overview-filters').getByRole('button', { name: /À reprendre/ }).click();
   const failedCard = page.locator('.copy-overview-grid .correction-series-card');
   await expect(failedCard).toContainText('Copie en échec');
-  await expect(failedCard).toContainText('La correction n’a pas abouti. Vous pouvez corriger à nouveau cette copie.');
-  await failedCard.getByRole('button', { name: 'Corriger' }).click();
+  await expect(failedCard).toContainText('L’IA n’a pas terminé cette copie. Vous pouvez relancer sa correction.');
+  await failedCard.getByRole('button', { name: 'Relancer' }).click();
 
   await expect.poll(() => retryRequests).toBeGreaterThan(0);
-  await expect(failedCard).toContainText('À corriger');
+  await expect(failedCard).toContainText('À reprendre');
 });
 
 test('adding another copy automatically saves the imported foreground copy in the overview', async ({ page }) => {

@@ -73,6 +73,121 @@ function fixture() {
 }
 
 describe('background correction service', () => {
+  it('marks a partial LLM failure as retryable, without pretending it only needs review', async () => {
+    const f = fixture();
+    let calls = 0;
+    const generate = async (request: GradingRequest) => {
+      const criterion = (JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> }).criteria[0];
+      const proposal = { criterionId: criterion.id, points: criterion.maxPoints, rationale: '', evidence: 'preuve', confidence: 'high' as const };
+      return JSON.stringify({ summary: 'OK', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
+    };
+    f.setGenerateImplementation(async (request) => {
+      calls += 1;
+      if (calls === 2) throw new Error('Connexion LLM interrompue');
+      return generate(request);
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'https://provider.example/v1', apiCompatible: true, visionModel: 'vision', analysisModel: 'analysis' };
+
+    await service.processPending(settings, 'assignment-1');
+
+    expect(f.jobs.get('copy-1')).toMatchObject({
+      status: 'failed',
+      error: 'Connexion LLM interrompue',
+      activeCriterionId: null,
+      completedCriteria: 1,
+    });
+    expect(f.jobs.get('copy-1')?.partialCriteria.map((criterion) => criterion.criterionId)).toEqual(['c1']);
+    expect(f.jobs.get('copy-1')?.proposal?.scoreIncomplete).toBe(true);
+    expect((await service.listJobSummaries('assignment-1'))[0].score).toBeNull();
+
+    f.setGenerateImplementation(generate);
+    await service.retry('copy-1', settings);
+    expect(f.jobs.get('copy-1')).toMatchObject({
+      status: 'ready', completedCriteria: 2, activeCriterionId: null, error: null,
+    });
+    expect(f.jobs.get('copy-1')?.partialCriteria.map((criterion) => criterion.criterionId)).toEqual(['c1', 'c2']);
+  });
+
+  it('recovers a processing state persisted by a previous application session', async () => {
+    const f = fixture();
+    f.jobs.set('copy-1', {
+      ...f.job,
+      status: 'processing',
+      phase: 'grading',
+      activeCriterionId: 'c2',
+      partialCriteria: [{ criterionId: 'c1', points: 2, rationale: '', evidence: 'preuve', confidence: 'high' }],
+      completedCriteria: 1,
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const jobs = await service.listJobs('assignment-1');
+    expect(jobs[0]).toMatchObject({ status: 'failed', activeCriterionId: null, completedCriteria: 1 });
+    expect(jobs[0].error).toContain('interrompue');
+    expect(jobs[0].proposal?.scoreIncomplete).toBe(true);
+    expect(f.createProvider).not.toHaveBeenCalled();
+
+    await service.retry('copy-1', { endpoint: 'https://provider.example/v1', apiCompatible: true, visionModel: 'vision', analysisModel: 'analysis' });
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'ready', completedCriteria: 2 });
+  });
+
+  it('stops a stuck request promptly even if the provider ignores the abort signal', async () => {
+    const f = fixture();
+    let announceStarted!: () => void;
+    const started = new Promise<void>((resolve) => { announceStarted = resolve; });
+    let activeSignal: AbortSignal | undefined;
+    f.setGenerateImplementation(async (_request, _chunk, _stage, _transcription, _diagnostic, _update, _annotations, _progress, signal) => {
+      activeSignal = signal;
+      announceStarted();
+      return new Promise<string>(() => undefined);
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'https://provider.example/v1', apiCompatible: true, visionModel: 'vision', analysisModel: 'analysis' };
+    const process = service.processPending(settings, 'assignment-1');
+    await started;
+
+    await service.stopAndWait();
+    await process;
+    expect(activeSignal?.aborted).toBe(true);
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'pending', activeCriterionId: null });
+  });
+
+  it('releases an unresponsive LLM call after prolonged inactivity and allows retry', async () => {
+    vi.useFakeTimers();
+    try {
+      const f = fixture();
+      let started!: () => void;
+      const generating = new Promise<void>((resolve) => { started = resolve; });
+      let requestSignal: AbortSignal | undefined;
+      f.setGenerateImplementation(async (_request, _chunk, _stage, _transcription, _diagnostic, _update, _annotations, _progress, signal) => {
+        requestSignal = signal;
+        started();
+        return new Promise<string>(() => undefined);
+      });
+      const service = createBackgroundCorrectionService(f.repository, f.workspace);
+      const settings = { endpoint: 'https://provider.example/v1', apiCompatible: true, visionModel: 'vision', analysisModel: 'analysis' };
+      const processing = service.processPending(settings, 'assignment-1');
+      await generating;
+      expect(f.jobs.get('copy-1')?.status).toBe('processing');
+
+      await vi.advanceTimersByTimeAsync(20 * 60_000);
+      await processing;
+
+      expect(requestSignal?.aborted).toBe(true);
+      expect(f.jobs.get('copy-1')).toMatchObject({ status: 'failed', activeCriterionId: null });
+      expect(f.jobs.get('copy-1')?.error).toContain('ne répond plus');
+
+      f.setGenerateImplementation(async (request) => {
+        const criterion = (JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> }).criteria[0];
+        const proposal = { criterionId: criterion.id, points: criterion.maxPoints, rationale: '', evidence: 'preuve', confidence: 'high' as const };
+        return JSON.stringify({ summary: 'OK', criteria: [proposal], questionsForTeacher: [], finalScore: criterion.maxPoints });
+      });
+      await service.retry('copy-1', settings);
+      expect(f.jobs.get('copy-1')?.status).toBe('ready');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('publishes the active rubric criterion before a slow model responds, then clears it', async () => {
     const f = fixture();
     let announceStarted!: () => void;
