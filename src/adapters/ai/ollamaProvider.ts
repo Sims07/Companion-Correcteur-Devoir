@@ -1,3 +1,4 @@
+import { buildArbitrationPrompt, buildArbitrationRepairPrompt, buildIncrementalGradingRepairPrompt, buildGradingRepairPrompt } from './prompts/repairPrompts.ts';
 import { buildSubjectReferencePrompt, buildStudentIdentityFallbackPrompt, buildTeacherAnnotationRepairPrompt, buildRubricPageTranscriptionPrompt } from './prompts/visionPrompts.ts';
 import { buildFullGradingPrompt } from './prompts/fullGradingPrompt.ts';
 import { buildTranscriptionPrompt, buildStudentIdentityPrompt, buildTeacherAnnotationPrompt } from './prompts/visionPrompts.ts';
@@ -987,7 +988,7 @@ export function createOllamaProvider(
         try { validateObject(raw); return raw; }
         catch (cause) {
           const reason = cause instanceof Error ? cause.message : 'JSON invalide';
-          const repairPrompt = [prompt, 'Réponse précédente à réparer : ' + raw.slice(0, 3000) + '. Erreur : ' + reason + '.', 'FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON, sans texte ni Markdown. Exemple neutre : {"summary":"Proposition à vérifier.","criteria":[{"criterionId":"criterion-id","points":0,"rationale":"Justification courte.","evidence":"Extrait exact.","confidence":"medium","annotationSuggestion":""}],"questionsForTeacher":[],"finalScore":0}.'].join('\n\n');
+          const repairPrompt = buildGradingRepairPrompt(prompt, raw, reason);
           const repaired = await sendStream(model, repairPrompt, images, streamChunk, gradingSchema, settings.thinking ?? false, { ...tracking, allowTruncated: true, intent: 'Réparer la réponse de correction' });
           try { validateObject(repaired); return repaired; }
           catch (secondCause) {
@@ -1029,22 +1030,13 @@ export function createOllamaProvider(
             properties: { criterionId: { type: 'string', enum: resolution.disputedCriterionIds }, selected: { type: 'string', enum: ['avis1', 'avis2'] }, reason: { type: 'string' } },
           } } },
         };
-        const arbitrationPrompt = [
-          'RÔLE : arbitre uniquement, tu n’es pas un troisième correcteur. Tu ne dois pas générer de correction complète.',
-          'Pour chaque critère litigieux, choisis exclusivement la note déjà donnée par AVIS 1 ou AVIS 2. Interdiction de créer une troisième note, de calculer une moyenne ou de modifier un critère non litigieux.',
-          'Ne crée jamais de troisième note, de moyenne ni de critère supplémentaire.',
-          `BARÈME DES CRITÈRES LITIGIEUX :\n${JSON.stringify(disputedRubric)}`,
-          `TRANSCRIPTION :\n${transcription ?? ''}`,
-          `AVIS 1 (JSON) :\n${JSON.stringify(selectCriteria(firstProposal))}`,
-          `AVIS 2 (JSON) :\n${JSON.stringify(selectCriteria(secondProposal))}`,
-          'FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON, sans texte ni Markdown. Retourne une décision par critère litigieux : criterionId, selected (avis1 ou avis2), reason (phrase courte). Exemple neutre : {"decisions":[{"criterionId":"criterion-id","selected":"avis1","reason":"Justification courte."}]}.',
-        ].join('\n\n');
+        const arbitrationPrompt = buildArbitrationPrompt(disputedRubric, transcription ?? '', selectCriteria(firstProposal), selectCriteria(secondProposal));
         let raw = await sendStream(arbitratorModel, arbitrationPrompt, undefined, onChunk, arbitrationSchema, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration', deferResult: true, allowTruncated: true, intent: 'Arbitrer les désaccords entre modèles', context: `Modèle ${arbitratorModel} · ${resolution.disputedCriterionIds.length} critère(s) litigieux · ${request.images?.map((image) => image.fileName).filter(Boolean).join(', ') || 'copie'}` });
         let decisions;
         try { decisions = parseArbitrationDecisions(raw, resolution.disputedCriterionIds, firstProposal.criteria, secondProposal.criteria); }
         catch (cause) {
           const reason = cause instanceof Error ? cause.message : 'réponse invalide';
-          const repairPrompt = [arbitrationPrompt, 'Réponse précédente à réparer : ' + raw.slice(0, 2500) + '. Erreur : ' + reason + '.', 'FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON, sans texte ni Markdown. Exemple neutre : {"decisions":[{"criterionId":"criterion-id","selected":"avis1","reason":"Justification courte."}]}.' ].join('\n\n');
+          const repairPrompt = buildArbitrationRepairPrompt(arbitrationPrompt, raw, reason);
           raw = await sendStream(arbitratorModel, repairPrompt, undefined, onChunk, arbitrationSchema, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration', deferResult: true, allowTruncated: true, intent: 'Réparer la réponse d’arbitrage', context: 'Réparation JSON' });
           decisions = parseArbitrationDecisions(raw, resolution.disputedCriterionIds, firstProposal.criteria, secondProposal.criteria);
         }
@@ -1123,7 +1115,7 @@ export function createOllamaProvider(
             try {
               const raw = await sendStream(
                 analysisModel,
-                attempt === 1 ? criterionPrompt : [criterionPrompt, `Réponse précédente à réparer : ${previousRaw.slice(0, 2500)}. Erreur : ${lastError}. Corrige le JSON sans modifier la note si elle respecte le barème.`, 'FORMAT DE SORTIE : réponds UNIQUEMENT par un objet JSON, sans texte ni Markdown. Exemple neutre : {"criterionId":"criterion-id","points":0,"rationale":"Justification courte.","evidence":"Extrait exact.","confidence":"medium","annotationSuggestion":""}.'].join('\n\n'),
+                attempt === 1 ? criterionPrompt : buildIncrementalGradingRepairPrompt(criterionPrompt, previousRaw, lastError),
                 undefined,
                 onChunk,
                 currentCriterionSchema,
