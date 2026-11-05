@@ -16,6 +16,7 @@ test('teachers preview a rubric import, detect conflicts and add only selected c
  await expect(choices).toHaveCount(2); await expect(choices.nth(0)).not.toBeChecked(); await expect(choices.nth(1)).toBeChecked();
  await panel.getByRole('button', { name: 'Ajouter la sélection' }).click();
  await expect(panel.getByRole('status')).toContainText('1 critère(s) ajouté(s)');
+ await expect(panel.locator('.ds-status-notice--success')).toHaveCSS('border-left-color', 'rgb(39, 98, 58)');
  await expect(page.locator('.criterion-editor')).toHaveCount(4);
 });
 

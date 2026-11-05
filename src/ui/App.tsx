@@ -328,6 +328,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
   const [expandedCriterionId, setExpandedCriterionId] = useState<string | null>(null);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
+  const [rubricImportTone, setRubricImportTone] = useState<StatusTone>('success');
   const [rubricImportFileName, setRubricImportFileName] = useState('');
   const [rubricImportProgress, setRubricImportProgress] = useState<RubricImportProgress | null>(null);
   const [rubricImportEvents, setRubricImportEvents] = useState<string[]>([]);
@@ -753,6 +754,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       const summary = `Barème extrait : ${imported.rubric.criteria.length} critère(s), ${total} point(s) au total. Les critères sont affichés ci-dessous pour vérification et modification.`;
       setRubricImportProgress({ stage: 'complete', message: summary });
       setRubricImportEvents((events) => [...events, 'Lecture locale terminée.', summary]);
+      setRubricImportTone(imported.warnings.length ? 'warning' : 'success');
       setRubricImportMessage(imported.warnings.length ? imported.warnings.join(' ') : summary);
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'Impossible d’importer ce barème localement.';
@@ -815,11 +817,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setRubricImportProgress({ stage: 'complete', message: summary, page: prepared.length, totalPages: prepared.length });
       rubricImportSucceeded = true;
       setRubricImportEvents((events) => [...events, summary]);
+      setRubricImportTone(imported.warnings.length ? 'warning' : 'success');
       setRubricImportMessage(imported.warnings.join(' ') || summary);
     } catch (cause) {
       const cancelled = abortController.signal.aborted;
       const message = cancelled ? 'Import interrompu. La lecture et l’extraction ont été arrêtées ; aucun nouveau barème n’a été appliqué.' : cause instanceof Error ? cause.message : 'Impossible d’extraire le barème avec le modèle de vision local.';
-      if (cancelled) setRubricImportMessage(message); else setError(message);
+      if (cancelled) { setRubricImportTone('warning'); setRubricImportMessage(message); } else setError(message);
       setRubricImportProgress({ stage: cancelled ? 'cancelled' : 'error', message });
       setRubricImportEvents((events) => [...events, cancelled ? message : `Échec : ${message}`]);
     } finally {
@@ -3006,7 +3009,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </details>
             {rubricImportProgress?.stage === 'complete' && <p className="rubric-import-progress-review">Vérifiez le résultat extrait dans les champs modifiables ci-dessous, puis comparez chaque critère et ses points avec le document original avant de valider le barème.</p>}
           </section>}
-          {rubricImportMessage && <p className="validation valid" role="status">{rubricImportMessage}</p>}
+          {rubricImportMessage && <StatusNotice tone={rubricImportTone}>{rubricImportMessage}</StatusNotice>}
         </div></details>
         <div className="rubric-editor-toolbar"><button type="button" className="primary-button" onClick={addCriterion}>＋ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
         {interfaceMode === 'teacher' && <RubricReusePanel assignments={assignmentProfiles} activeAssignmentId={activeAssignmentId} rubric={rubric} onReuse={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); setExpandedCriterionId(criteria[0]?.id ?? null); }} />}

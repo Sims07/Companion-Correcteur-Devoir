@@ -32,9 +32,11 @@ test('teacher must distribute unassigned points before confirming and can cancel
   const preview = criterion.getByRole('region', { name: 'Proposition de sous-critères' });
   const add = preview.getByRole('button', { name: 'Ajouter 2 sous-critères' });
   await expect(add).toBeDisabled();
+  await expect(preview.locator('.ds-status-notice--warning')).toBeVisible();
   await preview.getByLabel('Points proposés 1').fill('4');
   await preview.getByLabel('Points proposés 2').fill('4');
   await expect(add).toBeEnabled();
+  await expect(preview.locator('.ds-status-notice--success')).toBeVisible();
   await preview.getByRole('button', { name: 'Annuler' }).click();
   await expect(preview).not.toBeVisible();
   await expect(criterion.locator('.subcriteria-editor .criterion-fields')).toHaveCount(0);

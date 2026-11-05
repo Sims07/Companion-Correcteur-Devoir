@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FilePicker } from './FilePicker.tsx';
+import { StatusNotice, type StatusTone } from '../design-system/index.ts';
 import { previewRubricImport, resolveRubricImport, type RubricImportPreview } from '../../domain/rubricImport.ts';
 import type { Rubric, RubricCriterion } from '../../domain/rubric.ts';
 import './RubricImportPanel.css';
@@ -12,6 +13,7 @@ export function RubricImportPanel({ rubric, onImport }: RubricImportPanelProps) 
  const [selectedIds, setSelectedIds] = useState<string[]>([]);
  const [error, setError] = useState('');
  const [message, setMessage] = useState('');
+ const [messageTone, setMessageTone] = useState<StatusTone>('info');
  const [reading, setReading] = useState(false);
  async function readFile(file: File | undefined) {
   if (!file) return;
@@ -23,6 +25,7 @@ export function RubricImportPanel({ rubric, onImport }: RubricImportPanelProps) 
    setSelectedIds(next.items.filter((item) => item.status === 'new').map((item) => item.criterion.id));
    const conflicts = next.items.filter((item) => item.status === 'id-conflict' || item.status === 'title-conflict').length;
    const duplicates = next.items.filter((item) => item.status === 'duplicate').length;
+   setMessageTone(conflicts ? 'warning' : 'info');
    setMessage(`${next.items.filter((item) => item.status === 'new').length} nouveau(x) · ${conflicts} conflit(s) · ${duplicates} doublon(s) exact(s).`);
   } catch (cause) { setError(cause instanceof Error ? cause.message : 'Impossible de lire ce fichier JSON.'); }
   finally { setReading(false); }
@@ -32,6 +35,7 @@ export function RubricImportPanel({ rubric, onImport }: RubricImportPanelProps) 
   try {
    const criteria = resolveRubricImport(preview, selectedIds, (kind) => `${kind}-${crypto.randomUUID()}`);
    onImport(criteria);
+   setMessageTone('success');
    setMessage(`${criteria.length} critère(s) ajouté(s) au barème. Les critères existants ont été conservés.`);
    setPreview(null); setSelectedIds([]);
   } catch (cause) { setError(cause instanceof Error ? cause.message : 'Impossible d’ajouter ces critères.'); }
@@ -39,8 +43,8 @@ export function RubricImportPanel({ rubric, onImport }: RubricImportPanelProps) 
  return <details className="rubric-import-panel"><summary>Importer des critères</summary><div className="rubric-import-content">
   <p>Ajoutez des critères depuis un export Companion Correcteur. Le contenu du barème actuel ne sera jamais remplacé.</p>
   <FilePicker id="rubric-criteria-import-file" accept=".json,application/json" title="Choisir un export de critères JSON" description={reading ? 'Lecture du fichier…' : 'Fichier JSON versionné · traitement local'} actionLabel={reading ? 'Lecture…' : 'Parcourir'} disabled={reading} compact onFilesSelected={(files) => { void readFile(files?.[0]); }} />
-  {error && <p className="rubric-import-feedback is-error" role="alert">{error}</p>}
-  {message && <p className="rubric-import-feedback" role="status">{message}</p>}
+  {error && <StatusNotice tone="error">{error}</StatusNotice>}
+  {message && <StatusNotice tone={messageTone}>{message}</StatusNotice>}
   {preview && <section className="rubric-import-preview" aria-label="Aperçu des critères à importer">
    <div className="rubric-import-preview-heading"><div><strong>Aperçu avant ajout</strong><small>Source : {preview.sourceTitle}</small></div><span>{preview.items.length} critère(s)</span></div>
    <div className="rubric-import-preview-list">{preview.items.map(({ criterion, status }) => <label className={`rubric-import-preview-item is-${status}`} key={criterion.id}>

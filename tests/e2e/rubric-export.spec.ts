@@ -8,4 +8,5 @@ test('teachers can export a selected rubric criterion as a portable versioned JS
  const downloadPromise = page.waitForEvent('download'); await panel.getByRole('button', { name: 'Télécharger le JSON' }).click();
  const download = await downloadPromise; expect(download.suggestedFilename()).toMatch(/criteres\.json$/);
  await expect(panel.getByRole('status')).toContainText('2 critère(s) exporté(s)');
+ await expect(panel.locator('.ds-status-notice--success')).toHaveCSS('border-left-color', 'rgb(39, 98, 58)');
 });
