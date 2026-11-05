@@ -12,7 +12,11 @@ describe('CopyReviewHeader', () => {
       isFinalized={false} canPrevious canNext
       previousLabel="Martin · À reprendre" nextLabel="Dupont · En attente"
     />);
-    expect(html).toContain('Nom lu sur la copie');
+    expect(html).toContain('Copie de l’étudiant');
+    expect(html).toContain('Modifier le nom de l’étudiant');
+    expect(html).toContain('Note proposée');
+    expect(html).toContain('Parcourir les copies');
+    expect(html).not.toContain('id="student-label"');
     expect(html).toContain('Marie Dupont');
     expect(html).toContain('Copie 3 sur 12');
     expect(html).toContain('À vérifier');
@@ -61,6 +65,7 @@ describe('CopyReviewHeader', () => {
     expect(html.match(/disabled=""/g)).toBeNull();
     expect(render(false).match(/disabled=""/g)).toHaveLength(2);
     expect(render(true)).toContain('Corrigée');
+    expect(render(true)).toContain('Note enregistrée');
     expect(render(true)).not.toContain('Correction validée');
   });
 });
