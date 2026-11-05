@@ -61,7 +61,8 @@ describe('Atelier pédagogique correction workspace', () => {
     expect(current).not.toContain('var(--ds-color-danger)');
     expect(css).toContain('.teacher-progress-phase.current > span');
     expect(css).toContain('background: var(--ds-color-progress)');
-    expect(css).toContain('.copy-overview-grid > li.correction-series-card.is-preparing { border-color: var(--ds-color-progress-border); }');
+    expect(css).toContain('.copy-overview-grid > li.correction-series-card.is-preparing');
+    expect(css).toContain('border-left: 3px solid var(--ds-color-progress)');
     expect(css).toContain('.teacher-progress-phase.complete > span');
     expect(css).toContain('color: var(--ds-color-success)');
   });
