@@ -23,6 +23,8 @@ describe('Atelier B rubric composition', () => {
     expect(app).toContain('className="criterion-editor-content"');
     expect(css).toContain('.atelier-rubric-editor .criterion-editor-summary');
     expect(css).toContain('.atelier-rubric-editor .criterion-editor-content');
+    expect(app).toContain('useState<string | null>(null)');
+    expect(css).toContain('.atelier-rubric-editor > .rubric-import-panel { order: 7');
   });
 
   it('keeps diagnostic settings unchanged and the teacher layout responsive', () => {
@@ -32,6 +34,7 @@ describe('Atelier B rubric composition', () => {
     expect(css).toContain('@media (max-width: 760px)');
     expect(css).toContain('focus-visible');
     expect(css).toContain('prefers-reduced-motion');
+    expect(css).toContain('body:has(.atelier-rubric-grid:not(.is-diagnostic)) .memory-fab');
     expect(read('src/main.tsx')).toContain("import './ui/atelierBRubric.css'");
   });
 
