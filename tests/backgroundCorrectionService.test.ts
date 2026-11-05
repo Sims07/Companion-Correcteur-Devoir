@@ -120,7 +120,7 @@ describe('background correction service', () => {
       originalImages: [{ base64: 'Y29waWUy', mimeType: 'image/png', fileName: 'copie2.png' }],
       createdAt: '2026-11-01T10:00:00.000Z',
     });
-    f.repository.fingerprintImages = vi.fn(async (images) => images.map((image) => image.base64).join('|'));
+    f.repository.fingerprintImages = vi.fn(async (images: BackgroundCorrectionJob['images']) => images.map((image) => image.base64).join('|'));
     let subjectReads = 0;
     let studentReads = 0;
     const requests: GradingRequest[] = [];
@@ -156,7 +156,7 @@ describe('background correction service', () => {
       subjectImages: [{ base64: 'c3VqZXQtMQ==', mimeType: 'image/png', fileName: 'sujet.png' }],
     };
     f.jobs.set(first.id, first);
-    f.repository.fingerprintImages = vi.fn(async (images) => images.map((image) => image.base64).join('|'));
+    f.repository.fingerprintImages = vi.fn(async (images: BackgroundCorrectionJob['images']) => images.map((image) => image.base64).join('|'));
     const subjectReads: string[] = [];
     f.setGenerateImplementation(async (request, _chunk, _stage, onTranscription) => {
       if (!request.subjectTranscription) {
