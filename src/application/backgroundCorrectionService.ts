@@ -11,6 +11,37 @@ import { partitionScientificRubric, mergeScientificDiagramCriteria } from '../do
 import { routeScientificPages } from '../domain/scientificPageClassification.ts';
 import type { ScientificDiagramAnalyzer } from '../ports/scientificDiagramAnalysis.ts';
 
+// Abort requests that stop producing any response, without limiting slow but active
+// local inference. A single page or criterion can legitimately take several minutes.
+const MODEL_INACTIVITY_LIMIT_MS = 20 * 60_000;
+
+class ModelUnresponsiveError extends Error {}
+
+async function withModelInactivityTimeout<T>(
+  controller: AbortController,
+  execute: (markActivity: () => void) => Promise<T>,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let rejectTimeout!: (error: Error) => void;
+  const timeout = new Promise<never>((_resolve, reject) => { rejectTimeout = reject; });
+  const markActivity = () => {
+    if (timer) clearTimeout(timer);
+    if (controller.signal.aborted) return;
+    timer = setTimeout(() => {
+      // Reject before aborting so the service distinguishes inactivity from a
+      // deliberate stop and exposes a retry instead of re-queuing silently.
+      rejectTimeout(new ModelUnresponsiveError('Le modèle IA ne répond plus. Vous pouvez relancer la correction.'));
+      controller.abort();
+    }, MODEL_INACTIVITY_LIMIT_MS);
+  };
+  markActivity();
+  try {
+    return await Promise.race([execute(markActivity), timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export interface BackgroundCorrectionService {
   enqueue(job: BackgroundCorrectionJob, settings: OllamaSettings): Promise<void>;
   updateImages(jobId: string, images: BackgroundCorrectionJob['images'], rotationAngles: NonNullable<BackgroundCorrectionJob['rotationAngles']>, settings: OllamaSettings): Promise<void>;
@@ -95,11 +126,24 @@ export function createBackgroundCorrectionService(
     let changed = false;
     const normalized: BackgroundCorrectionJob[] = [];
     for (const job of jobs) {
-      const nextLabel = job.studentIdentity && job.status !== 'processing'
+      // No in-memory worker survives a reload. A persisted processing state
+      // without its owning worker must never leave the teacher blocked.
+      const interrupted = job.status === 'processing' && activeLoopAssignmentId !== job.assignmentId;
+      const nextLabel = job.studentIdentity && (job.status !== 'processing' || interrupted)
         ? resolveIdentifiedCopyLabel(job.label, job.studentIdentity, job.images[0]?.fileName)
         : job.label;
-      if (nextLabel !== job.label) {
-        const updated = { ...job, label: nextLabel, updatedAt: new Date().toISOString() };
+      if (nextLabel !== job.label || interrupted) {
+        const updated: BackgroundCorrectionJob = {
+          ...job,
+          label: nextLabel,
+          ...(interrupted ? {
+            status: 'failed' as const,
+            activeCriterionId: null,
+            error: 'La correction a été interrompue. Vous pouvez la relancer.',
+            ...(job.partialCriteria.length ? { proposal: createProposal(job.rubric, job.partialCriteria) } : {}),
+          } : {}),
+          updatedAt: new Date().toISOString(),
+        };
         await repository.saveJob(updated);
         normalized.push(updated);
         changed = true;
@@ -248,7 +292,12 @@ export function createBackgroundCorrectionService(
             });
             let progressWrites = Promise.resolve();
             let progressWriteError: unknown = null;
+            let markModelActivity = () => undefined;
             const queueProgress = (patch: Partial<BackgroundCorrectionJob>) => {
+              // Inference can settle after an abort/timeout; late callbacks must
+              // not overwrite the persisted failure and revive the spinner.
+              if (requestAbortController.signal.aborted) return;
+              markModelActivity();
               current = { ...current, ...patch, updatedAt: new Date().toISOString() };
               const snapshot = structuredClone(current);
               progressWrites = progressWrites.then(async () => {
@@ -258,7 +307,9 @@ export function createBackgroundCorrectionService(
             let raw: string | null = null;
             let generationError: unknown;
             try {
-              raw = await provider.generate(
+              raw = await withModelInactivityTimeout(requestAbortController, (markActivity) => {
+                markModelActivity = markActivity;
+                return provider.generate(
                 {
                   question: current.question,
                   rubric: JSON.stringify({ ...remaining, criteria: [criterion] }),
@@ -271,7 +322,7 @@ export function createBackgroundCorrectionService(
                   detectTeacherAnnotations: current.detectTeacherAnnotations,
                   ...(current.detectTeacherAnnotations ? { teacherAnnotationImages: textPageNumbers.map((pageNumber) => current.originalImages[pageNumber - 1]), teacherAnnotationPageNumbers: textPageNumbers } : {}),
                 },
-                undefined,
+                () => { markActivity(); },
                 undefined,
                 (text, kind) => {
                   if (kind === 'subject') queueProgress({ subjectTranscription: text });
@@ -300,7 +351,8 @@ export function createBackgroundCorrectionService(
                   if (event.type === 'page' && event.status !== 'started') queueProgress({ completedPages: Math.max(current.completedPages, event.pageIndex) });
                 },
                 requestAbortController.signal,
-              );
+                );
+              });
             } catch (cause) {
               generationError = cause;
             }
@@ -337,10 +389,12 @@ export function createBackgroundCorrectionService(
           });
           if (activeRequestAbortController === requestAbortController) activeRequestAbortController = null;
         } catch (cause) {
-          const cancelled = requestAbortController.signal.aborted;
+          const cancelled = requestAbortController.signal.aborted && !(cause instanceof ModelUnresponsiveError);
           await persist({
             ...current,
-            status: cancelled ? 'pending' : current.partialCriteria.length ? 'needs-review' : 'failed',
+            // An LLM transport/generation failure is not a teacher-review
+            // outcome, even when earlier criteria have completed.
+            status: cancelled ? 'pending' : 'failed',
             activeCriterionId: null,
             ...(current.partialCriteria.length ? { proposal: createProposal(current.rubric, current.partialCriteria) } : {}),
             updatedAt: new Date().toISOString(),
@@ -552,6 +606,7 @@ export function createBackgroundCorrectionService(
         proposal: null,
         status: 'pending',
         phase: 'preparation',
+        activeCriterionId: null,
         error: null,
         updatedAt: new Date().toISOString(),
       });
