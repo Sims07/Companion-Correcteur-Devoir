@@ -19,8 +19,8 @@ export interface BackgroundCorrectionService {
   prewarm(settings: OllamaSettings): Promise<void>;
   pauseAndWait(modelToKeepWarm?: string): Promise<void>;
   stopAndWait(): Promise<void>;
-  resume(): void;
-  processPending(settings: OllamaSettings): Promise<void>;
+  resume(assignmentId: string): void;
+  processPending(settings: OllamaSettings, assignmentId: string): Promise<void>;
   subscribe(listener: (jobs: BackgroundCorrectionJob[]) => void): () => void;
   subscribeSummaries(listener: (jobs: BackgroundJobSummary[]) => void): () => void;
   markForReview(jobId: string): Promise<void>;
@@ -28,7 +28,7 @@ export interface BackgroundCorrectionService {
   markCompleted(jobId: string): Promise<void>;
   remove(jobId: string): Promise<void>;
   retry(jobId: string, settings: OllamaSettings): Promise<void>;
-  setAutomatic(enabled: boolean, settings: OllamaSettings): Promise<void>;
+  setAutomatic(enabled: boolean, settings: OllamaSettings, assignmentId: string): Promise<void>;
 }
 
 function mergeCriteria(previous: BackgroundCorrectionJob['partialCriteria'], next: BackgroundCorrectionJob['partialCriteria']) {
@@ -62,7 +62,8 @@ export function createBackgroundCorrectionService(
   let foregroundPriority = false;
   let autoEnabled = true;
   let activeLoop: Promise<void> | null = null;
-  let lastSettings: OllamaSettings | null = null;
+  let activeLoopAssignmentId: string | null = null;
+  const settingsByAssignment = new Map<string, OllamaSettings>();
   let prewarmUntil = 0;
   let prewarmKey = '';
   let prewarmPromise: Promise<void> | null = null;
@@ -115,19 +116,31 @@ export function createBackgroundCorrectionService(
     return normalized;
   }
 
-  async function run(settings: OllamaSettings): Promise<void> {
-    lastSettings = settings;
-    if (activeLoop) return activeLoop;
+  async function run(settings: OllamaSettings, assignmentId: string): Promise<void> {
+    settingsByAssignment.set(assignmentId, settings);
+    if (activeLoop) {
+      // A correction already started for another assignment must finish (or be
+      // stopped) before the requested assignment can use the model. Never join
+      // that loop and silently leave this assignment's copies pending.
+      if (activeLoopAssignmentId === assignmentId) return activeLoop;
+      await activeLoop;
+      if (!paused && !foregroundPriority) {
+        await run(settingsByAssignment.get(assignmentId) ?? settings, assignmentId);
+      }
+      return;
+    }
+    if (paused || foregroundPriority) return;
+    activeLoopAssignmentId = assignmentId;
     activeLoop = (async () => {
-      while (!paused) {
-        const jobs = await repository.listJobs();
+      while (!paused && !foregroundPriority) {
+        const jobs = await repository.listJobs(assignmentId);
         const job = jobs
           .filter((candidate) => candidate.status === 'pending' || candidate.status === 'processing')
           .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
         if (!job) break;
-        // Use the latest teacher configuration when a queued copy actually starts.
-        // The job's model fields are only a snapshot from import time and may be stale.
-        const jobSettings = lastSettings ?? settings;
+        // Keep model configuration fresh within this assignment only. A queued
+        // copy from a different devoir must not override its settings.
+        const jobSettings = settingsByAssignment.get(assignmentId) ?? settings;
         const fingerprint = job.imageFingerprint ?? await repository.fingerprintImages(job.images);
         const cachedTranscription = job.transcription ?? null;
         let current: BackgroundCorrectionJob = {
@@ -328,7 +341,7 @@ export function createBackgroundCorrectionService(
           if (activeRequestAbortController === requestAbortController) activeRequestAbortController = null;
         }
       }
-    })().finally(() => { activeLoop = null; });
+    })().finally(() => { activeLoop = null; activeLoopAssignmentId = null; });
     return activeLoop;
   }
 
@@ -356,7 +369,7 @@ export function createBackgroundCorrectionService(
       });
       void (async () => {
         try { await this.prewarm(settings); } catch { /* Availability checks never block a teacher from queuing a copy. */ }
-        if (autoEnabled) await run(settings);
+        if (autoEnabled) await run(settings, job.assignmentId);
       })();
     },
     listJobs: (assignmentId) => listWithIdentifiedLabels(assignmentId),
@@ -438,17 +451,18 @@ export function createBackgroundCorrectionService(
       prewarmKey = '';
       prewarmUntil = 0;
     },
-    resume() {
+    resume(assignmentId) {
       foregroundPriority = false;
       paused = false;
-      if (autoEnabled && lastSettings) void run(lastSettings);
+      const settings = settingsByAssignment.get(assignmentId);
+      if (autoEnabled && settings) void run(settings, assignmentId);
     },
-    async processPending(settings) {
-      // Manual launch explicitly resumes a queue after a user-requested stop.
+    async processPending(settings, assignmentId) {
+      // Manual launch explicitly resumes only the selected assignment's queue.
       foregroundPriority = false;
       paused = false;
       try { await this.prewarm(settings); } catch { /* The correction itself will expose a configuration error if needed. */ }
-      await run(settings);
+      await run(settings, assignmentId);
     },
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     subscribeSummaries(listener) { summaryListeners.add(listener); return () => summaryListeners.delete(listener); },
@@ -478,11 +492,11 @@ export function createBackgroundCorrectionService(
         updatedAt: new Date().toISOString(),
       };
       await persist(updated);
-      lastSettings = settings;
+      settingsByAssignment.set(job.assignmentId, settings);
       autoEnabled = settings.autoBackgroundCorrection !== false;
       if (autoEnabled && !foregroundPriority) {
         void this.prewarm(settings).catch(() => undefined);
-        void run(settings);
+        void run(settings, job.assignmentId);
       }
     },
     async markForReview(jobId) {
@@ -534,27 +548,27 @@ export function createBackgroundCorrectionService(
         updatedAt: new Date().toISOString(),
       });
       autoEnabled = true;
-      if (foregroundPriority) { lastSettings = settings; return; }
+      if (foregroundPriority) { settingsByAssignment.set(job.assignmentId, settings); return; }
       paused = false;
-      await run(settings);
+      await run(settings, job.assignmentId);
       // A retry can race with the final iteration of an already-running loop:
       // run() then joins that loop, which may have observed an empty queue just
       // before this job was persisted as pending. Re-check after the joined loop
       // settles so the retry cannot remain pending without a generation request.
       if (!paused && !foregroundPriority) {
-        const remainingJobs = await repository.listJobs();
+        const remainingJobs = await repository.listJobs(job.assignmentId);
         if (remainingJobs.some((item) => item.status === 'pending' || item.status === 'processing')) {
-          await run(settings);
+          await run(settings, job.assignmentId);
         }
       }
     },
-    async setAutomatic(enabled, settings) {
+    async setAutomatic(enabled, settings, assignmentId) {
       autoEnabled = enabled;
       if (enabled) {
         if (foregroundPriority) return;
         try { await this.prewarm(settings); } catch { /* Keep the action available; inference reports actionable errors. */ }
         paused = false;
-        await run(settings);
+        await run(settings, assignmentId);
       } else {
         paused = true;
         if (activeLoop) await activeLoop;

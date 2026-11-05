@@ -98,7 +98,7 @@ describe('background Ollama prewarming', () => {
     const warming = service.prewarm(settings);
     await readyStarted;
     await service.pauseAndWait(settings.visionModel);
-    service.resume();
+    service.resume('assignment-1');
     finishReady();
     await expect(warming).resolves.toBeUndefined();
 
