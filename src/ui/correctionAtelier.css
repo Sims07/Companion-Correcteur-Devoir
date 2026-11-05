@@ -221,7 +221,7 @@
   box-shadow: none;
 }
 .review-main-column .review-card.is-flagged {
-  border-left: 3px solid var(--ds-color-brand-700);
+  border-left: 3px solid var(--ds-color-warning);
 }
 .review-card:focus-visible,
 .review-transcription > summary:focus-visible,
@@ -430,4 +430,53 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .copy-overview-grid > li.correction-series-card { transition: none; }
+}
+
+/* A batch correction is the same workflow as the copy overview: neutral by default.
+   Scope legacy series rules without changing selection or navigation. */
+.teacher-flow-shell .correction-series-list:not(.copy-overview-grid) > li.correction-series-card {
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-surface);
+  box-shadow: none;
+}
+.teacher-flow-shell .correction-series-list:not(.copy-overview-grid) > li.correction-series-card.is-processing {
+  border-left: 3px solid var(--ds-color-progress);
+  background: var(--ds-color-surface);
+}
+.teacher-flow-shell .correction-series-list:not(.copy-overview-grid) > li.correction-series-card.is-needs-review {
+  border-left: 3px solid var(--ds-color-warning);
+  background: var(--ds-color-warning-surface);
+}
+.teacher-flow-shell .correction-series-list:not(.copy-overview-grid) > li.correction-series-card.is-failed {
+  border-left: 3px solid var(--ds-color-danger);
+  background: var(--ds-color-danger-surface);
+}
+.teacher-flow-shell .correction-series-list:not(.copy-overview-grid) .correction-series-card-status.is-processing {
+  color: var(--ds-color-progress);
+}
+.teacher-flow-shell .correction-series-list:not(.copy-overview-grid) .correction-series-card-status.is-needs-review {
+  color: var(--ds-color-warning);
+}
+.teacher-flow-shell .correction-series-list:not(.copy-overview-grid) .correction-series-card-status.is-failed {
+  color: var(--ds-color-danger);
+}
+.teacher-flow-shell .correction-series-list:not(.copy-overview-grid) .correction-series-card-status.is-reviewing {
+  color: var(--ds-color-text-muted);
+}
+.teacher-flow-shell .correction-series-progress-track > span {
+  background: var(--ds-color-progress);
+}
+/* Live criteria being processed are informational. Teacher intervention is amber. */
+.teacher-flow-shell .review-card-pending.is-active {
+  border-color: var(--ds-color-progress-border);
+  box-shadow: 0 0 0 2px var(--ds-color-progress-surface);
+}
+.teacher-flow-shell .review-card-pending.is-active .review-pending-status {
+  color: var(--ds-color-progress);
+}
+.teacher-flow-shell .copy-overview-notice {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text);
 }

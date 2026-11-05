@@ -339,7 +339,7 @@
   border-radius: 3px;
 }
 .teacher-flow-shell .review-main-column .review-card.is-flagged {
-  border-left: 3px solid var(--ds-color-brand-700);
+  border-left: 3px solid var(--ds-color-warning);
 }
 .teacher-flow-shell .review-card-heading h3 {
   font-family: var(--ds-font-editorial);

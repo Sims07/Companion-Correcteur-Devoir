@@ -96,3 +96,45 @@ test('atelier B semantic progress is consistent across copy cards and rubric imp
   await expect(fixture.locator('.rubric-import-step.is-active .rubric-import-step-number')).toHaveCSS('background-color', progress);
   await expect(fixture.locator('.rubric-import-step.is-complete .rubric-import-step-number')).toHaveCSS('color', success);
 });
+
+test('batch processing and flagged review criteria use the same semantic statuses', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const fixture = document.createElement('section');
+    fixture.className = 'teacher-flow-shell atelier-batch-status-fixture';
+    fixture.innerHTML = `
+      <ol class="correction-series-list">
+        <li class="correction-series-card is-pending"><span class="correction-series-card-status is-pending">En attente</span></li>
+        <li class="correction-series-card is-processing"><span class="correction-series-card-status is-processing">Lecture en cours</span></li>
+        <li class="correction-series-card is-needs-review"><span class="correction-series-card-status is-needs-review">À vérifier</span></li>
+        <li class="correction-series-card is-failed"><span class="correction-series-card-status is-failed">Échec</span></li>
+      </ol>
+      <div class="correction-series-progress-track"><span style="width:25%"></span></div>
+      <div class="review-main-column"><article class="review-card is-flagged">Intervention nécessaire</article></div>
+      <article class="review-card-pending is-active"><span class="review-pending-status">Lecture en cours</span></article>
+      <div class="copy-overview-notice">Information neutre</div>`;
+    document.body.append(fixture);
+  });
+  const token = (name: string) => page.evaluate((variable) => {
+    const probe = document.createElement('div');
+    probe.style.color = `var(${variable})`;
+    document.body.append(probe);
+    const result = getComputedStyle(probe).color;
+    probe.remove();
+    return result;
+  }, name);
+  const [progress, warning, danger, neutral] = await Promise.all([
+    token('--ds-color-progress'), token('--ds-color-warning'),
+    token('--ds-color-danger'), token('--ds-color-border'),
+  ]);
+  const fixture = page.locator('.atelier-batch-status-fixture');
+  await expect(fixture.locator('.correction-series-card.is-pending')).toHaveCSS('border-top-color', neutral);
+  await expect(fixture.locator('.correction-series-card.is-processing')).toHaveCSS('border-left-color', progress);
+  await expect(fixture.locator('.correction-series-card.is-needs-review')).toHaveCSS('border-left-color', warning);
+  await expect(fixture.locator('.correction-series-card.is-failed')).toHaveCSS('border-left-color', danger);
+  await expect(fixture.locator('.correction-series-card-status.is-processing')).toHaveCSS('color', progress);
+  await expect(fixture.locator('.correction-series-progress-track > span')).toHaveCSS('background-color', progress);
+  await expect(fixture.locator('.review-card.is-flagged')).toHaveCSS('border-left-color', warning);
+  await expect(fixture.locator('.review-card-pending.is-active .review-pending-status')).toHaveCSS('color', progress);
+  await expect(fixture.locator('.copy-overview-notice')).toHaveCSS('border-top-color', neutral);
+});
