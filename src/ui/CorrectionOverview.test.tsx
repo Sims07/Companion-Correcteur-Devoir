@@ -66,6 +66,14 @@ describe('teacher correction overview and partial grade safety', () => {
     expect(display({ ...job, status: 'completed' })).not.toContain('Retirer la copie');
   });
 
+  it('marks an explicitly interrupted copy and offers resuming rather than an invalid grade', () => {
+    const html = display({ ...job, status: 'pending', error: 'Correction interrompue par l’enseignant. Vous pouvez la reprendre.' });
+    expect(html).toContain('En attente · interrompue');
+    expect(html).toContain('Reprendre les corrections');
+    expect(html).toContain('Interrompue à votre demande');
+    expect(html).toContain('Note à venir');
+  });
+
   it('offers an explicit retry and no invented grade when the LLM fails after a partial result', () => {
     const html = display({
       ...job,
