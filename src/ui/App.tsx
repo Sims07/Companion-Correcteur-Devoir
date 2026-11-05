@@ -2286,8 +2286,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       />}
       {interfaceMode === 'diagnostic' && <section className="privacy-strip">
         <span className="privacy-icon">⌂</span>
-        <div><strong>Traitement local, sans repli cloud</strong><p>Les fichiers sont lus et préparés dans votre navigateur, puis envoyés uniquement à l’adresse Ollama que vous configurez. Aucun stockage distant ni envoi vers un fournisseur cloud n’est prévu.</p></div>
-        <span className="privacy-status">OLLAMA LOCAL</span>
+        <div><strong>Fournisseur IA configuré</strong><p>Les fichiers sont préparés dans le navigateur puis transmis uniquement au serveur sélectionné. {apiCompatible ? 'Une API compatible OpenAI peut être distante : vérifiez le serveur choisi avant de lancer un essai.' : 'Avec Ollama local, les copies restent sur votre infrastructure.'}</p></div>
+        <span className="privacy-status">{apiCompatible ? 'API CONFIGURÉE' : 'OLLAMA LOCAL'}</span>
       </section>}
 
       {interfaceMode === 'teacher' && showAiSettings && <section id="teacher-ai-settings-panel" className={`panel ollama-panel teacher-model-panel ai-settings-view ${visionModel.trim() && analysisModel.trim() ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
@@ -2355,7 +2355,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </section>}
       {interfaceMode === 'observability' && <ObservabilityDashboard records={observabilityRecords} />}
       {interfaceMode === 'diagnostic' && <section className="evaluation-page-header" aria-labelledby="evaluation-page-title">
-        <div><p className="eyebrow">ESPACE EXPÉRIMENTAL · OLLAMA LOCAL</p><h1 id="evaluation-page-title">Évaluation des modèles</h1><p>Comparez plusieurs configurations sur la même copie et le même barème. Les essais, les images et les résultats restent sur cet appareil et votre serveur Ollama.</p><div className="evaluation-page-badges"><span>Traitement local</span><span>2 à 3 configurations</span><span>Validation humaine</span></div></div>
+        <div><p className="eyebrow">LABORATOIRE IA · OUTILS AVANCÉS</p><h1 id="evaluation-page-title">Évaluation des modèles</h1><p>Testez de une à trois configurations sur la même copie et le même barème. Les résultats sont enregistrés localement ; les requêtes sont envoyées au serveur de chaque profil choisi.</p><div className="evaluation-page-badges"><span>Résultats locaux</span><span>1 à 3 configurations</span><span>Validation humaine</span></div></div>
       </section>}
       {interfaceMode === 'diagnostic' && <nav className="evaluation-step-nav" aria-label="Espaces de l’évaluation">
         <p className="evaluation-sidebar-label">LABORATOIRE IA</p>
