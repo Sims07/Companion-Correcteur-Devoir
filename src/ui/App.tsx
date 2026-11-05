@@ -54,6 +54,7 @@ import { RubricExportPanel } from './components/RubricExportPanel.tsx';
 import { RubricImportPanel } from './components/RubricImportPanel.tsx';
 import { CorrectionOverview } from './CorrectionOverview.tsx';
 import { TeacherCopyIntake } from './components/TeacherCopyIntake.tsx';
+import { BackgroundCopyActivity } from './components/BackgroundCopyActivity.tsx';
 import { TeacherWorkspaceNavigation } from './components/TeacherWorkspaceNavigation.tsx';
 import { Button, Checkbox, Dialog } from './design-system/index.ts';
 
@@ -3283,13 +3284,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           </div>
         </div>
       </section>}
-      {currentBackgroundJobId && activeBackgroundJob?.status === 'processing' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="live-copy-preview panel" aria-labelledby="background-copy-progress-title">
-        <div className="live-preview-heading"><div><p className="eyebrow">SUIVI INDIVIDUEL</p><h3 id="background-copy-progress-title">La copie en cours de correction</h3><p>Vous pouvez consulter les pages et la transcription pendant que l’analyse se poursuit.</p></div><span className="live-preview-state">Traitement en cours</span></div>
+      {currentBackgroundJobId && activeBackgroundJob?.status === 'processing' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="live-copy-preview panel background-copy-progress" aria-labelledby="background-copy-progress-title">
+        <div className="live-preview-heading"><div><p className="eyebrow">SUIVI INDIVIDUEL</p><h3 id="background-copy-progress-title">La copie en cours de correction</h3><p>Les pages restent accessibles pendant que le barème se complète.</p></div><span className="live-preview-state">Traitement en cours</span></div>
         <div className="live-copy-layout">
           <div className="live-copy-pages" aria-label="Pages de la copie en cours">
-            {images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-background-progress-' + index}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page ${index + 1} de la copie en cours de correction`} /><figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption></figure>)}
+            {activeBackgroundJob.images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-background-progress-' + index}><img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page ${index + 1} de la copie en cours de correction`} /><figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption></figure>)}
           </div>
-          <div className="live-transcription-panel"><strong>Transcription</strong>{transcription ? <pre className="live-transcription-text">{transcription}</pre> : <p className="live-transcription-placeholder">La transcription apparaîtra au fur et à mesure de la lecture.</p>}</div>
+          <BackgroundCopyActivity job={activeBackgroundJob} />
         </div>
       </section>}
 
@@ -3344,8 +3345,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               }) : <p className="review-source-empty">Aucune image originale disponible. Vérifiez les preuves avec prudence.</p>}
             </div>
             <details className="review-transcription">
-              <summary><span><strong>Transcription de la copie</strong><small>{transcription ? 'Transcription locale à comparer à l’original' : 'Aucune transcription disponible'}</small></span></summary>
-              {transcription ? <pre className="live-transcription-text">{transcription}</pre> : <p role="status">La note doit être vérifiée directement sur les images.</p>}
+              <summary><span><strong>Transcription de la copie</strong><small>{(activeBackgroundJob?.transcription ?? transcription) ? 'Texte disponible (consultation facultative)' : 'Aucun texte disponible'}</small></span></summary>
+              {(activeBackgroundJob?.transcription ?? transcription) ? <pre className="live-transcription-text">{activeBackgroundJob?.transcription ?? transcription}</pre> : <p role="status">La correction s’appuie sur les images de la copie.</p>
             </details>
           </aside>
           <div className="review-main-column" onKeyDown={(event) => {
