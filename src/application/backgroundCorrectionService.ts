@@ -150,6 +150,7 @@ export function createBackgroundCorrectionService(
           thinking: jobSettings.thinking ?? job.thinking,
           imageFingerprint: fingerprint,
           transcription: cachedTranscription,
+          activeCriterionId: null,
           status: 'processing',
           phase: cachedTranscription ? 'grading' : 'preparation',
           updatedAt: new Date().toISOString(),
@@ -233,6 +234,10 @@ export function createBackgroundCorrectionService(
             const remaining = remainingRubric(current.rubric, current.partialCriteria);
             if (!remaining.criteria.length) break;
             const criterion = remaining.criteria[0];
+            // Persist the real work item before inference: slow first responses
+            // should not leave the teacher staring at a static 0/N counter.
+            current = { ...current, activeCriterionId: criterion.id, updatedAt: new Date().toISOString() };
+            await persist(current);
             const provider = workspace.createProvider({
               ...jobSettings,
               visionModel: current.visionModel,
@@ -308,13 +313,14 @@ export function createBackgroundCorrectionService(
               ...current,
               partialCriteria: mergeCriteria(current.partialCriteria, parsed.criteria),
               completedCriteria: mergeCriteria(current.partialCriteria, parsed.criteria).length,
+              activeCriterionId: null,
               phase: 'grading',
               updatedAt: new Date().toISOString(),
             };
             await persist(current);
           }
           if (paused) {
-            await persist({ ...current, status: 'pending', updatedAt: new Date().toISOString() });
+            await persist({ ...current, status: 'pending', activeCriterionId: null, updatedAt: new Date().toISOString() });
             break;
           }
           const proposal = createProposal(current.rubric, current.partialCriteria);
@@ -323,6 +329,7 @@ export function createBackgroundCorrectionService(
           await persist({
             ...current,
             status: complete ? 'ready' : 'needs-review',
+            activeCriterionId: null,
             phase: 'complete',
             proposal,
             updatedAt: new Date().toISOString(),
@@ -334,6 +341,7 @@ export function createBackgroundCorrectionService(
           await persist({
             ...current,
             status: cancelled ? 'pending' : current.partialCriteria.length ? 'needs-review' : 'failed',
+            activeCriterionId: null,
             ...(current.partialCriteria.length ? { proposal: createProposal(current.rubric, current.partialCriteria) } : {}),
             updatedAt: new Date().toISOString(),
             error: cancelled ? null : cause instanceof Error ? cause.message : 'La correction en arrière-plan a échoué.',
