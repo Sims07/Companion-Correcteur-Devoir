@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCriterionDecisionPrompt, criterionDecisionSchema } from '../../src/adapters/ai/decisionPrompts.ts';
+import { buildCriterionDecisionPrompt, criterionDecisionSchema } from '../src/adapters/ai/decisionPrompts.ts';
 
 const criterion = { id: 'a', title: 'Respiration', description: 'Production ATP', maxPoints: 2,
   subcriteria: [{ id: 'a1', title: 'Mitochondrie', description: 'Site de respiration', maxPoints: 2 }] };
