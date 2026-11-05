@@ -49,7 +49,7 @@ async function expectSharedSurfaceTokens(page: Page, selector: string, expectedR
     return {
       backgroundColor: computed.backgroundColor,
       borderRadius: computed.borderRadius,
-      borderColor: computed.borderColor,
+      borderColor: computed.borderRightColor,
     };
   });
 
