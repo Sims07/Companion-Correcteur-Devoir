@@ -37,7 +37,7 @@ describe('background Ollama prewarming', () => {
     const { service, checkReady, prewarmModel } = createService();
 
     await service.prewarm(settings);
-    expect(checkReady).toHaveBeenCalledTimes(2);
+    expect(checkReady).toHaveBeenCalledTimes(1);
     expect(prewarmModel).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(4 * 60_000 + 59_000);
@@ -47,6 +47,15 @@ describe('background Ollama prewarming', () => {
     await vi.advanceTimersByTimeAsync(1_000);
     await service.prewarm(settings);
     expect(prewarmModel).toHaveBeenCalledTimes(2);
+  });
+
+  it('checks both installed models only when their identifiers differ', async () => {
+    const { service, checkReady, prewarmModel } = createService();
+    await service.prewarm({ ...settings, analysisModel: 'qwen3.5:2b' });
+    expect(checkReady).toHaveBeenCalledTimes(2);
+    expect(checkReady).toHaveBeenNthCalledWith(1, expect.objectContaining({ model: 'qwen3.5:4b' }));
+    expect(checkReady).toHaveBeenNthCalledWith(2, expect.objectContaining({ model: 'qwen3.5:2b' }));
+    expect(prewarmModel).toHaveBeenCalledTimes(1);
   });
 
   it('lets a same-model prewarm continue without blocking foreground correction', async () => {
