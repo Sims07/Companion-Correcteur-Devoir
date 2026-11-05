@@ -208,6 +208,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       const compatibleFetch = local ? fetchImpl : createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey, onRequest: (payload) => { requestPayload = payload; } }, fetchImpl);
       const classifications = [];
       for (const [index, image] of request.images.entries()) {
+        if (request.signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
         const prompt = classificationPrompt(index + 1), schema = buildScientificPageClassificationSchema(), startedAt = Date.now();
         let lastRequestStartedAt = startedAt;
         let raw = '';
@@ -230,7 +231,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
             const response = await compatibleFetch(
               `${request.endpoint.replace(/\/+$/, '')}/api/chat`,
               annotateNetworkRequest(
-                { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+                { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: request.signal },
                 `Classer la page ${pageNumber} pour la détection des schémas`,
                 context,
               ),
@@ -267,6 +268,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       return classifications;
     },
     async analyze(request) {
+      if (request.signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
       let requestPayload = '';
       const local = request.apiCompatible !== true;
       const compatibleFetch = local ? fetchImpl : createOpenAiCompatibleFetch(
@@ -307,7 +309,7 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
           return compatibleFetch(
           request.endpoint.replace(/\/+$/, '') + '/api/chat',
           annotateNetworkRequest(
-            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
+            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: request.signal },
             'Analyser les schémas scientifiques',
             `Modèle ${request.model} · page ${request.pageNumbers?.[0] ?? 1}/${request.totalPageCount ?? 1}`,
           ),
