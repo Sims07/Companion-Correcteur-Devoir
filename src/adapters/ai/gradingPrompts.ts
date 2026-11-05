@@ -37,8 +37,8 @@ export function buildIncrementalCriterionPrompt(
     ['FORMAT DE SORTIE',
       'Réponds UNIQUEMENT en JSON conforme au schéma : criterionId, points (nombre, jamais une chaîne ; un malus explicite peut être négatif), rationale, evidence, confidence, annotationSuggestion, pageNumber, questionForTeacher, subcriteria (si définis).',
       'Exemple neutre : ' + JSON.stringify({ criterionId: 'criterion-id', points: 0, rationale: 'Justification courte.', evidence: 'Extrait exact.', confidence: 'medium', annotationSuggestion: '', pageNumber: null, questionForTeacher: '' }),
-    ].join('\\n'),
-  ].join('\\n\\n');
+    ].join('\n'),
+  ].join('\n\n');
 }
 
 function extractTaggedSection(context: string, tag: string, label: string): string | undefined {
