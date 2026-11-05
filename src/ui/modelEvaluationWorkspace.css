@@ -350,3 +350,107 @@
 @media (prefers-reduced-motion: reduce) {
   .evaluation-workspace-shell .evaluation-step-nav button { transition: none; }
 }
+
+/* Dernière passe palette B : supprimer les verts hérités des anciens panneaux. */
+.evaluation-workspace-shell .evaluation-run-actions:not(.evaluation-config-launch) {
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface-subtle);
+}
+.evaluation-workspace-shell .evaluation-run-actions > div strong,
+.evaluation-workspace-shell .evaluation-progress-heading h3 {
+  color: var(--ds-color-text);
+}
+.evaluation-workspace-shell .evaluation-run-actions > div p,
+.evaluation-workspace-shell .evaluation-progress-heading p:not(.eyebrow),
+.evaluation-workspace-shell .evaluation-configuration-step > div > span,
+.evaluation-workspace-shell .evaluation-configuration-step small {
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .evaluation-progress {
+  border-color: var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+  box-shadow: none;
+}
+.evaluation-workspace-shell .evaluation-progress-heading .eyebrow { color: var(--ds-color-brand-700); }
+.evaluation-workspace-shell .evaluation-progress-counter,
+.evaluation-workspace-shell .evaluation-progress-track {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .evaluation-configuration-step {
+  border-color: var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+}
+.evaluation-workspace-shell .evaluation-configuration-step.is-active {
+  border-color: var(--ds-color-brand-700);
+  background: var(--ds-color-brand-100);
+  box-shadow: inset 0 0 0 1px var(--ds-color-brand-700);
+}
+.evaluation-workspace-shell .evaluation-configuration-step.is-complete {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface);
+}
+.evaluation-workspace-shell .evaluation-configuration-step.has-failed {
+  border-color: var(--ds-color-danger);
+  background: var(--ds-color-danger-surface);
+}
+.evaluation-workspace-shell .evaluation-configuration-step-index {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .evaluation-configuration-step.is-active .evaluation-configuration-step-index {
+  border-color: var(--ds-color-brand-700);
+  background: var(--ds-color-brand-700);
+  color: var(--ds-color-surface);
+}
+.evaluation-workspace-shell .evaluation-configuration-step.is-complete .evaluation-configuration-step-index {
+  border-color: var(--ds-color-success);
+  background: var(--ds-color-success-surface);
+  color: var(--ds-color-success);
+}
+.evaluation-workspace-shell .evaluation-configuration-step.has-failed .evaluation-configuration-step-index {
+  border-color: var(--ds-color-danger);
+  background: var(--ds-color-danger);
+  color: var(--ds-color-surface);
+}
+.evaluation-workspace-shell .evaluation-current-results .evaluation-result-stage-metrics,
+.evaluation-workspace-shell .evaluation-history-model-metric,
+.evaluation-workspace-shell .evaluation-history-record {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text);
+  box-shadow: none;
+}
+.evaluation-workspace-shell .evaluation-current-results .evaluation-result-score { color: var(--ds-color-text); }
+.evaluation-workspace-shell .evaluation-archive-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ds-space-4);
+  padding: var(--ds-space-4);
+  margin-bottom: var(--ds-space-4);
+  border: 1px solid var(--ds-color-border);
+  border-left: 3px solid var(--ds-color-brand-700);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text);
+}
+.evaluation-workspace-shell .evaluation-archive-feedback > div { flex: 1 1 260px; min-width: 0; }
+.evaluation-workspace-shell .evaluation-archive-feedback strong { font-size: .88rem; }
+.evaluation-workspace-shell .evaluation-archive-feedback p {
+  margin: var(--ds-space-1) 0 0;
+  color: var(--ds-color-text-muted);
+  font-size: .8rem;
+  line-height: 1.5;
+}
+.evaluation-workspace-shell .evaluation-archive-feedback.is-without-images { border-left-color: var(--ds-color-warning); }
+.evaluation-workspace-shell .evaluation-archive-feedback.is-failed { border-left-color: var(--ds-color-danger); }
+@media (max-width: 760px) {
+  .evaluation-workspace-shell .evaluation-archive-feedback { align-items: stretch; }
+}

@@ -19,7 +19,7 @@ describe('model evaluation application service', () => {
       listDiagnosticHistory: vi.fn(async (): Promise<Array<{ id: string }>> => []),
     };
     const service = createModelEvaluationService(repository);
-    await service.save(record);
+    await expect(service.save(record)).resolves.toEqual({ record, imagesOmitted: false });
     expect(await service.list()).toEqual([record]);
     await service.delete(record.id);
     expect(repository.save).toHaveBeenCalledWith(record);
@@ -42,4 +42,57 @@ describe('model evaluation application service', () => {
     expect(repository.saveDiagnosticHistory).toHaveBeenCalledWith(diagnostic);
     expect(repository.listDiagnosticHistory).toHaveBeenCalledOnce();
   });
+
+  it('retries on a local quota error without archiving photos, but preserves scores and measurements', async () => {
+    const largeRecord: ModelEvaluationRecord = {
+      ...record,
+      images: [{ base64: 'photo', mimeType: 'image/jpeg' }],
+      subjectImages: [{ base64: 'subject', mimeType: 'image/png' }],
+      results: [{
+        profileId: 'profile', profileName: 'Vision', elapsedMs: 1000, readingMs: 600, analysisMs: 400,
+        tokens: 120, status: 'success', transcription: 'Biologie', raw: '{"score":2}',
+        score: 2, proposal: null,
+      }],
+    };
+    const save = vi.fn().mockRejectedValueOnce(new DOMException('Browser storage full', 'QuotaExceededError')).mockResolvedValueOnce(undefined);
+    const service = createModelEvaluationService({
+      save, list: async () => [], delete: async () => {},
+      saveDiagnosticHistory: async () => {}, listDiagnosticHistory: async () => [],
+    });
+    const outcome = await service.save(largeRecord);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenNthCalledWith(1, largeRecord);
+    expect(outcome).toEqual({
+      record: { ...largeRecord, images: [], subjectImages: [], originalImagesArchived: false },
+      imagesOmitted: true,
+    });
+    expect(outcome.record.results).toEqual(largeRecord.results);
+  });
+
+  it('does not silently discard images for non-quota errors or when there are no images to remove', async () => {
+    const save = vi.fn().mockRejectedValueOnce(new Error('IndexedDB blocked'));
+    const service = createModelEvaluationService({
+      save, list: async () => [], delete: async () => {},
+      saveDiagnosticHistory: async () => {}, listDiagnosticHistory: async () => [],
+    });
+    await expect(service.save({ ...record, images: [{ base64: 'copy', mimeType: 'image/jpeg' }] })).rejects.toThrow('IndexedDB blocked');
+    expect(save).toHaveBeenCalledTimes(1);
+
+    save.mockRejectedValueOnce(new DOMException('Full', 'QuotaExceededError'));
+    await expect(service.save(record)).rejects.toMatchObject({ name: 'QuotaExceededError' });
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it('propagates the error if both the full archive and quota fallback are rejected', async () => {
+    const save = vi.fn().mockRejectedValueOnce(new DOMException('Full', 'QuotaExceededError'))
+      .mockRejectedValueOnce(new DOMException('Still full', 'QuotaExceededError'));
+    const service = createModelEvaluationService({
+      save, list: async () => [], delete: async () => {},
+      saveDiagnosticHistory: async () => {}, listDiagnosticHistory: async () => [],
+    });
+    await expect(service.save({ ...record, images: [{ base64: 'copy', mimeType: 'image/jpeg' }] }))
+      .rejects.toMatchObject({ name: 'QuotaExceededError' });
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
 });
