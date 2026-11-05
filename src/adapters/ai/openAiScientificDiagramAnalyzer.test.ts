@@ -50,6 +50,19 @@ describe('OpenAI scientific diagram adapter', () => {
   });
 
 
+  it('propagates cancellation to both classification and scientific-diagram requests', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('Unavailable', { status: 503 }));
+    const analyzer = createOpenAiScientificDiagramAnalyzer(fetchMock);
+    await expect(analyzer.classifyPages({ ...request, signal: controller.signal })).rejects.toThrow('HTTP 503');
+    expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
+    await expect(analyzer.analyze({ ...request, signal: controller.signal })).rejects.toThrow('HTTP 503');
+    expect(fetchMock.mock.calls[1][1]?.signal).toBe(controller.signal);
+    controller.abort();
+    await expect(analyzer.classifyPages({ ...request, signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('uses native Ollama chat with constrained JSON schema and a 1024-token budget', async () => {
     const nativeResponse = { message: { content: '{"pageNumber":1,"kind":"text","confidence":0.9,"reason":"texte manuscrit","suggestedRotation":0,"orientationConfidence":0.9}' }, done_reason: 'stop' };
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(nativeResponse), { status: 200 }));
