@@ -29,6 +29,7 @@ import './ui/correctionAtelier.css';
 import './ui/atelierBLayout.css';
 import './ui/atelierBRubric.css';
 import './ui/aiToolsAtelier.css';
+import './ui/modelEvaluationWorkspace.css';
 
 const localCorrectionRepository = new IndexedDbLocalCorrectionRepository();
 const localCorrectionService = createLocalCorrectionService(localCorrectionRepository);
