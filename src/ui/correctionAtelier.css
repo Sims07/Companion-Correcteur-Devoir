@@ -39,7 +39,25 @@
   border-color: var(--ds-color-border);
   background: var(--ds-color-surface);
 }
-.copy-overview-search:focus-within { box-shadow: var(--ds-focus-ring); }
+/* Le conteneur est l'unique champ visuel : neutraliser le contrôle natif DS.
+ * La feuille des contrôles globaux est chargée après correctionFlow.css. */
+.copy-overview-search input[type="search"] {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.copy-overview-search input[type="search"]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.copy-overview-search:focus-within {
+  border-color: var(--ds-color-brand-600);
+  box-shadow: var(--ds-focus-ring);
+}
 .teacher-copy-live {
   display: flex;
   align-items: center;
