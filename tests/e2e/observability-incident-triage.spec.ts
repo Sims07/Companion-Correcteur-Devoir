@@ -48,7 +48,7 @@ test('failed AI execution leads to its trace and separately to filtered network 
   await incidents.getByRole('button', { name: 'Examiner la trace' }).click();
   const trace = page.locator('#observability-trace-failed-grade-e2e');
   await expect(trace).toHaveAttribute('open', '');
-  await expect(trace.getByText('Réponse du modèle non exploitable')).toHaveCount(0);
+  await expect(trace.getByText('Réponse du modèle non exploitable')).toBeHidden();
   await trace.locator('.observability-call-details summary').click();
   await expect(trace.getByText('Réponse du modèle non exploitable')).toBeVisible();
 
