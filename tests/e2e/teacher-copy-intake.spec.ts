@@ -32,7 +32,8 @@ test('the only overview intake handles one multipage copy without splitting its 
   const card = page.locator('.copy-overview-grid .correction-series-card');
   await expect(card).toHaveCount(1);
   await expect(card).toContainText('Étudiant exemple');
-  await expect(card).toContainText('2 page(s)');
+  await expect(card).toContainText('2 pages');
+  await expect(card).not.toContainText('2 page(s)');
   await expect(page.getByRole('button', { name: /En attente/ })).toContainText('1');
   await panel.getByRole('button', { name: 'Fermer' }).click();
   await expect(panel).toHaveCount(0);
