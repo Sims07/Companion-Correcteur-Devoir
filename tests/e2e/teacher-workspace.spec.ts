@@ -241,3 +241,25 @@ test('series session keeps copy cards uniform and opens the correction separatel
   await expect(cards).toHaveCount(1);
   await expect(series.getByRole('button', { name: 'Démarrer les corrections (2)' })).toHaveCount(0);
 });
+
+test('Atelier B sidebar replaces horizontal tabs without breaking teacher navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await openActiveAssignment(page);
+  const rail = page.getByRole('complementary', { name: 'Navigation du devoir' });
+  await expect(rail).toBeVisible();
+  await expect(rail.getByRole('tab', { name: 'Copies' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.teacher-workspace-tabs')).toHaveCount(0);
+  await expect(rail).toHaveCSS('background-color', 'rgb(247, 240, 230)');
+  await rail.getByRole('tab', { name: 'Barème' }).click();
+  await expect(rail.getByRole('tab', { name: 'Barème' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { name: 'Devoir et barème' })).toBeVisible();
+  await rail.getByRole('tab', { name: 'Copies' }).click();
+  await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(rail).toBeVisible();
+  await expect(rail.getByRole('tab', { name: 'Copies' })).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
