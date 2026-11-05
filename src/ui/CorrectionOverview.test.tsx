@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { CorrectionOverview } from './CorrectionOverview.tsx';
 import { createBackgroundCorrection, toBackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import type { BackgroundCorrectionJob } from '../domain/backgroundCorrection.ts';
+import type { LocalCorrection } from '../domain/localCorrection.ts';
 
 const job = createBackgroundCorrection({
   id: 'copy-1', assignmentId: 'assignment-1', label: 'Copie de biologie',
@@ -33,7 +34,63 @@ const display = (current: BackgroundCorrectionJob, isStartingCorrections = false
   />,
 );
 
+
+const archivedCorrection: LocalCorrection = {
+  id: 'archived-1',
+  label: 'Chloé Bessou',
+  rubricTitle: 'Mitose',
+  rubricFingerprint: 'fixture',
+  createdAt: '2026-11-05T09:00:00.000Z',
+  updatedAt: '2026-11-05T10:00:00.000Z',
+  snapshot: {
+    assignmentTitle: 'Mitose',
+    question: job.question,
+    rubric: job.rubric,
+    proposal: {
+      summary: 'Correction complète',
+      criteria: [criterion('text', 2), criterion('visual', 1.5)],
+      questionsForTeacher: [],
+      finalScore: 3.5,
+    },
+    review: [
+      { ...criterion('text', 2), teacherPoints: 2, teacherComment: '', decision: 'accepted' },
+      { ...criterion('visual', 1.5), teacherPoints: 1.5, teacherComment: '', decision: 'accepted' },
+    ],
+    teacherQuestions: '',
+    images: job.images,
+    transcription: null,
+    subjectImages: [],
+    subjectTranscription: null,
+    correctionMode: 'integrated',
+    maximumPoints: 4,
+  },
+};
+
+const displayArchived = () => renderToStaticMarkup(
+  <CorrectionOverview
+    jobs={[]} corrections={[archivedCorrection]} currentCopy={null}
+    filter="completed" onFilterChange={vi.fn()} onAddCopy={vi.fn()} addCopyExpanded={false} pendingCount={0}
+    isStartingCorrections={false} onStartCorrections={vi.fn()}
+    onOpenJob={vi.fn()} onRetryJob={vi.fn()} onRemoveJob={vi.fn()} notice=""
+    onOpenCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}
+  />,
+);
+
 describe('teacher correction overview and partial grade safety', () => {
+  it('separates the completed status and the save date while keeping the final grade and consultation action clear', () => {
+    const html = displayArchived();
+    expect(html).toContain('Chloé Bessou');
+    expect(html).toContain('1 page</small>');
+    expect(html).toContain('Note finale');
+    expect(html).toContain('3,5');
+    expect(html).toContain('class="correction-series-card-meta"');
+    expect(html).toContain('class="correction-series-card-status is-completed">Corrigée</span><time');
+    expect(html).toContain('class="correction-series-card-date"');
+    expect(html).toContain('Enregistrée le 05/11/2026');
+    expect(html).toContain('Consulter la correction <span aria-hidden="true">→</span>');
+    expect(html).not.toContain('CorrigéeEnregistrée');
+  });
+
   it('names the first queued copy while the model is starting and exposes its preview', () => {
     const html = display(job, true);
     expect(html).toContain('Préparation : Copie de biologie');
