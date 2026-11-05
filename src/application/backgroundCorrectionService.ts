@@ -194,6 +194,9 @@ export function createBackgroundCorrectionService(
 
   async function run(settings: OllamaSettings, assignmentId: string): Promise<void> {
     settingsByAssignment.set(assignmentId, settings);
+    // If an idle prewarm already started, use its result without competing
+    // for local CPU/RAM. Never start a new placeholder call here.
+    if (prewarmPromise) await prewarmPromise.catch(() => undefined);
     if (activeLoop) {
       // A correction already started for another assignment must finish (or be
       // stopped) before the requested assignment can use the model. Never join
@@ -478,8 +481,13 @@ export function createBackgroundCorrectionService(
         updatedAt: new Date().toISOString(),
       });
       void (async () => {
-        try { await this.prewarm(settings); } catch { /* Availability checks never block a teacher from queuing a copy. */ }
-        if (autoEnabled) await run(settings, job.assignmentId);
+        if (autoEnabled) {
+          // The first useful OCR request itself loads the model.
+          await run(settings, job.assignmentId);
+        } else {
+          // Manual mode can prewarm while the teacher prepares the batch.
+          try { await this.prewarm(settings); } catch { /* The correction reports provider errors later. */ }
+        }
       })();
     },
     listJobs: (assignmentId) => listWithIdentifiedLabels(assignmentId),
@@ -574,7 +582,7 @@ export function createBackgroundCorrectionService(
       // Manual launch explicitly resumes only the selected assignment's queue.
       foregroundPriority = false;
       paused = false;
-      try { await this.prewarm(settings); } catch { /* The correction itself will expose a configuration error if needed. */ }
+      // No discarded "OK" generation on the critical correction path.
       await run(settings, assignmentId);
     },
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
@@ -680,7 +688,6 @@ export function createBackgroundCorrectionService(
       autoEnabled = enabled;
       if (enabled) {
         if (foregroundPriority) return;
-        try { await this.prewarm(settings); } catch { /* Keep the action available; inference reports actionable errors. */ }
         paused = false;
         await run(settings, assignmentId);
       } else {
