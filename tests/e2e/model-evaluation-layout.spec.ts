@@ -9,7 +9,8 @@ test('active evaluation navigation is informational rather than a red error or b
   for (const label of [/Configuration/, /Exécution/, /Résultats/]) {
     await navigation.getByRole('button', { name: label }).click();
     await navigation.getByRole('button', { name: label }).hover();
-    const state = await page.evaluate(() => {
+    // The navigation animates its surface for 140ms; inspect the settled state.
+    await expect.poll(async () => page.evaluate(() => {
       const active = document.querySelector<HTMLElement>('.evaluation-step-nav [aria-current="step"]');
       const probe = document.createElement('div');
       probe.style.background = 'var(--ds-color-progress-surface)';
@@ -20,19 +21,18 @@ test('active evaluation navigation is informational rather than a red error or b
       const expected = getComputedStyle(probe);
       const result = {
         active: Boolean(active),
-        background: current?.backgroundColor,
-        border: current?.borderTopColor,
-        expectedBackground: expected.backgroundColor,
-        expectedBorder: expected.borderTopColor,
-        error: expected.color,
+        informationalBackground: current?.backgroundColor === expected.backgroundColor,
+        informationalBorder: current?.borderTopColor === expected.borderTopColor,
+        notAnError: current?.borderTopColor !== expected.color,
       };
       probe.remove();
       return result;
+    }), { timeout: 5000 }).toEqual({
+      active: true,
+      informationalBackground: true,
+      informationalBorder: true,
+      notAnError: true,
     });
-    expect(state.active).toBe(true);
-    expect(state.background).toBe(state.expectedBackground);
-    expect(state.border).toBe(state.expectedBorder);
-    expect(state.border).not.toBe(state.error);
   }
 });
 
