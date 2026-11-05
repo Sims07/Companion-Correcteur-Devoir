@@ -50,9 +50,10 @@ export function scoreCriterionDecisions(
     ? subcriteria.map((item) => ({ id: item.id, title: item.title, maxPoints: item.maxPoints }))
     : [{ id: criterion.id, title: criterion.title, maxPoints: criterion.maxPoints }];
   if (raw.decisions.length !== targets.length) throw new Error('Le modèle doit examiner chaque attendu du barème exactement une fois.');
+  const decisions = raw.decisions as unknown[];
   const found = new Set<string>();
   const observations = targets.map((target) => {
-    const matches = raw.decisions.filter((entry) => isRecord(entry) && entry.targetId === target.id);
+    const matches = decisions.filter((entry: unknown) => isRecord(entry) && entry.targetId === target.id);
     if (matches.length !== 1 || found.has(target.id)) throw new Error('Décision manquante ou dupliquée pour un attendu.');
     found.add(target.id);
     const decision = matches[0];
