@@ -59,6 +59,24 @@ describe('teacher correction overview and partial grade safety', () => {
     expect(display({ ...job, status: 'completed' })).not.toContain('Retirer la copie');
   });
 
+  it('offers an explicit retry and no invented grade when the LLM fails after a partial result', () => {
+    const html = display({
+      ...job,
+      status: 'failed',
+      phase: 'grading',
+      error: 'Erreur HTTP 500',
+      partialCriteria: [criterion('text', 2)],
+      completedCriteria: 1,
+      proposal: { summary: '', criteria: [criterion('text', 2)], finalScore: 2, scoreIncomplete: true, questionsForTeacher: [] },
+    });
+    expect(html).toContain('À reprendre');
+    expect(html).toContain('Relancer');
+    expect(html).toContain('Vous pouvez relancer sa correction');
+    expect(html).toContain('Note à venir');
+    expect(html).not.toContain('Erreur HTTP 500');
+    expect(html).not.toContain('2<span> / 4</span>');
+  });
+
   it('shows a pending grade rather than a misleading partial numeric result after interrupted evaluation', () => {
     const html = display({
       ...job, status: 'needs-review',
