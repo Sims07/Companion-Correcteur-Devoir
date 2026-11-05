@@ -474,7 +474,7 @@
   padding: var(--ds-space-4);
   margin-bottom: var(--ds-space-4);
   border: 1px solid var(--ds-color-border);
-  border-left: 3px solid var(--ds-color-brand-700);
+  border-left: 3px solid var(--ds-color-border-strong);
   border-radius: var(--ds-radius-md);
   background: var(--ds-color-surface-subtle);
   color: var(--ds-color-text);
@@ -487,6 +487,12 @@
   font-size: .8rem;
   line-height: 1.5;
 }
+/* Saving is live work; saved, degraded and failed have distinct outcomes. */
+.evaluation-workspace-shell .evaluation-archive-feedback.is-saving {
+  border-left-color: var(--ds-color-progress);
+  background: var(--ds-color-progress-surface);
+}
+.evaluation-workspace-shell .evaluation-archive-feedback.is-saved { border-left-color: var(--ds-color-success); }
 .evaluation-workspace-shell .evaluation-archive-feedback.is-without-images { border-left-color: var(--ds-color-warning); }
 .evaluation-workspace-shell .evaluation-archive-feedback.is-failed { border-left-color: var(--ds-color-danger); }
 @media (max-width: 760px) {

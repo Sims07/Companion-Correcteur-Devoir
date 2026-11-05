@@ -117,3 +117,37 @@ test('analysis-only experiment asks for a transcription instead of an irrelevant
   await expect(page.locator('#evaluation-copy')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Lancer l’expérience' })).toBeVisible();
 });
+
+
+test('evaluation archive statuses show informational, success, warning and danger accents', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.evaluate(() => {
+    const host = document.querySelector('.evaluation-workspace-shell');
+    if (!host) throw new Error('Evaluation workspace not found');
+    for (const status of ['saving','saved','without-images','failed']) {
+      const element = document.createElement('div');
+      element.className = 'evaluation-archive-feedback is-' + status;
+      element.textContent = status;
+      host.append(element);
+    }
+  });
+  const token = async (name: string) => page.evaluate((variable) => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(' + variable + ')';
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  }, name);
+  const statuses = [
+    ['saving', '--ds-color-progress'],
+    ['saved', '--ds-color-success'],
+    ['without-images', '--ds-color-warning'],
+    ['failed', '--ds-color-danger'],
+  ];
+  for (const [status, variable] of statuses) {
+    await expect(page.locator('.evaluation-archive-feedback.is-' + status)).toHaveCSS('border-left-color', await token(variable));
+  }
+});

@@ -29,6 +29,16 @@ describe('Atelier pédagogique — Outils IA', () => {
     expect(component).toContain('<Button variant="secondary"');
   });
 
+  it('uses the same informational progress colors as the teacher flow for pending network calls', () => {
+    const pending = css.split('.ai-tools-view :is(.network-state.pending,.network-waiting-hint) {')[1]?.split('}')[0] ?? '';
+    expect(pending).toContain('color:var(--ds-color-progress)');
+    expect(pending).not.toContain('var(--ds-color-warning)');
+    expect(css).toContain('.ai-tools-view .network-pending-badge');
+    expect(css).toContain('background:var(--ds-color-progress-surface)');
+    expect(css).not.toContain('.evaluation-step-nav button[aria-current="step"],.evaluation-profile-option.is-selected');
+    expect(css).not.toContain('.evaluation-history-bar-fill,.evaluation-progress-track > span');
+  });
+
   it('aligns six network columns and keeps the intent visible on mobile', () => {
     expect(css).toContain('grid-template-columns:56px 56px minmax(100px,1.1fr) minmax(105px,1fr) 45px 66px');
     expect(css).toContain(':nth-child(3),:nth-child(6)');

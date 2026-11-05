@@ -78,6 +78,16 @@ describe('Model evaluation workspace layout contract', () => {
     expect(layout).toContain('.evaluation-active-pill::before { animation: none; }');
   });
 
+  it('distinguishes saving, saved, degraded and failed archive feedback', () => {
+    const saved = layout.split('.evaluation-archive-feedback.is-saved {')[1]?.split('}')[0] ?? '';
+    const saving = layout.split('.evaluation-archive-feedback.is-saving {')[1]?.split('}')[0] ?? '';
+    expect(saving).toContain('var(--ds-color-progress)');
+    expect(saving).toContain('var(--ds-color-progress-surface)');
+    expect(saved).toContain('var(--ds-color-success)');
+    expect(layout).toContain('.evaluation-archive-feedback.is-without-images { border-left-color: var(--ds-color-warning)');
+    expect(layout).toContain('.evaluation-archive-feedback.is-failed { border-left-color: var(--ds-color-danger)');
+  });
+
   it('uses shared design tokens and defines tablet, mobile and reduced-motion behavior', () => {
     expect(layout).toContain('var(--ds-color-surface)');
     expect(layout).toContain('var(--ds-color-border)');

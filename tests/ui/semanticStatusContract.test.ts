@@ -28,6 +28,19 @@ describe('semantic feedback and Atelier B consistency', () => {
     expect(read('src/ui/aiToolsAtelier.css')).not.toContain('.evaluation-profile-message');
   });
 
+  it('distinguishes technical storage measurement from warning and failure', () => {
+    const storage = read('src/ui/StorageUsagePanel.tsx');
+    const css = read('src/ui/storageUsagePanel.css');
+    expect(storage).toContain('className="storage-usage-notice is-running" role="status"');
+    expect(storage).toContain('className="storage-usage-notice is-error" role="alert"');
+    expect(storage).toContain('className="storage-usage-notice is-warning" role="status"');
+    expect(css).toContain('.storage-usage-notice.is-running');
+    expect(css).toContain('.storage-usage-notice.is-error');
+    expect(css).toContain('.storage-usage-notice.is-warning');
+    expect(css).toContain('background:var(--ds-color-progress)');
+    expect(css).not.toContain('background:var(--ds-color-brand-700)');
+  });
+
   it('overrides historical green configuration surfaces with semantic Atelier B tokens', () => {
     const layout = read('src/ui/modelEvaluationWorkspace.css');
     expect(layout).toContain('.evaluation-workspace-shell .evaluation-thinking-option');

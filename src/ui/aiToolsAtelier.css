@@ -44,7 +44,8 @@
 .ai-tools-view :is(.network-method,.network-intent strong,.network-selected-heading strong) { color:var(--ds-color-text); }
 .ai-tools-view .network-state.success { color:var(--ds-color-success); }
 .ai-tools-view :is(.network-state.error,.network-error) { color:var(--ds-color-danger); }
-.ai-tools-view :is(.network-state.pending,.network-waiting-hint) { color:var(--ds-color-warning); }
+.ai-tools-view :is(.network-state.pending,.network-waiting-hint) { color:var(--ds-color-progress); }
+.ai-tools-view .network-pending-badge { border:1px solid var(--ds-color-progress-border); background:var(--ds-color-progress-surface); color:var(--ds-color-progress); }
 .ai-tools-view .network-intent-detail { border-color:var(--ds-color-border); border-left-color:var(--ds-color-brand-700); background:var(--ds-color-surface-subtle); }
 .ai-tools-view .network-detail-section pre { background:var(--ds-color-surface-subtle); color:var(--ds-color-text); border:1px solid var(--ds-color-border); }
 .ai-tools-view :is(.network-detail-tabs,.network-request-toolbar,.network-request-columns) { border-color:var(--ds-color-border); }
@@ -57,10 +58,12 @@
 .ai-tools-view :is(.evaluation-step-nav button,.evaluation-profile-option,.evaluation-configuration-step,.evaluation-history-option) { background:var(--ds-color-surface); border-color:var(--ds-color-border); color:var(--ds-color-text); }
 .ai-tools-view :is(.evaluation-step-nav button > span,.evaluation-configuration-step-index) { background:var(--ds-color-brand-100); color:var(--ds-color-brand-700); }
 .ai-tools-view :is(.evaluation-step-nav button:hover:not(:disabled),.evaluation-profile-option:hover:not(.is-disabled)) { border-color:var(--ds-color-border-strong); background:var(--ds-color-surface-subtle); }
-.ai-tools-view :is(.evaluation-step-nav button.active,.evaluation-step-nav button[aria-current="step"],.evaluation-profile-option.is-selected,.evaluation-history-option.is-selected,.evaluation-configuration-step.is-active) { border-color:var(--ds-color-brand-700); background:var(--ds-color-brand-100); color:var(--ds-color-text); box-shadow:inset 3px 0 var(--ds-color-brand-700); }
-.ai-tools-view :is(.evaluation-config-editor,.evaluation-history-comparison,.evaluation-empty-inline,.evaluation-analysis-subsection,.evaluation-analysis-metrics article,.evaluation-phase-panel) { border-color:var(--ds-color-border); background:var(--ds-color-surface-subtle); }
+.ai-tools-view :is(.evaluation-profile-option.is-selected,.evaluation-history-option.is-selected) { border-color:var(--ds-color-brand-700); background:var(--ds-color-brand-100); color:var(--ds-color-text); box-shadow:inset 3px 0 var(--ds-color-brand-700); }
+/* Current navigation and running configurations use the informational rules
+   in modelEvaluationWorkspace.css, not brand selection styling. */
+.ai-tools-view :is(.evaluation-config-editor,.evaluation-history-comparison,.evaluation-empty-inline,.evaluation-analysis-subsection,.evaluation-analysis-metrics article) { border-color:var(--ds-color-border); background:var(--ds-color-surface-subtle); }
 .ai-tools-view :is(.evaluation-config-editor h3,.evaluation-section-heading h2,.evaluation-section-heading h3,.evaluation-profile-card-content > strong,.evaluation-analysis-metrics article > strong) { color:var(--ds-color-text); }
-.ai-tools-view :is(.evaluation-history-bar-fill,.evaluation-progress-track > span) { background:var(--ds-color-brand-700); }
+.ai-tools-view .evaluation-history-bar-fill { background:var(--ds-color-brand-700); }
 .ai-tools-view :is(.evaluation-config-workspace,.evaluation-results-workspace) { padding:var(--ds-space-6); }
 .ai-tools-view :is(.evaluation-stage-picker button:focus-visible,.evaluation-step-nav button:focus-visible,.evaluation-history-option:focus-within) { outline:none; box-shadow:var(--ds-focus-ring); }
 @media(max-width:1100px) { .ai-tools-view .network-inspector-layout { grid-template-columns:minmax(0,1fr); } .ai-tools-view .network-request-table { max-height:400px; } }
