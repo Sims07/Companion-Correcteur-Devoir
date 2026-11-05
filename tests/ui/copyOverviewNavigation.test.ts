@@ -135,7 +135,7 @@ describe('CorrectionOverview — comportement enseignant', () => {
 
   it('changes the selected category when a filter is activated', async () => {
     await render();
-    const retryFilter = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('À corriger'));
+    const retryFilter = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('À reprendre'));
     expect(retryFilter).toBeTruthy();
     await act(async () => retryFilter?.click());
     expect(onFilterChange).toHaveBeenCalledWith('to-retry');
