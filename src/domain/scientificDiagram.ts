@@ -9,7 +9,10 @@ export interface DiagramCriterionAssessment {
   confidence: number;
   requiresTeacherReview: boolean;
   diagramIds?: string[];
-  elements?: Array<{ subcriterionId: string; label: string; status: 'present' | 'partial' | 'absent' | 'uncertain'; evidence: string; points: number; maxPoints: number }>;
+  elements?: Array<{ subcriterionId: string; label: string; status: 'present' | 'partial' | 'absent' | 'uncertain'; evidence: string; points: number; maxPoints: number;
+    /** Optional on historical traces; new Vision observations identify their origin. */
+    origin?: 'student-diagram' | 'printed-subject' | 'uncertain';
+    uncertainty?: string }>;
 }
 
 export interface ScientificDiagramFinding {
@@ -165,6 +168,10 @@ function computeElementPoints(
     const status = validStatus
       ? returnedStatus as 'present' | 'partial' | 'absent' | 'uncertain'
       : 'uncertain';
+    const origin = found?.origin === 'student-diagram' || found?.origin === 'printed-subject' || found?.origin === 'uncertain'
+      ? found.origin : undefined;
+    const uncertainty = typeof found?.uncertainty === 'string' ? found.uncertainty.trim().slice(0, 240) : '';
+    const unsafeOrigin = origin === 'printed-subject' || origin === 'uncertain';
     const suppliedPoints = found?.points;
     const pointsAreValid = typeof suppliedPoints === 'number'
       && Number.isFinite(suppliedPoints)
@@ -173,6 +180,10 @@ function computeElementPoints(
     const statusMatchesPoints = pointsAreValid
       && (status === 'absent' ? suppliedPoints === 0 : status === 'present' ? suppliedPoints > 0 : true);
 
+    if (unsafeOrigin) {
+      warnings.push('Sous-critère « ' + element.title + ' » : ' + (uncertainty || (origin === 'printed-subject'
+        ? 'élément observé uniquement dans l’énoncé imprimé.' : 'origine de l’élément visuel incertaine.')));
+    }
     if (!found) {
       warnings.push('Sous-critère « ' + element.title + ' » absent de la réponse Vision ; aucune note ne peut être déduite.');
     } else if (!pointsAreValid) {
@@ -183,18 +194,21 @@ function computeElementPoints(
       warnings.push('Statut invalide pour le sous-critère « ' + element.title + ' » ; vérification enseignante requise.');
     }
 
-    const validAssessment = Boolean(found && validStatus && statusMatchesPoints);
-    const evidence = validAssessment && typeof found?.evidence === 'string' && found.evidence.trim()
-      ? found.evidence.trim()
-      : 'Preuve non fournie par le modèle';
+    const validAssessment = Boolean(found && validStatus && statusMatchesPoints && !unsafeOrigin);
+    const evidence = unsafeOrigin
+      ? (uncertainty || (origin === 'printed-subject' ? 'Élément repéré dans l’énoncé, pas dans la copie.' : 'Origine visuelle non confirmée.'))
+      : validAssessment && typeof found?.evidence === 'string' && found.evidence.trim()
+        ? found.evidence.trim() : 'Preuve non fournie par le modèle';
 
     return {
       subcriterionId: element.id,
       label: element.title,
-      status,
+      status: unsafeOrigin ? 'uncertain' : status,
       evidence,
       maxPoints: element.maxPoints,
       points: validAssessment ? suppliedPoints as number : 0,
+      ...(origin ? { origin } : {}),
+      ...(uncertainty ? { uncertainty } : {}),
     };
   });
 }
