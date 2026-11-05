@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StorageDiagnosticsService } from '../application/storageDiagnosticsService.ts';
 import { formatStorageBytes, storageOccupancyPercent, type StorageDiagnosticsSnapshot } from '../domain/storageDiagnostics.ts';
 import './storageUsagePanel.css';
@@ -20,7 +20,14 @@ export function StorageUsagePanel({ service, onManageEvaluations }: Props) {
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Impossible de mesurer le stockage local.'); }
     finally { setLoading(false); }
   }, [service]);
-  useEffect(() => { void refresh(); }, [refresh]);
+  const inspectedService = useRef<StorageDiagnosticsService | null>(null);
+  useEffect(() => {
+    // React StrictMode can run mount effects twice. Avoid scanning large local
+    // copies twice while other grading jobs may need the same IndexedDB stores.
+    if (!service || inspectedService.current === service) return;
+    inspectedService.current = service;
+    void refresh();
+  }, [service, refresh]);
   const occupancy = snapshot ? storageOccupancyPercent(snapshot.originUsageBytes, snapshot.originQuotaBytes) : null;
   const storedBytes = useMemo(() => snapshot?.stores.reduce((sum, store) => sum + store.logicalBytes, 0) ?? 0, [snapshot]);
 
