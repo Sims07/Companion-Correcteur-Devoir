@@ -76,10 +76,13 @@ function decisionFromVisualEvidence(
   const visualDoubts = relevantDiagrams.flatMap((diagram) => diagram.uncertainties);
   const questionableAssessment = assessments.find((assessment) => assessment.requiresTeacherReview
     || !Number.isFinite(assessment.confidence) || assessment.confidence < 0.8);
-  if (pending.length === 0 && (questionableAssessment || visualDoubts.length > 0)) {
+  const globalImageDoubt = analysis?.overallUncertainties.find((item) =>
+    /(?:orientation|photo\s+floue|image\s+floue|page\s+illisible|page\s+incompl[eè]te)/i.test(item));
+  if (pending.length === 0 && (questionableAssessment || visualDoubts.length > 0 || globalImageDoubt)) {
     const specific = assessments.flatMap((assessment) => assessment.elements ?? [])
       .find((element) => element.uncertainty?.trim())?.uncertainty?.trim()
       || visualDoubts.find((item) => item.trim())?.trim()
+      || globalImageDoubt?.trim()
       || (questionableAssessment && questionableAssessment.confidence < 0.8
         ? 'lecture incertaine (' + Math.round(questionableAssessment.confidence * 100) + ' % de confiance)'
         : 'confirmation demandée par Vision sur la preuve « '
