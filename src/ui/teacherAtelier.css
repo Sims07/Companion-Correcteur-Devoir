@@ -1,0 +1,153 @@
+/* Atelier pédagogique — composition des écrans du professeur.
+ * Les couleurs, la typographie et les états proviennent des tokens communs.
+ * Aucune modification du flux métier de création, barème ou correction.
+ */
+
+/* Bibliothèque : des fiches de devoir lisibles comme des dossiers pédagogiques. */
+.assignments-home-heading h2 {
+  font-family: var(--ds-font-editorial);
+  letter-spacing: -.035em;
+}
+.assignments-home-heading .eyebrow { color: var(--ds-color-brand-700); }
+.assignments-home-heading p:not(.eyebrow) { color: var(--ds-color-text-muted); }
+.assignments-home-toolbar {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  gap: var(--ds-space-4);
+}
+.assignments-search {
+  background: var(--ds-color-surface);
+  border-color: var(--ds-color-border);
+  color: var(--ds-color-text-muted);
+}
+.assignments-search input { color: var(--ds-color-text); }
+.assignments-search:focus-within {
+  border-color: var(--ds-color-brand-700);
+  box-shadow: var(--ds-focus-ring);
+}
+.assignments-filters button { color: var(--ds-color-text-muted); }
+.assignments-filters button.active {
+  background: var(--ds-color-brand-100);
+  color: var(--ds-color-brand-700);
+  border-color: var(--ds-color-brand-700);
+}
+.assignment-overview-card {
+  background: var(--ds-color-surface);
+  border-color: var(--ds-color-border);
+  border-top: 3px solid var(--ds-color-brand-700);
+  border-radius: var(--ds-radius-sm);
+  box-shadow: none;
+}
+.assignment-overview-card:hover {
+  border-color: var(--ds-color-border-strong);
+  border-top-color: var(--ds-color-brand-700);
+  transform: none;
+  box-shadow: var(--app-surface-shadow);
+}
+.assignment-overview-card.is-active {
+  border-color: var(--ds-color-brand-700);
+  box-shadow: inset 0 0 0 1px var(--ds-color-brand-700);
+}
+.assignment-overview-icon {
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-brand-100);
+  color: var(--ds-color-brand-700);
+}
+.assignment-overview-title h3 {
+  font-family: var(--ds-font-editorial);
+  font-size: 20px;
+  color: var(--ds-color-text);
+}
+.assignment-overview-meta,
+.assignment-overview-description,
+.assignment-overview-stats { color: var(--ds-color-text-muted); }
+.assignment-overview-stats strong { color: var(--ds-color-text); }
+.assignment-overview-actions { border-top-color: var(--ds-color-border); }
+.assignment-open-button, .assignment-open-button:hover:not(:disabled) {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ds-color-brand-700);
+  box-shadow: none;
+}
+.assignment-open-button:focus-visible, .assignment-overview-menu summary:focus-visible {
+  outline: none;
+  box-shadow: var(--ds-focus-ring);
+}
+.assignment-active-label { color: var(--ds-color-brand-700); }
+.assignment-status.has-corrections { background: var(--ds-color-warning-surface); color: var(--ds-color-warning); }
+.assignment-status.preparing { background: var(--ds-color-surface-subtle); color: var(--ds-color-text-muted); }
+.assignment-status.ready { background: var(--ds-color-success-surface); color: var(--ds-color-success); }
+
+/* Création : une feuille de préparation plutôt qu'un formulaire technique. */
+.assignment-creation-panel {
+  background: var(--ds-color-surface);
+  border: 1px solid var(--ds-color-border);
+  border-top: 3px solid var(--ds-color-brand-700);
+  box-shadow: var(--app-surface-shadow);
+}
+.assignment-creation-heading h3 {
+  font-family: var(--ds-font-editorial);
+  letter-spacing: -.02em;
+}
+.assignment-creation-heading p:last-child { color: var(--ds-color-text-muted); }
+.assignment-creation-form .ds-field__label { color: var(--ds-color-text); }
+.assignment-creation-actions { border-top: 1px solid var(--ds-color-border); }
+
+/* Barèmes : prioriser le critère et ses points, puis exposer les détails sur demande. */
+.rubric-editor, .assignment-details-panel {
+  background: var(--ds-color-surface);
+  border-color: var(--ds-color-border);
+}
+.rubric-editor .rubric-assignment-context {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+}
+.rubric-editor .criterion-editor {
+  border: 1px solid var(--ds-color-border);
+  background: var(--ds-color-surface);
+  border-radius: var(--ds-radius-md);
+  box-shadow: none;
+}
+.rubric-editor .criterion-editor[open] { border-color: var(--ds-color-brand-700); }
+.rubric-editor .criterion-editor-summary {
+  color: var(--ds-color-text);
+}
+.rubric-editor .criterion-editor-summary:hover {
+  background: var(--ds-color-surface-subtle);
+}
+.rubric-editor .criterion-editor-summary:focus-visible,
+.rubric-reuse-panel > summary:focus-visible {
+  outline: 2px solid var(--ds-color-brand-700);
+  outline-offset: 2px;
+}
+.rubric-empty-state {
+  border-color: var(--ds-color-border-strong);
+  background: var(--ds-color-surface-subtle);
+}
+.rubric-empty-state strong { color: var(--ds-color-text); }
+.rubric-reuse-panel {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+}
+.rubric-reuse-panel > summary { color: var(--ds-color-brand-700); }
+.rubric-reuse-item {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface);
+}
+.rubric-reuse-item:focus-within {
+  border-color: var(--ds-color-brand-700);
+  box-shadow: var(--ds-focus-ring);
+}
+.rubric-reuse-item input { accent-color: var(--ds-color-brand-700); }
+
+@media (max-width: 720px) {
+  .assignments-home-toolbar { flex-direction: column; align-items: stretch; }
+  .assignments-search { max-width: none; flex-basis: auto; }
+  .assignment-overview-card { min-height: 0; }
+  .assignment-creation-panel { padding: var(--ds-space-4); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assignment-overview-card { transition: none; }
+}
