@@ -53,6 +53,8 @@ describe('CorrectionOverview — comportement enseignant', () => {
         addCopyExpanded: false,
         pendingCount: 0,
         isStartingCorrections: false,
+        isStoppingCorrections: false,
+        onStopCorrections: vi.fn(),
         onStartCorrections: vi.fn(),
         onOpenJob,
         onRetryJob,
