@@ -26,3 +26,12 @@ Les trois constructeurs déjà spécialisés (décision, incrémental et structu
 ## Versionnement
 
 Cette extraction conserve volontairement le contenu exact des prompts (même ordre, mêmes chaînes et séparateurs). Leur version est actuellement liée au commit Git, ce qui suffit pour relire les évolutions et comparer les diffs. Ajouter un identifiant/version du prompt à chaque trace d'exécution pourra faire l'objet d'un lot dédié, avec compatibilité pour l'historique existant.
+
+## Traçabilité locale des versions
+
+Les exécutions de correction et d'évaluation conservent, pour chaque appel diagnostiqué, `promptId` et `promptVersion` à partir du registre `src/adapters/ai/prompts/promptRegistry.ts`. L'onglet technique Observabilité affiche ces informations avec le contenu réel de la requête (images masquées). Les anciens historiques sans version restent consultables et ne reçoivent **aucune version inventée**.
+
+- Incrémenter explicitement la révision lors d'un changement de consigne ou de contrat d'un prompt.
+- Les décisions natives System One utilisent les textes de questions définis dans `src/domain/systemOneDecision.ts` : ils sont suivis par l'identité `decision.system-one`. Le calcul des points reste dans le domaine.
+- Le registre ne contient aucune copie ni secret. Les deux fournisseurs (Ollama local et API compatible) conservent leurs routes et paramètres.
+- Les variantes de réparation conservent leur propre identifiant pour comparer leur taux d'utilisation.
