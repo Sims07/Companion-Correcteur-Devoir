@@ -1,5 +1,6 @@
 import type { ModelEvaluationRecord } from '../domain/modelEvaluation.ts';
 import type { ModelEvaluationRepository } from '../ports/modelEvaluationRepository.ts';
+import { modelEvaluationImageSignature } from '../domain/modelEvaluationImageIdentity.ts';
 
 export interface ModelEvaluationSaveOutcome {
   record: ModelEvaluationRecord;
@@ -30,6 +31,9 @@ export function createModelEvaluationService(repository: ModelEvaluationReposito
         if (!isModelEvaluationQuotaError(cause) || (!record.images.length && !record.subjectImages.length)) throw cause;
         const compactRecord: ModelEvaluationRecord = {
           ...record,
+          imageSignatures: record.imageSignatures ?? record.images.map(modelEvaluationImageSignature),
+          subjectImageSignatures: record.subjectImageSignatures ?? record.subjectImages.map(modelEvaluationImageSignature),
+          originalImageCount: record.originalImageCount ?? record.images.length,
           images: [],
           subjectImages: [],
           originalImagesArchived: false,
