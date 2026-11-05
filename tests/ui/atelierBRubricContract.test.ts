@@ -25,6 +25,8 @@ describe('Atelier B rubric composition', () => {
     expect(css).toContain('.atelier-rubric-editor .criterion-editor-content');
     expect(app).toContain('useState<string | null>(null)');
     expect(css).toContain('.atelier-rubric-editor > .rubric-import-panel { order: 7');
+    expect(css).toContain('.rubric-editor-toolbar .validation.valid');
+    expect(css).toContain('.rubric-actions .validation.valid');
   });
 
   it('keeps diagnostic settings unchanged and the teacher layout responsive', () => {
