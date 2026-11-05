@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
+import type { StorageDiagnosticsService } from '../application/storageDiagnosticsService.ts';
+import { StorageUsagePanel } from './StorageUsagePanel.tsx';
 import { buildObservabilityModelMetrics, buildObservabilitySummary, extractObservabilityPromptMessages, type ObservabilityTrace } from '../domain/observability.ts';
 import { recentObservabilityIncidents } from '../domain/observabilityIncidents.ts';
 import './observability.css';
 
-type Props = { records: ObservabilityTrace[]; onInspectNetworkErrors?: () => void };
+type Props = { records: ObservabilityTrace[]; onInspectNetworkErrors?: () => void; storageDiagnosticsService?: StorageDiagnosticsService; onManageEvaluations?: () => void };
 
 function duration(seconds: number | null): string {
   if (seconds === null || !Number.isFinite(seconds)) return '—';
@@ -100,7 +102,7 @@ function TraceDetails({ trace, expanded }: { trace: ObservabilityTrace; expanded
   </details>;
 }
 
-export function ObservabilityDashboard({ records, onInspectNetworkErrors }: Props) {
+export function ObservabilityDashboard({ records, onInspectNetworkErrors, storageDiagnosticsService, onManageEvaluations }: Props) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'all' | 'success' | 'error'>('all');
   const [focusedIncidentId, setFocusedIncidentId] = useState<string | null>(null);
@@ -148,6 +150,8 @@ export function ObservabilityDashboard({ records, onInspectNetworkErrors }: Prop
       <article className="observability-kpi"><span className="observability-kpi-icon">◎</span><div><small>Taux de réussite</small><strong>{summary.successRatePercent === null ? '—' : `${summary.successRatePercent} %`}</strong><span>Sur les traces conservées</span></div></article>
       <article className="observability-kpi"><span className="observability-kpi-icon">◈</span><div><small>Tokens mesurés</small><strong>{summary.totalTokens === null ? '—' : number(summary.totalTokens)}</strong><span>{summary.measuredCalls}/{summary.totalCalls} appels avec métriques fournies par les modèles</span></div></article>
     </div>
+
+    <StorageUsagePanel service={storageDiagnosticsService} onManageEvaluations={onManageEvaluations} />
 
     <section className="observability-panel observability-review-metrics" aria-label="Mesures de la correction par exceptions">
       <div className="observability-panel-heading"><div><p className="observability-eyebrow">EXPÉRIENCE ENSEIGNANT</p><h3>Lecture par exceptions</h3><p>Mesures locales issues des traces de correction, sans données de copie supplémentaires.</p></div></div>
