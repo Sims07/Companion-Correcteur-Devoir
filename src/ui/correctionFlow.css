@@ -1982,7 +1982,7 @@
 .annotation-review-option > span { display: grid; gap: var(--ds-space-1); min-width: 0; }
 .annotation-review-option > span > strong { overflow-wrap: anywhere; }
 .annotation-review-option small { line-height: 1.45; }
-.annotation-review-actions { align-items: center; justify-content: space-between; gap: var(--ds-space-4); }
+.annotation-review-actions { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: var(--ds-space-4); }
 .annotation-review-actions > span { font-size: 12px; }
 @media (max-width: 600px) { .annotation-review-actions { align-items: stretch; flex-direction: column; } }
 
