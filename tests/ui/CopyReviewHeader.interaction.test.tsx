@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
-import { act } from 'react';
+import { act, type ComponentProps } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CopyReviewHeader } from '../../src/ui/components/CopyReviewHeader.tsx';
 
 const containers: HTMLDivElement[] = [];
 const roots: Array<ReturnType<typeof createRoot>> = [];
-const render = async (overrides: Partial<React.ComponentProps<typeof CopyReviewHeader>> = {}) => {
+const render = async (overrides: Partial<ComponentProps<typeof CopyReviewHeader>> = {}) => {
   const container = document.createElement('div');
   document.body.appendChild(container);
   containers.push(container);
