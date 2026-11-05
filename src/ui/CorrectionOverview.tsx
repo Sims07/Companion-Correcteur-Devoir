@@ -203,17 +203,19 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
         <li className={`correction-series-card is-${item.status}${preparingJob?.id === item.id ? ' is-preparing' : ''}`} key={item.id}>
           <div className="correction-series-card-heading">
             <span className="queue-position">{index + 1}</span>
-            <div className="correction-series-copy"><strong title={item.label}>{item.label}</strong><small>{item.pageCount} page(s)</small></div>
+            <div className="correction-series-copy"><strong title={item.label}>{item.label}</strong><small>{item.pageCount} {item.pageCount === 1 ? 'page' : 'pages'}</small></div>
           </div>
           <div className="correction-series-card-score">
             <span className="correction-series-card-score-label">{item.score === null ? 'Note à venir' : item.status === 'completed' ? 'Note finale' : 'Note proposée'}</span>
             <strong className={item.score === null ? 'is-pending' : ''}>{item.score === null ? '—' : <>{number(item.score)}<span> / {number(item.maximumPoints)}</span></>}</strong>
           </div>
           <div className="correction-series-card-footer">
-            <div>
-              <span className={`correction-series-card-status is-${item.status}`}>{preparingJob?.id === item.id ? 'Préparation en cours' : statusLabels[item.status]}</span>
+            <div className="correction-series-card-info">
+              <div className="correction-series-card-meta">
+                <span className={`correction-series-card-status is-${item.status}`}>{preparingJob?.id === item.id ? 'Préparation en cours' : statusLabels[item.status]}</span>
+                {item.kind === 'correction' && <time className="correction-series-card-date" dateTime={item.updatedAt}>Enregistrée le {new Date(item.updatedAt).toLocaleDateString('fr-FR')}</time>}
+              </div>
               {item.message && <p className={item.status === 'to-retry' ? 'copy-overview-error' : 'copy-overview-message'}>{item.message}</p>}
-              {item.kind === 'correction' && <small>Enregistrée le {new Date(item.updatedAt).toLocaleDateString('fr-FR')}</small>}
             </div>
             <div className="correction-series-actions">
               {item.kind === 'job' && item.job && <>
@@ -222,7 +224,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
                 {item.status !== 'processing' && <button type="button" className="text-button correction-series-remove" aria-label={`Retirer la copie « ${item.label} »`} onClick={() => onRemoveJob(item.id)}>Retirer</button>}
               </>}
               {item.kind === 'current' && <button type="button" className="secondary-button correction-series-view" onClick={onOpenCurrentCopy}>Reprendre la copie</button>}
-              {item.kind === 'correction' && item.correction && <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenCorrection(item.correction!)}>Consulter la correction</button>}
+              {item.kind === 'correction' && item.correction && <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenCorrection(item.correction!)}>Consulter la correction <span aria-hidden="true">→</span></button>}
             </div>
           </div>
         </li>
