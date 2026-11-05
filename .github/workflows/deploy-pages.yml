@@ -31,6 +31,10 @@ jobs:
         run: npm test
       - name: Build production site
         run: npm run build
+      - name: Build the public Atelier B Storybook catalogue
+        run: npm run build-storybook -- --output-dir dist/storybook
+      - name: Verify published catalogue exists
+        run: test -s dist/index.html && test -s dist/storybook/index.html
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

@@ -5,6 +5,8 @@ const swatches = [
   ['Fond de travail', 'var(--ds-color-surface-subtle)'],
   ['Terre cuite', 'var(--ds-color-brand-700)'],
   ['Terre cuite douce', 'var(--ds-color-brand-100)'],
+  ['Travail en cours · ardoise', 'var(--ds-color-progress)'],
+  ['Attente · gris neutre', 'var(--ds-color-border)'],
   ['Avertissement', 'var(--ds-color-warning-surface)'],
   ['Succès', 'var(--ds-color-success-surface)'],
 ] as const;
