@@ -158,7 +158,15 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.locator('.review-source-pane')).toBeInViewport();
   await expect(flaggedCard).toBeInViewport();
   await expect(flaggedCard).toHaveClass(/is-flagged/);
-  await expect(flaggedCard).toHaveCSS('border-left-color', 'rgb(161, 77, 55)');
+  const attentionColor = await page.evaluate(() => {
+    const sample = document.createElement('span');
+    sample.style.color = 'var(--ds-color-warning)';
+    document.body.append(sample);
+    const color = getComputedStyle(sample).color;
+    sample.remove();
+    return color;
+  });
+  await expect(flaggedCard).toHaveCSS('border-left-color', attentionColor);
   await expect(page.locator('.review-source-pane')).toHaveCSS('background-color', 'rgb(255, 253, 249)');
   await expect(page.locator('.review-workspace')).toHaveCSS('grid-template-columns', /px.*px/);
   await expect(flaggedCard.getByText('Point retiré', { exact: true })).toBeVisible();
