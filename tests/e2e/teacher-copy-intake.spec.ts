@@ -89,3 +89,61 @@ test('a teacher can cancel or confirm removing one imported copy without affecti
   await expect(page.locator('.copy-overview-grid .correction-series-card')).toHaveCount(1);
   await expect(page.locator('.copy-overview-grid .correction-series-card')).toContainText('etudiant-b.png');
 });
+
+test('the overview opens a large page viewer and persists multipage orientation after closing it', async ({ page }) => {
+  const source = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 8;
+    canvas.height = 4;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas 2D unavailable');
+    context.fillStyle = '#174f78';
+    context.fillRect(0, 0, 8, 4);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+
+  await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter des copies/ }).click();
+  const intake = page.locator('#teacher-copy-intake');
+  await intake.getByRole('radio', { name: /Plusieurs fichiers pour une copie/ }).check();
+  await intake.getByLabel('Nom de l’étudiant (facultatif)').fill('Étudiant exemple');
+  await intake.locator('#teacher-copy-intake-files').setInputFiles([
+    { name: 'copie-page-1.png', mimeType: 'image/png', buffer: Buffer.from(source, 'base64') },
+    { name: 'copie-page-2.png', mimeType: 'image/png', buffer: Buffer.from(source, 'base64') },
+  ]);
+  await expect(page.locator('.copy-overview-grid .correction-series-card')).toHaveCount(1);
+  await intake.getByRole('button', { name: 'Fermer' }).click();
+
+  await page.locator('.teacher-copy-pages-details summary').click();
+  const preview = page.locator('.batch-copy-page-preview').first();
+  const openViewer = preview.getByRole('button', { name: 'Agrandir la page 1 de Étudiant exemple' });
+  await expect(openViewer).toBeVisible();
+  await openViewer.click();
+
+  const viewer = page.locator('dialog.ds-dialog--viewer');
+  await expect(viewer).toHaveAttribute('aria-label', 'Visualiseur de la page 1');
+  await expect(viewer).toContainText('Page 1 / 2');
+  const image = viewer.getByRole('img', { name: 'Page 1 agrandie' });
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => [element.naturalWidth, element.naturalHeight])).toEqual([8, 4]);
+  await viewer.getByRole('button', { name: 'Tourner l’image à droite de 90 degrés' }).click();
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => [element.naturalWidth, element.naturalHeight])).toEqual([4, 8]);
+  await expect(viewer).toContainText('Tournée de 90°');
+
+  await viewer.getByRole('button', { name: 'Zoomer', exact: true }).click();
+  await expect(viewer.getByText('125 %')).toBeVisible();
+  await viewer.getByRole('button', { name: 'Page suivante' }).click();
+  await expect(viewer).toHaveAttribute('aria-label', 'Visualiseur de la page 2');
+  await expect(viewer).toContainText('Page 2 / 2');
+  await expect(viewer.getByText('100 %')).toBeVisible();
+  await viewer.getByRole('button', { name: 'Page précédente' }).click();
+  await expect(viewer).toContainText('Tournée de 90°');
+  await viewer.getByRole('button', { name: 'Fermer le visualiseur' }).click();
+  await expect(viewer).toHaveCount(0);
+
+  await page.reload();
+  await openActiveAssignment(page);
+  await page.getByRole('tab', { name: /Copies/ }).click();
+  await page.locator('.teacher-copy-pages-details summary').click();
+  const savedPreview = page.locator('.batch-copy-page-preview').first();
+  await expect(savedPreview).toContainText('tournée de 90°');
+  await expect.poll(() => savedPreview.locator('img').evaluate((element: HTMLImageElement) => [element.naturalWidth, element.naturalHeight])).toEqual([4, 8]);
+});
