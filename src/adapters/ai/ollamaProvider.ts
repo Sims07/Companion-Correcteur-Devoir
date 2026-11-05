@@ -1,5 +1,7 @@
 import { requireCorrectionMethodAvailable } from '../../domain/correctionMethod.ts';
 import { scoreCriterionDecisions } from '../../domain/criterionDecision.ts';
+import { isNativeDecisionModel, prepareSystemOneCriterion, scoreSystemOneCriterion } from '../../domain/systemOneDecision.ts';
+import { requestSystemOneDecision } from './systemOneTransport.ts';
 import { buildCriterionDecisionPrompt, criterionDecisionSchema } from './decisionPrompts.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
@@ -352,6 +354,15 @@ export function createOllamaProvider(
       const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
       const analysisModel = settings.analysisModel?.trim() || settings.model?.trim() || '';
       const useTwoModels = Boolean(settings.visionModel?.trim() && settings.analysisModel?.trim());
+      if (!visionOnly && settings.correctionMethod !== 'decision' && isNativeDecisionModel(analysisModel)) {
+        throw new Error('Le modèle « ' + analysisModel + ' » est décisionnel et ne prend pas en charge le chat. Sélectionnez la méthode de correction décisionnelle ou un modèle génératif.');
+      }
+      if (!hasTranscription && isNativeDecisionModel(visionModel)) {
+        throw new Error('Le modèle de lecture « ' + visionModel + ' » ne prend pas en charge la transcription via le chat. Choisissez un modèle Vision génératif.');
+      }
+      if (settings.correctionMethod === 'decision' && isNativeDecisionModel(analysisModel) && settings.apiCompatible) {
+        throw new Error('Le modèle « ' + analysisModel + ' » nécessite l’API System One d’Ollama. Sélectionnez Ollama local comme fournisseur, et non l’API compatible Chat Completions.');
+      }
       const providerImage = (image: import('../../ports/aiProvider.ts').ImageInput) => settings.apiCompatible
         ? `data:${image.mimeType};base64,${image.base64}`
         : image.base64;
@@ -1002,7 +1013,8 @@ export function createOllamaProvider(
           const progress = { criterionId: criterion.id, index: index + 1, total: criteria.length };
           onCriterionUpdate?.({ ...progress, attempt: 1, status: 'started' });
           onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'started' });
-          const prompt = buildCriterionDecisionPrompt({
+          const nativeDecision = isNativeDecisionModel(analysisModel);
+          const prompt = nativeDecision ? '' : buildCriterionDecisionPrompt({
             criterion, transcription: transcription ?? '', teacherQuestion: request.question,
             ...(subjectTranscription ? { subjectTranscription } : {}),
           });
@@ -1014,20 +1026,33 @@ export function createOllamaProvider(
               onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'retrying' });
             }
             try {
-              const raw = await sendStream(
-                analysisModel,
-                attempt === 1 ? prompt : prompt + '\n\nLa précédente réponse ne respectait pas le contrat : ' + previousError + '. Corrige uniquement la structure JSON.',
-                undefined, onChunk, criterionDecisionSchema(criterion), false,
-                { kind: 'model', stage: 'analysis', temperature: 0,
-                  generationTokenLimit: Math.min(1024, 256 + 96 * Math.max(1, getRubricSubcriteria(criterion).length)),
-                  intent: 'Vérifier les attendus du critère ' + criterion.title,
-                  context: 'Décisions structurées · critère ' + (index + 1) + '/' + criteria.length },
-              );
-              proposal = scoreCriterionDecisions(criterion, parseModelJson(raw), transcription ?? '');
+              if (nativeDecision) {
+                const prepared = prepareSystemOneCriterion({
+                  criterion, transcription: transcription ?? '', question: request.question,
+                  ...(subjectTranscription ? { subjectTranscription } : {}),
+                });
+                const response = await requestSystemOneDecision({
+                  endpoint, model: analysisModel, prepared, fetchImpl,
+                  ...(signal ? { signal } : {}),
+                  onDiagnosticResult,
+                });
+                proposal = scoreSystemOneCriterion(criterion, transcription ?? '', prepared, response);
+              } else {
+                const raw = await sendStream(
+                  analysisModel,
+                  attempt === 1 ? prompt : prompt + '\n\nLa précédente réponse ne respectait pas le contrat : ' + previousError + '. Corrige uniquement la structure JSON.',
+                  undefined, onChunk, criterionDecisionSchema(criterion), false,
+                  { kind: 'model', stage: 'analysis', temperature: 0,
+                    generationTokenLimit: Math.min(1024, 256 + 96 * Math.max(1, getRubricSubcriteria(criterion).length)),
+                    intent: 'Vérifier les attendus du critère ' + criterion.title,
+                    context: 'Décisions structurées · critère ' + (index + 1) + '/' + criteria.length },
+                );
+                proposal = scoreCriterionDecisions(criterion, parseModelJson(raw), transcription ?? '');
+              }
               break;
             } catch (cause) {
               previousError = cause instanceof Error ? cause.message : 'Réponse décisionnelle inexploitable.';
-              if (signal?.aborted) break;
+              if (signal?.aborted || (nativeDecision && /HTTP 4\d\d|API décisionnelle|n’est pas disponible/i.test(previousError))) break;
             }
           }
           if (!proposal) {
