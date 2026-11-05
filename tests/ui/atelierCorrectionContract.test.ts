@@ -31,6 +31,21 @@ describe('Atelier pédagogique correction workspace', () => {
     expect(css).toContain('var(--ds-color-brand-700)');
   });
 
+  it('uses Atelier papier surfaces and terre cuite for corrections in progress', () => {
+    const main = read('src/main.tsx');
+    expect(main.indexOf('./ui/correctionAtelier.css')).toBeGreaterThan(main.indexOf('./ui/correctionFlow.css'));
+    const css = read('src/ui/correctionAtelier.css');
+    const source = css.match(/\.teacher-flow-shell \.analysis-progress,\s*\.live-copy-preview\s*\{([^}]+)\}/)?.[1];
+    expect(source).toContain('background: var(--ds-color-surface)');
+    expect(source).toContain('border-color: var(--ds-color-border)');
+    expect(css).toContain('.teacher-flow-shell .analysis-progress .analysis-spinner');
+    expect(css).toContain('border-top-color: var(--ds-color-brand-700)');
+    expect(css).toContain('.teacher-flow-shell .teacher-progress-phase.current');
+    expect(css).toContain('background: var(--ds-color-brand-100)');
+    expect(css).toContain('.teacher-progress-phase.complete > span');
+    expect(css).toContain('color: var(--ds-color-success)');
+  });
+
   it('preserves all existing evidence, note adjustments and teacher comments', () => {
     const app = read('src/ui/App.tsx');
     expect(app).toContain('<TeacherReviewAlert');
