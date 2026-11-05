@@ -26,6 +26,32 @@ describe('design system foundations', () => {
     expect(controls).toContain('prefers-reduced-motion');
   });
 
+  it('shares the exact application CSS cascade with Storybook, including the tools IA', () => {
+    const app = read('src/main.tsx');
+    const preview = read('.storybook/preview.ts');
+    const imports = (source: string) => [...source.matchAll(/import ['"](?:\.\/ui\/|\.\.\/src\/ui\/)([^'"]+\.css)['"];/g)].map((match) => match[1]);
+    expect(imports(preview)).toEqual(imports(app));
+    expect(preview).toContain("order: ['Fondations', 'Composants', 'Parcours enseignant', 'Outils IA']");
+  });
+
+  it('publishes Storybook next to the app and provides real teacher and technical reference stories', () => {
+    const workflow = read('.github/workflows/deploy-pages.yml');
+    expect(workflow).toContain('npm run build-storybook -- --output-dir dist/storybook');
+    expect(workflow).toContain('test -s dist/index.html && test -s dist/storybook/index.html');
+    expect(workflow).toContain('path: dist');
+    const teacher = read('src/ui/CorrectionOverview.stories.tsx');
+    const states = read('src/ui/design-system/foundations/AtelierBStates.stories.tsx');
+    expect(teacher).toContain('<CorrectionOverview');
+    expect(teacher).toContain("status: 'processing'");
+    expect(teacher).toContain("status: 'failed'");
+    expect(states).toContain('Contrat des états B');
+    expect(states).toContain('network-state pending');
+    expect(states).toContain('evaluation-archive-feedback is-failed');
+    expect(states).toContain('review-card is-flagged');
+    expect(states).toContain('var(--ds-color-progress)');
+    expect(states).toContain('var(--ds-color-warning)');
+  });
+
   it('connects field labels, hints and validation errors to the rendered control', () => {
     const markup = renderToStaticMarkup(createElement(Field, {
       label: 'Nom du devoir',

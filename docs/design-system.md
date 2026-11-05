@@ -27,7 +27,7 @@ Feature styles remain responsible for layout and domain-specific composition. Th
 
 ## Storybook
 
-Storybook is the visual reference environment for shared UI foundations. It consumes the same token and control styles as the application without importing application-specific layout styles.
+Storybook est la **référence visuelle de la maquette B** pour les fondations, les composants et les états représentatifs des deux parcours. Il importe les mêmes feuilles CSS **dans le même ordre** que `src/main.tsx`, y compris les écrans techniques : la cascade affichée est la cascade réelle de l'application.
 
 Run it locally:
 
@@ -41,9 +41,15 @@ Build the static reference:
 npm run build-storybook
 ```
 
+Le workflow `.github/workflows/deploy-pages.yml` publie la version statique sous `/storybook/` **sur le même GitHub Pages que l'application**, en conservant l'application à sa racine. Par défaut : `https://sims07.github.io/Companion-Correcteur-Devoir/storybook/`. Le lien sera actif après le déploiement réussi de `main`.
+
 Stories are colocated with their components under `src/ui/design-system/components`. Each foundational component should document its meaningful variants and states (default, disabled, invalid, helper text, etc.). The `Fondations/Design tokens` page exposes the semantic color, spacing and radius scales.
 
-The accessibility addon is enabled in the Storybook toolbar. It supplements, but does not replace, keyboard, screen-reader and browser-level tests.
+Le catalogue contient notamment `Parcours enseignant/Suivi des copies` (vrai composant avec ses états), `Parcours enseignant/Correction en cours`, `Parcours enseignant/Point à examiner` et `Fondations/Contrat des états B` (exemples professeur et outils techniques).
+
+**Règle de maintenance** : toute modification du vocabulaire des états ou de l'aspect d'un parcours exige la mise à jour de la story correspondante et d'un test ciblé. Les stories de référence ne doivent ni appeler de LLM, ni utiliser de vraies copies, ni dépendre d'un serveur. Le catalogue est une référence de composants et d'états — **pas une reproduction exhaustive de toutes les pages et de toutes les interactions métier**.
+
+L'addon d'accessibilité est activé. Il complète, sans remplacer, les tests clavier, lecteur d'écran et Playwright.
 
 ## Usage
 
