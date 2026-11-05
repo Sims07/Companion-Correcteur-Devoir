@@ -3346,7 +3346,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </div>
             <details className="review-transcription">
               <summary><span><strong>Transcription de la copie</strong><small>{(activeBackgroundJob?.transcription ?? transcription) ? 'Texte disponible (consultation facultative)' : 'Aucun texte disponible'}</small></span></summary>
-              {(activeBackgroundJob?.transcription ?? transcription) ? <pre className="live-transcription-text">{activeBackgroundJob?.transcription ?? transcription}</pre> : <p role="status">La correction s’appuie sur les images de la copie.</p>
+              {(activeBackgroundJob?.transcription ?? transcription) ? <pre className="live-transcription-text">{activeBackgroundJob?.transcription ?? transcription}</pre> : <p role="status">La correction s’appuie sur les images de la copie.</p>}
             </details>
           </aside>
           <div className="review-main-column" onKeyDown={(event) => {
