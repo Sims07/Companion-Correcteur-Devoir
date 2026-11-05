@@ -27,7 +27,7 @@ const display = (current: BackgroundCorrectionJob, isStartingCorrections = false
   <CorrectionOverview
     jobs={[toBackgroundJobSummary(current)]} corrections={[]} currentCopy={null}
     filter="all" onFilterChange={vi.fn()} onAddCopy={vi.fn()} addCopyExpanded={false} pendingCount={1}
-    isStartingCorrections={isStartingCorrections} onStartCorrections={vi.fn()}
+    isStartingCorrections={isStartingCorrections} isStoppingCorrections={false} onStopCorrections={vi.fn()} onStartCorrections={vi.fn()}
     onOpenJob={vi.fn()} onRetryJob={vi.fn()} onRemoveJob={vi.fn()} notice=""
     onOpenCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}
   />,
@@ -50,6 +50,13 @@ describe('teacher correction overview and partial grade safety', () => {
     expect(display({ ...job, status: 'processing', phase: 'grading', completedCriteria: 1 })).toContain('1/2 critères évalués');
   });
 
+
+  it('keeps stopping contextual to the copy currently being prepared or corrected', () => {
+    expect(display({ ...job, status: 'processing' })).toContain('Arrêter');
+    expect(display(job, true)).toContain('Arrêter');
+    expect(display(job)).not.toContain('context-stop-button');
+    expect(display({ ...job, status: 'ready' })).not.toContain('context-stop-button');
+  });
 
   it('offers removal for a waiting copy, without showing it during processing or after archiving', () => {
     expect(display(job)).toContain('Retirer la copie « Copie de biologie »');
