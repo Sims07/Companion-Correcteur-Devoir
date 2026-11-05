@@ -1,0 +1,484 @@
+/* Atelier B — composition réelle des parcours, pas une simple recoloration.
+   Fidélité de structure : header global, rail du devoir persistant, copie/critères
+   en vis-à-vis. Le comportement métier reste dans les composants React existants. */
+
+/* Cadre plein écran de la maquette B. */
+.teacher-flow-shell,
+.teacher-flow-shell.teacher-assignments-home {
+  display: block;
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  background: var(--ds-color-surface-subtle);
+}
+.teacher-flow-shell > .topbar,
+.teacher-flow-shell.teacher-assignments-home > .topbar {
+  display: flex;
+  align-items: center;
+  min-height: 76px;
+  margin: 0;
+  padding: 12px clamp(20px, 2.4vw, 36px);
+  background: var(--ds-color-surface);
+  border-bottom: 1px solid var(--ds-color-border);
+}
+.teacher-flow-shell .topbar h1 {
+  font-family: var(--ds-font-editorial);
+  font-size: clamp(17px, 1.5vw, 21px);
+  letter-spacing: -.025em;
+}
+.teacher-flow-shell .brand-mark { width: 44px; height: 44px; border-radius: 4px; }
+.teacher-flow-shell .topbar-actions { gap: 12px; }
+
+/* La bibliothèque occupe une largeur généreuse et exactement 3 colonnes sur desktop. */
+.teacher-assignments-home .assignments-home {
+  width: min(100%, 1440px);
+  margin: 0 auto;
+  padding: 42px clamp(20px, 3vw, 42px) 28px;
+}
+.teacher-assignments-home .assignments-home-heading { align-items: flex-start; margin-bottom: 26px; }
+.teacher-assignments-home .assignments-home-heading h2 { font-size: clamp(32px, 3.5vw, 39px); }
+.teacher-assignments-home .assignments-home-toolbar { margin-bottom: 22px; }
+.teacher-assignments-home .assignments-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 20px;
+}
+.teacher-assignments-home .assignment-overview-card {
+  min-height: 265px;
+  padding: 22px 23px 18px;
+  border: 1px solid var(--ds-color-border);
+  border-top: 3px solid var(--ds-color-brand-700);
+  border-radius: 3px;
+}
+.teacher-assignments-home .assignment-overview-card.is-active {
+  border-color: var(--ds-color-border);
+  border-top-color: var(--ds-color-brand-700);
+  box-shadow: inset 0 0 0 1px var(--ds-color-brand-700);
+}
+.teacher-assignments-home .assignment-overview-title h3 {
+  font-family: var(--ds-font-editorial);
+  font-size: 20px;
+  line-height: 1.25;
+}
+.teacher-assignments-home .assignments-search { min-height: 44px; }
+.teacher-assignments-home .assignments-search input {
+  min-height: 38px;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.teacher-assignments-home .assignments-filters {
+  display: inline-flex;
+  gap: 0;
+  border: 1px solid var(--ds-color-border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--ds-color-surface);
+}
+.teacher-assignments-home .assignments-filters button {
+  border-radius: 0;
+  border: 0;
+  padding: 7px 12px;
+  background: transparent;
+}
+.teacher-assignments-home .assignments-filters button + button { border-left: 1px solid var(--ds-color-border); }
+.teacher-assignments-home .assignments-filters button.active {
+  box-shadow: inset 0 0 0 1px var(--ds-color-brand-700);
+  color: var(--ds-color-brand-700);
+  background: var(--ds-color-brand-100);
+}
+.teacher-assignments-home .assignments-home-footer {
+  justify-content: center;
+  text-align: center;
+}
+
+/* Sur les écrans du devoir, la colonne de gauche n'est plus une colonne fantôme. */
+.teacher-flow-shell .teacher-content-column,
+.teacher-flow-shell .teacher-content-column.has-copy-rail {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 218px clamp(18px, 2.2vw, 34px) minmax(0, 1fr) clamp(18px, 2.2vw, 34px);
+  column-gap: 0;
+  row-gap: 0;
+  align-items: start;
+  padding: 0;
+}
+.teacher-flow-shell .teacher-content-column > :not(.atelier-assignment-sidebar),
+.teacher-flow-shell .teacher-content-column.has-copy-rail > :not(.atelier-assignment-sidebar) {
+  grid-column: 3;
+  min-width: 0;
+  max-width: 100%;
+  margin-inline: 0;
+}
+.teacher-flow-shell .teacher-content-column > .atelier-assignment-sidebar,
+.teacher-flow-shell .teacher-content-column.has-copy-rail > .atelier-assignment-sidebar {
+  grid-column: 1;
+  grid-row: 1 / span 80;
+  align-self: start;
+  margin: 0;
+}
+.teacher-flow-shell .teacher-content-column > .teacher-workspace-navigation {
+  grid-column: 3;
+}
+.atelier-assignment-sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  min-height: calc(100dvh - 76px);
+  max-height: 100dvh;
+  overflow-y: auto;
+  padding: 26px 18px 24px 28px;
+  border-right: 1px solid var(--ds-color-border);
+  background: #f7f0e6;
+  color: var(--ds-color-text);
+}
+.atelier-sidebar-back {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  border: 0;
+  padding: 4px 0;
+  color: var(--ds-color-text-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.atelier-sidebar-back:hover:not(:disabled) { color: var(--ds-color-brand-700); }
+.atelier-sidebar-back:focus-visible,
+.atelier-sidebar-tabs button:focus-visible,
+.atelier-assignment-sidebar button:focus-visible {
+  outline: 2px solid var(--ds-color-brand-700);
+  outline-offset: 2px;
+}
+.atelier-sidebar-assignment { display: grid; gap: 5px; padding: 27px 0 27px; }
+.atelier-sidebar-assignment strong { font-size: 14px; font-weight: 780; line-height: 1.38; overflow-wrap: anywhere; }
+.atelier-sidebar-assignment small { color: var(--ds-color-text-muted); font-size: 11px; line-height: 1.5; }
+.atelier-sidebar-section > .eyebrow { display: block; margin-bottom: 15px; font-size: 10px; letter-spacing: .1em; }
+.atelier-sidebar-tabs { display: grid; gap: 5px; }
+.atelier-sidebar-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 45px;
+  padding: 8px 11px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  text-align: left;
+  background: transparent;
+  color: var(--ds-color-text-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.atelier-sidebar-tabs button:hover:not(:disabled) { background: var(--ds-color-surface); color: var(--ds-color-text); }
+.atelier-sidebar-tabs button.is-active {
+  border-color: var(--ds-color-brand-100);
+  background: var(--ds-color-brand-100);
+  color: var(--ds-color-brand-700);
+}
+.atelier-sidebar-tab-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 25px;
+  width: 25px;
+  height: 25px;
+  border-radius: 4px;
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text-muted);
+  font-size: 14px;
+}
+.atelier-sidebar-tabs button.is-active .atelier-sidebar-tab-icon {
+  background: var(--ds-color-brand-700);
+  color: #fff;
+}
+.atelier-sidebar-footer {
+  display: grid;
+  gap: 5px;
+  margin-top: auto;
+  padding: 16px 12px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: 5px;
+  color: var(--ds-color-text);
+  background: #f9f3e9;
+}
+.atelier-sidebar-footer strong { font-size: 11px; line-height: 1.45; }
+.atelier-sidebar-footer small { color: var(--ds-color-text-muted); font-size: 10px; line-height: 1.45; }
+
+/* La liste des copies est intégrée au même rail, sans une seconde colonne permanente. */
+.atelier-assignment-sidebar .teacher-copy-rail {
+  display: block;
+  position: static;
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+  margin: 24px 0 24px;
+  padding: 20px 0 0;
+  border: 0;
+  border-top: 1px solid var(--ds-color-border);
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.atelier-assignment-sidebar .teacher-copy-rail-heading { border: 0; padding: 0 2px 10px; }
+.atelier-assignment-sidebar .teacher-copy-rail-heading .eyebrow { font-size: 10px; }
+.atelier-assignment-sidebar .teacher-copy-rail-heading h2 {
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 700;
+}
+.atelier-assignment-sidebar .teacher-copy-rail-list button { min-height: 43px; }
+.atelier-assignment-sidebar .teacher-copy-rail-copy-label strong { font-size: 11px; }
+.atelier-assignment-sidebar .teacher-copy-rail-next-review { width: 100%; margin-top: 11px; }
+
+/* Une fine ligne de contexte remplace le doublon d'onglets horizontaux. */
+.teacher-flow-shell .teacher-workspace-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 72px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--ds-color-border);
+}
+.teacher-flow-shell .teacher-breadcrumb { gap: 8px; font-size: 12px; }
+.teacher-flow-shell .teacher-breadcrumb button { color: var(--ds-color-text-muted); }
+.teacher-flow-shell .teacher-workspace-navigation-actions { margin-left: auto; }
+.teacher-flow-shell .teacher-workspace-processing:not(.is-active) { display: none; }
+.teacher-flow-shell .teacher-ai-settings-button:not(.is-required) {
+  border: 0;
+  background: transparent;
+  color: var(--ds-color-text-muted);
+}
+.teacher-flow-shell .teacher-ai-settings-button:not(.is-required):hover { color: var(--ds-color-brand-700); }
+.teacher-flow-shell .teacher-workspace-tabs { display: none; }
+
+/* La page de revue ressemble au poste de travail B plutôt qu'à une succession de fiches. */
+.teacher-flow-shell .teacher-content-column .review-section.copy-navigation-only {
+  margin-top: 10px;
+}
+.teacher-flow-shell .review-workspace {
+  grid-template-columns: minmax(0, 1.04fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 12px;
+}
+.teacher-flow-shell .review-source-pane {
+  position: sticky;
+  top: 16px;
+  align-self: start;
+  max-height: calc(100dvh - 32px);
+  padding: 14px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: 3px;
+  background: var(--ds-color-surface);
+}
+.teacher-flow-shell .review-source-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.teacher-flow-shell .review-source-heading h3 { font-family: inherit; font-size: 13px; font-weight: 750; }
+.teacher-flow-shell .review-source-heading p { font-size: 10px; }
+.teacher-flow-shell .review-source-pages .live-copy-page img {
+  width: 100%;
+  max-height: 63vh;
+  object-fit: contain;
+  background: #e9ecef;
+}
+.teacher-flow-shell .review-main-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+.atelier-review-decision-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  order: -10;
+  padding: 13px 15px;
+  border: 1px solid var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+  border-radius: 3px;
+}
+.atelier-review-decision-heading strong { font-size: 13px; font-weight: 750; }
+.atelier-review-decision-heading span { color: var(--ds-color-text-muted); font-size: 11px; text-align: right; }
+.teacher-flow-shell .review-main-column .copy-review-alert-strip {
+  order: -8;
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 3px;
+  background: var(--ds-color-warning-surface);
+  border-color: var(--ds-color-border);
+  font-size: 11px;
+}
+.teacher-flow-shell .review-main-column .copy-review-alert-strip .copy-review-classification-alert {
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+.teacher-flow-shell .copy-review-navigation-message {
+  margin: 7px 0 8px;
+  color: var(--ds-color-text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.teacher-flow-shell .review-main-column .review-criteria-toolbar { order: -5; margin: 0; }
+.teacher-flow-shell .review-main-column .review-card {
+  margin: 0;
+  padding: 14px 15px;
+  border-radius: 3px;
+}
+.teacher-flow-shell .review-main-column .review-card.is-flagged {
+  border-left: 3px solid var(--ds-color-brand-700);
+}
+.teacher-flow-shell .review-card-heading h3 {
+  font-family: var(--ds-font-editorial);
+  font-size: 16px;
+  line-height: 1.3;
+}
+.teacher-flow-shell .review-card-heading p { margin: 4px 0 0; color: var(--ds-color-text-muted); font-size: 11px; }
+.teacher-flow-shell .review-card-result strong { font-size: 16px; }
+.teacher-flow-shell .review-alert-summary { margin-top: 7px; }
+.teacher-flow-shell .review-alert-summary .rationale {
+  font-size: 11px;
+  line-height: 1.4;
+}
+.teacher-flow-shell .review-alert-reasons { gap: 4px; }
+.teacher-flow-shell .review-alert-reason { padding: 3px 6px; font-size: 10px; }
+.teacher-flow-shell .teacher-review-alert-actions { gap: 8px; }
+.teacher-flow-shell .review-explanation { margin-top: 6px; }
+.teacher-flow-shell .review-quick-edit {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ds-color-border);
+}
+.teacher-flow-shell .review-quick-edit summary {
+  width: fit-content;
+  color: var(--ds-color-brand-700);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.teacher-flow-shell .review-quick-edit summary:focus-visible { outline: 2px solid var(--ds-color-brand-700); outline-offset: 3px; }
+.teacher-flow-shell .review-quick-edit .review-controls {
+  margin-top: 12px;
+  gap: 12px;
+}
+.teacher-flow-shell .review-score-summary {
+  order: 20;
+  position: static;
+  margin-top: 6px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: 3px;
+  background: var(--ds-color-brand-100);
+  box-shadow: none;
+}
+.teacher-flow-shell .review-safe-summary-row { order: 15; }
+.teacher-flow-shell .copy-review-validation-bar {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-brand-100);
+}
+.teacher-flow-shell .copy-review-header {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+}
+
+/* La page de suivi garde les informations essentielles et de vraies cartes de copies. */
+.teacher-flow-shell .copy-overview { padding-top: 24px; }
+.teacher-flow-shell .copy-overview-heading h2 { font-family: var(--ds-font-editorial); }
+.teacher-flow-shell .teacher-copy-work-summary > div {
+  border-radius: 3px;
+  background: var(--ds-color-surface);
+}
+.teacher-flow-shell .copy-overview-grid { grid-template-columns: repeat(auto-fit,minmax(min(100%,270px),1fr)); }
+.teacher-flow-shell .copy-overview-grid .correction-series-card { border-radius: 3px; }
+
+/* Responsive : la navigation s'empile sans cacher ni devoir ni actions. */
+@media (max-width: 1200px) {
+  .teacher-flow-shell .review-workspace { grid-template-columns: minmax(0, 1fr); }
+  .teacher-flow-shell .review-source-pane { position: static; max-height: none; }
+  .teacher-flow-shell .review-source-pages .live-copy-page img { max-height: 48vh; }
+}
+@media (max-width: 1050px) {
+  .teacher-flow-shell .teacher-content-column,
+  .teacher-flow-shell .teacher-content-column.has-copy-rail { grid-template-columns: 190px 18px minmax(0,1fr) 18px; }
+  .atelier-assignment-sidebar { padding: 20px 12px; }
+  .atelier-sidebar-tabs button { padding: 8px 6px; }
+  .teacher-assignments-home .assignments-card-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 760px) {
+  .teacher-flow-shell .teacher-content-column,
+  .teacher-flow-shell .teacher-content-column.has-copy-rail { display: grid; grid-template-columns: 16px minmax(0,1fr) 16px; }
+  .teacher-flow-shell .teacher-content-column > .atelier-assignment-sidebar,
+  .teacher-flow-shell .teacher-content-column.has-copy-rail > .atelier-assignment-sidebar {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    position: static;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid var(--ds-color-border);
+    padding: 12px 16px;
+  }
+  .atelier-sidebar-assignment { padding: 9px 0 12px; }
+  .atelier-sidebar-section > .eyebrow { margin-bottom: 6px; }
+  .atelier-sidebar-tabs { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .atelier-sidebar-tabs button { justify-content: center; gap: 7px; min-height: 40px; }
+  .atelier-assignment-sidebar .teacher-copy-rail { margin: 10px 0 0; padding-top: 10px; }
+  .atelier-assignment-sidebar .teacher-copy-rail-list { grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); }
+  .atelier-sidebar-footer { display: none; }
+  .teacher-flow-shell .teacher-content-column > :not(.atelier-assignment-sidebar),
+  .teacher-flow-shell .teacher-content-column.has-copy-rail > :not(.atelier-assignment-sidebar),
+  .teacher-flow-shell .teacher-content-column > .teacher-workspace-navigation {
+    grid-column: 2;
+    margin-inline: 0;
+  }
+  .teacher-flow-shell .teacher-workspace-navigation { gap: 6px; flex-wrap: wrap; min-height: 54px; }
+  .teacher-flow-shell .review-workspace { grid-template-columns: minmax(0,1fr); }
+  .teacher-flow-shell .review-source-pane { position: static; }
+  .teacher-flow-shell .review-main-column { gap: 12px; }
+  .teacher-assignments-home .assignments-home { padding: 28px 16px; }
+  .teacher-assignments-home .assignments-card-grid { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 430px) {
+  .teacher-flow-shell > .topbar { flex-wrap: wrap; }
+  .teacher-flow-shell .teacher-workspace-navigation-actions { width: 100%; justify-content: flex-start; }
+  .atelier-review-decision-heading { flex-wrap: wrap; }
+  .teacher-flow-shell .review-source-heading { display: block; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .atelier-assignment-sidebar *, .teacher-assignments-home .assignment-overview-card { transition: none; animation: none; }
+}
+
+/* The teacher memory launcher must not cover the primary grade action. */
+body:has(.teacher-flow-shell .copy-review-validation-bar) .memory-fab {
+  left: 20px;
+  right: auto;
+  bottom: 18px;
+  width: 180px;
+  padding: 9px 11px;
+  border-radius: var(--ds-radius-sm);
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+  box-shadow: var(--app-surface-shadow);
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  body:has(.teacher-flow-shell .copy-review-validation-bar) .memory-fab {
+    left: 12px;
+    right: auto;
+    bottom: 12px;
+    width: auto;
+    max-width: min(180px, 46vw);
+    padding: 7px 9px;
+    font-size: 10px;
+  }
+}
