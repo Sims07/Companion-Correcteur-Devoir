@@ -5,6 +5,7 @@ import '../src/ui/design-system/application-theme.css';
 import '../src/ui/teacherAtelier.css';
 import '../src/ui/correctionAtelier.css';
 import '../src/ui/atelierBLayout.css';
+import '../src/ui/atelierBRubric.css';
 
 const preview: Preview = {
   parameters: {
