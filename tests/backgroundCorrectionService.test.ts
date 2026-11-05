@@ -596,6 +596,57 @@ describe('background correction service', () => {
     expect(calls).toHaveLength(2);
   });
 
+  it('keeps 30 sequential copies to one shared subject read without any placeholder warmup', async () => {
+    const f = fixture();
+    const subjectImages = [{ base64: 'c3VqZXQtY29tbXVu', mimeType: 'image/png', fileName: 'sujet.png' }];
+    for (let index = 0; index < 30; index += 1) {
+      const page = { base64: `Y29waWU=${index}`, mimeType: 'image/png', fileName: `copie-${index}.png` };
+      f.jobs.set(`copy-${index}`, {
+        ...structuredClone(f.job),
+        id: `copy-${index}`,
+        label: `Copie ${index}`,
+        correctionMode: 'separate',
+        subjectImages,
+        images: [page],
+        originalImages: [page],
+        createdAt: new Date(Date.UTC(2026, 10, 1, 9, index)).toISOString(),
+      });
+    }
+    f.jobs.delete('copy-1');
+    f.repository.fingerprintImages = vi.fn(async (images: BackgroundCorrectionJob['images']) =>
+      images.map((image) => image.base64).join('|'));
+    let subjectReads = 0;
+    let copyReads = 0;
+    let criterionCalls = 0;
+    f.setGenerateImplementation(async (request, _chunk, _stage, onTranscription) => {
+      criterionCalls += 1;
+      if (!request.subjectTranscription) {
+        subjectReads += 1;
+        onTranscription?.('Sujet de référence commun.', 'subject');
+      }
+      if (!request.transcription) {
+        copyReads += 1;
+        onTranscription?.('Réponse de la copie.', 'copy');
+      }
+      const criterion = (JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> }).criteria[0];
+      return JSON.stringify({ summary: '', criteria: [{
+        criterionId: criterion.id, points: criterion.maxPoints,
+        rationale: '', evidence: 'preuve', confidence: 'high',
+      }], questionsForTeacher: [], finalScore: criterion.maxPoints });
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.processPending({
+      endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'vision:4b',
+    }, 'assignment-1');
+
+    expect(subjectReads).toBe(1);
+    expect(copyReads).toBe(30);
+    expect(criterionCalls).toBe(60);
+    expect(f.workspace.prewarmModel).not.toHaveBeenCalled();
+    expect(f.workspace.checkReady).not.toHaveBeenCalled();
+    expect((await service.listJobs('assignment-1')).filter((job) => job.status === 'ready')).toHaveLength(30);
+  });
+
   it('starts a manual local correction without a new placeholder warmup request', async () => {
     const f = fixture();
     const service = createBackgroundCorrectionService(f.repository, f.workspace);
