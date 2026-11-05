@@ -114,7 +114,7 @@ test('la dernière correction reste accessible après retour au suivi sans réaf
   await expect(latest).toContainText('Correction la plus récente');
   await expect(latest).toContainText('15 / 20');
   await latest.getByRole('button', { name: 'Voir la dernière correction' }).click();
-  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Correction la plus récente');
+  await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Correction la plus récente');
   await expect(page.locator('.copy-review-header-score')).toContainText('15 / 20');
   await expect(page.getByText('Cette copie attend sa correction.', { exact: false })).toHaveCount(0);
 
@@ -159,13 +159,13 @@ test('adding a copy while another one is under review keeps the previous copy an
 
   await expect(page.getByRole('button', { name: /À vérifier/ })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Vérifier la copie suivante' }).click();
-  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Copie récente');
+  await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Copie récente');
   const copyRail = page.getByRole('complementary', { name: 'Navigation entre les copies' });
   await expect(copyRail).toBeVisible();
   await copyRail.getByRole('button', { name: /Copie ancienne/ }).click();
-  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Copie ancienne');
+  await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Copie ancienne');
   await copyRail.getByRole('button', { name: /Copie récente/ }).click();
-  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Copie récente');
+  await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Copie récente');
 
   await copyNavigation(page).click();
   await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
@@ -188,8 +188,8 @@ test('teacher verifies a flagged criterion, validates the copy and lands on the 
   await copyNavigation(page).click();
 
   await page.getByRole('button', { name: 'Vérifier la copie suivante' }).click();
-  const studentName = page.getByRole('textbox', { name: 'Nom de l’étudiant' });
-  await expect(studentName).toHaveValue('Copie récente');
+  const studentName = page.locator('.copy-review-identity-title h2');
+  await expect(studentName).toHaveText('Copie récente');
 
   const flaggedCard = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Connaissances scientifiques' }) });
   await expect(flaggedCard.getByText('Point retiré', { exact: true })).toBeVisible();
@@ -207,7 +207,7 @@ test('teacher verifies a flagged criterion, validates the copy and lands on the 
   await expect(flaggedCard.getByText('7 / 8')).toBeVisible();
 
   await page.keyboard.press('Control+Enter');
-  await expect(studentName).toHaveValue('Copie ancienne');
+  await expect(studentName).toHaveText('Copie ancienne');
   await expect(page.getByRole('heading', { name: 'Connaissances scientifiques' })).toBeVisible();
 });
 
@@ -234,8 +234,8 @@ test('a copy without alerts can be validated in one action and advances to the n
   await copyNavigation(page).click();
   await page.getByRole('button', { name: 'Vérifier la copie suivante' }).click();
 
-  const studentName = page.getByRole('textbox', { name: 'Nom de l’étudiant' });
-  await expect(studentName).toHaveValue('Copie sans alerte');
+  const studentName = page.locator('.copy-review-identity-title h2');
+  await expect(studentName).toHaveText('Copie sans alerte');
   await expect(page.locator('.copy-review-alert-strip')).toHaveCount(0);
   await expect(page.locator('.review-card')).toHaveCount(0);
   await expect(page.locator('.review-safe-summary-row')).toBeVisible();
@@ -244,7 +244,7 @@ test('a copy without alerts can be validated in one action and advances to the n
   const validate = page.getByRole('button', { name: 'Valider et passer à la suivante' }).first();
   await expect(validate).toBeEnabled();
   await validate.click();
-  await expect(studentName).toHaveValue('Copie suivante');
+  await expect(studentName).toHaveText('Copie suivante');
 });
 
 test('a failed copy remains À reprendre and the Relancer action starts a new attempt', async ({ page }) => {
@@ -302,7 +302,7 @@ test('opening a queued copy never displays a fictitious zero grade', async ({ pa
   await copyNavigation(page).click();
   await page.locator('.copy-overview-grid .correction-series-card').getByRole('button', { name: 'Ouvrir' }).click();
 
-  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Copie non évaluée');
+  await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Copie non évaluée');
   await expect(page.locator('.copy-review-header-score')).toHaveText('Note à venir');
   await expect(page.getByText('Cette copie attend sa correction. Aucune note n’a encore été attribuée.', { exact: true })).toBeVisible();
 });
