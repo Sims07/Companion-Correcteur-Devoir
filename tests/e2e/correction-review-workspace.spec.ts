@@ -133,6 +133,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toBeVisible();
   await expect(page.getByText('Nom lu sur la copie')).toBeVisible();
   await expect(page.getByText('Page 1 : schéma possible, confiance faible.')).toBeVisible();
+  await expect(page.locator('.review-main-column .copy-review-alert-strip')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Analyser comme schéma' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ignorer' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Correction validée' }).first()).toBeVisible();
