@@ -55,6 +55,7 @@ import { RubricImportPanel } from './components/RubricImportPanel.tsx';
 import { CorrectionOverview } from './CorrectionOverview.tsx';
 import { TeacherCopyIntake } from './components/TeacherCopyIntake.tsx';
 import { TeacherWorkspaceNavigation } from './components/TeacherWorkspaceNavigation.tsx';
+import { Button, Checkbox, Dialog } from './design-system/index.ts';
 
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
@@ -308,6 +309,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
   const [showAssignmentsHome, setShowAssignmentsHome] = useState(true);
+  const [pendingRemoval, setPendingRemoval] = useState<{ kind: 'assignment'; profile: AssignmentProfile } | { kind: 'copy'; job: BackgroundCorrectionJob } | null>(null);
   const [copyOverviewFilter, setCopyOverviewFilter] = useState<CopyOverviewFilter>('all');
   const [showCopyIntake, setShowCopyIntake] = useState(false);
   const [copyOverviewNotice, setCopyOverviewNotice] = useState('');
@@ -1690,10 +1692,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   function deleteAssignment(profile: AssignmentProfile) {
     if (isAnalyzing || assignmentProfiles.length <= 1) return;
-    const confirmed = window.confirm(
-      `Supprimer le devoir « ${profile.title.trim() || 'Devoir sans titre'} » ? Les corrections déjà archivées seront conservées.`,
-    );
-    if (!confirmed) return;
 
     const nextProfiles = assignmentProfiles.filter((item) => item.id !== profile.id);
     setAssignmentProfiles(nextProfiles);
@@ -1708,6 +1706,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       const nextActive = nextProfiles[Math.max(0, deletedIndex - 1)] ?? nextProfiles[0];
       applyAssignment(nextActive);
     }
+  }
+
+  function requestDeleteAssignment(profile: AssignmentProfile) {
+    if (!isAnalyzing && assignmentProfiles.length > 1) setPendingRemoval({ kind: 'assignment', profile });
   }
 
   function createNewAssignment(details: NewAssignmentDetails) {
@@ -1863,8 +1865,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   async function removeSeriesCopy(job: BackgroundCorrectionJob) {
     if (job.status === 'processing' || job.status === 'completed') return;
-    const confirmed = window.confirm(`Retirer la copie « ${job.label} » et ses ${job.images.length} page(s) de ce devoir ? Les données locales de cette copie seront supprimées.`);
-    if (!confirmed) return;
     try {
       await backgroundService.remove(job.id);
       const remainingJobs = await backgroundService.listJobs(activeAssignmentId);
@@ -1896,6 +1896,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setCopyOverviewNotice('');
       setError(message);
     }
+  }
+
+  function requestRemoveSeriesCopy(job: BackgroundCorrectionJob) {
+    if (job.status !== 'processing' && job.status !== 'completed') setPendingRemoval({ kind: 'copy', job });
   }
 
   async function queueCurrentCopy() {
@@ -2285,7 +2289,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         onCreate={(details) => { createNewAssignment(details); setShowAssignmentsHome(false); }}
         onDuplicate={duplicateAssignment}
         onOpen={(profile) => { switchAssignment(profile); setShowAssignmentsHome(false); }}
-        onDelete={deleteAssignment}
+        onDelete={requestDeleteAssignment}
         onReturn={() => setShowAssignmentsHome(false)}
         disabled={isAnalyzing}
       />}
@@ -2783,7 +2787,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         isStartingCorrections={isStartingSeriesCorrections}
         onStartCorrections={() => { void startSeriesCorrections(); }}
         onOpenJob={(jobId) => { void loadNextQueuedCopy(jobId); }}
-        onRemoveJob={(jobId) => { void (async () => { const job = (await backgroundService.listJobs(activeAssignmentId)).find((item) => item.id === jobId); if (job) await removeSeriesCopy(job); })(); }}
+        onRemoveJob={(jobId) => { void (async () => { const job = (await backgroundService.listJobs(activeAssignmentId)).find((item) => item.id === jobId); if (job) requestRemoveSeriesCopy(job); })(); }}
         onRetryJob={(jobId) => { void backgroundService.retry(jobId, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}
         onReviewNextCopy={() => {
           if (images.length > 0 && !currentBackgroundJobId && proposal) {
@@ -3013,7 +3017,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               {canOpenCorrection && <button type="button" className="secondary-button correction-series-view" disabled={isAnalyzing} onClick={() => { void loadNextQueuedCopy(job.id); }}>Consulter la correction</button>}
               {['pending', 'processing'].includes(job.status) && <button type="button" className="secondary-button correction-series-view" onClick={() => setSelectedSeriesPreviewId((current) => current === job.id ? null : job.id)}>{selectedSeriesPreviewId === job.id ? 'Masquer la copie' : 'Voir la copie'}</button>}
               {['needs-review', 'failed'].includes(job.status) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Corriger</button>}
-              {job.status !== 'processing' && job.status !== 'completed' && <button type="button" className="text-button correction-series-remove" onClick={() => { void removeSeriesCopy(job); }}>Supprimer</button>}
+              {job.status !== 'processing' && job.status !== 'completed' && <button type="button" className="text-button correction-series-remove" onClick={() => requestRemoveSeriesCopy(job)}>Supprimer</button>}
             </div>
           </div>
         </li>; })}</ol>}
@@ -3454,22 +3458,69 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </section>}
 
       </>}
-      {pendingTeacherAnnotationReview.length > 0 && <div className="copy-image-viewer annotation-review-overlay" role="dialog" aria-modal="true" aria-labelledby="teacher-annotation-review-title">
-        <div className="copy-image-viewer-panel annotation-review-panel">
-          <header className="copy-image-viewer-header"><strong id="teacher-annotation-review-title">Vérifier les annotations incertaines</strong><span>{pendingTeacherAnnotationReview.length} élément(s) à confirmer</span></header>
-          <div className="annotation-review-content">
-            <p>Le modèle a repéré des marques dont l’origine n’est pas certaine. Par défaut, elles restent dans la transcription et peuvent être prises en compte dans la correction. Cochez uniquement celles qui ont bien été ajoutées par le professeur : elles seront retirées du texte noté.</p>
-            {pendingTeacherAnnotationReview.map((candidate) => <label className="analysis-thinking-option annotation-review-option" key={candidate.id}>
-              <input type="checkbox" checked={teacherAnnotationReviewDecisions[candidate.id] === true} onChange={(event) => setTeacherAnnotationReviewDecisions((current) => ({ ...current, [candidate.id]: event.target.checked }))} />
-              <span><strong>{candidate.text}</strong><small>Page {candidate.page} · {candidate.location || 'Emplacement non précisé'} · Confiance {candidate.confidence === 'medium' ? 'moyenne' : 'faible'}</small><small>Cocher si cette marque provient du professeur et non de l’étudiant.</small></span>
-            </label>)}
-          </div>
-          <footer className="copy-image-viewer-navigation annotation-review-actions"><span>Vous gardez la main sur les ajustements de la correction.</span><button type="button" className="primary-button" onClick={finishTeacherAnnotationReview}>Confirmer et poursuivre</button></footer>
+      {pendingTeacherAnnotationReview.length > 0 && <Dialog
+        title="Vérifier les annotations incertaines"
+        subtitle={pendingTeacherAnnotationReview.length + ' élément(s) à confirmer'}
+        size="wide"
+        dismissible={false}
+        actions={<div className="annotation-review-actions"><span>Vous gardez la main sur les ajustements de la correction.</span><Button onClick={finishTeacherAnnotationReview}>Confirmer et poursuivre</Button></div>}
+      >
+        <div className="annotation-review-content">
+          <p>Le modèle a repéré des marques dont l’origine n’est pas certaine. Par défaut, elles restent dans la transcription et peuvent être prises en compte dans la correction. Cochez uniquement celles qui ont bien été ajoutées par le professeur : elles seront retirées du texte noté.</p>
+          {pendingTeacherAnnotationReview.map((candidate) => <Checkbox className="annotation-review-option" key={candidate.id}
+            checked={teacherAnnotationReviewDecisions[candidate.id] === true}
+            onChange={(event) => setTeacherAnnotationReviewDecisions((current) => ({ ...current, [candidate.id]: event.target.checked }))}
+          >
+            <strong>{candidate.text}</strong>
+            <small>Page {candidate.page} · {candidate.location || 'Emplacement non précisé'} · Confiance {candidate.confidence === 'medium' ? 'moyenne' : 'faible'}</small>
+            <small>Cocher si cette marque provient du professeur et non de l’étudiant.</small>
+          </Checkbox>)}
         </div>
-      </div>}
-      {copyViewerPage !== null && images[copyViewerPage] && <div className="copy-image-viewer" role="dialog" aria-modal="true" aria-label={`Visualiseur de la page ${copyViewerPage + 1}`} onClick={() => setCopyViewerPage(null)} onKeyDown={(event) => { if (event.key === 'Escape') setCopyViewerPage(null); }}><div className="copy-image-viewer-panel" onClick={(event) => event.stopPropagation()}><header className="copy-image-viewer-header"><strong>Page {copyViewerPage + 1} / {images.length}</strong><span>{images[copyViewerPage].fileName || `Page ${copyViewerPage + 1}`}</span><button type="button" aria-label="Fermer le visualiseur" onClick={() => setCopyViewerPage(null)}>×</button></header><div className="copy-image-viewer-toolbar"><button type="button" onClick={() => { void rotateCopyPage(copyViewerPage, 270); }} aria-label="Tourner l’image à gauche de 90 degrés">↶ 90°</button><button type="button" onClick={() => { void rotateCopyPage(copyViewerPage, 90); }} aria-label="Tourner l’image à droite de 90 degrés">↷ 90°</button><button type="button" onClick={() => setCopyViewerZoom((zoom) => Math.max(1, Number((zoom - 0.25).toFixed(2))))} disabled={copyViewerZoom <= 1} aria-label="Dézoomer">−</button><span>{Math.round(copyViewerZoom * 100)} %</span><button type="button" onClick={() => setCopyViewerZoom((zoom) => Math.min(4, Number((zoom + 0.25).toFixed(2))))} disabled={copyViewerZoom >= 4} aria-label="Zoomer">+</button><button type="button" onClick={() => { setCopyViewerZoom(1); }}>Réinitialiser</button></div><div className="copy-image-viewer-stage"><img src={`data:${images[copyViewerPage].mimeType};base64,${images[copyViewerPage].base64}`} alt={`Page ${copyViewerPage + 1} agrandie`} style={{ transform: `scale(${copyViewerZoom})` }} /></div><footer className="copy-image-viewer-navigation"><button type="button" onClick={() => { setCopyViewerPage((page) => Math.max(0, (page ?? 0) - 1)); setCopyViewerZoom(1); }} disabled={copyViewerPage === 0}>← Page précédente</button><button type="button" onClick={() => { setCopyViewerPage((page) => Math.min(images.length - 1, (page ?? 0) + 1)); setCopyViewerZoom(1); }} disabled={copyViewerPage === images.length - 1}>Page suivante →</button></footer></div></div>}
+      </Dialog>}
+      {copyViewerPage !== null && images[copyViewerPage] && <Dialog
+        title={'Page ' + (copyViewerPage + 1) + ' / ' + images.length}
+        subtitle={images[copyViewerPage].fileName || 'Page ' + (copyViewerPage + 1)}
+        accessibleName={'Visualiseur de la page ' + (copyViewerPage + 1)}
+        closeLabel="Fermer le visualiseur"
+        size="viewer"
+        onClose={() => setCopyViewerPage(null)}
+      >
+        <div className="copy-image-viewer-toolbar">
+          <button type="button" onClick={() => { void rotateCopyPage(copyViewerPage, 270); }} aria-label="Tourner l’image à gauche de 90 degrés">↶ 90°</button>
+          <button type="button" onClick={() => { void rotateCopyPage(copyViewerPage, 90); }} aria-label="Tourner l’image à droite de 90 degrés">↷ 90°</button>
+          <button type="button" onClick={() => setCopyViewerZoom((zoom) => Math.max(1, Number((zoom - 0.25).toFixed(2))))} disabled={copyViewerZoom <= 1} aria-label="Dézoomer">−</button>
+          <span>{Math.round(copyViewerZoom * 100)} %</span>
+          <button type="button" onClick={() => setCopyViewerZoom((zoom) => Math.min(4, Number((zoom + 0.25).toFixed(2))))} disabled={copyViewerZoom >= 4} aria-label="Zoomer">+</button>
+          <button type="button" onClick={() => { setCopyViewerZoom(1); }}>Réinitialiser</button>
+        </div>
+        <div className="copy-image-viewer-stage">
+          <img src={'data:' + images[copyViewerPage].mimeType + ';base64,' + images[copyViewerPage].base64} alt={'Page ' + (copyViewerPage + 1) + ' agrandie'} style={{ transform: 'scale(' + copyViewerZoom + ')' }} />
+        </div>
+        <footer className="copy-image-viewer-navigation">
+          <button type="button" onClick={() => { setCopyViewerPage((page) => Math.max(0, (page ?? 0) - 1)); setCopyViewerZoom(1); }} disabled={copyViewerPage === 0}>← Page précédente</button>
+          <button type="button" onClick={() => { setCopyViewerPage((page) => Math.min(images.length - 1, (page ?? 0) + 1)); setCopyViewerZoom(1); }} disabled={copyViewerPage === images.length - 1}>Page suivante →</button>
+        </footer>
+      </Dialog>}
       {(interfaceMode === 'diagnostic' || !showAiSettings) && <footer><span>Compagnon Correcteur de Devoirs</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>}
       </div>}
+      {pendingRemoval && <Dialog
+        title={pendingRemoval.kind === 'assignment' ? 'Supprimer ce devoir ?' : 'Retirer cette copie ?'}
+        subtitle={pendingRemoval.kind === 'assignment' ? pendingRemoval.profile.title.trim() || 'Devoir sans titre' : pendingRemoval.job.label}
+        onClose={() => setPendingRemoval(null)}
+        actions={<>
+          <Button variant="secondary" onClick={() => setPendingRemoval(null)}>Annuler</Button>
+          <Button variant="danger" onClick={() => {
+            const target = pendingRemoval;
+            setPendingRemoval(null);
+            if (target?.kind === 'assignment') deleteAssignment(target.profile);
+            else if (target?.kind === 'copy') void removeSeriesCopy(target.job);
+          }}>{pendingRemoval.kind === 'assignment' ? 'Supprimer le devoir' : 'Retirer la copie'}</Button>
+        </>}
+      >
+        {pendingRemoval.kind === 'assignment'
+          ? <p>Ce devoir sera retiré de votre liste. Les corrections déjà archivées seront conservées.</p>
+          : <p>Cette copie et ses {pendingRemoval.job.images.length} page(s) seront retirées du devoir. Les données locales associées à cette copie seront supprimées.</p>}
+      </Dialog>}
     </main>
   );
 }

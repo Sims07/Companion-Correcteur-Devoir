@@ -1,4 +1,6 @@
 export { Button } from './Button.tsx';
+export { Dialog } from './Dialog.tsx';
+export type { DialogProps } from './Dialog.tsx';
 export type { ButtonProps, ButtonVariant } from './Button.tsx';
 export { Checkbox } from './Checkbox.tsx';
 export type { CheckboxProps } from './Checkbox.tsx';

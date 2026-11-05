@@ -42,6 +42,11 @@ test('teacher rotations in the fullscreen viewer update the working copy', async
   await expect(viewer.getByText('125 %')).toBeVisible();
   await viewer.getByRole('button', { name: 'Fermer le visualiseur' }).click();
   await expect(viewer).toHaveCount(0);
+  await thumbnail.click();
+  await expect(viewer).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(viewer).toHaveCount(0);
+  await expect(thumbnail).toBeFocused();
 });
 
 test('teacher can rotate each batch page manually before starting the series', async ({ page }) => {
