@@ -8,7 +8,15 @@ test('correction en cours : le vrai composant React respecte la maquette B', asy
   // Mount the actual application component through Vite, not hand-written markup.
   // The fixture uses a fully synthetic biology copy and never contacts a model.
   await page.evaluate(async () => {
-    const modulePath = '/tests/e2e/fixtures/activeCorrectionVisualFixture.tsx';
+    const entryUrl = Array.from(document.querySelectorAll<HTMLScriptElement>('script[src]'))
+      .map((script) => script.src)
+      .find((url) => url.includes('/src/main.tsx')) ?? '';
+    const basePath = entryUrl ? new URL(entryUrl).pathname.split('/src/main.tsx')[0] : '';
+    // CI serves the Vite application under /Companion-Correcteur-Devoir/;
+    // absolute /tests/... URLs would otherwise return the wrong resource.
+    const modulePath = basePath + '/tests/e2e/fixtures/activeCorrectionVisualFixture.tsx';
+    const response = await fetch(modulePath);
+    if (!response.ok) throw new Error('Fixture unavailable: ' + response.status + ' at ' + modulePath);
     const fixtureModule = await import(/* @vite-ignore */ modulePath);
     fixtureModule.mountActiveCorrectionVisualFixture();
   });
