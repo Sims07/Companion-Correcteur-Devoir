@@ -40,8 +40,7 @@ describe('Atelier B : invariants du poste de correction pendant l’analyse', ()
       '.atelier-processing-columns .is-active .background-copy-activity-marker',
     ];
     for (const selector of activeSelectors) {
-      const regex = new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, '\\  it('loads Atelier B overrides after all older flows and in Storybook', () => {') + '\\s*\\{([^}]+)\\}');
-      const rule = css.match(regex)?.[1] ?? '';
+      const rule = css.split(selector + ' {')[1]?.split('}')[0] ?? '';
       expect(rule, selector).toContain('var(--ds-color-progress)');
       expect(rule, selector).not.toContain('var(--ds-color-brand-700)');
       expect(rule, selector).not.toContain('var(--ds-color-danger)');
