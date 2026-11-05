@@ -66,7 +66,6 @@ export function CopyReviewHeader({
     <section className="copy-review-header" aria-label="Vérification de la copie">
       <div className="copy-review-header-main">
         <div className="copy-review-student-name">
-          <span className="copy-review-student-caption">Copie de l’étudiant</span>
           <div className="copy-review-identity-title">
             {isEditing ? (
               <TextInput id="student-label" autoFocus className="copy-review-name-input"
@@ -82,30 +81,29 @@ export function CopyReviewHeader({
                     <path d="m4 13.5-.5 3 3-.5L15.5 7a2 2 0 0 0-2.5-2.5L4 13.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
                     <path d="m11.5 6 2.5 2.5" stroke="currentColor" strokeWidth="1.5" />
                   </svg>
-                  Modifier
                 </Button>
               </>
             )}
           </div>
+          <span className={'copy-review-status ' + (isFinalized ? 'is-completed' : 'needs-attention')}>{status}</span>
         </div>
-        <div className="copy-review-grade" aria-label="Note de la copie">
-          <span className="copy-review-grade-caption">{gradeAvailable ? gradeCaption : 'Évaluation'}</span>
-          <strong className="copy-review-header-score">{gradeAvailable
-            ? `${score!.toLocaleString('fr-FR')} / ${maximumPoints.toLocaleString('fr-FR')}`
-            : gradeLabel}</strong>
+        <div className="copy-review-header-actions">
+          <nav className="copy-review-position" aria-label="Parcourir les copies">
+            <Button variant="secondary" aria-label="Copie précédente" title={previousTitle} disabled={!canPrevious} onClick={onPrevious}>
+              <Chevron direction="left" />
+            </Button>
+            <span className="copy-review-position-label" aria-label={`Copie ${position} sur ${totalCopies}`}>Copie {position} / {totalCopies}</span>
+            <Button variant="secondary" aria-label="Copie suivante" title={nextTitle} disabled={!canNext} onClick={onNext}>
+              <Chevron direction="right" />
+            </Button>
+          </nav>
+          <div className="copy-review-grade" aria-label="Note de la copie">
+            <span className="copy-review-grade-caption">{gradeAvailable ? gradeCaption : 'Évaluation'}</span>
+            <strong className="copy-review-header-score">{gradeAvailable
+              ? `${score!.toLocaleString('fr-FR')} / ${maximumPoints.toLocaleString('fr-FR')}`
+              : gradeLabel}</strong>
+          </div>
         </div>
-      </div>
-      <div className="copy-review-header-footer">
-        <span className={'copy-review-status ' + (isFinalized ? 'is-completed' : 'needs-attention')}>{status}</span>
-        <nav className="copy-review-position" aria-label="Parcourir les copies">
-          <Button variant="secondary" aria-label="Copie précédente" title={previousTitle} disabled={!canPrevious} onClick={onPrevious}>
-            <Chevron direction="left" /><span>Précédente</span>
-          </Button>
-          <strong>Copie {position} sur {totalCopies}</strong>
-          <Button variant="secondary" aria-label="Copie suivante" title={nextTitle} disabled={!canNext} onClick={onNext}>
-            <span>Suivante</span><Chevron direction="right" />
-          </Button>
-        </nav>
       </div>
     </section>
   );
