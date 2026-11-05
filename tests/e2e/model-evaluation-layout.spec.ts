@@ -1,3 +1,5 @@
+import { expect, test, type Page } from '@playwright/test';
+
 test('active evaluation navigation is informational rather than a red error or brand accent', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Outils IA' }).click();
@@ -32,8 +34,6 @@ test('active evaluation navigation is informational rather than a red error or b
     expect(state.border).not.toBe(state.error);
   }
 });
-
-import { expect, test, type Page } from '@playwright/test';
 
 async function expectUnifiedEvaluationCanvas(page: Page): Promise<void> {
   const layout = await page.evaluate(() => {
