@@ -502,6 +502,7 @@ export function createBackgroundCorrectionService(
       const job = (await repository.listJobs()).find((item) => item.id === jobId);
       if (!job) return;
       if (job.status === 'processing') throw new Error('Cette copie est en cours de correction et ne peut pas être supprimée maintenant.');
+      if (job.status === 'completed') throw new Error('Une correction archivée ne peut pas être retirée depuis la file de copies.');
       await repository.deleteJob(jobId);
       const jobs = await repository.listJobs();
       for (const listener of listeners) listener(jobs);

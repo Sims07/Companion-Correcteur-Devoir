@@ -28,12 +28,20 @@ const display = (current: BackgroundCorrectionJob) => renderToStaticMarkup(
     jobs={[toBackgroundJobSummary(current)]} corrections={[]} currentCopy={null}
     filter="all" onFilterChange={vi.fn()} onAddCopy={vi.fn()} addCopyExpanded={false} pendingCount={0}
     isStartingCorrections={false} onStartCorrections={vi.fn()}
-    onOpenJob={vi.fn()} onRetryJob={vi.fn()}
+    onOpenJob={vi.fn()} onRetryJob={vi.fn()} onRemoveJob={vi.fn()} notice=""
     onOpenCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}
   />,
 );
 
 describe('teacher correction overview and partial grade safety', () => {
+  it('offers removal for a waiting copy, without showing it during processing or after archiving', () => {
+    expect(display(job)).toContain('Retirer la copie « Copie de biologie »');
+    expect(display({ ...job, status: 'ready' })).toContain('Retirer la copie « Copie de biologie »');
+    expect(display({ ...job, status: 'failed' })).toContain('Retirer la copie « Copie de biologie »');
+    expect(display({ ...job, status: 'processing' })).not.toContain('Retirer la copie');
+    expect(display({ ...job, status: 'completed' })).not.toContain('Retirer la copie');
+  });
+
   it('shows a pending grade rather than a misleading partial numeric result after interrupted evaluation', () => {
     const html = display({
       ...job, status: 'needs-review',

@@ -2912,6 +2912,8 @@
 .copy-overview-grid .correction-series-card-status.is-to-review { color: var(--flow-success); }
 .copy-overview-grid .correction-series-card.is-to-do { background: var(--flow-surface, #fff); }
 .copy-overview-grid .correction-series-actions > .correction-series-view { flex: 1 1 100%; }
+.copy-overview-grid .correction-series-actions > .correction-series-remove { margin-left: auto; color: var(--flow-muted); }
+.copy-overview-notice { margin: 0; padding: 0.65rem 0.85rem; border: 1px solid var(--flow-border); border-radius: 10px; color: var(--flow-text); background: var(--flow-accent-soft); font-size: 0.85rem; }
 .assignment-overview-activity { margin: -0.35rem 0 0; color: var(--flow-muted); font-size: 0.72rem; }
 @media (max-width: 700px) {
   .copy-overview-heading { align-items: stretch; flex-direction: column; }

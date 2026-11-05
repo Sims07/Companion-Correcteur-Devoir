@@ -26,6 +26,8 @@ type Props = {
   onStartCorrections: () => void;
   onOpenJob: (jobId: string) => void;
   onRetryJob: (jobId: string) => void;
+  onRemoveJob: (jobId: string) => void;
+  notice: string;
   onOpenCorrection: (correction: LocalCorrection) => void;
   onOpenCurrentCopy: () => void;
   onReviewNextCopy: () => void;
@@ -86,7 +88,7 @@ function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): stri
   return 'Proposition prête à vérifier';
 }
 
-export function CorrectionOverview({ children, jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, addCopyExpanded, pendingCount, isStartingCorrections, onStartCorrections, onOpenJob, onRetryJob, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
+export function CorrectionOverview({ children, jobs, corrections, currentCopy, filter, onFilterChange, onAddCopy, addCopyExpanded, pendingCount, isStartingCorrections, onStartCorrections, onOpenJob, onRetryJob, onRemoveJob, notice, onOpenCorrection, onOpenCurrentCopy, onReviewNextCopy }: Props) {
   const [query, setQuery] = useState('');
   const items = useMemo(() => {
     const jobItems: OverviewItem[] = jobs
@@ -167,6 +169,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
       </div>
     </header>
     {children}
+    {notice && <p className="copy-overview-notice" role="status">{notice}</p>}
     <div className="teacher-copy-work-summary" aria-label="État des corrections">
       <div><strong>{counts.toReview}</strong><span>À vérifier</span></div>
       <div><strong>{counts.processing}</strong><span>En cours</span></div>
@@ -209,6 +212,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
               {item.kind === 'job' && item.job && <>
                 {item.status === 'to-retry' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Corriger</button>}
                 <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenJob(item.job!.id)}>Ouvrir</button>
+                {item.status !== 'processing' && <button type="button" className="text-button correction-series-remove" aria-label={`Retirer la copie « ${item.label} »`} onClick={() => onRemoveJob(item.id)}>Retirer</button>}
               </>}
               {item.kind === 'current' && <button type="button" className="secondary-button correction-series-view" onClick={onOpenCurrentCopy}>Reprendre la copie</button>}
               {item.kind === 'correction' && item.correction && <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenCorrection(item.correction!)}>Consulter la correction</button>}
