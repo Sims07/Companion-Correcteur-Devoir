@@ -37,6 +37,12 @@ describe('comparing lightweight model-evaluation archives', () => {
     expect(canCompareModelEvaluationRecords([compact(d1),compact(other)])).toBe(false);
   });
 
+  it('refuses to compare old quota archives with no source-image identity', () => {
+    const legacy={...record('old'),originalImagesArchived:false,images:[],subjectImages:[]};
+    expect(canCompareModelEvaluationRecords([legacy,record('new')])).toBe(false);
+    expect(canCompareModelEvaluationRecords([legacy,{...legacy,id:'another'}])).toBe(false);
+  });
+
   it('keeps comparing the subject pages as well as copy pages', () => {
     const d1=compact(record('d1'));
     const differentSubject=record('tev');
