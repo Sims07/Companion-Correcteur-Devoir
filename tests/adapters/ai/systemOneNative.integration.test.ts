@@ -81,12 +81,12 @@ describe('native Ollama System One routing', () => {
       answers: {
         alignment: answer('aligned'),
         ...Object.fromEntries(fullRubric.criteria.map((_,i)=>[
-        ['criterion_'+(i+1)+'_score',{
+        'criterion_'+(i+1)+'_score',{
           type:'choice',
           choice:'points_5',
           confidence:0.19,
           probabilities:{points_5:i===2?0.53:0.98,points_4:i===2?0.45:0.01,points_3:i===2?0.02:0.01},
-        }],
+        },
       ])),
       },
       usage:{input_tokens:1200,output_tokens:0},
