@@ -1,6 +1,8 @@
 import type { Preview } from '@storybook/react';
 import '../src/ui/design-system/tokens.css';
 import '../src/ui/design-system/controls.css';
+import '../src/ui/design-system/application-theme.css';
+import '../src/ui/teacherAtelier.css';
 
 const preview: Preview = {
   parameters: {

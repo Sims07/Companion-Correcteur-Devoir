@@ -74,3 +74,22 @@ test('the compact rubric keeps advanced criterion details collapsed and can open
   await expect(criteria.first()).not.toHaveAttribute('open', '');
   await expect(criteria.nth(1).locator('.criterion-fields input').first()).toBeVisible();
 });
+
+test('Atelier pédagogique is visible from assignment library through rubric preparation', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const card = page.locator('.assignment-overview-card').first();
+  await expect(card).toHaveCSS('border-top-color', 'rgb(161, 77, 55)');
+  await expect(card).toHaveCSS('border-top-width', '3px');
+  await expect(card).toHaveCSS('background-color', 'rgb(255, 253, 249)');
+  await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toHaveCSS('font-family', /Georgia/);
+
+  await page.getByRole('button', { name: /Créer un devoir/ }).click();
+  await expect(page.locator('.assignment-creation-panel')).toHaveCSS('border-top-color', 'rgb(161, 77, 55)');
+  await page.getByLabel(/Nom du devoir/).fill('Atelier de mitose');
+  await page.getByRole('button', { name: /Créer et préparer le barème/ }).click();
+  await expect(page.getByRole('heading', { name: 'Devoir et barème' })).toBeVisible();
+  await page.getByRole('button', { name: '＋ Ajouter un critère' }).click();
+  await expect(page.locator('.criterion-editor').first()).toBeVisible();
+  await expect(page.locator('.criterion-editor').first()).toHaveCSS('background-color', 'rgb(255, 253, 249)');
+});
