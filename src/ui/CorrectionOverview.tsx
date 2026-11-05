@@ -53,14 +53,14 @@ const labels: Record<CopyOverviewFilter, string> = {
   'to-do': 'En attente',
   processing: 'Analyse en cours',
   'to-review': 'À vérifier',
-  'to-retry': 'À corriger',
+  'to-retry': 'À reprendre',
   completed: 'Corrigées',
 };
 const statusLabels: Record<CopyOverviewStatus, string> = {
   'to-do': 'En attente',
   processing: 'Analyse en cours',
   'to-review': 'À vérifier',
-  'to-retry': 'À corriger',
+  'to-retry': 'À reprendre',
   completed: 'Corrigée',
 };
 const number = (value: number) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(value);
