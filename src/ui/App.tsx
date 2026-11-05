@@ -2257,7 +2257,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  const hasInterruptibleOperation = isStoppingOperation || isAnalyzing || rubricImageImporting || evaluationProgress?.status === 'running' || allBackgroundJobs.some((job) => job.status === 'processing');
+  const hasInterruptibleOperation = isStoppingOperation || isStartingSeriesCorrections || isAnalyzing || rubricImageImporting || evaluationProgress?.status === 'running' || allBackgroundJobs.some((job) => job.status === 'processing');
   const processingCopy = allBackgroundJobs.find((job) => job.assignmentId === activeAssignmentId && job.status === 'processing') ?? null;
   const preparingCopy = isStartingSeriesCorrections && !processingCopy
     ? [...allBackgroundJobs].filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0] ?? null
