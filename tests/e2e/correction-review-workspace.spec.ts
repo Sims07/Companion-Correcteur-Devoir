@@ -141,6 +141,10 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   const flaggedCard = page.locator('.review-card').filter({ has: page.getByRole('heading', { name: 'Rôle de la membrane' }) });
   await expect(page.locator('.review-source-pane')).toBeInViewport();
   await expect(flaggedCard).toBeInViewport();
+  await expect(flaggedCard).toHaveClass(/is-flagged/);
+  await expect(flaggedCard).toHaveCSS('border-left-color', 'rgb(161, 77, 55)');
+  await expect(page.locator('.review-source-pane')).toHaveCSS('background-color', 'rgb(255, 253, 249)');
+  await expect(page.locator('.review-workspace')).toHaveCSS('grid-template-columns', /px.*px/);
   await expect(flaggedCard.getByText('Point retiré', { exact: true })).toBeVisible();
   await expect(flaggedCard.getByText('Confiance à vérifier', { exact: true })).toBeVisible();
   await expect(flaggedCard.locator('.teacher-review-alert .rationale')).toHaveText('Le mécanisme est partiellement expliqué.');

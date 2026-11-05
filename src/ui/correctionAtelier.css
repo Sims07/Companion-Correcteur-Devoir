@@ -1,0 +1,199 @@
+/* Atelier pédagogique — correction et suivi.
+ * La copie est la source de vérité. Les décisions et alertes restent brèves.
+ * Les justificatifs de l'IA restent repliés, jamais affichés en panneau permanent.
+ */
+
+/* Navigation du devoir et suivi des copies. */
+.teacher-copy-rail {
+  border-color: var(--ds-color-border);
+  background: #f7f0e6;
+}
+.teacher-copy-rail-heading h2,
+.copy-overview-heading h2 {
+  font-family: var(--ds-font-editorial);
+  color: var(--ds-color-text);
+}
+.teacher-breadcrumb button:hover:not(:disabled) {
+  background: var(--ds-color-brand-100);
+  color: var(--ds-color-brand-700);
+}
+.teacher-workspace-tabs {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+}
+.teacher-workspace-tabs button.is-active {
+  border-color: var(--ds-color-border-strong);
+  background: var(--ds-color-brand-100);
+  color: var(--ds-color-brand-700);
+}
+.copy-overview-filters {
+  background: var(--ds-color-surface);
+  border-color: var(--ds-color-border);
+}
+.copy-overview-filters button.is-active {
+  background: var(--ds-color-brand-100);
+  color: var(--ds-color-brand-700);
+  border-color: var(--ds-color-border-strong);
+}
+.copy-overview-search, .teacher-copy-live {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface);
+}
+.copy-overview-search:focus-within { box-shadow: var(--ds-focus-ring); }
+.copy-overview-grid > li.correction-series-card {
+  border: 1px solid var(--ds-color-border);
+  border-top: 3px solid var(--ds-color-brand-700);
+  background: var(--ds-color-surface);
+  border-radius: var(--ds-radius-sm);
+  box-shadow: none;
+}
+.copy-overview-grid .correction-series-card.is-to-retry {
+  background: var(--ds-color-warning-surface);
+  border-color: var(--ds-color-border-strong);
+}
+.teacher-copy-work-summary > div {
+  background: var(--ds-color-surface);
+  border-color: var(--ds-color-border);
+}
+.teacher-progress-card,
+.live-copy-preview {
+  background: var(--ds-color-surface);
+  border-color: var(--ds-color-border);
+}
+
+/* Relecture : partager l'espace équitablement entre l'image et les exceptions. */
+.review-workspace {
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: var(--ds-space-4);
+  align-items: start;
+}
+.review-source-pane {
+  background: var(--ds-color-surface);
+  border-color: var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  box-shadow: none;
+}
+.review-source-heading h3,
+.review-card-heading h3 {
+  font-family: var(--ds-font-editorial);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ds-color-text);
+}
+.review-source-heading p {
+  font-size: 11px;
+  color: var(--ds-color-text-muted);
+}
+.review-source-pages .live-copy-page {
+  background: var(--ds-color-surface);
+  border-color: var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+}
+.review-source-pages .live-copy-page img {
+  max-height: 62vh;
+  background: var(--ds-color-surface-subtle);
+}
+.review-transcription {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+}
+.review-main-column { gap: var(--ds-space-3); }
+.review-main-column .review-score-summary {
+  background: var(--ds-color-brand-100);
+  border-color: var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  box-shadow: none;
+}
+.review-main-column .review-card {
+  background: var(--ds-color-surface);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  box-shadow: none;
+}
+.review-main-column .review-card.is-flagged {
+  border-left: 3px solid var(--ds-color-brand-700);
+}
+.review-card:focus-visible,
+.review-transcription > summary:focus-visible,
+.review-safe-summary > summary:focus-visible {
+  outline: 2px solid var(--ds-color-brand-700);
+  outline-offset: 2px;
+}
+.review-card-heading { align-items: flex-start; }
+.review-card-result strong { font-variant-numeric: tabular-nums; }
+.review-alert-reason {
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-warning-surface);
+  color: var(--ds-color-warning);
+}
+.review-alert-summary .rationale {
+  color: var(--ds-color-text-muted);
+  font-size: 12px;
+}
+.review-safe-summary {
+  background: var(--ds-color-surface-subtle);
+  border-color: var(--ds-color-border);
+}
+.review-criteria-toolbar .text-action,
+.teacher-review-alert-actions .text-button,
+.evidence-location-button {
+  color: var(--ds-color-brand-700);
+}
+.review-source-pages .live-copy-page.evidence-page-focused {
+  border-color: var(--ds-color-brand-700);
+  background: var(--ds-color-brand-100);
+  box-shadow: var(--ds-focus-ring);
+}
+
+/* Validation et note présentes, sans masquer les alertes et la copie. */
+.copy-review-header,
+.copy-review-validation-bar {
+  background: rgb(255 253 249 / 97%);
+  border-color: var(--ds-color-border);
+}
+.copy-review-student-name input {
+  border-color: var(--ds-color-border-strong);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+}
+.copy-review-status, .copy-review-alert-chip {
+  background: var(--ds-color-warning-surface);
+  color: var(--ds-color-warning);
+}
+.copy-review-validation-bar {
+  box-shadow: 0 -5px 14px rgb(70 41 26 / 5%);
+}
+.copy-review-validation-bar strong,
+.copy-review-header-score { color: var(--ds-color-text); }
+
+/* Conserver le nombre de colonnes raisonnable quand une liste de copies est ouverte. */
+@media (max-width: 1100px) {
+  .review-workspace { grid-template-columns: minmax(0, 1fr); }
+  .review-source-pane { position: static; max-height: none; }
+  .review-source-pages .live-copy-page img { max-height: 48vh; }
+}
+@media (max-width: 720px) {
+  .review-workspace { gap: var(--ds-space-3); }
+  .review-source-pane { padding: var(--ds-space-3); }
+  .copy-overview-grid > li.correction-series-card { min-height: 0; }
+  .review-source-pages { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .review-card, .copy-overview-grid > li.correction-series-card { transition: none; }
+}
+
+/* Same warm selection treatment in the persistent copy rail. */
+.teacher-copy-rail-list button:hover:not(:disabled) {
+  background: var(--ds-color-surface-subtle);
+}
+.teacher-copy-rail-list button.is-active {
+  border-color: var(--ds-color-border-strong);
+  background: var(--ds-color-brand-100);
+  box-shadow: inset 3px 0 var(--ds-color-brand-700);
+}
+.teacher-copy-rail-list button:focus-visible,
+.teacher-copy-rail-heading > button:focus-visible {
+  outline: 2px solid var(--ds-color-brand-700);
+  outline-offset: 2px;
+}
+.teacher-copy-rail-score { color: var(--ds-color-text); }

@@ -25,6 +25,7 @@ import './ui/design-system/tokens.css';
 import './ui/design-system/controls.css';
 import './ui/design-system/application-theme.css';
 import './ui/teacherAtelier.css';
+import './ui/correctionAtelier.css';
 
 const localCorrectionRepository = new IndexedDbLocalCorrectionRepository();
 const localCorrectionService = createLocalCorrectionService(localCorrectionRepository);
