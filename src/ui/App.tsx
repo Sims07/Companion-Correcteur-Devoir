@@ -3317,7 +3317,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           if (!isAnalyzing && !isFinalized && unassessedCount === 0 && review.length === rubric.criteria.length) void finalizeReview(true);
         }
       }}>
-        {reviewMessage && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
+        {reviewMessage && !(currentBackgroundJobId || currentCorrectionId) && <p className="copy-review-navigation-message" role="status">{reviewMessage}</p>}
         
         {(flaggedCriteriaIds.size > 0 || unreadableCopySignal || (studentIdentity !== null && studentIdentity.confidence !== 'high')) && <section className="copy-review-alert-strip" aria-label="Éléments à examiner">
           {flaggedCriteriaIds.size > 0 && <button type="button" onClick={() => { setShowOnlyFlagged(true); document.querySelector('.review-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>⚠ {flaggedCriteriaIds.size} critère(s) à examiner</button>}
