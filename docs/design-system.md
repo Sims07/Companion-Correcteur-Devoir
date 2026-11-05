@@ -102,3 +102,7 @@ Les tailles disponibles sont `compact` (confirmations), `wide` (revue des annota
 Les trois vues (Observabilité, Inspecteur réseau et Évaluation des modèles) partagent une navigation Atelier pédagogique : fond papier, surfaces ivoire, typographie éditoriale pour les titres et accent terre cuite réservé à la navigation, aux sélections et aux graphiques neutres. Vert / rouge / ambre restent réservés aux états de succès / échec / attente. La feuille `src/ui/aiToolsAtelier.css` est chargée après les styles historiques et bornée à `.ai-tools-view` afin de ne pas modifier le parcours professeur.
 
 Le partage d'un diagnostic technique est replié par défaut, sans déplacer ni supprimer les données d'observabilité. L'inspecteur présente six colonnes alignées sur ordinateur et privilégie heure, méthode, intention et statut sur mobile. Les tests de navigation, de contrat et de navigateur vérifient ces choix.
+
+### Messages de statut
+
+Les messages inline de confirmation, d'information, d'avertissement et d'erreur utilisent le composant partagé `StatusNotice` (tokens `--ds-color-success`, `--ds-color-text-muted`, `--ds-color-warning`, `--ds-color-danger`). La couleur terre cuite représente une interaction ou une sélection, jamais une confirmation. Ne pas déduire l'état du message à partir de son texte : le composant reçoit explicitement `tone="success" | "info" | "warning" | "error"`. Les erreurs portent `role="alert"`, les autres messages `role="status"`. Les messages ne doivent jamais se fondre dans un fond coloré massif.

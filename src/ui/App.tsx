@@ -60,7 +60,7 @@ import { TeacherCopyIntake } from './components/TeacherCopyIntake.tsx';
 import { CopyPageViewer } from './components/CopyPageViewer.tsx';
 import { ActiveCopyProcessingWorkspace } from './components/ActiveCopyProcessingWorkspace.tsx';
 import { TeacherWorkspaceNavigation } from './components/TeacherWorkspaceNavigation.tsx';
-import { Button, Checkbox, Dialog } from './design-system/index.ts';
+import { Button, Checkbox, Dialog, StatusNotice, type StatusTone } from './design-system/index.ts';
 
 import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
@@ -362,6 +362,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [aiModelProfileName, setAiModelProfileName] = useState('');
   const [selectedAiModelProfileId, setSelectedAiModelProfileId] = useState('');
   const [aiModelProfileMessage, setAiModelProfileMessage] = useState('');
+  const [aiModelProfileTone, setAiModelProfileTone] = useState<StatusTone>('info');
   const [diagnosticRuns, setDiagnosticRuns] = useState<DiagnosticModelResult[]>([]);
   const [selectedEvaluationProfileIds, setSelectedEvaluationProfileIds] = useState<string[]>([]);
   const [selectedEvaluationHistoryIds, setSelectedEvaluationHistoryIds] = useState<string[]>([]);
@@ -495,6 +496,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [selectedComparisonIds, setSelectedComparisonIds] = useState<string[]>([]);
   const [streamedOutput, setStreamedOutput] = useState('');
   const [connectionMessage, setConnectionMessage] = useState('');
+  const [connectionTone, setConnectionTone] = useState<StatusTone>('success');
   const [error, setError] = useState('');
   const [proposal, setProposal] = useState<GradingProposal | null>(null);
   useEffect(() => {
@@ -634,6 +636,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setCriterionByCriterion(profile.configuration.criterionByCriterion);
     setSelectedAiModelProfileId(profile.id);
     setAiModelProfileMessage('Profil « ' + profile.name + ' » chargé.');
+    setAiModelProfileTone('info');
     setAvailableModels([]);
     setConnectionMessage('');
     setTranscription(null);
@@ -641,7 +644,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
-    if (!name) { setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
+    if (!name) { setAiModelProfileTone('warning'); setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
     const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion, correctionMethod };
     const profile: AiModelProfile = {
       id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
@@ -655,8 +658,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setSelectedAiModelProfileId(profile.id);
     setAiModelProfileName(profile.name);
     setAiModelProfileMessage('Profil « ' + profile.name + ' » enregistré sur cet appareil.');
+    setAiModelProfileTone('success');
     try { window.localStorage.setItem(aiModelProfilesKey, JSON.stringify(next)); }
-    catch { setAiModelProfileMessage('Le navigateur n’a pas pu enregistrer ce profil. Vérifiez son espace de stockage.'); }
+    catch { setAiModelProfileTone('error'); setAiModelProfileMessage('Le navigateur n’a pas pu enregistrer ce profil. Vérifiez son espace de stockage.'); }
   }
 
   useEffect(() => {
@@ -971,6 +975,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       if (apiCompatible) {
         await service.checkReady({ endpoint, apiCompatible, apiKey, visionModel, analysisModel });
         setAvailableModels([]);
+        setConnectionTone('success');
         setConnectionMessage('Connexion réussie · modèle compatible OpenAI vérifié. Les identifiants des modèles sont renseignés manuellement.');
         return;
       }
@@ -980,6 +985,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       if (!analysisModel && models[0]) setAnalysisModel(models[0].name);
       if (!secondAnalysisModel && models[1]) setSecondAnalysisModel(models[1].name);
       if (!arbitratorModel && models[0]) setArbitratorModel(models[0].name);
+      setConnectionTone(models.length ? 'success' : 'warning');
       setConnectionMessage(models.length ? `Connexion réussie · ${models.length} modèle(s) disponible(s). Choisissez un modèle de vision pour la lecture et un modèle textuel pour l’analyse.` : 'Connexion réussie, mais aucun modèle installé. Installez un modèle compatible avec les images et un modèle pour l’analyse.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Connexion à Ollama impossible.');
@@ -2431,7 +2437,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
           </div>
           <button type="button" className="secondary-button full-button" onClick={saveAiModelProfile}>Enregistrer cette configuration</button>
-          {aiModelProfileMessage && <p className="validation" role="status">{aiModelProfileMessage}</p>}
+          {aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
           <p className="hint">Les derniers réglages sont restaurés automatiquement. Les profils conservent le serveur, les modèles et la stratégie de diagnostic sur cet appareil.</p>
         </div>
         <label className="field-label" htmlFor="ai-provider-type">Fournisseur IA</label>
@@ -2483,7 +2489,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <details><summary>Détails techniques</summary><p>POST <code>/v1/models/saluki-27b/load</code></p><p>Le token Bearer configuré est transmis au serveur. Il doit disposer du périmètre <code>models</code>.</p></details>
         </section>}
         <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : apiCompatible ? 'Tester la connexion' : 'Tester la connexion et détecter les modèles'}</button>
-        {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
+        {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
         <p className="hint">Aucun basculement automatique vers un autre fournisseur n’est effectué.</p>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}
@@ -2506,7 +2512,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </div>
         <p className="evaluation-stage-guidance" role="status">{evaluationStageMode === 'vision' ? 'Seul le modèle Vision est sollicité. Les transcriptions obtenues sont comparables entre profils et restent disponibles pour une validation humaine.' : evaluationStageMode === 'analysis' ? 'La transcription courante est réutilisée à l’identique pour chaque profil : aucune image n’est renvoyée au modèle Vision.' : 'Chaque profil exécute les deux étapes successivement. Ce mode mesure aussi le temps total du parcours.'}</p>
         <div className="evaluation-config-editor">
-          <div className="evaluation-config-editor-heading"><div><h3>Configuration IA locale</h3><p>Un profil = un modèle de lecture, un modèle d’analyse et ses options.</p></div><button type="button" className="secondary-button" disabled={busy} onClick={() => { setSelectedAiModelProfileId(''); setAiModelProfileName(''); setAiModelProfileMessage('Nouvelle configuration : renseignez les modèles puis enregistrez.'); setEndpoint(defaultAiModelConfiguration.endpoint); setVisionModel(''); setAnalysisModel(''); setSecondAnalysisModel(''); setArbitratorModel(''); setDiagnosticStrategy('single'); setAnalysisThinking(false); setCriterionByCriterion(true); setAvailableModels([]); setConnectionMessage(''); }}>＋ Nouvelle configuration</button></div>
+          <div className="evaluation-config-editor-heading"><div><h3>Configuration IA locale</h3><p>Un profil = un modèle de lecture, un modèle d’analyse et ses options.</p></div><button type="button" className="secondary-button" disabled={busy} onClick={() => { setSelectedAiModelProfileId(''); setAiModelProfileName(''); setAiModelProfileTone('info'); setAiModelProfileMessage('Nouvelle configuration : renseignez les modèles puis enregistrez.'); setEndpoint(defaultAiModelConfiguration.endpoint); setVisionModel(''); setAnalysisModel(''); setSecondAnalysisModel(''); setArbitratorModel(''); setDiagnosticStrategy('single'); setAnalysisThinking(false); setCriterionByCriterion(true); setAvailableModels([]); setConnectionMessage(''); }}>＋ Nouvelle configuration</button></div>
           <div className="evaluation-config-fields">
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</DesignSystemSelect></div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-name">Nom de la configuration</label><input id="evaluation-profile-name" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Ex. Gemma rapide, Qwen raisonnement…" /></div>
@@ -2520,7 +2526,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-criterion-by-criterion"><input id="evaluation-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod === 'decision'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel par critère, séquentiellement. Désactivez pour comparer avec une requête globale.</small></span></label>
           <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-analysis-thinking"><input id="evaluation-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} /><span><strong>Activer le mode thinking</strong><small>Désactivé par défaut. Peut améliorer le raisonnement mais allonger fortement les essais.</small></span></label>
           <div className="evaluation-config-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button><button type="button" className="primary-button" disabled={busy} onClick={saveAiModelProfile}>Enregistrer la configuration</button></div>
-          {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}{aiModelProfileMessage && <p className="evaluation-profile-message" role="status">{aiModelProfileMessage}</p>}
+          {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}{aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
         </div>
         {evaluationStageMode === 'analysis' && <section className="evaluation-analysis-reference" aria-labelledby="evaluation-analysis-reference-title">
           <div><p className="eyebrow">SOURCE DE RÉFÉRENCE</p><h3 id="evaluation-analysis-reference-title">Transcription à noter</h3><p>Vérifiez et corrigez le texte une fois pour toutes : chaque modèle d’analyse recevra exactement cette même transcription, sans nouvelle lecture d’image.</p></div>
@@ -2547,7 +2553,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
           </div>
           <button type="button" className="secondary-button full-button" onClick={saveAiModelProfile}>Enregistrer cette configuration</button>
-          {aiModelProfileMessage && <p className="validation" role="status">{aiModelProfileMessage}</p>}
+          {aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
           <p className="hint">Les derniers réglages sont restaurés automatiquement. Les profils conservent le serveur, les modèles et la stratégie de diagnostic sur cet appareil.</p>
         </div>
           <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur</label>
@@ -2585,7 +2591,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <span><strong>Activer le mode thinking pour l’analyse</strong><small>Désactivé par défaut. Peut améliorer le raisonnement, mais allonger fortement le temps de correction et ne fonctionne pas avec tous les modèles.</small></span>
           </label>
           <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
-          {connectionMessage && <p className="validation valid" role="status">{connectionMessage}</p>}
+          {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
           <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p></article>
           <div className="debug-run-actions"><button type="button" className="primary-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? 'Diagnostic local en cours…' : 'Lancer le diagnostic avancé'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
         </section>

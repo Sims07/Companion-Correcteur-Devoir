@@ -60,7 +60,6 @@
 .ai-tools-view :is(.evaluation-step-nav button.active,.evaluation-step-nav button[aria-current="step"],.evaluation-profile-option.is-selected,.evaluation-history-option.is-selected,.evaluation-configuration-step.is-active) { border-color:var(--ds-color-brand-700); background:var(--ds-color-brand-100); color:var(--ds-color-text); box-shadow:inset 3px 0 var(--ds-color-brand-700); }
 .ai-tools-view :is(.evaluation-config-editor,.evaluation-history-comparison,.evaluation-empty-inline,.evaluation-analysis-subsection,.evaluation-analysis-metrics article,.evaluation-phase-panel) { border-color:var(--ds-color-border); background:var(--ds-color-surface-subtle); }
 .ai-tools-view :is(.evaluation-config-editor h3,.evaluation-section-heading h2,.evaluation-section-heading h3,.evaluation-profile-card-content > strong,.evaluation-analysis-metrics article > strong) { color:var(--ds-color-text); }
-.ai-tools-view .evaluation-profile-message { color:var(--ds-color-brand-700); }
 .ai-tools-view :is(.evaluation-history-bar-fill,.evaluation-progress-track > span) { background:var(--ds-color-brand-700); }
 .ai-tools-view :is(.evaluation-config-workspace,.evaluation-results-workspace) { padding:var(--ds-space-6); }
 .ai-tools-view :is(.evaluation-stage-picker button:focus-visible,.evaluation-step-nav button:focus-visible,.evaluation-history-option:focus-within) { outline:none; box-shadow:var(--ds-focus-ring); }
