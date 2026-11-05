@@ -131,7 +131,9 @@ export function systemOnePointChoices(maxPoints: number): Record<string, string>
   }
   points.push(normalizeGradeScore(maxPoints));
   const values = [...new Set(points)];
-  const result: Record<string, string> = {};
+  const result: Record<string, string> = {
+    unreadable: 'La réponse pertinente est illisible ou absente de la transcription ; impossible de proposer une note fiable.',
+  };
   for (const value of values) {
     const key = 'points_' + String(value).replace('.', '_');
     result[key] = value === 0
@@ -279,6 +281,14 @@ export function scoreSystemOneCriterion(
   if (prepared.scoringMode === 'points-scale') {
     const allowed = Object.keys(prepared.questions.score?.criteria ?? {});
     const choice = selectedChoice(result.answers.score, allowed);
+    if (choice.choice === 'unreadable') {
+      return {
+        criterionId: criterion.id, points: 0, assessmentStatus: 'not-evaluated', confidence: 'low',
+        evidence: 'Réponse illisible ou transcription insuffisante.',
+        rationale: 'Impossible de proposer une note sans lire la réponse.',
+        questionForTeacher: 'Relisez la réponse de « ' + criterion.title + ' » ou corrigez sa transcription.',
+      };
+    }
     const key = choice.choice.replace(/^points_/, '').replace('_', '.');
     const points = Number(key);
     if (!Number.isFinite(points) || !allowed.includes(choice.choice)
