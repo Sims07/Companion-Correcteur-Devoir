@@ -34,7 +34,8 @@ function decisionFromVisualEvidence(
     const observations = assessments.flatMap((assessment) => assessment.elements ?? [])
       .filter((element) => element.subcriterionId === subcriterion.id);
     const evidencedPresent = observations.find((element) =>
-      element.status === 'present' && meaningfulVisualEvidence(element.evidence));
+      element.status === 'present' && element.origin !== 'printed-subject'
+      && element.origin !== 'uncertain' && meaningfulVisualEvidence(element.evidence));
     const allAbsent = observations.length > 0 && observations.every((element) => element.status === 'absent');
     const status: 'present' | 'absent' | 'partial' | 'uncertain' = evidencedPresent ? 'present'
       : allAbsent ? 'absent'
@@ -44,30 +45,55 @@ function decisionFromVisualEvidence(
     const evidence = evidencedPresent?.evidence.trim()
       ?? observations.find((element) => meaningfulVisualEvidence(element.evidence))?.evidence.trim()
       ?? (allAbsent ? 'Élément non repéré sur le schéma.' : 'Preuve visuelle à vérifier.');
-    // Different pages may disagree: never silently select full credit from one
-    // page when another source describes the same rubric item differently.
+
+    // A copied printed title is not a student-drawn title, and a vaguely
+    // uncertain image must not silently trigger a generic review of all criteria.
     const conflictingObservations = new Set(observations.map((element) => element.status)).size > 1;
-    if (conflictingObservations) pending.push(subcriterion.title + ' (observations contradictoires)');
-    else if (status === 'partial' || status === 'uncertain') pending.push(subcriterion.title);
+    if (conflictingObservations) {
+      pending.push(subcriterion.title + ' : observations contradictoires entre les pages.');
+    } else if (status === 'partial' || status === 'uncertain') {
+      // Never invent a biological explanation absent from the observations.
+      const details = observations.find((item) => item.uncertainty?.trim())?.uncertainty?.trim()
+        || (observations.some((item) => item.origin === 'printed-subject')
+          ? 'preuve visible seulement dans le sujet imprimé'
+          : status === 'partial'
+            ? 'observation partielle à confirmer : ' + evidence
+            : 'preuve insuffisante ou illisible : ' + evidence);
+      pending.push(subcriterion.title + ' : ' + details + '.');
+    }
     return {
       id: subcriterion.id, title: subcriterion.title, maxPoints: subcriterion.maxPoints,
       status, points, evidence,
     };
   });
 
-  const requiresHumanReview = Boolean(analysis?.overallUncertainties.length)
-    || Boolean(analysis?.diagrams.some((diagram) => diagram.uncertainties.length > 0))
-    || assessments.some((assessment) => assessment.requiresTeacherReview
-      || !Number.isFinite(assessment.confidence) || assessment.confidence < 0.8);
-  if (requiresHumanReview && pending.length === 0) pending.push('fiabilité de la lecture du schéma');
+  // A page-level warning from another scientific diagram must not invalidate
+  // this criterion. Global warnings remain visible in the teacher questions,
+  // but only observations linked to this criterion can block its points.
+  const relevantDiagramIds = new Set(assessments.flatMap((assessment) => assessment.diagramIds ?? []));
+  const relevantDiagrams = (analysis?.diagrams ?? []).filter((diagram) =>
+    relevantDiagramIds.has(diagram.id));
+  const visualDoubts = relevantDiagrams.flatMap((diagram) => diagram.uncertainties);
+  const questionableAssessment = assessments.find((assessment) => assessment.requiresTeacherReview
+    || !Number.isFinite(assessment.confidence) || assessment.confidence < 0.8);
+  if (pending.length === 0 && (questionableAssessment || visualDoubts.length > 0)) {
+    const specific = assessments.flatMap((assessment) => assessment.elements ?? [])
+      .find((element) => element.uncertainty?.trim())?.uncertainty?.trim()
+      || visualDoubts.find((item) => item.trim())?.trim()
+      || (questionableAssessment && questionableAssessment.confidence < 0.8
+        ? 'lecture incertaine (' + Math.round(questionableAssessment.confidence * 100) + ' % de confiance)'
+        : 'confirmation demandée par Vision sur la preuve « '
+          + (questionableAssessment?.evidence?.trim() || criterion.title) + ' »');
+    pending.push(criterion.title + ' : ' + specific + '.');
+  }
   const incomplete = pending.length > 0;
   const points = sumGradeScores(ratedElements.map((element) => element.points));
-  const questionForTeacher = incomplete ? 'Vérifier sur le schéma : ' + pending.join(', ') + '.' : undefined;
+  const questionForTeacher = incomplete ? 'Sur le schéma, vérifiez : ' + pending.join(' ') : undefined;
   return {
     criterionId: criterion.id,
     points,
     rationale: incomplete
-      ? 'Certains éléments visuels nécessitent une vérification.'
+      ? 'Un ou plusieurs attendus précis nécessitent une vérification sur le dessin.'
       : points === criterion.maxPoints ? '' : 'Certains attendus du schéma sont absents.',
     evidence: ratedElements.find((element) => element.status === 'present')?.evidence
       ?? ratedElements[0]?.evidence ?? 'Preuve visuelle à vérifier.',
