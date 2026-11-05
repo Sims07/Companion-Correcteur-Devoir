@@ -1,23 +1,23 @@
 :root {
-  /* Brand and semantic colors */
-  --ds-color-brand-700: #315f40;
-  --ds-color-brand-600: #477b55;
-  --ds-color-brand-100: #edf5ed;
-  --ds-color-text: #294034;
-  --ds-color-text-muted: #718075;
-  --ds-color-text-disabled: #98a39a;
-  --ds-color-surface: #ffffff;
-  --ds-color-surface-subtle: #f7faf6;
-  --ds-color-border: #dfe8de;
-  --ds-color-border-strong: #cfdccc;
+  /* Atelier pédagogique — palette B, inspired by warm paper and editorial teaching materials. */
+  --ds-color-brand-700: #a14d37;
+  --ds-color-brand-600: #b4563d;
+  --ds-color-brand-100: #f7e8dc;
+  --ds-color-text: #2b2b31;
+  --ds-color-text-muted: #6e665f;
+  --ds-color-text-disabled: #8a827a;
+  --ds-color-surface: #fffdf9;
+  --ds-color-surface-subtle: #fbf8f2;
+  --ds-color-border: #e9e1d5;
+  --ds-color-border-strong: #cfbdac;
   --ds-color-danger: #a63f36;
   --ds-color-danger-surface: #fff2f0;
-  --ds-color-warning: #94621d;
-  --ds-color-warning-surface: #fff7e8;
+  --ds-color-warning: #91551f;
+  --ds-color-warning-surface: #fff3e2;
   --ds-color-success: #27623a;
   --ds-color-success-surface: #edf6ee;
 
-  /* Consistent spacing scale (4px base) */
+  /* Spacing preserves the existing readable 4px rhythm. */
   --ds-space-1: 4px;
   --ds-space-2: 8px;
   --ds-space-3: 12px;
@@ -26,13 +26,14 @@
   --ds-space-6: 24px;
   --ds-space-8: 32px;
 
-  /* Shape, elevation and motion */
-  --ds-radius-sm: 8px;
-  --ds-radius-md: 10px;
+  /* Shared shapes, shadows and accessible keyboard focus. */
+  --ds-radius-sm: 6px;
+  --ds-radius-md: 8px;
   --ds-radius-lg: 14px;
   --ds-radius-pill: 999px;
-  --ds-shadow-control: 0 1px 2px rgb(41 64 52 / 5%);
-  --ds-shadow-panel: 0 3px 14px rgb(41 64 52 / 5%);
-  --ds-focus-ring: 0 0 0 3px rgb(95 141 108 / 22%);
+  --ds-shadow-control: 0 1px 2px rgb(70 41 26 / 4%);
+  --ds-shadow-panel: 0 3px 14px rgb(70 41 26 / 4%);
+  --ds-focus-ring: 0 0 0 3px rgb(161 77 55 / 30%);
   --ds-transition-fast: 140ms ease;
+  --ds-font-editorial: Georgia, "Times New Roman", serif;
 }
