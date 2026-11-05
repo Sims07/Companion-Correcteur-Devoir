@@ -2304,7 +2304,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         educationLevel={assignmentProfiles.find((profile) => profile.id === activeAssignmentId)?.educationLevel}
         maximumPoints={validation.maximumPoints}
         activeSection={teacherStep === 'rubric' || teacherStep === 'details' ? 'rubric' : 'copies'}
-        showCopyRail={(teacherStep === 'review' || (teacherStep === 'copy' && Boolean(currentBackgroundJobId || currentCorrectionId))) && !showAiSettings}
+        showCopyRail={(teacherStep === 'review' || (teacherStep === 'rubric' && copyNavigation.copies.length > 0) || (teacherStep === 'copy' && Boolean(currentBackgroundJobId || currentCorrectionId))) && !showAiSettings}
         copies={copyNavigation.copies.map((copy) => ({
           id: copy.id,
           label: copy.label,
