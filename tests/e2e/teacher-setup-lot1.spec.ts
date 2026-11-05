@@ -93,3 +93,38 @@ test('Atelier pédagogique is visible from assignment library through rubric pre
   await expect(page.locator('.criterion-editor').first()).toBeVisible();
   await expect(page.locator('.criterion-editor').first()).toHaveCSS('background-color', 'rgb(255, 253, 249)');
 });
+
+test('Atelier B rubric shows compact numbered criteria and a live synthesis at desktop and mobile sizes', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.assignment-overview-card').first().getByRole('button', { name: /Reprendre le devoir/ }).click();
+  await page.getByRole('tab', { name: 'Barème' }).click();
+  const summary = page.getByRole('complementary', { name: 'Synthèse du barème' });
+  await expect(summary).toBeVisible();
+  await expect(summary).toContainText('3 critères');
+  await expect(summary).toContainText('20 points');
+  const indices = page.locator('.atelier-criterion-index');
+  await expect(indices).toHaveText(['01', '02', '03']);
+  await page.screenshot({ path: testInfo.outputPath('atelier-b-rubric-desktop.png'), animations: 'disabled' });
+  await summary.getByRole('button', { name: /Voir les critères disponibles/ }).click();
+  await expect(page.locator('.rubric-reuse-panel')).toHaveAttribute('open', '');
+
+  const firstCriterion = page.locator('.criterion-editor').first();
+  await expect(firstCriterion).toHaveAttribute('open', '');
+  await firstCriterion.locator('.criterion-fields input').first().fill('Connaissances scientifiques — précisions');
+  await expect(firstCriterion.locator('.criterion-editor-summary')).toContainText('Connaissances scientifiques — précisions');
+  await page.getByRole('button', { name: /Ajouter un critère/ }).click();
+  await expect(summary).toContainText('4 critères');
+  await expect(page.locator('.atelier-criterion-index')).toHaveText(['01', '02', '03', '04']);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(summary).toBeVisible();
+  const editorRect = await page.locator('.atelier-rubric-editor').boundingBox();
+  const summaryRect = await summary.boundingBox();
+  expect(editorRect).not.toBeNull();
+  expect(summaryRect).not.toBeNull();
+  expect(summaryRect!.y).toBeGreaterThan(editorRect!.y);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: testInfo.outputPath('atelier-b-rubric-mobile.png'), animations: 'disabled' });
+});
