@@ -4,6 +4,8 @@ import { BackgroundCopyActivity } from './BackgroundCopyActivity.tsx';
 interface Props {
   job: BackgroundCorrectionJob;
   studentLabel?: string;
+  onStopCorrections?: () => void;
+  isStoppingCorrections?: boolean;
 }
 
 type Phase = BackgroundCorrectionJob['phase'];
@@ -19,7 +21,7 @@ function phaseStatus(current: Phase, position: number): 'complete' | 'current' |
  * Teacher-facing processing state, designed as the in-progress counterpart to
  * Atelier B's evidence-first review screen. No copy image leaves the browser.
  */
-export function ActiveCopyProcessingWorkspace({ job, studentLabel }: Props) {
+export function ActiveCopyProcessingWorkspace({ job, studentLabel, onStopCorrections, isStoppingCorrections = false }: Props) {
   const phase = job.phase;
   const currentTitle = phase === 'preparation' ? 'Préparation' : phase === 'reading' ? 'Lecture de la copie' : 'Correction des réponses';
   const phases = [
@@ -52,6 +54,7 @@ export function ActiveCopyProcessingWorkspace({ job, studentLabel }: Props) {
           );
         })}
       </ol>
+      {onStopCorrections && <div className="context-stop-action"><button type="button" className="context-stop-button" onClick={onStopCorrections} disabled={isStoppingCorrections}>{isStoppingCorrections ? 'Arrêt en cours…' : 'Arrêter cette correction'}</button></div>}
       <div className="atelier-processing-columns">
         <section className="atelier-processing-source" aria-labelledby="atelier-processing-source-title">
           <div className="atelier-processing-source-heading">

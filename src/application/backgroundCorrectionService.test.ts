@@ -146,6 +146,26 @@ describe('background Ollama prewarming', () => {
     expect(unloadModel).not.toHaveBeenCalled();
   });
 
+  it('stops promptly if the readiness check hangs before model loading', async () => {
+    let started!: () => void;
+    const requestStarted = new Promise<void>((resolve) => { started = resolve; });
+    const checkReady = vi.fn(async () => {
+      started();
+      return new Promise<void>(() => undefined);
+    });
+    const prewarmModel = vi.fn(async () => undefined);
+    const service = createBackgroundCorrectionService(
+      {} as unknown as BackgroundCorrectionRepository,
+      { checkReady, prewarmModel } as unknown as OllamaGateway,
+    );
+    const warming = service.prewarm(settings);
+    await requestStarted;
+
+    await service.stopAndWait();
+    await warming;
+    expect(prewarmModel).not.toHaveBeenCalled();
+  });
+
   it('skips a new prewarm as soon as foreground correction has priority', async () => {
     const { service, prewarmModel } = createService();
 

@@ -38,6 +38,7 @@ describe('CorrectionOverview — comportement enseignant', () => {
   const onRetryJob = vi.fn();
   const onRemoveJob = vi.fn();
   const onOpenJob = vi.fn();
+  const onStopCorrections = vi.fn();
   const onReviewNextCopy = vi.fn();
   const onFilterChange = vi.fn();
 
@@ -53,6 +54,8 @@ describe('CorrectionOverview — comportement enseignant', () => {
         addCopyExpanded: false,
         pendingCount: 0,
         isStartingCorrections: false,
+        isStoppingCorrections: false,
+        onStopCorrections,
         onStartCorrections: vi.fn(),
         onOpenJob,
         onRetryJob,
@@ -70,6 +73,7 @@ describe('CorrectionOverview — comportement enseignant', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     onRetryJob.mockClear();
+    onStopCorrections.mockClear();
     onRemoveJob.mockClear();
     onOpenJob.mockClear();
     onReviewNextCopy.mockClear();
@@ -107,6 +111,19 @@ describe('CorrectionOverview — comportement enseignant', () => {
     const button = container.querySelector<HTMLButtonElement>('.teacher-copy-live button');
     await act(async () => button?.click());
     expect(onOpenJob).toHaveBeenCalledWith('running');
+  });
+
+  it('invokes the stop handler from the copy in progress without stopping on an idle overview', async () => {
+    await render('all', [{ ...reviewJob, id: 'running', status: 'processing', phase: 'grading' }]);
+    const stop = container.querySelector<HTMLButtonElement>('.teacher-copy-live .context-stop-button');
+    expect(stop?.textContent).toBe('Arrêter');
+    await act(async () => stop?.click());
+    expect(onStopCorrections).toHaveBeenCalledOnce();
+
+    onStopCorrections.mockClear();
+    await render('all', [reviewJob]);
+    expect(container.querySelector('.teacher-copy-live .context-stop-button')).toBeNull();
+    expect(onStopCorrections).not.toHaveBeenCalled();
   });
 
   it('filters failed copies separately and offers both retry and open actions', async () => {

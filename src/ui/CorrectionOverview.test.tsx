@@ -28,7 +28,7 @@ const display = (current: BackgroundCorrectionJob, isStartingCorrections = false
   <CorrectionOverview
     jobs={[toBackgroundJobSummary(current)]} corrections={[]} currentCopy={null}
     filter="all" onFilterChange={vi.fn()} onAddCopy={vi.fn()} addCopyExpanded={false} pendingCount={1}
-    isStartingCorrections={isStartingCorrections} onStartCorrections={vi.fn()}
+    isStartingCorrections={isStartingCorrections} isStoppingCorrections={false} onStopCorrections={vi.fn()} onStartCorrections={vi.fn()}
     onOpenJob={vi.fn()} onRetryJob={vi.fn()} onRemoveJob={vi.fn()} notice=""
     onOpenCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}
   />,
@@ -70,7 +70,7 @@ const displayArchived = () => renderToStaticMarkup(
   <CorrectionOverview
     jobs={[]} corrections={[archivedCorrection]} currentCopy={null}
     filter="completed" onFilterChange={vi.fn()} onAddCopy={vi.fn()} addCopyExpanded={false} pendingCount={0}
-    isStartingCorrections={false} onStartCorrections={vi.fn()}
+    isStartingCorrections={false} isStoppingCorrections={false} onStopCorrections={vi.fn()} onStartCorrections={vi.fn()}
     onOpenJob={vi.fn()} onRetryJob={vi.fn()} onRemoveJob={vi.fn()} notice=""
     onOpenCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}
   />,
@@ -108,12 +108,27 @@ describe('teacher correction overview and partial grade safety', () => {
   });
 
 
+  it('keeps stopping contextual to the copy currently being prepared or corrected', () => {
+    expect(display({ ...job, status: 'processing' })).toContain('Arrêter');
+    expect(display(job, true)).toContain('Arrêter');
+    expect(display(job)).not.toContain('context-stop-button');
+    expect(display({ ...job, status: 'ready' })).not.toContain('context-stop-button');
+  });
+
   it('offers removal for a waiting copy, without showing it during processing or after archiving', () => {
     expect(display(job)).toContain('Retirer la copie « Copie de biologie »');
     expect(display({ ...job, status: 'ready' })).toContain('Retirer la copie « Copie de biologie »');
     expect(display({ ...job, status: 'failed' })).toContain('Retirer la copie « Copie de biologie »');
     expect(display({ ...job, status: 'processing' })).not.toContain('Retirer la copie');
     expect(display({ ...job, status: 'completed' })).not.toContain('Retirer la copie');
+  });
+
+  it('marks an explicitly interrupted copy and offers resuming rather than an invalid grade', () => {
+    const html = display({ ...job, status: 'pending', error: 'Correction interrompue par l’enseignant. Vous pouvez la reprendre.' });
+    expect(html).toContain('En attente · interrompue');
+    expect(html).toContain('Reprendre les corrections');
+    expect(html).toContain('Interrompue à votre demande');
+    expect(html).toContain('Note à venir');
   });
 
   it('offers an explicit retry and no invented grade when the LLM fails after a partial result', () => {

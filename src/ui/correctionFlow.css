@@ -3015,10 +3015,14 @@
 }
 
 
-.global-stop-button { display:inline-flex; align-items:center; justify-content:center; min-height:36px; padding:8px 12px; border:1px solid #d97757; border-radius:9px; background:#fff4ef; color:#9b341d; font:inherit; font-size:12px; font-weight:750; cursor:pointer; white-space:nowrap; }
-.global-stop-button:hover:not(:disabled) { background:#ffe7de; border-color:#b94b2e; }
-.global-stop-button:disabled { opacity:.7; cursor:wait; }
-@media (max-width:760px) { .global-stop-button { min-height:32px; padding:6px 9px; font-size:11px; } }
+.context-stop-action { display:flex; justify-content:flex-end; margin-top:var(--ds-space-3); }
+.context-stop-button { display:inline-flex; align-items:center; justify-content:center; min-height:34px; padding:7px 12px; border:1px solid var(--ds-color-border-strong); border-radius:var(--ds-radius-md); background:var(--ds-color-surface); color:var(--ds-color-text-muted); font:inherit; font-size:12px; font-weight:650; cursor:pointer; }
+.context-stop-button:hover:not(:disabled) { color:var(--ds-color-danger); border-color:var(--ds-color-danger); background:var(--ds-color-danger-surface); }
+.context-stop-button:focus-visible { outline:0; box-shadow:var(--ds-focus-ring); }
+.context-stop-button:disabled { opacity:.7; cursor:wait; }
+.teacher-copy-live-actions { display:flex; align-items:center; gap:var(--ds-space-2); flex-wrap:wrap; }
+.correction-series-current-stop { display:flex; gap:var(--ds-space-3); align-items:center; justify-content:space-between; flex-wrap:wrap; margin:var(--ds-space-3) 0; padding:var(--ds-space-3); border:1px solid var(--ds-color-border); background:var(--ds-color-surface-subtle); border-radius:var(--ds-radius-md); }
+.correction-series-current-stop span { color:var(--ds-color-text-muted); font-size:13px; }
 
 /* Full-size inspection entry point for imported copies (photos and PDF pages). */
 .teacher-copy-pages-details .batch-copy-page-preview { flex-basis: 156px; }

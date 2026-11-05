@@ -46,6 +46,17 @@ describe('Atelier pédagogique correction workspace', () => {
     expect(css).toContain('color: var(--ds-color-success)');
   });
 
+  it('places stopping beside the active copy instead of in the permanent application header', () => {
+    const app = read('src/ui/App.tsx');
+    const overview = read('src/ui/CorrectionOverview.tsx');
+    const css = read('src/ui/correctionFlow.css');
+    expect(app).not.toContain('global-stop-button');
+    expect(app).toContain('Arrêter cette correction');
+    expect(app).toContain('Arrêter les corrections');
+    expect(overview).toContain('onStopCorrections');
+    expect(css).toContain('var(--ds-color-border-strong)');
+  });
+
   it('preserves all existing evidence, note adjustments and teacher comments', () => {
     const app = read('src/ui/App.tsx');
     expect(app).toContain('<TeacherReviewAlert');

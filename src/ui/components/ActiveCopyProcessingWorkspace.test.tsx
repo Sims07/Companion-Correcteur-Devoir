@@ -55,6 +55,16 @@ describe('Atelier B: correction en cours centrée sur la copie', () => {
     }
   });
 
+  it('shows a contextual stop action only for interruptible running work', () => {
+    const markup = renderToStaticMarkup(<ActiveCopyProcessingWorkspace job={{ ...job, status: 'processing' }} onStopCorrections={() => undefined} />);
+    expect(markup).toContain('Arrêter cette correction');
+    expect(markup).toContain('context-stop-button');
+    const stopping = renderToStaticMarkup(<ActiveCopyProcessingWorkspace job={{ ...job, status: 'processing' }} onStopCorrections={() => undefined} isStoppingCorrections />);
+    expect(stopping).toContain('disabled=""');
+    expect(stopping).toContain('Arrêt en cours');
+    expect(renderToStaticMarkup(<ActiveCopyProcessingWorkspace job={job} />)).not.toContain('context-stop-button');
+  });
+
   it('reports recorded counts and keeps transcription optional', () => {
     const markup = renderToStaticMarkup(
       <ActiveCopyProcessingWorkspace job={{
