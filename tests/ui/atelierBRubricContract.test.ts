@@ -36,7 +36,7 @@ describe('Atelier B rubric composition', () => {
   });
 
   it('preserves optional reuse of source criteria without changing linked assignments', () => {
-    expect(app).toContain('className="rubric-reuse-panel"').toBe(false);
+    expect(css).toContain(".atelier-rubric-reuse-hint button");
     expect(app).toContain('<RubricReusePanel');
     expect(app).toContain('panel.open = true');
     expect(app).toContain('onReuse={(criteria)');
