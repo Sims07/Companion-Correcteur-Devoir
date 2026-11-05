@@ -24,6 +24,10 @@ async function withModelInactivityTimeout<T>(
   let timer: ReturnType<typeof setTimeout> | undefined;
   let rejectTimeout!: (error: Error) => void;
   const timeout = new Promise<never>((_resolve, reject) => { rejectTimeout = reject; });
+  let rejectCancellation!: (error: Error) => void;
+  const cancellation = new Promise<never>((_resolve, reject) => { rejectCancellation = reject; });
+  const onAbort = () => rejectCancellation(new DOMException('Traitement interrompu.', 'AbortError'));
+  controller.signal.addEventListener('abort', onAbort, { once: true });
   const markActivity = () => {
     if (timer) clearTimeout(timer);
     if (controller.signal.aborted) return;
@@ -36,9 +40,10 @@ async function withModelInactivityTimeout<T>(
   };
   markActivity();
   try {
-    return await Promise.race([execute(markActivity), timeout]);
+    return await Promise.race([execute(markActivity), timeout, cancellation]);
   } finally {
     if (timer) clearTimeout(timer);
+    controller.signal.removeEventListener('abort', onAbort);
   }
 }
 
