@@ -1,6 +1,7 @@
 import type { GradingProposal } from './grading.ts';
 import type { CorrectionMethod } from './correctionMethod.ts';
 import type { Rubric } from './rubric.ts';
+import { modelEvaluationImageSignature } from './modelEvaluationArchive.ts';
 
 export interface ModelEvaluationConfiguration {
   id: string;
@@ -201,6 +202,11 @@ export interface ModelEvaluationRecord {
   images: ModelEvaluationImage[];
   subjectImages: ModelEvaluationImage[];
   subjectTranscription: string | null;
+  /** Populated if a storage-constrained archive omits original base64 images. */
+  archivedWithoutImages?: boolean;
+  originalImageCount?: number;
+  imageSignatures?: string[];
+  subjectImageSignatures?: string[];
   configurations: ModelEvaluationConfiguration[];
   results: ModelEvaluationResultSnapshot[];
   /** The shared, teacher-reviewed input used by Analysis-only experiments. */
@@ -220,10 +226,20 @@ export function getModelEvaluationStage(record: ModelEvaluationRecord): 'vision'
  * configurations. Two experiments can be compared only when they measure
  * the same stage; mixing Vision, Analysis and full-pipeline metrics is invalid.
  */
-function sameImages(first: readonly ModelEvaluationImage[], second: readonly ModelEvaluationImage[]): boolean {
-  return first.length === second.length && first.every((image, index) =>
-    image.mimeType === second[index]!.mimeType && image.base64 === second[index]!.base64
-  );
+function sameImages(
+  first: readonly ModelEvaluationImage[], second: readonly ModelEvaluationImage[],
+  firstSignatures?: readonly string[], secondSignatures?: readonly string[],
+): boolean {
+  // Compare raw images when both records retain them (no hashing for the
+  // common case). In a lightweight archive, compare the retained identities.
+  if (!firstSignatures && !secondSignatures) {
+    return first.length === second.length && first.every((image, index) =>
+      image.mimeType === second[index]!.mimeType && image.base64 === second[index]!.base64
+    );
+  }
+  const a = firstSignatures ?? first.map(modelEvaluationImageSignature);
+  const b = secondSignatures ?? second.map(modelEvaluationImageSignature);
+  return a.length === b.length && a.every((signature, index) => signature === b[index]);
 }
 
 function sameRubric(first: Rubric, second: Rubric): boolean {
@@ -240,7 +256,7 @@ function sameAnalysisInput(first: ModelEvaluationRecord, second: ModelEvaluation
     first.question === second.question &&
     first.correctionMode === second.correctionMode &&
     first.subjectTranscription === second.subjectTranscription &&
-    sameImages(first.subjectImages, second.subjectImages) &&
+    sameImages(first.subjectImages, second.subjectImages, first.subjectImageSignatures, second.subjectImageSignatures) &&
     sameRubric(first.rubricSnapshot, second.rubricSnapshot);
 }
 
@@ -253,7 +269,7 @@ export function canCompareModelEvaluationRecords(records: readonly ModelEvaluati
   if (getModelEvaluationStage(first) !== getModelEvaluationStage(second) || first.assignmentId !== second.assignmentId) return false;
   const stage = getModelEvaluationStage(first);
   if (stage === 'analysis') return sameAnalysisInput(first, second);
-  if (!sameImages(first.images, second.images)) return false;
+  if (!sameImages(first.images, second.images, first.imageSignatures, second.imageSignatures)) return false;
   if (stage === 'vision') return first.question === second.question && sameRubric(first.rubricSnapshot, second.rubricSnapshot);
   return first.question === second.question &&
     first.correctionMode === second.correctionMode &&
