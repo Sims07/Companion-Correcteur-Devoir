@@ -370,6 +370,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
   const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
   const [savedModelEvaluations, setSavedModelEvaluations] = useState<ModelEvaluationRecord[]>([]);
+  const [sessionOnlyEvaluationIds, setSessionOnlyEvaluationIds] = useState<string[]>([]);
+  const [suggestedEvaluationComparisonIds, setSuggestedEvaluationComparisonIds] = useState<string[] | null>(null);
   const [evaluationProgress, setEvaluationProgress] = useState<ModelEvaluationProgress | null>(null);
   const [evaluationStage, setEvaluationStage] = useState<'idle' | 'preparing' | 'reading' | 'grading' | 'parsing' | 'saving' | 'completed'>('idle');
   const [evaluationArchiveStatus, setEvaluationArchiveStatus] = useState<'idle' | 'saving' | 'saved' | 'without-images' | 'failed'>('idle');
@@ -1337,15 +1339,20 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     try {
       const outcome = await evaluationService.save(record);
       setSavedModelEvaluations((current) => [outcome.record, ...current.filter((item) => item.id !== outcome.record.id)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)));
+      setSessionOnlyEvaluationIds((current) => current.filter((id) => id !== outcome.record.id));
       setPendingEvaluationArchive(null);
       setEvaluationArchiveStatus(outcome.imagesOmitted ? 'without-images' : 'saved');
     } catch (cause) {
-      // A storage failure must never hide the grading results from this session.
+      // Keep the completed run available for comparisons *in this session*.
+      // Do not pretend that it was successfully persisted.
+      setSavedModelEvaluations((current) => [record, ...current.filter((item) => item.id !== record.id)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)));
+      setSessionOnlyEvaluationIds((current) => current.includes(record.id) ? current : [...current, record.id]);
       setPendingEvaluationArchive(record);
       setEvaluationArchiveStatus('failed');
-      setEvaluationArchiveError(isModelEvaluationQuotaError(cause)
-        ? 'Le stockage local est plein. Libérez de l’espace, puis réessayez. Les résultats restent visibles tant que cette page est ouverte.'
-        : 'L’historique local n’est pas accessible pour le moment. Réessayez la sauvegarde sans relancer les modèles.');
+      const reason = cause instanceof Error ? (cause.name + (cause.message ? ' : ' + cause.message : '')) : String(cause);
+      setEvaluationArchiveError((isModelEvaluationQuotaError(cause)
+        ? 'Le stockage local est plein. Libérez de l’espace puis réessayez.'
+        : 'Le navigateur n’a pas pu enregistrer cet essai.') + ' Détail : ' + reason + '. Les résultats restent dans cette session, y compris dans Analyse & historique, mais seront perdus au rechargement.');
     }
   }
 
@@ -1358,6 +1365,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (evaluationStageMode === 'integrated' && correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
     evaluationCancelledRef.current = false;
     setModelEvaluationResults([]);
+    setSuggestedEvaluationComparisonIds(null);
     setEvaluationArchiveStatus('idle');
     setPendingEvaluationArchive(null);
     const measuredStages = evaluationStageMode === 'vision' ? ['reading'] as const : evaluationStageMode === 'analysis' ? ['analysis'] as const : ['reading', 'analysis'] as const;
@@ -1516,6 +1524,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       results,
       stage: evaluationStageMode,
     };
+    const previousComparable = savedModelEvaluations.find((record) => canCompareModelEvaluationRecords([record, savedRecord]));
+    if (previousComparable) setSuggestedEvaluationComparisonIds([previousComparable.id, savedRecord.id]);
     await persistModelEvaluationRecord(savedRecord);
     setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: evaluationCancelledRef.current ? 'cancelled' : 'completed' } : current);
     setEvaluationStage('completed');
