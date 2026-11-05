@@ -292,7 +292,7 @@ export function createBackgroundCorrectionService(
             });
             let progressWrites = Promise.resolve();
             let progressWriteError: unknown = null;
-            let markModelActivity = () => undefined;
+            let markModelActivity: () => void = () => undefined;
             const queueProgress = (patch: Partial<BackgroundCorrectionJob>) => {
               // Inference can settle after an abort/timeout; late callbacks must
               // not overwrite the persisted failure and revive the spinner.
