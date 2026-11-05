@@ -1,3 +1,4 @@
+import { promptTrace } from './prompts/promptRegistry.ts';
 import { classificationPrompt, buildScientificDiagramPrompt, buildScientificDiagramRepairPrompt, buildConciseScientificDiagramPrompt } from './prompts/scientificDiagramPrompts.ts';
 export { buildScientificDiagramPrompt } from './prompts/scientificDiagramPrompts.ts';
 import { parseScientificDiagramAnalysis } from '../../domain/scientificDiagram.ts';
@@ -27,6 +28,7 @@ function diagnosticResult(request: { model: string; endpoint: string; images: Im
     kind: 'vision',
     stage: 'reading',
     purpose,
+    ...promptTrace(purpose === 'scientific-diagram-classification' ? 'diagram.page-classification' : 'diagram.scientific-analysis'),
     model: request.model,
     requestPrompt: prompt,
     requestMetadata: {
