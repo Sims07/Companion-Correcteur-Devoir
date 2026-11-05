@@ -1349,6 +1349,7 @@ export async function importRubricImageWithOllama(
       rawResponseStage: 'vision',
       diagnosticRun: {
         kind: 'vision',
+        ...promptTrace('vision.rubric-transcription'),
         model: visionModel,
         elapsedMs: Math.max(0, Date.now() - visionStartedAt),
         raw: transcription,
@@ -1433,7 +1434,7 @@ export async function importRubricImageWithOllama(
         message: `Échec de l’appel au modèle d’analyse : ${safeDetail}`,
         rawResponse: safeDetail,
         rawResponseStage: 'analysis',
-        diagnosticRun: { kind: 'model', model: analysisModel, elapsedMs: Math.max(0, Date.now() - analysisStartedAt), raw: safeDetail, error: safeDetail, doneReason: 'network_error' },
+        diagnosticRun: { kind: 'model', ...promptTrace('rubric.structuring'), model: analysisModel, elapsedMs: Math.max(0, Date.now() - analysisStartedAt), raw: safeDetail, error: safeDetail, doneReason: 'network_error' },
       });
       throw new Error(`Impossible de joindre le modèle d’analyse pour structurer le barème. Détail : ${safeDetail}`);
     }
@@ -1454,7 +1455,7 @@ export async function importRubricImageWithOllama(
         message: `Échec de l’appel au modèle d’analyse : ${failureMessage}`,
         rawResponse: safeDetail || failureMessage,
         rawResponseStage: 'analysis',
-        diagnosticRun: { kind: 'model', model: analysisModel, elapsedMs: Math.max(0, Date.now() - analysisStartedAt), raw: safeDetail || failureMessage, error: failureMessage, doneReason: `http_${response.status}` },
+        diagnosticRun: { kind: 'model', ...promptTrace('rubric.structuring'), model: analysisModel, elapsedMs: Math.max(0, Date.now() - analysisStartedAt), raw: safeDetail || failureMessage, error: failureMessage, doneReason: `http_${response.status}` },
       });
       throw new Error(`Le modèle d’analyse a refusé de structurer le barème (${failureMessage}).`);
     }
@@ -1463,6 +1464,7 @@ export async function importRubricImageWithOllama(
     const result = payload.message?.content?.trim() ?? '';
     const trace = {
       kind: 'model' as const,
+      ...promptTrace('rubric.structuring'),
       model: analysisModel,
       elapsedMs: Math.max(0, Date.now() - analysisStartedAt),
       raw: result,
