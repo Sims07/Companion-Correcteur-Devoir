@@ -42,10 +42,10 @@
   flex: 0 0 auto;
   margin: 0;
   padding: 7px 10px;
-  border: 1px solid var(--ds-color-border);
+  border: 1px solid var(--ds-color-progress-border);
   border-radius: 3px;
-  color: var(--ds-color-brand-700);
-  background: var(--ds-color-brand-100);
+  color: var(--ds-color-progress);
+  background: var(--ds-color-progress-surface);
   font-size: 11px;
   font-weight: 750;
 }
@@ -55,7 +55,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--ds-color-brand-700);
+  background: var(--ds-color-progress);
 }
 
 /* Three compact milestones — no oversized cards, rounded pills or spinner panel. */
@@ -82,7 +82,7 @@
   color: var(--ds-color-text-muted);
 }
 .teacher-flow-shell .atelier-processing-phases li.is-current {
-  border-bottom-color: var(--ds-color-brand-700);
+  border-bottom-color: var(--ds-color-progress);
   color: var(--ds-color-text);
 }
 .teacher-flow-shell .atelier-processing-phases li.is-complete { color: var(--ds-color-text); }
@@ -100,9 +100,9 @@
   font-weight: 750;
 }
 .teacher-flow-shell .atelier-processing-phases .is-current .atelier-processing-phase-number {
-  border-color: var(--ds-color-brand-700);
-  background: var(--ds-color-brand-700);
-  color: var(--ds-color-surface);
+  border-color: var(--ds-color-progress);
+  background: var(--ds-color-progress);
+  color: #fff;
 }
 .teacher-flow-shell .atelier-processing-phases .is-complete .atelier-processing-phase-number {
   border-color: var(--ds-color-success-surface);
@@ -236,7 +236,7 @@
 }
 .teacher-flow-shell .atelier-processing-columns .background-copy-activity-track > span {
   border-radius: 0;
-  background: var(--ds-color-brand-700);
+  background: var(--ds-color-progress);
 }
 .teacher-flow-shell .atelier-processing-columns .background-copy-activity-criteria {
   display: grid;
@@ -255,9 +255,9 @@
   background: transparent;
 }
 .teacher-flow-shell .atelier-processing-columns .background-copy-activity-criteria li.is-active {
-  border-left: 2px solid var(--ds-color-brand-700);
+  border-left: 2px solid var(--ds-color-progress);
   padding-left: 7px;
-  background: var(--ds-color-surface-subtle);
+  background: var(--ds-color-progress-surface);
 }
 .teacher-flow-shell .atelier-processing-columns .background-copy-activity-marker {
   width: 21px;
@@ -269,10 +269,14 @@
   font-size: 11px;
 }
 .teacher-flow-shell .atelier-processing-columns .is-active .background-copy-activity-marker {
-  border-color: var(--ds-color-brand-700);
-  background: var(--ds-color-brand-700);
-  color: var(--ds-color-surface);
+  border-color: var(--ds-color-progress);
+  background: var(--ds-color-progress);
+  color: #fff;
   animation: none;
+}
+.teacher-flow-shell .atelier-processing-columns .is-active .background-copy-activity-criteria small,
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-criteria li.is-active small {
+  color: var(--ds-color-progress);
 }
 .teacher-flow-shell .atelier-processing-columns .is-complete .background-copy-activity-marker {
   border-color: var(--ds-color-success-surface);

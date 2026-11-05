@@ -70,7 +70,7 @@
 }
 .teacher-copy-live strong { color: var(--ds-color-text); }
 .teacher-copy-live p { margin: var(--ds-space-1) 0 0; color: var(--ds-color-text-muted); font-size: .85rem; }
-.copy-overview-grid > li.correction-series-card.is-preparing { border-color: var(--ds-color-brand-700); }
+.copy-overview-grid > li.correction-series-card.is-preparing { border-color: var(--ds-color-progress-border); }
 @media (max-width: 700px) {
   .teacher-copy-live { align-items: stretch; flex-direction: column; }
 }
@@ -89,8 +89,8 @@
   background: var(--ds-color-surface);
   border-color: var(--ds-color-border);
 }
-/* La correction en cours est un état neutre, pas une réussite.
- * Cette règle, plus spécifique que celle du thème historique, supprime son fond vert.
+/* La correction en cours est un état informatif, ni une réussite ni une erreur.
+ * Surfaces papier et couleur de progression partagées avec le laboratoire des modèles.
  */
 .teacher-flow-shell .analysis-progress,
 .live-copy-preview {
@@ -100,7 +100,7 @@
 }
 .teacher-flow-shell .analysis-progress .analysis-spinner {
   border-color: var(--ds-color-border);
-  border-top-color: var(--ds-color-brand-700);
+  border-top-color: var(--ds-color-progress);
 }
 .teacher-flow-shell .analysis-progress-copy .eyebrow {
   color: var(--ds-color-text-muted);
@@ -119,9 +119,9 @@
   color: var(--ds-color-text);
 }
 .teacher-flow-shell .processing-workspace-heading .step-count {
-  border-color: var(--ds-color-border-strong);
-  background: var(--ds-color-brand-100);
-  color: var(--ds-color-brand-700);
+  border-color: var(--ds-color-progress-border);
+  background: var(--ds-color-progress-surface);
+  color: var(--ds-color-progress);
 }
 .teacher-flow-shell .analysis-progress .analysis-step,
 .teacher-flow-shell .teacher-progress-phase {
@@ -131,16 +131,17 @@
 }
 .teacher-flow-shell .analysis-progress .analysis-step.current,
 .teacher-flow-shell .teacher-progress-phase.current {
-  border-color: var(--ds-color-brand-700);
-  background: var(--ds-color-brand-100);
-  color: var(--ds-color-brand-700);
+  border-color: var(--ds-color-progress-border);
+  background: var(--ds-color-progress-surface);
+  color: var(--ds-color-progress);
 }
 .teacher-flow-shell .analysis-progress .analysis-step.current {
-  box-shadow: inset 0 0 0 1px var(--ds-color-brand-700);
+  box-shadow: inset 3px 0 var(--ds-color-progress);
 }
-.teacher-flow-shell .analysis-progress .analysis-step.current .analysis-step-number {
-  border-color: var(--ds-color-brand-700);
-  background: var(--ds-color-brand-700);
+.teacher-flow-shell .analysis-progress .analysis-step.current .analysis-step-number,
+.teacher-flow-shell .teacher-progress-phase.current > span {
+  border: 1px solid var(--ds-color-progress);
+  background: var(--ds-color-progress);
   color: #fff;
 }
 /* Le vert ne sert qu'aux étapes effectivement terminées. */

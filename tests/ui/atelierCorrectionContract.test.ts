@@ -44,7 +44,7 @@ describe('Atelier pédagogique correction workspace', () => {
     expect(css).toContain('var(--ds-color-brand-700)');
   });
 
-  it('uses Atelier papier surfaces and terre cuite for corrections in progress', () => {
+  it('uses Atelier paper and the informational progress state while preserving completion green', () => {
     const main = read('src/main.tsx');
     expect(main.indexOf('./ui/correctionAtelier.css')).toBeGreaterThan(main.indexOf('./ui/correctionFlow.css'));
     const css = read('src/ui/correctionAtelier.css');
@@ -52,9 +52,16 @@ describe('Atelier pédagogique correction workspace', () => {
     expect(source).toContain('background: var(--ds-color-surface)');
     expect(source).toContain('border-color: var(--ds-color-border)');
     expect(css).toContain('.teacher-flow-shell .analysis-progress .analysis-spinner');
-    expect(css).toContain('border-top-color: var(--ds-color-brand-700)');
+    expect(css).toContain('border-top-color: var(--ds-color-progress)');
     expect(css).toContain('.teacher-flow-shell .teacher-progress-phase.current');
-    expect(css).toContain('background: var(--ds-color-brand-100)');
+    const current = css.match(/\.teacher-flow-shell \.analysis-progress \.analysis-step\.current,\s*\.teacher-flow-shell \.teacher-progress-phase\.current\s*\{([^}]+)\}/)?.[1] ?? '';
+    expect(current).toContain('border-color: var(--ds-color-progress-border)');
+    expect(current).toContain('background: var(--ds-color-progress-surface)');
+    expect(current).not.toContain('var(--ds-color-brand-700)');
+    expect(current).not.toContain('var(--ds-color-danger)');
+    expect(css).toContain('.teacher-progress-phase.current > span');
+    expect(css).toContain('background: var(--ds-color-progress)');
+    expect(css).toContain('.copy-overview-grid > li.correction-series-card.is-preparing { border-color: var(--ds-color-progress-border); }');
     expect(css).toContain('.teacher-progress-phase.complete > span');
     expect(css).toContain('color: var(--ds-color-success)');
   });

@@ -25,6 +25,31 @@ describe('Atelier B : invariants du poste de correction pendant l’analyse', ()
     expect(css).toContain('@media (max-width: 720px)');
   });
 
+  it('uses informational tokens for active stages and criteria, while completed work stays green', () => {
+    const tokens = read('src/ui/design-system/tokens.css');
+    const source = read('src/ui/correctionAtelier.css');
+    for (const token of ['--ds-color-progress:', '--ds-color-progress-surface:', '--ds-color-progress-border:']) {
+      expect(tokens).toContain(token);
+    }
+    const activeSelectors = [
+      '.atelier-processing-current',
+      '.atelier-processing-phases li.is-current',
+      '.atelier-processing-phases .is-current .atelier-processing-phase-number',
+      '.atelier-processing-columns .background-copy-activity-track > span',
+      '.atelier-processing-columns .background-copy-activity-criteria li.is-active',
+      '.atelier-processing-columns .is-active .background-copy-activity-marker',
+    ];
+    for (const selector of activeSelectors) {
+      const regex = new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, '\\  it('loads Atelier B overrides after all older flows and in Storybook', () => {') + '\\s*\\{([^}]+)\\}');
+      const rule = css.match(regex)?.[1] ?? '';
+      expect(rule, selector).toContain('var(--ds-color-progress)');
+      expect(rule, selector).not.toContain('var(--ds-color-brand-700)');
+      expect(rule, selector).not.toContain('var(--ds-color-danger)');
+    }
+    expect(css).toContain('color: var(--ds-color-success)');
+    expect(source).toContain('color: var(--ds-color-success)');
+  });
+
   it('loads Atelier B overrides after all older flows and in Storybook', () => {
     const main = read('src/main.tsx');
     const storybook = read('.storybook/preview.ts');
