@@ -93,8 +93,12 @@ describe('hexagonal architecture boundaries', () => {
     ]) expect(ollama).toContain(intent);
     const diagrams = source('../src/adapters/ai/openAiScientificDiagramAnalyzer.ts');
     expect(diagrams).toContain('Classer la page ${pageNumber} pour la détection des schémas');
-    expect(diagrams).toContain('Analyser les schémas de la page ${pageNumber}');
-    expect(diagrams).toContain('Réparer la réponse d’analyse des schémas');
+    // The text-generation instructions now live in the dedicated prompt catalog.
+    // Keep the network intent test separate from the prompt ownership test.
+    expect(diagrams).toContain('Analyser les schémas scientifiques');
+    const diagramPrompts = source('../src/adapters/ai/prompts/scientificDiagramPrompts.ts');
+    expect(diagramPrompts).toContain('Analyser les schémas de la page ${pageNumber}');
+    expect(diagramPrompts).toContain('Réparer la réponse d’analyse des schémas');
   });
   it('uses main as the composition root for concrete dependencies', () => {
     const text = source('../src/main.tsx');
