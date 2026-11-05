@@ -702,6 +702,38 @@ describe('background correction service', () => {
     expect(f.jobs.get('copy-1')?.status).toBe('ready');
   });
 
+  it('cancels an obsolete prewarm when the teacher changes local models before launch', async () => {
+    const f = fixture();
+    let announceStarted!: () => void;
+    const started = new Promise<void>((resolve) => { announceStarted = resolve; });
+    let obsoleteSignal: AbortSignal | undefined;
+    f.workspace.prewarmModel = vi.fn(async (_settings, _model, signal) => {
+      obsoleteSignal = signal;
+      announceStarted();
+      await new Promise<void>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new DOMException('Superseded', 'AbortError')), { once: true });
+      });
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const oldSettings = {
+      endpoint: 'http://localhost:11434', visionModel: 'old-vision:4b',
+      analysisModel: 'old-analysis:4b', autoBackgroundCorrection: false,
+    };
+    await service.enqueue(f.job, oldSettings);
+    await started;
+
+    await service.processPending({
+      ...oldSettings, visionModel: 'new-vision:4b', analysisModel: 'new-analysis:4b',
+    }, 'assignment-1');
+
+    expect(obsoleteSignal?.aborted).toBe(true);
+    expect(f.createProvider).toHaveBeenCalledTimes(2);
+    expect(f.createProvider.mock.calls[0][0]).toMatchObject({
+      visionModel: 'new-vision:4b', analysisModel: 'new-analysis:4b',
+    });
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+  });
+
   it('does not unload models between sequential copies in the background queue', async () => {
     const f = fixture();
     const second = structuredClone(f.job);
