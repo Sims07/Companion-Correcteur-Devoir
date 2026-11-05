@@ -157,6 +157,7 @@ describe('OpenAI scientific diagram adapter', () => {
     expect(trace.requestPayload).not.toContain('cG5n');
     expect(trace.requestPayload).toContain('"messages"');
     expect(trace.requestMetadata).toMatchObject({ provider: 'ollama', imageCount: 1 });
+    expect(trace).toMatchObject({ promptId: 'diagram.scientific-analysis', promptVersion: 2 });
     expect(getNetworkRequestMetadata(fetchMock.mock.calls[0][1])).toMatchObject({
       intent: 'Analyser les schémas scientifiques',
     });
