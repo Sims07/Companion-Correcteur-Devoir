@@ -61,6 +61,7 @@ export function buildLocalDecisionBenchmark(traces: readonly LocalBenchmarkTrace
       ? 'generative' : isNativeDecisionModel(trace.analysisModel) ? 'system-one' : 'decision-chat';
     const rubricKey = JSON.stringify(rubric.criteria.map((criterion) => ({
       id: criterion.id, maxPoints: criterion.maxPoints,
+      title: criterion.title, description: criterion.description, analysisMode: criterion.analysisMode,
       subcriteria: criterion.subcriteria?.map((item) => [item.id, item.maxPoints]) ?? [],
     })));
     const key = JSON.stringify([trace.assignmentId, rubricKey, method, trace.visionModel, trace.analysisModel]);
