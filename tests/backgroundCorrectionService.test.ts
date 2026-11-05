@@ -109,6 +109,77 @@ describe('background correction service', () => {
     expect(f.jobs.get('copy-1')?.partialCriteria.map((criterion) => criterion.criterionId)).toEqual(['c1', 'c2']);
   });
 
+  it('reads a common subject once for two copies but rereads each student answer', async () => {
+    const f = fixture();
+    const subjectImages = [{ base64: 'c3VqZXQ=', mimeType: 'image/png', fileName: 'sujet.png' }];
+    const first = { ...f.job, correctionMode: 'separate' as const, subjectImages };
+    f.jobs.set(first.id, first);
+    f.jobs.set('copy-2', {
+      ...structuredClone(first), id: 'copy-2', label: 'Copie 2',
+      images: [{ base64: 'Y29waWUy', mimeType: 'image/png', fileName: 'copie2.png' }],
+      originalImages: [{ base64: 'Y29waWUy', mimeType: 'image/png', fileName: 'copie2.png' }],
+      createdAt: '2026-11-01T10:00:00.000Z',
+    });
+    f.repository.fingerprintImages = vi.fn(async (images) => images.map((image) => image.base64).join('|'));
+    let subjectReads = 0;
+    let studentReads = 0;
+    const requests: GradingRequest[] = [];
+    f.setGenerateImplementation(async (request, _chunk, _stage, onTranscription) => {
+      requests.push(request);
+      if (!request.subjectTranscription) {
+        subjectReads += 1;
+        onTranscription?.('Sujet : mitose et chromosomes.', 'subject');
+      }
+      if (!request.transcription) {
+        studentReads += 1;
+        onTranscription?.(`Réponse propre à la copie ${studentReads}`, 'copy');
+      }
+      const criterion = (JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> }).criteria[0];
+      return JSON.stringify({ summary: '', criteria: [{ criterionId: criterion.id, points: criterion.maxPoints, evidence: 'preuve', rationale: '', confidence: 'high' }], questionsForTeacher: [], finalScore: criterion.maxPoints });
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.processPending({ endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' }, 'assignment-1');
+
+    expect(subjectReads).toBe(1);
+    expect(studentReads).toBe(2);
+    expect(requests[2].subjectTranscription).toBe('Sujet : mitose et chromosomes.');
+    expect(requests[2].transcription).toBeUndefined();
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
+    expect(f.jobs.get('copy-2')?.status).toBe('ready');
+    expect(f.jobs.get('copy-1')?.transcription).not.toBe(f.jobs.get('copy-2')?.transcription);
+  });
+
+  it('does not share subject OCR when the reference image or reading model changes', async () => {
+    const f = fixture();
+    const first = {
+      ...f.job, correctionMode: 'separate' as const,
+      subjectImages: [{ base64: 'c3VqZXQtMQ==', mimeType: 'image/png', fileName: 'sujet.png' }],
+    };
+    f.jobs.set(first.id, first);
+    f.repository.fingerprintImages = vi.fn(async (images) => images.map((image) => image.base64).join('|'));
+    const subjectReads: string[] = [];
+    f.setGenerateImplementation(async (request, _chunk, _stage, onTranscription) => {
+      if (!request.subjectTranscription) {
+        subjectReads.push(request.subjectImages?.[0]?.base64 ?? '');
+        onTranscription?.('Sujet relu fidèlement', 'subject');
+      }
+      if (!request.transcription) onTranscription?.('Réponse étudiante relue', 'copy');
+      const criterion = (JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> }).criteria[0];
+      return JSON.stringify({ summary: '', criteria: [{ criterionId: criterion.id, points: criterion.maxPoints, evidence: 'preuve', rationale: '', confidence: 'high' }], questionsForTeacher: [], finalScore: criterion.maxPoints });
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b' };
+    await service.processPending(settings, 'assignment-1');
+
+    f.jobs.set('copy-2', { ...structuredClone(first), id: 'copy-2', createdAt: '2026-11-01T10:00:00.000Z', subjectImages: [{ ...first.subjectImages[0], base64: 'c3VqZXQtMg==' }], status: 'pending' });
+    await service.processPending(settings, 'assignment-1');
+
+    f.jobs.set('copy-3', { ...structuredClone(first), id: 'copy-3', createdAt: '2026-11-01T11:00:00.000Z', status: 'pending' });
+    await service.processPending({ ...settings, visionModel: 'vision:2b' }, 'assignment-1');
+
+    expect(subjectReads).toEqual(['c3VqZXQtMQ==', 'c3VqZXQtMg==', 'c3VqZXQtMQ==']);
+  });
+
   it('recovers a processing state persisted by a previous application session', async () => {
     const f = fixture();
     f.jobs.set('copy-1', {
