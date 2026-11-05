@@ -2764,8 +2764,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 const tokens = run.promptTokens !== undefined || run.generatedTokens !== undefined ? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0) : null;
                 const qualityPercent = referenceComparison && maxPoints > 0
                   ? Math.max(0, 100 - referenceComparison.absoluteTotalError / maxPoints * 100)
-                  : score && maxPoints > 0 ? score.modelScore / maxPoints * 100 : null;
-                const criterionErrors = score && validReference ? recordRubric.criteria.flatMap((criterion) => {
+                  : score?.modelScore !== null && score?.modelScore !== undefined && maxPoints > 0 ? score.modelScore / maxPoints * 100 : null;
+                const criterionErrors = score && validReference && referenceComparison ? recordRubric.criteria.flatMap((criterion) => {
                   const modelCriterion = score.criterionScores.find((item) => item.criterionId === criterion.id);
                   const referenceCriterion = validReference.find((item) => item.criterionId === criterion.id);
                   return modelCriterion && referenceCriterion ? [{ id: criterion.id, title: criterion.title, maxPoints: criterion.maxPoints, modelPoints: modelCriterion.points, referencePoints: referenceCriterion.points, error: Math.abs(modelCriterion.points - referenceCriterion.points) }] : [];
