@@ -1,0 +1,47 @@
+import { describe, expect, it } from 'vitest';
+import { isVisualDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from './systemOneDecision.ts';
+import type { RubricCriterion } from './rubric.ts';
+
+const criterion: RubricCriterion = {
+  id: 'forks', title: 'Fourches bidirectionnelles',
+  description: 'Deux fourches progressent en sens opposés à partir de l’origine.', maxPoints: 2,
+};
+const answer = (choice: string) => ({
+  type: 'choice' as const, choice, confidence: 0.92, probabilities: { [choice]: 0.98 },
+});
+
+describe('direct visual System One evidence', () => {
+  it('only enables tested vision-capable decision families', () => {
+    expect(isVisualDecisionModel('d1:3b')).toBe(true);
+    expect(isVisualDecisionModel('D3:4b')).toBe(true);
+    expect(isVisualDecisionModel('tev1')).toBe(false);
+    expect(isVisualDecisionModel('d2')).toBe(false);
+    expect(isVisualDecisionModel('qwen3.5:4b')).toBe(false);
+  });
+
+  it('uses images as the only student evidence without leaking OCR or printed questions into the state', () => {
+    const prepared = prepareSystemOneRubric({
+      criteria: [criterion], question: 'Annoter la réplication',
+      transcription: 'NE PAS UTILISER CETTE TRANSCRIPTION',
+      visualEvidence: true,
+    });
+    expect(prepared.state).toContain('les images jointes sont les seules réponses évaluables');
+    expect(prepared.state).toContain('Fourches bidirectionnelles');
+    expect(prepared.state).not.toContain('NE PAS UTILISER');
+    expect(Object.keys(prepared.questions)).toEqual(['alignment', 'score']);
+  });
+
+  it('keeps visual marks provisional and asks the teacher to inspect the original copy', () => {
+    const prepared = prepareSystemOneRubric({
+      criteria: [criterion], question: 'La réplication',
+      transcription: '', visualEvidence: true,
+    });
+    const response = { answers: { alignment: answer('aligned'), score: answer('points_2') } };
+    const [visual] = scoreSystemOneRubric('', prepared, response, true);
+    const [textual] = scoreSystemOneRubric('', prepared, response);
+    expect(visual).toMatchObject({ criterionId: 'forks', points: 2, confidence: 'low' });
+    expect(visual?.evidence).toMatch(/directement des images/);
+    expect(visual?.questionForTeacher).toMatch(/photo originale/);
+    expect(textual?.questionForTeacher).toBeUndefined();
+  });
+});
