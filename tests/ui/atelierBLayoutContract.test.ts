@@ -51,12 +51,14 @@ describe('Atelier B : organisation réelle du poste enseignant', () => {
   it('renders the same structure at wide and narrow widths without hiding the rail content', () => {
     const layout = readFileSync('src/ui/atelierBLayout.css', 'utf8');
     const entrypoint = readFileSync('src/main.tsx', 'utf8');
-    expect(layout).toContain('grid-template-columns: 218px minmax(0, 1fr)');
+    expect(layout).toContain('grid-template-columns: 218px clamp(18px, 2.2vw, 34px) minmax(0, 1fr)');
     expect(layout).toContain('@media (max-width: 760px)');
     expect(layout).toContain('.atelier-sidebar-tabs');
     expect(layout).toContain('.atelier-review-decision-heading');
     expect(entrypoint.indexOf('./ui/atelierBLayout.css')).toBeGreaterThan(entrypoint.indexOf('./ui/correctionAtelier.css'));
     expect(layout).toContain('focus-visible');
+    expect(layout).toContain('grid-template-columns: 16px minmax(0,1fr) 16px');
+    expect(layout).toContain('body:has(.teacher-flow-shell .copy-review-validation-bar) .memory-fab');
     expect(layout).toContain('prefers-reduced-motion');
   });
 
