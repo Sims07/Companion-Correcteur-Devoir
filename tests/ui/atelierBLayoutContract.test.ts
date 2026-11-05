@@ -57,6 +57,10 @@ describe('Atelier B : organisation réelle du poste enseignant', () => {
     expect(layout).toContain('.atelier-review-decision-heading');
     expect(entrypoint.indexOf('./ui/atelierBLayout.css')).toBeGreaterThan(entrypoint.indexOf('./ui/correctionAtelier.css'));
     expect(layout).toContain('focus-visible');
+    expect(layout).toContain('/* Atelier B reference: a quiet, single-row reading header, never a bordered card. */');
+    expect(layout).toMatch(/\.teacher-flow-shell \.copy-review-header \{[\s\S]*?border: 0;/);
+    expect(layout).toMatch(/\.teacher-flow-shell \.copy-review-header-main \{[\s\S]*?display: flex;/);
+    expect(layout).toContain('.copy-review-header-actions');
     expect(layout).toContain('grid-template-columns: 16px minmax(0,1fr) 16px');
     expect(layout).toContain('body:has(.teacher-flow-shell .copy-review-validation-bar) .memory-fab');
     expect(layout).toContain('prefers-reduced-motion');
