@@ -68,7 +68,7 @@ select.design-system-select,
 select:not([multiple]) {
   appearance: none;
   padding-right: 42px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%23587960' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%23a14d37' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 14px center;
   background-size: 16px;
@@ -88,7 +88,7 @@ input[type="url"]:hover:not(:disabled),
 input[type="tel"]:hover:not(:disabled),
 textarea:hover:not(:disabled),
 select:not([multiple]):hover:not(:disabled) {
-  border-color: #afc6b2;
+  border-color: var(--ds-color-border-strong);
 }
 
 input.ds-input:focus-visible,
@@ -198,7 +198,7 @@ textarea.ds-textarea {
 .ds-button--primary:hover:not(:disabled) { background: var(--ds-color-brand-600); }
 .ds-button--secondary { border-color: var(--ds-color-border-strong); background: var(--ds-color-surface); color: var(--ds-color-text); }
 .ds-button--secondary:hover:not(:disabled) { background: var(--ds-color-surface-subtle); }
-.ds-button--danger { background: var(--ds-color-danger-surface); color: var(--ds-color-danger); border-color: #f0d2ce; }
+.ds-button--danger { background: var(--ds-color-danger-surface); color: var(--ds-color-danger); border-color: var(--ds-color-border); }
 
 .ds-card {
   min-width: 0;
