@@ -1967,6 +1967,20 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
+  async function retryQueuedCorrection(jobId: string) {
+    setError('');
+    try {
+      await backgroundService.retry(jobId, {
+        endpoint, apiCompatible, apiKey, visionModel, analysisModel,
+        thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection,
+        transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
+        transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de relancer la correction.');
+    }
+  }
+
   async function startSeriesCorrections() {
     if (isStartingSeriesCorrectionsRef.current) return;
     const pendingCount = backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').length;
@@ -2044,10 +2058,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       : next.status === 'pending' ? 'Cette copie attend sa correction. Aucune note n’a encore été attribuée.'
       : next.status === 'processing' ? 'La lecture et l’évaluation de cette copie sont en cours.'
       : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés localement.');
-    setError(next.error ?? '');
+    setError(next.status === 'failed' ? '' : next.error ?? '');
     setCurrentCorrectionId(null);
     setIsFinalized(false);
-    setTeacherStep(canReview || next.status === 'processing' || next.status === 'pending' ? 'review' : 'copy');
+    setTeacherStep(canReview || ['processing', 'pending', 'failed'].includes(next.status) ? 'review' : 'copy');
   }
 
   async function startNextCopy(options: { forceNew?: boolean; stayInOverview?: boolean } = {}) {
@@ -2791,7 +2805,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         onStartCorrections={() => { void startSeriesCorrections(); }}
         onOpenJob={(jobId) => { void loadNextQueuedCopy(jobId); }}
         onRemoveJob={(jobId) => { void (async () => { const job = (await backgroundService.listJobs(activeAssignmentId)).find((item) => item.id === jobId); if (job) requestRemoveSeriesCopy(job); })(); }}
-        onRetryJob={(jobId) => { void backgroundService.retry(jobId, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}
+        onRetryJob={(jobId) => { void retryQueuedCorrection(jobId); }}
         onReviewNextCopy={() => {
           if (images.length > 0 && !currentBackgroundJobId && proposal) {
             setTeacherStep('review');
@@ -3297,6 +3311,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </section>}
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}
+
+      {currentBackgroundJobId && activeBackgroundJob?.status === 'failed' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="analysis-progress teacher-progress-card" role="alert">
+        <div className="analysis-progress-copy">
+          <h2>Correction interrompue</h2>
+          <p>L’IA n’a pas terminé cette copie. Vous pouvez relancer sa correction ; la copie sera relue depuis le début.</p>
+          <button type="button" className="primary-button" onClick={() => { void retryQueuedCorrection(activeBackgroundJob.id); }}>Relancer la correction</button>
+        </div>
+      </section>}
 
       {activeBackgroundJob?.status === 'pending' && interfaceMode === 'teacher' && teacherStep === 'review' && <section className="analysis-progress teacher-progress-card" role="status"><strong>{preparingCopy?.id === activeBackgroundJob.id ? 'Préparation de cette copie' : 'Copie en attente de correction'}</strong><p>{preparingCopy?.id === activeBackgroundJob.id ? 'Le modèle IA se prépare. La lecture commencera ensuite.' : 'La copie sera analysée lorsque viendra son tour. Aucune note n’a encore été attribuée.'}</p></section>}
       {(currentBackgroundJobId || currentCorrectionId) && interfaceMode === 'teacher' && !showAiSettings && <section className="review-section copy-navigation-only">
