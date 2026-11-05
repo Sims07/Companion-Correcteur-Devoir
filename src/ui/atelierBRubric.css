@@ -272,3 +272,10 @@ body:has(.atelier-rubric-grid:not(.is-diagnostic)) .memory-fab {
     font-size: 10px;
   }
 }
+
+/* Ne pas répéter l'état « cohérent » lorsque la synthèse l'affiche déjà.
+   Les erreurs restent visibles à côté de l'action du professeur. */
+.atelier-rubric-editor .rubric-editor-toolbar .validation.valid,
+.atelier-rubric-editor > .rubric-actions .validation.valid {
+  display: none;
+}
