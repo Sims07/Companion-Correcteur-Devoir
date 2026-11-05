@@ -63,7 +63,13 @@ describe('model evaluation application service', () => {
     expect(save).toHaveBeenCalledTimes(2);
     expect(save).toHaveBeenNthCalledWith(1, largeRecord);
     expect(outcome).toEqual({
-      record: { ...largeRecord, images: [], subjectImages: [], originalImagesArchived: false },
+      record: {
+        ...largeRecord,
+        images: [], subjectImages: [], originalImagesArchived: false,
+        imageSignatures: [expect.any(String)],
+        subjectImageSignatures: [expect.any(String)],
+        originalImageCount: 1,
+      },
       imagesOmitted: true,
     });
     expect(outcome.record.results).toEqual(largeRecord.results);

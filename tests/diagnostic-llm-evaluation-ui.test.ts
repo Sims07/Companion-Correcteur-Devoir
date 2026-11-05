@@ -160,7 +160,7 @@ describe('Évaluation des modèles — comparaison graphique de l’historique',
   it('preserves the common Analysis input and explains the limits of cross-run comparisons', () => {
     expect(domainSource).toContain('referenceTranscription?: string | null');
     expect(domainSource).toContain('sameAnalysisInput');
-    expect(domainSource).toContain('sameImages(first.images, second.images)');
+    expect(domainSource).toContain('sameImages(first.images, second.images, first.imageSignatures, second.imageSignatures)');
     expect(appSource).toContain("referenceTranscription: evaluationStageMode === 'analysis' ? transcription : null");
     expect(appSource).toContain("transcription: evaluationStageMode === 'analysis' ? transcription ?? '' : output.value?.transcription ?? ''");
     expect(appSource).toContain('Transcription commune notée');

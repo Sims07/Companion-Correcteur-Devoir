@@ -370,6 +370,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
   const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
   const [savedModelEvaluations, setSavedModelEvaluations] = useState<ModelEvaluationRecord[]>([]);
+  const [sessionOnlyEvaluationIds, setSessionOnlyEvaluationIds] = useState<string[]>([]);
+  const [suggestedEvaluationComparisonIds, setSuggestedEvaluationComparisonIds] = useState<string[] | null>(null);
   const [evaluationProgress, setEvaluationProgress] = useState<ModelEvaluationProgress | null>(null);
   const [evaluationStage, setEvaluationStage] = useState<'idle' | 'preparing' | 'reading' | 'grading' | 'parsing' | 'saving' | 'completed'>('idle');
   const [evaluationArchiveStatus, setEvaluationArchiveStatus] = useState<'idle' | 'saving' | 'saved' | 'without-images' | 'failed'>('idle');
@@ -1337,15 +1339,20 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     try {
       const outcome = await evaluationService.save(record);
       setSavedModelEvaluations((current) => [outcome.record, ...current.filter((item) => item.id !== outcome.record.id)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)));
+      setSessionOnlyEvaluationIds((current) => current.filter((id) => id !== outcome.record.id));
       setPendingEvaluationArchive(null);
       setEvaluationArchiveStatus(outcome.imagesOmitted ? 'without-images' : 'saved');
     } catch (cause) {
-      // A storage failure must never hide the grading results from this session.
+      // Keep the completed run available for comparisons *in this session*.
+      // Do not pretend that it was successfully persisted.
+      setSavedModelEvaluations((current) => [record, ...current.filter((item) => item.id !== record.id)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)));
+      setSessionOnlyEvaluationIds((current) => current.includes(record.id) ? current : [...current, record.id]);
       setPendingEvaluationArchive(record);
       setEvaluationArchiveStatus('failed');
-      setEvaluationArchiveError(isModelEvaluationQuotaError(cause)
-        ? 'Le stockage local est plein. Libérez de l’espace, puis réessayez. Les résultats restent visibles tant que cette page est ouverte.'
-        : 'L’historique local n’est pas accessible pour le moment. Réessayez la sauvegarde sans relancer les modèles.');
+      const reason = cause instanceof Error ? (cause.name + (cause.message ? ' : ' + cause.message : '')) : String(cause);
+      setEvaluationArchiveError((isModelEvaluationQuotaError(cause)
+        ? 'Le stockage local est plein. Libérez de l’espace puis réessayez.'
+        : 'Le navigateur n’a pas pu enregistrer cet essai.') + ' Détail : ' + reason + '. Les résultats restent dans cette session, y compris dans Analyse & historique, mais seront perdus au rechargement.');
     }
   }
 
@@ -1358,6 +1365,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (evaluationStageMode === 'integrated' && correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
     evaluationCancelledRef.current = false;
     setModelEvaluationResults([]);
+    setSuggestedEvaluationComparisonIds(null);
     setEvaluationArchiveStatus('idle');
     setPendingEvaluationArchive(null);
     const measuredStages = evaluationStageMode === 'vision' ? ['reading'] as const : evaluationStageMode === 'analysis' ? ['analysis'] as const : ['reading', 'analysis'] as const;
@@ -1516,6 +1524,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       results,
       stage: evaluationStageMode,
     };
+    const previousComparable = savedModelEvaluations.find((record) => canCompareModelEvaluationRecords([record, savedRecord]));
+    if (previousComparable) setSuggestedEvaluationComparisonIds([previousComparable.id, savedRecord.id]);
     await persistModelEvaluationRecord(savedRecord);
     setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: evaluationCancelledRef.current ? 'cancelled' : 'completed' } : current);
     setEvaluationStage('completed');
@@ -3183,6 +3193,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <p>{evaluationArchiveStatus === 'saving' ? 'Vous pouvez déjà consulter les notes et les mesures.' : evaluationArchiveStatus === 'saved' ? 'Vous les retrouverez dans Analyse & historique.' : evaluationArchiveStatus === 'without-images' ? 'Le stockage local était insuffisant pour les photos. Les notes, transcriptions et mesures sont conservées ; les images de cette expérience ne pourront pas être restaurées.' : evaluationArchiveError}</p></div>
           {evaluationArchiveStatus === 'failed' && pendingEvaluationArchive && <button type="button" className="secondary-button" onClick={() => void persistModelEvaluationRecord(pendingEvaluationArchive)}>Réessayer la sauvegarde</button>}
         </div>}
+        {evaluationWorkspaceStep === 'results' && suggestedEvaluationComparisonIds && <div className="evaluation-archive-feedback" role="status"><div><strong>Comparer avec l’essai précédent</strong><p>Deux essais réalisés sur la même copie et le même barème sont disponibles. Consultez leurs notes par critère et leurs durées.</p></div><button type="button" className="secondary-button" onClick={() => { setEvaluationHistoryStageFilter(evaluationStageMode); setSelectedEvaluationHistoryIds(suggestedEvaluationComparisonIds); setEvaluationWorkspaceStep('history'); }}>Comparer D1, TEV ou les autres modèles</button></div>}
         {evaluationWorkspaceStep === 'execution' && modelEvaluationResults.length > 0 && !busy && <div className="evaluation-run-actions"><div><strong>Expérience terminée</strong><p>Consultez les notes et performances de chaque configuration.</p></div><button type="button" className="primary-button" onClick={() => setEvaluationWorkspaceStep('results')}>Voir les résultats</button></div>}
         {evaluationWorkspaceStep === 'execution' && (busy || modelEvaluationResults.length === 0) && <div className="evaluation-run-actions"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>{!validation.valid ? 'Vérifiez le barème avant de lancer l’expérience.' : evaluationStageMode !== 'analysis' && !images.length ? 'Importez les pages de la copie dans l’étape précédente.' : evaluationStageMode === 'analysis' && !transcription?.trim() ? 'Ajoutez ou vérifiez la transcription de référence dans la configuration.' : selectedEvaluationProfileIds.length < 1 ? 'Sélectionnez au moins une configuration.' : 'Le jeu d’essai est prêt à être lancé.'}</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => void startModelEvaluation()}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>}
                 {evaluationWorkspaceStep === 'execution' && evaluationProgress && <section className="evaluation-progress" aria-labelledby="evaluation-progress-title" aria-live="polite">
@@ -3193,7 +3204,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </section>}
         {evaluationWorkspaceStep === 'execution' && busy && streamedOutput && <section className="transcription-review" aria-live="polite"><h3>Réponse du modèle en streaming</h3><pre>{streamedOutput}</pre></section>}
         {evaluationWorkspaceStep === 'history' && <section className="evaluation-result-list evaluation-history-workspace" aria-labelledby="model-evaluation-history-title">
-          <div className="evaluation-section-heading"><div><p className="eyebrow">MESURES CONSERVÉES LOCALEMENT</p><h3 id="model-evaluation-history-title">Historique & comparaison graphique</h3><p>Choisissez Vision, Analyse ou le parcours complet. Vous pouvez comparer les configurations d’un seul essai dès qu’il contient plusieurs modèles, ou comparer deux essais du même type. Les données restent dans IndexedDB sur cet appareil.</p></div><span className="evaluation-step-chip">{savedModelEvaluations.length} essai(s)</span></div>
+          <div className="evaluation-section-heading"><div><p className="eyebrow">MESURES CONSERVÉES LOCALEMENT</p><h3 id="model-evaluation-history-title">Historique & comparaison graphique</h3><p>Choisissez Vision, Analyse ou le parcours complet. Vous pouvez comparer les configurations d’un seul essai dès qu’il contient plusieurs modèles, ou comparer deux essais du même type. Les résultats restent sur cet appareil. Un essai non sauvegardé est marqué « session uniquement » et disparaît à la fermeture ou au rechargement de la page.</p></div><span className="evaluation-step-chip">{savedModelEvaluations.length} essai(s)</span></div>
           <div className="evaluation-history-stage-filter" role="group" aria-label="Filtrer les expériences par type">
             {([
               { value: 'all', label: 'Toutes', count: savedModelEvaluations.length },
@@ -3206,7 +3217,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <div className="evaluation-history-selection" role="group" aria-label="Expériences à comparer">
             {visibleEvaluationHistoryRecords.map((record) => <label className={selectedEvaluationHistoryIds.includes(record.id) ? 'evaluation-history-option is-selected' : 'evaluation-history-option'} key={record.id}>
               <input type="checkbox" checked={selectedEvaluationHistoryIds.includes(record.id)} disabled={!selectedEvaluationHistoryIds.includes(record.id) && (selectedEvaluationHistoryIds.length >= 2 || (selectedEvaluationHistoryRecords.length === 1 && !canCompareModelEvaluationRecords([selectedEvaluationHistoryRecords[0]!, record])))} onChange={(event) => setSelectedEvaluationHistoryIds((current) => event.target.checked ? [...current, record.id].slice(-2) : current.filter((id) => id !== record.id))} />
-              <span><strong>{record.assignmentTitle}</strong><small>{getModelEvaluationStage(record) === 'vision' ? 'Vision seule' : getModelEvaluationStage(record) === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {getModelEvaluationStage(record) === 'analysis' ? 'transcription commune' : record.images.length + ' page(s)'}</small></span>
+              <span><strong>{record.assignmentTitle}</strong><small>{getModelEvaluationStage(record) === 'vision' ? 'Vision seule' : getModelEvaluationStage(record) === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {getModelEvaluationStage(record) === 'analysis' ? 'transcription commune' : (record.originalImageCount ?? record.images.length) + ' page(s)'}</small></span>
             </label>)}
           </div>
           {canCompareModelEvaluationRecords(selectedEvaluationHistoryRecords) ? (() => {
@@ -3274,8 +3285,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </section>;
           })() : <p className="evaluation-history-empty">{visibleEvaluationHistoryRecords.length === 0 ? 'Aucun essai enregistré pour ce type. Lancez une évaluation pour alimenter cette vue.' : selectedEvaluationHistoryIds.length === 0 ? 'Sélectionnez un essai pour comparer les modèles qui le composent.' : selectedEvaluationHistoryRecords.length === 1 ? (selectedEvaluationHistoryRecords[0].results.length < 2 ? 'Cet essai ne contient qu’une configuration. Sélectionnez un autre essai du même type pour comparer.' : 'La comparaison de cet essai est en préparation.') : 'Sélectionnez un essai compatible : même type, même devoir et même copie ou transcription.'}</p>}
           {visibleEvaluationHistoryRecords.map((record) => <article key={record.id} className="evaluation-history-record">
-            <div className="evaluation-history-record-heading"><div><p className="eyebrow">EXPÉRIENCE ENREGISTRÉE</p><h4>{record.assignmentTitle}</h4><p>{getModelEvaluationStage(record) === 'vision' ? 'Vision seule' : getModelEvaluationStage(record) === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {record.images.length} page(s)</p></div>
-              <button type="button" className="secondary-button evaluation-history-load" onClick={() => { setModelEvaluationResults(record.results); setRubric(structuredClone(record.rubricSnapshot)); setImages(structuredClone(record.images)); setTranscription(record.referenceTranscription ?? record.results.find((result) => result.transcription)?.transcription ?? null); setQuestion(record.question); setAssignmentTitle(record.assignmentTitle); setCorrectionMode(record.correctionMode); setSubjectImages(structuredClone(record.subjectImages)); setSubjectTranscription(record.subjectTranscription); }}>Consulter / recharger la référence</button>
+            <div className="evaluation-history-record-heading"><div><p className="eyebrow">EXPÉRIENCE ENREGISTRÉE</p><h4>{record.assignmentTitle}</h4><p>{getModelEvaluationStage(record) === 'vision' ? 'Vision seule' : getModelEvaluationStage(record) === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {(record.originalImageCount ?? record.images.length)} page(s){record.originalImagesArchived === false ? ' · sans images originales' : ''}{sessionOnlyEvaluationIds.includes(record.id) ? ' · session uniquement' : ''}</p></div>
+              <button type="button" className="secondary-button evaluation-history-load" onClick={() => { setModelEvaluationResults(record.results); setRubric(structuredClone(record.rubricSnapshot)); setImages(structuredClone(record.images)); setTranscription(record.referenceTranscription ?? record.results.find((result) => result.transcription)?.transcription ?? null); setQuestion(record.question); setAssignmentTitle(record.assignmentTitle); setCorrectionMode(record.correctionMode); setSubjectImages(structuredClone(record.subjectImages)); setSubjectTranscription(record.subjectTranscription); setEvaluationStageMode(getModelEvaluationStage(record)); setEvaluationWorkspaceStep('results'); setSuggestedEvaluationComparisonIds(null); setEvaluationArchiveStatus(sessionOnlyEvaluationIds.includes(record.id) ? 'failed' : record.originalImagesArchived === false ? 'without-images' : 'saved'); setPendingEvaluationArchive(sessionOnlyEvaluationIds.includes(record.id) ? record : null); setEvaluationArchiveError(sessionOnlyEvaluationIds.includes(record.id) ? 'Cet essai n’a pas été sauvegardé : il disparaîtra au rechargement de la page.' : ''); }}>Consulter les résultats</button>
             </div>
             <div className="evaluation-history-record-metrics">{record.results.map((result) => <article className="evaluation-history-model-metric" key={result.profileId}>
               <div className="evaluation-history-model-heading"><strong>{result.profileName}</strong><span className={result.status === 'success' ? 'evaluation-history-status is-success' : 'evaluation-history-status'}>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Interrompu' : 'Échec'}</span></div>
@@ -3286,7 +3297,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 <div><span>Note</span><strong>{result.score === null ? '—' : result.score + ' / ' + record.rubricSnapshot.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0)}</strong><small>Résultat de la configuration</small></div>
               </div>
             </article>)}</div>
-            <div className="evaluation-history-record-footer"><span>{record.results.length} configuration(s) évaluée(s)</span><button type="button" className="text-button" onClick={() => { void evaluationService.delete(record.id).then(() => { setSavedModelEvaluations((current) => current.filter((item) => item.id !== record.id)); setSelectedEvaluationHistoryIds((current) => current.filter((id) => id !== record.id)); }).catch(() => setError('Impossible de supprimer cette expérience locale.')); }}>Supprimer l’expérience</button></div>
+            <div className="evaluation-history-record-footer"><span>{record.results.length} configuration(s) évaluée(s){sessionOnlyEvaluationIds.includes(record.id) ? ' · Session uniquement' : record.originalImagesArchived === false ? ' · Archive allégée' : ''}</span>{sessionOnlyEvaluationIds.includes(record.id) && <button type="button" className="secondary-button" onClick={() => { void persistModelEvaluationRecord(record); }}>Réessayer la sauvegarde</button>}<button type="button" className="text-button" onClick={() => { if (sessionOnlyEvaluationIds.includes(record.id)) { setSavedModelEvaluations((current) => current.filter((item) => item.id !== record.id)); setSelectedEvaluationHistoryIds((current) => current.filter((id) => id !== record.id)); setSessionOnlyEvaluationIds((current) => current.filter((id) => id !== record.id)); return; } void evaluationService.delete(record.id).then(() => { setSavedModelEvaluations((current) => current.filter((item) => item.id !== record.id)); setSelectedEvaluationHistoryIds((current) => current.filter((id) => id !== record.id)); }).catch(() => setError('Impossible de supprimer cette expérience locale.')); }}>Supprimer l’expérience</button></div>
           </article>)}
         </section>}
         {evaluationWorkspaceStep === 'results' && evaluationStageMode !== 'vision' && modelEvaluationResults.some((result) => result.proposal !== null) && (() => {
