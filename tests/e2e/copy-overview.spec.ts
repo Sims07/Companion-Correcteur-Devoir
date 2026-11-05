@@ -261,6 +261,21 @@ test('adding another copy automatically saves the imported foreground copy in th
 });
 
 
+test('opening a queued copy never displays a fictitious zero grade', async ({ page }) => {
+  await prepareLocalWorkspace(page);
+  await seedJobs(page, [
+    { id: 'copy-queued', label: 'Copie non évaluée', status: 'pending', updatedAt: '2026-11-02T08:00:00.000Z' },
+  ]);
+  await page.reload();
+  await openActiveAssignment(page);
+  await copyNavigation(page).click();
+  await page.locator('.copy-overview-grid .correction-series-card').getByRole('button', { name: 'Ouvrir' }).click();
+
+  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Copie non évaluée');
+  await expect(page.locator('.copy-review-header-score')).toHaveText('Note à venir');
+  await expect(page.getByText('Aucune note n’a encore été attribuée.')).toBeVisible();
+});
+
 test('teacher can explicitly start correction for copies already loaded in the assignment', async ({ page }) => {
   await prepareLocalWorkspace(page);
   await seedJobs(page, [
