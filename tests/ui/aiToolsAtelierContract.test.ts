@@ -29,6 +29,18 @@ describe('Atelier pédagogique — Outils IA', () => {
     expect(component).toContain('<Button variant="secondary"');
   });
 
+  it('keeps pending network calls informational and separates work from model selection', () => {
+    const current = css.split('/* Selection is brand-coloured;')[1]?.split('}')[0] ?? '';
+    expect(current).toContain('var(--ds-color-progress-border)');
+    expect(current).not.toContain('var(--ds-color-brand-700)');
+    expect(css).toContain('.evaluation-history-option.is-selected');
+    expect(css).toContain('box-shadow:inset 3px 0 var(--ds-color-brand-700)');
+    expect(css).toContain('.network-state.pending,.network-waiting-hint) { color:var(--ds-color-progress); }');
+    expect(css).toContain('.evaluation-progress-track > span { background:var(--ds-color-progress); }');
+    expect(css).toContain('.observability-local-badge span { background:var(--ds-color-text-muted);');
+    expect(css).toContain('box-shadow:var(--ds-focus-ring)');
+  });
+
   it('aligns six network columns and keeps the intent visible on mobile', () => {
     expect(css).toContain('grid-template-columns:56px 56px minmax(100px,1.1fr) minmax(105px,1fr) 45px 66px');
     expect(css).toContain(':nth-child(3),:nth-child(6)');

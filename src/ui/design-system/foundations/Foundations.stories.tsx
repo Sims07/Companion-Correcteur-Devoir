@@ -10,6 +10,8 @@ function FoundationsPage() {
     ['Surface', '--ds-color-surface'],
     ['Subtle surface', '--ds-color-surface-subtle'],
     ['Border', '--ds-color-border'],
+    ['In progress', '--ds-color-progress'],
+    ['Progress surface', '--ds-color-progress-surface'],
     ['Danger', '--ds-color-danger'],
     ['Warning', '--ds-color-warning'],
     ['Success', '--ds-color-success'],

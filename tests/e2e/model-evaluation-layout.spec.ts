@@ -117,3 +117,54 @@ test('analysis-only experiment asks for a transcription instead of an irrelevant
   await expect(page.locator('#evaluation-copy')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Lancer l’expérience' })).toBeVisible();
 });
+
+
+test('semantic Atelier B statuses agree across network, evaluation archive and storage', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.evaluate(() => {
+    const fixture = document.createElement('section');
+    fixture.className = 'ai-tools-view evaluation-workspace-shell technical-status-fixture';
+    fixture.innerHTML = `
+      <div class="network-state pending">En attente du serveur</div>
+      <div class="network-state error">Requête échouée</div>
+      <div class="observability-local-badge"><span></span>Données locales</div>
+      <div class="evaluation-archive-feedback is-saving">Enregistrement…</div>
+      <div class="evaluation-archive-feedback is-saved">Enregistré</div>
+      <div class="evaluation-archive-feedback is-without-images">Espace insuffisant</div>
+      <div class="evaluation-archive-feedback is-failed">Échec</div>
+      <div class="storage-usage-panel">
+        <div class="storage-quota-track"><span style="width:42%"></span></div>
+        <p class="storage-usage-notice is-warning">Quota élevé</p>
+        <p class="storage-usage-notice is-error">Erreur de mesure</p>
+      </div>`;
+    document.body.append(fixture);
+  });
+  const token = (name: string) => page.evaluate((variable) => {
+    const probe = document.createElement('div');
+    probe.style.color = `var(${variable})`;
+    document.body.append(probe);
+    const value = getComputedStyle(probe).color;
+    probe.remove();
+    return value;
+  }, name);
+  const [progress, success, warning, danger, neutral] = await Promise.all([
+    token('--ds-color-progress'),
+    token('--ds-color-success'),
+    token('--ds-color-warning'),
+    token('--ds-color-danger'),
+    token('--ds-color-text-muted'),
+  ]);
+  const fixture = page.locator('.technical-status-fixture');
+  await expect(fixture.locator('.network-state.pending')).toHaveCSS('color', progress);
+  await expect(fixture.locator('.network-state.error')).toHaveCSS('color', danger);
+  await expect(fixture.locator('.observability-local-badge span')).toHaveCSS('background-color', neutral);
+  await expect(fixture.locator('.evaluation-archive-feedback.is-saving')).toHaveCSS('border-left-color', progress);
+  await expect(fixture.locator('.evaluation-archive-feedback.is-saved')).toHaveCSS('border-left-color', success);
+  await expect(fixture.locator('.evaluation-archive-feedback.is-without-images')).toHaveCSS('border-left-color', warning);
+  await expect(fixture.locator('.evaluation-archive-feedback.is-failed')).toHaveCSS('border-left-color', danger);
+  await expect(fixture.locator('.storage-quota-track > span')).toHaveCSS('background-color', progress);
+  await expect(fixture.locator('.storage-usage-notice.is-warning')).toHaveCSS('border-left-color', warning);
+  await expect(fixture.locator('.storage-usage-notice.is-error')).toHaveCSS('border-left-color', danger);
+});
