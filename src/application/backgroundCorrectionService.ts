@@ -10,6 +10,7 @@ import { resolveIdentifiedCopyLabel, type StudentIdentity } from '../domain/stud
 import { partitionScientificRubric, mergeScientificDiagramCriteria } from '../domain/scientificRubricRouting.ts';
 import { mergeDecisionScientificDiagramCriteria } from '../domain/scientificDiagramDecisions.ts';
 import { routeScientificPages } from '../domain/scientificPageClassification.ts';
+import { isNativeDecisionModel } from '../domain/systemOneDecision.ts';
 import type { ScientificDiagramAnalyzer } from '../ports/scientificDiagramAnalysis.ts';
 
 // Abort requests that stop producing any response, without limiting slow but active
@@ -334,6 +335,13 @@ export function createBackgroundCorrectionService(
             const remaining = remainingRubric(current.rubric, current.partialCriteria);
             if (!remaining.criteria.length) break;
             const criterion = remaining.criteria[0];
+            // Native System One accepts the entire rubric with one shared student
+            // transcription. Avoid one expensive model round-trip per criterion,
+            // while keeping the independent decisions and teacher review flags.
+            // Generative and chat-based closed decisions stay one criterion per call.
+            const requestCriteria = (current.correctionMethod ?? 'generative') === 'decision'
+              && isNativeDecisionModel(current.analysisModel)
+              ? remaining.criteria : [criterion];
             // Persist the real work item before inference: slow first responses
             // should not leave the teacher staring at a static 0/N counter.
             current = { ...current, activeCriterionId: criterion.id, updatedAt: new Date().toISOString() };
@@ -369,7 +377,7 @@ export function createBackgroundCorrectionService(
                 return provider.generate(
                 {
                   question: current.question,
-                  rubric: JSON.stringify({ ...remaining, criteria: [criterion] }),
+                  rubric: JSON.stringify({ ...remaining, criteria: requestCriteria }),
                   images: current.transcription ? [] : textPageNumbers.map((pageNumber) => current.images[pageNumber - 1]),
                   ...(current.transcription ? { transcription: current.transcription } : {}),
                   pageNumbers: textPageNumbers,
@@ -420,7 +428,7 @@ export function createBackgroundCorrectionService(
             if (progressWriteError) throw progressWriteError;
             if (generationError) throw generationError;
             if (raw === null) throw new Error('Le modèle n’a retourné aucun résultat pour ce critère.');
-            const parsed = parseGradingProposal(raw, { ...remaining, criteria: [criterion] });
+            const parsed = parseGradingProposal(raw, { ...remaining, criteria: requestCriteria });
             current = {
               ...current,
               partialCriteria: mergeCriteria(current.partialCriteria, parsed.criteria),
