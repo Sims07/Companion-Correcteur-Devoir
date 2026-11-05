@@ -372,3 +372,31 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", 
 @media (prefers-reduced-motion: reduce) {
   .ds-button, .assignment-overview-card, .primary-button, .secondary-button { transition: none; }
 }
+
+/* Legacy correction-flow variables follow the same semantic source of truth. */
+:root {
+  --flow-surface: var(--ds-color-surface);
+  --flow-subtle: var(--ds-color-surface-subtle);
+  --flow-border: var(--ds-color-border);
+  --flow-border-strong: var(--ds-color-border-strong);
+  --flow-text: var(--ds-color-text);
+  --flow-muted: var(--ds-color-text-muted);
+  --flow-accent: var(--ds-color-brand-700);
+  --flow-surface-soft: var(--ds-color-surface-subtle);
+  --flow-accent-soft: var(--ds-color-brand-100);
+}
+.assignment-overview-card.is-active {
+  border-color: var(--ds-color-brand-700);
+  box-shadow: inset 0 0 0 1px var(--ds-color-brand-700), var(--app-surface-shadow);
+}
+.teacher-step.active, .teacher-workspace-tabs button.is-active {
+  border-color: var(--ds-color-border-strong);
+  background: var(--ds-color-brand-100);
+  color: var(--ds-color-brand-700);
+}
+.teacher-step.active { box-shadow: inset 3px 0 var(--ds-color-brand-700); }
+.teacher-step.active .teacher-step-number {
+  border-color: var(--ds-color-brand-700);
+  background: var(--ds-color-brand-700);
+  color: #fff;
+}
