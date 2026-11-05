@@ -72,6 +72,7 @@ describe('Atelier pédagogique correction workspace', () => {
     expect(css).toContain('border-left: 3px solid var(--ds-color-progress)');
     expect(css).not.toContain('border-top: 3px solid var(--ds-color-brand-700)');
     expect(css).toContain('.correction-series-card.is-processing');
+    expect(css).toContain('.grade-button[aria-busy="true"]:disabled');
     expect(css).toContain('border-left: 3px solid var(--ds-color-warning)');
     expect(css).toContain('border-left: 3px solid var(--ds-color-danger)');
     expect(css).toContain('.correction-series-card-status.is-to-review');

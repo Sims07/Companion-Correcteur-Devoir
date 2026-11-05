@@ -105,6 +105,13 @@
   border-color: var(--ds-color-border);
   box-shadow: var(--ds-shadow-panel);
 }
+/* Ongoing teacher grading is informational, not a dangerous action. */
+.teacher-flow-shell .grade-button[aria-busy="true"]:disabled {
+  border-color: var(--ds-color-progress);
+  background: var(--ds-color-progress);
+  color: #fff;
+  opacity: 1;
+}
 .teacher-flow-shell .analysis-progress .analysis-spinner {
   border-color: var(--ds-color-border);
   border-top-color: var(--ds-color-progress);

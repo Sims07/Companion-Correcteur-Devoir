@@ -60,6 +60,7 @@ test('atelier B semantic progress is consistent across copy cards and rubric imp
     fixture.innerHTML = `
       <div class="teacher-copy-live">Copie en cours</div>
       <div class="teacher-workspace-processing is-active">Préparation de la correction</div>
+      <button class="primary-button grade-button" type="button" aria-busy="true" disabled>Correction en cours</button>
       <ol class="copy-overview-grid">
         <li class="correction-series-card is-to-do">En attente</li>
         <li class="correction-series-card is-processing">Lecture en cours</li>
@@ -88,6 +89,7 @@ test('atelier B semantic progress is consistent across copy cards and rubric imp
   const fixture = page.locator('.atelier-semantic-fixture');
   await expect(fixture.locator('.teacher-copy-live')).toHaveCSS('border-left-color', progress);
   await expect(fixture.locator('.teacher-workspace-processing.is-active')).toHaveCSS('color', progress);
+  await expect(fixture.locator('.grade-button[aria-busy="true"]')).toHaveCSS('background-color', progress);
   await expect(fixture.locator('.correction-series-card.is-to-do')).toHaveCSS('border-top-color', neutral);
   await expect(fixture.locator('.correction-series-card.is-processing')).toHaveCSS('border-left-color', progress);
   await expect(fixture.locator('.correction-series-card.is-to-retry')).toHaveCSS('border-left-color', warning);
