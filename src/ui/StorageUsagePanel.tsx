@@ -41,9 +41,12 @@ export function StorageUsagePanel({ service, onManageEvaluations }: Props) {
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download = 'compagnon-stockage-inventaire.json';
+      document.body.appendChild(anchor);
       anchor.click();
+      anchor.remove();
     } finally {
-      URL.revokeObjectURL(url);
+      // Safari may begin the download asynchronously after the click event.
+      window.setTimeout(() => URL.revokeObjectURL(url), 5_000);
     }
   }
 
