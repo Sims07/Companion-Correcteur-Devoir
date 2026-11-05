@@ -32,6 +32,23 @@ describe('buildDiagnosticScore', () => {
     });
   });
 
+  it('does not report a full diagnostic score when a visual criterion is unresolved', () => {
+    const unresolved: GradingProposal = { ...proposal, scoreIncomplete: true, criteria: [
+      proposal.criteria[0],
+      { ...proposal.criteria[1], points: 0, assessmentStatus: 'not-evaluated' },
+    ] };
+    expect(buildDiagnosticScore(unresolved, rubric)).toMatchObject({
+      modelScore: null,
+      criterionScores: [
+        expect.objectContaining({ points: 6 }),
+        expect.objectContaining({ points: 0, assessmentStatus: 'not-evaluated' }),
+      ],
+    });
+    expect(buildDiagnosticScore({
+      ...proposal, criteria: [proposal.criteria[0]],
+    }, rubric).modelScore).toBeNull();
+  });
+
   it('totals decimal criterion scores without floating-point residue', () => {
     const decimalProposal = {
       ...proposal,

@@ -45,6 +45,7 @@ import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { getArchivedCorrectionsForAssignment } from '../domain/assignmentOverview.ts';
 import { defaultCopyOverviewFilter, toCopyOverviewStatus, type CopyOverviewFilter } from '../domain/copyOverview.ts';
 import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/teacherAnnotations.ts';
+import { buildLocalDecisionBenchmark } from '../domain/localDecisionBenchmark.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
 import { DeveloperToolsNavigation, type DeveloperTool } from './DeveloperToolsNavigation.tsx';
@@ -176,6 +177,8 @@ type TimingRecord = {
   analysisModel: string;
   thinking: boolean;
   correctionMode: 'integrated' | 'separate';
+  /** Captured strategy; older histories without it are excluded from benchmark statistics. */
+  correctionMethod?: CorrectionMethod;
   pageCount: number;
   readingSeconds: number | null;
   analysisSeconds: number | null;
@@ -1316,6 +1319,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         analysisModel,
         thinking: analysisThinking,
         correctionMode,
+        correctionMethod,
         pageCount: images.length + (correctionMode === 'separate' ? subjectImages.length : 0),
         criterionCount: rubric.criteria.length,
         readingSeconds: readingDurationMs === null ? (readingStartedAt === null ? null : Math.round((finishedAt - readingStartedAt) / 1000)) : Math.round(readingDurationMs / 1000),
@@ -2497,7 +2501,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <p className="hint">Aucun basculement automatique vers un autre fournisseur n’est effectué.</p>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}
-      {interfaceMode === 'observability' && <ObservabilityDashboard records={observabilityRecords} storageDiagnosticsService={storageDiagnosticsService} onManageEvaluations={() => { setInterfaceMode('diagnostic'); setEvaluationWorkspaceStep('history'); }} onInspectNetworkErrors={() => { setNetworkInitialFilter('error'); setInterfaceMode('debug'); }} />}
+      {interfaceMode === 'observability' && <ObservabilityDashboard records={observabilityRecords} storageDiagnosticsService={storageDiagnosticsService} onManageEvaluations={() => { setInterfaceMode('diagnostic'); setEvaluationWorkspaceStep('history'); }} onInspectNetworkErrors={() => { setNetworkInitialFilter('error'); setInterfaceMode('debug'); }} benchmarkRows={buildLocalDecisionBenchmark(timingHistory)} />}
       {interfaceMode === 'diagnostic' && <section className="evaluation-page-header" aria-labelledby="evaluation-page-title">
         <div><p className="eyebrow">LABORATOIRE IA · OUTILS AVANCÉS</p><h1 id="evaluation-page-title">Évaluation des modèles</h1><p>Testez de une à trois configurations sur la même copie et le même barème. Les résultats sont enregistrés localement ; les requêtes sont envoyées au serveur de chaque profil choisi.</p><div className="evaluation-page-badges"><span>Résultats locaux</span><span>1 à 3 configurations</span><span>Validation humaine</span></div></div>
       </section>}
@@ -2760,8 +2764,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 const tokens = run.promptTokens !== undefined || run.generatedTokens !== undefined ? (run.promptTokens ?? 0) + (run.generatedTokens ?? 0) : null;
                 const qualityPercent = referenceComparison && maxPoints > 0
                   ? Math.max(0, 100 - referenceComparison.absoluteTotalError / maxPoints * 100)
-                  : score && maxPoints > 0 ? score.modelScore / maxPoints * 100 : null;
-                const criterionErrors = score && validReference ? recordRubric.criteria.flatMap((criterion) => {
+                  : score?.modelScore !== null && score?.modelScore !== undefined && maxPoints > 0 ? score.modelScore / maxPoints * 100 : null;
+                const criterionErrors = score && validReference && referenceComparison ? recordRubric.criteria.flatMap((criterion) => {
                   const modelCriterion = score.criterionScores.find((item) => item.criterionId === criterion.id);
                   const referenceCriterion = validReference.find((item) => item.criterionId === criterion.id);
                   return modelCriterion && referenceCriterion ? [{ id: criterion.id, title: criterion.title, maxPoints: criterion.maxPoints, modelPoints: modelCriterion.points, referencePoints: referenceCriterion.points, error: Math.abs(modelCriterion.points - referenceCriterion.points) }] : [];

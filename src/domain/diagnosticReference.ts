@@ -54,6 +54,12 @@ export function compareWithDiagnosticReference(
   rubric: Rubric,
 ): DiagnosticReferenceComparison | null {
   if (!validateDiagnosticReference(referenceScores, rubric).valid) return null;
+  // An unresolved criterion has a technical zero placeholder, not an awarded zero.
+  // Never publish an apparently precise MAE on only the scored subset of a copy.
+  if (modelScores.length !== rubric.criteria.length
+    || new Set(modelScores.map((score) => score.criterionId)).size !== modelScores.length
+    || modelScores.some((score) => score.assessmentStatus === 'not-evaluated'
+      || !Number.isFinite(score.points))) return null;
   const modelById = new Map(modelScores.map((score) => [score.criterionId, score.points]));
   const referenceById = new Map(referenceScores.map((score) => [score.criterionId, score.points]));
   const comparisons = rubric.criteria.flatMap((criterion) => {
@@ -62,7 +68,7 @@ export function compareWithDiagnosticReference(
     if (modelPoints === undefined || referencePoints === undefined || !Number.isFinite(modelPoints)) return [];
     return [{ difference: Math.abs(modelPoints - referencePoints), modelPoints, referencePoints }];
   });
-  if (comparisons.length === 0) return null;
+  if (comparisons.length !== rubric.criteria.length) return null;
   const modelTotal = comparisons.reduce((sum, item) => sum + item.modelPoints, 0);
   const referenceTotal = comparisons.reduce((sum, item) => sum + item.referencePoints, 0);
   return {
