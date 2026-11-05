@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { openActiveAssignment } from './helpers/teacher-workspace';
 
-test('review workspace keeps original evidence beside grading criteria on desktop and stacks on mobile', async ({ page }) => {
+test('review workspace keeps original evidence beside grading criteria on desktop and stacks on mobile', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/');
   await openActiveAssignment(page);
@@ -113,6 +113,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.locator('.copy-review-navigation-message')).toHaveText('Correction enregistrée ouverte en lecture et vérification locale.');
   await page.locator('.review-extra-tools > summary').click();
   await expect(page.getByText('Correction enregistrée ouverte en lecture et vérification locale.')).toHaveCount(1);
+
   await expect(page.locator('#teacher-copy-intake-files')).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toContainText('Biologie cellulaire');
   await expect(page.getByRole('tab', { name: 'Copies' })).toHaveAttribute('aria-selected', 'true');
@@ -131,10 +132,13 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(diagramDetails.getByText('Schéma de cellule végétale')).toBeVisible();
   await expect(diagramDetails.getByText('La membrane est représentée.')).toBeVisible();
 
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: testInfo.outputPath('atelier-b-first-impression-desktop.png'), animations: 'disabled' });
   await expect(page.locator('.copy-review-header')).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toBeVisible();
   await expect(page.getByText('Nom lu sur la copie')).toBeVisible();
   await expect(page.getByText('Page 1 : schéma possible, confiance faible.')).toBeVisible();
+  await expect(page.locator('.review-main-column .copy-review-alert-strip')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Analyser comme schéma' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ignorer' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Correction validée' }).first()).toBeVisible();
@@ -185,9 +189,32 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.locator('#review-copy-page-1')).toHaveClass(/evidence-page-focused/);
 
   const sourcePane = page.locator('.review-source-pane');
+  const assignmentRail = page.getByRole('complementary', { name: 'Navigation du devoir' });
+  await expect(assignmentRail).toBeVisible();
+  await expect(assignmentRail.getByRole('tab', { name: 'Copies' })).toHaveAttribute('aria-selected', 'true');
   await expect(sourcePane).toHaveCSS('position', 'sticky');
+  const railPosition = await assignmentRail.boundingBox();
+  const sourcePosition = await sourcePane.boundingBox();
+  const flaggedPosition = await flaggedCard.boundingBox();
+  expect(railPosition).not.toBeNull();
+  expect(sourcePosition).not.toBeNull();
+  expect(flaggedPosition).not.toBeNull();
+  expect(railPosition!.x).toBeLessThan(sourcePosition!.x);
+  expect(sourcePosition!.x + sourcePosition!.width).toBeLessThan(flaggedPosition!.x + 6);
+  await expect(page.locator('.atelier-review-decision-heading')).toContainText('critère à examiner');
+  const gradeAdjustment = flaggedCard.locator('details.review-quick-edit');
+  await expect(gradeAdjustment).not.toHaveAttribute('open', '');
+  await gradeAdjustment.locator('summary').click();
+  await expect(gradeAdjustment.getByText('Votre note')).toBeVisible();
+  await gradeAdjustment.locator('summary').click();
+  await page.screenshot({ path: testInfo.outputPath('atelier-b-review-desktop.png'), fullPage: true, animations: 'disabled' });
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(assignmentRail).toBeVisible();
+  const mobileRail = await assignmentRail.boundingBox();
+  const mobileSource = await sourcePane.boundingBox();
+  expect(mobileRail!.y).toBeLessThan(mobileSource!.y);
+  await page.screenshot({ path: testInfo.outputPath('atelier-b-review-mobile.png'), fullPage: true, animations: 'disabled' });
   await expect(sourcePane).toHaveCSS('position', 'static');
   await expect(page.locator('.review-workspace')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
