@@ -1,0 +1,358 @@
+/* Atelier pédagogique B — correction en cours.
+   La progression n'est pas un second tableau de bord : la copie et les critères
+   occupent le même poste de travail que la vérification finale. */
+
+.teacher-flow-shell .atelier-processing-workspace {
+  min-width: 0;
+  margin: 12px 0 20px;
+  color: var(--ds-color-text);
+}
+
+.teacher-flow-shell .atelier-processing-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 70px;
+  margin: 0;
+  padding: 8px 0 13px;
+}
+.teacher-flow-shell .atelier-processing-heading .eyebrow {
+  margin: 0 0 6px;
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+}
+.teacher-flow-shell .atelier-processing-heading h2 {
+  margin: 0;
+  color: var(--ds-color-text);
+  font: 700 clamp(21px, 2vw, 25px)/1.2 var(--ds-font-editorial);
+  letter-spacing: -.02em;
+}
+.teacher-flow-shell .atelier-processing-student {
+  margin: 5px 0 0;
+  color: var(--ds-color-text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.teacher-flow-shell .atelier-processing-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: 3px;
+  color: var(--ds-color-brand-700);
+  background: var(--ds-color-brand-100);
+  font-size: 11px;
+  font-weight: 750;
+}
+.teacher-flow-shell .atelier-processing-indicator {
+  display: inline-block;
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ds-color-brand-700);
+}
+
+/* Three compact milestones — no oversized cards, rounded pills or spinner panel. */
+.teacher-flow-shell .atelier-processing-phases {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  border-bottom: 1px solid var(--ds-color-border);
+}
+.teacher-flow-shell .atelier-processing-phases li {
+  display: grid;
+  grid-template-columns: 23px minmax(0,1fr);
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px 4px 10px;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--ds-color-text-muted);
+}
+.teacher-flow-shell .atelier-processing-phases li.is-current {
+  border-bottom-color: var(--ds-color-brand-700);
+  color: var(--ds-color-text);
+}
+.teacher-flow-shell .atelier-processing-phases li.is-complete { color: var(--ds-color-text); }
+.teacher-flow-shell .atelier-processing-phase-number {
+  display: grid;
+  grid-row: 1 / 3;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: 2px;
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text-muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+.teacher-flow-shell .atelier-processing-phases .is-current .atelier-processing-phase-number {
+  border-color: var(--ds-color-brand-700);
+  background: var(--ds-color-brand-700);
+  color: var(--ds-color-surface);
+}
+.teacher-flow-shell .atelier-processing-phases .is-complete .atelier-processing-phase-number {
+  border-color: var(--ds-color-success-surface);
+  background: var(--ds-color-success-surface);
+  color: var(--ds-color-success);
+}
+.teacher-flow-shell .atelier-processing-phase-label {
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 750;
+}
+.teacher-flow-shell .atelier-processing-phases small {
+  grid-column: 2;
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.teacher-flow-shell .atelier-processing-columns {
+  display: grid;
+  grid-template-columns: minmax(0,1.06fr) minmax(0,1fr);
+  gap: 16px;
+  align-items: start;
+  min-width: 0;
+}
+.teacher-flow-shell .atelier-processing-source,
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--ds-color-border);
+  border-radius: 3px;
+  box-shadow: none;
+  background: var(--ds-color-surface);
+}
+.teacher-flow-shell .atelier-processing-source { padding: 13px; }
+.teacher-flow-shell .atelier-processing-source-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+}
+.teacher-flow-shell .atelier-processing-source-heading h3 {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 750;
+  color: var(--ds-color-text);
+}
+.teacher-flow-shell .atelier-processing-source-heading span {
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.teacher-flow-shell .atelier-processing-pages {
+  display: grid;
+  align-content: start;
+  gap: 11px;
+  min-width: 0;
+  max-height: 72vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.teacher-flow-shell .atelier-processing-page {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.teacher-flow-shell .atelier-processing-page-stage {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: 2px;
+  background: #e9ecef;
+}
+.teacher-flow-shell .atelier-processing-page img {
+  display: block;
+  width: 100%;
+  height: clamp(340px, 59vh, 680px);
+  object-fit: contain;
+  background: transparent;
+  border-radius: 0;
+}
+.teacher-flow-shell .atelier-processing-page figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 1px 3px;
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+.teacher-flow-shell .atelier-processing-page figcaption span:last-child {
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+/* The criterion list is a flat editorial list, not a second set of rounded cards. */
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity {
+  max-height: 72vh;
+  overflow-y: auto;
+  padding: 0;
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-heading {
+  display: flex;
+  align-items: center;
+  padding: 15px 15px 12px;
+  border-bottom: 1px solid var(--ds-color-border);
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-heading h4 {
+  margin: 0;
+  color: var(--ds-color-text);
+  font-size: 13px;
+  font-weight: 750;
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-heading p { display: none; }
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-counter {
+  font-size: 12px;
+  color: var(--ds-color-text);
+  font-weight: 750;
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-track {
+  height: 3px;
+  margin: 0;
+  border-radius: 0;
+  background: var(--ds-color-border);
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-track > span {
+  border-radius: 0;
+  background: var(--ds-color-brand-700);
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-criteria {
+  display: grid;
+  gap: 0;
+  padding: 0 15px;
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-criteria li {
+  grid-template-columns: 22px minmax(0,1fr) auto;
+  gap: 8px;
+  min-height: 50px;
+  margin: 0;
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 1px solid var(--ds-color-border);
+  border-radius: 0;
+  background: transparent;
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-criteria li.is-active {
+  border-left: 2px solid var(--ds-color-brand-700);
+  padding-left: 7px;
+  background: var(--ds-color-surface-subtle);
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-marker {
+  width: 21px;
+  height: 21px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: 2px;
+  color: var(--ds-color-text-muted);
+  background: var(--ds-color-surface-subtle);
+  font-size: 11px;
+}
+.teacher-flow-shell .atelier-processing-columns .is-active .background-copy-activity-marker {
+  border-color: var(--ds-color-brand-700);
+  background: var(--ds-color-brand-700);
+  color: var(--ds-color-surface);
+  animation: none;
+}
+.teacher-flow-shell .atelier-processing-columns .is-complete .background-copy-activity-marker {
+  border-color: var(--ds-color-success-surface);
+  background: var(--ds-color-success-surface);
+  color: var(--ds-color-success);
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ds-color-text);
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-criteria small {
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-activity-note {
+  margin: 12px 15px;
+  font-size: 11px;
+}
+.teacher-flow-shell .atelier-processing-columns .background-copy-transcription {
+  margin: 14px 15px 15px;
+  padding-top: 11px;
+  border-color: var(--ds-color-border);
+}
+
+/* Local one-copy execution uses the same flat status vocabulary. */
+.teacher-flow-shell .teacher-progress-card {
+  border-radius: 3px;
+  box-shadow: none;
+  padding: 17px 20px;
+}
+.teacher-flow-shell .teacher-progress-phases {
+  gap: 8px;
+  margin: 11px 0 6px;
+}
+.teacher-flow-shell .teacher-progress-phase {
+  border-radius: 3px;
+  padding: 9px 10px;
+}
+.teacher-flow-shell .teacher-progress-phase > span {
+  flex-basis: 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 2px;
+}
+.teacher-flow-shell .teacher-progress-page-list > span { border-radius: 3px; }
+.teacher-flow-shell .live-copy-preview {
+  border-radius: 3px;
+  box-shadow: none;
+}
+.teacher-flow-shell .live-copy-preview .live-preview-state { border-radius: 3px; }
+.teacher-flow-shell .live-copy-preview .live-copy-page { border-radius: 3px; box-shadow: none; }
+.teacher-flow-shell .live-copy-preview .live-copy-page img { max-height: min(60vh, 680px); border-radius: 0; }
+.teacher-flow-shell .live-copy-preview .live-copy-pages { grid-template-columns: minmax(0,1fr); }
+.teacher-flow-shell .live-copy-preview .live-copy-layout { grid-template-columns: minmax(0,1.06fr) minmax(0,1fr); }
+
+@media (max-width: 1040px) {
+  .teacher-flow-shell .atelier-processing-columns,
+  .teacher-flow-shell .live-copy-preview .live-copy-layout {
+    grid-template-columns: minmax(0,1fr);
+  }
+  .teacher-flow-shell .atelier-processing-pages,
+  .teacher-flow-shell .atelier-processing-columns .background-copy-activity {
+    max-height: none;
+    overflow-y: visible;
+  }
+}
+@media (max-width: 720px) {
+  .teacher-flow-shell .atelier-processing-heading { flex-wrap: wrap; }
+  .teacher-flow-shell .atelier-processing-phases { gap: 4px; }
+  .teacher-flow-shell .atelier-processing-phases li {
+    grid-template-columns: 21px minmax(0,1fr);
+    padding: 8px 1px;
+    column-gap: 4px;
+  }
+  .teacher-flow-shell .atelier-processing-phase-label { font-size: 10px; }
+  .teacher-flow-shell .atelier-processing-phases small { font-size: 9px; }
+  .teacher-flow-shell .atelier-processing-source { padding: 10px; }
+  .teacher-flow-shell .atelier-processing-page img { height: clamp(280px, 51vh, 550px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .teacher-flow-shell .atelier-processing-columns .background-copy-activity-track > span { transition: none; }
+}
