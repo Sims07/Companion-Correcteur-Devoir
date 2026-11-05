@@ -268,6 +268,9 @@ export function canCompareModelEvaluationRecords(records: readonly ModelEvaluati
   if (getModelEvaluationStage(first) !== getModelEvaluationStage(second) || first.assignmentId !== second.assignmentId) return false;
   const stage = getModelEvaluationStage(first);
   if (stage === 'analysis') return sameAnalysisInput(first, second);
+  // Legacy quota-reduced records have no original images and no identity.
+  // Never assume two empty image arrays mean the same student's copy.
+  if (records.some((record) => record.originalImagesArchived === false && !record.imageSignatures?.length)) return false;
   if (!sameImages(first.images, second.images, first.imageSignatures, second.imageSignatures)) return false;
   if (stage === 'vision') return first.question === second.question && sameRubric(first.rubricSnapshot, second.rubricSnapshot);
   return first.question === second.question &&
