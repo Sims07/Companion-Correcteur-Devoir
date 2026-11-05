@@ -1,8 +1,9 @@
+import { MODEL_READINESS_PROBE_PROMPT } from '../src/adapters/ai/prompts/modelProbePrompt.ts';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { buildTranscriptionPrompt, buildStudentIdentityPrompt, buildTeacherAnnotationPrompt, buildSubjectReferencePrompt, buildStudentIdentityFallbackPrompt, buildTeacherAnnotationRepairPrompt, buildRubricPageTranscriptionPrompt } from '../src/adapters/ai/prompts/visionPrompts.ts';
 import { buildFullGradingPrompt } from '../src/adapters/ai/prompts/fullGradingPrompt.ts';
-import { buildArbitrationPrompt, buildArbitrationRepairPrompt, buildIncrementalGradingRepairPrompt, buildGradingRepairPrompt } from '../src/adapters/ai/prompts/repairPrompts.ts';
+import { buildArbitrationPrompt, buildArbitrationRepairPrompt, buildIncrementalGradingRepairPrompt, buildGradingRepairPrompt, buildCriterionDecisionRepairPrompt } from '../src/adapters/ai/prompts/repairPrompts.ts';
 import { classificationPrompt, buildScientificDiagramPrompt, buildConciseScientificDiagramPrompt, buildScientificDiagramRepairPrompt } from '../src/adapters/ai/prompts/scientificDiagramPrompts.ts';
 import type { GradingRequest } from '../src/ports/aiProvider.ts';
 import type { ScientificDiagramAnalysisRequest } from '../src/ports/scientificDiagramAnalysis.ts';
@@ -33,6 +34,8 @@ describe('catalogue des prompts', () => {
     expect(buildArbitrationRepairPrompt('Arbitrage', 'invalide', 'JSON')).toContain('invalide');
     expect(buildIncrementalGradingRepairPrompt('Critère', 'ancien', 'invalide')).toContain('ancien');
     expect(buildGradingRepairPrompt('Correction', 'ancien', 'JSON')).toContain('ancien');
+    expect(buildCriterionDecisionRepairPrompt('Critère', 'invalide')).toContain('invalide');
+    expect(MODEL_READINESS_PROBE_PROMPT).toBe('Réponds uniquement par OK.');
   });
 
   it('préserve classification et évaluation des schémas et leurs reprises courtes', () => {
