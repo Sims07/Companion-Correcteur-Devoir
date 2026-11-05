@@ -58,7 +58,7 @@ export function ActiveCopyProcessingWorkspace({ job, studentLabel }: Props) {
             <h3 id="atelier-processing-source-title">Copie de l'étudiant</h3>
             <span>{job.images.length} page{job.images.length > 1 ? 's' : ''}</span>
           </div>
-          <div className="atelier-processing-pages" aria-label="Pages originales de la copie en cours">
+          <div className="atelier-processing-pages" aria-label="Pages de la copie en cours">
             {job.images.map((image, index) => (
               <figure className="atelier-processing-page" key={image.fileName + '-' + index}>
                 <div className="atelier-processing-page-stage">
