@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
+import type { LocalBenchmarkSummary } from '../domain/localDecisionBenchmark.ts';
 import type { StorageDiagnosticsService } from '../application/storageDiagnosticsService.ts';
 import { StorageUsagePanel } from './StorageUsagePanel.tsx';
 import { buildObservabilityModelMetrics, buildObservabilitySummary, extractObservabilityPromptMessages, type ObservabilityTrace } from '../domain/observability.ts';
 import { recentObservabilityIncidents } from '../domain/observabilityIncidents.ts';
 import './observability.css';
 
-type Props = { records: ObservabilityTrace[]; onInspectNetworkErrors?: () => void; storageDiagnosticsService?: StorageDiagnosticsService; onManageEvaluations?: () => void };
+type Props = { records: ObservabilityTrace[]; benchmarkRows?: LocalBenchmarkSummary[]; onInspectNetworkErrors?: () => void; storageDiagnosticsService?: StorageDiagnosticsService; onManageEvaluations?: () => void };
 
 function duration(seconds: number | null): string {
   if (seconds === null || !Number.isFinite(seconds)) return '—';
@@ -103,7 +104,7 @@ function TraceDetails({ trace, expanded }: { trace: ObservabilityTrace; expanded
   </details>;
 }
 
-export function ObservabilityDashboard({ records, onInspectNetworkErrors, storageDiagnosticsService, onManageEvaluations }: Props) {
+export function ObservabilityDashboard({ records, benchmarkRows = [], onInspectNetworkErrors, storageDiagnosticsService, onManageEvaluations }: Props) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'all' | 'success' | 'error'>('all');
   const [focusedIncidentId, setFocusedIncidentId] = useState<string | null>(null);
@@ -153,6 +154,25 @@ export function ObservabilityDashboard({ records, onInspectNetworkErrors, storag
     </div>
 
     <StorageUsagePanel service={storageDiagnosticsService} onManageEvaluations={onManageEvaluations} />
+
+    <section className="observability-panel observability-review-metrics" aria-label="Fiabilité face aux références enseignantes">
+      <div className="observability-panel-heading"><div>
+        <p className="observability-eyebrow">VALIDATION PÉDAGOGIQUE · LOCALE</p>
+        <h3>Fiabilité face aux corrections de référence</h3>
+        <p>Uniquement les corrections associées à un barème et une référence complète du professeur. Les notes « non évaluées » ne sont jamais comptées comme zéro.</p>
+      </div></div>
+      {benchmarkRows.length ? <div className="observability-review-metric-grid">{benchmarkRows.map((row) => (
+        <span key={row.key}>
+          <small>{row.assignment} · {row.method === 'system-one' ? 'System One natif' : row.method === 'decision-chat' ? 'Décisions par LLM' : 'Correction générative'} · {row.model}</small>
+          <strong>{row.comparedCopies}/{row.referenceCopies} copies comparables</strong>
+          <small>{row.unscoredCopies} copie(s) non notée(s) ou en échec</small>
+          <small>Erreur moyenne par critère : {row.meanCriterionError === null ? '—' : row.meanCriterionError + ' pt'} · écart total moyen : {row.meanTotalError === null ? '—' : row.meanTotalError + ' pt'}</small>
+          <small>Durée moyenne : {row.averageSeconds === null ? '—' : row.averageSeconds + ' s'} · appels : {row.averageCalls === null ? 'non mesurés' : row.averageCalls + ' / copie'}</small>
+          <small>{row.maturity === 'exploratory' ? 'Moins de 10 copies : observation exploratoire' : row.maturity === 'preliminary' ? '10 à 29 copies : comparaison préliminaire' : '30 copies ou plus : à interpréter avec validation pédagogique'}</small>
+        </span>
+      ))}</div> : <p className="observability-empty-inline">Aucun jeu de références complet pour le moment. Enregistrez les notes de référence dans le diagnostic, puis comparez plusieurs copies sous le même barème et la même configuration.</p>}
+    </section>
+
 
     <section className="observability-panel observability-review-metrics" aria-label="Mesures de la correction par exceptions">
       <div className="observability-panel-heading"><div><p className="observability-eyebrow">EXPÉRIENCE ENSEIGNANT</p><h3>Lecture par exceptions</h3><p>Mesures locales issues des traces de correction, sans données de copie supplémentaires.</p></div></div>
