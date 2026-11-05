@@ -189,6 +189,7 @@ describe('background correction service', () => {
     expect(activeSignal?.aborted).toBe(true);
     expect(f.jobs.get('copy-1')).toMatchObject({ status: 'pending', activeCriterionId: null });
     expect(f.jobs.get('copy-1')?.proposal).toBeNull();
+    expect(f.jobs.get('copy-1')?.error).toContain('interrompue par l’enseignant');
   });
 
   it('releases a stuck subject reading before visual grading', async () => {
