@@ -16,6 +16,10 @@
   --ds-color-warning-surface: #fff3e2;
   --ds-color-success: #27623a;
   --ds-color-success-surface: #edf6ee;
+  /* Neutral information state for work currently running (never an error). */
+  --ds-color-progress: #31556b;
+  --ds-color-progress-surface: #eef3f6;
+  --ds-color-progress-border: #9cb1bd;
 
   /* Spacing preserves the existing readable 4px rhythm. */
   --ds-space-1: 4px;

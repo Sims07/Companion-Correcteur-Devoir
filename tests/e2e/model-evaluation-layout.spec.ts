@@ -1,3 +1,38 @@
+test('active evaluation navigation is informational rather than a red error or brand accent', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+
+  const navigation = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
+  for (const label of [/Configuration/, /Exécution/, /Résultats/]) {
+    await navigation.getByRole('button', { name: label }).click();
+    const state = await page.evaluate(() => {
+      const active = document.querySelector<HTMLElement>('.evaluation-step-nav [aria-current="step"]');
+      const probe = document.createElement('div');
+      probe.style.background = 'var(--ds-color-progress-surface)';
+      probe.style.border = '1px solid var(--ds-color-progress-border)';
+      probe.style.color = 'var(--ds-color-danger)';
+      document.body.append(probe);
+      const current = active ? getComputedStyle(active) : null;
+      const expected = getComputedStyle(probe);
+      const result = {
+        active: Boolean(active),
+        background: current?.backgroundColor,
+        border: current?.borderTopColor,
+        expectedBackground: expected.backgroundColor,
+        expectedBorder: expected.borderTopColor,
+        error: expected.color,
+      };
+      probe.remove();
+      return result;
+    });
+    expect(state.active).toBe(true);
+    expect(state.background).toBe(state.expectedBackground);
+    expect(state.border).toBe(state.expectedBorder);
+    expect(state.border).not.toBe(state.error);
+  }
+});
+
 import { expect, test, type Page } from '@playwright/test';
 
 async function expectUnifiedEvaluationCanvas(page: Page): Promise<void> {

@@ -55,6 +55,29 @@ describe('Model evaluation workspace layout contract', () => {
     expect(layout).toContain('var(--ds-color-success-surface)');
   });
 
+  it('distinguishes running evaluation stages from brand selection, failures and completed work', () => {
+    const tokens = readFileSync('src/ui/design-system/tokens.css', 'utf8');
+    expect(tokens).toContain('--ds-color-progress:');
+    expect(tokens).toContain('--ds-color-progress-surface:');
+    expect(tokens).toContain('--ds-color-progress-border:');
+
+    const activeNavigation = layout.split('.evaluation-step-nav button.is-active,')[1]?.split('.evaluation-step-nav button:is(')[0] ?? '';
+    const activeProfile = layout.split('.evaluation-configuration-step.is-active {')[1]?.split('}')[0] ?? '';
+    expect(activeNavigation).toContain('var(--ds-color-progress-border)');
+    expect(activeNavigation).not.toContain('var(--ds-color-brand-700)');
+    expect(activeProfile).toContain('var(--ds-color-progress-surface)');
+    expect(activeProfile).not.toContain('var(--ds-color-danger)');
+    expect(layout).toContain('.evaluation-progress-track > span { background: var(--ds-color-progress); }');
+    expect(layout).toContain('.evaluation-active-pill::before');
+    expect(layout).toContain('.evaluation-phase-panel strong { color: var(--ds-color-progress); }');
+    expect(layout).toContain('.primary-button.is-running:disabled');
+    expect(layout).toContain('.evaluation-configuration-step.has-failed {');
+    expect(layout).toContain('var(--ds-color-danger-surface)');
+    expect(layout).toContain('.evaluation-configuration-step.is-complete .evaluation-configuration-step-index');
+    expect(app).toContain("className={busy ? 'primary-button is-running' : 'primary-button'}");
+    expect(layout).toContain('.evaluation-active-pill::before { animation: none; }');
+  });
+
   it('uses shared design tokens and defines tablet, mobile and reduced-motion behavior', () => {
     expect(layout).toContain('var(--ds-color-surface)');
     expect(layout).toContain('var(--ds-color-border)');
