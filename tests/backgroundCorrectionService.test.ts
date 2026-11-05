@@ -165,18 +165,18 @@ describe('background correction service', () => {
     const inFlight = new Promise<void>((resolve) => { started = resolve; });
     let activeSignal: AbortSignal | undefined;
     const analyzer: ScientificDiagramAnalyzer = {
-      classifyPages: vi.fn(async (request) => {
+      classifyPages: vi.fn(async (request: Parameters<ScientificDiagramAnalyzer['classifyPages']>[0]) => {
         activeSignal = request.signal;
         if (stage === 'classification') {
           started();
-          return new Promise(() => undefined);
+          return new Promise<Awaited<ReturnType<ScientificDiagramAnalyzer['classifyPages']>>>(() => undefined);
         }
-        return [{ pageNumber: 1, kind: 'scientific-diagram', confidence: 0.99, reason: 'Schéma' }];
+        return [{ pageNumber: 1, kind: 'scientific-diagram' as const, confidence: 0.99, reason: 'Schéma' }];
       }),
-      analyze: vi.fn(async (request) => {
+      analyze: vi.fn(async (request: Parameters<ScientificDiagramAnalyzer['analyze']>[0]) => {
         activeSignal = request.signal;
         started();
-        return new Promise(() => undefined);
+        return new Promise<Awaited<ReturnType<ScientificDiagramAnalyzer['analyze']>>>(() => undefined);
       }),
     };
     const service = createBackgroundCorrectionService(f.repository, f.workspace, createScientificDiagramAnalysisService(analyzer));
