@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOllamaProvider } from '../../src/adapters/ai/ollamaProvider.ts';
-import { parseGradingProposal, toReviewedCriteria } from '../../src/domain/grading.ts';
+import { createOllamaProvider } from '../../../src/adapters/ai/ollamaProvider.ts';
+import { parseGradingProposal, toReviewedCriteria } from '../../../src/domain/grading.ts';
 
 const rubric = { title: 'Biologie', criteria: [{
   id: 'mito', title: 'Mitochondrie', description: 'Rôle dans la respiration', maxPoints: 2,
