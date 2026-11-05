@@ -12,9 +12,9 @@ describe('Atelier pédagogique correction workspace', () => {
 
   it('uses only the search wrapper for the border and keyboard focus feedback', () => {
     const css = read('src/ui/correctionAtelier.css');
-    const input = css.match(/\\.copy-overview-search input\\[type="search"\\]\\s*\\{([^}]+)\\}/)?.[1];
-    const focusedInput = css.match(/\\.copy-overview-search input\\[type="search"\\]:focus-visible\\s*\\{([^}]+)\\}/)?.[1];
-    const wrapperFocus = css.match(/\\.copy-overview-search:focus-within\\s*\\{([^}]+)\\}/)?.[1];
+    const input = css.match(/\.copy-overview-search input\[type="search"\]\s*\{([^}]+)\}/)?.[1];
+    const focusedInput = css.match(/\.copy-overview-search input\[type="search"\]:focus-visible\s*\{([^}]+)\}/)?.[1];
+    const wrapperFocus = css.match(/\.copy-overview-search:focus-within\s*\{([^}]+)\}/)?.[1];
 
     expect(input).toContain('border: 0;');
     expect(input).toContain('box-shadow: none;');
