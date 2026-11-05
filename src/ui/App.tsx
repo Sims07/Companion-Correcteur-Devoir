@@ -33,7 +33,7 @@ import { sumGradeScores } from '../domain/scorePrecision.ts';
 import { transcribeSubjectReference } from '../application/transcribeSubjectReference.ts';
 import { createBackgroundCorrection, backgroundCorrectionStatusLabel, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import { getBackgroundCorrectionResult } from '../domain/backgroundCorrectionResult.ts';
-import { getCopyNavigation } from '../domain/backgroundCorrectionReviewNavigation.ts';
+import { getCopyNavigation, getNewlyAvailableReviewJob } from '../domain/backgroundCorrectionReviewNavigation.ts';
 import { prepareBatchCopies } from '../application/prepareBatchCopies.ts';
 import { autoRotateScientificPages } from '../application/autoRotateScientificPages.ts';
 import type { BackgroundCorrectionService } from '../application/backgroundCorrectionService.ts';
@@ -548,6 +548,25 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       ? { id: activeBackgroundJob.id, label: activeBackgroundJob.label, identityKey: activeIdentityKey }
       : null;
   }, [activeBackgroundJob?.id, activeBackgroundJob?.label, activeIdentityKey]);
+
+  const newlyAvailableReviewJob = getNewlyAvailableReviewJob(activeAssignmentId, currentBackgroundJobId, proposal !== null, backgroundJobs);
+  useEffect(() => {
+    if (!newlyAvailableReviewJob || isFinalized || teacherStep !== 'review') return;
+    const readyProposal = newlyAvailableReviewJob.proposal;
+    if (!readyProposal) return;
+
+    // Refresh only the first result of the selected copy. Once loaded, the
+    // teacher's notes and grade edits remain authoritative during later updates.
+    setProposal(structuredClone(readyProposal));
+    setReview(structuredClone(newlyAvailableReviewJob.reviewDraft ?? toReviewedCriteria(readyProposal)));
+    setTeacherQuestions(newlyAvailableReviewJob.teacherQuestionsDraft ?? readyProposal.questionsForTeacher.join('\n'));
+    setTranscription(newlyAvailableReviewJob.transcription);
+    setImages(structuredClone(newlyAvailableReviewJob.images));
+    setOriginalImages(structuredClone(newlyAvailableReviewJob.originalImages));
+    setScientificDiagramAnalysis(newlyAvailableReviewJob.scientificDiagramAnalysis ?? null);
+    setPageClassifications(newlyAvailableReviewJob.scientificPageClassifications ?? null);
+    setReviewMessage('Correction prête. Examinez les propositions signalées avant validation.');
+  }, [newlyAvailableReviewJob, isFinalized, teacherStep]);
 
   const reviewPosition = copyNavigation.currentPosition ?? (copyNavigation.totalCopies > 0 ? 1 : 0);
   const reviewTotalCopies = copyNavigation.totalCopies;

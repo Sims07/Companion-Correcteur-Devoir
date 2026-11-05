@@ -98,6 +98,32 @@ function copyNavigation(page: Page) {
 }
 
 
+
+test('la dernière correction reste accessible après retour au suivi sans réafficher un état en attente', async ({ page }) => {
+  await prepareLocalWorkspace(page);
+  await seedJobs(page, [
+    { id: 'ready-older', label: 'Correction ancienne', status: 'ready', updatedAt: '2026-11-03T09:00:00.000Z' },
+    { id: 'ready-latest', label: 'Correction la plus récente', status: 'ready', updatedAt: '2026-11-04T09:00:00.000Z' },
+    { id: 'pending-newer', label: 'Copie non terminée', status: 'pending', updatedAt: '2026-11-05T09:00:00.000Z' },
+  ]);
+  await page.reload();
+  await openActiveAssignment(page);
+  await copyNavigation(page).click();
+
+  const latest = page.getByLabel('Dernière correction disponible');
+  await expect(latest).toContainText('Correction la plus récente');
+  await expect(latest).toContainText('15 / 20');
+  await latest.getByRole('button', { name: 'Voir la dernière correction' }).click();
+  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Correction la plus récente');
+  await expect(page.locator('.copy-review-header-score')).toContainText('15 / 20');
+  await expect(page.getByText('Cette copie attend sa correction.', { exact: false })).toHaveCount(0);
+
+  await copyNavigation(page).click();
+  await expect(latest).toContainText('Correction la plus récente');
+  await latest.getByRole('button', { name: 'Voir la dernière correction' }).click();
+  await expect(page.locator('.copy-review-header-score')).toContainText('15 / 20');
+});
+
 test('a processing copy without an active worker is recovered as retryable after reload', async ({ page }) => {
   await prepareLocalWorkspace(page);
   await seedJobs(page, [
@@ -147,8 +173,8 @@ test('adding a copy while another one is under review keeps the previous copy an
   await expect(page.getByRole('heading', { name: 'Ajouter des copies' })).toBeVisible();
 
   await copyNavigation(page).click();
-  await expect(page.getByText('Copie récente')).toBeVisible();
-  await expect(page.getByText('Copie ancienne')).toBeVisible();
+  await expect(page.locator('.copy-overview-grid').getByText('Copie récente')).toBeVisible();
+  await expect(page.locator('.copy-overview-grid').getByText('Copie ancienne')).toBeVisible();
 });
 
 test('teacher verifies a flagged criterion, validates the copy and lands on the next one', async ({ page }) => {

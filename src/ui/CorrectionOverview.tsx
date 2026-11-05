@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import type { BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import type { LocalCorrection } from '../domain/localCorrection.ts';
 import { sumGradeScores } from '../domain/scorePrecision.ts';
-import { countCopyOverviewStatuses, sortCopyOverviewItems, toCopyOverviewStatus, type CopyOverviewFilter, type CopyOverviewStatus } from '../domain/copyOverview.ts';
+import { countCopyOverviewStatuses, getLatestAvailableCorrection, sortCopyOverviewItems, toCopyOverviewStatus, type CopyOverviewFilter, type CopyOverviewStatus } from '../domain/copyOverview.ts';
 
 type CurrentCopy = {
   label: string;
@@ -146,6 +146,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
   }, [jobs, corrections, currentCopy]);
 
   const counts = countCopyOverviewStatuses(items.map((item) => item.status));
+  const latestCorrection = getLatestAvailableCorrection(items);
   const normalizedQuery = query.trim().toLocaleLowerCase('fr-FR');
   const visibleItems = items.filter((item) =>
     (filter === 'all' || item.status === filter) &&
@@ -184,6 +185,18 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
       <div><strong>{counts.toRetry}</strong><span>À reprendre</span></div>
       <div><strong>{counts.completed}</strong><span>Corrigées</span></div>
     </div>
+    {latestCorrection && <div className="copy-overview-latest" aria-label="Dernière correction disponible">
+      <div className="copy-overview-latest-details">
+        <span className="eyebrow">DERNIÈRE CORRECTION</span>
+        <strong>{latestCorrection.label}</strong>
+        <small>{latestCorrection.status === 'completed' ? 'Enregistrée' : 'À vérifier'}{latestCorrection.score === null ? '' : ' · ' + number(latestCorrection.score) + ' / ' + number(latestCorrection.maximumPoints)}</small>
+      </div>
+      <button type="button" className="secondary-button" onClick={() => {
+        if (latestCorrection.kind === 'job' && latestCorrection.job) onOpenJob(latestCorrection.job.id);
+        else if (latestCorrection.kind === 'correction' && latestCorrection.correction) onOpenCorrection(latestCorrection.correction);
+        else if (latestCorrection.kind === 'current') onOpenCurrentCopy();
+      }}>Voir la dernière correction <span aria-hidden="true">→</span></button>
+    </div>}
     {preparingJob && <div className="teacher-copy-live is-preparing" role="status"><div><strong>Préparation : {jobLabel(preparingJob)}</strong><p>Le modèle IA se prépare. La lecture de cette copie commencera ensuite.</p></div><div className="teacher-copy-live-actions"><button type="button" className="secondary-button" onClick={() => onOpenJob(preparingJob.id)}>Voir la copie</button><button type="button" className="context-stop-button" disabled={isStoppingCorrections} onClick={onStopCorrections}>{isStoppingCorrections ? 'Arrêt en cours…' : 'Arrêter'}</button></div></div>}
     {processingItem && <div className="teacher-copy-live" role="status"><div><strong>Copie en cours : {processingItem.label}</strong><p>{processingItem.message}</p></div><div className="teacher-copy-live-actions"><button type="button" className="secondary-button" onClick={() => { if (processingItem.kind === 'job') onOpenJob(processingItem.id); else onOpenCurrentCopy(); }}>Voir la copie</button><button type="button" className="context-stop-button" disabled={isStoppingCorrections} onClick={onStopCorrections}>{isStoppingCorrections ? 'Arrêt en cours…' : 'Arrêter'}</button></div></div>}
     <div className="copy-overview-toolbar">

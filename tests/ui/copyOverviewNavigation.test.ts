@@ -204,4 +204,23 @@ describe('CorrectionOverview — comportement enseignant', () => {
     expect(container.textContent).toContain('1 résultat(s)');
     expect(container.textContent).toContain('Alice Martin');
   });
+
+  it('shows the last available correction even when the list is filtered, and opens that exact copy', async () => {
+    const newestResult = { ...reviewJob, id: 'recent-copy', label: 'Dernière copie corrigée', updatedAt: '2026-11-04T10:00:00.000Z', score: 18 };
+    const laterPending = { ...reviewJob, id: 'later-pending', label: 'Copie encore en attente', updatedAt: '2026-11-05T12:00:00.000Z', status: 'pending' as const, score: null };
+    await render('to-retry', [reviewJob, newestResult, laterPending]);
+    const latest = container.querySelector('.copy-overview-latest');
+    expect(latest?.textContent).toContain('Dernière copie corrigée');
+    expect(latest?.textContent).toContain('18 / 20');
+    expect(latest?.textContent).not.toContain('Copie encore en attente');
+    expect(container.querySelectorAll('.correction-series-card')).toHaveLength(0);
+    await act(async () => latest?.querySelector('button')?.click());
+    expect(onOpenJob).toHaveBeenCalledExactlyOnceWith('recent-copy');
+  });
+
+  it('does not pretend a pending or failed copy has an available correction', async () => {
+    await render('all', [failedJob, { ...reviewJob, status: 'pending', score: null }]);
+    expect(container.querySelector('.copy-overview-latest')).toBeNull();
+  });
+
 });

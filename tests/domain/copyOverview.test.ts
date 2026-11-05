@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countAssignmentCopies, countCopyOverviewStatuses, defaultCopyOverviewFilter, sortCopyOverviewItems, toCopyOverviewStatus } from '../../src/domain/copyOverview.ts';
+import { countAssignmentCopies, countCopyOverviewStatuses, defaultCopyOverviewFilter, getLatestAvailableCorrection, sortCopyOverviewItems, toCopyOverviewStatus } from '../../src/domain/copyOverview.ts';
 
 describe('suivi unifié des copies', () => {
   it.each([
@@ -57,4 +57,22 @@ describe('suivi unifié des copies', () => {
       'failed', 'new-review', 'old-review', 'processing', 'pending', 'completed',
     ]);
   });
+
+  it('retrouve le dernier résultat disponible, sans confondre avec la copie en cours ou le tri des statuts', () => {
+    const items = [
+      { id: 'previous-review', status: 'to-review' as const, updatedAt: '2026-11-02T10:00:00Z' },
+      { id: 'recent-archive', status: 'completed' as const, updatedAt: '2026-11-03T10:00:00Z' },
+      { id: 'latest-pending', status: 'to-do' as const, updatedAt: '2026-11-05T10:00:00Z' },
+      { id: 'latest-failed', status: 'to-retry' as const, updatedAt: '2026-11-05T11:00:00Z' },
+      { id: 'latest-running', status: 'processing' as const, updatedAt: '2026-11-05T12:00:00Z' },
+      { id: 'recent-review', status: 'to-review' as const, updatedAt: '2026-11-04T10:00:00Z' },
+    ];
+    expect(getLatestAvailableCorrection(sortCopyOverviewItems(items))?.id).toBe('recent-review');
+    expect(getLatestAvailableCorrection(items.filter((item) => item.id !== 'recent-review'))?.id).toBe('recent-archive');
+    expect(getLatestAvailableCorrection(items.filter((item) => !['to-review', 'completed'].includes(item.status)))).toBeNull();
+    expect(items.map((item) => item.id)).toEqual([
+      'previous-review', 'recent-archive', 'latest-pending', 'latest-failed', 'latest-running', 'recent-review',
+    ]);
+  });
+
 });

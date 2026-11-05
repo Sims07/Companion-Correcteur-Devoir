@@ -133,3 +133,24 @@ export function getCopyNavigation(
     nextCopyToReview,
   };
 }
+
+
+/**
+ * A selected queued copy may finish in the background while its review screen
+ * is open. Detect the first available proposal without overwriting an already
+ * loaded (potentially teacher-edited) review.
+ */
+export function getNewlyAvailableReviewJob(
+  assignmentId: string,
+  selectedJobId: string | null,
+  hasLoadedProposal: boolean,
+  jobs: readonly BackgroundCorrectionJob[],
+): BackgroundCorrectionJob | null {
+  if (!selectedJobId || hasLoadedProposal) return null;
+  return jobs.find((job) =>
+    job.assignmentId === assignmentId &&
+    job.id === selectedJobId &&
+    Boolean(job.proposal) &&
+    (job.status === 'ready' || job.status === 'reviewing' || job.status === 'needs-review')
+  ) ?? null;
+}

@@ -75,3 +75,12 @@ export function sortCopyOverviewItems<T extends { status: CopyOverviewStatus; up
     right.updatedAt.localeCompare(left.updatedAt),
   );
 }
+
+
+/** The last available result is independent of status-priority sorting and of the active filter. */
+export function getLatestAvailableCorrection<T extends { status: CopyOverviewStatus; updatedAt: string }>(items: readonly T[]): T | null {
+  return items.reduce<T | null>((latest, item) => {
+    if (item.status !== 'to-review' && item.status !== 'completed') return latest;
+    return !latest || item.updatedAt > latest.updatedAt ? item : latest;
+  }, null);
+}
