@@ -1,4 +1,5 @@
 import type { GradingProposal } from './grading.ts';
+import type { CorrectionMethod } from './correctionMethod.ts';
 import type { Rubric } from './rubric.ts';
 
 export interface ModelEvaluationConfiguration {
@@ -11,6 +12,7 @@ export interface ModelEvaluationConfiguration {
   analysisModel: string;
   thinking: boolean;
   criterionByCriterion?: boolean;
+  correctionMethod?: CorrectionMethod;
 }
 
 export interface ModelEvaluationOutput<T> {
