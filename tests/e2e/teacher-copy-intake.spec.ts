@@ -67,16 +67,16 @@ test('a teacher can cancel or confirm removing one imported copy without affecti
   const first = cards.filter({ hasText: 'etudiant-a.png' });
   const remove = first.getByRole('button', { name: 'Retirer la copie « etudiant-a.png »' });
 
-  // Native confirmation: dismissal must leave both imported copies untouched.
   await remove.click();
+  const confirmation = page.getByRole('dialog', { name: 'Retirer cette copie ?' });
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation).toContainText('etudiant-a.png');
+  await expect(confirmation).toContainText('1 page(s)');
+  await page.keyboard.press('Escape');
+  await expect(confirmation).toHaveCount(0);
   await expect(cards).toHaveCount(2);
-  page.once('dialog', async (dialog) => {
-    expect(dialog.message()).toContain('etudiant-a.png');
-    expect(dialog.message()).toContain('1 page(s)');
-    await dialog.accept();
-  });
-  // Dispatch directly: the removed card can unmount before Playwright's click retry finishes.
-  await remove.dispatchEvent('click');
+  await remove.click();
+  await confirmation.getByRole('button', { name: 'Retirer la copie' }).click();
   await expect(cards).toHaveCount(1);
   await expect(cards.first()).toContainText('etudiant-b.png');
   await expect(page.getByRole('button', { name: /En attente/ })).toContainText('1');

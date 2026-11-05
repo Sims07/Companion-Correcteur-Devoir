@@ -90,3 +90,9 @@ Les accents et textes visibles respectent au minimum un contraste WCAG AA de 4,5
 ### Espace de vérification des copies
 
 `src/ui/correctionAtelier.css` décline la maquette B sur le suivi des copies et le poste de relecture. Sur desktop, l'original et les décisions disposent d'une largeur comparable ; sous 1100 px, la copie et les critères s'empilent pour éviter une colonne de texte étriquée. Seuls les critères qui demandent réellement l'attention du professeur portent la classe `is-flagged` et un liseré d'accent. Les critères sans alerte, les preuves longues et les justifications restent consultables sans être développés par défaut. Les tests de contrat et le parcours Playwright vérifient la classe d'alerte, la disposition et la lisibilité.
+
+## Fenêtres de dialogue
+
+Les confirmations et fenêtres modales utilisent le composant partagé `Dialog` (`src/ui/design-system/components/Dialog.tsx`) et les boutons `Button`. Le navigateur gère la modalité native, le focus, la touche Échap et son retour à l'élément déclencheur. La croix et le fond ne ferment que les dialogues annulables ; `dismissible={false}` est réservé aux décisions indispensables à un traitement en cours.
+
+Les tailles disponibles sont `compact` (confirmations), `wide` (revue des annotations) et `viewer` (pages). La surface, la typographie, les boutons, les couleurs, les bordures, l'ombre et le fond proviennent des tokens du design system. Ne pas utiliser `window.confirm` ou une surcouche `div[role="dialog"]` pour les parcours professeur. Un nouveau dialogue doit posséder un scénario Storybook et des tests ciblés de ses interactions au clavier et sur mobile.

@@ -240,3 +240,65 @@ textarea.ds-textarea {
   select:not([multiple]),
   .ds-button { transition: none; }
 }
+
+/* Shared modal surfaces: the same paper, spacing and controls as Atelier pédagogique. */
+dialog.ds-dialog {
+  position: fixed;
+  inset: 0;
+  width: min(92vw, 480px);
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+  box-shadow: var(--ds-shadow-dialog);
+}
+dialog.ds-dialog::backdrop { background: var(--ds-color-dialog-backdrop); }
+dialog.ds-dialog--wide { width: min(94vw, 760px); }
+dialog.ds-dialog--viewer { width: min(96vw, 1200px); height: min(94dvh, 950px); }
+.ds-dialog__surface { display: flex; flex-direction: column; max-height: calc(100dvh - 32px); min-height: 0; height: 100%; }
+.ds-dialog__header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--ds-space-4);
+  padding: var(--ds-space-5) var(--ds-space-6);
+  border-bottom: 1px solid var(--ds-color-border);
+  background: var(--ds-color-surface);
+}
+.ds-dialog__heading { min-width: 0; }
+.ds-dialog__heading h2 { margin: 0; font-family: var(--ds-font-editorial); font-size: clamp(1.15rem, 2.5vw, 1.4rem); line-height: 1.25; color: var(--ds-color-text); }
+.ds-dialog__heading p { margin: var(--ds-space-1) 0 0; font-size: .85rem; color: var(--ds-color-text-muted); overflow-wrap: anywhere; }
+.ds-dialog__close.ds-button { flex: 0 0 auto; width: 36px; min-height: 36px; padding: 0; font-size: 1.4rem; font-weight: 400; }
+.ds-dialog__body { padding: var(--ds-space-5) var(--ds-space-6); overflow: auto; line-height: 1.55; }
+.ds-dialog__body > p:first-child { margin-top: 0; }
+.ds-dialog__body > p:last-child { margin-bottom: 0; }
+.ds-dialog__footer {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--ds-space-2);
+  padding: var(--ds-space-4) var(--ds-space-6);
+  border-top: 1px solid var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+}
+.ds-dialog--viewer .ds-dialog__body { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0; overflow: hidden; }
+.ds-dialog .copy-image-viewer-toolbar, .ds-dialog .copy-image-viewer-navigation { border-color: var(--ds-color-border); }
+.ds-dialog .copy-image-viewer-toolbar button, .ds-dialog .copy-image-viewer-navigation button {
+  border: 1px solid var(--ds-color-border-strong);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+}
+.ds-dialog .copy-image-viewer-toolbar button:focus-visible, .ds-dialog .copy-image-viewer-navigation button:focus-visible {
+  outline: none; box-shadow: var(--ds-focus-ring);
+}
+.ds-dialog .annotation-review-content > p, .ds-dialog .annotation-review-actions > span { color: var(--ds-color-text-muted); }
+.ds-dialog .annotation-review-content { padding: 0; }
+.ds-dialog .annotation-review-option { padding: var(--ds-space-3); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); background: var(--ds-color-surface-subtle); }
+.ds-dialog .annotation-review-option:focus-within { border-color: var(--ds-color-brand-700); }
+@media (max-width: 600px) {
+  dialog.ds-dialog, dialog.ds-dialog--wide { width: calc(100vw - 24px); }
+  dialog.ds-dialog--viewer { width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+  .ds-dialog__header, .ds-dialog__body, .ds-dialog__footer { padding: var(--ds-space-4); }
+  .ds-dialog__footer .ds-button { flex: 1; }
+  .ds-dialog--viewer .ds-dialog__body { padding: 0; }
+}
