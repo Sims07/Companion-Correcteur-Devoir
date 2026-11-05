@@ -80,11 +80,11 @@ describe('native Ollama System One routing', () => {
       model:'d3:4b',
       answers: Object.fromEntries(fullRubric.criteria.flatMap((_,i)=>[
         ['criterion_'+(i+1)+'_alignment',answer('aligned')],
-        ['criterion_'+(i+1)+'_expected_1',{
+        ['criterion_'+(i+1)+'_score',{
           type:'choice',
-          choice:'present',
+          choice:'points_5',
           confidence:0.19,
-          probabilities:{present:i===2?0.46:0.98,absent:i===2?0.31:0.01,partial:i===2?0.21:0.005,uncertain:i===2?0.02:0.005},
+          probabilities:{points_5:i===2?0.53:0.98,points_4:i===2?0.45:0.01,points_3:i===2?0.02:0.01},
         }],
       ])),
       usage:{input_tokens:1200,output_tokens:0},
@@ -106,7 +106,7 @@ describe('native Ollama System One routing', () => {
     expect(graded.criteria).toHaveLength(4);
     expect(graded.criteria.map(item=>item.points)).toEqual([5,5,5,5]);
     expect(graded.scoreIncomplete).not.toBe(true);
-    expect(graded.criteria[2].questionForTeacher).toBeTruthy();
+    expect(graded.criteria[2].questionForTeacher).toContain('Deux notes restent proches');
   });
 
 });
