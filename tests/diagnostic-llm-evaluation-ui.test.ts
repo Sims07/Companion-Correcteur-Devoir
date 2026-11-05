@@ -6,6 +6,7 @@ const appSource = readFileSync(resolve(process.cwd(), 'src/ui/App.tsx'), 'utf8')
 const domainSource = readFileSync(resolve(process.cwd(), 'src/domain/modelEvaluation.ts'), 'utf8');
 const styles = readFileSync(resolve(process.cwd(), 'src/ui/correctionFlow.css'), 'utf8');
 const evaluationStyles = readFileSync(resolve(process.cwd(), 'src/ui/styles.css'), 'utf8');
+const evaluationLayout = readFileSync(resolve(process.cwd(), 'src/ui/modelEvaluationWorkspace.css'), 'utf8');
 
 describe('Diagnostic IA — indicateurs d’évaluation des LLM', () => {
   it('exposes output validity, criterion coverage, declared confidence and teacher questions per run', () => {
@@ -124,7 +125,7 @@ describe('Évaluation des modèles — navigation par espace', () => {
     expect(evaluationStyles).toContain('.evaluation-results-workspace[data-evaluation-step="execution"] .evaluation-result-list');
     expect(evaluationStyles).toContain('.evaluation-results-workspace[data-evaluation-step="results"] .evaluation-result-list');
     expect(evaluationStyles).toContain('.evaluation-results-workspace[data-evaluation-step="history"] .evaluation-progress');
-    expect(evaluationStyles).toContain('.evaluation-step-nav button.is-active');
+    expect(evaluationLayout).toContain('.evaluation-step-nav button.is-active');
   });
 });
 
@@ -216,13 +217,19 @@ describe('Évaluation des modèles — débit de génération', () => {
 });
 
 describe('Évaluation des modèles — navigation et alignement du contenu', () => {
-  it('keeps the laboratory sidebar sticky on desktop and static in the responsive layout', () => {
-    expect(evaluationStyles).toContain('.evaluation-step-nav{position:sticky;top:18px;z-index:1;display:flex;');
-    expect(evaluationStyles).toContain('@media(max-width:999px){.evaluation-step-nav{position:static;');
+  it('replaces the floating sidebar with a horizontal four-stage navigation', () => {
+    expect(evaluationLayout).toContain('.evaluation-workspace-shell .evaluation-step-nav');
+    expect(evaluationLayout).toContain('float: none');
+    expect(evaluationLayout).toContain('grid-template-columns: repeat(4, minmax(0, 1fr))');
+    expect(evaluationStyles).not.toContain('.evaluation-step-nav{float:left');
   });
 
-  it('aligns the configuration and experiment panels in the same desktop content column', () => {
-    expect(evaluationStyles).toContain('@media(min-width:1000px){.evaluation-step-nav{float:left;width:224px;margin-right:24px}.evaluation-config-workspace,.evaluation-results-workspace{margin-left:248px}');
+  it('aligns configuration, rubric, copy and results on the same responsive canvas', () => {
+    expect(evaluationLayout).toContain('.evaluation-workspace-shell .diagnostic-content-column > *');
+    expect(evaluationLayout).toContain('.evaluation-workspace-shell .setup-grid');
+    expect(evaluationLayout).toContain('.evaluation-workspace-shell .evaluation-launch-panel');
+    expect(evaluationLayout).toContain('@media (max-width: 520px)');
+    expect(evaluationStyles).not.toContain('margin-left:248px');
   });
 });
 

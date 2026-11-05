@@ -17,8 +17,8 @@ export function BackgroundCopyActivity({ job }: Props) {
     <section className="background-copy-activity" aria-labelledby="background-copy-activity-title">
       <header className="background-copy-activity-heading">
         <div>
-          <h4 id="background-copy-activity-title">Avancement du barème</h4>
-          <p>Les critères terminés apparaissent au fur et à mesure.</p>
+          <h4 id="background-copy-activity-title">Critères du barème</h4>
+          <p>Résultats disponibles progressivement.</p>
         </div>
         <strong className="background-copy-activity-counter">{done} / {total}</strong>
       </header>
