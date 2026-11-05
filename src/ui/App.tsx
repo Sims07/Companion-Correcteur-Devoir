@@ -38,6 +38,7 @@ import { prepareBatchCopies } from '../application/prepareBatchCopies.ts';
 import { autoRotateScientificPages } from '../application/autoRotateScientificPages.ts';
 import type { BackgroundCorrectionService } from '../application/backgroundCorrectionService.ts';
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
+import type { CorrectionMethod } from '../domain/correctionMethod.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { getArchivedCorrectionsForAssignment } from '../domain/assignmentOverview.ts';
 import { defaultCopyOverviewFilter, toCopyOverviewStatus, type CopyOverviewFilter } from '../domain/copyOverview.ts';
@@ -349,6 +350,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [transcriptionPenaltyParameter, setTranscriptionPenaltyParameter] = useState<'none' | 'frequency_penalty' | 'repeat_penalty'>(() => readAiModelConfiguration().transcriptionPenaltyParameter);
   const [transcriptionFrequencyPenalty, setTranscriptionFrequencyPenalty] = useState(() => readAiModelConfiguration().transcriptionFrequencyPenalty);
   const [analysisModel, setAnalysisModel] = useState(() => readAiModelConfiguration().analysisModel);
+  const [correctionMethod, setCorrectionMethod] = useState<CorrectionMethod>(() => readAiModelConfiguration().correctionMethod);
   const [secondAnalysisModel, setSecondAnalysisModel] = useState(() => readAiModelConfiguration().secondAnalysisModel);
   const [arbitratorModel, setArbitratorModel] = useState(() => readAiModelConfiguration().arbitratorModel);
   const [diagnosticStrategy, setDiagnosticStrategy] = useState<DiagnosticStrategy>(() => readAiModelConfiguration().diagnosticStrategy);
@@ -601,10 +603,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   ];
 
   useEffect(() => {
-    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
+    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion, correctionMethod };
     try { window.localStorage.setItem(aiModelConfigurationKey, JSON.stringify(configuration)); }
     catch { /* The current settings remain usable for this session if storage is unavailable. */ }
-  }, [endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion]);
+  }, [endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion, correctionMethod]);
 
   function applyAiModelProfile(profile: AiModelProfile) {
     setEndpoint(profile.configuration.endpoint);
@@ -617,6 +619,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setTranscriptionPenaltyParameter(profile.configuration.transcriptionPenaltyParameter);
     setTranscriptionFrequencyPenalty(profile.configuration.transcriptionFrequencyPenalty);
     setAnalysisModel(profile.configuration.analysisModel);
+    setCorrectionMethod(profile.configuration.correctionMethod);
     setSecondAnalysisModel(profile.configuration.secondAnalysisModel);
     setArbitratorModel(profile.configuration.arbitratorModel);
     setDiagnosticStrategy(profile.configuration.diagnosticStrategy);
@@ -632,7 +635,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
-    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion };
+    const configuration: AiModelConfiguration = { endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, secondAnalysisModel, arbitratorModel, diagnosticStrategy, analysisThinking, criterionByCriterion, correctionMethod };
     const profile: AiModelProfile = {
       id: selectedAiModelProfileId || 'ai-profile-' + Date.now(),
       name,
@@ -1175,7 +1178,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         // Ollama model metadata was checked above without loading the models.
         setAnalysisStage('reading');
         if (!gradingTranscription) setCriterionProgressMessage('Chargement du modèle de lecture, cela peut prendre quelques minutes…');
-        const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, ...((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
+        const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, correctionMethod, ...((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
         const teacherAnnotationImages = detectTeacherAnnotations
           ? await Promise.all(textPageNumbers.map(async (pageNumber) => {
             const pageIndex = pageNumber - 1;
@@ -2425,6 +2428,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
         {availableModels.length > 0 ? <DesignSystemSelect id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}
         <p className="hint">Ce modèle applique le barème au texte lu. Le mode thinking reste désactivé pour privilégier une correction plus rapide et compatible.</p>
+        <label className="field-label" htmlFor="ai-correction-method">Méthode de correction</label>
+        <DesignSystemSelect id="ai-correction-method" value={correctionMethod} onChange={(event) => setCorrectionMethod(event.target.value as CorrectionMethod)}>
+          <option value="generative">Classique — vision et analyse</option>
+          <option value="decision" disabled>Décisionnelle — disponible après validation du moteur</option>
+        </DesignSystemSelect>
+        <p className="hint">La correction classique reste active. Le mode décisionnel sera activé après ses tests, sans modifier les copies ou les schémas existants.</p>
         <label className="analysis-thinking-option" htmlFor="ai-criterion-by-criterion"><input id="ai-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère, avec affichage progressif. Désactivez cette option pour envoyer tout le barème dans un seul appel et comparer les deux approches.</small></span></label>
         {apiCompatible && <section className="saluki-load-card" aria-labelledby="saluki-load-title">
           <div className="saluki-load-heading"><div><p className="eyebrow">MODÈLE AVANCÉ · À LA DEMANDE</p><h3 id="saluki-load-title">Saluki 27B <span className="saluki-beta">BÊTA</span></h3></div><span className={salukiLoaded ? 'saluki-status is-loaded' : 'saluki-status'}>{salukiLoaded ? 'Chargé' : 'Non chargé'}</span></div>
