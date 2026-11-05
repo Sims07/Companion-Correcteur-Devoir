@@ -36,7 +36,10 @@ export function expectedDecisionTargets(criterion: RubricCriterion): RubricSubcr
   // Reuse the teacher-facing parser: multiline lists, decimal points, and
   // non-scoring reference paragraphs follow the same rules as the rubric UI.
   // No inferred allocation is allowed when even one item has no weight.
-  const suggested = suggestSubcriteriaFromDescription(criterion);
+  // Legacy barèmes sometimes append a prose 'Référence : ...' immediately
+  // after the final weighted expectation, not after a semicolon.
+  const description = criterion.description.replace(/\s*\.\s*R[eé]f[eé]rence\s*:[^\n]*/giu, '');
+  const suggested = suggestSubcriteriaFromDescription({ ...criterion, description });
   if (suggested.length < 2 || suggested.some((item) => item.maxPoints === null)) return [];
   const targets = suggested.map((item, index) => ({
     id: criterion.id + '-expected-' + (index + 1),
