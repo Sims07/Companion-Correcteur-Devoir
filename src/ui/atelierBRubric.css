@@ -1,0 +1,281 @@
+/* Composition du barème inspirée de la maquette B : feuille de critères + synthèse. */
+.atelier-rubric-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(215px, .9fr);
+  gap: 18px;
+  align-items: start;
+  margin: 0;
+  min-width: 0;
+}
+.atelier-rubric-grid.is-diagnostic { display: block; }
+.atelier-rubric-editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  padding: 24px 25px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: 3px;
+  background: var(--ds-color-surface);
+  box-shadow: none;
+}
+.atelier-rubric-editor .rubric-assignment-context {
+  order: 0;
+  display: grid;
+  gap: 4px;
+  margin: 0 0 15px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.atelier-rubric-editor .rubric-assignment-context strong {
+  font-size: 14px;
+  font-weight: 760;
+  color: var(--ds-color-text);
+}
+.atelier-rubric-editor .rubric-assignment-context p { margin: 0; font-size: 11px; color: var(--ds-color-text-muted); }
+.atelier-rubric-editor > .field-label { order: 1; margin: 0 0 6px; font-size: 11px; }
+.atelier-rubric-editor > #rubric-title {
+  order: 2;
+  min-height: 42px;
+  border-radius: 3px;
+  border: 1px solid var(--ds-color-border-strong);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+}
+.atelier-rubric-editor > #rubric-title:focus-visible {
+  outline: none;
+  border-color: var(--ds-color-brand-700);
+  box-shadow: var(--ds-focus-ring);
+}
+.atelier-rubric-editor > .rubric-empty-state { order: 3; }
+.atelier-rubric-editor .criteria-list {
+  order: 4;
+  display: grid;
+  gap: 0;
+  margin: 17px 0 0;
+  border-top: 1px solid var(--ds-color-border);
+}
+.atelier-rubric-editor .criterion-editor,
+.atelier-rubric-editor .criterion-editor[open] {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--ds-color-border);
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--ds-color-surface);
+}
+.atelier-rubric-editor .criterion-editor[open] {
+  border-bottom-color: var(--ds-color-border-strong);
+}
+.atelier-rubric-editor .criterion-editor-summary {
+  display: grid;
+  grid-template-columns: 31px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 58px;
+  padding: 9px 6px 9px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  list-style: none;
+}
+.atelier-rubric-editor .criterion-editor-summary::-webkit-details-marker { display: none; }
+.atelier-rubric-editor .criterion-editor-summary:hover { background: var(--ds-color-surface-subtle); }
+.atelier-rubric-editor .criterion-editor-summary > span:nth-child(2) { display: grid; gap: 4px; min-width: 0; }
+.atelier-rubric-editor .criterion-editor-summary strong {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ds-color-text);
+}
+.atelier-rubric-editor .criterion-editor-summary small {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--ds-color-text-muted);
+}
+.atelier-rubric-editor .criterion-editor-summary > span:last-child {
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+  color: var(--ds-color-text);
+  font-variant-numeric: tabular-nums;
+}
+.atelier-criterion-index {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+  color: var(--ds-color-brand-700);
+  background: var(--ds-color-brand-100);
+  font-size: 10px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.atelier-rubric-editor .criterion-editor-content {
+  padding: 11px 6px 17px 37px;
+  background: var(--ds-color-surface-subtle);
+}
+.atelier-rubric-editor .rubric-editor-toolbar {
+  order: 5;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0 0;
+}
+.atelier-rubric-editor .rubric-editor-toolbar .primary-button {
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+  border: 1px solid var(--ds-color-border);
+  border-radius: 3px;
+  min-height: 37px;
+}
+.atelier-rubric-editor .rubric-editor-toolbar .primary-button:hover {
+  background: var(--ds-color-brand-100);
+  border-color: var(--ds-color-border-strong);
+}
+.atelier-rubric-editor > .rubric-reuse-panel { order: 6; margin: 18px 0 0; border-radius: 3px; }
+.atelier-rubric-editor > .rubric-import-panel { order: 7; border-radius: 3px; }
+.atelier-rubric-editor > .rubric-export-panel { order: 8; border-radius: 3px; }
+.atelier-rubric-editor > .rubric-import { order: 7; border-color: var(--ds-color-border); background: var(--ds-color-surface-subtle); border-radius: 3px; }
+.atelier-rubric-editor > .rubric-export-panel { order: 8; }
+.atelier-rubric-editor > .rubric-actions { order: 9; }
+
+/* La synthèse reste discrète : chiffres décisionnels, état et réutilisation. */
+.atelier-rubric-synthesis {
+  position: sticky;
+  top: 18px;
+  min-width: 0;
+  display: grid;
+  gap: 0;
+  padding: 20px 19px 18px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: 3px;
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+}
+.atelier-rubric-synthesis .eyebrow { margin: 0 0 9px; font-size: 10px; letter-spacing: .1em; }
+.atelier-rubric-synthesis h3 { margin: 0 0 15px; font-size: 14px; line-height: 1.35; font-weight: 750; }
+.atelier-rubric-synthesis dl { display: grid; margin: 0; }
+.atelier-rubric-synthesis dl > div { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid var(--ds-color-border); }
+.atelier-rubric-synthesis dt { color: var(--ds-color-text-muted); font-size: 10px; }
+.atelier-rubric-synthesis dd { margin: 0; font-size: 12px; line-height: 1.35; font-weight: 750; overflow-wrap: anywhere; }
+.atelier-rubric-synthesis-status {
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  margin: 16px 0 0;
+  border-radius: 3px;
+}
+.atelier-rubric-synthesis-status strong { font-size: 11px; }
+.atelier-rubric-synthesis-status span { font-size: 10px; line-height: 1.5; }
+.atelier-rubric-synthesis-status.is-ready {
+  color: var(--ds-color-success);
+  background: var(--ds-color-success-surface);
+}
+.atelier-rubric-synthesis-status.is-incomplete {
+  color: var(--ds-color-warning);
+  background: var(--ds-color-warning-surface);
+}
+.atelier-rubric-reuse-hint {
+  display: grid;
+  gap: 6px;
+  margin-top: 17px;
+  padding: 12px;
+  background: var(--ds-color-brand-100);
+  border-radius: 3px;
+}
+.atelier-rubric-reuse-hint strong { color: var(--ds-color-brand-700); font-size: 11px; }
+.atelier-rubric-reuse-hint p { margin: 0; line-height: 1.5; font-size: 10px; }
+.atelier-rubric-reuse-hint button { width: fit-content; padding: 5px 0; color: var(--ds-color-brand-700); font-size: 10px; }
+.atelier-rubric-reuse-hint button:focus-visible { outline: 2px solid var(--ds-color-brand-700); outline-offset: 2px; }
+
+@media (max-width: 1200px) {
+  .atelier-rubric-grid { grid-template-columns: minmax(0, 1fr); }
+  .atelier-rubric-synthesis { position: static; }
+  .atelier-rubric-synthesis dl { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+}
+@media (max-width: 760px) {
+  .atelier-rubric-editor { padding: 16px 14px; }
+  .atelier-rubric-synthesis dl { grid-template-columns: minmax(0,1fr); gap: 0; }
+  .atelier-rubric-editor .criterion-editor-content { padding-left: 8px; }
+  .atelier-rubric-editor .criterion-editor-summary { grid-template-columns: 28px minmax(0,1fr) auto; gap: 7px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .atelier-rubric-editor .criterion-editor-summary { transition: none; }
+}
+
+/* L'édition des métadonnées est une action discrète, pas une carte de plus. */
+.teacher-flow-shell .assignment-details-collapsible:not([open]) {
+  height: 34px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.teacher-flow-shell .assignment-details-collapsible:not([open]) > summary {
+  display: flex;
+  justify-content: flex-end;
+  width: fit-content;
+  margin-left: auto;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+}
+.teacher-flow-shell .assignment-details-collapsible:not([open]) > summary > span:first-child {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.teacher-flow-shell .assignment-details-collapsible:not([open]) .assignment-details-edit {
+  color: var(--ds-color-brand-700);
+  font-size: 11px;
+  font-weight: 750;
+}
+.teacher-flow-shell .assignment-details-collapsible > summary:focus-visible {
+  outline: 2px solid var(--ds-color-brand-700);
+  outline-offset: 2px;
+}
+.teacher-flow-shell .diagnostic-setup-heading .step-count { display: none; }
+
+/* Sur le barème, garder l'accès aux règles de correction dans l'espace latéral. */
+body:has(.atelier-rubric-grid:not(.is-diagnostic)) .memory-fab {
+  left: 22px;
+  right: auto;
+  bottom: 14px;
+  width: 174px;
+  padding: 8px 11px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-surface);
+  box-shadow: var(--app-surface-shadow);
+  color: var(--ds-color-text);
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  body:has(.atelier-rubric-grid:not(.is-diagnostic)) .memory-fab {
+    left: 12px;
+    right: auto;
+    bottom: 10px;
+    width: auto;
+    max-width: min(180px, 44vw);
+    padding: 7px 9px;
+    font-size: 10px;
+  }
+}
+
+/* Ne pas répéter l'état « cohérent » lorsque la synthèse l'affiche déjà.
+   Les erreurs restent visibles à côté de l'action du professeur. */
+.atelier-rubric-editor .rubric-editor-toolbar .validation.valid,
+.atelier-rubric-editor > .rubric-actions .validation.valid {
+  display: none;
+}
