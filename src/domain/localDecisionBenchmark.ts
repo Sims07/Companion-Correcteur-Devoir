@@ -46,7 +46,7 @@ export function buildLocalDecisionBenchmark(traces: readonly LocalBenchmarkTrace
   type Aggregate = {
     key: string; assignment: string; method: LocalBenchmarkSummary['method']; model: string;
     referenceCopies: number; comparedCopies: number; unscoredCopies: number;
-    errorSum: number; criterionErrorSum: number; durationSum: number;
+    errorSum: number; criterionErrorSum: number; durationSum: number; durationCount: number;
     callsSum: number; measuredCallRuns: number;
   };
   const groups = new Map<string, Aggregate>();
@@ -67,11 +67,12 @@ export function buildLocalDecisionBenchmark(traces: readonly LocalBenchmarkTrace
     const group = groups.get(key) ?? {
       key, assignment: trace.assignmentTitle ?? trace.assignmentId, method,
       model: trace.analysisModel, referenceCopies: 0, comparedCopies: 0, unscoredCopies: 0,
-      errorSum: 0, criterionErrorSum: 0, durationSum: 0, callsSum: 0, measuredCallRuns: 0,
+      errorSum: 0, criterionErrorSum: 0, durationSum: 0, durationCount: 0, callsSum: 0, measuredCallRuns: 0,
     };
     group.referenceCopies += 1;
     if (Number.isFinite(trace.totalSeconds) && trace.totalSeconds >= 0) {
       group.durationSum += trace.totalSeconds;
+      group.durationCount += 1;
     }
     if (trace.diagnosticRuns?.length) {
       group.callsSum += trace.diagnosticRuns.reduce((sum, run) => sum + (run.requestCount ?? 1), 0);
@@ -95,7 +96,7 @@ export function buildLocalDecisionBenchmark(traces: readonly LocalBenchmarkTrace
     unscoredCopies: group.unscoredCopies,
     meanCriterionError: group.comparedCopies ? precision(group.criterionErrorSum / group.comparedCopies) : null,
     meanTotalError: group.comparedCopies ? precision(group.errorSum / group.comparedCopies) : null,
-    averageSeconds: group.referenceCopies ? precision(group.durationSum / group.referenceCopies) : null,
+    averageSeconds: group.durationCount ? precision(group.durationSum / group.durationCount) : null,
     averageCalls: group.measuredCallRuns ? precision(group.callsSum / group.measuredCallRuns) : null,
     maturity: group.comparedCopies < 10 ? 'exploratory'
       : group.comparedCopies < 30 ? 'preliminary' : 'extended',
