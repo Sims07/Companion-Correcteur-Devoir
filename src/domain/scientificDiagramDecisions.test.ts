@@ -35,6 +35,57 @@ function diagramAnalysis(
   };
 }
 describe('hybrid scientific diagram decisions', () => {
+  it('does not invalidate a grounded visual criterion because of an unrelated global warning', () => {
+    const twoVisualCriteria: Rubric = { title: 'Mitose', criteria: [
+      { id: 'title', title: 'Titre', description: 'Titre global', maxPoints: 2,
+        analysisMode: 'scientific-diagram', subcriteria: [{ id: 'global-title', title: 'Titre global', description: '', maxPoints: 2 }] },
+      { id: 'labels', title: 'Légendes', description: 'Légendes du dessin', maxPoints: 2,
+        analysisMode: 'scientific-diagram', subcriteria: [{ id: 'phase-labels', title: 'Noms des phases', description: '', maxPoints: 2 }] },
+    ] };
+    const analysis: ScientificDiagramAnalysis = {
+      diagrams: [{ id: 'diagram-1', pageNumber: 1, diagramType: 'mitose', summary: '', criteria: [], uncertainties: [] }],
+      overallUncertainties: ['La marge inférieure contient des annotations non interprétées.'],
+      criteria: [
+        { criterionId: 'title', title: 'Titre', points: 2, maxPoints: 2, evidence: 'MITOSE écrit au-dessus',
+          confidence: 0.96, requiresTeacherReview: false, diagramIds: ['diagram-1'], elements: [
+            { subcriterionId: 'global-title', label: 'Titre global', status: 'present', points: 2, maxPoints: 2,
+              evidence: 'MITOSE manuscrit au-dessus du dessin', origin: 'student-diagram' },
+          ] },
+        { criterionId: 'labels', title: 'Légendes', points: 0, maxPoints: 2, evidence: 'Prophase difficile à lire',
+          confidence: 0.65, requiresTeacherReview: true, diagramIds: ['diagram-1'], elements: [
+            { subcriterionId: 'phase-labels', label: 'Noms des phases', status: 'uncertain', points: 0, maxPoints: 2,
+              evidence: 'Étiquette brouillée', origin: 'uncertain',
+              uncertainty: 'Le mot prophase est masqué par une rature.' },
+          ] },
+      ],
+    };
+    const result = mergeDecisionScientificDiagramCriteria(twoVisualCriteria, null, analysis);
+    expect(result.criteria[0]).toMatchObject({ points: 2, assessmentStatus: 'evaluated' });
+    expect(result.criteria[0].questionForTeacher).toBeUndefined();
+    expect(result.criteria[1]).toMatchObject({ points: 0, assessmentStatus: 'not-evaluated' });
+    expect(result.criteria[1].questionForTeacher).toContain('Le mot prophase est masqué');
+    expect(result.criteria[1].questionForTeacher).not.toContain('fiabilité de la lecture');
+    expect(result.finalScore).toBe(2);
+    expect(result.scoreIncomplete).toBe(true);
+    expect(result.questionsForTeacher).toContain('La marge inférieure contient des annotations non interprétées.');
+  });
+
+  it('does not award the title criterion based on printed subject-only evidence', () => {
+    const marked: ScientificDiagramAnalysis = diagramAnalysis([
+      { id: 'membrane', status: 'present', evidence: 'MITOSE imprimé' },
+      { id: 'cristae', status: 'present', evidence: 'Crêtes visibles' },
+    ]);
+    marked.criteria![0].elements![0] = {
+      ...marked.criteria![0].elements![0], status: 'uncertain', origin: 'printed-subject',
+      points: 0, evidence: 'Titre seulement imprimé dans la consigne',
+      uncertainty: 'Le titre n’est pas manuscrit sur le dessin.',
+    };
+    const result = mergeDecisionScientificDiagramCriteria(rubric, textProposal, marked);
+    expect(result.criteria[0]).toMatchObject({ points: 1.75, assessmentStatus: 'not-evaluated' });
+    expect(result.criteria[0].questionForTeacher).toContain('Le titre n’est pas manuscrit');
+    expect(result.finalScore).toBe(1);
+  });
+
   it('derives points from statuses and teacher weights, never Vision-suggested points', () => {
     const analysis = diagramAnalysis([
       { id: 'membrane', status: 'present', evidence: 'Double membrane visible', points: 0.2 },
@@ -99,7 +150,7 @@ describe('hybrid scientific diagram decisions', () => {
     const result = mergeDecisionScientificDiagramCriteria(rubric, textProposal, analysis);
     expect(result.scoreIncomplete).toBe(true);
     expect(result.finalScore).toBe(1);
-    expect(result.criteria[0].questionForTeacher).toContain('fiabilité');
+    expect(result.criteria[0].questionForTeacher).toContain('Une mitochondrie dessinée');
   });
 
   it('holds the proposed diagram mark for teacher review when Vision reports an overall ambiguity', () => {
@@ -111,7 +162,7 @@ describe('hybrid scientific diagram decisions', () => {
     const result = mergeDecisionScientificDiagramCriteria(rubric, textProposal, analysis);
     expect(result.criteria[0].assessmentStatus).toBe('not-evaluated');
     expect(result.finalScore).toBe(1);
-    expect(result.criteria[0].questionForTeacher).toContain('fiabilité');
+    expect(result.criteria[0].questionForTeacher).toContain('Orientation du dessin');
   });
   it('does not silently award full points for contradictory observations across pages', () => {
     const analysis = diagramAnalysis([
