@@ -340,6 +340,7 @@ export function createBackgroundCorrectionService(
               analysisModel: current.analysisModel,
               thinking: current.thinking,
               criterionByCriterion: true,
+              correctionMethod: current.correctionMethod ?? 'generative',
               diagnosticStrategy: 'single',
             });
             let progressWrites = Promise.resolve();

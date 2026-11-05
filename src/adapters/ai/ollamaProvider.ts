@@ -1,4 +1,6 @@
 import { requireCorrectionMethodAvailable } from '../../domain/correctionMethod.ts';
+import { scoreCriterionDecisions } from '../../domain/criterionDecision.ts';
+import { buildCriterionDecisionPrompt, criterionDecisionSchema } from './decisionPrompts.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
 import { normalizeGradeScore, sumGradeScores } from '../../domain/scorePrecision.ts';
@@ -338,7 +340,7 @@ export function createOllamaProvider(
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
     async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning' | 'identity') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>, onProgress?: (event: GradingProgressEvent) => void, signal?: AbortSignal): Promise<string> {
-      if (!request.visionOnly) requireCorrectionMethodAvailable(settings.correctionMethod ?? 'generative', new Set(['generative']));
+      if (!request.visionOnly) requireCorrectionMethodAvailable(settings.correctionMethod ?? 'generative', new Set(['generative', 'decision']));
       const endpoint = normalizedEndpoint(settings.endpoint);
       const providerName = settings.apiCompatible ? 'API compatible OpenAI' : 'Ollama';
       const visionOnly = request.visionOnly === true;
@@ -736,7 +738,7 @@ export function createOllamaProvider(
         }
       }
 
-      if (!request.visionOnly && !useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription && !request.detectTeacherAnnotations && !request.identifyStudent) {
+      if (!request.visionOnly && settings.correctionMethod !== 'decision' && !useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription && !request.detectTeacherAnnotations && !request.identifyStudent) {
         // Compatibility mode for existing callers configured with one model.
         return sendGradingWithRepair(analysisModel, buildPrompt(), (request.images ?? []).map(providerImage), onChunk, { kind: 'model', stage: 'analysis' });
       }
@@ -988,6 +990,62 @@ export function createOllamaProvider(
       onStage?.('grading');
       onProgress?.({ type: 'phase', phase: 'grading' });
       const gradingPrompt = buildPrompt(transcription, subjectTranscription);
+      if (settings.correctionMethod === 'decision') {
+        if (settings.diagnosticStrategy && settings.diagnosticStrategy !== 'single') {
+          throw new Error('Le mode décisionnel ne prend pas encore en charge les stratégies de comparaison ou d’arbitrage.');
+        }
+        const parsedRubric = JSON.parse(request.rubric) as { criteria?: RubricCriterion[] };
+        const criteria = parsedRubric.criteria ?? [];
+        if (!criteria.length) throw new Error('Le mode décisionnel requiert un barème structuré avec au moins un critère.');
+        const proposals: import('../../domain/grading.ts').CriterionProposal[] = [];
+        for (const [index, criterion] of criteria.entries()) {
+          const progress = { criterionId: criterion.id, index: index + 1, total: criteria.length };
+          onCriterionUpdate?.({ ...progress, attempt: 1, status: 'started' });
+          onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'started' });
+          const prompt = buildCriterionDecisionPrompt({
+            criterion, transcription: transcription ?? '', teacherQuestion: request.question,
+            ...(subjectTranscription ? { subjectTranscription } : {}),
+          });
+          let proposal: import('../../domain/grading.ts').CriterionProposal | null = null;
+          let previousError = '';
+          for (let attempt = 1; attempt <= 2; attempt += 1) {
+            if (attempt > 1) {
+              onCriterionUpdate?.({ ...progress, attempt, status: 'retrying' });
+              onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'retrying' });
+            }
+            try {
+              const raw = await sendStream(
+                analysisModel,
+                attempt === 1 ? prompt : prompt + '\n\nLa précédente réponse ne respectait pas le contrat : ' + previousError + '. Corrige uniquement la structure JSON.',
+                undefined, onChunk, criterionDecisionSchema(criterion), false,
+                { kind: 'model', stage: 'analysis', temperature: 0,
+                  generationTokenLimit: Math.min(1024, 256 + 96 * Math.max(1, getRubricSubcriteria(criterion).length)),
+                  intent: 'Vérifier les attendus du critère ' + criterion.title,
+                  context: 'Décisions structurées · critère ' + (index + 1) + '/' + criteria.length },
+              );
+              proposal = scoreCriterionDecisions(criterion, parseModelJson(raw), transcription ?? '');
+              break;
+            } catch (cause) {
+              previousError = cause instanceof Error ? cause.message : 'Réponse décisionnelle inexploitable.';
+              if (signal?.aborted) break;
+            }
+          }
+          if (!proposal) {
+            onCriterionUpdate?.({ ...progress, attempt: 2, status: 'failed', error: previousError });
+            onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'failed' });
+            throw new Error('Décision indisponible pour « ' + criterion.title + ' » : ' + previousError);
+          }
+          proposals.push(proposal);
+          onCriterionUpdate?.({ ...progress, attempt: 1, status: 'completed', proposal });
+          onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'completed' });
+        }
+        return JSON.stringify({
+          summary: 'Décisions structurées selon les attendus du barème.',
+          criteria: proposals,
+          questionsForTeacher: proposals.flatMap((item) => item.questionForTeacher ? [item.questionForTeacher] : []),
+          finalScore: sumGradeScores(proposals.map((item) => item.points)),
+        });
+      }
       const strategy = settings.diagnosticStrategy ?? 'single';
       const arbitratorModel = settings.arbitratorModel?.trim() || analysisModel;
       async function sendGradingWithRepair(

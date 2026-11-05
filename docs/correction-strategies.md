@@ -12,15 +12,15 @@
 
 ## Lot 1 — Socle sans changement de comportement
 
-Le type de stratégie est défini dans le domaine, transmis en option au port IA et persisté dans les profils locaux. La stratégie décisionnelle est affichée comme indisponible dans l'IHM ; le fournisseur refuse explicitement son activation tant qu'un adaptateur réellement testé n'est pas implémenté. Couverture : migration des configurations, choix par défaut, compatibilité du port, garde-fou HTTP et contrat UI.
+Le type de stratégie est défini dans le domaine, transmis en option au port IA et persisté dans les profils locaux. La stratégie décisionnelle était initialement affichée comme indisponible dans l'IHM ; le fournisseur refusait son activation tant qu'un adaptateur testé n'existait pas. Couverture : migration des configurations, choix par défaut, compatibilité du port, garde-fou HTTP et contrat UI.
 
 ## Lot 2 — Décisions par attendus
 
 - Introduire le contrat `CriterionDecision` : `present | partial | absent | uncertain` avec preuve de la copie, sans convertir une pseudo-probabilité non calibrée en points.
 - Barème déterministe : seuls les points définis par les attendus sont attribués ; les situations incertaines demandent une vérification, pas un zéro automatique.
-- Première implémentation possible via prompts fermés et LLM d'analyse actuel, sans exiger un second modèle en RAM.
+- Première implémentation via prompts fermés et LLM d'analyse actuel, sans exiger un second modèle en RAM. Les preuves positives sont vérifiées contre la transcription. Les réponses partielles ou incertaines restent en statut not-evaluated, à vérifier par le professeur.
 - Comparer sur un même jeu de copies et de barèmes avec le mode classique (précision, temps, tokens, taux d'alertes).
-- Activer le choix dans la configuration IA *uniquement après tests verts* et conserver les résultats classiques.
+- Activer le choix dans la configuration IA *uniquement après tests verts* et conserver les résultats classiques. Les copies mises en file mémorisent leur méthode au moment de l'ajout.
 
 ## Lot 3 — Schémas, modèles spécialisés et optimisation
 
