@@ -1,0 +1,152 @@
+.background-copy-progress .live-copy-layout {
+  grid-template-columns: minmax(220px, .68fr) minmax(0, 1.32fr);
+}
+.background-copy-progress .live-copy-pages {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+}
+.background-copy-progress .live-copy-page img {
+  max-height: 220px;
+}
+.background-copy-activity {
+  min-width: 0;
+  padding: clamp(16px, 2vw, 22px);
+  border: 1px solid var(--flow-border);
+  border-radius: 12px;
+  background: var(--flow-surface-soft);
+}
+.background-copy-activity-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.background-copy-activity-heading h4 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+.background-copy-activity-heading p {
+  margin: 0;
+  color: var(--flow-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.background-copy-activity-counter {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-size: 17px;
+}
+.background-copy-activity-track {
+  height: 7px;
+  margin: 16px 0;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--flow-border);
+}
+.background-copy-activity-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--flow-accent);
+  transition: width 280ms ease;
+}
+.background-copy-activity-criteria {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.background-copy-activity-criteria li {
+  display: grid;
+  grid-template-columns: 23px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  min-height: 39px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+}
+.background-copy-activity-criteria li.is-active {
+  border-color: var(--flow-accent);
+  background: var(--flow-accent-soft);
+}
+.background-copy-activity-marker {
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  border-radius: 50%;
+  background: var(--flow-panel);
+  color: var(--flow-muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+.background-copy-activity-criteria .is-complete .background-copy-activity-marker {
+  background: var(--flow-success-soft);
+  color: var(--flow-success);
+}
+.background-copy-activity-criteria .is-active .background-copy-activity-marker {
+  background: var(--flow-accent);
+  color: var(--flow-surface);
+  font-size: 9px;
+  animation: background-activity-pulse 1.8s ease-in-out infinite;
+}
+.background-copy-activity-criteria .needs-review .background-copy-activity-marker {
+  background: var(--flow-warning-soft);
+  color: var(--flow-warning);
+}
+.background-copy-activity-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 650;
+}
+.background-copy-activity-criteria small {
+  color: var(--flow-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.background-copy-activity-criteria .is-active small {
+  color: var(--flow-accent);
+  font-weight: 700;
+}
+.background-copy-activity-note {
+  margin: 12px 0 0;
+  color: var(--flow-muted);
+  font-size: 12px;
+}
+.background-copy-transcription {
+  margin-top: 16px;
+  border-top: 1px solid var(--flow-border);
+  padding-top: 12px;
+}
+.background-copy-transcription summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+.background-copy-transcription summary small {
+  color: var(--flow-muted);
+  font-weight: 400;
+}
+@keyframes background-activity-pulse {
+  50% { opacity: .5; }
+}
+@media(max-width: 760px) {
+  .background-copy-progress .live-copy-layout {
+    grid-template-columns: 1fr;
+  }
+}
+@media(prefers-reduced-motion: reduce) {
+  .background-copy-activity-criteria .is-active .background-copy-activity-marker {
+    animation: none;
+  }
+  .background-copy-activity-track > span {
+    transition: none;
+  }
+}

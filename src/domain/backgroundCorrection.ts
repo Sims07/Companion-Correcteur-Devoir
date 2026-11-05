@@ -60,6 +60,8 @@ export interface BackgroundCorrectionJob {
   completedPages: number;
   completedCriteria: number;
   totalCriteria: number;
+  /** Set only while a specific rubric criterion is actually being evaluated. */
+  activeCriterionId?: string | null;
   transcription: string | null;
   /** Page numbers represented by the saved transcription, for safe cache reuse after visual routing. */
   transcriptionPageNumbers?: number[];
@@ -110,6 +112,7 @@ export function createBackgroundCorrection(input: Omit<BackgroundCorrectionJob, 
     completedPages: 0,
     completedCriteria: 0,
     totalCriteria: input.rubric.criteria.length,
+    activeCriterionId: null,
     transcription: null,
     partialCriteria: [],
     proposal: null,
