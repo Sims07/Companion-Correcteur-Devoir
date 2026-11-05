@@ -968,6 +968,56 @@ describe('background correction service', () => {
     expect(f.jobs.get('copy-1')?.status).toBe('ready');
   });
 
+  it.each(['generative', 'decision'] as const)('keeps %s grading isolated while routing diagrams and text in a queued copy', async (correctionMethod) => {
+    const f = fixture();
+    const image1 = { base64: 'c2NoZW1h', mimeType: 'image/png', fileName: 'schema.png' };
+    const image2 = { base64: 'dGV4dA==', mimeType: 'image/png', fileName: 'copy.png' };
+    const job = {
+      ...f.job, correctionMethod,
+      images: [image1, image2], originalImages: [image1, image2],
+      rubric: { title: 'Biologie', criteria: [
+        { id: 'visual', title: 'Schéma de mitochondrie', description: '', maxPoints: 2,
+          analysisMode: 'scientific-diagram' as const,
+          subcriteria: [
+            { id: 'membrane', title: 'Double membrane', description: '', maxPoints: 1 },
+            { id: 'cretes', title: 'Crêtes', description: '', maxPoints: 1 },
+          ] },
+        { id: 'text', title: 'Texte', description: '', maxPoints: 2 },
+      ] },
+    };
+    const analyzer: ScientificDiagramAnalyzer = {
+      classifyPages: vi.fn(async () => [
+        { pageNumber: 1, kind: 'scientific-diagram' as const, confidence: 1, reason: 'Schéma' },
+        { pageNumber: 2, kind: 'text' as const, confidence: 1, reason: 'Texte' },
+      ]),
+      analyze: vi.fn(async () => ({
+        diagrams: [{ id: 'd1', pageNumber: 1, diagramType: 'mitochondrie', summary: '', criteria: [], uncertainties: [] }],
+        criteria: [{
+          criterionId: 'visual', title: 'Mitochondrie', points: 1, maxPoints: 2,
+          evidence: 'Double membrane représentée', confidence: 0.99, requiresTeacherReview: false,
+          diagramIds: ['d1'],
+          elements: [
+            { subcriterionId: 'membrane', label: 'Double membrane', status: 'present' as const, evidence: 'Deux membranes', points: 0, maxPoints: 1 },
+            { subcriterionId: 'cretes', label: 'Crêtes', status: 'absent' as const, evidence: 'Crêtes absentes', points: 1, maxPoints: 1 },
+          ],
+        }],
+        overallUncertainties: [],
+      })),
+    };
+    f.jobs.set(job.id, job);
+    const service = createBackgroundCorrectionService(f.repository, f.workspace, createScientificDiagramAnalysisService(analyzer));
+    await service.processPending({
+      endpoint: 'http://localhost:11434', visionModel: 'vision:4b', analysisModel: 'analysis:4b',
+      correctionMethod: correctionMethod === 'decision' ? 'generative' : 'decision',
+    }, job.assignmentId);
+    const visual = f.jobs.get(job.id)?.partialCriteria.find((item) => item.criterionId === 'visual');
+    expect(visual?.subcriteria?.map((item) => item.points)).toEqual(
+      correctionMethod === 'decision' ? [1, 0] : [0, 1],
+    );
+    expect(f.createProvider).toHaveBeenCalledWith(expect.objectContaining({ correctionMethod }));
+    expect(f.jobs.get(job.id)?.status).toBe('ready');
+  });
+
   it('runs multi-page scientific grading sequentially through the shared use case and preserves model residency', async () => {
     const f = fixture();
     const first = { base64: 'cGFnZTE=', mimeType: 'image/png', fileName: 'schema-1.png' };
