@@ -181,3 +181,19 @@
 @media (prefers-reduced-motion: reduce) {
   .review-card, .copy-overview-grid > li.correction-series-card { transition: none; }
 }
+
+/* Same warm selection treatment in the persistent copy rail. */
+.teacher-copy-rail-list button:hover:not(:disabled) {
+  background: var(--ds-color-surface-subtle);
+}
+.teacher-copy-rail-list button.is-active {
+  border-color: var(--ds-color-border-strong);
+  background: var(--ds-color-brand-100);
+  box-shadow: inset 3px 0 var(--ds-color-brand-700);
+}
+.teacher-copy-rail-list button:focus-visible,
+.teacher-copy-rail-heading > button:focus-visible {
+  outline: 2px solid var(--ds-color-brand-700);
+  outline-offset: 2px;
+}
+.teacher-copy-rail-score { color: var(--ds-color-text); }
