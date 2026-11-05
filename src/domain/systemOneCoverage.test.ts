@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   findLiteralStudentEvidence, prepareSystemOneRubric, scoreSystemOneRubric,
   separateStudentAnswer, scoreSystemOneCriterion, prepareSystemOneCriterion,
-  type SystemOneEnvelope,
 } from './systemOneDecision.ts';
 import type { RubricCriterion } from './rubric.ts';
 
