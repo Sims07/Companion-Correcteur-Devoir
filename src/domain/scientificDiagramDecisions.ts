@@ -44,15 +44,21 @@ function decisionFromVisualEvidence(
     const evidence = evidencedPresent?.evidence.trim()
       ?? observations.find((element) => meaningfulVisualEvidence(element.evidence))?.evidence.trim()
       ?? (allAbsent ? 'Élément non repéré sur le schéma.' : 'Preuve visuelle à vérifier.');
-    if (status === 'partial' || status === 'uncertain') pending.push(subcriterion.title);
+    // Different pages may disagree: never silently select full credit from one
+    // page when another source describes the same rubric item differently.
+    const conflictingObservations = new Set(observations.map((element) => element.status)).size > 1;
+    if (conflictingObservations) pending.push(subcriterion.title + ' (observations contradictoires)');
+    else if (status === 'partial' || status === 'uncertain') pending.push(subcriterion.title);
     return {
       id: subcriterion.id, title: subcriterion.title, maxPoints: subcriterion.maxPoints,
       status, points, evidence,
     };
   });
 
-  const requiresHumanReview = assessments.some((assessment) => assessment.requiresTeacherReview
-    || !Number.isFinite(assessment.confidence) || assessment.confidence < 0.8);
+  const requiresHumanReview = Boolean(analysis?.overallUncertainties.length)
+    || Boolean(analysis?.diagrams.some((diagram) => diagram.uncertainties.length > 0))
+    || assessments.some((assessment) => assessment.requiresTeacherReview
+      || !Number.isFinite(assessment.confidence) || assessment.confidence < 0.8);
   if (requiresHumanReview && pending.length === 0) pending.push('fiabilité de la lecture du schéma');
   const incomplete = pending.length > 0;
   const points = sumGradeScores(ratedElements.map((element) => element.points));
