@@ -176,6 +176,9 @@ test('teacher verifies a flagged criterion, validates the copy and lands on the 
   await expect(page.locator('.review-card').nth(1)).toBeFocused();
   await page.keyboard.press('ArrowUp');
   await expect(flaggedCard).toBeFocused();
+  const adjustment = flaggedCard.locator('details.review-quick-edit');
+  await expect(adjustment).not.toHaveAttribute('open', '');
+  await adjustment.locator('summary').click();
   await flaggedCard.getByLabel('Votre note').fill('7');
   await expect(flaggedCard.getByText('7 / 8')).toBeVisible();
 
