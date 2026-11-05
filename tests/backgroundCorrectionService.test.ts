@@ -130,6 +130,27 @@ describe('background correction service', () => {
     expect(f.jobs.get('copy-1')).toMatchObject({ status: 'ready', completedCriteria: 2 });
   });
 
+  it('stops a stuck request promptly even if the provider ignores the abort signal', async () => {
+    const f = fixture();
+    let announceStarted!: () => void;
+    const started = new Promise<void>((resolve) => { announceStarted = resolve; });
+    let activeSignal: AbortSignal | undefined;
+    f.setGenerateImplementation(async (_request, _chunk, _stage, _transcription, _diagnostic, _update, _annotations, _progress, signal) => {
+      activeSignal = signal;
+      announceStarted();
+      return new Promise<string>(() => undefined);
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'https://provider.example/v1', apiCompatible: true, visionModel: 'vision', analysisModel: 'analysis' };
+    const process = service.processPending(settings, 'assignment-1');
+    await started;
+
+    await service.stopAndWait();
+    await process;
+    expect(activeSignal?.aborted).toBe(true);
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'pending', activeCriterionId: null });
+  });
+
   it('releases an unresponsive LLM call after prolonged inactivity and allows retry', async () => {
     vi.useFakeTimers();
     try {
