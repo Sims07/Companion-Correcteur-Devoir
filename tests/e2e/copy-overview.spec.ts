@@ -273,7 +273,7 @@ test('opening a queued copy never displays a fictitious zero grade', async ({ pa
 
   await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toHaveValue('Copie non évaluée');
   await expect(page.locator('.copy-review-header-score')).toHaveText('Note à venir');
-  await expect(page.getByText('Aucune note n’a encore été attribuée.')).toBeVisible();
+  await expect(page.getByText('Cette copie attend sa correction. Aucune note n’a encore été attribuée.', { exact: true })).toBeVisible();
 });
 
 test('teacher can explicitly start correction for copies already loaded in the assignment', async ({ page }) => {
