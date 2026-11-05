@@ -27,6 +27,8 @@ export interface GradingRequest {
   identityImage?: ImageInput;
   /** Stop after local image transcription for an independent Vision benchmark. */
   visionOnly?: boolean;
+  /** Diagnostic-only experiment: native D1/D3 scores the images directly, with no copy OCR. */
+  directVisualDecision?: boolean;
   /** Read only the reference subject with the dedicated subject prompt, without transcribing or grading a copy. */
   subjectOnly?: boolean;
   detectTeacherAnnotations?: boolean;
