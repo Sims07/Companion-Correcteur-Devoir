@@ -60,6 +60,23 @@ describe('NetworkInspector live request feedback', () => {
     expect(container.textContent).toContain('Aucune requête.');
   });
 
+  it('opens directly on errors when troubleshooting, without hiding the normal filters', async () => {
+    mockNetworkHistory.records = [{ ...pendingRecord, id: 'failed', state: 'error', status: 422, durationMs: 100 }, { ...pendingRecord, id: 'ok', state: 'success', status: 200, durationMs: 90 }];
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root?.render(<NetworkInspector initialFilter="error" />); });
+
+    const filterButtons = [...container.querySelectorAll('.network-filter-buttons button')];
+    const errors = filterButtons.find((button) => button.textContent === 'Erreurs');
+    expect(errors?.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelectorAll('.network-request-row')).toHaveLength(1);
+    expect(container.querySelector('.network-request-row')?.textContent).toContain('422');
+
+    await act(async () => { filterButtons.find((button) => button.textContent === 'Toutes')?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(container.querySelectorAll('.network-request-row')).toHaveLength(2);
+  });
+
   it('updates the pending request stopwatch and explains long server waits', async () => {
     vi.useFakeTimers();
     mockNetworkHistory.records = [pendingRecord];

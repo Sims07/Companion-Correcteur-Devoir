@@ -508,6 +508,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [reviewMessage, setReviewMessage] = useState('');
   const [isFinalized, setIsFinalized] = useState(false);
   const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher');
+  const [networkInitialFilter, setNetworkInitialFilter] = useState<'all' | 'error'>('all');
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
   const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
   const reviewedTotal = criterionProgress.provisionalPoints;
@@ -2237,8 +2238,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (processingCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (processingCopy) void loadNextQueuedCopy(processingCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> Copie en cours : {processingCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}{hasInterruptibleOperation && <button type="button" className="global-stop-button" onClick={() => { void stopCurrentOperations(); }} disabled={isStoppingOperation}>{isStoppingOperation ? 'Arrêt en cours…' : '■ Arrêter le traitement'}</button>}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode !== 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode !== 'teacher'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(interfaceMode === 'teacher' ? 'observability' : interfaceMode); }}>Outils IA</button></div></div>
       </header>
 
-      {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(tool); }} />}
-      {interfaceMode === 'debug' && <NetworkInspector />}
+      {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
+      {interfaceMode === 'debug' && <NetworkInspector initialFilter={networkInitialFilter} />}
 
       {interfaceMode === 'teacher' && showAssignmentsHome && <AssignmentsHome
         assignments={assignmentProfiles}
@@ -2353,7 +2354,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <p className="hint">Aucun basculement automatique vers un autre fournisseur n’est effectué.</p>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}
-      {interfaceMode === 'observability' && <ObservabilityDashboard records={observabilityRecords} />}
+      {interfaceMode === 'observability' && <ObservabilityDashboard records={observabilityRecords} onInspectNetworkErrors={() => { setNetworkInitialFilter('error'); setInterfaceMode('debug'); }} />}
       {interfaceMode === 'diagnostic' && <section className="evaluation-page-header" aria-labelledby="evaluation-page-title">
         <div><p className="eyebrow">LABORATOIRE IA · OUTILS AVANCÉS</p><h1 id="evaluation-page-title">Évaluation des modèles</h1><p>Testez de une à trois configurations sur la même copie et le même barème. Les résultats sont enregistrés localement ; les requêtes sont envoyées au serveur de chaque profil choisi.</p><div className="evaluation-page-badges"><span>Résultats locaux</span><span>1 à 3 configurations</span><span>Validation humaine</span></div></div>
       </section>}

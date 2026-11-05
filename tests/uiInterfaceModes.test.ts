@@ -95,7 +95,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     const navigation = source('../src/ui/DeveloperToolsNavigation.tsx');
     expect(navigation).toContain("title: 'Observabilité'");
     expect(navigation).toContain("aria-current={activeTool === tool.id ? 'page' : undefined}");
-    expect(text).toContain('<ObservabilityDashboard records={observabilityRecords} />');
+    expect(text).toContain('<ObservabilityDashboard records={observabilityRecords} onInspectNetworkErrors=');
     expect(text).toContain('const timingHistoryLimit = 100;');
   });
 
@@ -179,9 +179,9 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('>Outils IA</button>');
     expect(navigation).toContain("title: 'Évaluation des modèles'");
     expect(navigation).toContain("title: 'Inspecteur réseau'");
-    expect(text).toContain("{interfaceMode === 'debug' && <NetworkInspector />}");
+    expect(text).toContain("{interfaceMode === 'debug' && <NetworkInspector initialFilter={networkInitialFilter} />}");
     expect(text).toContain("import { NetworkInspector } from './NetworkInspector.tsx'");
-    expect(text).toContain('<NetworkInspector />');
+    expect(text).toContain('<NetworkInspector initialFilter={networkInitialFilter} />');
     expect(bootstrap.startsWith("import './instrumentation.ts';")).toBe(true);
     expect(source('../src/instrumentation.ts')).toContain('installNetworkInspector()');
   });

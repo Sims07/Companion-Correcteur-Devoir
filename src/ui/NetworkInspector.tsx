@@ -23,16 +23,18 @@ function Detail({ title, value }: { title: string; value: unknown }) {
   return <section className="network-detail-section"><h3>{title}</h3><pre>{formatDetail(value)}</pre></section>;
 }
 
-export function NetworkInspector() {
+export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'all' | 'error' }) {
   const [records, setRecords] = useState<NetworkRequestRecord[]>(loadNetworkHistory);
   const [selectedId, setSelectedId] = useState<string | null>(records[0]?.id ?? null);
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>(initialFilter);
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'headers' | 'request' | 'response'>('headers');
   const [storageStatus, setStorageStatus] = useState(getNetworkInspectorStatus);
   const [clock, setClock] = useState(() => Date.now());
 
   const hasPendingRequests = records.some((record) => record.state === 'pending');
+
+  useEffect(() => { setFilter(initialFilter); }, [initialFilter]);
 
   useEffect(() => {
     const refresh = () => { setRecords(loadNetworkHistory()); setStorageStatus(getNetworkInspectorStatus()); };

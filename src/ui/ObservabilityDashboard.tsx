@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { buildObservabilityModelMetrics, buildObservabilitySummary, extractObservabilityPromptMessages, type ObservabilityTrace } from '../domain/observability.ts';
+import { recentObservabilityIncidents } from '../domain/observabilityIncidents.ts';
 import './observability.css';
 
-type Props = { records: ObservabilityTrace[] };
+type Props = { records: ObservabilityTrace[]; onInspectNetworkErrors?: () => void };
 
 function duration(seconds: number | null): string {
   if (seconds === null || !Number.isFinite(seconds)) return '—';
@@ -19,9 +20,9 @@ function stageLabel(stage: string): string {
   return stage === 'reading' ? 'Vision · lecture' : stage === 'analysis' ? 'Analyse' : stage === 'arbitration' ? 'Arbitrage' : 'Autre';
 }
 
-function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
+function TraceDetails({ trace, expanded }: { trace: ObservabilityTrace; expanded: boolean }) {
   const spans = trace.diagnosticRuns ?? [];
-  return <details className="observability-trace-details">
+  return <details className="observability-trace-details" open={expanded ? true : undefined} id={`observability-trace-${trace.id}`}>
     <summary>
       <span className="observability-trace-date">{new Date(trace.completedAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</span>
       <span className="observability-trace-models"><strong>{trace.source === 'model-evaluation' ? `Évaluation · ${trace.evaluationProfileName ?? 'Profil'}` : trace.source === 'rubric-import' ? 'Import de barème' : trace.source === 'scientific-diagram' ? 'Analyse de schéma scientifique' : trace.visionModel || 'Vision non renseigné'}</strong><small>{trace.source === 'model-evaluation' ? `${trace.visionModel || 'Sans Vision'} · ${trace.analysisModel || 'Sans Analyse'}` : trace.source === 'rubric-import' ? `Vision : ${trace.visionModel || 'non renseigné'} · Analyse : ${trace.analysisModel || 'non renseigné'}` : trace.analysisModel || 'Analyse non renseignée'}</small></span>
@@ -99,9 +100,11 @@ function TraceDetails({ trace }: { trace: ObservabilityTrace }) {
   </details>;
 }
 
-export function ObservabilityDashboard({ records }: Props) {
+export function ObservabilityDashboard({ records, onInspectNetworkErrors }: Props) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'all' | 'success' | 'error'>('all');
+  const [focusedIncidentId, setFocusedIncidentId] = useState<string | null>(null);
+  const incidents = useMemo(() => recentObservabilityIncidents(records), [records]);
   const summary = useMemo(() => buildObservabilitySummary(records), [records]);
   const modelMetrics = useMemo(() => buildObservabilityModelMetrics(records), [records]);
   const filteredRecords = useMemo(() => records.filter((record) => {
@@ -127,13 +130,23 @@ export function ObservabilityDashboard({ records }: Props) {
       <span>LOCAL</span>
     </section>
 
+    <section className="observability-incidents observability-panel" aria-label="Incidents à examiner">
+      <div className="observability-panel-heading"><div><p className="observability-eyebrow">DÉPANNAGE RAPIDE</p><h2>Incidents à examiner</h2><p>Échecs des exécutions enregistrées. Les requêtes HTTP sont consultables séparément : leur lien avec ces échecs n’est pas présumé.</p></div>
+        {onInspectNetworkErrors && <button type="button" className="secondary-button" onClick={onInspectNetworkErrors}>Voir les erreurs réseau</button>}
+      </div>
+      {incidents.length ? <div className="observability-incident-list">{incidents.map((incident) => <div key={incident.id} className="observability-incident-item">
+        <div><strong>{incident.assignmentTitle}</strong><small>{new Date(incident.completedAt).toLocaleString('fr-FR')} · {incident.model ? `${incident.model} · ${stageLabel(incident.stage ?? '')}` : 'Étape non identifiée'}</small><small>{incident.detailAvailable ? 'Détail de l’appel en échec disponible' : 'Détail de l’appel non conservé'}</small></div>
+        <button type="button" className="text-button" onClick={() => { setQuery(''); setStatus('error'); setFocusedIncidentId(incident.id); document.getElementById('observability-history')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>Examiner la trace</button>
+      </div>)}</div> : <p className="observability-incidents-empty">Aucun échec parmi les exécutions conservées. Vous pouvez consulter les requêtes réseau pour diagnostiquer un problème de connexion.</p>}
+    </section>
+
     <div className="observability-section-heading"><div><p className="observability-eyebrow">VUE D’ENSEMBLE</p><h2>La santé de votre pipeline IA</h2></div><span className="observability-period">Historique disponible · {summary.traceCount} trace(s)</span></div>
 
     <div className="observability-kpis">
-      <article className="observability-kpi"><span className="observability-kpi-icon">↗</span><div><small>Exécutions observées</small><strong>{summary.traceCount}</strong><span>{records.filter((record) => record.source === 'model-evaluation').length} résultat(s) de modèle · {records.filter((record) => record.source !== 'model-evaluation').length} correction(s)</span></div></article>
+      <article className="observability-kpi"><span className="observability-kpi-icon">↗</span><div><small>Exécutions observées</small><strong>{summary.traceCount}</strong><span>{records.filter((record) => record.source === 'model-evaluation').length} résultat(s) de modèle · {records.filter((record) => record.source !== 'model-evaluation').length} autre(s) exécution(s)</span></div></article>
       <article className="observability-kpi"><span className="observability-kpi-icon">◷</span><div><small>Durée moyenne</small><strong>{duration(summary.averageDurationSeconds)}</strong><span>Lecture + analyse, temps mural</span></div></article>
       <article className="observability-kpi"><span className="observability-kpi-icon">◎</span><div><small>Taux de réussite</small><strong>{summary.successRatePercent === null ? '—' : `${summary.successRatePercent} %`}</strong><span>Sur les traces conservées</span></div></article>
-      <article className="observability-kpi"><span className="observability-kpi-icon">◈</span><div><small>Tokens mesurés</small><strong>{summary.totalTokens === null ? '—' : number(summary.totalTokens)}</strong><span>{summary.measuredCalls}/{summary.totalCalls} appels mesurés par Ollama</span></div></article>
+      <article className="observability-kpi"><span className="observability-kpi-icon">◈</span><div><small>Tokens mesurés</small><strong>{summary.totalTokens === null ? '—' : number(summary.totalTokens)}</strong><span>{summary.measuredCalls}/{summary.totalCalls} appels avec métriques fournies par les modèles</span></div></article>
     </div>
 
     <section className="observability-panel observability-review-metrics" aria-label="Mesures de la correction par exceptions">
@@ -184,7 +197,7 @@ export function ObservabilityDashboard({ records }: Props) {
       <div className="observability-model-footnote"><span>{summary.measuredCalls}/{summary.totalCalls} appels avec métriques de tokens</span><span>{summary.scoredTraces} note(s) proposée(s) structurée(s) · pas une mesure de justesse</span></div>
     </section>
 
-    <section className="observability-panel observability-history-panel">
+    <section className="observability-panel observability-history-panel" id="observability-history">
       <div className="observability-panel-heading"><div><p className="observability-eyebrow">EXPLORATEUR DE TRACES</p><h3>Historique des corrections et évaluations</h3><p>Ouvrez une exécution pour examiner son déroulé, ses modèles et ses mesures.</p></div><span className="observability-model-count">{filteredRecords.length} résultat(s)</span></div>
       <div className="observability-filters">
         <label className="observability-search"><span aria-hidden="true">⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher un modèle ou un devoir" aria-label="Rechercher un modèle ou un devoir" /></label>
@@ -194,7 +207,7 @@ export function ObservabilityDashboard({ records }: Props) {
           <button type="button" className={status === 'error' ? 'active' : ''} aria-pressed={status === 'error'} onClick={() => setStatus('error')}>Échecs</button>
         </div>
       </div>
-      {filteredRecords.length ? <div className="observability-trace-list">{filteredRecords.map((trace) => <TraceDetails key={trace.id} trace={trace} />)}</div> : <div className="observability-empty-state"><span>⌕</span><strong>Aucune trace ne correspond à votre recherche</strong><p>Modifiez le filtre ou lancez une nouvelle correction / évaluation.</p></div>}
+      {filteredRecords.length ? <div className="observability-trace-list">{filteredRecords.map((trace) => <TraceDetails key={trace.id} trace={trace} expanded={focusedIncidentId === trace.id} />)}</div> : <div className="observability-empty-state"><span>⌕</span><strong>Aucune trace ne correspond à votre recherche</strong><p>Modifiez le filtre ou lancez une nouvelle correction / évaluation.</p></div>}
     </section>
     <p className="observability-footnote">Les indicateurs reflètent uniquement les données effectivement remontées par le fournisseur configuré et conservées localement. Une note proposée n’est pas une mesure de qualité pédagogique sans référence validée par l’enseignant.</p>
   </section>;

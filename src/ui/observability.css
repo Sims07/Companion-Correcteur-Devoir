@@ -238,3 +238,18 @@
 .observability-review-metric-grid strong { font-size: 20px; font-variant-numeric: tabular-nums; }
 .observability-trace-review-metrics { display: grid; gap: 5px; margin: 14px 0; padding: 12px; border: 1px solid var(--border-subtle, #e1e8e1); border-radius: 10px; }
 .observability-trace-review-metrics strong { font-size: 12px; }
+
+/* Incident-first triage: a short, factual starting point before detailed metrics. */
+.observability-incidents{display:grid;gap:14px}
+.observability-incidents .observability-panel-heading h2{font-size:18px;letter-spacing:-.02em;margin:5px 0}
+.observability-incidents .observability-panel-heading p:not(.observability-eyebrow){font-size:12px;line-height:1.6;max-width:720px}
+.observability-incidents .secondary-button{flex:none;align-self:start}
+.observability-incident-list{display:grid;gap:8px}
+.observability-incident-item{display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid var(--ds-color-border,#dfe8de);border-radius:var(--ds-radius-md,10px);padding:12px 14px;background:var(--ds-color-surface-subtle,#f7faf6)}
+.observability-incident-item>div{min-width:0;display:flex;flex-direction:column;gap:2px}
+.observability-incident-item strong{font-size:12px;overflow-wrap:anywhere}
+.observability-incident-item small,.observability-incidents-empty{font-size:11px;color:var(--ds-color-text-muted,#718075);line-height:1.45}
+.observability-incident-item button{flex:none}
+.observability-incidents-empty{margin:0}
+#observability-history{scroll-margin-top:18px}
+@media(max-width:650px){.observability-incidents .observability-panel-heading,.observability-incident-item{flex-direction:column;align-items:stretch}.observability-incidents .secondary-button{align-self:stretch}.observability-incident-item button{align-self:flex-start}}

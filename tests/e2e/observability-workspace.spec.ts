@@ -79,7 +79,7 @@ test('opens the local observability workspace and explores a trace without expos
   await expect(page.getByText('Lecture par exceptions')).toBeVisible();
   await expect(page.getByText('Taux de modification après confirmation groupée')).toBeVisible();
   await expect(page.getByText('Dépassements des limites 18/12/12 mots')).toBeVisible();
-  await expect(page.getByText('1 résultat(s) de modèle · 1 correction(s)')).toBeVisible();
+  await expect(page.getByText('1 résultat(s) de modèle · 1 autre(s) exécution(s)')).toBeVisible();
   await expect(page.getByText('Qwen 3.5 · test comparatif').first()).toBeVisible();
   await expect(page.getByText('SCHÉMA SCIENTIFIQUE', { exact: true })).toBeVisible();
   await expect(page.getByText('TRANSCRIPTION PRIVÉE ÉVALUATION')).toHaveCount(0);
