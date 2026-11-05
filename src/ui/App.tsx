@@ -2273,6 +2273,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     activeCorrectionAbortController.current?.abort();
     try {
       await backgroundService.stopAndWait();
+      if (autoBackgroundCorrection && allBackgroundJobs.some((job) => job.status === 'pending' || job.status === 'processing')) {
+        setAutoBackgroundCorrection(false);
+        try { window.localStorage.setItem('companion-correcteur:auto-background-correction:v1', 'false'); } catch { /* Keep the current session paused even if persistence is unavailable. */ }
+        await backgroundService.setAutomatic(false, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, autoBackgroundCorrection: false }, activeAssignmentId);
+      }
       setCopyOverviewNotice('Correction arrêtée. Les copies restent enregistrées et pourront être reprises.');
       setReviewMessage('Correction arrêtée à votre demande. Vous pouvez reprendre la correction quand vous le souhaitez.');
     } catch (cause) {
