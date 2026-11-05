@@ -322,7 +322,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [teacherStep, setTeacherStep] = useState<'details' | 'rubric' | 'overview' | 'copy' | 'progress' | 'review'>(() => getTeacherEntryStep(readActiveAssignmentProfile().rubric) === 'copies' ? 'overview' : 'rubric');
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [rubric, setRubric] = useState<Rubric>(() => readActiveAssignmentProfile().rubric);
-  const [expandedCriterionId, setExpandedCriterionId] = useState<string | null>(() => readActiveAssignmentProfile().rubric.criteria[0]?.id ?? null);
+  const [expandedCriterionId, setExpandedCriterionId] = useState<string | null>(null);
   const [rubricImportMessage, setRubricImportMessage] = useState('');
   const [rubricImportFileName, setRubricImportFileName] = useState('');
   const [rubricImportProgress, setRubricImportProgress] = useState<RubricImportProgress | null>(null);
