@@ -79,7 +79,7 @@ function jobLabel(job: BackgroundJobSummary): string {
 }
 
 function jobMessage(job: BackgroundJobSummary, status: CopyOverviewStatus): string {
-  if (status === 'to-retry') return 'La correction n’a pas abouti. Vous pouvez corriger à nouveau cette copie.';
+  if (status === 'to-retry') return 'L’IA n’a pas terminé cette copie. Vous pouvez relancer sa correction.';
   if (status === 'processing') return job.phase === 'preparation'
     ? 'Préparation de la copie et du modèle IA…'
     : job.phase === 'reading'
@@ -217,7 +217,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
             </div>
             <div className="correction-series-actions">
               {item.kind === 'job' && item.job && <>
-                {item.status === 'to-retry' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Corriger</button>}
+                {item.status === 'to-retry' && <button type="button" className="primary-button" onClick={() => onRetryJob(item.job!.id)}>Relancer</button>}
                 <button type="button" className="secondary-button correction-series-view" onClick={() => onOpenJob(item.job!.id)}>Ouvrir</button>
                 {item.status !== 'processing' && <button type="button" className="text-button correction-series-remove" aria-label={`Retirer la copie « ${item.label} »`} onClick={() => onRemoveJob(item.id)}>Retirer</button>}
               </>}
