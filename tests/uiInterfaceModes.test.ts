@@ -126,7 +126,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('const outcome = await evaluationService.save(record);');
     expect(text).toContain('Historique & comparaison graphique');
     expect(text).toContain('Consulter les résultats');
-    expect(text).toContain('IndexedDB sur cet appareil');
+    expect(text).toContain('session uniquement');
     expect(text).toContain('Réponse du modèle en streaming');
     expect(text).toContain('Lecture des images');
     expect(text).toContain('Analyse et notation');
