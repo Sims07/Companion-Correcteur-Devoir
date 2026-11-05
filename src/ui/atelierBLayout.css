@@ -384,10 +384,173 @@
   border-color: var(--ds-color-border);
   background: var(--ds-color-brand-100);
 }
+/* Review identity and navigation: editorial Atelier B rather than the legacy form toolbar. */
 .teacher-flow-shell .copy-review-header {
-  border-color: var(--ds-color-border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 16px 20px 12px;
+  border: 1px solid var(--ds-color-border);
+  border-top: 3px solid var(--ds-color-brand-700);
+  border-radius: 3px;
+  background: var(--ds-color-surface);
+  backdrop-filter: none;
+  box-shadow: none;
+}
+.teacher-flow-shell .copy-review-header-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.teacher-flow-shell .copy-review-student-name { flex: none; min-width: 0; }
+.teacher-flow-shell .copy-review-student-caption,
+.teacher-flow-shell .copy-review-grade-caption {
+  display: block;
+  margin: 0 0 5px;
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.teacher-flow-shell .copy-review-identity-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.teacher-flow-shell .copy-review-identity-title h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ds-color-text);
+  font-family: var(--ds-font-editorial);
+  font-size: clamp(20px, 2vw, 26px);
+  font-weight: 650;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.teacher-flow-shell .copy-review-edit-button.ds-button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ds-color-brand-700);
+  box-shadow: none;
+  font-size: 12px;
+}
+.teacher-flow-shell .copy-review-edit-button.ds-button:hover:not(:disabled) {
+  background: var(--ds-color-brand-100);
+}
+.teacher-flow-shell .copy-review-edit-button.ds-button:focus-visible,
+.teacher-flow-shell .copy-review-position .ds-button:focus-visible {
+  outline: none;
+  box-shadow: var(--ds-focus-ring);
+}
+.teacher-flow-shell .copy-review-name-input.ds-input {
+  width: min(100%, 420px);
+  min-height: 42px;
+  border-color: var(--ds-color-border-strong);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+  font-size: 16px;
+}
+.teacher-flow-shell .copy-review-grade {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 110px;
+  text-align: right;
+}
+.teacher-flow-shell .copy-review-header-score {
+  color: var(--ds-color-text);
+  font-size: clamp(19px, 2vw, 24px);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.teacher-flow-shell .copy-review-header-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ds-color-border);
+}
+.teacher-flow-shell .copy-review-status {
+  padding: 5px 9px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: 3px;
+  background: var(--ds-color-warning-surface);
+  color: var(--ds-color-warning);
+  font-size: 11px;
+  font-weight: 700;
+}
+.teacher-flow-shell .copy-review-status.is-completed {
+  background: var(--ds-color-success-surface);
+  color: var(--ds-color-success);
+}
+.teacher-flow-shell .copy-review-position {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.teacher-flow-shell .copy-review-position strong {
+  color: var(--ds-color-text-muted);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.teacher-flow-shell .copy-review-position .ds-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: auto;
+  height: auto;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: 3px;
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+  font-size: 12px;
+  font-weight: 650;
+  box-shadow: none;
+}
+.teacher-flow-shell .copy-review-position .ds-button:hover:not(:disabled) {
+  border-color: var(--ds-color-border-strong);
   background: var(--ds-color-surface-subtle);
 }
+.teacher-flow-shell .copy-review-position .ds-button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+@media (max-width: 900px) {
+  .teacher-flow-shell .copy-review-header { padding: 14px 15px 12px; }
+  .teacher-flow-shell .copy-review-header-main { grid-template-columns: minmax(0, 1fr) auto; }
+  .teacher-flow-shell .copy-review-student-name { flex-basis: auto; }
+}
+@media (max-width: 520px) {
+  .teacher-flow-shell .copy-review-header-main { gap: 10px; }
+  .teacher-flow-shell .copy-review-identity-title h2 { font-size: 19px; }
+  .teacher-flow-shell .copy-review-edit-button.ds-button { font-size: 0; gap: 0; padding: 6px; }
+  .teacher-flow-shell .copy-review-edit-button.ds-button svg { width: 18px; height: 18px; }
+  .teacher-flow-shell .copy-review-grade { min-width: 80px; }
+  .teacher-flow-shell .copy-review-header-score { font-size: 17px; }
+  .teacher-flow-shell .copy-review-header-footer { align-items: stretch; flex-wrap: wrap; }
+  .teacher-flow-shell .copy-review-position { justify-content: space-between; width: 100%; gap: 5px; }
+  .teacher-flow-shell .copy-review-position .ds-button { min-height: 40px; }
+}
+
 
 /* La page de suivi garde les informations essentielles et de vraies cartes de copies. */
 .teacher-flow-shell .copy-overview { padding-top: 24px; }

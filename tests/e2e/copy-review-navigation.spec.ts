@@ -61,6 +61,15 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
   await page.locator('.copy-overview-grid li').filter({ hasText: '01-reprendre' }).getByRole('button', { name: 'Ouvrir', exact: true }).click();
 
   await expect(page.getByText('Copie 1 sur 8')).toBeVisible();
+  await expect(page.locator('.copy-review-identity-title h2')).toHaveText('01-reprendre');
+  await expect(page.getByRole('button', { name: 'Modifier le nom de l’étudiant' })).toBeVisible();
+  await expect(page.locator('#student-label')).toHaveCount(0);
+  await expect(page.locator('.copy-review-grade-caption')).toHaveText('Évaluation');
+  await expect(page.locator('.copy-review-header-score')).toHaveText('Note indisponible');
+  await page.getByRole('button', { name: 'Modifier le nom de l’étudiant' }).click();
+  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toBeFocused();
+  await page.getByRole('textbox', { name: 'Nom de l’étudiant' }).press('Escape');
+  await expect(page.locator('.copy-review-identity-title h2')).toHaveText('01-reprendre');
   await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText('01-reprendre');
   // A persisted processing copy is recovered as failed after reload, so it is prioritized for retry.
   const expectedLabels = ['03-analyse', '02-verifier', '04-attente', '08-archivée', '07-archivée', '06-archivée', '05-archivée'];
@@ -73,4 +82,9 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
     await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText(expectedLabels[index]);
   }
   await expect(page.getByRole('button', { name: 'Copie suivante' })).toBeDisabled();
+  // Editing the last opened correction keeps the navigation independent of identity changes.
+  await page.getByRole('button', { name: 'Modifier le nom de l’étudiant' }).click();
+  await page.getByRole('textbox', { name: 'Nom de l’étudiant' }).fill('Étudiant identifié');
+  await page.getByRole('textbox', { name: 'Nom de l’étudiant' }).press('Enter');
+  await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Étudiant identifié');
 });
