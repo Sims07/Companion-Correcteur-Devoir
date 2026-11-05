@@ -38,6 +38,10 @@ describe('real System One decisions', () => {
   it('does not treat the printed question as proof from the student', () => {
     expect(findLiteralStudentEvidence('Question\nLa lumière intervient.\nRéponse de l\'étudiant\nJe ne sais pas.','lumière')).toBe('');
   });
+  it('distinguishes O2 from CO2 and keeps scientific location terms as literal evidence', () => {
+    expect(findLiteralStudentEvidence("Réponse de l'étudiant\\nLe CO2 est présent.", 'Produit attendu : O2')).toBe('');
+    expect(findLiteralStudentEvidence("Réponse de l'étudiant\\nCela se déroule dans les chloroplastes.", 'Localisation correctement attribuée : chloroplastes')).toContain('chloroplastes');
+  });
   it('rejects an incomplete native response', () => {
     const prepared = prepareSystemOneCriterion({criterion:rubric,transcription:'Réponse.',question:'Photosynthèse'});
     expect(()=>scoreSystemOneCriterion(rubric,'Réponse.',prepared,{answers:{alignment:answer('aligned')}})).toThrow();
