@@ -81,6 +81,8 @@ The design-system contract tests live in `tests/ui/designSystemContract.test.ts`
 
 Le professeur a retenu la maquette **B — Atelier pédagogique** comme nouvelle identité visuelle. Les tokens communs expriment des surfaces papier ivoire, un accent terre cuite et une typographie éditoriale réservée aux titres. Les contrôles et contenus de correction conservent une typographie sans empattement pour la lecture rapide. Les avertissements scientifiques et les états de succès conservent des couleurs sémantiques différentes de l'accent de marque.
 
+Pour le suivi d'une évaluation, **l'étape active et la configuration en cours** utilisent le statut informatif `--ds-color-progress*` (ardoise bleutée), avec un libellé « En cours » et un discret indicateur de présence. Le terracotta reste une couleur de marque et de sélection ; le rouge signale uniquement une erreur, l'ambre une intervention et le vert un succès. Une animation de présence n'est jamais indispensable pour comprendre l'état et est désactivée si la réduction des mouvements est demandée.
+
 Les accents et textes visibles respectent au minimum un contraste WCAG AA de 4,5:1 sur la surface papier. Les transitions non essentielles sont désactivées si l'utilisateur préfère moins d'animations. Les styles transversaux sont centralisés dans `tokens.css`, `controls.css` et `application-theme.css`; les déclinaisons métier utilisent ces tokens, sans nouvelle palette parallèle. Storybook `Fondations/Atelier pédagogique` permet de valider la référence visuelle.
 
 ### Application aux écrans du professeur

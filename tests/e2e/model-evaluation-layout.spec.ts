@@ -1,5 +1,41 @@
 import { expect, test, type Page } from '@playwright/test';
 
+test('active evaluation navigation is informational rather than a red error or brand accent', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+
+  const navigation = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
+  for (const label of [/Configuration/, /Exécution/, /Résultats/]) {
+    await navigation.getByRole('button', { name: label }).click();
+    await navigation.getByRole('button', { name: label }).hover();
+    // The navigation animates its surface for 140ms; inspect the settled state.
+    await expect.poll(async () => page.evaluate(() => {
+      const active = document.querySelector<HTMLElement>('.evaluation-step-nav [aria-current="step"]');
+      const probe = document.createElement('div');
+      probe.style.background = 'var(--ds-color-progress-surface)';
+      probe.style.border = '1px solid var(--ds-color-progress-border)';
+      probe.style.color = 'var(--ds-color-danger)';
+      document.body.append(probe);
+      const current = active ? getComputedStyle(active) : null;
+      const expected = getComputedStyle(probe);
+      const result = {
+        active: Boolean(active),
+        informationalBackground: current?.backgroundColor === expected.backgroundColor,
+        informationalBorder: current?.borderTopColor === expected.borderTopColor,
+        notAnError: current?.borderTopColor !== expected.color,
+      };
+      probe.remove();
+      return result;
+    }), { timeout: 5000 }).toEqual({
+      active: true,
+      informationalBackground: true,
+      informationalBorder: true,
+      notAnError: true,
+    });
+  }
+});
+
 async function expectUnifiedEvaluationCanvas(page: Page): Promise<void> {
   const layout = await page.evaluate(() => {
     const selectors = [
