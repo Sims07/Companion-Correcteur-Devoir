@@ -1,3 +1,4 @@
+import { promptTrace, type PromptId } from './prompts/promptRegistry.ts';
 import { MODEL_READINESS_PROBE_PROMPT } from './prompts/modelProbePrompt.ts';
 import { buildCriterionDecisionRepairPrompt } from './prompts/repairPrompts.ts';
 import { buildArbitrationPrompt, buildArbitrationRepairPrompt, buildIncrementalGradingRepairPrompt, buildGradingRepairPrompt } from './prompts/repairPrompts.ts';
@@ -428,7 +429,7 @@ export function createOllamaProvider(
         streamChunk?: (chunk: string) => void,
         json: boolean | Record<string, unknown> = false,
         think = false,
-        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void; pageIndex?: number },
+        tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void; pageIndex?: number; promptId?: PromptId },
       ): Promise<string> {
         const startedAt = Date.now();
         activeRequestPayloads = [];
@@ -456,6 +457,7 @@ export function createOllamaProvider(
             stage: tracking.stage,
             ...(tracking.purpose ? { purpose: tracking.purpose } : {}),
             model,
+            ...(tracking.promptId ? promptTrace(tracking.promptId) : {}),
             ...(activeRequestPayloads?.length ? { requestPayload: JSON.stringify({ attempts: activeRequestPayloads }, null, 2) } : { requestPrompt: content }),
             requestMetadata: {
               provider: settings.apiCompatible ? 'openai-compatible' : 'ollama',
@@ -571,6 +573,7 @@ export function createOllamaProvider(
               stage: tracking.stage,
               ...(tracking.purpose ? { purpose: tracking.purpose } : {}),
               model,
+              ...(tracking.promptId ? promptTrace(tracking.promptId) : {}),
               ...(activeRequestPayloads?.length ? { requestPayload: JSON.stringify({ attempts: activeRequestPayloads }, null, 2) } : { requestPrompt: content }),
               requestMetadata: {
                 provider: settings.apiCompatible ? 'openai-compatible' : 'ollama',
@@ -655,7 +658,7 @@ export function createOllamaProvider(
           const pageLabel = image.fileName || `sujet page ${index + 1}`;
           let subjectTruncated = false;
           const pageText = await sendStream(visionModel, buildSubjectReferencePrompt(pageLabel), [providerImage(image)], onChunk, false, false, {
-            kind: 'vision', stage: 'reading', intent: 'Lire et transcrire une page du sujet', context: `${pageLabel} · page ${index + 1}/${subjectImages.length}`, temperature: 0,
+            kind: 'vision', stage: 'reading', promptId: 'vision.subject-reference', intent: 'Lire et transcrire une page du sujet', context: `${pageLabel} · page ${index + 1}/${subjectImages.length}`, temperature: 0,
             generationTokenLimit: Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048))),
             stop: ['\n\n\n\n'], repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
             allowTruncated: true,
@@ -696,6 +699,7 @@ export function createOllamaProvider(
                 kind: 'vision',
                 stage: 'reading',
                 purpose: 'student-identity',
+                promptId: 'vision.student-identity',
                 intent: 'Identifier l’étudiant',
                 context: 'Première page · bande supérieure · en-tête gauche et droit',
                 temperature: 0,
@@ -720,6 +724,7 @@ export function createOllamaProvider(
                 kind: 'vision',
                 stage: 'reading',
                 purpose: 'student-identity',
+                promptId: 'vision.student-identity-fallback',
                 intent: 'Réessayer l’identification de l’étudiant',
                 context: 'Première page · en-tête recadré',
                 temperature: 0,
@@ -753,7 +758,7 @@ export function createOllamaProvider(
             false,
             false,
             {
-              kind: 'vision', stage: 'reading', intent: 'Lire et transcrire une page de copie', context: `${pageLabel} · page ${request.pageNumbers?.[index] ?? index + 1}/${request.totalPageCount ?? request.images?.length ?? 0}`, pageIndex: request.pageNumbers?.[index] ?? index + 1, temperature: 0,
+              kind: 'vision', stage: 'reading', promptId: 'vision.copy-transcription', intent: 'Lire et transcrire une page de copie', context: `${pageLabel} · page ${request.pageNumbers?.[index] ?? index + 1}/${request.totalPageCount ?? request.images?.length ?? 0}`, pageIndex: request.pageNumbers?.[index] ?? index + 1, temperature: 0,
               generationTokenLimit: transcriptionLimit,
               stop: ['\n\n\n\n'],
               repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,
@@ -786,7 +791,7 @@ export function createOllamaProvider(
           let annotationResponse: string;
           try {
             annotationResponse = await sendStream(visionModel, buildTeacherAnnotationPrompt(originalPageText), [providerImage(image)], undefined, annotationSchema, false, {
-              kind: 'vision', stage: 'reading', temperature: 0, generationTokenLimit: 2048,
+              kind: 'vision', stage: 'reading', promptId: 'vision.teacher-annotations', temperature: 0, generationTokenLimit: 2048,
             });
           } catch (cause) {
             const detail = cause instanceof Error ? cause.message : 'erreur inconnue du modèle de lecture';
@@ -799,7 +804,7 @@ export function createOllamaProvider(
           if (!detection.studentTranscription) {
             const repairPrompt = buildTeacherAnnotationRepairPrompt(originalPageText, annotationResponse);
             try {
-              const repaired = await sendStream(visionModel, repairPrompt, [providerImage(image)], undefined, annotationSchema, false, { kind: 'vision', stage: 'reading', temperature: 0, generationTokenLimit: 1024, allowTruncated: true, intent: 'Réparer la détection des annotations', context: 'Page ' + pageNumber });
+              const repaired = await sendStream(visionModel, repairPrompt, [providerImage(image)], undefined, annotationSchema, false, { kind: 'vision', stage: 'reading', promptId: 'vision.teacher-annotations-repair', temperature: 0, generationTokenLimit: 1024, allowTruncated: true, intent: 'Réparer la détection des annotations', context: 'Page ' + pageNumber });
               detection = parseTeacherAnnotationDetection(repaired);
             } catch (repairCause) {
               const warning = `Détection des annotations non exploitable sur la page ${pageNumber} : ${repairCause instanceof Error ? repairCause.message : 'réponse invalide'}. La transcription initiale est conservée uniquement pour vérification ; la correction est interrompue.`;
@@ -939,7 +944,7 @@ export function createOllamaProvider(
                   analysisModel,
                   attempt === 1 ? prompt : buildCriterionDecisionRepairPrompt(prompt, previousError),
                   undefined, onChunk, criterionDecisionSchema(criterion), false,
-                  { kind: 'model', stage: 'analysis', temperature: 0,
+                  { kind: 'model', stage: 'analysis', promptId: attempt === 1 ? 'decision.chat' : 'decision.chat-repair', temperature: 0,
                     generationTokenLimit: Math.min(1024, 256 + 96 * Math.max(1, getRubricSubcriteria(criterion).length)),
                     intent: 'Vérifier les attendus du critère ' + criterion.title,
                     context: 'Décisions structurées · critère ' + (index + 1) + '/' + criteria.length },
@@ -986,12 +991,12 @@ export function createOllamaProvider(
             parseGradingProposal(raw, { title: 'Barème courant', criteria: rubricCriteriaForSchema });
           }
         };
-        const raw = await sendStream(model, prompt, images, streamChunk, gradingSchema, settings.thinking ?? false, { ...tracking, allowTruncated: true });
+        const raw = await sendStream(model, prompt, images, streamChunk, gradingSchema, settings.thinking ?? false, { ...tracking, promptId: 'grading.full', allowTruncated: true });
         try { validateObject(raw); return raw; }
         catch (cause) {
           const reason = cause instanceof Error ? cause.message : 'JSON invalide';
           const repairPrompt = buildGradingRepairPrompt(prompt, raw, reason);
-          const repaired = await sendStream(model, repairPrompt, images, streamChunk, gradingSchema, settings.thinking ?? false, { ...tracking, allowTruncated: true, intent: 'Réparer la réponse de correction' });
+          const repaired = await sendStream(model, repairPrompt, images, streamChunk, gradingSchema, settings.thinking ?? false, { ...tracking, promptId: 'grading.full-repair', allowTruncated: true, intent: 'Réparer la réponse de correction' });
           try { validateObject(repaired); return repaired; }
           catch (secondCause) {
             throw new Error('Réponse tronquée ou JSON invalide après une tentative de réparation : ' + (secondCause instanceof Error ? secondCause.message : 'format inexploitable'));
@@ -1033,13 +1038,13 @@ export function createOllamaProvider(
           } } },
         };
         const arbitrationPrompt = buildArbitrationPrompt(disputedRubric, transcription ?? '', selectCriteria(firstProposal), selectCriteria(secondProposal));
-        let raw = await sendStream(arbitratorModel, arbitrationPrompt, undefined, onChunk, arbitrationSchema, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration', deferResult: true, allowTruncated: true, intent: 'Arbitrer les désaccords entre modèles', context: `Modèle ${arbitratorModel} · ${resolution.disputedCriterionIds.length} critère(s) litigieux · ${request.images?.map((image) => image.fileName).filter(Boolean).join(', ') || 'copie'}` });
+        let raw = await sendStream(arbitratorModel, arbitrationPrompt, undefined, onChunk, arbitrationSchema, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration', promptId: 'grading.arbitration', deferResult: true, allowTruncated: true, intent: 'Arbitrer les désaccords entre modèles', context: `Modèle ${arbitratorModel} · ${resolution.disputedCriterionIds.length} critère(s) litigieux · ${request.images?.map((image) => image.fileName).filter(Boolean).join(', ') || 'copie'}` });
         let decisions;
         try { decisions = parseArbitrationDecisions(raw, resolution.disputedCriterionIds, firstProposal.criteria, secondProposal.criteria); }
         catch (cause) {
           const reason = cause instanceof Error ? cause.message : 'réponse invalide';
           const repairPrompt = buildArbitrationRepairPrompt(arbitrationPrompt, raw, reason);
-          raw = await sendStream(arbitratorModel, repairPrompt, undefined, onChunk, arbitrationSchema, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration', deferResult: true, allowTruncated: true, intent: 'Réparer la réponse d’arbitrage', context: 'Réparation JSON' });
+          raw = await sendStream(arbitratorModel, repairPrompt, undefined, onChunk, arbitrationSchema, settings.thinking ?? false, { kind: 'arbitrator', stage: 'arbitration', promptId: 'grading.arbitration-repair', deferResult: true, allowTruncated: true, intent: 'Réparer la réponse d’arbitrage', context: 'Réparation JSON' });
           decisions = parseArbitrationDecisions(raw, resolution.disputedCriterionIds, firstProposal.criteria, secondProposal.criteria);
         }
         const judgedCriteria = resolution.disputedCriterionIds.map((criterionId) => {
@@ -1122,7 +1127,7 @@ export function createOllamaProvider(
                 onChunk,
                 currentCriterionSchema,
                 settings.thinking ?? false,
-                { kind: 'model', stage: 'analysis', generationTokenLimit: 1024, deferResult: diagnosticTracking, intent: `Analyser le critère ${criterion.title}`, context: `Modèle ${analysisModel} · critère ${index + 1}/${criteria.length} · ${request.images?.map((image) => image.fileName).filter(Boolean).join(', ') || 'copie'}` },
+                { kind: 'model', stage: 'analysis', promptId: attempt === 1 ? 'grading.incremental' : 'grading.incremental-repair', generationTokenLimit: 1024, deferResult: diagnosticTracking, intent: `Analyser le critère ${criterion.title}`, context: `Modèle ${analysisModel} · critère ${index + 1}/${criteria.length} · ${request.images?.map((image) => image.fileName).filter(Boolean).join(', ') || 'copie'}` },
               );
               if (diagnosticTracking && lastDiagnosticMetrics) criterionDiagnosticMetrics.push(lastDiagnosticMetrics);
               previousRaw = raw;
