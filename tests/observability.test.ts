@@ -173,7 +173,11 @@ describe('local observability metrics', () => {
         { id: 'profile-gemma', name: 'Profil Gemma', endpoint: 'http://localhost:11434', visionModel: 'gemma3:4b', analysisModel: 'gemma3:4b', thinking: false },
       ],
       results: [
-        { profileId: 'profile-qwen', profileName: 'Qwen local', elapsedMs: 90000, readingMs: 30000, analysisMs: 60000, readingTokens: 120, analysisTokens: 340, tokens: 460, status: 'success', transcription: 'PRIVATE_TRANSCRIPTION', raw: 'PRIVATE_MODEL_OUTPUT', score: 15, proposal: null },
+        { profileId: 'profile-qwen', profileName: 'Qwen local', elapsedMs: 90000, readingMs: 30000, analysisMs: 60000, readingTokens: 120, analysisTokens: 340, tokens: 460, status: 'success', transcription: 'PRIVATE_TRANSCRIPTION', raw: 'PRIVATE_MODEL_OUTPUT', score: 15, proposal: null,
+          diagnosticRuns: [
+            { kind: 'vision' as const, stage: 'reading' as const, model: 'qwen3.5:4b', elapsedMs: 30000, raw: 'PRIVATE_TRANSCRIPTION', totalTokens: 120, promptId: 'vision.copy-transcription', promptVersion: 1 },
+            { kind: 'model' as const, stage: 'analysis' as const, model: 'qwen3.5:4b', elapsedMs: 60000, raw: 'PRIVATE_MODEL_OUTPUT', totalTokens: 340, promptId: 'grading.incremental', promptVersion: 1 },
+          ] },
         { profileId: 'profile-gemma', profileName: 'Gemma local', elapsedMs: 110000, readingMs: 40000, analysisMs: 70000, readingTokens: null, analysisTokens: null, tokens: null, status: 'failed', transcription: '', raw: '', score: null, proposal: null },
       ],
       stage: 'integrated',
@@ -196,6 +200,9 @@ describe('local observability metrics', () => {
         { model: 'qwen3.5:4b', stage: 'analysis', elapsedMs: 60000, totalTokens: 340 },
       ],
     });
+    expect(evaluations[0].diagnosticRuns?.map((run) => [run.promptId, run.promptVersion])).toEqual([
+      ['vision.copy-transcription', 1], ['grading.incremental', 1],
+    ]);
     expect(evaluations[1]).toMatchObject({ outcome: 'error', evaluationProfileName: 'Gemma local' });
     expect(JSON.stringify(evaluations)).not.toContain('PRIVATE_IMAGE');
     expect(JSON.stringify(evaluations)).not.toContain('PRIVATE_TRANSCRIPTION');
