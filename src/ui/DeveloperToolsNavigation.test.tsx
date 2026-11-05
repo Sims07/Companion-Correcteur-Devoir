@@ -90,7 +90,7 @@ describe('DeveloperToolsNavigation', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     await act(async () => { root?.render(<DeveloperToolsNavigation activeTool="observability" traces={[]} onNavigate={() => undefined} />); });
-    await act(async () => { [...container.querySelectorAll('button')].find((button) => button.textContent === 'Copier un diagnostic technique')?.click(); await Promise.resolve(); });
+    await act(async () => { [...container!.querySelectorAll('button')].find((button) => button.textContent === 'Copier un diagnostic technique')?.click(); await Promise.resolve(); });
     expect(container.textContent).toContain('Copie impossible');
     expect(container.textContent).not.toContain('Diagnostic technique copié');
   });
