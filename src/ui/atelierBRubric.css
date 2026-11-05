@@ -141,6 +141,8 @@
   border-color: var(--ds-color-border-strong);
 }
 .atelier-rubric-editor > .rubric-reuse-panel { order: 6; margin: 18px 0 0; border-radius: 3px; }
+.atelier-rubric-editor > .rubric-import-panel { order: 7; border-radius: 3px; }
+.atelier-rubric-editor > .rubric-export-panel { order: 8; border-radius: 3px; }
 .atelier-rubric-editor > .rubric-import { order: 7; border-color: var(--ds-color-border); background: var(--ds-color-surface-subtle); border-radius: 3px; }
 .atelier-rubric-editor > .rubric-export-panel { order: 8; }
 .atelier-rubric-editor > .rubric-actions { order: 9; }
@@ -208,3 +210,39 @@
 @media (prefers-reduced-motion: reduce) {
   .atelier-rubric-editor .criterion-editor-summary { transition: none; }
 }
+
+/* L'édition des métadonnées est une action discrète, pas une carte de plus. */
+.teacher-flow-shell .assignment-details-collapsible:not([open]) {
+  height: 34px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.teacher-flow-shell .assignment-details-collapsible:not([open]) > summary {
+  display: flex;
+  justify-content: flex-end;
+  width: fit-content;
+  margin-left: auto;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+}
+.teacher-flow-shell .assignment-details-collapsible:not([open]) > summary > span:first-child {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.teacher-flow-shell .assignment-details-collapsible:not([open]) .assignment-details-edit {
+  color: var(--ds-color-brand-700);
+  font-size: 11px;
+  font-weight: 750;
+}
+.teacher-flow-shell .assignment-details-collapsible > summary:focus-visible {
+  outline: 2px solid var(--ds-color-brand-700);
+  outline-offset: 2px;
+}
+.teacher-flow-shell .diagnostic-setup-heading .step-count { display: none; }
