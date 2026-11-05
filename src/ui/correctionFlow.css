@@ -3023,3 +3023,46 @@
 .teacher-copy-live-actions { display:flex; align-items:center; gap:var(--ds-space-2); flex-wrap:wrap; }
 .correction-series-current-stop { display:flex; gap:var(--ds-space-3); align-items:center; justify-content:space-between; flex-wrap:wrap; margin:var(--ds-space-3) 0; padding:var(--ds-space-3); border:1px solid var(--ds-color-border); background:var(--ds-color-surface-subtle); border-radius:var(--ds-radius-md); }
 .correction-series-current-stop span { color:var(--ds-color-text-muted); font-size:13px; }
+
+/* Full-size inspection entry point for imported copies (photos and PDF pages). */
+.teacher-copy-pages-details .batch-copy-page-preview { flex-basis: 156px; }
+.teacher-copy-pages-details .batch-copy-page-preview img { height: 174px; }
+.copy-page-preview-trigger {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--flow-border);
+  border-radius: 8px;
+  background: var(--flow-surface);
+  cursor: zoom-in;
+}
+.copy-page-preview-trigger img { display: block; width: 100%; object-fit: contain; }
+.copy-page-preview-trigger > span {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 9px 3px 6px;
+  background: linear-gradient(transparent, rgb(18 29 25 / 82%));
+  color: #fff;
+  font-size: 0.73rem;
+  font-weight: 700;
+  text-align: center;
+  opacity: 0;
+  transition: opacity var(--ds-transition-fast);
+}
+.copy-page-preview-trigger:hover > span,
+.copy-page-preview-trigger:focus-visible > span { opacity: 1; }
+.copy-page-preview-trigger:focus-visible {
+  outline: 3px solid var(--flow-accent);
+  outline-offset: 2px;
+}
+.correction-series-preview-panel .correction-series-pages figure { flex-basis: 100px; width: 100px; }
+.correction-series-preview-panel .correction-series-pages img { width: 100%; height: 126px; }
+.copy-image-viewer-orientation { color: var(--ds-color-text-muted); font-size: 0.8rem; }
+@media (hover: none) {
+  .copy-page-preview-trigger > span { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .copy-page-preview-trigger > span { transition: none; }
+}
