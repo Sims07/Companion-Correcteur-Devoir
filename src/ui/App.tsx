@@ -2850,7 +2850,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
       {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration') || (interfaceMode === 'teacher' && teacherStep === 'rubric')) && <>
       <div id={interfaceMode === 'diagnostic' ? 'evaluation-rubric' : undefined} className="workspace-heading diagnostic-setup-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 · DEVOIR' : 'EXPÉRIENCE · ÉTAPE 1'}</p><h2>{interfaceMode === 'teacher' ? 'Devoir et barème' : 'Préparer le barème de correction'}</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
-      <section className="panel rubric-editor">
+      <div className={interfaceMode === "teacher" ? "atelier-rubric-grid" : "atelier-rubric-grid is-diagnostic"}>
+      <section className={interfaceMode === "teacher" ? "panel rubric-editor atelier-rubric-editor" : "panel rubric-editor"}>
         <div className="rubric-assignment-context"><span className="eyebrow">BARÈME ASSOCIÉ AU DEVOIR</span><strong>{assignmentTitle.trim() || 'Devoir sans titre'}</strong><p>Vous pouvez donner au barème un nom différent de celui du devoir.</p></div>
         <label className="field-label" htmlFor="rubric-title">Nom du barème (distinct du devoir)</label>
         <input id="rubric-title" value={rubric.title} placeholder="Ex. Barème du contrôle de biologie" onChange={(event) => { setRubric((current) => ({ ...current, title: event.target.value })); setProposal(null); }} />
@@ -2913,8 +2914,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="rubric-editor-toolbar"><button type="button" className="primary-button" onClick={addCriterion}>＋ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
         {interfaceMode === 'teacher' && <RubricReusePanel assignments={assignmentProfiles} activeAssignmentId={activeAssignmentId} rubric={rubric} onReuse={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); setExpandedCriterionId(criteria[0]?.id ?? null); }} />}
         <div className="criteria-list">
-          {rubric.criteria.map((criterion) => <details className="criterion-editor" key={criterion.id} open={expandedCriterionId === criterion.id}>
-            <summary className="criterion-editor-summary" onClick={(event) => { event.preventDefault(); setExpandedCriterionId((current) => current === criterion.id ? null : criterion.id); }}><span><strong>{criterion.title.trim() || 'Critère sans titre'}</strong><small> · {getRubricSubcriteria(criterion).length} sous-critère(s)</small></span><span>{criterion.maxPoints} pt · {expandedCriterionId === criterion.id ? '⌃' : '⌄'}</span></summary>
+          {rubric.criteria.map((criterion, criterionIndex) => <details className="criterion-editor" key={criterion.id} open={expandedCriterionId === criterion.id}>
+            <summary className="criterion-editor-summary" onClick={(event) => { event.preventDefault(); setExpandedCriterionId((current) => current === criterion.id ? null : criterion.id); }}><span className="atelier-criterion-index" aria-hidden="true">{String(criterionIndex + 1).padStart(2, "0")}</span><span><strong>{criterion.title.trim() || 'Critère sans titre'}</strong><small> · {getRubricSubcriteria(criterion).length} sous-critère(s)</small></span><span>{criterion.maxPoints} pt · {expandedCriterionId === criterion.id ? '⌃' : '⌄'}</span></summary>
             <div className="criterion-editor-content"><div className="criterion-fields">
               <label><span className="field-label">Critère</span><input value={criterion.title} onChange={(event) => updateCriterion(criterion.id, { title: event.target.value })} /></label>
               <label><span className="field-label">Description / attendus</span><input value={criterion.description} onChange={(event) => updateCriterion(criterion.id, { description: event.target.value })} /></label>
@@ -2942,6 +2943,31 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <RubricExportPanel rubric={rubric} />
         <div className="rubric-actions"><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
       </section>
+      {interfaceMode === 'teacher' && <aside className="atelier-rubric-synthesis" aria-label="Synthèse du barème">
+        <p className="eyebrow">SYNTHÈSE</p>
+        <h3>{validation.valid ? 'Un barème prêt à corriger' : 'Un barème à compléter'}</h3>
+        <dl>
+          <div><dt>Critères définis</dt><dd>{rubric.criteria.length} critère{rubric.criteria.length > 1 ? 's' : ''}</dd></div>
+          <div><dt>Total de points</dt><dd>{validation.maximumPoints.toLocaleString('fr-FR')} points</dd></div>
+          <div><dt>Niveau pédagogique</dt><dd>{assignmentProfiles.find((profile) => profile.id === activeAssignmentId)?.educationLevel || 'Non renseigné'}</dd></div>
+        </dl>
+        <div className={validation.valid ? 'atelier-rubric-synthesis-status is-ready' : 'atelier-rubric-synthesis-status is-incomplete'}>
+          <strong>{validation.valid ? '✓ Barème cohérent' : 'À vérifier avant la correction'}</strong>
+          <span>{validation.valid ? 'Les critères et leurs points sont définis.' : 'Complétez les critères et vérifiez leurs points.'}</span>
+        </div>
+        <div className="atelier-rubric-reuse-hint">
+          <strong>Gagnez du temps</strong>
+          <p>Vous pouvez reprendre des critères d’un autre devoir et les adapter librement.</p>
+          <button type="button" className="text-button" onClick={() => {
+            const panel = document.querySelector<HTMLDetailsElement>('.rubric-reuse-panel');
+            if (!panel) return;
+            panel.open = true;
+            panel.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            panel.querySelector('summary')?.focus();
+          }}>Voir les critères disponibles →</button>
+        </div>
+      </aside>}
+      </div>
 
       {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Le devoir est prêt ? Ajoutez les copies à corriger.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('overview')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
       </>}
