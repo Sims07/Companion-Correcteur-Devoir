@@ -62,7 +62,8 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
 
   await expect(page.getByText('Copie 1 sur 8')).toBeVisible();
   await expect(page.locator('.teacher-copy-rail-list button[aria-current="page"]')).toContainText('01-reprendre');
-  const expectedLabels = ['02-verifier', '03-analyse', '04-attente', '08-archivée', '07-archivée', '06-archivée', '05-archivée'];
+  // A persisted processing copy is recovered as failed after reload, so it is prioritized for retry.
+  const expectedLabels = ['03-analyse', '02-verifier', '04-attente', '08-archivée', '07-archivée', '06-archivée', '05-archivée'];
   for (let index = 0; index < expectedLabels.length; index += 1) {
     const nextButton = page.locator('.copy-review-header button[aria-label="Copie suivante"]');
     await expect(nextButton, 'La navigation doit rester disponible avant d’ouvrir ' + expectedLabels[index]).toBeVisible();
