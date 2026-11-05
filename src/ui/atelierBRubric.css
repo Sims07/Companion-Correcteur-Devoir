@@ -279,3 +279,7 @@ body:has(.atelier-rubric-grid:not(.is-diagnostic)) .memory-fab {
 .atelier-rubric-editor > .rubric-actions .validation.valid {
   display: none;
 }
+
+/* Attendus multi-lignes pour permettre la structuration de listes de sous-critères. */
+.atelier-rubric-editor .criterion-fields textarea { width: 100%; min-width: 0; min-height: 70px; padding: 10px 12px; resize: vertical; border: 1px solid var(--ds-color-border-strong); border-radius: 3px; background: var(--ds-color-surface); color: var(--ds-color-text); font: inherit; font-size: 12px; line-height: 1.5; }
+.atelier-rubric-editor .criterion-fields textarea:focus-visible { outline: none; border-color: var(--ds-color-brand-700); box-shadow: var(--ds-focus-ring); }

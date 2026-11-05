@@ -54,6 +54,7 @@ import { duplicateAssignmentProfile } from '../domain/teacherWorkflow.ts';
 import './components/TeacherSetup.css';
 import { RubricExportPanel } from './components/RubricExportPanel.tsx';
 import { RubricImportPanel } from './components/RubricImportPanel.tsx';
+import { SubcriteriaSuggestionPanel } from './components/SubcriteriaSuggestionPanel.tsx';
 import { CorrectionOverview } from './CorrectionOverview.tsx';
 import { TeacherCopyIntake } from './components/TeacherCopyIntake.tsx';
 import { CopyPageViewer } from './components/CopyPageViewer.tsx';
@@ -2978,12 +2979,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <summary className="criterion-editor-summary" onClick={(event) => { event.preventDefault(); setExpandedCriterionId((current) => current === criterion.id ? null : criterion.id); }}><span className="atelier-criterion-index" aria-hidden="true">{String(criterionIndex + 1).padStart(2, "0")}</span><span><strong>{criterion.title.trim() || 'Critère sans titre'}</strong><small> · {getRubricSubcriteria(criterion).length} sous-critère(s)</small></span><span>{criterion.maxPoints} pt · {expandedCriterionId === criterion.id ? '⌃' : '⌄'}</span></summary>
             <div className="criterion-editor-content"><div className="criterion-fields">
               <label><span className="field-label">Critère</span><input value={criterion.title} onChange={(event) => updateCriterion(criterion.id, { title: event.target.value })} /></label>
-              <label><span className="field-label">Description / attendus</span><input value={criterion.description} onChange={(event) => updateCriterion(criterion.id, { description: event.target.value })} /></label>
+              <label><span className="field-label">Description / attendus</span><textarea rows={2} value={criterion.description} onChange={(event) => updateCriterion(criterion.id, { description: event.target.value })} /></label>
             </div>
             <label className="points-field"><span className="field-label">Points max.</span><input type="number" min="0" step="0.5" value={criterion.maxPoints} onChange={(event) => updateCriterion(criterion.id, { maxPoints: Number(event.target.value) })} /></label>
             <label className="criterion-visual-toggle"><input type="checkbox" checked={partitionScientificRubric({ title: rubric.title, criteria: [criterion] }).diagramCriteria.length > 0} onChange={(event) => updateCriterion(criterion.id, { analysisMode: event.target.checked ? 'scientific-diagram' : 'text' })} /><span><strong>Analyse de schéma scientifique</strong><small>Évaluer ce critère sur l’image avec Vision, jamais sur la transcription.</small></span></label>
             <div className="subcriteria-editor">
               <strong>Sous-critères (facultatifs)</strong>
+              <SubcriteriaSuggestionPanel criterion={criterion} onApply={(patch) => updateCriterion(criterion.id, patch)} />
               {getRubricSubcriteria(criterion).map((subcriterion, index) => <div className="criterion-fields" key={subcriterion.id}>
                 <label><span className="field-label">Sous-critère</span><input aria-label={`Sous-critère ${index + 1} — ${criterion.title}`} value={subcriterion.title} onChange={(event) => updateCriterion(criterion.id, { subcriteria: getRubricSubcriteria(criterion).map((item, itemIndex) => itemIndex === index ? { ...item, title: event.target.value } : item), expectedElements: undefined })} /></label>
                 <label><span className="field-label">Précisions (facultatif)</span><input aria-label={`Précisions du sous-critère ${index + 1} — ${criterion.title}`} value={subcriterion.description} onChange={(event) => updateCriterion(criterion.id, { subcriteria: getRubricSubcriteria(criterion).map((item, itemIndex) => itemIndex === index ? { ...item, description: event.target.value } : item), expectedElements: undefined })} /></label>
