@@ -36,7 +36,7 @@ describe('Atelier B: correction en cours centrée sur la copie', () => {
     );
     expect(markup).toContain('atelier-processing-columns');
     expect(markup).toContain('Copie de l&#x27;étudiant');
-    expect(markup).toContain('aria-label="Pages originales de la copie en cours"');
+    expect(markup).toContain('aria-label="Pages de la copie en cours"');
     expect(markup).toContain('data:image/png;base64,cGFnZTE=');
     expect(markup).toContain('data:image/png;base64,cGFnZTI=');
     expect(markup).toContain('Camille Bernard');
