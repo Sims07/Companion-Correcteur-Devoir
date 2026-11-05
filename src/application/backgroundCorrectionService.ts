@@ -194,9 +194,13 @@ export function createBackgroundCorrectionService(
 
   async function run(settings: OllamaSettings, assignmentId: string): Promise<void> {
     settingsByAssignment.set(assignmentId, settings);
-    // If an idle prewarm already started, use its result without competing
-    // for local CPU/RAM. Never start a new placeholder call here.
-    if (prewarmPromise) await prewarmPromise.catch(() => undefined);
+    // Do not compete with an idle prewarm on a CPU-only machine. Reuse the
+    // same-model load, or cancel an obsolete load after settings changed.
+    if (prewarmPromise) {
+      const wantedKey = [settings.endpoint, 'ollama', settings.visionModel, settings.analysisModel].join('|');
+      if (wantedKey !== prewarmInFlightKey) prewarmAbortController?.abort();
+      await prewarmPromise.catch(() => undefined);
+    }
     if (activeLoop) {
       // A correction already started for another assignment must finish (or be
       // stopped) before the requested assignment can use the model. Never join
