@@ -46,6 +46,7 @@ import { getArchivedCorrectionsForAssignment } from '../domain/assignmentOvervie
 import { defaultCopyOverviewFilter, toCopyOverviewStatus, type CopyOverviewFilter } from '../domain/copyOverview.ts';
 import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/teacherAnnotations.ts';
 import { buildLocalDecisionBenchmark } from '../domain/localDecisionBenchmark.ts';
+import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
 import { DeveloperToolsNavigation, type DeveloperTool } from './DeveloperToolsNavigation.tsx';
@@ -374,6 +375,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationHistoryStageFilter, setEvaluationHistoryStageFilter] = useState<EvaluationStageMode | 'all'>('all');
   const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history'>('configuration');
   const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
+  const [evaluationVisualDirect, setEvaluationVisualDirect] = useState(false);
   const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
   const [savedModelEvaluations, setSavedModelEvaluations] = useState<ModelEvaluationRecord[]>([]);
   const [sessionOnlyEvaluationIds, setSessionOnlyEvaluationIds] = useState<string[]>([]);
@@ -1383,13 +1385,17 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setEvaluationArchiveStatus('idle');
     setPendingEvaluationArchive(null);
     const measuredStages = evaluationStageMode === 'vision' ? ['reading'] as const : evaluationStageMode === 'analysis' ? ['analysis'] as const : ['reading', 'analysis'] as const;
-    setEvaluationProgress({ completed: 0, total: selectedProfiles.length, currentConfiguration: null, status: 'running', completedSteps: 0, totalSteps: selectedProfiles.length * measuredStages.length, currentStage: null });
+    const directProfiles = (profile: AiModelProfile) => evaluationStageMode === 'integrated' && evaluationVisualDirect
+      && profile.configuration.correctionMethod === 'decision' && isVisualDecisionModel(profile.configuration.analysisModel);
+    const totalEvaluationSteps = selectedProfiles.reduce((sum, profile) => sum + (directProfiles(profile) ? 1 : measuredStages.length), 0);
+    setEvaluationProgress({ completed: 0, total: selectedProfiles.length, currentConfiguration: null, status: 'running', completedSteps: 0, totalSteps: totalEvaluationSteps, currentStage: null });
     setEvaluationStage('preparing');
     setError('');
     setBusy(true);
     setIsAnalyzing(true);
     const outputs = await runModelEvaluation({
       stages: [...measuredStages],
+      stagesForConfiguration: (configuration) => configuration.directVisualDecision ? ['analysis'] : [...measuredStages],
       configurations: selectedProfiles.map((profile) => ({
         id: profile.id,
         name: profile.name,
@@ -1401,14 +1407,15 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         thinking: profile.configuration.analysisThinking,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         correctionMethod: profile.configuration.correctionMethod,
+        directVisualDecision: directProfiles(profile),
       })),
       isCancelled: () => evaluationCancelledRef.current,
       onProgress: setEvaluationProgress,
       execute: async (configuration, _isCancelled, onStage) => {
         setEvaluationStage('preparing');
-        if (evaluationStageMode !== 'analysis' && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un modèle de vision pour cette expérience.');
+        if (evaluationStageMode !== 'analysis' && !configuration.directVisualDecision && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un modèle de vision pour cette expérience.');
         if (evaluationStageMode !== 'vision' && !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle d’analyse pour cette expérience.');
-        if (evaluationStageMode !== 'analysis') await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.visionModel });
+        if (evaluationStageMode !== 'analysis' && !configuration.directVisualDecision) await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.visionModel });
         if (evaluationStageMode !== 'vision') await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.analysisModel });
         let extractedTranscription = '';
         let raw = '';
@@ -1435,11 +1442,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             rubric: rubricAsJson(rubric),
             ...(evaluationStageMode === 'analysis' ? { transcription: transcription ?? '' } : {}),
             ...(evaluationStageMode === 'vision' ? { visionOnly: true } : {}),
+            ...(configuration.directVisualDecision ? { directVisualDecision: true } : {}),
             images: evaluationStageMode === 'analysis' ? [] : structuredClone(images),
             ...(evaluationStageMode !== 'vision' && correctionMode === 'separate' ? { subjectImages: structuredClone(subjectImages), ...(subjectTranscription ? { subjectTranscription } : {}) } : {}),
           }, (chunk) => { streamedOutput += chunk; setStreamedOutput((current) => current + chunk); }, (stage) => {
             const now = Date.now();
-            if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = Math.max(0, now - startedAt); analysisStartedAt = now; } onStage('analysis'); setEvaluationStage('grading'); setAnalysisStage('grading'); setStreamedOutput(''); }
+            if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = configuration.directVisualDecision ? 0 : Math.max(0, now - startedAt); analysisStartedAt = configuration.directVisualDecision ? startedAt : now; } onStage('analysis'); setEvaluationStage('grading'); setAnalysisStage('grading'); setStreamedOutput(''); }
             else { onStage('reading'); setEvaluationStage('reading'); setAnalysisStage('reading'); }
           }, (text, kind) => {
             if (kind !== 'subject') extractedTranscription = text;
@@ -1513,6 +1521,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       score: output.value?.score ?? null,
       proposal: output.value?.proposal ?? null,
       diagnosticRuns: output.value?.diagnosticRuns ?? [],
+      directVisualDecision: output.configuration.directVisualDecision,
       ...(output.error ? { error: output.error } : {}),
     }));
     setModelEvaluationResults(results);
@@ -1534,6 +1543,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
         visionModel: profile.configuration.visionModel, analysisModel: profile.configuration.analysisModel,
         thinking: profile.configuration.analysisThinking,
+        correctionMethod: profile.configuration.correctionMethod,
+        directVisualDecision: directProfiles(profile),
       })),
       results,
       stage: evaluationStageMode,
@@ -2519,6 +2530,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <button type="button" className={evaluationStageMode === 'integrated' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'integrated'} onClick={() => setEvaluationStageMode('integrated')}><span className="evaluation-stage-number">03</span><strong>Parcours complet</strong><small>Mesurer le pipeline Vision puis Analyse de bout en bout.</small></button>
         </div>
         <p className="evaluation-stage-guidance" role="status">{evaluationStageMode === 'vision' ? 'Seul le modèle Vision est sollicité. Les transcriptions obtenues sont comparables entre profils et restent disponibles pour une validation humaine.' : evaluationStageMode === 'analysis' ? 'La transcription courante est réutilisée à l’identique pour chaque profil : aucune image n’est renvoyée au modèle Vision.' : 'Chaque profil exécute les deux étapes successivement. Ce mode mesure aussi le temps total du parcours.'}</p>
+        {evaluationStageMode === 'integrated' && <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-visual-proof"><input id="evaluation-visual-proof" type="checkbox" checked={evaluationVisualDirect} disabled={busy} onChange={(event) => setEvaluationVisualDirect(event.target.checked)} /><span><strong>Tester la décision directement sur les images (D1 / D3)</strong><small>Expérimental : les profils Ollama décisionnels D1 et D3 reçoivent les photos sans OCR via System One. Les autres profils restent inchangés et servent de comparaison. Les notes doivent être vérifiées par le professeur. Utiliser uniquement un serveur Ollama local.</small></span></label>}
         <div className="evaluation-config-editor">
           <div className="evaluation-config-editor-heading"><div><h3>Configuration IA locale</h3><p>Un profil = un modèle de lecture, un modèle d’analyse et ses options.</p></div><button type="button" className="secondary-button" disabled={busy} onClick={() => { setSelectedAiModelProfileId(''); setAiModelProfileName(''); setAiModelProfileTone('info'); setAiModelProfileMessage('Nouvelle configuration : renseignez les modèles puis enregistrez.'); setEndpoint(defaultAiModelConfiguration.endpoint); setVisionModel(''); setAnalysisModel(''); setSecondAnalysisModel(''); setArbitratorModel(''); setDiagnosticStrategy('single'); setAnalysisThinking(false); setCriterionByCriterion(true); setAvailableModels([]); setConnectionMessage(''); }}>＋ Nouvelle configuration</button></div>
           <div className="evaluation-config-fields">
@@ -3213,7 +3225,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 {evaluationWorkspaceStep === 'execution' && evaluationProgress && <section className="evaluation-progress" aria-labelledby="evaluation-progress-title" aria-live="polite">
           <div className="evaluation-progress-heading"><div><p className="eyebrow">SUIVI DE L’EXPÉRIENCE</p><h3 id="evaluation-progress-title">{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation interrompue' : 'Évaluation en cours'}</h3><p>{evaluationProgress.status === 'completed' ? 'Toutes les configurations ont été traitées.' : evaluationProgress.status === 'cancelled' ? 'La séquence a été arrêtée après l’appel en cours.' : evaluationProgress.currentConfiguration ? 'La configuration active est indiquée ci-dessous.' : 'Préparation de la prochaine configuration…'}</p></div><strong className="evaluation-progress-counter">{evaluationProgress.completedSteps} / {evaluationProgress.totalSteps} étapes terminées</strong></div>
           <div className="evaluation-progress-track" role="progressbar" aria-label="Étapes de traitement terminées" aria-valuemin={0} aria-valuemax={evaluationProgress.totalSteps} aria-valuenow={evaluationProgress.completedSteps}><span style={{ width: (evaluationProgress.completedSteps / Math.max(1, evaluationProgress.totalSteps) * 100) + '%' }} /></div>
-          <ol className="evaluation-configuration-steps" aria-label="Progression par configuration">{selectedEvaluationProfiles.map((profile, index) => { const active = evaluationProgress.currentConfiguration?.id === profile.id; const complete = index < evaluationProgress.completed || (evaluationProgress.status === 'completed' && index < evaluationProgress.total); const result = modelEvaluationResults.find((item) => item.profileId === profile.id); const failed = complete && result?.status === 'failed'; return <li key={profile.id} className={`evaluation-configuration-step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''} ${failed ? 'has-failed' : ''}`}><span className="evaluation-configuration-step-index" aria-hidden="true">{complete ? (failed ? '!' : '✓') : index + 1}</span><div><strong>{profile.name}</strong><span>{active ? (evaluationProgress.currentStage === 'analysis' ? 'En cours maintenant · analyse · lecture terminée' : evaluationProgress.currentStage === 'reading' ? 'En cours maintenant · lecture' : 'En cours maintenant · préparation') : complete ? (failed ? 'Échec — voir le détail' : 'Terminé') : 'En attente'}</span><small>{profile.configuration.visionModel || 'Vision non définie'} → {profile.configuration.analysisModel || 'Analyse non définie'}</small></div>{active && <span className="evaluation-active-pill">EN COURS</span>}</li>; })}</ol>
+          <ol className="evaluation-configuration-steps" aria-label="Progression par configuration">{selectedEvaluationProfiles.map((profile, index) => { const active = evaluationProgress.currentConfiguration?.id === profile.id; const complete = index < evaluationProgress.completed || (evaluationProgress.status === 'completed' && index < evaluationProgress.total); const result = modelEvaluationResults.find((item) => item.profileId === profile.id); const failed = complete && result?.status === 'failed'; return <li key={profile.id} className={`evaluation-configuration-step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''} ${failed ? 'has-failed' : ''}`}><span className="evaluation-configuration-step-index" aria-hidden="true">{complete ? (failed ? '!' : '✓') : index + 1}</span><div><strong>{profile.name}</strong><span>{active ? (evaluationProgress.currentStage === 'analysis' ? (evaluationVisualDirect && profile.configuration.correctionMethod === 'decision' && isVisualDecisionModel(profile.configuration.analysisModel) ? 'En cours maintenant · décision visuelle directe' : 'En cours maintenant · analyse · lecture terminée') : evaluationProgress.currentStage === 'reading' ? 'En cours maintenant · lecture' : 'En cours maintenant · préparation') : complete ? (failed ? 'Échec — voir le détail' : 'Terminé') : 'En attente'}</span><small>{evaluationStageMode === 'integrated' && evaluationVisualDirect && profile.configuration.correctionMethod === 'decision' && isVisualDecisionModel(profile.configuration.analysisModel) ? 'Image → System One direct · ' + profile.configuration.analysisModel : (profile.configuration.visionModel || 'Vision non définie') + ' → ' + (profile.configuration.analysisModel || 'Analyse non définie')}</small></div>{active && <span className="evaluation-active-pill">EN COURS</span>}</li>; })}</ol>
           {evaluationProgress.status === 'running' && <div className="evaluation-phase-panel"><strong>{evaluationStage === 'preparing' ? '1. Préparation des modèles' : evaluationStage === 'reading' ? '2. Lecture des images et extraction du texte' : evaluationStage === 'grading' ? '3. Analyse de la copie et attribution des notes' : evaluationStage === 'parsing' ? '4. Structuration et vérification du résultat' : evaluationStage === 'saving' ? '5. Enregistrement de l’expérience locale' : 'Initialisation'}</strong><p>{evaluationStage === 'preparing' ? 'Vérification de la disponibilité des modèles Ollama avant de commencer cette configuration.' : evaluationStage === 'reading' ? 'Le modèle Vision traite les images originales de la copie.' : evaluationStage === 'grading' ? 'Le modèle d’analyse confronte la transcription au barème et prépare les notes.' : evaluationStage === 'parsing' ? 'La réponse est convertie en critères, notes et justifications exploitables.' : evaluationStage === 'saving' ? 'Les résultats, les images et le barème sont enregistrés dans l’historique local.' : 'Mise en place de la séquence de test.'}</p></div>}
         </section>}
         {evaluationWorkspaceStep === 'execution' && busy && streamedOutput && <section className="transcription-review" aria-live="polite"><h3>Réponse du modèle en streaming</h3><pre>{streamedOutput}</pre></section>}
@@ -3303,7 +3315,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               <button type="button" className="secondary-button evaluation-history-load" onClick={() => { setModelEvaluationResults(record.results); setRubric(structuredClone(record.rubricSnapshot)); setImages(structuredClone(record.images)); setTranscription(record.referenceTranscription ?? record.results.find((result) => result.transcription)?.transcription ?? null); setQuestion(record.question); setAssignmentTitle(record.assignmentTitle); setCorrectionMode(record.correctionMode); setSubjectImages(structuredClone(record.subjectImages)); setSubjectTranscription(record.subjectTranscription); setEvaluationStageMode(getModelEvaluationStage(record)); setEvaluationWorkspaceStep('results'); setSuggestedEvaluationComparisonIds(null); setEvaluationArchiveStatus(sessionOnlyEvaluationIds.includes(record.id) ? 'failed' : record.originalImagesArchived === false ? 'without-images' : 'saved'); setPendingEvaluationArchive(sessionOnlyEvaluationIds.includes(record.id) ? record : null); setEvaluationArchiveError(sessionOnlyEvaluationIds.includes(record.id) ? 'Cet essai n’a pas été sauvegardé : il disparaîtra au rechargement de la page.' : ''); }}>Consulter les résultats</button>
             </div>
             <div className="evaluation-history-record-metrics">{record.results.map((result) => <article className="evaluation-history-model-metric" key={result.profileId}>
-              <div className="evaluation-history-model-heading"><strong>{result.profileName}</strong><span className={result.status === 'success' ? 'evaluation-history-status is-success' : 'evaluation-history-status'}>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Interrompu' : 'Échec'}</span></div>
+              <div className="evaluation-history-model-heading"><strong>{result.profileName}{result.directVisualDecision ? ' · preuve visuelle directe' : ''}</strong><span className={result.status === 'success' ? 'evaluation-history-status is-success' : 'evaluation-history-status'}>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Interrompu' : 'Échec'}</span></div>
               <p className="evaluation-history-model-name">{record.configurations.find((configuration) => configuration.id === result.profileId)?.visionModel ?? 'Vision non renseigné'} <span aria-hidden="true">→</span> {record.configurations.find((configuration) => configuration.id === result.profileId)?.analysisModel ?? 'Analyse non renseigné'}</p>
               <div className="evaluation-history-model-stats">
                 <div><span>Lecture</span><strong>{formatElapsed(Math.round(result.readingMs / 1000))}</strong><small>{result.readingTokens === null || result.readingTokens === undefined ? 'Tokens non mesurés' : formatTokenCount(result.readingTokens) + ' tokens'}</small><small className="evaluation-throughput">{result.readingTokensPerSecond == null ? 'Débit non mesuré' : result.readingTokensPerSecond.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s'}</small></div>
@@ -3340,7 +3352,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <div className="evaluation-analysis-columns">
               <section className="evaluation-analysis-subsection"><h4>Lecture par configuration</h4>
                 {comparableResults.map((result) => <article className="evaluation-model-summary" key={result.profileId}>
-                  <div><strong>{result.profileName}</strong><span>{result.score === null ? 'Note inexploitable' : result.score + ' / ' + validation.maximumPoints}</span></div>
+                  <div><strong>{result.profileName}{result.directVisualDecision ? ' · preuve visuelle directe' : ''}</strong><span>{result.score === null ? 'Note inexploitable' : result.score + ' / ' + validation.maximumPoints}</span></div>
                   <p>{formatElapsed(Math.round(result.elapsedMs / 1000))} au total · Lecture {result.readingTokensPerSecond == null ? 'débit non mesuré' : result.readingTokensPerSecond.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s'} · Analyse {result.analysisTokensPerSecond == null ? 'débit non mesuré' : result.analysisTokensPerSecond.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' tokens/s'} · {lowConfidence(result)} critère(s) à faible confiance · {result.proposal?.questionsForTeacher.length ?? 0} question(s) à vérifier</p>
                 </article>)}
                 {modelEvaluationResults.some((result) => result.status !== 'success') && <p className="evaluation-analysis-warning">Au moins une configuration a échoué ou a été interrompue. Consultez les erreurs dans les résultats détaillés.</p>}
