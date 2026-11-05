@@ -135,8 +135,9 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testInfo.outputPath('atelier-b-first-impression-desktop.png'), animations: 'disabled' });
   await expect(page.locator('.copy-review-header')).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'Nom de l’étudiant' })).toBeVisible();
-  await expect(page.getByText('Nom lu sur la copie')).toBeVisible();
+  await expect(page.locator('.copy-review-identity-title h2')).toHaveText('Copie de test');
+  await expect(page.getByRole('button', { name: 'Modifier le nom de l’étudiant' })).toBeVisible();
+  await expect(page.getByText('Copie de l’étudiant')).toBeVisible();
   await expect(page.getByText('Page 1 : schéma possible, confiance faible.')).toBeVisible();
   await expect(page.locator('.review-main-column .copy-review-alert-strip')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Analyser comme schéma' })).toBeVisible();
