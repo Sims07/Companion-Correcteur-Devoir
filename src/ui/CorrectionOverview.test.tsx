@@ -37,7 +37,7 @@ const display = (current: BackgroundCorrectionJob, isStartingCorrections = false
 
 const archivedCorrection: LocalCorrection = {
   id: 'archived-1',
-  label: 'Chloé Bessou',
+  label: 'Copie de démonstration',
   rubricTitle: 'Mitose',
   rubricFingerprint: 'fixture',
   createdAt: '2026-11-05T09:00:00.000Z',
@@ -79,7 +79,7 @@ const displayArchived = () => renderToStaticMarkup(
 describe('teacher correction overview and partial grade safety', () => {
   it('separates the completed status and the save date while keeping the final grade and consultation action clear', () => {
     const html = displayArchived();
-    expect(html).toContain('Chloé Bessou');
+    expect(html).toContain('Copie de démonstration');
     expect(html).toContain('1 page</small>');
     expect(html).toContain('Note finale');
     expect(html).toContain('3,5');
