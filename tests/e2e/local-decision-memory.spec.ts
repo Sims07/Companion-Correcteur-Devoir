@@ -17,6 +17,7 @@ test('teacher decisions stay available locally after reloading the page', async 
 test('deleting a local correction uses a cancellable Atelier dialog', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Règles de correction/ }).click();
+  await expect(page.locator('.memory-panel')).toHaveCSS('background-color', 'rgb(255, 253, 249)');
   await page.getByRole('button', { name: 'Supprimer cette correction' }).click();
   const dialog = page.getByRole('dialog', { name: 'Supprimer cette correction ?' });
   await expect(dialog).toBeVisible();
