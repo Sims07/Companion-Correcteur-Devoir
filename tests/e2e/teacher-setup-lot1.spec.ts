@@ -67,8 +67,10 @@ test('the compact rubric keeps advanced criterion details collapsed and can open
   await page.getByRole('tab', { name: 'Barème' }).click();
   const criteria = page.locator('.criterion-editor');
   await expect(criteria).toHaveCount(3);
-  await expect(criteria.first()).toHaveAttribute('open', '');
+  await expect(criteria.first()).not.toHaveAttribute('open', '');
   await expect(criteria.nth(1)).not.toHaveAttribute('open', '');
+  await criteria.first().locator('summary').click();
+  await expect(criteria.first()).toHaveAttribute('open', '');
   await criteria.nth(1).locator('summary').click();
   await expect(criteria.nth(1)).toHaveAttribute('open', '');
   await expect(criteria.first()).not.toHaveAttribute('open', '');
@@ -110,6 +112,8 @@ test('Atelier B rubric shows compact numbered criteria and a live synthesis at d
   await expect(page.locator('.rubric-reuse-panel')).toHaveAttribute('open', '');
 
   const firstCriterion = page.locator('.criterion-editor').first();
+  await expect(firstCriterion).not.toHaveAttribute('open', '');
+  await firstCriterion.locator('summary').click();
   await expect(firstCriterion).toHaveAttribute('open', '');
   await firstCriterion.locator('.criterion-fields input').first().fill('Connaissances scientifiques — précisions');
   await expect(firstCriterion.locator('.criterion-editor-summary')).toContainText('Connaissances scientifiques — précisions');
