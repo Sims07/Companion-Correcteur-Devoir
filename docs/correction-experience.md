@@ -22,7 +22,7 @@ Une déduction n'est jamais masquée comme un résultat banal : tout critère no
 
 ## Trois niveaux d'information
 
-1. **Lecture immédiate (par défaut)** : note proposée, points par critère, raison courte de chaque alerte, justification en une phrase et commentaire à reporter lorsqu'il existe. Les critères sans alerte restent regroupés avec leur preuve courte (12 mots maximum).
+1. **Lecture immédiate (par défaut)** : note proposée, points par critère, raison courte de chaque alerte (une phrase, maximum 18 mots visibles), question concrète en cas de doute et action rapide pour retrouver la page. Un commentaire suggéré se copie en un clic sans afficher son texte complet. Les critères sans alerte restent regroupés avec leur preuve courte (12 mots maximum).
 2. **Détail à la demande** : preuve complète, ventilation des schémas, repère de page et question ou texte long. Ces détails restent repliés.
 3. **Diagnostic IA** : sorties brutes, prompts, confiance, comparaison de modèles, timings, stratégies expérimentales et arbitrage. Ces informations restent dans les espaces de diagnostic/observabilité et ne polluent pas l'interface enseignante.
 
@@ -45,7 +45,7 @@ Ces limites de longueur sont des objectifs de lisibilité, pas une autorisation 
 
 ## Actions humaines et sécurité de notation
 
-- La proposition de l'IA est retenue par défaut dès que l'analyse complète est terminée : aucune validation critère par critère ou confirmation groupée n'est requise pour poursuivre.
+- La proposition de l'IA est retenue par défaut dès que l'analyse complète est terminée : aucune validation critère par critère ou confirmation groupée n'est requise pour poursuivre. L'action unique « Valider et passer à la suivante » archive la correction ; elle ne publie aucune note.
 - Cette acceptation par défaut est un état de travail, pas une publication ni une communication automatique de la note à l'étudiant. Le professeur reste libre de modifier les points et commentaires avant de reporter la note sur la copie.
 - Les points retirés, les preuves manquantes, les faibles confiances et les ambiguïtés restent signalés visuellement et prioritaires à la lecture, sans bloquer l'accès à la copie suivante.
 - L'enseignant peut toujours afficher tous les critères, modifier les points et saisir un commentaire ; ces actions ne doivent jamais être imposées.
@@ -55,7 +55,7 @@ Ces limites de longueur sont des objectifs de lisibilité, pas une autorisation 
 ## Principes d'interface
 
 - Donner la priorité visuelle à la note et aux décisions en attente, pas aux paragraphes explicatifs.
-- Ne pas afficher en permanence les preuves, justifications, commentaires suggérés et ventilations détaillées.
+- Ne pas afficher en permanence les preuves, justifications, commentaires suggérés et ventilations détaillées. Les détails des sous-critères et des schémas sont repliés par défaut, même lorsqu'un point est signalé.
 - Conserver la copie originale comme source de vérité et rendre les preuves localisables sur la page.
 - Signaler clairement les critères à examiner et le nombre de critères sans alerte.
 - Permettre d'ouvrir tous les critères sans perdre les modifications déjà effectuées.
@@ -67,8 +67,8 @@ Ces limites de longueur sont des objectifs de lisibilité, pas une autorisation 
 Une évolution de la correction doit être évaluée selon :
 - le temps nécessaire pour comprendre la proposition et finaliser une copie ;
 - le nombre de mots affichés avant interaction, comparé au volume de la copie (texte utile des critères : titres, scores, raisons, justifications et commentaires, hors navigation) ;
-- le nombre de critères, le nombre de critères à examiner, le nombre confirmés en groupe et le nombre ensuite modifiés par l'enseignant ;
-- le taux de modification des critères confirmés en groupe ;
+- le nombre de critères et de points à examiner, et le nombre de notes ajustées par l'enseignant ;
+- le taux de modification des propositions de l'IA après vérification ;
 - le taux de corrections humaines des propositions et les erreurs détectées ;
 - la capacité à retrouver rapidement la preuve originale d'une décision.
 
@@ -125,3 +125,9 @@ Le choix est réversible à tout moment. Les deux parcours partagent le barème,
 - La liste des copies affiche le nom, le nombre de pages, le statut et un aperçu miniature de chaque page.
 - Une copie qui n'est pas en cours de traitement peut être retirée de la session ; une copie en cours est protégée contre la suppression.
 - Le bouton de lancement explicite le nombre de copies en attente et le fait que le traitement est séquentiel.
+
+## Parcours unique d'ajout et revue de décision
+
+Dans le suivi, le professeur ajoute les copies depuis un seul panneau : un fichier par copie, ou toutes les pages d'une copie. La préparation fine d'une copie reste accessible à la demande. Le suivi rappelle en priorité les copies à examiner, en cours et à reprendre ; les pages détaillées sont repliées.
+
+Dans la revue, la copie originale reste visible, la note proposée est distincte des alertes, et un critère sans alerte ne déclenche aucune confirmation. Une seule action d'archivage/passage à la suivante est affichée, sans bouton redondant dans l'en-tête. La proposition de l'IA n'est jamais confondue avec une publication de note. La totalité des justifications, suggestions pédagogiques, schémas et transcriptions demeure consultable sur demande, sans perte de contenu.
