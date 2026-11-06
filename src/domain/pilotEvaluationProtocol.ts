@@ -143,7 +143,10 @@ export interface PilotTranscriptionBenchmark {
 }
 
 function pilotWords(text: string): string[] {
-  const normalized = text.normalize('NFKC').toLowerCase()
+  // The Vision pipeline prefixes every page with “[ filename ]”; these are
+  // transport metadata, not student handwriting, and must not count as OCR errors.
+  const withoutPageLabels = text.replace(/^\s*\[[^\]\r\n]+\]\s*$/gm, ' ');
+  const normalized = withoutPageLabels.normalize('NFKC').toLowerCase()
     .replace(/œ/g, 'oe').replace(/æ/g, 'ae')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, ' ').trim();
