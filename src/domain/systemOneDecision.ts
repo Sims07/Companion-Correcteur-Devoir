@@ -283,8 +283,7 @@ export function prepareSystemOneRubric(input: {
       if (sharedAlignment && key === 'alignment') continue;
       questions[prefix + key] = {
         ...question,
-        instructions: input.visualEvidence ? question.instructions
-          : 'CRITÈRE « ' + criterion.title + ' » : ' + question.instructions,
+        instructions: 'CRITÈRE « ' + criterion.title + ' » : ' + question.instructions,
       };
     }
     return {
