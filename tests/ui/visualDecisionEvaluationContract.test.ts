@@ -29,6 +29,6 @@ describe('visual System One is limited to the technical model benchmark', () => 
     const visualFactory = source.slice(source.indexOf('function visualExpectedQuestion('), source.indexOf('function expectedQuestion('));
     expect(visualFactory).toContain('target.title');
     expect(visualFactory).toContain('target.description');
-    expect(visualFactory).not.toMatch(/mitose|phragmoplaste|interphase|fourche de réplication|réactif\\/produit/i);
+    expect(visualFactory).not.toMatch(/mitose|phragmoplaste|interphase|fourche de réplication|réactif/i);
   });
 });
