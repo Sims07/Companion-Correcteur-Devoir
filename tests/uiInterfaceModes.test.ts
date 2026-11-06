@@ -111,7 +111,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Évaluer cette configuration');
     expect(text).toContain('Annuler après l’appel en cours');
     expect(text).toContain('runModelEvaluation({');
-    expect(text).toContain('images: runStage === 'analysis' ? [] : structuredClone(runImages)');
+    expect(text).toContain("images: runStage === 'analysis' ? [] : structuredClone(runImages)");
     expect(text).toContain("runStage === 'analysis' ? { transcription: runTranscription ?? '' } : {}");
     expect(text).toContain("runStage === 'vision' ? { visionOnly: true } : {}");
     expect(text).toContain('Vision seule');
