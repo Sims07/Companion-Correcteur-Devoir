@@ -36,7 +36,7 @@ function keywords(text: string): string[] {
  * A source quote from the printed question must NEVER validate an awarded point.
  * If no explicit answer delimiter exists, retain the original transcription. */
 export function studentAnswerForEvidence(transcription: string): string {
-  const marker = /(?:^|\\n)\\s*(?:\\*\\*)?r[eé]ponse(?:\\s+de\\s+l['’](?:[eé]tudiant|[eé]l[eè]ve))?(?:\\*\\*)?\\s*:?\\s*(?:\\r?\\n|$)/i.exec(transcription);
+  const marker = /(?:^|\n)\s*(?:\*\*)?r[eé]ponse(?:\s+de\s+l['’](?:[eé]tudiant|[eé]l[eè]ve))?(?:\*\*)?\s*:?\s*(?:\r?\n|$)/i.exec(transcription);
   return marker ? transcription.slice(marker.index + marker[0].length).trim() : transcription;
 }
 

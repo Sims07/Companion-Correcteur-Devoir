@@ -62,7 +62,7 @@ describe('teacher-verifiable per-subcriterion decisions', () => {
   });
 
   it('never treats a printed question as proof even when both native choices agree on an incorrect point', () => {
-    const transcript = "Question\\nLa photosynthèse se déroule dans les chloroplastes.\\nRéponse de l'étudiant\\nJe ne sais pas.";
+    const transcript = "Question\nLa photosynthèse se déroule dans les chloroplastes.\nRéponse de l'étudiant\nJe ne sais pas.";
     const rubric = PILOT_RUBRIC.criteria[0]!;
     const prepared = prepareSystemOneRubric({
       criteria: [rubric], transcription: transcript,

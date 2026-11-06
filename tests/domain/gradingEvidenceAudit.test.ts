@@ -27,7 +27,7 @@ describe('grounding of positive marks in student answer', () => {
   });
 
   it('rejects printed-question passages as evidence of a credited student answer', () => {
-    const source = "Question\\nLa photosynthèse se déroule dans les chloroplastes.\\nRéponse de l'étudiant\\nJe ne sais pas.";
+    const source = "Question\nLa photosynthèse se déroule dans les chloroplastes.\nRéponse de l'étudiant\nJe ne sais pas.";
     const proposal = gradeOne(criterion('c1'), {
       p1: { points: 1, evidence: 'La photosynthèse se déroule dans les chloroplastes.' },
       p2: { points: 0, evidence: 'Aucune affirmation sur la lumière.' },
