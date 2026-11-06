@@ -44,6 +44,25 @@ describe('local correction application use cases', () => {
     await expect(service.listCorrections()).resolves.toHaveLength(1);
   });
 
+  it('delegates lightweight summary listing and on-demand archive retrieval, with compatibility fallback', async () => {
+    const repo = repository();
+    const service = createLocalCorrectionService(repo);
+    const sample: LocalCorrection = {
+      id: 'archive-1', label: 'Copie test', rubricTitle: 'Biologie',
+      rubricFingerprint: 'rubric-1', createdAt: '2026-10-28T00:00:00Z',
+      updatedAt: '2026-10-28T00:00:00Z',
+    };
+    await service.saveCorrection(sample);
+    expect(await service.listCorrectionSummaries?.()).toEqual([sample]);
+    expect(await service.getCorrection?.(sample.id)).toEqual(sample);
+    expect(await service.getCorrection?.('missing')).toBeNull();
+
+    repo.listCorrectionSummaries = async () => [{ ...sample, imagesDeferred: true }];
+    repo.getCorrection = async () => sample;
+    expect(await service.listCorrectionSummaries?.()).toMatchObject([{ imagesDeferred: true }]);
+    expect(await service.getCorrection?.(sample.id)).toEqual(sample);
+  });
+
   it('trims teacher feedback and rejects empty memory entries', async () => {
     const service = createLocalCorrectionService(repository());
     const entry: LocalMemoryEntry = {

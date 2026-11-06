@@ -124,7 +124,7 @@ export function CorrectionOverview({ children, jobs, corrections, currentCopy, f
           searchText: correction.label.toLocaleLowerCase('fr-FR'),
           status: 'completed',
           updatedAt: correction.updatedAt,
-          pageCount: correction.snapshot?.images.length ?? 0,
+          pageCount: correction.pageCount ?? correction.snapshot?.images.length ?? 0,
           score: score?.score ?? null,
           maximumPoints: score?.maximum ?? 0,
           kind: 'correction',

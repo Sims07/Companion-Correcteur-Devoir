@@ -91,6 +91,27 @@ describe('teacher correction overview and partial grade safety', () => {
     expect(html).not.toContain('CorrigéeEnregistrée');
   });
 
+  it('keeps the page count and grade visible for a summary whose image bytes are deferred', () => {
+    const deferred: LocalCorrection = {
+      ...archivedCorrection,
+      imagesDeferred: true,
+      pageCount: 1,
+      snapshot: { ...archivedCorrection.snapshot!, images: [], originalImages: undefined, subjectImages: [] },
+    };
+    const html = renderToStaticMarkup(
+      <CorrectionOverview
+        jobs={[]} corrections={[deferred]} currentCopy={null}
+        filter="completed" onFilterChange={vi.fn()} onAddCopy={vi.fn()} addCopyExpanded={false} pendingCount={0}
+        isStartingCorrections={false} isStoppingCorrections={false} onStopCorrections={vi.fn()} onStartCorrections={vi.fn()}
+        onOpenJob={vi.fn()} onRetryJob={vi.fn()} onRemoveJob={vi.fn()} notice=""
+        onOpenCorrection={vi.fn()} onOpenCurrentCopy={vi.fn()} onReviewNextCopy={vi.fn()}
+      />,
+    );
+    expect(html).toContain('1 page</small>');
+    expect(html).toContain('3,5');
+    expect(html).toContain('Consulter la correction');
+  });
+
   it('names the first queued copy while the model is starting and exposes its preview', () => {
     const html = display(job, true);
     expect(html).toContain('Préparation : Copie de biologie');

@@ -8,6 +8,9 @@ import type { LocalMemoryEntry, LocalMemoryQuery } from '../domain/localMemory.t
 export interface LocalCorrectionRepository {
   saveCorrection(correction: LocalCorrection): Promise<void>;
   listCorrections(): Promise<LocalCorrection[]>;
+  /** Optional for lightweight adapters; older repository implementations remain compatible. */
+  listCorrectionSummaries?(): Promise<LocalCorrection[]>;
+  getCorrection?(id: string): Promise<LocalCorrection | null>;
   deleteCorrection(correctionId: string): Promise<void>;
   saveMemory(entry: LocalMemoryEntry): Promise<void>;
   listMemory(query?: LocalMemoryQuery): Promise<LocalMemoryEntry[]>;
