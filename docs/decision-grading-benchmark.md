@@ -155,3 +155,31 @@ l'enveloppe est tracée en version 5 du prompt `decision.system-one`.
 Son effet sur les tokens, le temps CPU et les erreurs doit être mesuré sur
 le même protocole réel : une baisse de longueur JSON ne garantit pas une
 amélioration des décisions ni du temps de correction.
+
+## Expérience locale : appels parallèles par critère
+
+Depuis « Évaluation des modèles » → « Protocole de test guidé », sélectionner une
+configuration Ollama **locale** et lancer « Comparer 1, 2 et 4 appels parallèles ».
+Choisir une copie A, B ou C avant l'essai (C par défaut). Chaque niveau évalue
+les cinq mêmes critères du barème sur la **même transcription de référence**,
+sans photo ni modification de la correction des enseignants. Les niveaux 1, 2
+et 4 sont mesurés successivement ; plusieurs profils sont testés l'un après
+l'autre et déchargés entre profils.
+
+- Mesurer durée totale, nombre réel de requêtes simultanées, échecs, reprises,
+  tokens générés lorsque Ollama les expose, débit effectif, note et exactitude
+  des dix attendus. Un critère échoué reste « non évalué », jamais zéro.
+- Les modèles génératifs et les modèles décisionnels natifs sont acceptés ;
+  toutefois **System One regroupe normalement des questions dans une même
+  requête**. La variante « un appel par critère » peut y être moins efficace
+  que la méthode native. Comparer uniquement la concurrence *à architecture
+  d'appels identique* ; ne pas assimiler ce benchmark à la correction réelle.
+- Le premier niveau peut inclure le chargement du modèle. L'ordre constant
+  1 → 2 → 4, la mise en cache et l'absence de répétitions peuvent biaiser
+  les résultats. Répéter sur des copies variées avant une décision produit.
+- Les navigateurs ne peuvent pas mesurer directement le pic RAM du processus
+  Ollama sur macOS. Pour cette mesure, relever en parallèle le Moniteur
+  d'activité. L'export JSON omet photos, textes des copies, prompts, corps
+  réseau, endpoints et secrets.
+- Le bouton d'arrêt laisse terminer les requêtes déjà lancées. Aucune
+  simultanéité n'est introduite dans la correction professeur.
