@@ -16,6 +16,7 @@ test('the guided biology protocol provisions three local profiles and runs indep
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
   await expect(panel.getByRole('button', { name: 'Tester les 3 photos (Vision + analyse)' })).toBeDisabled();
   await expect(panel.getByText('3 profil(s) sélectionné(s)', { exact: false })).toBeVisible();
+  await expect(panel.getByText(/Chaque modèle est déchargé de la mémoire Ollama avant le profil suivant/)).toBeVisible();
   await expect(page.getByRole('group', { name: 'Type d’évaluation' })
     .getByRole('button', { name: /Analyse seule/ })).toHaveAttribute('aria-pressed', 'true');
 
