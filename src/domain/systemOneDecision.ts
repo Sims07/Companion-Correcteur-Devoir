@@ -175,14 +175,14 @@ function visualExpectedQuestion(target: { title: string; description: string }):
 function semanticSupportQuestion(target: { title: string; description: string }): SystemOneQuestion {
   return {
     type: 'choice',
-    instructions: 'Vérification indépendante de cet ATTENDU : ' + target.title
-      + (target.description ? '. ' + target.description : '')
-      + '. Lis la RÉPONSE étudiante (pas l’énoncé). Vérifie que la bonne entité accomplit la bonne action sur le bon objet, avec le bon sens causal et la bonne polarité (affirmation ou négation). Ne te contente jamais du vocabulaire présent, de la relation écrite dans le barème ou d’une autre phrase qui concerne un phénomène voisin. Choisis contradicted si la réponse affirme explicitement une relation INCOMPATIBLE avec cet attendu ; not_demonstrated si elle n’exprime pas la relation demandée, même si les mêmes mots apparaissent ; supported uniquement si la relation complète et correcte est affirmée par l’étudiant. Ne devine rien.',
+    instructions: 'Audit indépendant du SEUL attendu « ' + target.title + ' »'
+      + (target.description ? ' : ' + target.description : '')
+      + '. Lis uniquement la réponse étudiante, jamais l’énoncé ni le barème comme preuve. Vérifie sujet, action, objet, sens et négations. Les autres sous-critères du parent ne sont pas exigés ici. Un mot-clé isolé ne prouve pas la relation.',
     criteria: {
-      supported: 'Une phrase de l’étudiant soutient explicitement la relation demandée et son sens exact.',
-      contradicted: 'L’étudiant contredit explicitement la relation attendue (négation, inversion, rôle ou sens erroné).',
-      not_demonstrated: 'La relation n’est pas démontrée dans la réponse étudiante ; les mots isolés ne suffisent pas.',
-      uncertain: 'La relation est ambiguë ou impossible à lire correctement.',
+      supported: 'La relation exacte de cet attendu est affirmée par l’étudiant, avec le bon rôle et le bon sens.',
+      contradicted: 'La relation est explicitement niée ou inversée par l’étudiant.',
+      not_demonstrated: 'Cet attendu précis n’est pas démontré ; des mots communs ne suffisent pas.',
+      uncertain: 'Le sens de cette relation est ambigu ou illisible.',
     },
   };
 }
@@ -190,12 +190,14 @@ function semanticSupportQuestion(target: { title: string; description: string })
 function expectedQuestion(target: { title: string; description: string }): SystemOneQuestion {
   return {
     type: 'choice',
-    instructions: 'Évalue uniquement cet attendu dans la RÉPONSE de l’étudiant (pas dans l’énoncé). Respecte le sens scientifique, notamment les rôles réactif/produit. Une information voisine ou un terme isolé ne suffit pas. Ne choisis « partial » que si plusieurs composantes de cet attendu sont distinctes et que certaines seulement sont correctement démontrées ; pour une affirmation unique, choisis « present » ou « absent ». ATTENDU : ' + target.title + (target.description ? '. ' + target.description : ''),
+    instructions: 'Évalue uniquement le SOUS-ATTENDU « ' + target.title + ' »'
+      + (target.description ? ' : ' + target.description : '')
+      + '. Juge la relation complète dans la seule réponse étudiante : bon sujet, bonne action, bon objet, sens et négation. Ne note PAS les autres sous-critères du parent. « partial » est réservé aux attendus qui contiennent eux-mêmes plusieurs obligations distinctes.',
     criteria: {
-      present: 'Correct et complètement démontré dans la réponse.',
-      absent: 'Non démontré ou incorrect dans la réponse.',
-      partial: 'Plusieurs éléments sont exigés dans le même attendu ; au moins un est démontré correctement, mais un autre manque.',
-      uncertain: 'La réponse à cet attendu est réellement illisible ou indécidable.',
+      present: 'CET attendu précis est entièrement et correctement démontré.',
+      absent: 'CET attendu précis est absent, incorrect ou contredit.',
+      partial: 'CET attendu contient plusieurs obligations distinctes ; certaines seulement sont démontrées. Jamais pour un attendu unique.',
+      uncertain: 'Impossible de juger CET attendu car la réponse est ambiguë ou illisible.',
     },
   };
 }
@@ -243,11 +245,19 @@ function criterionQuestions(
   }
   const selected = targets.length ? targets
     : [{ id: criterion.id, title: criterion.title, description: criterion.description, maxPoints: criterion.maxPoints }];
-  // System One questions are independent: the parent object must travel with each
-  // expected condition, not only with the shared state or a position-based ID.
-  const teacherContext = 'CRITÈRE « ' + criterion.title + ' »'
-    + (criterion.description.trim() ? ' — CONTEXTE ENSEIGNANT : ' + criterion.description.trim() : '') + ' : ';
+  // An explicitly described, self-contained subcriterion is scored alone.
+  // Repeating the compound parent description in EVERY independent question
+  // makes a one-part answer look "partial" (even when that subcriterion is fully
+  // satisfied). Keep the parent title here and its full description in shared
+  // state. For a terse/underspecified subcriterion, preserve the parent details
+  // locally so no essential teacher context is lost.
   selected.forEach((target, index) => {
+    const detail = target.description.trim();
+    const selfContained = targets.length > 0 && !visualEvidence
+      && detail.split(/\\s+/).length >= 5 && /[.!?]$/.test(detail);
+    const teacherContext = 'CRITÈRE « ' + criterion.title + ' »'
+      + (criterion.description.trim() && !selfContained
+        ? ' — CONTEXTE ENSEIGNANT (pas un attendu supplémentaire) : ' + criterion.description.trim() : '') + ' : ';
     const question = visualEvidence ? visualExpectedQuestion(target) : expectedQuestion(target);
     questions['expected_' + (index + 1)] = { ...question, instructions: teacherContext + question.instructions };
     if (auditSemanticSupport && !visualEvidence) {
