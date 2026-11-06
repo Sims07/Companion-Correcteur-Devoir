@@ -50,9 +50,20 @@ export async function requestSystemOneDecision(input: {
       || !/^[A-Za-z0-9+/]+={0,2}$/.test(item.base64))) {
       throw new Error('System One attend des images PNG, JPEG ou WebP encodées en Base64, sans préfixe data:.');
     }
+    const count = Object.keys(prepared.questions).length;
+    if (count < 1 || count > 64) {
+      throw new Error('System One accepte de 1 à 64 questions par appel. Le barème doit être adapté avant la requête.');
+    }
+    const encoder = new TextEncoder();
+    // Ollama enforces 64 KiB of JSON text/schema separately from its 32 MiB
+    // whole-body limit. JavaScript string.length is not a UTF-8 byte count.
+    const textBody = JSON.stringify({ model, state: prepared.state, questions: prepared.questions });
+    if (encoder.encode(textBody).byteLength > 64 * 1024) {
+      throw new Error('Le barème et le texte dépassent 64 Kio pour System One. Raccourcissez le contexte sans supprimer les attendus.');
+    }
     const body = JSON.stringify(payload);
-    if (body.length > 32 * 1024 * 1024) {
-      throw new Error('Les images dépassent la limite locale de 32 Mio de l’API System One. Réduisez le nombre de pages ou la taille des images.');
+    if (encoder.encode(body).byteLength > 32 * 1024 * 1024) {
+      throw new Error('La requête dépasse la limite locale de 32 Mio de l’API System One. Réduisez le nombre de pages ou la taille des images.');
     }
     const response = await fetchImpl(endpoint + '/v1/systemone', annotateNetworkRequest({
       method: 'POST',

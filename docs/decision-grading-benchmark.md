@@ -122,3 +122,20 @@ mesures sont **exploratoires avant 10 copies**, préliminaires entre 10 et 29,
 et nécessitent encore une validation pédagogique avec 30 copies ou plus.
 Un écart de note proche de zéro ne garantit pas à lui seul l'exactitude des
 justifications biologiques ou des preuves graphiques.
+
+## Garde-fous du contrat System One (novembre 2026)
+
+- Les questions natives sont **indépendantes**. Chaque question sur un sous-critère
+  reprend donc le **titre et la description du critère parent** : un simple
+  « centré » n'est pas une vérification scientifique autonome.
+- Limite stricte de **64 questions par requête**. Les barèmes qui dépassent cette
+  limite demandent une reformulation explicite ; aucun découpage ni aucune
+  suppression d'attendus ne sont réalisés silencieusement.
+- Contrôle local de la taille en **octets UTF-8** avant tout appel réseau : 64 Kio
+  pour le contexte JSON sans les images, 32 Mio pour le corps complet.
+- Les extraits retrouvés par coïncidence lexicale sont marqués **repères non
+  vérifiés scientifiquement** : négations et sens des relations peuvent rendre
+  un extrait trompeur, même si les mots correspondent.
+- Les poids et seuils de revue restent expérimentaux ; une décision non signalée
+  n'est pas une décision certifiée. La précision pédagogique n'est attestée
+  qu'avec les références d'enseignants.

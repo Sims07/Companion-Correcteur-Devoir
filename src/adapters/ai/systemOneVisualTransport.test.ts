@@ -29,9 +29,24 @@ describe('System One transport with direct image proof', () => {
     const trace = diagnostic.mock.calls[0]?.[0];
     expect(trace.requestMetadata).toMatchObject({ stream: false, imageCount: 1, provider: 'ollama' });
     expect(trace.promptId).toBe('decision.system-one-visual');
-    expect(trace.promptVersion).toBe(1);
+    expect(trace.promptVersion).toBe(2);
     expect(trace.requestPayload).toContain('[IMAGE_REDACTED]');
     expect(trace.requestPayload).not.toContain('aGVsbG8=');
+  });
+
+  it('rejects too many questions and oversized UTF-8 text locally before sending student data', async () => {
+    const fetchImpl = vi.fn<typeof fetch>();
+    const many = Object.fromEntries(Array.from({ length: 65 }, (_, index) =>
+      ['q_' + index, prepared.questions.forks]));
+    await expect(requestSystemOneDecision({
+      endpoint: 'http://localhost:11434', model: 'd1', prepared: { ...prepared, questions: many },
+      fetchImpl,
+    })).rejects.toThrow(/1 à 64 questions/);
+    await expect(requestSystemOneDecision({
+      endpoint: 'http://localhost:11434', model: 'd1',
+      prepared: { ...prepared, state: 'é'.repeat(33 * 1024) }, fetchImpl,
+    })).rejects.toThrow(/64 Kio/);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('rejects data URLs and unsupported images before sending anything', async () => {

@@ -231,8 +231,13 @@ function criterionQuestions(criterion: RubricCriterion, visualEvidence = false):
   }
   const selected = targets.length ? targets
     : [{ id: criterion.id, title: criterion.title, description: criterion.description, maxPoints: criterion.maxPoints }];
+  // System One questions are independent: the parent object must travel with each
+  // expected condition, not only with the shared state or a position-based ID.
+  const teacherContext = 'CRITÈRE « ' + criterion.title + ' »'
+    + (criterion.description.trim() ? ' — CONTEXTE ENSEIGNANT : ' + criterion.description.trim() : '') + ' : ';
   selected.forEach((target, index) => {
-    questions['expected_' + (index + 1)] = visualEvidence ? visualExpectedQuestion(target) : expectedQuestion(target);
+    const question = visualEvidence ? visualExpectedQuestion(target) : expectedQuestion(target);
+    questions['expected_' + (index + 1)] = { ...question, instructions: teacherContext + question.instructions };
   });
   return {
     questions,
@@ -283,7 +288,9 @@ export function prepareSystemOneRubric(input: {
       if (sharedAlignment && key === 'alignment') continue;
       questions[prefix + key] = {
         ...question,
-        instructions: 'CRITÈRE « ' + criterion.title + ' » : ' + question.instructions,
+        instructions: key.startsWith('expected_')
+          ? question.instructions // already contains parent title and teacher context
+          : 'CRITÈRE « ' + criterion.title + ' » : ' + question.instructions,
       };
     }
     return {
@@ -292,7 +299,9 @@ export function prepareSystemOneRubric(input: {
       prepared: { ...prepared, state: '', questions: criterionChoices },
     };
   });
-  if (Object.keys(questions).length > 120) throw new Error('Le barème comporte trop de questions décisionnelles pour un appel unique.');
+  if (Object.keys(questions).length > 64) {
+    throw new Error('Le barème dépasse la limite de 64 questions System One par requête. Regroupez ou clarifiez les critères avant de lancer la correction ; aucun attendu n’a été ignoré.');
+  }
   return { state: commonState(input), questions, entries };
 }
 
@@ -452,10 +461,12 @@ export function scoreSystemOneCriterion(
   const unresolved = observations.some((observation) =>
     observation.answer.choice === 'partial' || observation.answer.choice === 'uncertain');
   const points = sumGradeScores(observations.map((observation) => observation.points));
-  const evidence = observations.find((observation) => observation.evidence)?.evidence
-    ?? (observations.some((observation) => observation.answer.choice === 'present')
+  const literalHint = observations.find((observation) => observation.evidence)?.evidence;
+  const evidence = literalHint
+    ? 'Repère textuel (non vérifié scientifiquement) : ' + literalHint
+    : observations.some((observation) => observation.answer.choice === 'present')
       ? 'Présence signalée par le modèle ; citation non localisée automatiquement.'
-      : 'Attendu non démontré dans la réponse.');
+      : 'Attendu non démontré dans la réponse.';
   const reviewTitles = reviewed.map((observation) => observation.title);
   return {
     criterionId: criterion.id,
@@ -478,11 +489,11 @@ export function scoreSystemOneCriterion(
         title: observation.title,
         points: observation.points,
         maxPoints: observation.maxPoints,
-        evidence: observation.evidence || (
-          observation.answer.choice === 'absent'
+        evidence: observation.evidence
+          ? 'Repère textuel (non vérifié scientifiquement) : ' + observation.evidence
+          : observation.answer.choice === 'absent'
             ? 'Attendu non démontré dans la réponse.'
-            : 'Preuve à vérifier sur la copie.'
-        ),
+            : 'Preuve à vérifier sur la copie.',
       })),
     } : {}),
   };
