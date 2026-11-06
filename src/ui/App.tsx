@@ -11,7 +11,7 @@ import type { StorageDiagnosticsService } from '../application/storageDiagnostic
 import { createAsyncActionGuard } from '../domain/asyncActionGuard.ts';
 import { normalizeGradeScore, parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion, type CriterionProposal } from '../domain/grading.ts';
 import { validateReviewedCorrection } from '../domain/reviewFinalization.ts';
-import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationRecords, getModelEvaluationStage, runModelEvaluation, sumReportedTokensForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot, type ModelEvaluationConfiguration } from '../domain/modelEvaluation.ts';
+import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationRecords, toModelEvaluationSummary, getModelEvaluationStage, runModelEvaluation, sumReportedTokensForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot, type ModelEvaluationConfiguration } from '../domain/modelEvaluation.ts';
 import { getRubricSubcriteria, validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
 import { getTeacherEntryStep } from '../domain/teacherJourney.ts';
 import { shouldRunScientificDiagramAnalysis, type ScientificDiagramAnalysis } from '../domain/scientificDiagram.ts';
@@ -408,7 +408,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const visibleEvaluationHistoryRecords = savedModelEvaluations.filter((record) => evaluationHistoryStageFilter === 'all' || getModelEvaluationStage(record) === evaluationHistoryStageFilter);
   const selectedEvaluationHistoryRecords = visibleEvaluationHistoryRecords.filter((record) => selectedEvaluationHistoryIds.includes(record.id));
   const evaluationCancelledRef = useRef(false);
-  useEffect(() => { void evaluationService.list().then(setSavedModelEvaluations).catch(() => setError('Impossible de lire l’historique local des évaluations.')); }, [evaluationService]);
+  useEffect(() => { void (evaluationService.listSummaries?.() ?? evaluationService.list()).then(setSavedModelEvaluations).catch(() => setError('Impossible de lire l’historique local des évaluations.')); }, [evaluationService]);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>(() => readActiveAssignmentProfile().correctionMode);
   const [hasScientificDiagrams, setHasScientificDiagrams] = useState(() => readActiveAssignmentProfile().hasScientificDiagrams ?? false);
@@ -1369,12 +1369,43 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
+  function openModelEvaluationHistoryRecord(record: ModelEvaluationRecord) {
+    if (record.imagesDeferred) {
+      // History contains the grades and image fingerprints; the original pages
+      // are read only when a teacher opens the stored experiment.
+      if (!evaluationService.get) {
+        setError('Impossible de charger les images de cet essai archivé.');
+        return;
+      }
+      void evaluationService.get(record.id).then((full) => {
+        if (full) openModelEvaluationHistoryRecord(full);
+        else setError('Cet essai archivé est introuvable sur cet appareil.');
+      }).catch(() => setError('Impossible de charger cet essai depuis le stockage local.'));
+      return;
+    }
+    setModelEvaluationResults(record.results);
+    setRubric(structuredClone(record.rubricSnapshot));
+    setImages(structuredClone(record.images));
+    setTranscription(record.referenceTranscription ?? record.results.find((result) => result.transcription)?.transcription ?? null);
+    setQuestion(record.question);
+    setAssignmentTitle(record.assignmentTitle);
+    setCorrectionMode(record.correctionMode);
+    setSubjectImages(structuredClone(record.subjectImages));
+    setSubjectTranscription(record.subjectTranscription);
+    setEvaluationStageMode(getModelEvaluationStage(record));
+    setEvaluationWorkspaceStep('results');
+    setSuggestedEvaluationComparisonIds(null);
+    setEvaluationArchiveStatus(sessionOnlyEvaluationIds.includes(record.id) ? 'failed' : record.originalImagesArchived === false ? 'without-images' : 'saved');
+    setPendingEvaluationArchive(sessionOnlyEvaluationIds.includes(record.id) ? record : null);
+    setEvaluationArchiveError(sessionOnlyEvaluationIds.includes(record.id) ? 'Cet essai n’a pas été sauvegardé : il disparaîtra au rechargement de la page.' : '');
+  }
+
   async function persistModelEvaluationRecord(record: ModelEvaluationRecord) {
     setEvaluationArchiveStatus('saving');
     setEvaluationArchiveError('');
     try {
       const outcome = await evaluationService.save(record);
-      setSavedModelEvaluations((current) => [outcome.record, ...current.filter((item) => item.id !== outcome.record.id)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)));
+      setSavedModelEvaluations((current) => [toModelEvaluationSummary(outcome.record), ...current.filter((item) => item.id !== outcome.record.id)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)));
       setSessionOnlyEvaluationIds((current) => current.filter((id) => id !== outcome.record.id));
       setPendingEvaluationArchive(null);
       setEvaluationArchiveStatus(outcome.imagesOmitted ? 'without-images' : 'saved');
@@ -3503,7 +3534,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           })() : <p className="evaluation-history-empty">{visibleEvaluationHistoryRecords.length === 0 ? 'Aucun essai enregistré pour ce type. Lancez une évaluation pour alimenter cette vue.' : selectedEvaluationHistoryIds.length === 0 ? 'Sélectionnez un essai pour comparer les modèles qui le composent.' : selectedEvaluationHistoryRecords.length === 1 ? (selectedEvaluationHistoryRecords[0].results.length < 2 ? 'Cet essai ne contient qu’une configuration. Sélectionnez un autre essai du même type pour comparer.' : 'La comparaison de cet essai est en préparation.') : 'Sélectionnez un essai compatible : même type, même devoir et même copie ou transcription.'}</p>}
           {visibleEvaluationHistoryRecords.map((record) => <article key={record.id} className="evaluation-history-record">
             <div className="evaluation-history-record-heading"><div><p className="eyebrow">EXPÉRIENCE ENREGISTRÉE</p><h4>{record.assignmentTitle}</h4><p>{getModelEvaluationStage(record) === 'vision' ? 'Vision seule' : getModelEvaluationStage(record) === 'analysis' ? 'Analyse seule' : 'Parcours complet'} · {new Date(record.completedAt).toLocaleString()} · {record.configurations.length} configuration(s) · {(record.originalImageCount ?? record.images.length)} page(s){record.originalImagesArchived === false ? ' · sans images originales' : ''}{sessionOnlyEvaluationIds.includes(record.id) ? ' · session uniquement' : ''}</p></div>
-              <button type="button" className="secondary-button evaluation-history-load" onClick={() => { setModelEvaluationResults(record.results); setRubric(structuredClone(record.rubricSnapshot)); setImages(structuredClone(record.images)); setTranscription(record.referenceTranscription ?? record.results.find((result) => result.transcription)?.transcription ?? null); setQuestion(record.question); setAssignmentTitle(record.assignmentTitle); setCorrectionMode(record.correctionMode); setSubjectImages(structuredClone(record.subjectImages)); setSubjectTranscription(record.subjectTranscription); setEvaluationStageMode(getModelEvaluationStage(record)); setEvaluationWorkspaceStep('results'); setSuggestedEvaluationComparisonIds(null); setEvaluationArchiveStatus(sessionOnlyEvaluationIds.includes(record.id) ? 'failed' : record.originalImagesArchived === false ? 'without-images' : 'saved'); setPendingEvaluationArchive(sessionOnlyEvaluationIds.includes(record.id) ? record : null); setEvaluationArchiveError(sessionOnlyEvaluationIds.includes(record.id) ? 'Cet essai n’a pas été sauvegardé : il disparaîtra au rechargement de la page.' : ''); }}>Consulter les résultats</button>
+              <button type="button" className="secondary-button evaluation-history-load" onClick={() => openModelEvaluationHistoryRecord(record)}>Consulter les résultats</button>
             </div>
             <div className="evaluation-history-record-metrics">{record.results.map((result) => <article className="evaluation-history-model-metric" key={result.profileId}>
               <div className="evaluation-history-model-heading"><strong>{result.profileName}{result.directVisualDecision ? ' · preuve visuelle directe' : ''}</strong><span className={result.status === 'success' ? 'evaluation-history-status is-success' : 'evaluation-history-status'}>{result.status === 'success' ? 'Terminé' : result.status === 'cancelled' ? 'Interrompu' : 'Échec'}</span></div>
