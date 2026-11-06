@@ -177,7 +177,10 @@ l'autre et déchargés entre profils.
 - Un appel initial de préchauffage est réalisé **hors chronométrage** par profil
   pour limiter le biais du chargement à froid. L'ordre constant 1 → 2 → 4,
   la mise en cache et l'absence de répétitions peuvent encore biaiser les
-  résultats. Répéter sur des copies variées avant une décision produit.
+  résultats. Ollama peut aussi **sérialiser** des requêtes HTTP simultanées
+  selon `OLLAMA_NUM_PARALLEL` ; le pic observé dans l'interface est le nombre
+  d'appels côté client, pas celui d'inférences CPU réellement simultanées.
+  Répéter sur des copies variées avant une décision produit.
 - Les navigateurs ne peuvent pas mesurer directement le pic RAM du processus
   Ollama sur macOS. Pour cette mesure, relever en parallèle le Moniteur
   d'activité. L'export JSON omet photos, textes des copies, prompts, corps
