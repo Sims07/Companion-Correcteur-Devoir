@@ -4,5 +4,5 @@ import type { ModelEvaluationConfiguration } from '../domain/modelEvaluation.ts'
  * The UI never calls the Ollama transport directly. */
 export type PilotModelMemoryRelease = (
   configuration: ModelEvaluationConfiguration,
-  stage: 'analysis' | 'integrated',
+  stage: 'vision' | 'analysis' | 'integrated',
 ) => Promise<string[]>;
