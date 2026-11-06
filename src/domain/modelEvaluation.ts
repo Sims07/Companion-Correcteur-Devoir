@@ -227,6 +227,23 @@ export interface ModelEvaluationRecord {
   imageSignatures?: string[];
   subjectImageSignatures?: string[];
   originalImageCount?: number;
+  /** Browser-only projection for history views; original pages remain in IndexedDB. */
+  imagesDeferred?: boolean;
+}
+
+/** A history record needs the scores, rubrics and transcripts, not the photos.
+ * Preserve image signatures so comparisons remain valid across full/compact runs.
+ * This projection is never written over the original IndexedDB record. */
+export function toModelEvaluationSummary(record: ModelEvaluationRecord): ModelEvaluationRecord {
+  return {
+    ...record,
+    imagesDeferred: record.images.length > 0 || record.subjectImages.length > 0,
+    imageSignatures: record.imageSignatures ?? (record.images.length ? record.images.map(modelEvaluationImageSignature) : undefined),
+    subjectImageSignatures: record.subjectImageSignatures ?? (record.subjectImages.length ? record.subjectImages.map(modelEvaluationImageSignature) : undefined),
+    originalImageCount: record.originalImageCount ?? record.images.length,
+    images: [],
+    subjectImages: [],
+  };
 }
 
 
