@@ -20,6 +20,41 @@ const envelope = (aligned: string) => ({
   usage: { input_tokens: 295, output_tokens: 6 },
 });
 describe('native Ollama System One routing', () => {
+  it('uses Chat only for the photographed copy transcription and System One for kev:latest scoring', async () => {
+    const seen: string[] = [];
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      const url = String(input);
+      seen.push(url);
+      if (url.endsWith('/api/chat')) {
+        return new Response([
+          JSON.stringify({ message: { content: 'CO2 et H2O avec lumière produisent du glucose et de l’oxygène dans les chloroplastes.' }, done: false }),
+          JSON.stringify({ message: {}, done: true, eval_count: 40, prompt_eval_count: 80 }),
+        ].join('\n') + '\n', { status: 200 });
+      }
+      if (url.endsWith('/v1/systemone')) {
+        return new Response(JSON.stringify({ ...envelope('aligned'), model: 'kev:latest' }), { status: 200 });
+      }
+      throw new Error('Endpoint inattendu : ' + url);
+    });
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'gemma4e:4b', analysisModel: 'kev:latest',
+      correctionMethod: 'decision',
+    }, fetchMock);
+    await provider.generate({
+      question: 'Décrire la photosynthèse', rubric: JSON.stringify(rubric),
+      images: [{ fileName: 'copie-1.png', mimeType: 'image/png', base64: 'aGVsbG8=' }],
+    });
+    expect(seen).toEqual([
+      'http://localhost:11434/api/chat',
+      'http://localhost:11434/v1/systemone',
+    ]);
+    const chat = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(chat.model).toBe('gemma4e:4b');
+    const decision = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(decision.model).toBe('kev:latest');
+    expect(decision).not.toHaveProperty('messages');
+  });
+
   it('POSTs actual closed questions to /v1/systemone with no chat payload or fake streaming', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(envelope('aligned')),{status:200}));
     const diagnostic = vi.fn();
