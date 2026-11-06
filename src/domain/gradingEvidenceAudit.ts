@@ -92,6 +92,42 @@ function evidenceConcernsExpectation(
   return true;
 }
 
+/**
+ * Native choice models cannot produce quotations. Locate a candidate sentence
+ * only using the teacher's own title/description and literal student text. A
+ * candidate is not automatically an accepted scientific proof: callers MUST
+ * run the same traceability/semantic-cue audit on it.
+ */
+export function findStudentExcerptForExpectation(
+  transcription: string, criterion: RubricCriterion, subcriterion: RubricSubcriterion,
+): string {
+  const contextKeywords = new Set(parentConcept(criterion));
+  const headingKeywords = keywords(subcriterion.title);
+  const descriptionKeywords = keywords(subcriterion.description).filter((word) => !contextKeywords.has(word));
+  const source = transcription.replace(/^\s*r[ée]ponse\s+de\s+l[’']étudiant\s*/i, '');
+  const sentences = source.split(/\n+|(?<=[.!?])\s+/g).map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length >= 8 && sentence.length <= 400);
+  let best = '';
+  let bestScore = 0;
+  for (const sentence of sentences) {
+    const tokens = new Set(normalizeEvidenceText(sentence).split(' '));
+    const headingHits = headingKeywords.filter((word) => tokens.has(word)).length;
+    const descriptionHits = descriptionKeywords.filter((word) => tokens.has(word)).length;
+    if (!headingHits && !descriptionHits) continue;
+    const subjectHits = [...contextKeywords].filter((word) => tokens.has(word)).length;
+    const score = 3 * headingHits + descriptionHits + 4 * subjectHits;
+    if (score > bestScore) { bestScore = score; best = sentence; }
+  }
+  return best;
+}
+
+/** "located" only means a plausible quote was found, not scientific validity. */
+export function checkStudentEvidence(
+  transcription: string, evidence: string, criterion: RubricCriterion, subcriterion: RubricSubcriterion,
+): GradingEvidenceCheck {
+  return inspectPositiveEvidence(transcription, evidence, criterion, subcriterion);
+}
+
 function inspectPositiveEvidence(
   transcription: string, evidence: string, criterion: RubricCriterion,
   subcriterion: RubricSubcriterion,
