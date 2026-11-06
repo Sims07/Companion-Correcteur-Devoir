@@ -48,7 +48,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Corriger une autre copie');
     expect(text).toContain('Consulter la correction');
     expect(text).toContain('archiveService.saveCorrection(correction)');
-    expect(text).toContain("images: evaluationStageMode === 'analysis' ? [] : structuredClone(images)");
+    expect(text).toContain("images: runStage === 'analysis' ? [] : structuredClone(runImages)");
     expect(text).toContain('snapshot.review');
     expect(text).toContain('Cette correction est enregistrée sur cet appareil');
   });
@@ -111,9 +111,9 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Évaluer cette configuration');
     expect(text).toContain('Annuler après l’appel en cours');
     expect(text).toContain('runModelEvaluation({');
-    expect(text).toContain('images: structuredClone(images)');
-    expect(text).toContain("evaluationStageMode === 'analysis' ? { transcription: transcription ?? '' } : {}");
-    expect(text).toContain("evaluationStageMode === 'vision' ? { visionOnly: true } : {}");
+    expect(text).toContain('images: runStage === 'analysis' ? [] : structuredClone(runImages)');
+    expect(text).toContain("runStage === 'analysis' ? { transcription: runTranscription ?? '' } : {}");
+    expect(text).toContain("runStage === 'vision' ? { visionOnly: true } : {}");
     expect(text).toContain('Vision seule');
     expect(text).toContain('Analyse seule');
     expect(text).toContain('Transcription à noter');
