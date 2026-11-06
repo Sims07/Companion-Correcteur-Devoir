@@ -10,7 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: pages
+  # A pull-request build must never cancel production publication on main.
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

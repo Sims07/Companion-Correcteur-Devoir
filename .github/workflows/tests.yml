@@ -4,6 +4,9 @@ on:
   pull_request:
   push:
     branches: [main]
+    # Badge-only commits deploy Pages, but never start another full test cycle.
+    paths-ignore:
+      - 'badges/coverage.json'
 
 permissions:
   contents: write
@@ -30,7 +33,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add badges/coverage.json
-            git commit -m "chore: update coverage badge [skip ci]"
+            git commit -m "chore: update coverage badge"
             git push origin HEAD:main
           fi
       - run: npm run build
