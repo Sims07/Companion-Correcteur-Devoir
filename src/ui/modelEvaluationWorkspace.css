@@ -539,3 +539,43 @@
   border-color: var(--ds-color-border);
   background: var(--ds-color-success-surface);
 }
+
+/* Experimental visual decisions: compact rubric-driven evidence review. */
+.evaluation-workspace-shell .evaluation-visual-decision-comparison,
+.evaluation-workspace-shell .evaluation-visual-decision-details {
+  margin-block: var(--ds-space-4);
+  padding: var(--ds-space-4);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text);
+}
+.evaluation-workspace-shell .evaluation-visual-decision-comparison h4,
+.evaluation-workspace-shell .evaluation-visual-decision-comparison h5 {
+  margin: 0 0 var(--ds-space-2);
+  color: var(--ds-color-text);
+}
+.evaluation-workspace-shell .evaluation-visual-observation-list {
+  padding: 0;
+  margin: var(--ds-space-3) 0 0;
+  list-style: none;
+}
+.evaluation-workspace-shell .evaluation-visual-observation-list li {
+  display: flex;
+  gap: var(--ds-space-3);
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--ds-space-2) 0;
+  border-top: 1px solid var(--ds-color-border);
+  font-size: .82rem;
+}
+.evaluation-workspace-shell .evaluation-visual-observation-list li > span:last-child {
+  flex-shrink: 0;
+  color: var(--ds-color-text-muted);
+}
+@media (max-width: 620px) {
+  .evaluation-workspace-shell .evaluation-visual-observation-list li {
+    flex-direction: column;
+    gap: var(--ds-space-1);
+  }
+}

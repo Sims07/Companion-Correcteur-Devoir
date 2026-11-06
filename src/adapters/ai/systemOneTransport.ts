@@ -28,7 +28,7 @@ export async function requestSystemOneDecision(input: {
     onDiagnosticResult?.({
       kind: 'model',
       stage: 'analysis',
-      ...promptTrace('decision.system-one'),
+      ...promptTrace(images?.length ? 'decision.system-one-visual' : 'decision.system-one'),
       model,
       requestPayload: JSON.stringify(safePayload, null, 2),
       requestMetadata: {

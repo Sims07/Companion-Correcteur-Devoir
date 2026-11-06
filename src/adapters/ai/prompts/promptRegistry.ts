@@ -21,6 +21,7 @@ export const PROMPT_REVISIONS = {
   'decision.chat': 1,
   'decision.chat-repair': 1,
   'decision.system-one': 1,
+  'decision.system-one-visual': 1,
   'diagram.page-classification': 1,
   'diagram.scientific-analysis': 4,
 } as const;
