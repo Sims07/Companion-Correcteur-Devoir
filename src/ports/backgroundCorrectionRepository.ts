@@ -8,6 +8,7 @@ export interface BackgroundCorrectionRepository {
   /** Optional IndexedDB cursor-backed view avoiding a full getAll of stored photos. */
   listJobOverviews?(assignmentId?: string): Promise<BackgroundCorrectionJob[]>;
   getJob?(id: string): Promise<BackgroundCorrectionJob | null>;
+  getNextPendingJob?(assignmentId: string): Promise<BackgroundCorrectionJob | null>;
   fingerprintImages(images: ImageInput[]): Promise<string>;
   getCachedTranscription(fingerprint: string): Promise<string | null>;
   saveCachedTranscription(fingerprint: string, transcription: string): Promise<void>;
