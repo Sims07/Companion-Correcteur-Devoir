@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { expectedDecisionTargets, prepareSystemOneCriterion, scoreSystemOneCriterion, isNativeDecisionModel, findLiteralStudentEvidence, systemOnePointChoices } from './systemOneDecision.ts';
+import { expectedDecisionTargets, prepareSystemOneCriterion, prepareSystemOneRubric, scoreSystemOneCriterion, isNativeDecisionModel, findLiteralStudentEvidence, systemOnePointChoices } from './systemOneDecision.ts';
 import type { RubricCriterion } from './rubric.ts';
 
 const rubric: RubricCriterion = {
@@ -68,6 +68,46 @@ describe('real System One decisions', () => {
   it('distinguishes O2 from CO2 and keeps scientific location terms as literal evidence', () => {
     expect(findLiteralStudentEvidence("Réponse de l'étudiant\\nLe CO2 est présent.", 'Produit attendu : O2')).toBe('');
     expect(findLiteralStudentEvidence("Réponse de l'étudiant\\nCela se déroule dans les chloroplastes.", 'Localisation correctement attribuée : chloroplastes')).toContain('chloroplastes');
+  });
+  it('keeps the teacher-defined parent context in each independent System One question', () => {
+    const contextCriterion: RubricCriterion = {
+      id: 'diagram', title: 'Titre du schéma', description: 'Disposition du titre par rapport au schéma biologique',
+      maxPoints: 1,
+      subcriteria: [{ id: 'position', title: 'Centré', description: 'Horizontal', maxPoints: 1 }],
+    };
+    const prepared = prepareSystemOneCriterion({
+      criterion: contextCriterion, transcription: 'Le travail de l’étudiant.', question: 'Schéma',
+    });
+    const text = prepared.questions.expected_1.instructions;
+    expect(text).toContain('CRITÈRE « Titre du schéma »');
+    expect(text).toContain('Disposition du titre par rapport au schéma biologique');
+    expect(text).toContain('Centré');
+  });
+  it('refuses 65 questions without silently dropping any teacher expectation', () => {
+    const many = Array.from({ length: 64 }, (_, index): RubricCriterion => ({
+      id: 'q-' + index, title: 'Critère ' + index, description: 'Vérifier le fait ' + index,
+      maxPoints: 1,
+      subcriteria: [{ id: 's-' + index, title: 'Fait ' + index, description: '', maxPoints: 1 }],
+    }));
+    const input = { transcription: 'Réponse.', question: 'Biologie' };
+    const allowed = prepareSystemOneRubric({ ...input, criteria: many.slice(0, 63) });
+    expect(Object.keys(allowed.questions)).toHaveLength(64);
+    expect(() => prepareSystemOneRubric({ ...input, criteria: many }))
+      .toThrow(/64 questions System One/);
+  });
+  it('labels lexical matches as navigation hints rather than biological proof', () => {
+    const detailed: RubricCriterion = {
+      id: 'q', title: 'Biologie', description: '', maxPoints: 1,
+      subcriteria: [{ id: 's', title: 'Mitochondrie et ATP', description: '', maxPoints: 1 }],
+    };
+    const copy = "Réponse de l'étudiant\\nLa mitochondrie ne produit pas d'ATP.";
+    const prepared = prepareSystemOneCriterion({ criterion: detailed, transcription: copy, question: 'Biologie' });
+    const result = scoreSystemOneCriterion(detailed, copy, prepared, {
+      answers: { alignment: answer('aligned'), expected_1: answer('present') },
+    });
+    expect(result.evidence).toContain('Repère textuel (non vérifié scientifiquement)');
+    expect(result.evidence).toContain('ne produit pas');
+    expect(result.subcriteria?.[0]?.evidence).toContain('non vérifié scientifiquement');
   });
   it('rejects an incomplete native response', () => {
     const prepared = prepareSystemOneCriterion({criterion:rubric,transcription:'Réponse.',question:'Photosynthèse'});
