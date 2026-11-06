@@ -180,9 +180,8 @@ function expectedQuestion(target: { title: string; description: string }): Syste
 }
 
 /**
- * For a holistic criterion, ask for a bounded point value rather than mapping
- * every 'partial' choice to half the criterion. Never split the teacher's
- * weighting into invented subcriteria.
+ * Without teacher-defined levels, expose only full/zero endpoints and the
+ * explicit "incomplete" review path. Never invent intermediate grades.
  */
 export function systemOnePointChoices(maxPoints: number): Record<string, string> {
   if (!Number.isFinite(maxPoints) || maxPoints <= 0) return {};
