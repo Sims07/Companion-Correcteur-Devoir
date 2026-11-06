@@ -35,19 +35,18 @@ describe('real System One decisions', () => {
     expect(expectedDecisionTargets({ ...complex, description: 'Échantillons et protocole, sans pondération explicite' })).toEqual([]);
   });
 
-  it('offers a bounded half-point scoring scale instead of a universal fifty-percent partial mark', () => {
+  it('never invents intermediate score levels without teacher-defined allocations', () => {
     const scale = systemOnePointChoices(3);
-    expect(Object.keys(scale)).toEqual([
-      'unreadable', 'points_0', 'points_0_5', 'points_1', 'points_1_5',
-      'points_2', 'points_2_5', 'points_3',
-    ]);
+    expect(Object.keys(scale)).toEqual(['unreadable', 'points_0', 'points_3', 'incomplete']);
     expect(scale.points_3).toContain('tous les attendus');
+    expect(scale.incomplete).toContain('professeur');
     expect(systemOnePointChoices(0)).toEqual({});
     const rubricWithoutWeights = { ...rubric, description: 'Décrire globalement la photosynthèse.', maxPoints: 3 };
     const prepared = prepareSystemOneCriterion({criterion:rubricWithoutWeights,transcription:'Réponse.',question:'Biologie'});
     expect(prepared.scoringMode).toBe('points-scale');
     expect(Object.keys(prepared.questions)).toEqual(['alignment', 'score']);
-    expect(prepared.questions.score.criteria).not.toHaveProperty('partial');
+    expect(prepared.questions.score.criteria).not.toHaveProperty('points_1');
+    expect(prepared.questions.score.criteria).toHaveProperty('incomplete');
   });
 
   it('refuses to invent allocation when the teacher maximum does not match', () => {

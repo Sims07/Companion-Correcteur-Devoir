@@ -180,37 +180,26 @@ function expectedQuestion(target: { title: string; description: string }): Syste
 }
 
 /**
- * For a holistic criterion, ask for a bounded point value rather than mapping
- * every 'partial' choice to half the criterion. Never split the teacher's
- * weighting into invented subcriteria.
+ * Without teacher-defined levels, expose only full/zero endpoints and the
+ * explicit "incomplete" review path. Never invent intermediate grades.
  */
 export function systemOnePointChoices(maxPoints: number): Record<string, string> {
   if (!Number.isFinite(maxPoints) || maxPoints <= 0) return {};
-  const step = maxPoints <= 4 ? 0.5 : maxPoints <= 12 ? 1 : Math.ceil(maxPoints / 10);
-  const points = [0];
-  for (let value = step; value < maxPoints - 0.0001; value += step) {
-    points.push(normalizeGradeScore(value));
-  }
-  points.push(normalizeGradeScore(maxPoints));
-  const values = [...new Set(points)];
-  const result: Record<string, string> = {
-    unreadable: 'La réponse pertinente est illisible ou absente de la transcription ; impossible de proposer une note fiable.',
+  // Without a teacher-authored scale, only the two pedagogically defined
+  // endpoints are scoreable. Partial achievement must be arbitrated by a human.
+  const full = 'points_' + String(normalizeGradeScore(maxPoints)).replace('.', '_');
+  return {
+    unreadable: 'La réponse est illisible ou la transcription ne permet pas de vérifier cet attendu.',
+    points_0: '0 point : aucun élément de l’attendu n’est correctement démontré dans la réponse lisible.',
+    [full]: maxPoints + ' point(s) : tous les attendus du critère sont correctement démontrés.',
+    incomplete: 'L’attendu est partiellement démontré, ou des éléments corrects coexistent avec des manques : le barème enseignant ne définit aucun palier intermédiaire. Demander au professeur de noter ce cas.',
   };
-  for (const value of values) {
-    const key = 'points_' + String(value).replace('.', '_');
-    result[key] = value === 0
-      ? '0 point : l’attendu du critère n’est pas démontré dans la réponse.'
-      : value === maxPoints
-        ? value + ' point(s) : tous les attendus de ce critère sont correctement démontrés.'
-        : value + ' point(s) sur ' + maxPoints + ' : attribuer cette note uniquement si le contenu de la réponse démontre ce niveau de réalisation du critère, avec les erreurs ou manques correspondants.';
-  }
-  return result;
 }
 
 function pointsScaleQuestion(criterion: RubricCriterion): SystemOneQuestion {
   return {
     type: 'choice',
-    instructions: 'Attribue une note sur ce seul critère, à partir de ce qui est effectivement démontré dans la réponse. Prends en compte l’ensemble des attendus du barème, leur précision scientifique, les erreurs et omissions. Aucun coefficient supplémentaire n’est autorisé. CRITÈRE : ' + criterion.title + '. ATTENDUS ENSEIGNANT : ' + criterion.description,
+    instructions: 'Classe ce critère selon le barème du professeur. Réponse entièrement démontrée : maximum ; aucun élément démontré : zéro ; réussite partielle : incomplete (note à attribuer par le professeur) ; illisible : unreadable. Ne crée aucun niveau intermédiaire de points. CRITÈRE : ' + criterion.title + '. ATTENDUS ENSEIGNANT : ' + criterion.description,
     criteria: systemOnePointChoices(criterion.maxPoints),
   };
 }
@@ -223,8 +212,8 @@ function criterionQuestions(criterion: RubricCriterion, visualEvidence = false):
     questions.score = visualEvidence
       ? {
           ...pointsScaleQuestion(criterion),
-          instructions: 'Observe exclusivement la réponse de l’étudiant sur les images pour attribuer un niveau de points au critère « '
-            + criterion.title + ' ». Suis les exigences de son barème, sans inventer de preuve ou de note.',
+          instructions: 'Observe exclusivement la réponse de l’étudiant sur les images pour classer le critère « '
+            + criterion.title + ' » : tout démontré, rien démontré, réalisation partielle (incomplete) ou impossible à lire (unreadable). Sans niveau défini par le professeur, ne propose pas de points intermédiaires.',
         }
       : pointsScaleQuestion(criterion);
     return { questions, targetIds: [criterion.id], scoringCriterion: criterion, scoringMode: 'points-scale' };
@@ -370,12 +359,17 @@ export function scoreSystemOneCriterion(
   if (prepared.scoringMode === 'points-scale') {
     const allowed = Object.keys(prepared.questions.score?.criteria ?? {});
     const choice = selectedChoice(result.answers.score, allowed);
-    if (choice.choice === 'unreadable') {
+    if (choice.choice === 'unreadable' || choice.choice === 'incomplete') {
+      const unreadable = choice.choice === 'unreadable';
       return {
         criterionId: criterion.id, points: 0, assessmentStatus: 'not-evaluated', confidence: 'low',
-        evidence: 'Réponse illisible ou transcription insuffisante.',
-        rationale: 'Impossible de proposer une note sans lire la réponse.',
-        questionForTeacher: 'Relisez la réponse de « ' + criterion.title + ' » ou corrigez sa transcription.',
+        evidence: unreadable ? 'Réponse illisible ou transcription insuffisante.'
+          : 'Réalisation partielle proposée par le modèle, sans barème enseignant pour les points intermédiaires.',
+        rationale: unreadable ? 'Impossible de proposer une note sans lire la réponse.'
+          : 'Le modèle ne doit pas inventer de palier de notation.',
+        questionForTeacher: unreadable
+          ? 'Relisez la réponse de « ' + criterion.title + ' » ou corrigez sa transcription.'
+          : 'Attribuez les points de « ' + criterion.title + ' » selon votre barème, ou définissez des sous-critères pondérés pour les prochaines copies.',
       };
     }
     const key = choice.choice.replace(/^points_/, '').replace('_', '.');
@@ -401,10 +395,11 @@ export function scoreSystemOneCriterion(
         && typeof probability === 'number' && Number.isFinite(probability))
       .sort((first, second) => second[1] - first[1]);
     const runnerUp = competitors[0];
-    const competitorPoints = runnerUp ? Number(runnerUp[0].replace(/^points_/, '').replace('_', '.')) : grade;
+    const competitorPoints = runnerUp?.[0].startsWith('points_')
+      ? Number(runnerUp[0].replace(/^points_/, '').replace('_', '.')) : null;
     const closeMaterialAlternative = Boolean(runnerUp
       && runnerUp[1] >= choice.probability - 0.12
-      && Math.abs(competitorPoints - grade) >= Math.min(1, criterion.maxPoints));
+      && (competitorPoints === null || Math.abs(competitorPoints - grade) >= Math.min(1, criterion.maxPoints)));
     const alignmentReview = !suppressSharedAlignmentReview && (
       alignment.choice !== 'aligned' || (alignment.weak && alignment.probability < 0.5)
     );
@@ -413,11 +408,14 @@ export function scoreSystemOneCriterion(
       criterionId: criterion.id, points: grade, assessmentStatus: 'evaluated',
       confidence: needsReview ? 'low' : 'medium',
       evidence: 'Note basée sur les éléments de la réponse transcrite ; modèle à décisions fermées sans citation littérale.',
-      rationale: needsReview ? 'Note proposée, à vérifier sur un point précis.' : 'Note choisie sur l’échelle autorisée par le barème.',
+      rationale: needsReview ? 'Note binaire proposée, à vérifier sur un point précis.'
+        : 'Proposition expérimentale : 0 ou maximum du critère, sans palier intermédiaire.',
       ...(needsReview ? {
         questionForTeacher: alignmentReview
           ? 'Vérifiez que la réponse correspond au barème de « ' + criterion.title + ' ».'
-          : 'Deux notes restent proches pour « ' + criterion.title + ' » : ' + grade + ' et ' + competitorPoints + ' point(s).',
+          : competitorPoints === null
+            ? 'La réalisation peut être partielle ou illisible pour « ' + criterion.title + ' » : vérifiez sur la copie.'
+            : 'Deux notes restent proches pour « ' + criterion.title + ' » : ' + grade + ' et ' + competitorPoints + ' point(s).',
       } : {}),
     };
   }

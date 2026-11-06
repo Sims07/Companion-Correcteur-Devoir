@@ -19,7 +19,7 @@ const criteria: RubricCriterion[] = [
   {id:'conclusion',title:'Conclusion',description:'Répondre à la question de recherche',maxPoints:1},
 ];
 
-function response(globalChoice: string = 'aligned', grades = ['points_2','points_1','points_1','points_1_5','points_1','points_0_5'], probability = 0.96) {
+function response(globalChoice: string = 'aligned', grades = ['points_3','points_0','points_1','points_2','points_0','points_1'], probability = 0.96) {
   return {
     answers: {
       alignment: choice(globalChoice, probability),
@@ -43,10 +43,10 @@ describe('pedagogical System One uncertainty triage', () => {
     expect(prepared.state.match(/RÉPONSE DE L’ÉTUDIANT/g)).toHaveLength(1);
   });
 
-  it('proposes different bounded scores and NO gratuitous low-confidence alerts for a readable aligned essay', () => {
+  it('uses only teacher-defined zero/full options and avoids gratuitous review alerts', () => {
     const prepared=prepareSystemOneRubric({criteria,transcription,question:'Rédiger un rapport'});
     const scored=scoreSystemOneRubric(transcription,prepared,response());
-    expect(scored.map((item)=>item.points)).toEqual([2,1,1,1.5,1,0.5]);
+    expect(scored.map((item)=>item.points)).toEqual([3,0,1,2,0,1]);
     expect(scored.reduce((sum,item)=>sum+item.points,0)).toBe(7);
     expect(scored.every((item)=>item.assessmentStatus==='evaluated')).toBe(true);
     expect(scored.map((item)=>item.confidence)).toEqual(Array(6).fill('medium'));
@@ -112,11 +112,15 @@ describe('pedagogical System One uncertainty triage', () => {
     const single=criteria[0];
     const prepared=prepareSystemOneCriterion({criterion:single,transcription,question:'Rapport de biologie'});
     const meaningful=scoreSystemOneCriterion(single,transcription,prepared,{
-      answers:{alignment:choice('aligned'),score:choice('points_2',0.48,['points_1',0.46])},
+      answers:{alignment:choice('aligned'),score:choice('points_3',0.48,['points_0',0.46])},
     });
     expect(meaningful.questionForTeacher).toContain('Deux notes');
+    const partialAlternative=scoreSystemOneCriterion(single,transcription,prepared,{
+      answers:{alignment:choice('aligned'),score:choice('points_3',0.48,['incomplete',0.46])},
+    });
+    expect(partialAlternative.questionForTeacher).toContain('partielle');
     const harmless=scoreSystemOneCriterion(single,transcription,prepared,{
-      answers:{alignment:choice('aligned'),score:choice('points_2',0.48,['points_2_5',0.46])},
+      answers:{alignment:choice('aligned'),score:choice('points_3',0.9,['points_0',0.09])},
     });
     expect(harmless.questionForTeacher).toBeUndefined();
   });

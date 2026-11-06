@@ -59,12 +59,13 @@ signalement, pas de note définitive automatiquement.
   Si une liste d'attendus figure dans une description avec des points
   valides et une somme exacte, elle peut être interprétée localement ;
   aucune répartition implicite n'est inventée.
-- Pour un critère *global* sans sous-critères, System One choisit une
-  **valeur de points autorisée par le maximum enseignant**, au lieu
-  d'appliquer systématiquement 50 % dès qu'il répond « partiel ».
-  **Une échelle plus fine n'est pas une preuve de précision pédagogique** :
-  elle reste provisoire tant qu'elle n'a pas été comparée à des corrections
-  d'enseignants.
+- Pour un critère *global* sans sous-critères ni niveaux décrits par
+  l'enseignant, System One ne dispose **que des deux bornes justifiées**
+  (zéro / maximum). Une réalisation partielle ou illisible est marquée
+  **non évaluée**, avec une question au professeur. Le zéro technique d'un
+  état non évalué ne doit jamais entrer dans une note finale. Des niveaux
+  intermédiaires ne pourront être automatisés qu'après formalisation de
+  règles et pondérations explicites par l'enseignant.
 - L'alignement global du sujet et du barème est évalué une seule fois
   par copie multi-critères. Un barème manifestement étranger à la copie
   ou une transcription illisible ne doit pas recevoir une note inventée.
