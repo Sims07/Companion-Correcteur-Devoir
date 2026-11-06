@@ -2215,22 +2215,24 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   async function rotateQueuedCopyPage(job: BackgroundCorrectionJob, pageIndex: number, clockwiseDegrees: 90 | 270) {
     const currentStatus = backgroundJobs.find((entry) => entry.id === job.id)?.status ?? job.status;
     if (currentStatus === 'completed' || isPreparingSeriesCopies || rotatingQueuedPage !== null) return;
-    const original = job.originalImages[pageIndex] ?? job.images[pageIndex];
-    if (!original) return;
     const rotationKey = `${job.id}:${pageIndex}`;
     let pausedForRotation = false;
     setRotatingQueuedPage(rotationKey);
     try {
+      const source = job.imagesDeferred ? await loadFullQueuedJob(job.id) : job;
+      if (!source) throw new Error('Cette copie n’est plus disponible sur cet appareil.');
+      const original = source.originalImages[pageIndex] ?? source.images[pageIndex];
+      if (!original) throw new Error('La page à tourner est introuvable.');
       // A batch can start immediately. Pause at the next safe model boundary so the
       // teacher can still correct orientation without racing an in-flight image read.
       if (currentStatus === 'processing') {
         await backgroundService.pauseAndWait();
         pausedForRotation = true;
       }
-      const nextAngle = accumulateClockwiseRotation(job.rotationAngles?.[pageIndex] ?? 0, clockwiseDegrees);
+      const nextAngle = accumulateClockwiseRotation(source.rotationAngles?.[pageIndex] ?? 0, clockwiseDegrees);
       const rotated = nextAngle === 0 ? original : await service.rotateImage(original, nextAngle);
-      const nextImages = job.images.map((image, index) => index === pageIndex ? rotated : image);
-      const nextAngles = { ...(job.rotationAngles ?? {}), [pageIndex]: nextAngle };
+      const nextImages = source.images.map((image, index) => index === pageIndex ? rotated : image);
+      const nextAngles = { ...(source.rotationAngles ?? {}), [pageIndex]: nextAngle };
       await backgroundService.updateImages(job.id, nextImages, nextAngles, {
         endpoint, apiCompatible, apiKey, visionModel, analysisModel,
         thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection,
@@ -2239,7 +2241,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       });
       setReviewMessage(`Orientation de la page ${pageIndex + 1} de « ${job.label} » modifiée. La transcription et les évaluations précédentes ont été invalidées ; la copie sera relue avec l’image corrigée.`);
       setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
-      if (selectedSeriesPreviewId === job.id) setSelectedSeriesPreviewJob(await loadFullQueuedJob(job.id));
+      const updated = await loadFullQueuedJob(job.id);
+      if (selectedSeriesPreviewId === job.id) setSelectedSeriesPreviewJob(updated);
+      if (queuedViewer?.jobId === job.id) setQueuedViewerFullJob(updated);
+      if (detailsThumbnailsOpen && updated) {
+        const thumbnails: Array<ImageInput | null> = [];
+        for (const page of updated.images) thumbnails.push(await createQueuedCopyThumbnail(page));
+        setDetailThumbnails((current) => ({ ...current, [job.id]: thumbnails }));
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La rotation de cette page a échoué.');
     } finally {
