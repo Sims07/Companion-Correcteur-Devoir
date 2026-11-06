@@ -51,6 +51,7 @@ import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluatio
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
+import { runPilotCriterionConcurrency, type PilotConcurrencyRun } from '../application/pilotCriterionConcurrency.ts';
 import type { PilotModelMemoryRelease } from '../ports/pilotModelMemory.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
@@ -391,6 +392,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationVisualDirect, setEvaluationVisualDirect] = useState(false);
   const [pilotEnabled, setPilotEnabled] = useState(false);
   const [pilotRuns, setPilotRuns] = useState<PilotRun[]>([]);
+  const [pilotConcurrencyRuns, setPilotConcurrencyRuns] = useState<PilotConcurrencyRun[]>([]);
   const [pilotImages, setPilotImages] = useState<Record<string, ImageInput[]>>({});
   const [pilotBusy, setPilotBusy] = useState(false);
   const [pilotUploadingCase, setPilotUploadingCase] = useState<string | null>(null);
@@ -1749,6 +1751,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (busy || pilotBusy) return;
     setPilotEnabled(true);
     setPilotRuns([]);
+    setPilotConcurrencyRuns([]);
     setPilotImages({});
     setPilotMessage('Prêt : barème isolé et trois textes de référence. Utilisez les configurations sélectionnées dans « Configurations à exécuter » ci-dessous, ou sélectionnez-en de nouvelles.');
     setPilotCurrentCase(null);
@@ -1807,14 +1810,117 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
+  async function runPilotConcurrencyBenchmark(caseId: PilotCase['id']) {
+    if (!pilotEnabled || pilotBusy || busy || pilotUploadingCase) return;
+    const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+    const issue = pilotSelectionIssue(profiles, 'analysis');
+    if (issue) { setPilotMessage(issue); return; }
+    if (!releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : benchmark bloqué pour protéger la RAM.'); return; }
+    const testCase = PILOT_CASES.find((item) => item.id === caseId);
+    if (!testCase) return;
+    pilotStopRef.current = false;
+    pilotMemoryErrorRef.current = null;
+    setPilotBusy(true);
+    setPilotCurrentCase(caseId);
+    setPilotConcurrencyRuns([]);
+    try {
+      for (const profile of profiles) {
+        if (pilotStopRef.current) break;
+        const config = profile.configuration;
+        const configuration: ModelEvaluationConfiguration = {
+          id: profile.id, name: profile.name, endpoint: config.endpoint,
+          apiCompatible: false, visionModel: config.visionModel, analysisModel: config.analysisModel,
+          thinking: config.analysisThinking, criterionByCriterion: true,
+          correctionMethod: config.correctionMethod,
+        };
+        try {
+          await service.checkReady({
+            endpoint: config.endpoint, apiCompatible: false, model: config.analysisModel,
+          });
+          setPilotMessage('Préchauffage local de « ' + profile.name + ' » (non chronométré)…');
+          const samples = await runPilotCriterionConcurrency({
+            testCase, warmup: true,
+            isStopped: () => pilotStopRef.current,
+            onProgress: (level, done, total) => setPilotMessage(
+              profile.name + ' · ' + level + ' requête(s) simultanée(s) · ' + done + '/' + total + ' critère(s) terminés.'),
+            executeCriterion: async (criterion) => {
+              // Fresh provider instance per concurrent request: no shared mutable
+              // generation state, and the standard teacher pipeline is unchanged.
+              const provider = service.createProvider({
+                endpoint: config.endpoint, apiCompatible: false,
+                visionModel: config.visionModel, analysisModel: config.analysisModel,
+                thinking: config.analysisThinking, criterionByCriterion: true,
+                correctionMethod: config.correctionMethod, diagnosticStrategy: 'single',
+              });
+              const criterionRubric = { title: PILOT_RUBRIC.title, criteria: [criterion] };
+              const diagnosticRuns: DiagnosticModelResult[] = [];
+              const started = performance.now();
+              const raw = await provider.generate({
+                question: buildAssignmentContext({
+                  title: PILOT_TITLE, description: '', educationLevel: 'Université', question: PILOT_QUESTION,
+                }),
+                rubric: rubricAsJson(criterionRubric),
+                transcription: testCase.transcription,
+                images: [],
+              }, undefined, undefined, undefined, (trace) => diagnosticRuns.push(trace));
+              const elapsedMs = performance.now() - started;
+              const proposal = parseGradingProposal(raw, criterionRubric,
+                config.correctionMethod === 'generative' ? testCase.transcription : undefined);
+              // Ignore synthetic aggregate traces when real per-request traces
+              // exist: otherwise a sequential native/chat call counts twice.
+              const calls = diagnosticRuns.filter((trace) => trace.stage === 'analysis' && !trace.requestCount);
+              const sum = (key: 'generatedTokens' | 'totalTokens' | 'loadMs'): number | null =>
+                calls.length > 0 && calls.every((trace) => typeof trace[key] === 'number')
+                  ? calls.reduce((total, trace) => total + (trace[key] ?? 0), 0) : null;
+              return {
+                proposal: proposal.criteria[0]!,
+                elapsedMs,
+                generatedTokens: sum('generatedTokens'),
+                totalTokens: sum('totalTokens'),
+                loadMs: sum('loadMs'),
+              };
+            },
+          });
+          setPilotConcurrencyRuns((current) => [...current, {
+            caseId, profileId: profile.id, profileName: profile.name,
+            analysisModel: config.analysisModel,
+            method: config.correctionMethod === 'decision' ? 'decision' : 'generative',
+            completedAt: new Date().toISOString(),
+            samples,
+          }]);
+        } catch (cause) {
+          setPilotMessage('Essai « ' + profile.name + ' » interrompu : ' +
+            (cause instanceof Error ? cause.message : String(cause)));
+          pilotStopRef.current = true;
+        } finally {
+          try {
+            setPilotMessage('Libération Ollama après « ' + profile.name + ' »…');
+            await releasePilotModels(configuration, 'analysis');
+          } catch (cause) {
+            pilotMemoryErrorRef.current = 'Impossible de libérer « ' + profile.name +
+              ' ». Benchmark interrompu pour protéger la RAM : ' +
+              (cause instanceof Error ? cause.message : String(cause));
+            pilotStopRef.current = true;
+          }
+        }
+      }
+      setPilotMessage(pilotMemoryErrorRef.current ??
+        (pilotStopRef.current ? 'Benchmark interrompu. Les mesures terminées restent exportables.'
+          : 'Benchmark terminé : comparez les durées et la qualité avant toute optimisation des corrections.'));
+    } finally {
+      setPilotCurrentCase(null);
+      setPilotBusy(false);
+    }
+  }
+
   function stopPilotProtocol() {
     pilotStopRef.current = true;
     cancelModelEvaluation();
   }
 
   function exportPilotReport() {
-    if (!pilotRuns.length) return;
-    const report = buildPilotReport(pilotRuns, new Date().toISOString());
+    if (!pilotRuns.length && !pilotConcurrencyRuns.length) return;
+    const report = buildPilotReport(pilotRuns, new Date().toISOString(), pilotConcurrencyRuns);
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
@@ -1828,9 +1934,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function copyPilotReport() {
-    if (!pilotRuns.length) return;
+    if (!pilotRuns.length && !pilotConcurrencyRuns.length) return;
     try {
-      await navigator.clipboard.writeText(JSON.stringify(buildPilotReport(pilotRuns, new Date().toISOString()), null, 2));
+      await navigator.clipboard.writeText(JSON.stringify(buildPilotReport(pilotRuns, new Date().toISOString(), pilotConcurrencyRuns), null, 2));
       setPilotMessage('Rapport copié dans le presse-papiers : collez-le dans notre conversation pour l’analyse.');
     } catch {
       setPilotMessage('Copie bloquée par le navigateur. Utilisez « Exporter JSON complet » pour joindre le fichier.');
@@ -2893,12 +2999,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="evaluation-section-heading"><div><p className="eyebrow">ÉTAPE 1 · CONFIGURATIONS</p><h2 id="evaluation-config-title">Choisir les configurations à évaluer</h2><p>Créez ou modifiez vos profils ici, sans passer par les réglages du parcours de correction. Les profils sont enregistrés localement sur cet appareil.</p></div><span className="evaluation-step-chip">{aiModelProfiles.length} profil(s)</span></div>
         <PilotEvaluationPanel
           enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}
-          message={pilotMessage} runs={pilotRuns}
+          message={pilotMessage} runs={pilotRuns} concurrencyRuns={pilotConcurrencyRuns}
           imageCounts={Object.fromEntries(Object.entries(pilotImages).map(([caseId, pages]) => [caseId, pages.length]))}
           selectedProfiles={selectedEvaluationProfiles}
           onPrepare={preparePilotProtocol}
           onUpload={(caseId, files) => { void uploadPilotImages(caseId, files); }}
           onRun={(mode) => { void runPilotProtocol(mode); }}
+          onRunConcurrency={(caseId) => { void runPilotConcurrencyBenchmark(caseId); }}
           onStop={stopPilotProtocol} onExport={exportPilotReport}
           onCopy={() => { void copyPilotReport(); }}
         />

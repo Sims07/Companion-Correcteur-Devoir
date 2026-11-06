@@ -27,11 +27,13 @@ test('the guided biology protocol reuses the evaluator selection without creatin
   const assignmentsBefore = await page.evaluate(() => localStorage.getItem('companion-correcteur:assignments:v1'));
 
   await panel.getByRole('button', { name: 'Préparer le protocole en un clic' }).click();
-  await expect(panel.getByText('A — correcte')).toBeVisible();
-  await expect(panel.getByText('B — inversions')).toBeVisible();
-  await expect(panel.getByText('C — partielle')).toBeVisible();
+  await expect(panel.getByText('A — correcte', { exact: true })).toBeVisible();
+  await expect(panel.getByText('B — inversions', { exact: true })).toBeVisible();
+  await expect(panel.getByText('C — partielle', { exact: true })).toBeVisible();
   await expect(panel.getByText('0 profil(s) sélectionné(s)', { exact: false })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeDisabled();
+  await expect(panel.getByRole('button', { name: 'Comparer 1, 2 et 4 appels parallèles' })).toBeDisabled();
+  await expect(panel.getByRole('combobox', { name: 'Réponse de référence' })).toHaveValue('C');
   await expect(panel.getByRole('button', { name: 'Lancer les 3 lectures (Vision seule)' })).toBeDisabled();
   await expect(panel.getByText(/Sélectionnez au moins une configuration dans/)).toBeVisible();
 
@@ -39,6 +41,9 @@ test('the guided biology protocol reuses the evaluator selection without creatin
   await expect(panel.getByText('Ma configuration locale', { exact: false })).toBeVisible();
   await expect(panel.getByText('1 profil(s) sélectionné(s)', { exact: false })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
+  await expect(panel.getByRole('button', { name: 'Comparer 1, 2 et 4 appels parallèles' })).toBeEnabled();
+  await panel.getByRole('combobox', { name: 'Réponse de référence' }).selectOption('B');
+  await expect(panel.getByRole('combobox', { name: 'Réponse de référence' })).toHaveValue('B');
   await expect(panel.getByRole('button', { name: 'Tester les 3 photos (Vision + analyse)' })).toBeDisabled();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 lectures (Vision seule)' })).toBeDisabled();
 
@@ -63,6 +68,7 @@ test('the guided biology protocol reuses the evaluator selection without creatin
   await choices.locator('label.evaluation-profile-option').nth(1).click();
   await expect(panel.getByText(/Configuration\(s\) incompatible\(s\) : Ma configuration distante/)).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeDisabled();
+  await expect(panel.getByRole('button', { name: 'Comparer 1, 2 et 4 appels parallèles' })).toBeDisabled();
   await choices.locator('label.evaluation-profile-option').nth(1).click();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
 

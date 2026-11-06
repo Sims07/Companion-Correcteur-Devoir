@@ -1,3 +1,7 @@
+import { useState } from 'react';
+import { DesignSystemSelect } from './DesignSystemSelect.tsx';
+import { Button } from '../design-system/components/Button.tsx';
+import type { PilotConcurrencyRun } from '../../application/pilotCriterionConcurrency.ts';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import type { PilotCase, PilotRun } from '../../domain/pilotEvaluationProtocol.ts';
 import { PILOT_CASES, comparePilotTranscription, pilotSelectionIssue, summarizePilotResult } from '../../domain/pilotEvaluationProtocol.ts';
@@ -11,19 +15,22 @@ interface PilotEvaluationPanelProps {
   message: string;
   imageCounts: Record<string, number>;
   runs: readonly PilotRun[];
+  concurrencyRuns: readonly PilotConcurrencyRun[];
   selectedProfiles: readonly AiModelProfile[];
   onPrepare: () => void;
   onUpload: (caseId: PilotCase['id'], files: FileList | null) => void;
   onRun: (mode: 'vision' | 'analysis' | 'integrated') => void;
+  onRunConcurrency: (caseId: PilotCase['id']) => void;
   onStop: () => void;
   onExport: () => void;
   onCopy: () => void;
 }
 
 export function PilotEvaluationPanel({
-  enabled, busy, uploadingCase, currentCase, message, imageCounts, runs, selectedProfiles,
-  onPrepare, onUpload, onRun, onStop, onExport, onCopy,
+  enabled, busy, uploadingCase, currentCase, message, imageCounts, runs, concurrencyRuns, selectedProfiles,
+  onPrepare, onUpload, onRun, onRunConcurrency, onStop, onExport, onCopy,
 }: PilotEvaluationPanelProps) {
+  const [benchmarkCase, setBenchmarkCase] = useState<PilotCase['id']>('C');
   const readyForImages = PILOT_CASES.every((testCase) => (imageCounts[testCase.id] ?? 0) > 0);
   const visionIssue = pilotSelectionIssue(selectedProfiles, 'vision');
   const analysisIssue = pilotSelectionIssue(selectedProfiles, 'analysis');
@@ -58,8 +65,63 @@ export function PilotEvaluationPanel({
         <button type="button" className="secondary-button" disabled={busy || uploadingCase !== null || Boolean(integratedIssue) || !readyForImages} onClick={() => onRun('integrated')}>Tester les 3 photos (Vision + analyse)</button>
         {busy && <button type="button" className="secondary-button" onClick={onStop}>Arrêter après l’appel en cours</button>}
       </div>
+      <section className="pilot-evaluation-parallel" aria-label="Benchmark de parallélisme">
+        <div>
+          <h4>Expérience CPU · 1, 2 ou 4 critères simultanés</h4>
+          <p>Test expérimental en analyse seule, sans photo et sans modifier la correction réelle.
+            Un appel indépendant est lancé par critère, avec le même texte et les mêmes critères pour les trois niveaux.
+            Un modèle décisionnel System One peut normalement regrouper plusieurs questions dans un seul appel :
+            les résultats ici mesurent la concurrence entre appels séparés, pas la performance optimale de System One. Ollama peut mettre en file d’attente ces requêtes selon son paramètre OLLAMA_NUM_PARALLEL : « simultané » désigne ici des requêtes actives côté navigateur, pas la preuve d’inférences parallèles côté serveur.</p>
+        </div>
+        <div className="pilot-evaluation-actions">
+          <label htmlFor="pilot-concurrency-case">Réponse de référence</label>
+          <DesignSystemSelect id="pilot-concurrency-case" value={benchmarkCase} disabled={busy}
+            onChange={(event) => setBenchmarkCase(event.target.value as PilotCase['id'])}>
+            {PILOT_CASES.map((item) => <option key={item.id} value={item.id}>{item.label} ({item.referenceScore}/10)</option>)}
+          </DesignSystemSelect>
+          <Button variant="secondary" disabled={busy || uploadingCase !== null || Boolean(analysisIssue)}
+            onClick={() => onRunConcurrency(benchmarkCase)}>Comparer 1, 2 et 4 appels parallèles</Button>
+        </div>
+        <small>Une seule configuration est exécutée à la fois, puis libérée d’Ollama. Un essai par niveau : résultat exploratoire, non prédictif.
+          La consommation RAM maximale du processus n’est pas accessible depuis le navigateur ; utilisez le Moniteur d’activité sur votre Mac.
+          Un appel de préchauffage non chronométré est effectué avant les séries pour limiter le biais du chargement à froid.</small>
+      </section>
       {!readyForImages && <p className="pilot-evaluation-hint">Pour Vision seule ou le parcours complet, associez une photo correspondant au texte de référence de chaque copie. Pour démarrer sans images, choisissez « Lancer les 3 analyses » : les transcriptions de référence sont déjà intégrées.</p>}
       {(message || currentCase) && <p className="pilot-evaluation-message" role="status">{currentCase ? `Copie ${currentCase} en cours · ` : ''}{message}</p>}
+      {concurrencyRuns.length > 0 && <section className="pilot-evaluation-report" aria-label="Résultats du parallélisme">
+        <div className="pilot-evaluation-report-head">
+          <div><h4>Parallélisme · analyse seule</h4><p>Durée totale de 5 critères, résultats de référence, sorties du modèle et débit effectif (tokens / durée totale).</p></div>
+          <div className="pilot-evaluation-report-actions">
+            <button type="button" className="secondary-button" disabled={busy} onClick={onCopy}>Copier le rapport pour ChatGPT</button>
+            <button type="button" className="secondary-button" disabled={busy} onClick={onExport}>Exporter JSON complet</button>
+          </div>
+        </div>
+        <div className="pilot-evaluation-table-scroll">
+          <table className="pilot-evaluation-table">
+            <thead><tr><th scope="col">Modèle</th><th scope="col">Copie</th><th scope="col">Parallèle</th><th scope="col">Durée</th><th scope="col">Gain vs 1</th><th scope="col">Note</th><th scope="col">Attendus corrects</th><th scope="col">Faux positifs</th><th scope="col">Faux négatifs</th><th scope="col">À vérifier</th><th scope="col">Échecs</th><th scope="col">Tokens/s effectifs</th></tr></thead>
+            <tbody>
+              {concurrencyRuns.flatMap((run) => run.samples.map((sample) => {
+                const baseline = run.samples.find((entry) => entry.concurrency === 1);
+                return <tr key={run.profileId + '-' + run.caseId + '-' + sample.concurrency}>
+                  <th scope="row">{run.profileName} · {run.analysisModel}</th>
+                  <td>{run.caseId}</td>
+                  <td>{sample.concurrency} (observé : {sample.observedMaxInFlight})</td>
+                  <td>{(sample.durationMs / 1000).toFixed(1)} s</td>
+                  <td>{baseline && sample.durationMs > 0 ? (baseline.durationMs / sample.durationMs).toFixed(2) + '×' : '—'}</td>
+                  <td>{sample.score === null ? 'Non évaluée' : sample.score + '/10'}</td>
+                  <td>{sample.correct}/10</td>
+                  <td>{sample.falsePositives}</td>
+                  <td>{sample.falseNegatives}</td>
+                  <td>{sample.unresolved}</td>
+                  <td>{sample.failed}</td>
+                  <td>{sample.effectiveTokensPerSecond?.toFixed(1) ?? '—'}</td>
+                </tr>;
+              }))}
+            </tbody>
+          </table>
+        </div>
+        <p className="pilot-evaluation-hint">Comparer à la fois la durée et la fiabilité (faux positifs, faux négatifs et non-évalués). Les chiffres incluent les éventuelles reprises du modèle ; l’ordre 1 → 2 → 4 et le chargement à froid peuvent biaiser une mesure unique. Aucun accès au cloud n’est autorisé dans ce protocole.</p>
+      </section>}
       {runs.length > 0 && <div className="pilot-evaluation-report">
         <div className="pilot-evaluation-report-head">
           <div><h4>Résultats consolidés</h4><p>{runs.length} copie(s) évaluée(s) · les parcours de lecture et de notation sont distingués. La fidélité texte ne constitue pas une note de biologie.</p></div>

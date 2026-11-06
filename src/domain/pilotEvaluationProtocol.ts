@@ -1,6 +1,7 @@
 import { defaultAiModelConfiguration, type AiModelProfile } from './aiModelProfiles.ts';
 import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
 import type { Rubric } from './rubric.ts';
+import type { PilotConcurrencyRun } from '../application/pilotCriterionConcurrency.ts';
 
 export const PILOT_PROTOCOL_ID = 'biologie-photosynthese-respiration-v1';
 export const PILOT_QUESTION = 'Chez une cellule végétale, expliquez la photosynthèse et la respiration aérobie : lieu, besoins, produits, production d’ATP et respiration en l’absence de lumière.';
@@ -241,10 +242,11 @@ export function summarizePilotResult(testCase: PilotCase, result: ModelEvaluatio
 }
 
 /** The exported artifact is standalone for review, never includes photographs, API keys or endpoints. */
-export function buildPilotReport(runs: readonly PilotRun[], createdAt: string) {
+export function buildPilotReport(runs: readonly PilotRun[], createdAt: string, concurrencyRuns: readonly PilotConcurrencyRun[] = []) {
   return {
     format: 'companion-correcteur-pilot-report',
-    version: 2,
+    version: concurrencyRuns.length ? 3 : 2,
+    ...(concurrencyRuns.length ? { concurrencyBenchmarks: structuredClone(concurrencyRuns) } : {}),
     protocolId: PILOT_PROTOCOL_ID,
     createdAt,
     localOnly: true,
