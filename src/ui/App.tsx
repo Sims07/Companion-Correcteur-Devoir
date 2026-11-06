@@ -1216,6 +1216,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       let textProposal: GradingProposal | null = null;
       if (shouldRunTextGrading) {
         const gradingTranscription = isFreshCorrection ? null : transcription;
+        let latestStudentTranscription: string | null = gradingTranscription;
         // Ollama model metadata was checked above without loading the models.
         setAnalysisStage('reading');
         if (!gradingTranscription) setCriterionProgressMessage('Chargement du modèle de lecture, cela peut prendre quelques minutes…');
@@ -1260,7 +1261,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             }
             else if (kind === 'annotations') setTeacherAnnotations(extracted);
             else if (kind === 'warning') setError(extracted);
-            else setTranscription(extracted);
+            else { latestStudentTranscription = extracted; setTranscription(extracted); }
           },
           (result) => { diagnosticResultsForHistory.push(result); setDiagnosticRuns((current) => [...current, result]); },
           (update) => {
@@ -1303,7 +1304,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           abortController.signal,
         );
         if (analysisStartedAt !== null) { analysisDurationMs = Math.max(0, Date.now() - analysisStartedAt); setAnalysisElapsedMs(analysisDurationMs); }
-        textProposal = parseGradingProposal(raw, gradingRubric);
+        textProposal = parseGradingProposal(raw, gradingRubric, correctionMethod === 'generative' ? latestStudentTranscription ?? undefined : undefined);
       } else {
         analysisStartedAt = Date.now();
         setAnalysisStage('grading');
@@ -1538,7 +1539,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         setEvaluationStage('parsing');
         let score: number | null = null;
         let parsedProposal: GradingProposal | null = null;
-        try { parsedProposal = parseGradingProposal(raw, runRubric); score = buildDiagnosticScore(parsedProposal, runRubric).modelScore; } catch { /* Preserve raw output for inspection even when it cannot be scored. */ }
+        try { parsedProposal = parseGradingProposal(raw, runRubric, configuration.correctionMethod === 'generative' ? (runStage === 'analysis' ? runTranscription ?? '' : extractedTranscription) : undefined); score = buildDiagnosticScore(parsedProposal, runRubric).modelScore; } catch { /* Preserve raw output for inspection even when it cannot be scored. */ }
         const finishedAt = Date.now();
         const readingTokens = sumReportedTokensForStage(measuredRuns, 'reading');
         const analysisTokens = sumReportedTokensForStage(measuredRuns, 'analysis');
