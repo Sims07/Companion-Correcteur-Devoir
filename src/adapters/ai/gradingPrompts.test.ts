@@ -35,7 +35,7 @@ describe('compact criterion grading prompts', () => {
     });
     expect(prompt).toContain('JAMAIS un point négatif');
     expect(prompt).toContain('sujet, action, objet');
-    expect(prompt).toContain('La somme exacte');
+    expect(prompt).toContain('La somme des sous-critères doit correspondre exactement');
     expect(prompt).not.toContain('un malus explicite peut être négatif');
   });
 
