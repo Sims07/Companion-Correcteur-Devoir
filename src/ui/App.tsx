@@ -79,7 +79,7 @@ import { createReviewTraceMetrics, markGroupConfirmedCriterionModified, type Rev
 type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
 interface PilotRunOptions {
   pilotCase: PilotCase;
-  stage: 'analysis' | 'integrated';
+  stage: 'vision' | 'analysis' | 'integrated';
   profiles: AiModelProfile[];
   caseImages: ImageInput[];
 }
@@ -1550,7 +1550,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         setPilotMessage('Libération de la mémoire Ollama après « ' + configuration.name + ' »…');
         try {
           if (!releasePilotModels) throw new Error('Gestionnaire de mémoire Ollama indisponible.');
-          const released = await releasePilotModels(configuration, runStage === 'analysis' ? 'analysis' : 'integrated');
+          const released = await releasePilotModels(configuration, runStage);
           setPilotMessage(released.length
             ? 'Mémoire libérée : ' + released.join(', ') + '. Préparation du profil suivant.'
             : 'Aucun modèle de « ' + configuration.name + ' » encore chargé ; suite du protocole.');
@@ -1640,7 +1640,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         setEvaluationStage('parsing');
         let score: number | null = null;
         let parsedProposal: GradingProposal | null = null;
-        try { parsedProposal = parseGradingProposal(raw, runRubric, configuration.correctionMethod === 'generative' ? (runStage === 'analysis' ? runTranscription ?? '' : extractedTranscription) : undefined); score = buildDiagnosticScore(parsedProposal, runRubric).modelScore; } catch { /* Preserve raw output for inspection even when it cannot be scored. */ }
+        if (runStage !== 'vision') {
+          try { parsedProposal = parseGradingProposal(raw, runRubric, configuration.correctionMethod === 'generative' ? (runStage === 'analysis' ? runTranscription ?? '' : extractedTranscription) : undefined); score = buildDiagnosticScore(parsedProposal, runRubric).modelScore; } catch { /* Preserve raw output for inspection even when it cannot be scored. */ }
+        }
         const finishedAt = Date.now();
         const readingTokens = sumReportedTokensForStage(measuredRuns, 'reading');
         const analysisTokens = sumReportedTokensForStage(measuredRuns, 'analysis');
@@ -1652,7 +1654,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     });
     setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: 'running' } : current);
     setEvaluationStage('saving');
-    if (runStage === 'vision') {
+    if (runStage === 'vision' && !options) {
       const firstReadableResult = outputs.find((output) => output.status === 'success' && output.value?.transcription.trim());
       if (firstReadableResult?.value?.transcription) setTranscription(firstReadableResult.value.transcription);
     }
@@ -1740,14 +1742,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     } finally { setPilotUploadingCase(null); }
   }
 
-  async function runPilotProtocol(stage: 'analysis' | 'integrated') {
+  async function runPilotProtocol(stage: 'vision' | 'analysis' | 'integrated') {
     if (!pilotEnabled || pilotBusy || busy || pilotUploadingCase) return;
     const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     const selectionIssue = pilotSelectionIssue(profiles, stage);
     if (selectionIssue) { setPilotMessage(selectionIssue); return; }
     if (!releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : protocole bloqué pour éviter de saturer la RAM.'); return; }
-    if (stage === 'integrated' && PILOT_CASES.some((testCase) => !pilotImages[testCase.id]?.length)) {
-      setPilotMessage('Ajoutez les photos des copies A, B et C avant de lancer le parcours complet.');
+    if (stage !== 'analysis' && PILOT_CASES.some((testCase) => !pilotImages[testCase.id]?.length)) {
+      setPilotMessage('Ajoutez les photos des copies A, B et C avant de lancer le test Vision.');
       return;
     }
     pilotStopRef.current = false;
