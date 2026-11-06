@@ -1,5 +1,5 @@
 import type { LocalCorrection } from '../../domain/localCorrection.ts';
-import type { BackgroundCorrectionJob } from '../../domain/backgroundCorrection.ts';
+import { toBackgroundJobOverview, type BackgroundCorrectionJob } from '../../domain/backgroundCorrection.ts';
 import type { BackgroundCorrectionRepository } from '../../ports/backgroundCorrectionRepository.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import { toModelEvaluationSummary, type ModelEvaluationRecord } from '../../domain/modelEvaluation.ts';
@@ -377,6 +377,36 @@ export class IndexedDbBackgroundCorrectionRepository implements BackgroundCorrec
       const transaction = database.transaction(BACKGROUND_CORRECTION_STORE_NAME, 'readonly');
       const jobs = await requestToPromise(transaction.objectStore(BACKGROUND_CORRECTION_STORE_NAME).getAll()) as BackgroundCorrectionJob[];
       return jobs.filter((job) => !assignmentId || job.assignmentId === assignmentId).sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    } finally { database.close(); }
+  }
+
+  async listJobOverviews(assignmentId?: string): Promise<BackgroundCorrectionJob[]> {
+    const database = await openDatabase();
+    try {
+      const transaction = database.transaction(BACKGROUND_CORRECTION_STORE_NAME, 'readonly');
+      const overviews = await new Promise<BackgroundCorrectionJob[]>((resolve, reject) => {
+        const rows: BackgroundCorrectionJob[] = [];
+        const cursor = transaction.objectStore(BACKGROUND_CORRECTION_STORE_NAME).openCursor();
+        cursor.onsuccess = () => {
+          const current = cursor.result;
+          if (!current) { resolve(rows); return; }
+          const job = current.value as BackgroundCorrectionJob;
+          if (!assignmentId || job.assignmentId === assignmentId) rows.push(toBackgroundJobOverview(job));
+          current.continue();
+        };
+        cursor.onerror = () => reject(cursor.error ?? new Error('Lecture des copies en attente impossible.'));
+        transaction.onabort = () => reject(transaction.error ?? new Error('Lecture de la file interrompue.'));
+      });
+      return overviews.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    } finally { database.close(); }
+  }
+
+  async getJob(id: string): Promise<BackgroundCorrectionJob | null> {
+    const database = await openDatabase();
+    try {
+      const transaction = database.transaction(BACKGROUND_CORRECTION_STORE_NAME, 'readonly');
+      const result = await requestToPromise(transaction.objectStore(BACKGROUND_CORRECTION_STORE_NAME).get(id)) as BackgroundCorrectionJob | undefined;
+      return result ?? null;
     } finally { database.close(); }
   }
 
