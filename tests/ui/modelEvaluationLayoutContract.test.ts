@@ -36,7 +36,7 @@ describe('Model evaluation workspace layout contract', () => {
 
   it('opens results before the history write and offers a retry if IndexedDB fails', () => {
     const finished = app.indexOf('setModelEvaluationResults(results);');
-    const navigation = app.indexOf("if (results.length > 0) setEvaluationWorkspaceStep('results');", finished);
+    const navigation = app.indexOf("if (results.length > 0 && !options) setEvaluationWorkspaceStep('results');", finished);
     const persistence = app.indexOf('await persistModelEvaluationRecord(savedRecord);', finished);
     expect(finished).toBeGreaterThan(0);
     expect(navigation).toBeGreaterThan(finished);

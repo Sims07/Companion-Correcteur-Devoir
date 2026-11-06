@@ -48,6 +48,8 @@ import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision 
 import { buildLocalDecisionBenchmark } from '../domain/localDecisionBenchmark.ts';
 import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluationScores, visualChoiceLabels } from '../domain/visualDecisionEvaluation.ts';
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
+import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotProfile, makePilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
+import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
 import { DeveloperToolsNavigation, type DeveloperTool } from './DeveloperToolsNavigation.tsx';
@@ -72,6 +74,12 @@ import { estimateRemainingCorrectionSeconds } from '../domain/correctionTimeEsti
 import { createReviewTraceMetrics, markGroupConfirmedCriterionModified, type ReviewTraceMetrics } from '../domain/reviewMetrics.ts';
 
 type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
+interface PilotRunOptions {
+  pilotCase: PilotCase;
+  stage: 'analysis' | 'integrated';
+  profiles: AiModelProfile[];
+  caseImages: ImageInput[];
+}
 
 const initialRubric: Rubric = {
   title: 'Barème de biologie — exemple',
@@ -377,6 +385,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history'>('configuration');
   const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
   const [evaluationVisualDirect, setEvaluationVisualDirect] = useState(false);
+  const [pilotEnabled, setPilotEnabled] = useState(false);
+  const [pilotRuns, setPilotRuns] = useState<PilotRun[]>([]);
+  const [pilotImages, setPilotImages] = useState<Record<string, ImageInput[]>>({});
+  const [pilotBusy, setPilotBusy] = useState(false);
+  const [pilotUploadingCase, setPilotUploadingCase] = useState<string | null>(null);
+  const [pilotCurrentCase, setPilotCurrentCase] = useState<string | null>(null);
+  const [pilotMessage, setPilotMessage] = useState('');
+  const pilotStopRef = useRef(false);
   const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
   const [savedModelEvaluations, setSavedModelEvaluations] = useState<ModelEvaluationRecord[]>([]);
   const [sessionOnlyEvaluationIds, setSessionOnlyEvaluationIds] = useState<string[]>([]);
@@ -1373,20 +1389,34 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  async function startModelEvaluation() {
-    const selectedProfiles = aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
+  async function startModelEvaluation(options?: PilotRunOptions): Promise<ModelEvaluationRecord | undefined> {
+    const runStage = options?.stage ?? evaluationStageMode;
+    const runRubric = options ? PILOT_RUBRIC : rubric;
+    const runValidation = validateRubric(runRubric);
+    const runTranscription = options ? options.pilotCase.transcription : transcription;
+    const runImages = options ? options.caseImages : images;
+    const runQuestion = options ? PILOT_QUESTION : question;
+    const runTitle = options ? PILOT_TITLE : assignmentTitle;
+    const runDescription = options ? '' : assignmentDescription;
+    const runLevel = options ? 'Université' : educationLevel;
+    const runCorrectionMode = options ? 'integrated' as const : correctionMode;
+    const runSubjectImages = options ? [] : subjectImages;
+    const runSubjectTranscription = options ? null : subjectTranscription;
+    const runVisualDirect = options ? false : evaluationVisualDirect;
+    const runAssignmentId = options ? 'pilot-' + PILOT_PROTOCOL_ID : activeAssignmentId;
+    const selectedProfiles = options?.profiles ?? aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
     if (selectedProfiles.length < 1) { setError('Sélectionnez au moins une configuration enregistrée pour la tester.'); return; }
-    if (!validation.valid) { setError(validation.errors.join(' ')); return; }
-    if (evaluationStageMode === 'analysis' && !transcription?.trim()) { setError('Pour évaluer l’analyse seule, lancez d’abord une lecture Vision et vérifiez sa transcription.'); return; }
-    if (evaluationStageMode !== 'analysis' && !images.length) { setError('Importez une copie avant de lancer une évaluation Vision.'); return; }
-    if (evaluationStageMode === 'integrated' && correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
+    if (!runValidation.valid) { setError(runValidation.errors.join(' ')); return; }
+    if (runStage === 'analysis' && !runTranscription?.trim()) { setError('Pour évaluer l’analyse seule, lancez d’abord une lecture Vision et vérifiez sa transcription.'); return; }
+    if (runStage !== 'analysis' && !runImages.length) { setError('Importez une copie avant de lancer une évaluation Vision.'); return; }
+    if (runStage === 'integrated' && runCorrectionMode === 'separate' && !runSubjectImages.length && !runSubjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
     evaluationCancelledRef.current = false;
     setModelEvaluationResults([]);
     setSuggestedEvaluationComparisonIds(null);
     setEvaluationArchiveStatus('idle');
     setPendingEvaluationArchive(null);
-    const measuredStages = evaluationStageMode === 'vision' ? ['reading'] as const : evaluationStageMode === 'analysis' ? ['analysis'] as const : ['reading', 'analysis'] as const;
-    const directProfiles = (profile: AiModelProfile) => evaluationStageMode === 'integrated' && evaluationVisualDirect
+    const measuredStages = runStage === 'vision' ? ['reading'] as const : runStage === 'analysis' ? ['analysis'] as const : ['reading', 'analysis'] as const;
+    const directProfiles = (profile: AiModelProfile) => runStage === 'integrated' && runVisualDirect
       && profile.configuration.correctionMethod === 'decision' && isVisualDecisionModel(profile.configuration.analysisModel);
     const totalEvaluationSteps = selectedProfiles.reduce((sum, profile) => sum + (directProfiles(profile) ? 1 : measuredStages.length), 0);
     setEvaluationProgress({ completed: 0, total: selectedProfiles.length, currentConfiguration: null, status: 'running', completedSteps: 0, totalSteps: totalEvaluationSteps, currentStage: null });
@@ -1414,10 +1444,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       onProgress: setEvaluationProgress,
       execute: async (configuration, _isCancelled, onStage) => {
         setEvaluationStage('preparing');
-        if (evaluationStageMode !== 'analysis' && !configuration.directVisualDecision && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un modèle de vision pour cette expérience.');
-        if (evaluationStageMode !== 'vision' && !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle d’analyse pour cette expérience.');
-        if (evaluationStageMode !== 'analysis' && !configuration.directVisualDecision) await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.visionModel });
-        if (evaluationStageMode !== 'vision') await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.analysisModel });
+        if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un modèle de vision pour cette expérience.');
+        if (runStage !== 'vision' && !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle d’analyse pour cette expérience.');
+        if (runStage !== 'analysis' && !configuration.directVisualDecision) await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.visionModel });
+        if (runStage !== 'vision') await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.analysisModel });
         let extractedTranscription = '';
         let raw = '';
         const startedAt = Date.now();
@@ -1439,13 +1469,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         setStreamedOutput('');
         try {
           raw = await provider.generate({
-            question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
-            rubric: rubricAsJson(rubric),
-            ...(evaluationStageMode === 'analysis' ? { transcription: transcription ?? '' } : {}),
-            ...(evaluationStageMode === 'vision' ? { visionOnly: true } : {}),
+            question: buildAssignmentContext({ title: runTitle, description: runDescription, educationLevel: runLevel, question: runQuestion }),
+            rubric: rubricAsJson(runRubric),
+            ...(runStage === 'analysis' ? { transcription: runTranscription ?? '' } : {}),
+            ...(runStage === 'vision' ? { visionOnly: true } : {}),
             ...(configuration.directVisualDecision ? { directVisualDecision: true } : {}),
-            images: evaluationStageMode === 'analysis' ? [] : structuredClone(images),
-            ...(evaluationStageMode !== 'vision' && correctionMode === 'separate' ? { subjectImages: structuredClone(subjectImages), ...(subjectTranscription ? { subjectTranscription } : {}) } : {}),
+            images: runStage === 'analysis' ? [] : structuredClone(runImages),
+            ...(runStage !== 'vision' && runCorrectionMode === 'separate' ? { subjectImages: structuredClone(runSubjectImages), ...(runSubjectTranscription ? { subjectTranscription: runSubjectTranscription } : {}) } : {}),
           }, (chunk) => { streamedOutput += chunk; setStreamedOutput((current) => current + chunk); }, (stage) => {
             const now = Date.now();
             if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = configuration.directVisualDecision ? 0 : Math.max(0, now - startedAt); analysisStartedAt = configuration.directVisualDecision ? startedAt : now; } onStage('analysis'); setEvaluationStage('grading'); setAnalysisStage('grading'); setStreamedOutput(''); }
@@ -1455,7 +1485,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           }, (result) => measuredRuns.push(result));
         } catch (cause) {
           const failedAt = Date.now();
-          if (evaluationStageMode === 'vision' && analysisStartedAt === null) readingMs = Math.max(0, failedAt - startedAt);
+          if (runStage === 'vision' && analysisStartedAt === null) readingMs = Math.max(0, failedAt - startedAt);
           const analysisMs = analysisStartedAt === null ? 0 : Math.max(0, failedAt - analysisStartedAt);
           const readingTokens = sumReportedTokensForStage(measuredRuns, 'reading');
           const analysisTokens = sumReportedTokensForStage(measuredRuns, 'analysis');
@@ -1484,12 +1514,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           throw error;
         }
         const analysisFinishedAt = Date.now();
-        if (evaluationStageMode === 'vision' && analysisStartedAt === null) readingMs = Math.max(0, analysisFinishedAt - startedAt);
+        if (runStage === 'vision' && analysisStartedAt === null) readingMs = Math.max(0, analysisFinishedAt - startedAt);
         const analysisMs = analysisStartedAt === null ? 0 : Math.max(0, analysisFinishedAt - analysisStartedAt);
         setEvaluationStage('parsing');
         let score: number | null = null;
         let parsedProposal: GradingProposal | null = null;
-        try { parsedProposal = parseGradingProposal(raw, rubric); score = buildDiagnosticScore(parsedProposal, rubric).modelScore; } catch { /* Preserve raw output for inspection even when it cannot be scored. */ }
+        try { parsedProposal = parseGradingProposal(raw, runRubric); score = buildDiagnosticScore(parsedProposal, runRubric).modelScore; } catch { /* Preserve raw output for inspection even when it cannot be scored. */ }
         const finishedAt = Date.now();
         const readingTokens = sumReportedTokensForStage(measuredRuns, 'reading');
         const analysisTokens = sumReportedTokensForStage(measuredRuns, 'analysis');
@@ -1501,7 +1531,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     });
     setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: 'running' } : current);
     setEvaluationStage('saving');
-    if (evaluationStageMode === 'vision') {
+    if (runStage === 'vision') {
       const firstReadableResult = outputs.find((output) => output.status === 'success' && output.value?.transcription.trim());
       if (firstReadableResult?.value?.transcription) setTranscription(firstReadableResult.value.transcription);
     }
@@ -1517,7 +1547,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       analysisTokensPerSecond: output.value?.analysisTokensPerSecond ?? null,
       tokens: output.value?.tokens ?? null,
       status: output.status,
-      transcription: evaluationStageMode === 'analysis' ? transcription ?? '' : output.value?.transcription ?? '',
+      transcription: runStage === 'analysis' ? runTranscription ?? '' : output.value?.transcription ?? '',
       raw: output.value?.raw ?? '',
       score: output.value?.score ?? null,
       proposal: output.value?.proposal ?? null,
@@ -1527,19 +1557,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }));
     setModelEvaluationResults(results);
     // Render results immediately; IndexedDB writes must never block navigation.
-    if (results.length > 0) setEvaluationWorkspaceStep('results');
+    if (results.length > 0 && !options) setEvaluationWorkspaceStep('results');
     const savedRecord: ModelEvaluationRecord = {
-      id: 'evaluation-' + Date.now(),
+      id: 'evaluation-' + Date.now() + (options ? '-' + options.pilotCase.id + '-' + runStage : ''),
       completedAt: new Date().toISOString(),
-      assignmentId: activeAssignmentId,
-      assignmentTitle: assignmentTitle.trim() || 'Devoir sans titre',
-      question,
-      rubricSnapshot: structuredClone(rubric),
-      correctionMode,
-      images: evaluationStageMode === 'analysis' ? [] : structuredClone(images),
-      subjectImages: structuredClone(subjectImages),
-      subjectTranscription,
-      referenceTranscription: evaluationStageMode === 'analysis' ? transcription : null,
+      assignmentId: runAssignmentId,
+      assignmentTitle: runTitle.trim() || 'Devoir sans titre',
+      question: runQuestion,
+      rubricSnapshot: structuredClone(runRubric),
+      correctionMode: runCorrectionMode,
+      images: runStage === 'analysis' ? [] : structuredClone(runImages),
+      subjectImages: structuredClone(runSubjectImages),
+      subjectTranscription: runSubjectTranscription,
+      referenceTranscription: runStage === 'analysis' ? runTranscription : null,
       configurations: selectedProfiles.map((profile) => ({
         id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
         visionModel: profile.configuration.visionModel, analysisModel: profile.configuration.analysisModel,
@@ -1548,7 +1578,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         directVisualDecision: directProfiles(profile),
       })),
       results,
-      stage: evaluationStageMode,
+      stage: runStage,
     };
     const previousComparable = savedModelEvaluations.find((record) => canCompareModelEvaluationRecords([record, savedRecord]));
     if (previousComparable) setSuggestedEvaluationComparisonIds([previousComparable.id, savedRecord.id]);
@@ -1557,11 +1587,109 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setEvaluationStage('completed');
     setIsAnalyzing(false);
     setBusy(false);
+    return savedRecord;
   }
 
   function cancelModelEvaluation() {
     evaluationCancelledRef.current = true;
     setError('Annulation demandée : l’appel Ollama en cours sera laissé se terminer avant l’arrêt de la séquence.');
+  }
+
+
+  function preparePilotProtocol() {
+    if (busy || pilotBusy) return;
+    const profiles = makePilotProfiles(endpoint, new Date().toISOString());
+    const next = profiles.reduce((current, profile) => upsertAiModelProfile(current, profile), aiModelProfiles);
+    setAiModelProfiles(next);
+    setSelectedEvaluationProfileIds(profiles.map((profile) => profile.id));
+    setPilotEnabled(true);
+    setPilotRuns([]);
+    setPilotImages({});
+    setPilotMessage('Prêt : barème de test isolé, trois textes de référence et profils locaux configurés. Lancez les analyses ou ajoutez trois photos.');
+    setPilotCurrentCase(null);
+    setEvaluationStageMode('analysis');
+    setEvaluationVisualDirect(false);
+    try { window.localStorage.setItem(aiModelProfilesKey, JSON.stringify(next)); }
+    catch { setPilotMessage('Protocole préparé pour cette session, mais les profils n’ont pas pu être sauvegardés dans ce navigateur.'); }
+  }
+
+  async function uploadPilotImages(caseId: PilotCase['id'], files: FileList | null) {
+    if (!files?.length || pilotBusy || busy) return;
+    setPilotUploadingCase(caseId);
+    try {
+      const prepared = await service.prepareFiles(files);
+      setPilotImages((current) => ({ ...current, [caseId]: prepared }));
+      setPilotMessage('Photos de la copie ' + caseId + ' préparées localement. Aucun fichier n’est téléversé vers un cloud.');
+    } catch (cause) {
+      setPilotMessage('Échec de lecture de la copie ' + caseId + ' : ' + (cause instanceof Error ? cause.message : String(cause)));
+    } finally { setPilotUploadingCase(null); }
+  }
+
+  async function runPilotProtocol(stage: 'analysis' | 'integrated') {
+    if (!pilotEnabled || pilotBusy || busy || pilotUploadingCase) return;
+    const profiles = aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)
+      && ['pilot-biology-qwen', 'pilot-biology-d1', 'pilot-biology-tev'].includes(profile.id));
+    if (!profiles.length) { setPilotMessage('Sélectionnez au moins un des trois profils du protocole.'); return; }
+    if (profiles.some((profile) => !isLocalPilotProfile(profile))) { setPilotMessage('Ce protocole exige Ollama local sans clé API. Réinitialisez les profils du pilote avant de relancer.'); return; }
+    if (stage === 'integrated' && PILOT_CASES.some((testCase) => !pilotImages[testCase.id]?.length)) {
+      setPilotMessage('Ajoutez les photos des copies A, B et C avant de lancer le parcours complet.');
+      return;
+    }
+    pilotStopRef.current = false;
+    setPilotBusy(true);
+    setEvaluationStageMode(stage);
+    setPilotRuns((current) => current.filter((run) => run.record.stage !== stage));
+    try {
+      for (const testCase of PILOT_CASES) {
+        if (pilotStopRef.current) break;
+        setPilotCurrentCase(testCase.id);
+        setPilotMessage('Évaluation séquentielle de la copie ' + testCase.id + ' sur ' + profiles.length + ' profil(s).');
+        const record = await startModelEvaluation({
+          pilotCase: testCase, stage, profiles,
+          caseImages: stage === 'analysis' ? [] : pilotImages[testCase.id] ?? [],
+        });
+        if (record) setPilotRuns((current) => [...current, { caseId: testCase.id, record }]);
+        if (evaluationCancelledRef.current) break;
+      }
+      setPilotMessage(pilotStopRef.current || evaluationCancelledRef.current
+        ? 'Protocole interrompu : les essais terminés restent exportables.'
+        : 'Campagne terminée. Téléchargez ou copiez le rapport complet pour analyser les décisions.');
+    } catch (cause) {
+      setPilotMessage('Erreur du protocole : ' + (cause instanceof Error ? cause.message : String(cause)) + '. Les essais terminés restent exportables.');
+    } finally {
+      setPilotBusy(false);
+      setPilotCurrentCase(null);
+    }
+  }
+
+  function stopPilotProtocol() {
+    pilotStopRef.current = true;
+    cancelModelEvaluation();
+  }
+
+  function exportPilotReport() {
+    if (!pilotRuns.length) return;
+    const report = buildPilotReport(pilotRuns, new Date().toISOString());
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'companion-protocole-biologie-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    setPilotMessage('Rapport JSON exporté. Il ne contient ni images, ni identifiants de connexion.');
+  }
+
+  async function copyPilotReport() {
+    if (!pilotRuns.length) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(buildPilotReport(pilotRuns, new Date().toISOString()), null, 2));
+      setPilotMessage('Rapport copié dans le presse-papiers : collez-le dans notre conversation pour l’analyse.');
+    } catch {
+      setPilotMessage('Copie bloquée par le navigateur. Utilisez « Exporter JSON complet » pour joindre le fichier.');
+    }
   }
 
   function saveDiagnosticReference() {
@@ -2525,6 +2653,17 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </nav>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && <section id="evaluation-configurations" className="panel evaluation-config-workspace" aria-labelledby="evaluation-config-title">
         <div className="evaluation-section-heading"><div><p className="eyebrow">ÉTAPE 1 · CONFIGURATIONS</p><h2 id="evaluation-config-title">Choisir les configurations à évaluer</h2><p>Créez ou modifiez vos profils ici, sans passer par les réglages du parcours de correction. Les profils sont enregistrés localement sur cet appareil.</p></div><span className="evaluation-step-chip">{aiModelProfiles.length} profil(s)</span></div>
+        <PilotEvaluationPanel
+          enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}
+          message={pilotMessage} runs={pilotRuns}
+          imageCounts={Object.fromEntries(Object.entries(pilotImages).map(([caseId, pages]) => [caseId, pages.length]))}
+          selectedProfiles={aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id) && profile.id.startsWith('pilot-biology-')).length}
+          onPrepare={preparePilotProtocol}
+          onUpload={(caseId, files) => { void uploadPilotImages(caseId, files); }}
+          onRun={(mode) => { void runPilotProtocol(mode); }}
+          onStop={stopPilotProtocol} onExport={exportPilotReport}
+          onCopy={() => { void copyPilotReport(); }}
+        />
         <div className="evaluation-stage-picker" role="group" aria-label="Type d’évaluation">
           <button type="button" className={evaluationStageMode === 'vision' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'vision'} onClick={() => setEvaluationStageMode('vision')}><span className="evaluation-stage-number">01</span><strong>Vision seule</strong><small>Comparer la transcription des images, sans lancer la notation.</small></button>
           <button type="button" className={evaluationStageMode === 'analysis' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'analysis'} onClick={() => setEvaluationStageMode('analysis')}><span className="evaluation-stage-number">02</span><strong>Analyse seule</strong><small>Comparer la notation sur une transcription déjà relue et validée.</small></button>
