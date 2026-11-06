@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createBackgroundCorrection } from '../src/domain/backgroundCorrection.ts';
+import { createBackgroundCorrection, toBackgroundJobOverview } from '../src/domain/backgroundCorrection.ts';
 import { createBackgroundCorrectionService } from '../src/application/backgroundCorrectionService.ts';
 import { createScientificDiagramAnalysisService } from '../src/application/scientificDiagramAnalysisService.ts';
 import type { BackgroundCorrectionJob } from '../src/domain/backgroundCorrection.ts';
@@ -404,6 +404,46 @@ describe('background correction service', () => {
     await service.markForReview('copy-1');
     expect(listener).toHaveBeenCalledWith([expect.objectContaining({ id: 'copy-1', status: 'reviewing' })]);
     expect(listener.mock.calls[0][0][0]).not.toHaveProperty('originalImages');
+  });
+
+  it('sends compact batch notifications without loading every original image, and still grades the correct full copy', async () => {
+    const f = fixture();
+    const originalBytes = f.job.images[0].base64;
+    f.repository.listJobOverviews = vi.fn(async (assignmentId) => [...f.jobs.values()]
+      .filter((item) => !assignmentId || item.assignmentId === assignmentId)
+      .map(toBackgroundJobOverview));
+    f.repository.getJob = vi.fn(async (id) => f.jobs.get(id) ? structuredClone(f.jobs.get(id)!) : null);
+    f.repository.getNextPendingJob = vi.fn(async (assignmentId) => [...f.jobs.values()]
+      .filter((job) => job.assignmentId === assignmentId && ['pending', 'processing'].includes(job.status))
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0] ?? null);
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const listener = vi.fn();
+    const summaryListener = vi.fn();
+    service.subscribeOverviews!(listener);
+    service.subscribeSummaries(summaryListener);
+
+    const views = await service.listJobOverviews!('assignment-1');
+    expect(views).toHaveLength(1);
+    expect(views[0].imagesDeferred).toBe(true);
+    expect(views[0].images[0].base64).toBe('');
+    expect(views[0].images).toHaveLength(f.job.images.length);
+    expect(await service.getJob!(f.job.id)).toEqual(f.job);
+    expect(await service.getJob!('missing')).toBeNull();
+
+    await service.processPending({
+      endpoint: 'https://provider.example/v1', apiCompatible: true, visionModel: 'vision:4b', analysisModel: 'analysis:4b',
+    }, 'assignment-1');
+
+    expect(f.repository.listJobs).not.toHaveBeenCalled();
+    expect(f.repository.getNextPendingJob).toHaveBeenCalledWith('assignment-1');
+    expect(f.repository.listJobOverviews).toHaveBeenCalled();
+    expect(listener).toHaveBeenCalled();
+    expect(listener.mock.calls.at(-1)?.[0][0]).toMatchObject({ status: 'ready', imagesDeferred: true });
+    expect(JSON.stringify(listener.mock.calls)).not.toContain(originalBytes);
+    expect(summaryListener.mock.calls.at(-1)?.[0][0]).not.toHaveProperty('images');
+    expect(f.requests[0].images?.[0]?.base64).toBe(originalBytes);
+    expect(f.jobs.get('copy-1')?.images[0].base64).toBe(originalBytes);
+    expect(f.jobs.get('copy-1')?.status).toBe('ready');
   });
 
   it('corrects only the requested assignment when another assignment has older pending copies', async () => {
