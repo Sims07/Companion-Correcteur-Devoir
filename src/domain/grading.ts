@@ -2,15 +2,29 @@ import { getRubricSubcriteria, type Rubric } from './rubric.ts';
 import { normalizeGradeScore, sumGradeScores } from './scorePrecision.ts';
 export { normalizeGradeScore } from './scorePrecision.ts';
 import { parseModelJson } from './modelJson.ts';
+import { auditGradingEvidence } from './gradingEvidenceAudit.ts';
 
 export type Confidence = 'low' | 'medium' | 'high';
+
+export interface SubcriterionProposal {
+  subcriterionId: string;
+  title: string;
+  points: number;
+  maxPoints: number;
+  evidence: string;
+  /** A located citation has not necessarily been scientifically verified. */
+  evidenceStatus?: 'located' | 'needs-review';
+  /** Unresolved subcriteria never become verified zeros or automatically approved points. */
+  assessmentStatus?: 'not-evaluated' | 'evaluated';
+  questionForTeacher?: string;
+}
 
 export interface CriterionProposal {
   criterionId: string;
   points: number;
   rationale: string;
   evidence: string;
-  subcriteria?: Array<{ subcriterionId: string; title: string; points: number; maxPoints: number; evidence: string }>;
+  subcriteria?: SubcriterionProposal[];
   scientificDiagramElements?: Array<{ label: string; status: 'present' | 'partial' | 'absent' | 'uncertain'; points: number; maxPoints: number; evidence: string }>;
   scientificDiagramPages?: number[];
   /** One-based source page when the model can identify it reliably. */
@@ -77,7 +91,7 @@ function normalizeCriteria(parsed: Record<string, unknown>): unknown[] | null {
   return null;
 }
 
-export function parseGradingProposal(raw: string, rubric: Rubric): GradingProposal {
+export function parseGradingProposal(raw: string, rubric: Rubric, studentTranscription?: string): GradingProposal {
   let parsed: unknown;
   try { parsed = parseModelJson(raw); }
   catch (cause) { throw new Error(cause instanceof Error ? cause.message : 'La réponse du modèle ne respecte pas le format JSON attendu.'); }
@@ -125,7 +139,14 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
         }
         const subcriterionEvidence = text(returned.evidence);
         if (!subcriterionEvidence) throw new Error(`La preuve est obligatoire pour le sous-critère « ${expected.title} ».`);
-        return { subcriterionId: expected.id, title: expected.title, points: normalizeGradeScore(returned.points), maxPoints: expected.maxPoints, evidence: subcriterionEvidence };
+        return {
+          subcriterionId: expected.id, title: expected.title, points: normalizeGradeScore(returned.points),
+          maxPoints: expected.maxPoints, evidence: subcriterionEvidence,
+          ...(returned.assessmentStatus === 'not-evaluated' ? { assessmentStatus: 'not-evaluated' as const } : {}),
+          ...(returned.evidenceStatus === 'located' || returned.evidenceStatus === 'needs-review'
+            ? { evidenceStatus: returned.evidenceStatus } : {}),
+          ...(text(returned.questionForTeacher) ? { questionForTeacher: text(returned.questionForTeacher) } : {}),
+        };
       });
       const subcriteriaPoints = sumGradeScores(subcriteria.map((entry) => entry.points));
       if (Math.abs(subcriteriaPoints - points) > 0.0001) throw new Error(`La somme des sous-critères du critère « ${rubricCriterion.title} » ne correspond pas à sa note.`);
@@ -170,13 +191,16 @@ export function parseGradingProposal(raw: string, rubric: Rubric): GradingPropos
     throw new Error(`La note finale annoncée (${String(parsed.finalScore)}) ne correspond pas à la somme des points par critère (${calculatedFinalScore}).`);
   }
 
-  return {
+  const proposal: GradingProposal = {
     summary: text(parsed.summary, 'Proposition générée ; vérification enseignante requise.'),
     criteria,
     questionsForTeacher: [...new Set(questions)],
     finalScore: calculatedFinalScore,
-    ...(criteria.some((item) => item.assessmentStatus === 'not-evaluated') ? { scoreIncomplete: true } : {}),
+    ...(criteria.some((item) => item.assessmentStatus === 'not-evaluated'
+      || item.subcriteria?.some((subcriterion) => subcriterion.assessmentStatus === 'not-evaluated'))
+      ? { scoreIncomplete: true } : {}),
   };
+  return studentTranscription ? auditGradingEvidence(proposal, rubric, studentTranscription) : proposal;
 }
 
 export function toReviewedCriteria(proposal: GradingProposal): ReviewedCriterion[] {
