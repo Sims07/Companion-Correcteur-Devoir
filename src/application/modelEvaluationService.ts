@@ -10,6 +10,8 @@ export interface ModelEvaluationSaveOutcome {
 export interface ModelEvaluationService {
   save(record: ModelEvaluationRecord): Promise<ModelEvaluationSaveOutcome>;
   list(): Promise<ModelEvaluationRecord[]>;
+  listSummaries?(): Promise<ModelEvaluationRecord[]>;
+  get?(id: string): Promise<ModelEvaluationRecord | null>;
   delete(id: string): Promise<void>;
   saveDiagnosticHistory(records: Array<{ id: string }>): Promise<void>;
   listDiagnosticHistory(): Promise<Array<{ id: string }>>;
@@ -43,6 +45,10 @@ export function createModelEvaluationService(repository: ModelEvaluationReposito
       }
     },
     list: () => repository.list(),
+    listSummaries: () => repository.listSummaries?.() ?? repository.list(),
+    get: async (id) => repository.get
+      ? repository.get(id)
+      : (await repository.list()).find((item) => item.id === id) ?? null,
     delete: (id) => repository.delete(id),
     saveDiagnosticHistory: (records) => repository.saveDiagnosticHistory(records),
     listDiagnosticHistory: () => repository.listDiagnosticHistory(),
