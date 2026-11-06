@@ -60,7 +60,7 @@ describe('System One scoring coverage without fabricated certainty', () => {
     const prepared = prepareSystemOneRubric({criteria:rubric,transcription,question:'Biologie'});
     const answers = Object.fromEntries(rubric.flatMap((_, i) => [
       ['criterion_'+(i+1)+'_score', i === 2
-        ? { type: 'choice' as const, choice: 'points_5', probabilities: { points_5: 0.53, points_4: 0.45, unreadable: 0.02 }, confidence: 0.26 }
+        ? { type: 'choice' as const, choice: 'points_5', probabilities: { points_5: 0.53, points_0: 0.45, unreadable: 0.02 }, confidence: 0.26 }
         : choice('points_5', 0.98)],
     ]));
     answers.alignment = choice('aligned');
@@ -72,14 +72,15 @@ describe('System One scoring coverage without fabricated certainty', () => {
     expect(scored[0].questionForTeacher).toBeUndefined();
   });
 
-  it('scores holistic criteria on discrete teacher-bounded points, never blindly assigns fifty percent', () => {
+  it('keeps partial holistic work unscored until the teacher assigns an explicit grade', () => {
     const introduction = {...rubric[0], maxPoints: 3, title: 'Introduction', description: 'Problématique et contexte scientifique' };
-    const prepared = prepareSystemOneCriterion({criterion:introduction,transcription:'Réponse de l\'étudiant\nLe contexte est posé.',question:'Biologie'});
-    const result = scoreSystemOneCriterion(introduction,'Réponse de l\'étudiant\nLe contexte est posé.',prepared, {
-      answers:{alignment:choice('aligned'),score:choice('points_2',0.83)},
+    const prepared = prepareSystemOneCriterion({criterion:introduction,transcription:'Le contexte est posé.',question:'Biologie'});
+    expect(Object.keys(prepared.questions.score.criteria)).toEqual(['unreadable', 'points_0', 'points_3', 'incomplete']);
+    const result = scoreSystemOneCriterion(introduction,'Le contexte est posé.',prepared, {
+      answers:{alignment:choice('aligned'),score:choice('incomplete',0.83)},
     });
-    expect(result).toMatchObject({points:2,assessmentStatus:'evaluated',confidence:'medium'});
-    expect(result.questionForTeacher).toBeUndefined();
+    expect(result).toMatchObject({points:0,assessmentStatus:'not-evaluated',confidence:'low'});
+    expect(result.questionForTeacher).toContain('Attribuez les points');
   });
 
   it('keeps unrelated confirmed topics unassessed, even when the model claims the answer is present', () => {
