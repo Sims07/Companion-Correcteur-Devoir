@@ -82,7 +82,7 @@ function evidenceConcernsExpectation(
     const normalizedSource = normalizeEvidenceText(transcription);
     // Preceding context resolves normal anaphora ("Elle ..."), but never infer
     // the subject from a later sentence or from the teacher's rubric.
-    const localContext = normalizedSource.slice(Math.max(0, at - 220), at + Math.min(140, citation.length));
+    const localContext = normalizedSource.slice(Math.max(0, at - 480), at + Math.min(140, citation.length));
     if (![...contextKeywords].some((word) => localContext.split(' ').includes(word))) return false;
   }
   // Explicit contradiction or polarity reversal needs a teacher review.
