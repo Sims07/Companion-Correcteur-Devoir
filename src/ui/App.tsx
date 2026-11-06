@@ -708,7 +708,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   useEffect(() => {
     let active = true;
-    void archiveService.listCorrections().then((items) => {
+    void (archiveService.listCorrectionSummaries?.() ?? archiveService.listCorrections()).then((items) => {
       if (active) setArchivedCorrections(items.filter((item) => Boolean(item.snapshot)));
     }).catch(() => {
       if (active) setError('Impossible de lire les corrections enregistrées sur cet appareil.');
@@ -1844,7 +1844,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         }
       }
       if (savedDecisionCount > 0) window.dispatchEvent(new Event(LOCAL_MEMORY_UPDATED_EVENT));
-      const saved = await archiveService.listCorrections();
+      const saved = await (archiveService.listCorrectionSummaries?.() ?? archiveService.listCorrections());
       setArchivedCorrections(saved.filter((item) => Boolean(item.snapshot)));
       setCurrentCorrectionId(id);
       setIsFinalized(true);
@@ -2447,6 +2447,22 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   function openArchivedCorrection(correction: LocalCorrection) {
+    if (correction.imagesDeferred) {
+      // The overview keeps only small metadata. Fetch the full saved pages
+      // when the teacher explicitly opens the archived correction.
+      if (!archiveService.getCorrection) {
+        setError('Impossible de charger les pages de cette correction archivée.');
+        return;
+      }
+      void archiveService.getCorrection(correction.id).then((full) => {
+        if (!full?.snapshot) {
+          setError('La correction archivée est introuvable sur cet appareil.');
+          return;
+        }
+        openArchivedCorrection(full);
+      }).catch(() => setError('Impossible de charger cette correction archivée depuis le stockage local.'));
+      return;
+    }
     const snapshot = correction.snapshot;
     setCurrentBackgroundJobId(null);
     if (!snapshot) return;
