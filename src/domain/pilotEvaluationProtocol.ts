@@ -85,7 +85,7 @@ export function makePilotProfiles(endpoint: string, timestamp: string): AiModelP
   return [
     { id: 'pilot-biology-qwen', name: 'Pilote · Qwen génératif', model: 'qwen3.5:4b', method: 'generative' as const },
     { id: 'pilot-biology-d1', name: 'Pilote · D1 décisionnel', model: 'd1:3b', method: 'decision' as const },
-    { id: 'pilot-biology-tev', name: 'Pilote · TEV1 décisionnel', model: 'tev1:0.8b', method: 'decision' as const },
+    { id: 'pilot-biology-tev', name: 'Pilote · TEV1 décisionnel', model: 'tev1:4b', method: 'decision' as const },
   ].map((preset): AiModelProfile => ({
     id: preset.id, name: preset.name, mode: 'single', updatedAt: timestamp,
     configuration: {
