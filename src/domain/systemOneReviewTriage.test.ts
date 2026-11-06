@@ -80,7 +80,7 @@ describe('pedagogical System One uncertainty triage', () => {
     const copy='Réponse de l\'étudiant\nCette étude cherche pourquoi la photosynthèse augmente avec la lumière. Nous supposons que la réaction nécessite des photons.';
     const prepared=prepareSystemOneCriterion({criterion:weighted,transcription:copy,question:'Biologie'});
     const proposal=scoreSystemOneCriterion(weighted,copy,prepared,{
-      answers:{alignment:choice('aligned'),expected_1:choice('present'),expected_2:choice('present')},
+      answers:{alignment:choice('aligned'),expected_1:choice('present'),support_1:choice('supported'),expected_2:choice('present'),support_2:choice('supported')},
     });
     expect(proposal.points).toBe(2);
     expect(proposal.assessmentStatus).toBe('evaluated');
@@ -100,10 +100,10 @@ describe('pedagogical System One uncertainty triage', () => {
     const copy='Réponse de l\'étudiant\nLe CO2 et l’eau sont utilisés dans la photosynthèse.';
     const prepared=prepareSystemOneCriterion({criterion:weighted,transcription:copy,question:'Photosynthèse'});
     const proposal=scoreSystemOneCriterion(weighted,copy,prepared,{
-      answers:{alignment:choice('aligned'),expected_1:choice('present'),expected_2:choice('uncertain')},
+      answers:{alignment:choice('aligned'),expected_1:choice('present'),support_1:choice('supported'),expected_2:choice('uncertain'),support_2:choice('uncertain')},
     });
     expect(proposal.points).toBe(1);
-    expect(proposal.assessmentStatus).toBe('evaluated');
+    expect(proposal.assessmentStatus).toBe('not-evaluated');
     expect(proposal.questionForTeacher).toContain('Produit O2');
     expect(proposal.questionForTeacher).not.toContain('Réactif CO2');
   });

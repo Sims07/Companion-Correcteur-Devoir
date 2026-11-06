@@ -101,7 +101,7 @@ describe('System One scoring coverage without fabricated certainty', () => {
     expect(scored.points).toBe(0);
   });
 
-  it('does not invalidate an entire criterion merely because one of its subcriteria is uncertain', () => {
+  it('keeps the already decided points visible but requires review of an uncertain subcriterion', () => {
     const specific: RubricCriterion = {
       id:'q',title:'Question',description:'',maxPoints:2,
       subcriteria:[
@@ -112,10 +112,10 @@ describe('System One scoring coverage without fabricated certainty', () => {
     const transcription='Réponse de l\'étudiant\nLa mitochondrie contient la chaîne respiratoire.';
     const prepared=prepareSystemOneCriterion({criterion:specific,transcription,question:'Biologie'});
     const scored=scoreSystemOneCriterion(specific,transcription,prepared,{
-      answers:{alignment:choice('aligned'),expected_1:choice('present'),expected_2:choice('uncertain')},
+      answers:{alignment:choice('aligned'),expected_1:choice('present'),support_1:choice('supported'),expected_2:choice('uncertain'),support_2:choice('uncertain')},
     });
     expect(scored.points).toBe(1);
-    expect(scored.assessmentStatus).toBe('evaluated');
+    expect(scored.assessmentStatus).toBe('not-evaluated');
     expect(scored.subcriteria).toHaveLength(2);
     expect(scored.questionForTeacher).toContain('ATP');
   });
@@ -129,7 +129,7 @@ describe('System One scoring coverage without fabricated certainty', () => {
     };
     const prepared = prepareSystemOneCriterion({ criterion: detailed, transcription: 'Le CO2 entre dans les feuilles.', question: 'Photosynthèse' });
     const result = scoreSystemOneCriterion(detailed, 'Le CO2 entre dans les feuilles.', prepared, {
-      answers: { alignment: choice('aligned'), expected_1: choice('partial'), expected_2: choice('present') },
+      answers: { alignment: choice('aligned'), expected_1: choice('partial'), support_1: choice('not_demonstrated'), expected_2: choice('present'), support_2: choice('supported') },
     });
     expect(result.assessmentStatus).toBe('not-evaluated');
     expect(result.points).toBe(1);

@@ -78,7 +78,7 @@ describe('protocole pilote de biologie', () => {
 
   it('creates three independent local-only Ollama profiles without inheriting a cloud URL or token', () => {
     const profiles = makePilotProfiles('https://ai.example/v1/chat/completions', '2026-11-06T09:00:00.000Z');
-    expect(profiles.map((item) => item.configuration.analysisModel)).toEqual(['qwen3.5:4b', 'd1:3b', 'tev1:0.8b']);
+    expect(profiles.map((item) => item.configuration.analysisModel)).toEqual(['qwen3.5:4b', 'd1:3b', 'tev1:4b']);
     expect(profiles.map((item) => item.configuration.correctionMethod)).toEqual(['generative', 'decision', 'decision']);
     expect(profiles.every((item) => item.configuration.endpoint === 'http://localhost:11434' &&
       item.configuration.apiKey === '' && item.configuration.apiCompatible === false)).toBe(true);

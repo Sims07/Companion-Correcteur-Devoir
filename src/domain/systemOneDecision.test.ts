@@ -19,7 +19,7 @@ describe('real System One decisions', () => {
   it('builds five separate one-point questions from the teacher-defined allocations', () => {
     expect(expectedDecisionTargets(rubric).map(x => x.maxPoints)).toEqual([1,1,1,1,1]);
     const prepared = prepareSystemOneCriterion({ criterion: rubric, transcription: 'Une réponse.', question: 'Photosynthèse' });
-    expect(Object.keys(prepared.questions)).toEqual(['alignment','expected_1','expected_2','expected_3','expected_4','expected_5']);
+    expect(Object.keys(prepared.questions)).toEqual(['alignment','expected_1','support_1','expected_2','support_2','expected_3','support_3','expected_4','support_4','expected_5','support_5']);
     expect(prepared.questions.expected_1.criteria).toHaveProperty('partial');
     expect(prepared.questions.expected_5.instructions).toContain('chloroplastes');
   });
@@ -55,7 +55,8 @@ describe('real System One decisions', () => {
   it('marks a respiration answer against a photosynthesis rubric pending instead of scoring five points', () => {
     const copy = 'Question\nExpliquez la respiration cellulaire.\nRéponse de l\'étudiant\nLes mitochondries produisent de l\'ATP.';
     const prepared = prepareSystemOneCriterion({ criterion: rubric, transcription: copy, question: 'Biologie' });
-    const answers = { alignment: answer('different'), ...Object.fromEntries(Array.from({length:5},(_,i)=>['expected_'+(i+1),answer('present')])) };
+    const answers = { alignment: answer('different'), ...Object.fromEntries(Array.from({length:5},(_,i)=>['expected_'+(i+1),answer('present')])),
+      ...Object.fromEntries(Array.from({length:5},(_,i)=>['support_'+(i+1),answer('supported')])) };
     const result = scoreSystemOneCriterion(rubric, copy, prepared, { answers });
     expect(result).toMatchObject({ points: 0, assessmentStatus: 'not-evaluated', confidence: 'low' });
     expect(result.questionForTeacher).toContain('barème');
@@ -102,7 +103,7 @@ describe('real System One decisions', () => {
     const copy = "Réponse de l'étudiant\\nLa mitochondrie ne produit pas d'ATP.";
     const prepared = prepareSystemOneCriterion({ criterion: detailed, transcription: copy, question: 'Biologie' });
     const result = scoreSystemOneCriterion(detailed, copy, prepared, {
-      answers: { alignment: answer('aligned'), expected_1: answer('present') },
+      answers: { alignment: answer('aligned'), expected_1: answer('present'), support_1: answer('supported') },
     });
     expect(result.evidence).toContain('Repère textuel (non vérifié scientifiquement)');
     expect(result.evidence).toContain('ne produit pas');

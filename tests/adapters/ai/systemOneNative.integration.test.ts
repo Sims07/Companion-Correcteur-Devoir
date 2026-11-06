@@ -14,7 +14,8 @@ const answer = (choice: string) => ({ type: 'choice', choice, probabilities: {[c
 const envelope = (aligned: string) => ({
   model:'d3:4b',
   answers: { alignment: answer(aligned),
-    ...Object.fromEntries(Array.from({length:5},(_,i)=>['expected_'+(i+1),answer('present')])) },
+    ...Object.fromEntries(Array.from({length:5},(_,i)=>['expected_'+(i+1),answer('present')])),
+    ...Object.fromEntries(Array.from({length:5},(_,i)=>['support_'+(i+1),answer('supported')])) },
   usage: { input_tokens: 295, output_tokens: 6 },
 });
 describe('native Ollama System One routing', () => {
@@ -37,7 +38,7 @@ describe('native Ollama System One routing', () => {
     expect(payload).not.toHaveProperty('stream');
     expect(payload).not.toHaveProperty('format');
     expect(payload).not.toHaveProperty('options');
-    expect(Object.keys(payload.questions)).toEqual(['alignment','expected_1','expected_2','expected_3','expected_4','expected_5']);
+    expect(Object.keys(payload.questions)).toEqual(['alignment','expected_1','support_1','expected_2','support_2','expected_3','support_3','expected_4','support_4','expected_5','support_5']);
     expect(payload.questions.expected_3).toMatchObject({type:'choice',criteria:{present:expect.any(String),partial:expect.any(String)}});
     expect(parseGradingProposal(raw,rubric).finalScore).toBe(5);
     expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({model:'d3:4b',promptTokens:295,requestMetadata:expect.objectContaining({stream:false})}));
