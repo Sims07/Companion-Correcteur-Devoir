@@ -103,7 +103,7 @@ describe('pedagogical System One uncertainty triage', () => {
       answers:{alignment:choice('aligned'),expected_1:choice('present'),support_1:choice('supported'),expected_2:choice('uncertain'),support_2:choice('uncertain')},
     });
     expect(proposal.points).toBe(1);
-    expect(proposal.assessmentStatus).toBe('evaluated');
+    expect(proposal.assessmentStatus).toBe('not-evaluated');
     expect(proposal.questionForTeacher).toContain('Produit O2');
     expect(proposal.questionForTeacher).not.toContain('Réactif CO2');
   });
