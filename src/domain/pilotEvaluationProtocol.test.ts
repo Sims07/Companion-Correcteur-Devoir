@@ -180,6 +180,7 @@ describe('protocole pilote de biologie', () => {
   it('compares transcriptions at word level without counting typographic differences', () => {
     const perfect = comparePilotTranscription('Réponse : CO₂ et H₂O, l’énergie lumineuse !', 'reponse co2 et h2o l energie lumineuse');
     expect(perfect).toMatchObject({ substitutions: 0, deletions: 0, insertions: 0, fidelityPercent: 100, wordErrorRate: 0 });
+    expect(comparePilotTranscription('La cellule respire.', '[ copie-a.png ]\nLa cellule respire.')).toMatchObject({ fidelityPercent: 100, wordErrorRate: 0 });
     const missingNegation = comparePilotTranscription('La cellule ne respire pas la nuit.', 'La cellule respire la nuit.');
     expect(missingNegation).toMatchObject({ referenceWords: 7, deletions: 2, substitutions: 0, insertions: 0 });
     expect(missingNegation!.fidelityPercent).toBeLessThan(100);
