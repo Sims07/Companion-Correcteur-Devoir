@@ -27,3 +27,26 @@
 .pilot-evaluation-table th, .pilot-evaluation-table td { padding: var(--ds-space-3); text-align: left; border-bottom: 1px solid var(--ds-color-border); }
 .pilot-evaluation-table thead { background: var(--ds-color-surface-subtle); }
 @media (max-width: 780px) { .pilot-evaluation-cases { grid-template-columns: 1fr; } }
+
+.pilot-evaluation-reading {
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+  padding: var(--ds-space-3);
+}
+.pilot-evaluation-reading summary { cursor: pointer; font-weight: 600; }
+.pilot-evaluation-reading[open] { display: grid; gap: var(--ds-space-3); }
+.pilot-evaluation-reading-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ds-space-3); }
+.pilot-evaluation-reading-columns section { min-width: 0; }
+.pilot-evaluation-reading-columns h5 { margin: 0 0 var(--ds-space-2); }
+.pilot-evaluation-reading-columns pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.5;
+  padding: var(--ds-space-3);
+  background: var(--ds-color-surface-subtle);
+  border-radius: var(--ds-radius-md);
+}
+@media (max-width: 780px) { .pilot-evaluation-reading-columns { grid-template-columns: 1fr; } }
