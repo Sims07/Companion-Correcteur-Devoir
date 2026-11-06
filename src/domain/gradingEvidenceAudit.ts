@@ -13,7 +13,7 @@ const neutral = new Set([
   'il','la','le','les','leur','leurs','lors','mais','ne','ni','ou','par','pas','pour','que','qui',
   'se','ses','son','sur','une','un','verifier','affirme','affirmation','reponse','etudiant',
   'attendu','attendus','critere','criteres','sous','element','elements','correct','correcte',
-  'presente','present','presence','absence','lieu','energie','besoin','produit','produits',
+  'presente','present','presence','absence','lieu','besoin','produit','produits',
   'reactif','reactifs','utilise','utilisee','utilises','consomme','consommee','consommes',
   'libere','liberee','synthese','synthetise','synthetises','permet','principalement',
   'exact','exacte','partie','point','points','notamment','exemple','comme','concerne',
@@ -30,6 +30,14 @@ export function normalizeEvidenceText(value: string): string {
 function keywords(text: string): string[] {
   return [...new Set((normalizeEvidenceText(text).match(/[a-z0-9]+/g) ?? [])
     .filter((token) => token.length > 2 && !neutral.has(token)))];
+}
+
+/** OCR may contain the printed assignment question as well as the student answer.
+ * A source quote from the printed question must NEVER validate an awarded point.
+ * If no explicit answer delimiter exists, retain the original transcription. */
+export function studentAnswerForEvidence(transcription: string): string {
+  const marker = /(?:^|\n)\s*(?:\*\*)?r[eé]ponse(?:\s+de\s+l['’](?:[eé]tudiant|[eé]l[eè]ve))?(?:\*\*)?\s*:?\s*(?:\r?\n|$)/i.exec(transcription);
+  return marker ? transcription.slice(marker.index + marker[0].length).trim() : transcription;
 }
 
 function findCitation(transcription: string, evidence: string): { excerpt: string; at: number } | null {
@@ -71,8 +79,8 @@ function evidenceConcernsExpectation(
   subcriterion: RubricSubcriterion,
 ): boolean {
   const citation = normalizeEvidenceText(evidence);
-  const headingKeywords = keywords(subcriterion.title);
   const contextKeywords = new Set(parentConcept(criterion));
+  const headingKeywords = keywords(subcriterion.title).filter((word) => !contextKeywords.has(word));
   // The teacher's detailed description contributes synonym candidates (e.g.
   // a chemical formula in the heading, the substance name in the description).
   // Do not use the parent topic itself as proof of a specific subcriterion.
@@ -88,8 +96,44 @@ function evidenceConcernsExpectation(
   }
   // Explicit contradiction or polarity reversal needs a teacher review.
   // This heuristic is deliberately conservative; it never awards/removes points.
-  if (/(\bne\b.{0,80}\bpas\b|\bn\s+a\s+pas\b|\bjamais\b|\bau\s+lieu\s+de\b)/.test(citation)) return false;
+  if (/(\bne\b.{0,80}\bpas\b|\bn\s+a\s+pas\b|\bjamais\b|\bau\s+lieu\s+(?:de|d)\b)/.test(citation)) return false;
   return true;
+}
+
+/**
+ * Native choice models cannot produce quotations. Locate a candidate sentence
+ * only using the teacher's own title/description and literal student text. A
+ * candidate is not automatically an accepted scientific proof: callers MUST
+ * run the same traceability/semantic-cue audit on it.
+ */
+export function findStudentExcerptForExpectation(
+  transcription: string, criterion: RubricCriterion, subcriterion: RubricSubcriterion,
+): string {
+  const contextKeywords = new Set(parentConcept(criterion));
+  const headingKeywords = keywords(subcriterion.title).filter((word) => !contextKeywords.has(word));
+  const descriptionKeywords = keywords(subcriterion.description).filter((word) => !contextKeywords.has(word));
+  const source = studentAnswerForEvidence(transcription);
+  const sentences = source.split(/\n+|(?<=[.!?])\s+/g).map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length >= 8 && sentence.length <= 400);
+  let best = '';
+  let bestScore = 0;
+  for (const sentence of sentences) {
+    const tokens = new Set(normalizeEvidenceText(sentence).split(' '));
+    const headingHits = headingKeywords.filter((word) => tokens.has(word)).length;
+    const descriptionHits = descriptionKeywords.filter((word) => tokens.has(word)).length;
+    if (!headingHits && !descriptionHits) continue;
+    const subjectHits = [...contextKeywords].filter((word) => tokens.has(word)).length;
+    const score = 3 * headingHits + descriptionHits + 4 * subjectHits;
+    if (score > bestScore) { bestScore = score; best = sentence; }
+  }
+  return best;
+}
+
+/** "located" only means a plausible quote was found, not scientific validity. */
+export function checkStudentEvidence(
+  transcription: string, evidence: string, criterion: RubricCriterion, subcriterion: RubricSubcriterion,
+): GradingEvidenceCheck {
+  return inspectPositiveEvidence(studentAnswerForEvidence(transcription), evidence, criterion, subcriterion);
 }
 
 function inspectPositiveEvidence(
@@ -110,6 +154,7 @@ export function auditGradingEvidence(
   proposal: GradingProposal, rubric: Rubric, transcription: string,
 ): GradingProposal {
   if (!transcription.trim()) return proposal;
+  const studentText = studentAnswerForEvidence(transcription);
   const questions = [...proposal.questionsForTeacher];
   const criteria = proposal.criteria.map((item) => {
     const teacherCriterion = rubric.criteria.find((candidate) => candidate.id === item.criterionId);
@@ -120,7 +165,7 @@ export function auditGradingEvidence(
     const subcriteria = item.subcriteria.map((sub) => {
       const expected = defined.find((entry) => entry.id === sub.subcriterionId);
       if (!expected || sub.points <= 0 || sub.assessmentStatus === 'not-evaluated') return sub;
-      const evidenceStatus = inspectPositiveEvidence(transcription, sub.evidence, teacherCriterion, expected);
+      const evidenceStatus = inspectPositiveEvidence(studentText, sub.evidence, teacherCriterion, expected);
       if (evidenceStatus === 'located') return { ...sub, evidenceStatus };
       const question = 'Vérifiez la preuve de « ' + teacherCriterion.title + ' / ' + expected.title
         + ' » : citation absente, non littérale ou ne démontrant pas clairement l’attendu.';

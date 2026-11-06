@@ -36,7 +36,7 @@ export function validateReviewedCorrection(
       continue;
     }
     seen.add(item.criterionId);
-    if (item.assessmentStatus === 'not-evaluated') {
+    if (item.assessmentStatus === 'not-evaluated' || item.subcriteria?.some((entry) => entry.assessmentStatus === 'not-evaluated')) {
       errors.push(`Attribuez une note au critère « ${criterion.title} » avant de valider.`);
       continue;
     }
