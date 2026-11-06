@@ -108,4 +108,16 @@ describe('incremental grading prompt contract', () => {
     expect(prompt).toContain('mesure la fiabilité de l’interprétation');
     expect(prompt).toContain('N’assimile jamais une transcription illisible à une erreur scientifique');
   });
+  it('explicitly treats negations and admitted omissions as absent for the teacher scoring contract', () => {
+    const prompt = buildIncrementalCriterionPrompt('Contexte', {
+      id: 'scientific-relations', title: 'Relations scientifiques', description: '', maxPoints: 3,
+      subcriteria: [{ id: 'fact', title: 'Relation démontrée', description: '', maxPoints: 3 }],
+    });
+    expect(prompt).toContain('sujet, action, objet');
+    expect(prompt).toContain('N’accorde aucun point sur une phrase qui dit ignorer');
+    expect(prompt).toContain('JAMAIS un point négatif');
+    expect(prompt).toContain('recalcule le total');
+  });
+
+
 });

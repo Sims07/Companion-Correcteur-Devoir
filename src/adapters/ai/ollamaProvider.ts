@@ -12,6 +12,7 @@ import { requestSystemOneDecision } from './systemOneTransport.ts';
 import { buildCriterionDecisionPrompt, criterionDecisionSchema } from './decisionPrompts.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
+import { reconcileIncrementalScore } from '../../domain/incrementalGradingReconciliation.ts';
 import { normalizeGradeScore, sumGradeScores } from '../../domain/scorePrecision.ts';
 import { getRubricSubcriteria, type RubricCriterion } from '../../domain/rubric.ts';
 import { parseStudentIdentityResponse } from '../../domain/studentIdentity.ts';
@@ -1155,24 +1156,8 @@ export function createOllamaProvider(
               if (!candidate || candidateId !== criterion.id || typeof candidatePoints !== 'number') {
                 throw new Error('La réponse JSON ne contient pas une proposition valide pour le critère demandé.');
               }
-              const points = candidatePoints;
-              if (!Number.isFinite(points) || points < Math.min(0, criterion.maxPoints) || points > Math.max(0, criterion.maxPoints)) {
-                throw new Error('La note proposée est en dehors du barème de ce critère.');
-              }
-              let subcriteriaProposal: Array<{ subcriterionId: string; title: string; points: number; maxPoints: number; evidence: string }> | undefined;
-              if (expectedSubcriteria.length > 0) {
-                if (!Array.isArray(candidate.subcriteria) || candidate.subcriteria.length !== expectedSubcriteria.length) throw new Error('La réponse ne contient pas tous les sous-critères du barème.');
-                const returnedSubcriteria = candidate.subcriteria as unknown[];
-                subcriteriaProposal = expectedSubcriteria.map((expected) => {
-                  const returned = returnedSubcriteria.find((entry: unknown) => typeof entry === 'object' && entry !== null && !Array.isArray(entry) && (entry as Record<string, unknown>).subcriterionId === expected.id);
-                  if (!returned || typeof returned !== 'object' || Array.isArray(returned)) throw new Error(`Sous-critère manquant : ${expected.title}.`);
-                  const entry = returned as Record<string, unknown>;
-                  if (typeof entry.points !== 'number' || !Number.isFinite(entry.points) || entry.points < 0 || entry.points > expected.maxPoints || typeof entry.evidence !== 'string' || !entry.evidence.trim()) throw new Error(`Évaluation invalide pour le sous-critère ${expected.title}.`);
-                  return { subcriterionId: expected.id, title: expected.title, points: entry.points, maxPoints: expected.maxPoints, evidence: entry.evidence.trim() };
-                });
-                const total = sumGradeScores(subcriteriaProposal.map((entry) => entry.points));
-                if (Math.abs(total - points) > 0.0001) throw new Error('La somme des sous-critères ne correspond pas à la note du critère.');
-              }
+              const reconciled = reconcileIncrementalScore(criterion, candidate);
+              const { points, subcriteria: subcriteriaProposal } = reconciled;
               const evidence = typeof (candidate.evidence ?? candidate.preuve) === 'string'
                 ? String(candidate.evidence ?? candidate.preuve).trim() : '';
               if (!evidence) throw new Error('Preuve manquante pour le critère : impossible de justifier une note sans preuve.');
@@ -1182,8 +1167,8 @@ export function createOllamaProvider(
               const proposal = {
                 criterionId: criterion.id,
                 points: normalizeGradeScore(points),
-                confidence,
-                rationale: typeof (candidate.rationale ?? candidate.justification) === 'string' ? String(candidate.rationale ?? candidate.justification).trim() : '',
+                confidence: reconciled.adjusted ? 'low' as const : confidence,
+                rationale: [typeof (candidate.rationale ?? candidate.justification) === 'string' ? String(candidate.rationale ?? candidate.justification).trim() : '', ...(reconciled.adjusted ? ['Total et/ou notes négatives hors barème réconciliés avec les sous-critères définis par l’enseignant.'] : [])].filter(Boolean).join(' '),
                 evidence,
                 ...(subcriteriaProposal ? { subcriteria: subcriteriaProposal } : {}),
                 ...(typeof (candidate.annotationSuggestion ?? candidate.commentaire) === 'string' && String(candidate.annotationSuggestion ?? candidate.commentaire).trim() ? { annotationSuggestion: String(candidate.annotationSuggestion ?? candidate.commentaire).trim() } : {}),
@@ -1197,7 +1182,7 @@ export function createOllamaProvider(
               break;
             } catch (cause) {
               lastError = cause instanceof Error ? cause.message : 'Échec de l’analyse du critère.';
-              const retryable = /Preuve manquante|JSON invalide|JSON tronquée|réponse JSON|proposition valide|en dehors du barème|limite de génération|done_reason=length|réponse vide|tronqué|incomplet|somme des sous-critères|sous-critère manquant|évaluation invalide pour le sous-critère|ne contient pas tous les sous-critères/i.test(lastError);
+              const retryable = /Preuve manquante|JSON invalide|JSON tronquée|réponse JSON|proposition valide|en dehors du barème|limite de génération|done_reason=length|réponse vide|tronqué|incomplet|somme des sous-critères|sous-critère manquant|évaluation invalide pour le sous-critère|preuve manquante pour le sous-critère|ne contient pas tous les sous-critères/i.test(lastError);
               if (attempt === 1 && retryable) continue;
               break;
             }

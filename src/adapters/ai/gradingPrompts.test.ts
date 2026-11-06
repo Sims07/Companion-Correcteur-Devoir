@@ -28,4 +28,16 @@ describe('compact criterion grading prompts', () => {
     expect(prompt).toContain('un malus explicite peut être négatif');
     expect(prompt).not.toContain('entre 0 et le maximum');
   });
+  it('forbids negative penalties for positive criteria and checks the scientific relation', () => {
+    const prompt = buildIncrementalCriterionPrompt(sharedContext, {
+      id: 'photosynthesis', title: 'Photosynthèse', description: 'Relations causales', maxPoints: 2,
+      subcriteria: [{ id: 'location', title: 'Lieu', description: 'Localisation exacte', maxPoints: 2 }],
+    });
+    expect(prompt).toContain('JAMAIS un point négatif');
+    expect(prompt).toContain('sujet, action, objet');
+    expect(prompt).toContain('La somme des sous-critères doit correspondre exactement');
+    expect(prompt).not.toContain('un malus explicite peut être négatif');
+  });
+
+
 });
