@@ -25,10 +25,27 @@ describe('direct visual System One evidence', () => {
       transcription: 'NE PAS UTILISER CETTE TRANSCRIPTION',
       visualEvidence: true,
     });
-    expect(prepared.state).toContain('les images jointes sont les seules réponses évaluables');
+    expect(prepared.state).toContain('juge uniquement les dessins et écrits visibles');
     expect(prepared.state).toContain('Fourches bidirectionnelles');
     expect(prepared.state).not.toContain('NE PAS UTILISER');
     expect(Object.keys(prepared.questions)).toEqual(['alignment', 'score']);
+  });
+
+  it('asks visual subcriteria without irrelevant textual boilerplate or duplicate details in state', () => {
+    const prepared = prepareSystemOneRubric({
+      criteria: [{ ...criterion, subcriteria: [{
+        id: 'a', title: 'Placement du titre', description: 'Le titre est sous le dessin.', maxPoints: 2,
+      }] }],
+      question: 'TP de biologie', transcription: 'Le sujet n’est pas une preuve.',
+      visualEvidence: true,
+    });
+    expect(prepared.state).not.toContain('Placement du titre');
+    expect(prepared.state).not.toContain('réactif/produit');
+    expect(prepared.questions.expected_1?.instructions).toContain('Sur les photos de la copie');
+    expect(prepared.questions.expected_1?.instructions).toContain('Le titre est sous le dessin.');
+    expect(prepared.questions.expected_1?.instructions).not.toContain('réactif/produit');
+    expect(prepared.questions.expected_1?.criteria.partial).toContain('Plusieurs composantes');
+    expect(prepared.questions.alignment?.instructions).not.toContain('Introduction, Méthodes');
   });
 
   it('keeps visual marks provisional and asks the teacher to inspect the original copy', () => {
