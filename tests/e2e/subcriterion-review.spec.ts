@@ -63,7 +63,7 @@ test('the teacher can arbitrate only the doubtful subcriterion without erasing i
   await page.getByRole('button', { name:'Consulter la correction' }).click();
   const card = page.locator('.review-card').filter({ has: page.getByRole('heading', { name:'Mesures expérimentales' }) });
   await expect(card.getByText('1 à vérifier sur 2')).toBeVisible();
-  await expect(card.getByText('La pression est relevée.')).toBeVisible();
+  await expect(card.locator('.review-quality-details').getByText('La pression est relevée.')).toBeVisible();
   await expect(card.getByRole('group', { name:'Arbitrage du sous-critère Pression mesurée' })).toHaveCount(0);
   const pending = card.getByRole('group', { name:'Arbitrage du sous-critère Température relevée' });
   await expect(pending.getByRole('button', { name:'Confirmer 1 pt' })).toBeVisible();
