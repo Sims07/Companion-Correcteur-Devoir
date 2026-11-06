@@ -21,7 +21,7 @@ const profiles = [
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(({ key, saved }) => {
-    localStorage.setItem(key, JSON.stringify(saved));
+    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(saved));
   }, { key: profileStorageKey, saved: profiles });
 });
 
