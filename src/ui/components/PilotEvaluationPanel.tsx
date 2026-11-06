@@ -44,6 +44,7 @@ export function PilotEvaluationPanel({
           <label htmlFor={'pilot-image-' + testCase.id}>Photo de la copie (requise pour Vision)</label>
           <input id={'pilot-image-' + testCase.id} type="file" accept="image/png,image/jpeg,image/webp,application/pdf,.pdf" multiple
             disabled={busy || uploadingCase !== null} onChange={(event) => { onUpload(testCase.id, event.target.files); event.target.value = ''; }} />
+          <details className="pilot-evaluation-reference"><summary>Afficher le texte de référence</summary><p>{testCase.transcription}</p></details>
           <small>{uploadingCase === testCase.id ? 'Préparation locale des pages…' : (imageCounts[testCase.id] ?? 0) ? `${imageCounts[testCase.id]} page(s) prête(s)` : 'Aucune photo fournie'}</small>
         </article>)}
       </div>
