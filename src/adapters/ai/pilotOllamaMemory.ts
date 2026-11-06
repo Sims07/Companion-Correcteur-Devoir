@@ -19,8 +19,10 @@ function localOllamaOrigin(configuration: ModelEvaluationConfiguration): string 
   }
 }
 
-function modelNames(configuration: ModelEvaluationConfiguration, stage: 'analysis' | 'integrated'): string[] {
-  const models = stage === 'analysis'
+function modelNames(configuration: ModelEvaluationConfiguration, stage: 'vision' | 'analysis' | 'integrated'): string[] {
+  const models = stage === 'vision'
+    ? [configuration.visionModel]
+    : stage === 'analysis'
     ? [configuration.analysisModel]
     : configuration.directVisualDecision
       ? [configuration.analysisModel]
@@ -69,7 +71,7 @@ async function issueUnload(origin: string, model: string, fetchImpl: typeof fetc
  * If unloading fails, the caller must stop the sequence before loading another model. */
 export async function unloadPilotOllamaModels(
   configuration: ModelEvaluationConfiguration,
-  stage: 'analysis' | 'integrated',
+  stage: 'vision' | 'analysis' | 'integrated',
   fetchImpl: typeof fetch = currentFetch,
 ): Promise<string[]> {
   const origin = localOllamaOrigin(configuration);
