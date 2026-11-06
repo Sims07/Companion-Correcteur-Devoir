@@ -5,7 +5,7 @@ import { normalizeGradeScore, sumGradeScores } from './scorePrecision.ts';
 
 /** Native System One models classify choices; they cannot generate evidence or scores. */
 export function isNativeDecisionModel(model: string): boolean {
-  return /^(?:d[123]|tev1|nimble|clef(?:-flash)?|strands(?:-decider)?)(?::|$)/i.test(model.trim());
+  return /^(?:d[123]|tev1|nimble|clef(?:-flash)?|strands(?:-decider)?|pplx-decider(?:-flash)?)(?::|$)/i.test(model.trim());
 }
 
 /** The visual native path is opt-in: Tev and generic decision models are text-only. */
