@@ -85,6 +85,55 @@ describe('runModelEvaluation', () => {
     expect(progress.at(-1)).toMatchObject({ completedSteps: 1, totalSteps: 2 });
   });
 
+  it('awaits cleanup after every finished profile before starting the next one, including failures', async () => {
+    const events: string[] = [];
+    const outputs = await runModelEvaluation({
+      configurations: [config('a'), config('bad'), config('c')],
+      execute: async (item) => {
+        events.push('start:' + item.id);
+        if (item.id === 'bad') throw new Error('Model unavailable');
+        return item.id;
+      },
+      onConfigurationSettled: async (item, result) => {
+        expect(result.configuration.id).toBe(item.id);
+        events.push('cleanup:' + item.id + ':' + result.status);
+        await Promise.resolve();
+        events.push('released:' + item.id);
+      },
+    });
+    expect(outputs.map((item) => item.status)).toEqual(['success', 'failed', 'success']);
+    expect(events).toEqual([
+      'start:a', 'cleanup:a:success', 'released:a',
+      'start:bad', 'cleanup:bad:failed', 'released:bad',
+      'start:c', 'cleanup:c:success', 'released:c',
+    ]);
+  });
+
+  it('still runs memory cleanup when the teacher stops an experiment during a profile', async () => {
+    let cancelled = false;
+    const cleaned = vi.fn();
+    const execute = vi.fn(async () => {
+      cancelled = true;
+      return 'partial result retained';
+    });
+    const outputs = await runModelEvaluation({
+      configurations: [config('a'), config('b')],
+      isCancelled: () => cancelled,
+      execute,
+      onConfigurationSettled: cleaned,
+    });
+    expect(outputs).toHaveLength(1);
+    expect(outputs[0].value).toBe('partial result retained');
+    expect(cleaned).toHaveBeenCalledTimes(1);
+    expect(cleaned).toHaveBeenCalledWith(config('a'), expect.objectContaining({ status: 'success' }));
+  });
+
+  it('does not attempt profile cleanup outside the opt-in protocol', async () => {
+    const cleanup = vi.fn();
+    await runModelEvaluation({ configurations: [config('a')], execute: async () => 1 });
+    expect(cleanup).not.toHaveBeenCalled();
+  });
+
   it('returns no results when cancelled before the first configuration', async () => {
     const execute = vi.fn();
     const outputs = await runModelEvaluation({ configurations: [config('a')], execute: async () => execute(), isCancelled: () => true });
