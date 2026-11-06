@@ -1,5 +1,6 @@
+import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import type { PilotCase, PilotRun } from '../../domain/pilotEvaluationProtocol.ts';
-import { PILOT_CASES, summarizePilotResult } from '../../domain/pilotEvaluationProtocol.ts';
+import { PILOT_CASES, pilotSelectionIssue, summarizePilotResult } from '../../domain/pilotEvaluationProtocol.ts';
 import './PilotEvaluationPanel.css';
 
 interface PilotEvaluationPanelProps {
@@ -10,7 +11,7 @@ interface PilotEvaluationPanelProps {
   message: string;
   imageCounts: Record<string, number>;
   runs: readonly PilotRun[];
-  selectedProfiles: number;
+  selectedProfiles: readonly AiModelProfile[];
   onPrepare: () => void;
   onUpload: (caseId: PilotCase['id'], files: FileList | null) => void;
   onRun: (mode: 'analysis' | 'integrated') => void;
@@ -24,12 +25,14 @@ export function PilotEvaluationPanel({
   onPrepare, onUpload, onRun, onStop, onExport, onCopy,
 }: PilotEvaluationPanelProps) {
   const readyForImages = PILOT_CASES.every((testCase) => (imageCounts[testCase.id] ?? 0) > 0);
+  const analysisIssue = pilotSelectionIssue(selectedProfiles, 'analysis');
+  const integratedIssue = pilotSelectionIssue(selectedProfiles, 'integrated');
   return <section className="pilot-evaluation-panel" aria-label="Protocole de test guidé">
     <div className="pilot-evaluation-head">
       <div>
         <p className="eyebrow">LABORATOIRE · EXPÉRIENCE GUIDÉE</p>
         <h3>Protocole de test — 3 copies de biologie</h3>
-        <p>Préparez les réponses A (10/10), B (0/10, inversions) et C (5/10, partielle), un barème de 10 sous-critères et trois profils Ollama locaux. La correction normale et le barème du devoir restent inchangés.</p>
+        <p>Préparez les réponses A (10/10), B (0/10, inversions) et C (5/10, partielle), puis choisissez une à trois configurations dans « Configurations à exécuter » ci-dessous. Le barème du devoir et les réglages enregistrés restent inchangés.</p>
       </div>
       <button type="button" className="secondary-button" disabled={busy} onClick={onPrepare}>{enabled ? 'Réinitialiser le protocole' : 'Préparer le protocole en un clic'}</button>
     </div>
@@ -43,10 +46,12 @@ export function PilotEvaluationPanel({
           <small>{uploadingCase === testCase.id ? 'Préparation locale des pages…' : (imageCounts[testCase.id] ?? 0) ? `${imageCounts[testCase.id]} page(s) prête(s)` : 'Aucune photo fournie'}</small>
         </article>)}
       </div>
-      <p className="pilot-evaluation-guide">Profils préparés : Qwen 3.5 4B génératif, D1 3B, TEV1 4B. {selectedProfiles} profil(s) sélectionné(s). Les appels sont séquentiels. Chaque modèle est déchargé de la mémoire Ollama avant le profil suivant (ce qui peut rallonger les essais sur CPU). Les copies restent locales.</p>
+      <p className="pilot-evaluation-guide">Configurations sélectionnées ci-dessous : {selectedProfiles.length} profil(s) sélectionné(s){selectedProfiles.length ? ` — ${selectedProfiles.map((profile) => profile.name).join(', ')}` : ''}. Les appels sont séquentiels. Chaque modèle est déchargé de la mémoire Ollama avant le profil suivant (ce qui peut rallonger les essais sur CPU). Les copies restent locales.</p>
+      {analysisIssue && <p className="pilot-evaluation-hint" role="status">{analysisIssue}</p>}
+      {!analysisIssue && integratedIssue && <p className="pilot-evaluation-hint" role="status">Parcours complet : {integratedIssue}</p>}
       <div className="pilot-evaluation-actions">
-        <button type="button" className="primary-button" disabled={busy || uploadingCase !== null || selectedProfiles === 0} onClick={() => onRun('analysis')}>Lancer les 3 analyses (sans image)</button>
-        <button type="button" className="secondary-button" disabled={busy || uploadingCase !== null || selectedProfiles === 0 || !readyForImages} onClick={() => onRun('integrated')}>Tester les 3 photos (Vision + analyse)</button>
+        <button type="button" className="primary-button" disabled={busy || uploadingCase !== null || Boolean(analysisIssue)} onClick={() => onRun('analysis')}>Lancer les 3 analyses (sans image)</button>
+        <button type="button" className="secondary-button" disabled={busy || uploadingCase !== null || Boolean(integratedIssue) || !readyForImages} onClick={() => onRun('integrated')}>Tester les 3 photos (Vision + analyse)</button>
         {busy && <button type="button" className="secondary-button" onClick={onStop}>Arrêter après l’appel en cours</button>}
       </div>
       {!readyForImages && <p className="pilot-evaluation-hint">Pour le parcours complet, associez une photo à chaque copie. Pour démarrer immédiatement, choisissez « Lancer les 3 analyses » : les transcriptions de référence sont déjà intégrées.</p>}
