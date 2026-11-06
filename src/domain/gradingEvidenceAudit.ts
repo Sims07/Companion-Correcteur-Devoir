@@ -17,7 +17,7 @@ const neutral = new Set([
   'reactif','reactifs','utilise','utilisee','utilises','consomme','consommee','consommes',
   'libere','liberee','synthese','synthetise','synthetises','permet','principalement',
   'exact','exacte','partie','point','points','notamment','exemple','comme','concerne',
-  'mesure','mesures','unite','unites',
+  'mesure','mesures','mesuree','mesurees','relevee','relevees','unite','unites',
   'decrit','explique','conduit','necessaire','utilisation','production','pendant',
 ]);
 
