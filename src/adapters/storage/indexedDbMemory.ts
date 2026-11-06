@@ -135,6 +135,55 @@ export async function listLocalCorrections(): Promise<LocalCorrection[]> {
   } finally { database.close(); }
 }
 
+/** Summaries deliberately retain grading/navigation fields but not the original
+ * page payloads. This avoids pinning every archived student image in React RAM.
+ * The complete correction remains intact in IndexedDB for on-demand retrieval. */
+function toCorrectionSummary(correction: LocalCorrection): LocalCorrection {
+  if (!correction.snapshot) return { ...correction, imagesDeferred: false };
+  return {
+    ...correction,
+    imagesDeferred: true,
+    pageCount: correction.snapshot.images.length,
+    snapshot: {
+      ...correction.snapshot,
+      images: [],
+      originalImages: undefined,
+      subjectImages: [],
+      transcription: null,
+      subjectTranscription: null,
+    },
+  };
+}
+
+/** Cursor iteration handles one archive at a time instead of materializing all images. */
+export async function listLocalCorrectionSummaries(): Promise<LocalCorrection[]> {
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(CORRECTION_STORE_NAME, 'readonly');
+    const summaries = await new Promise<LocalCorrection[]>((resolve, reject) => {
+      const rows: LocalCorrection[] = [];
+      const cursor = transaction.objectStore(CORRECTION_STORE_NAME).openCursor();
+      cursor.onsuccess = () => {
+        const current = cursor.result;
+        if (!current) { resolve(rows); return; }
+        rows.push(toCorrectionSummary(current.value as LocalCorrection));
+        current.continue();
+      };
+      cursor.onerror = () => reject(cursor.error ?? new Error('Lecture des résumés de corrections impossible.'));
+      transaction.onabort = () => reject(transaction.error ?? new Error('Lecture des résumés interrompue.'));
+    });
+    return summaries.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  } finally { database.close(); }
+}
+
+export async function getLocalCorrection(id: string): Promise<LocalCorrection | null> {
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(CORRECTION_STORE_NAME, 'readonly');
+    return await requestToPromise(transaction.objectStore(CORRECTION_STORE_NAME).get(id)) as LocalCorrection | undefined ?? null;
+  } finally { database.close(); }
+}
+
 export async function deleteLocalCorrection(correctionId: string): Promise<void> {
   await deleteLocalMemoryForCorrection(correctionId);
   const database = await openDatabase();
@@ -158,6 +207,14 @@ export class IndexedDbLocalCorrectionRepository implements LocalCorrectionReposi
 
   listCorrections(): Promise<LocalCorrection[]> {
     return listLocalCorrections();
+  }
+
+  listCorrectionSummaries(): Promise<LocalCorrection[]> {
+    return listLocalCorrectionSummaries();
+  }
+
+  getCorrection(id: string): Promise<LocalCorrection | null> {
+    return getLocalCorrection(id);
   }
 
   deleteCorrection(correctionId: string): Promise<void> {
