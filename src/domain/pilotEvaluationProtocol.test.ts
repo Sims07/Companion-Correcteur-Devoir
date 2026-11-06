@@ -4,7 +4,7 @@ import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './mod
 import { validateRubric } from './rubric.ts';
 import {
   PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC,
-  buildPilotReport, isLocalPilotProfile, makePilotProfiles, pilotSelectionIssue, selectPilotProfiles, summarizePilotResult,
+  buildPilotReport, comparePilotTranscription, isLocalPilotProfile, makePilotProfiles, pilotSelectionIssue, selectPilotProfiles, summarizePilotResult,
 } from './pilotEvaluationProtocol.ts';
 
 function resultFor(caseId: 'A' | 'B' | 'C', override?: Record<string, number>): ModelEvaluationResultSnapshot {
@@ -164,4 +164,46 @@ describe('protocole pilote de biologie', () => {
     expect(exported).not.toContain('requestPayload');
     expect(exported).not.toContain('requestMetadata');
   });
+
+  it('allows Vision seule with only a vision model, while retaining strict analysis checks', () => {
+    const [local] = makePilotProfiles('http://localhost:11434', 'now');
+    const onlyVision = { ...local!, configuration: { ...local!.configuration, analysisModel: '' } };
+    expect(pilotSelectionIssue([onlyVision], 'vision')).toBeNull();
+    expect(pilotSelectionIssue([onlyVision], 'analysis')).toContain('modèle d’analyse');
+    expect(pilotSelectionIssue([onlyVision], 'integrated')).toContain('modèle d’analyse');
+    const missingVision = { ...local!, configuration: { ...local!.configuration, visionModel: '' } };
+    expect(pilotSelectionIssue([missingVision], 'vision')).toContain('Vision');
+    expect(pilotSelectionIssue([missingVision], 'analysis')).toBeNull();
+    expect(pilotSelectionIssue([], 'vision')).toContain('Configurations à exécuter');
+  });
+
+  it('compares transcriptions at word level without counting typographic differences', () => {
+    const perfect = comparePilotTranscription('Réponse : CO₂ et H₂O, l’énergie lumineuse !', 'reponse co2 et h2o l energie lumineuse');
+    expect(perfect).toMatchObject({ substitutions: 0, deletions: 0, insertions: 0, fidelityPercent: 100, wordErrorRate: 0 });
+    const missingNegation = comparePilotTranscription('La cellule ne respire pas la nuit.', 'La cellule respire la nuit.');
+    expect(missingNegation).toMatchObject({ referenceWords: 7, deletions: 2, substitutions: 0, insertions: 0 });
+    expect(missingNegation!.fidelityPercent).toBeLessThan(100);
+    const hallucinated = comparePilotTranscription('ATP', 'ATP ATP ATP');
+    expect(hallucinated).toMatchObject({ insertions: 2, wordErrorRate: 2, fidelityPercent: 0 });
+    expect(comparePilotTranscription('a b c', 'a x c')).toMatchObject({ substitutions: 1, deletions: 0, insertions: 0 });
+  });
+
+  it('flags failed or blank Vision outputs as not measurable rather than grading them', () => {
+    expect(comparePilotTranscription(PILOT_CASES[0]!.transcription, '', 'success')).toBeNull();
+    expect(comparePilotTranscription('texte attendu', 'texte attendu', 'failed')).toBeNull();
+    expect(comparePilotTranscription('texte attendu', 'texte attendu', 'cancelled')).toBeNull();
+    const visionResult = { ...resultFor('B'), transcription: PILOT_CASES[1]!.transcription, score: null, proposal: null };
+    const visionRecord = { ...recordFor('B', visionResult), stage: 'vision' as const };
+    const report = buildPilotReport([{ caseId: 'B', record: visionRecord }], '2026-11-06T12:00:00.000Z');
+    expect(report.version).toBe(2);
+    expect(report.experiments[0]!.modelResults[0]).toMatchObject({
+      referenceScore: null, score: null, benchmark: null,
+      transcriptionBenchmark: { fidelityPercent: 100, wordErrorRate: 0 },
+    });
+    const failed = { ...visionResult, status: 'failed' as const };
+    const failedReport = buildPilotReport([{ caseId: 'B', record: { ...visionRecord, results: [failed] } }], 'now');
+    expect(failedReport.experiments[0]!.modelResults[0]!.transcriptionBenchmark).toBeNull();
+    expect(JSON.stringify(report)).not.toContain('PRIVATE_IMAGE_BASE64');
+  });
+
 });
