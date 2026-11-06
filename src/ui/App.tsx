@@ -604,20 +604,28 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const newlyAvailableReviewJob = getNewlyAvailableReviewJob(activeAssignmentId, currentBackgroundJobId, proposal !== null, backgroundJobs);
   useEffect(() => {
     if (!newlyAvailableReviewJob || isFinalized || teacherStep !== 'review') return;
-    const readyProposal = newlyAvailableReviewJob.proposal;
-    if (!readyProposal) return;
-
-    // Refresh only the first result of the selected copy. Once loaded, the
-    // teacher's notes and grade edits remain authoritative during later updates.
-    setProposal(structuredClone(readyProposal));
-    setReview(structuredClone(newlyAvailableReviewJob.reviewDraft ?? toReviewedCriteria(readyProposal)));
-    setTeacherQuestions(newlyAvailableReviewJob.teacherQuestionsDraft ?? readyProposal.questionsForTeacher.join('\n'));
-    setTranscription(newlyAvailableReviewJob.transcription);
-    setImages(structuredClone(newlyAvailableReviewJob.images));
-    setOriginalImages(structuredClone(newlyAvailableReviewJob.originalImages));
-    setScientificDiagramAnalysis(newlyAvailableReviewJob.scientificDiagramAnalysis ?? null);
-    setPageClassifications(newlyAvailableReviewJob.scientificPageClassifications ?? null);
-    setReviewMessage('Correction prête. Examinez les propositions signalées avant validation.');
+    let active = true;
+    const applyReadyCopy = (ready: BackgroundCorrectionJob) => {
+      if (!active || !ready.proposal) return;
+      // Refresh only the first result. Preserve teacher edits once loaded.
+      setProposal(structuredClone(ready.proposal));
+      setReview(structuredClone(ready.reviewDraft ?? toReviewedCriteria(ready.proposal)));
+      setTeacherQuestions(ready.teacherQuestionsDraft ?? ready.proposal.questionsForTeacher.join('\n'));
+      setTranscription(ready.transcription);
+      setImages(structuredClone(ready.images));
+      setOriginalImages(structuredClone(ready.originalImages));
+      setScientificDiagramAnalysis(ready.scientificDiagramAnalysis ?? null);
+      setPageClassifications(ready.scientificPageClassifications ?? null);
+      setReviewMessage('Correction prête. Examinez les propositions signalées avant validation.');
+    };
+    if (newlyAvailableReviewJob.imagesDeferred) {
+      void loadFullQueuedJob(newlyAvailableReviewJob.id).then((full) => {
+        if (full) applyReadyCopy(full);
+      }).catch(() => { if (active) setError('Impossible de charger les pages de cette copie terminée.'); });
+    } else {
+      applyReadyCopy(newlyAvailableReviewJob);
+    }
+    return () => { active = false; };
   }, [newlyAvailableReviewJob, isFinalized, teacherStep]);
 
   const reviewPosition = copyNavigation.currentPosition ?? (copyNavigation.totalCopies > 0 ? 1 : 0);
@@ -2119,6 +2127,22 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
+  async function toggleSeriesPreview(jobId: string) {
+    const opening = selectedSeriesPreviewId !== jobId;
+    const version = ++previewLoadSequence.current;
+    setSelectedSeriesPreviewId(opening ? jobId : null);
+    setSelectedSeriesPreviewJob(null);
+    if (!opening) { setQueuedViewer(null); return; }
+    try {
+      const full = await loadFullQueuedJob(jobId);
+      if (previewLoadSequence.current !== version) return;
+      if (full) setSelectedSeriesPreviewJob(full);
+      else setError('Cette copie n’est plus disponible dans la file.');
+    } catch {
+      if (previewLoadSequence.current === version) setError('Impossible de charger les pages de cette copie.');
+    }
+  }
+
   async function rotateQueuedCopyPage(job: BackgroundCorrectionJob, pageIndex: number, clockwiseDegrees: 90 | 270) {
     if (job.status === 'completed' || isPreparingSeriesCopies || rotatingQueuedPage !== null) return;
     const original = job.originalImages[pageIndex] ?? job.images[pageIndex];
@@ -2145,6 +2169,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       });
       setReviewMessage(`Orientation de la page ${pageIndex + 1} de « ${job.label} » modifiée. La transcription et les évaluations précédentes ont été invalidées ; la copie sera relue avec l’image corrigée.`);
       setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
+      if (selectedSeriesPreviewId === job.id) setSelectedSeriesPreviewJob(await loadFullQueuedJob(job.id));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La rotation de cette page a échoué.');
     } finally {
@@ -3389,14 +3414,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <span className={`correction-series-card-status is-${job.status}`}>{statusLabel}</span>
             <div className="correction-series-actions">
               {canOpenCorrection && <button type="button" className="secondary-button correction-series-view" disabled={isAnalyzing} onClick={() => { void loadNextQueuedCopy(job.id); }}>Consulter la correction</button>}
-              {['pending', 'processing'].includes(job.status) && <button type="button" className="secondary-button correction-series-view" onClick={() => setSelectedSeriesPreviewId((current) => current === job.id ? null : job.id)}>{selectedSeriesPreviewId === job.id ? 'Masquer la copie' : 'Voir la copie'}</button>}
+              {['pending', 'processing'].includes(job.status) && <button type="button" className="secondary-button correction-series-view" onClick={() => { void toggleSeriesPreview(job.id); }}>{selectedSeriesPreviewId === job.id ? 'Masquer la copie' : 'Voir la copie'}</button>}
               {['needs-review', 'failed'].includes(job.status) && <button type="button" className="text-button" disabled={isAnalyzing} onClick={() => { void backgroundService.retry(job.id, { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty }); }}>Corriger</button>}
               {job.status !== 'processing' && job.status !== 'completed' && <button type="button" className="text-button correction-series-remove" onClick={() => requestRemoveSeriesCopy(job)}>Supprimer</button>}
             </div>
           </div>
         </li>; })}</ol>}
-        {selectedSeriesPreviewId && (() => { const selectedCopy = backgroundJobs.find((job) => job.id === selectedSeriesPreviewId && job.assignmentId === activeAssignmentId); return selectedCopy ? <section className="correction-series-preview-panel" aria-label={`Aperçu de ${selectedCopy.label}`}>
-          <div className="correction-series-preview-heading"><div><h4>{selectedCopy.label}</h4><p>{selectedCopy.images.length} page(s) · Vous pouvez vérifier l’ordre et l’orientation des pages.</p></div><button type="button" className="text-button" onClick={() => setSelectedSeriesPreviewId(null)}>Fermer</button></div>
+        {selectedSeriesPreviewId && (() => { const selectedCopy = selectedSeriesPreviewJob?.id === selectedSeriesPreviewId && selectedSeriesPreviewJob.assignmentId === activeAssignmentId ? selectedSeriesPreviewJob : null; return selectedCopy ? <section className="correction-series-preview-panel" aria-label={`Aperçu de ${selectedCopy.label}`}>
+          <div className="correction-series-preview-heading"><div><h4>{selectedCopy.label}</h4><p>{selectedCopy.images.length} page(s) · Vous pouvez vérifier l’ordre et l’orientation des pages.</p></div><button type="button" className="text-button" onClick={() => { void toggleSeriesPreview(selectedCopy.id); }}>Fermer</button></div>
           <div className="correction-series-pages" aria-label={`Pages de ${selectedCopy.label}`}>{selectedCopy.images.map((page, pageIndex) => <figure key={`${selectedCopy.id}-page-${pageIndex}`}><button type="button" className="copy-page-preview-trigger" aria-label={`Agrandir la page ${pageIndex + 1} de ${selectedCopy.label}`} onClick={() => setQueuedViewer({ jobId: selectedCopy.id, pageIndex })}><img src={`data:${page.mimeType};base64,${page.base64}`} alt={`Page ${pageIndex + 1} de ${selectedCopy.label}`} loading="lazy" /><span aria-hidden="true">Agrandir ↗</span></button><figcaption>Page {pageIndex + 1}{selectedCopy.rotationAngles?.[pageIndex] ? ` · tournée de ${selectedCopy.rotationAngles[pageIndex]}°` : ''}{page.fileName ? ` · ${page.fileName}` : ''}</figcaption><div className="copy-image-rotation-controls"><button type="button" className="text-button" aria-label={`Tourner la page ${pageIndex + 1} de ${selectedCopy.label} à gauche de 90 degrés`} disabled={isPreparingSeriesCopies || rotatingQueuedPage !== null} onClick={() => { void rotateQueuedCopyPage(selectedCopy, pageIndex, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Tourner la page ${pageIndex + 1} de ${selectedCopy.label} à droite de 90 degrés`} disabled={isPreparingSeriesCopies || rotatingQueuedPage !== null} onClick={() => { void rotateQueuedCopyPage(selectedCopy, pageIndex, 90); }}>↷ 90°</button></div></figure>)}</div>
         </section> : null; })()}
       </section>}
