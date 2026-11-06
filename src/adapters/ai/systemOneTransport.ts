@@ -75,8 +75,8 @@ export async function requestSystemOneDecision(input: {
     if (!response.ok) {
       const errorText = responseRaw.slice(0, 400);
       throw new Error(response.status === 404
-        ? 'API décisionnelle /v1/systemone indisponible : installez une version récente d’Ollama (D3 requiert 0.40.9 ou plus).'
-        : 'Ollama System One a répondu HTTP ' + response.status + ' pour « ' + model + ' » : ' + errorText);
+        ? 'API /v1/systemone indisponible (HTTP 404). Vérifiez la version d’Ollama et la prise en charge de System One.'
+        : 'Ollama System One a répondu HTTP ' + response.status + ' pour « ' + model + ' » : ' + errorText + '. Vérifiez que ce modèle prend en charge les décisions System One.');
     }
     const decoded: unknown = JSON.parse(responseRaw);
     if (!decoded || typeof decoded !== 'object' || !('answers' in decoded)) {
