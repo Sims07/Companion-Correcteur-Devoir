@@ -50,6 +50,7 @@ import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluatio
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotProfile, makePilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
+import { unloadPilotOllamaModels } from '../adapters/ai/pilotOllamaMemory.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
 import { DeveloperToolsNavigation, type DeveloperTool } from './DeveloperToolsNavigation.tsx';
@@ -393,6 +394,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [pilotCurrentCase, setPilotCurrentCase] = useState<string | null>(null);
   const [pilotMessage, setPilotMessage] = useState('');
   const pilotStopRef = useRef(false);
+  const pilotMemoryErrorRef = useRef<string | null>(null);
   const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
   const [savedModelEvaluations, setSavedModelEvaluations] = useState<ModelEvaluationRecord[]>([]);
   const [sessionOnlyEvaluationIds, setSessionOnlyEvaluationIds] = useState<string[]>([]);
@@ -1442,6 +1444,22 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       })),
       isCancelled: () => evaluationCancelledRef.current,
       onProgress: setEvaluationProgress,
+      ...(options ? { onConfigurationSettled: async (configuration: ModelEvaluationConfiguration) => {
+        setPilotMessage('Libération de la mémoire Ollama après « ' + configuration.name + ' »…');
+        try {
+          const released = await unloadPilotOllamaModels(configuration, runStage === 'analysis' ? 'analysis' : 'integrated');
+          setPilotMessage(released.length
+            ? 'Mémoire libérée : ' + released.join(', ') + '. Préparation du profil suivant.'
+            : 'Aucun modèle de « ' + configuration.name + ' » encore chargé ; suite du protocole.');
+        } catch (cause) {
+          const reason = cause instanceof Error ? cause.message : String(cause);
+          pilotMemoryErrorRef.current = 'Échec de libération de la mémoire après « ' + configuration.name
+            + ' » : ' + reason + ' Arrêt de précaution avant de charger un autre modèle. Vérifiez « ollama ps ».';
+          pilotStopRef.current = true;
+          evaluationCancelledRef.current = true;
+          setPilotMessage(pilotMemoryErrorRef.current);
+        }
+      } } : {}),
       execute: async (configuration, _isCancelled, onStage) => {
         setEvaluationStage('preparing');
         if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un modèle de vision pour cette expérience.');
@@ -1636,6 +1654,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       return;
     }
     pilotStopRef.current = false;
+    pilotMemoryErrorRef.current = null;
     setPilotBusy(true);
     setEvaluationStageMode(stage);
     setPilotRuns((current) => current.filter((run) => run.record.stage !== stage));
@@ -1651,9 +1670,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         if (record) setPilotRuns((current) => [...current, { caseId: testCase.id, record }]);
         if (evaluationCancelledRef.current) break;
       }
-      setPilotMessage(pilotStopRef.current || evaluationCancelledRef.current
-        ? 'Protocole interrompu : les essais terminés restent exportables.'
-        : 'Campagne terminée. Téléchargez ou copiez le rapport complet pour analyser les décisions.');
+      setPilotMessage(pilotMemoryErrorRef.current ??
+        (pilotStopRef.current || evaluationCancelledRef.current
+          ? 'Protocole interrompu : les essais terminés restent exportables.'
+          : 'Campagne terminée. Les modèles du protocole ont été libérés de la mémoire Ollama. Exportez le rapport complet.'));
     } catch (cause) {
       setPilotMessage('Erreur du protocole : ' + (cause instanceof Error ? cause.message : String(cause)) + '. Les essais terminés restent exportables.');
     } finally {
