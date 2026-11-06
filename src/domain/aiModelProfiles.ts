@@ -98,7 +98,7 @@ export function upsertAiModelProfile(profiles: AiModelProfile[], profile: AiMode
   if (!profiles.some((item) => item.id === profile.id)) return [...profiles, profile];
   return profiles.map((item) => item.id === profile.id ? profile : item);
 }
-  
+
 /** Remove only a saved profile. The active editor settings and evaluation archives are independent. */
 export function removeAiModelProfile(profiles: AiModelProfile[], profileId: string): AiModelProfile[] {
   return profiles.filter((profile) => profile.id !== profileId);
