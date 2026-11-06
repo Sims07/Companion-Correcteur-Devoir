@@ -29,7 +29,7 @@ describe('System One transport with direct image proof', () => {
     const trace = diagnostic.mock.calls[0]?.[0];
     expect(trace.requestMetadata).toMatchObject({ stream: false, imageCount: 1, provider: 'ollama' });
     expect(trace.promptId).toBe('decision.system-one-visual');
-    expect(trace.promptVersion).toBe(2);
+    expect(trace.promptVersion).toBe(3);
     expect(trace.requestPayload).toContain('[IMAGE_REDACTED]');
     expect(trace.requestPayload).not.toContain('aGVsbG8=');
   });
