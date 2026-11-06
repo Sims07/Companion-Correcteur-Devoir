@@ -48,6 +48,26 @@ describe('direct visual System One evidence', () => {
     expect(prepared.questions.alignment?.instructions).not.toContain('Introduction, Méthodes');
   });
 
+  it('keeps each professor criterion title attached to its own visual questions', () => {
+    const prepared = prepareSystemOneRubric({
+      criteria: [
+        { id: 'one', title: 'Présentation générale', description: '', maxPoints: 1,
+          subcriteria: [{ id: 'position', title: 'Position', description: 'L’élément demandé est bien positionné.', maxPoints: 1 }] },
+        { id: 'two', title: 'Contenu de la réponse', description: '', maxPoints: 1,
+          subcriteria: [{ id: 'content', title: 'Élément attendu', description: 'Le contenu est conforme à la consigne.', maxPoints: 1 }] },
+      ],
+      question: '', transcription: '', visualEvidence: true,
+    });
+    expect(prepared.questions.criterion_1_expected_1?.instructions)
+      .toContain('CRITÈRE « Présentation générale » :');
+    expect(prepared.questions.criterion_2_expected_1?.instructions)
+      .toContain('CRITÈRE « Contenu de la réponse » :');
+    expect(prepared.questions.criterion_1_expected_1?.instructions)
+      .not.toContain('Contenu de la réponse');
+    expect(prepared.questions.criterion_2_expected_1?.instructions)
+      .not.toContain('Présentation générale');
+  });
+
   it('keeps visual marks provisional and asks the teacher to inspect the original copy', () => {
     const prepared = prepareSystemOneRubric({
       criteria: [criterion], question: 'La réplication',
