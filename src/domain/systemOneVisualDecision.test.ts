@@ -25,7 +25,7 @@ describe('direct visual System One evidence', () => {
       transcription: 'NE PAS UTILISER CETTE TRANSCRIPTION',
       visualEvidence: true,
     });
-    expect(prepared.state).toContain('juge uniquement les dessins et écrits visibles');
+    expect(prepared.state).toContain('juge uniquement les éléments visibles du travail étudiant');
     expect(prepared.state).toContain('Fourches bidirectionnelles');
     expect(prepared.state).not.toContain('NE PAS UTILISER');
     expect(Object.keys(prepared.questions)).toEqual(['alignment', 'score']);
@@ -41,7 +41,7 @@ describe('direct visual System One evidence', () => {
     });
     expect(prepared.state).not.toContain('Placement du titre');
     expect(prepared.state).not.toContain('réactif/produit');
-    expect(prepared.questions.expected_1?.instructions).toContain('Sur les photos de la copie');
+    expect(prepared.questions.expected_1?.instructions).toContain('Sur les images de la copie');
     expect(prepared.questions.expected_1?.instructions).toContain('Le titre est sous le dessin.');
     expect(prepared.questions.expected_1?.instructions).not.toContain('réactif/produit');
     expect(prepared.questions.expected_1?.criteria.partial).toContain('Plusieurs composantes');
