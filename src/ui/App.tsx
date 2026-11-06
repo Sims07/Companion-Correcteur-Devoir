@@ -3936,7 +3936,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               } : undefined}
             />}
-            <details className="review-explanation" open={item.subcriteria?.some((sub) => sub.assessmentStatus === 'not-evaluated') || undefined}>
+            <details className="review-explanation" open={item.subcriteria?.some((sub) => sub.assessmentStatus === 'not-evaluated' || sub.verificationSource === 'teacher') || undefined}>
               <summary>Voir la preuve et la justification détaillées</summary>
             <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p>{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>
             {item.annotationSuggestion && item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Afficher la page ${item.pageNumber} pour le commentaire proposé`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Afficher la page liée</button>}
@@ -3947,7 +3947,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             {item.rationale && <p className="rationale">{item.rationale}</p>}
 
 
-            {item.subcriteria && <details className="scientific-diagram-quality-details review-quality-details" open={item.subcriteria.some((entry) => entry.assessmentStatus === 'not-evaluated') || undefined}>
+            {item.subcriteria && <details className="scientific-diagram-quality-details review-quality-details" open={item.subcriteria.some((entry) => entry.assessmentStatus === 'not-evaluated' || entry.verificationSource === 'teacher') || undefined}>
               <summary>Sous-critères · {item.subcriteria.filter((entry) => entry.assessmentStatus === 'not-evaluated').length
                 ? item.subcriteria.filter((entry) => entry.assessmentStatus === 'not-evaluated').length + ' à vérifier sur ' + item.subcriteria.length
                 : item.subcriteria.length + ' évalués'}</summary>
