@@ -17,6 +17,8 @@ export interface SubcriterionProposal {
   /** Unresolved subcriteria never become verified zeros or automatically approved points. */
   assessmentStatus?: 'not-evaluated' | 'evaluated';
   questionForTeacher?: string;
+  /** Distinguishes a teacher resolution from an automated evidence lookup. */
+  verificationSource?: 'teacher';
 }
 
 export interface CriterionProposal {
@@ -165,7 +167,8 @@ export function parseGradingProposal(raw: string, rubric: Rubric, studentTranscr
       ...(typeof item.pageNumber === 'number' && Number.isInteger(item.pageNumber) && item.pageNumber >= 1 ? { pageNumber: item.pageNumber } : {}),
       ...(text(item.annotationSuggestion) ? { annotationSuggestion: text(item.annotationSuggestion) } : {}),
       confidence,
-      ...(item.assessmentStatus === 'not-evaluated' ? { assessmentStatus: 'not-evaluated' as const } : {}),
+      ...(item.assessmentStatus === 'not-evaluated' || subcriteria?.some((entry) => entry.assessmentStatus === 'not-evaluated')
+        ? { assessmentStatus: 'not-evaluated' as const } : {}),
       ...(text(item.questionForTeacher) ? { questionForTeacher: text(item.questionForTeacher) } : {}),
     });
   }
