@@ -19,7 +19,7 @@ const result = (name: string, decisions: string[], score: number | null): ModelE
     requestMetadata: { provider: 'ollama', endpoint: 'http://localhost:11434/v1/systemone', imageCount: 1,
       stream: false, think: false, keepAlive: 'default', options: { contextTokens: 0, generationTokenLimit: 0 } },
     elapsedMs: 200, raw: JSON.stringify({ answers: Object.fromEntries(decisions.map((choice, i) =>
-      ['criterion_1_expected_' + (i + 1), { type: 'choice', choice, probabilities: { [choice]: 0.61 }, confidence: 0.12 }])) }) }],
+      ['expected_' + (i + 1), { type: 'choice', choice, probabilities: { [choice]: 0.61 }, confidence: 0.12 }])) }) }],
 });
 
 describe('native visual decision comparison and score completeness', () => {
