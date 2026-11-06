@@ -34,10 +34,11 @@ describe('real System One decisions', () => {
     };
     const prepared = prepareSystemOneRubric({
       criteria: [detailed], question: 'Vérifier le schéma scientifique',
-      transcription: 'Réponse de l’étudiant\\nUn schéma accompagne cette copie.',
+      transcription: 'Réponse de l’étudiant\nUn schéma accompagne cette copie.',
     });
     expect(prepared.state).toContain('Schéma biologique');
     expect(prepared.state).toContain('Vérifier le schéma transmis');
+    expect(prepared.state).not.toContain('Réponse de l’étudiant');
     expect(prepared.state).not.toContain(uniqueDescription);
     expect(prepared.questions.expected_1.instructions).toContain(uniqueDescription);
     expect(prepared.questions.support_1.instructions).toContain(uniqueDescription);
