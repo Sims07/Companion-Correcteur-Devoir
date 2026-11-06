@@ -20,8 +20,8 @@ export const PROMPT_REVISIONS = {
   'grading.arbitration-repair': 1,
   'decision.chat': 1,
   'decision.chat-repair': 1,
-  'decision.system-one': 1,
-  'decision.system-one-visual': 1,
+  'decision.system-one': 2,
+  'decision.system-one-visual': 2,
   'diagram.page-classification': 1,
   'diagram.scientific-analysis': 4,
 } as const;
