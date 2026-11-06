@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { DesignSystemSelect } from './DesignSystemSelect.tsx';
+import { Button } from '../design-system/components/Button.tsx';
 import type { PilotConcurrencyRun } from '../../application/pilotCriterionConcurrency.ts';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import type { PilotCase, PilotRun } from '../../domain/pilotEvaluationProtocol.ts';
@@ -73,12 +75,12 @@ export function PilotEvaluationPanel({
         </div>
         <div className="pilot-evaluation-actions">
           <label htmlFor="pilot-concurrency-case">Réponse de référence</label>
-          <select id="pilot-concurrency-case" value={benchmarkCase} disabled={busy}
+          <DesignSystemSelect id="pilot-concurrency-case" value={benchmarkCase} disabled={busy}
             onChange={(event) => setBenchmarkCase(event.target.value as PilotCase['id'])}>
             {PILOT_CASES.map((item) => <option key={item.id} value={item.id}>{item.label} ({item.referenceScore}/10)</option>)}
-          </select>
-          <button type="button" className="secondary-button" disabled={busy || uploadingCase !== null || Boolean(analysisIssue)}
-            onClick={() => onRunConcurrency(benchmarkCase)}>Comparer 1, 2 et 4 appels parallèles</button>
+          </DesignSystemSelect>
+          <Button variant="secondary" disabled={busy || uploadingCase !== null || Boolean(analysisIssue)}
+            onClick={() => onRunConcurrency(benchmarkCase)}>Comparer 1, 2 et 4 appels parallèles</Button>
         </div>
         <small>Une seule configuration est exécutée à la fois, puis libérée d’Ollama. Un essai par niveau : résultat exploratoire, non prédictif.
           La consommation RAM maximale du processus n’est pas accessible depuis le navigateur ; utilisez le Moniteur d’activité sur votre Mac.
@@ -96,7 +98,7 @@ export function PilotEvaluationPanel({
         </div>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
-            <thead><tr><th scope="col">Modèle</th><th scope="col">Copie</th><th scope="col">Parallèle</th><th scope="col">Durée</th><th scope="col">Gain vs 1</th><th scope="col">Note</th><th scope="col">Attendus corrects</th><th scope="col">À vérifier</th><th scope="col">Échecs</th><th scope="col">Tokens/s effectifs</th></tr></thead>
+            <thead><tr><th scope="col">Modèle</th><th scope="col">Copie</th><th scope="col">Parallèle</th><th scope="col">Durée</th><th scope="col">Gain vs 1</th><th scope="col">Note</th><th scope="col">Attendus corrects</th><th scope="col">Faux positifs</th><th scope="col">Faux négatifs</th><th scope="col">À vérifier</th><th scope="col">Échecs</th><th scope="col">Tokens/s effectifs</th></tr></thead>
             <tbody>
               {concurrencyRuns.flatMap((run) => run.samples.map((sample) => {
                 const baseline = run.samples.find((entry) => entry.concurrency === 1);
@@ -108,6 +110,8 @@ export function PilotEvaluationPanel({
                   <td>{baseline && sample.durationMs > 0 ? (baseline.durationMs / sample.durationMs).toFixed(2) + '×' : '—'}</td>
                   <td>{sample.score === null ? 'Non évaluée' : sample.score + '/10'}</td>
                   <td>{sample.correct}/10</td>
+                  <td>{sample.falsePositives}</td>
+                  <td>{sample.falseNegatives}</td>
                   <td>{sample.unresolved}</td>
                   <td>{sample.failed}</td>
                   <td>{sample.effectiveTokensPerSecond?.toFixed(1) ?? '—'}</td>
