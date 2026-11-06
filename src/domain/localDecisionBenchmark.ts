@@ -1,5 +1,5 @@
 import type { CorrectionMethod } from './correctionMethod.ts';
-import type { Rubric } from './rubric.ts';
+import { rubricEvaluationSignature, type Rubric } from './rubric.ts';
 import type { DiagnosticCriterionScore } from './diagnosticScore.ts';
 import type { ReferenceCriterionScore } from './diagnosticReference.ts';
 import { compareWithDiagnosticReference, validateDiagnosticReference } from './diagnosticReference.ts';
@@ -59,11 +59,7 @@ export function buildLocalDecisionBenchmark(traces: readonly LocalBenchmarkTrace
     seen.add(trace.id);
     const method: LocalBenchmarkSummary['method'] = trace.correctionMethod === 'generative'
       ? 'generative' : isNativeDecisionModel(trace.analysisModel) ? 'system-one' : 'decision-chat';
-    const rubricKey = JSON.stringify(rubric.criteria.map((criterion) => ({
-      id: criterion.id, maxPoints: criterion.maxPoints,
-      title: criterion.title, description: criterion.description, analysisMode: criterion.analysisMode,
-      subcriteria: criterion.subcriteria?.map((item) => [item.id, item.maxPoints]) ?? [],
-    })));
+    const rubricKey = rubricEvaluationSignature(rubric);
     const key = JSON.stringify([trace.assignmentId, rubricKey, method, trace.visionModel, trace.analysisModel]);
     const group = groups.get(key) ?? {
       key, assignment: trace.assignmentTitle ?? trace.assignmentId, method,

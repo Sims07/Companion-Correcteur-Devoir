@@ -38,6 +38,24 @@ export function getRubricSubcriteria(criterion: RubricCriterion): RubricSubcrite
   }));
 }
 
+/** Stable comparison key for locally measured corrections and model evaluations.
+ * Include teacher-authored semantics, not only IDs/points; normalize legacy
+ * expectedElements through the same helper used for grading. */
+export function rubricEvaluationSignature(rubric: Rubric): string {
+  return JSON.stringify({
+    title: rubric.title,
+    criteria: rubric.criteria.map((criterion) => ({
+      id: criterion.id,
+      title: criterion.title,
+      description: criterion.description,
+      maxPoints: criterion.maxPoints,
+      analysisMode: criterion.analysisMode ?? 'text',
+      subcriteria: getRubricSubcriteria(criterion).map(({ id, title, description, maxPoints }) =>
+        ({ id, title, description, maxPoints })),
+    })),
+  });
+}
+
 export function validateRubric(rubric: Rubric): RubricValidation {
   const errors: string[] = [];
   const ids = new Set<string>();

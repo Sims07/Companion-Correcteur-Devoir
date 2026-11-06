@@ -1,6 +1,6 @@
 import type { GradingProposal } from './grading.ts';
 import type { CorrectionMethod } from './correctionMethod.ts';
-import type { Rubric } from './rubric.ts';
+import { rubricEvaluationSignature, type Rubric } from './rubric.ts';
 import { modelEvaluationImageSignature } from './modelEvaluationImageIdentity.ts';
 
 export interface ModelEvaluationConfiguration {
@@ -251,10 +251,7 @@ function sameImages(
 }
 
 function sameRubric(first: Rubric, second: Rubric): boolean {
-  const signature = (rubric: Rubric) => JSON.stringify(rubric.criteria.map(({ id, title, description, maxPoints }) => ({
-    id, title, description, maxPoints,
-  })));
-  return signature(first) === signature(second);
+  return rubricEvaluationSignature(first) === rubricEvaluationSignature(second);
 }
 
 function sameAnalysisInput(first: ModelEvaluationRecord, second: ModelEvaluationRecord): boolean {

@@ -145,6 +145,22 @@ describe('model evaluation history rubric compatibility', () => {
     second.rubricSnapshot.criteria = [{ id: 'c1', title: 'Cellule', description: 'Structure cellulaire', maxPoints: 4 }];
     expect(canCompareModelEvaluationRecords([first, second])).toBe(true);
 
+    first.rubricSnapshot.criteria[0]!.subcriteria = [
+      { id: 'sc', title: 'Orientation', description: 'Horizontale', maxPoints: 4 },
+    ];
+    second.rubricSnapshot.criteria[0]!.subcriteria = [
+      { id: 'sc', title: 'Orientation', description: 'Verticale', maxPoints: 4 },
+    ];
+    expect(canCompareModelEvaluationRecords([first, second])).toBe(false);
+
+    second.rubricSnapshot.criteria[0]!.subcriteria = first.rubricSnapshot.criteria[0]!.subcriteria;
+    expect(canCompareModelEvaluationRecords([first, second])).toBe(true);
+
+    second.rubricSnapshot.criteria[0]!.analysisMode = 'scientific-diagram';
+    expect(canCompareModelEvaluationRecords([first, second])).toBe(false);
+    second.rubricSnapshot.criteria[0]!.analysisMode = undefined;
+    expect(canCompareModelEvaluationRecords([first, second])).toBe(true);
+
     second.rubricSnapshot.criteria[0]!.description = 'Description différente';
     expect(canCompareModelEvaluationRecords([first, second])).toBe(false);
   });
