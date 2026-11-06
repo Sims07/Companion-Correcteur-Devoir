@@ -425,7 +425,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [queuedViewer, setQueuedViewer] = useState<{ jobId: string; pageIndex: number } | null>(null);
   const [originalImages, setOriginalImages] = useState<ImageInput[]>([]);
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
-  const queuedViewerJob = queuedViewer ? backgroundJobs.find((job) => job.id === queuedViewer.jobId && job.assignmentId === activeAssignmentId) : undefined;
+  const [selectedSeriesPreviewJob, setSelectedSeriesPreviewJob] = useState<BackgroundCorrectionJob | null>(null);
+  const previewLoadSequence = useRef(0);
+  const queuedViewerJob = queuedViewer
+    ? selectedSeriesPreviewJob?.id === queuedViewer.jobId ? selectedSeriesPreviewJob
+      : backgroundJobs.find((job) => job.id === queuedViewer.jobId && job.assignmentId === activeAssignmentId && !job.imagesDeferred)
+    : undefined;
   const [allBackgroundJobs, setAllBackgroundJobs] = useState<BackgroundJobSummary[]>([]);
   const [selectedSeriesPreviewId, setSelectedSeriesPreviewId] = useState<string | null>(null);
   const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
@@ -439,7 +444,17 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [correctionSessionMode, setCorrectionSessionMode] = useState<'individual' | 'series'>('individual');
   const [backgroundCopyDetectTeacherAnnotations, setBackgroundCopyDetectTeacherAnnotations] = useState(false);
   const [autoBackgroundCorrection, setAutoBackgroundCorrection] = useState(() => { try { return window.localStorage.getItem('companion-correcteur:auto-background-correction:v1') !== 'false'; } catch { return true; } });
-  useEffect(() => backgroundService.subscribe((jobs) => {
+  // The queue only needs page counts, scores and statuses until a copy is opened.
+  async function loadQueueOverviews(assignmentId?: string) {
+    return backgroundService.listJobOverviews?.(assignmentId) ?? backgroundService.listJobs(assignmentId);
+  }
+  async function loadFullQueuedJob(id: string): Promise<BackgroundCorrectionJob | null> {
+    return backgroundService.getJob
+      ? backgroundService.getJob(id)
+      : (await backgroundService.listJobs(activeAssignmentId)).find((job) => job.id === id) ?? null;
+  }
+
+  useEffect(() => (backgroundService.subscribeOverviews ?? backgroundService.subscribe)((jobs) => {
     setBackgroundJobs(jobs.filter((job) => job.assignmentId === activeAssignmentId));
   }), [backgroundCorrectionService, activeAssignmentId]);
   useEffect(() => backgroundService.subscribeSummaries((jobs) => setAllBackgroundJobs(jobs)), [backgroundCorrectionService]);
@@ -450,7 +465,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }, [backgroundCorrectionService]);
   useEffect(() => {
     let active = true;
-    void backgroundService.listJobs(activeAssignmentId).then((jobs) => { if (active) setBackgroundJobs(jobs); });
+    void loadQueueOverviews(activeAssignmentId).then((jobs) => { if (active) setBackgroundJobs(jobs); });
     return () => { active = false; };
   }, [backgroundCorrectionService, activeAssignmentId]);
   useEffect(() => {
@@ -2088,7 +2103,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setBackgroundCopyLabel('');
       setSeriesPickerVersion((version) => version + 1);
       setBackgroundCopyDetectTeacherAnnotations(false);
-      setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
+      setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
       const rotationMessage = automaticRotationUnavailable
         ? ' La détection d’orientation a échoué : les images originales sont conservées sans rotation.'
         : automaticRotationCount > 0
@@ -2129,7 +2144,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
       });
       setReviewMessage(`Orientation de la page ${pageIndex + 1} de « ${job.label} » modifiée. La transcription et les évaluations précédentes ont été invalidées ; la copie sera relue avec l’image corrigée.`);
-      setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
+      setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La rotation de cette page a échoué.');
     } finally {
@@ -2142,8 +2157,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (job.status === 'processing' || job.status === 'completed') return;
     try {
       await backgroundService.remove(job.id);
-      const remainingJobs = await backgroundService.listJobs(activeAssignmentId);
+      const remainingJobs = await loadQueueOverviews(activeAssignmentId);
       setBackgroundJobs(remainingJobs);
+      if (selectedSeriesPreviewId === job.id) setSelectedSeriesPreviewJob(null);
       if (selectedSeriesPreviewId === job.id) setSelectedSeriesPreviewId(null);
       if (currentBackgroundJobId === job.id) {
         // A copy opened before returning to the overview must not remain as a ghost draft.
@@ -2234,7 +2250,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         ? 'Copie ajoutée. Sa correction démarrera pendant que vous poursuivez votre vérification.'
         : 'Copie ajoutée à la liste. Lancez les corrections quand vous le souhaitez.');
       setTeacherStep('copy');
-      const jobs = await backgroundService.listJobs(activeAssignmentId);
+      const jobs = await loadQueueOverviews(activeAssignmentId);
       setBackgroundJobs(jobs);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible d’ajouter cette copie à la liste des copies à corriger.');
@@ -2300,7 +2316,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const canReview = Boolean(next.proposal) && ['ready', 'needs-review', 'reviewing'].includes(next.status);
 
     // Publish the refreshed queue and selected copy together after all async work.
-    setBackgroundJobs(refreshedJobs);
+    setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
     setCurrentBackgroundJobId(next.id);
     // The foreground analysis flag belongs to the previously displayed copy.
     // A selected background job has its own persisted status/phase and must
@@ -2410,7 +2426,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
           transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
         });
-        setBackgroundJobs(await backgroundService.listJobs(activeAssignmentId));
+        setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Impossible de sauvegarder la copie avant de passer à la suivante.');
         return false;
@@ -2459,7 +2475,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       const previousJobIds = new Set(backgroundJobs.map((job) => job.id));
       await startNextCopy({ forceNew: true });
       const savedJobs = await backgroundService.listJobs(activeAssignmentId);
-      setBackgroundJobs(savedJobs);
+      setBackgroundJobs(await loadQueueOverviews(activeAssignmentId));
       if (!savedJobs.some((job) => !previousJobIds.has(job.id))) {
         setReviewMessage('La copie courante n’a pas pu être sauvegardée. Vérifiez le barème et le stockage local avant de changer de copie.');
         return;
