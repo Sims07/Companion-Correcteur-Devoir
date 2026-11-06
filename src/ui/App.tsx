@@ -428,6 +428,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
   const [selectedSeriesPreviewJob, setSelectedSeriesPreviewJob] = useState<BackgroundCorrectionJob | null>(null);
   const [queuedViewerFullJob, setQueuedViewerFullJob] = useState<BackgroundCorrectionJob | null>(null);
+  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher');
   const [detailsThumbnailsOpen, setDetailsThumbnailsOpen] = useState(false);
   const [detailThumbnails, setDetailThumbnails] = useState<Record<string, Array<ImageInput | null>>>({});
   const previewLoadSequence = useRef(0);
@@ -604,7 +605,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [teacherQuestions, setTeacherQuestions] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [isFinalized, setIsFinalized] = useState(false);
-  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher');
+
   const [networkInitialFilter, setNetworkInitialFilter] = useState<'all' | 'error'>('all');
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
   const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
