@@ -43,7 +43,7 @@ export function PilotEvaluationPanel({
           <small>{uploadingCase === testCase.id ? 'Préparation locale des pages…' : (imageCounts[testCase.id] ?? 0) ? `${imageCounts[testCase.id]} page(s) prête(s)` : 'Aucune photo fournie'}</small>
         </article>)}
       </div>
-      <p className="pilot-evaluation-guide">Profils préparés : Qwen 3.5 4B génératif, D1 3B, TEV1 0.8B. {selectedProfiles} profil(s) sélectionné(s). Les appels sont séquentiels, sans envoi des copies vers un service cloud.</p>
+      <p className="pilot-evaluation-guide">Profils préparés : Qwen 3.5 4B génératif, D1 3B, TEV1 4B. {selectedProfiles} profil(s) sélectionné(s). Les appels sont séquentiels, sans envoi des copies vers un service cloud.</p>
       <div className="pilot-evaluation-actions">
         <button type="button" className="primary-button" disabled={busy || uploadingCase !== null || selectedProfiles === 0} onClick={() => onRun('analysis')}>Lancer les 3 analyses (sans image)</button>
         <button type="button" className="secondary-button" disabled={busy || uploadingCase !== null || selectedProfiles === 0 || !readyForImages} onClick={() => onRun('integrated')}>Tester les 3 photos (Vision + analyse)</button>
