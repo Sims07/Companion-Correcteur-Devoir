@@ -63,6 +63,16 @@ export const PILOT_CASES: readonly PilotCase[] = [
   },
 ];
 
+/** A pilot run may only send student-copy images to the local Ollama instance. */
+export function isLocalPilotProfile(profile: AiModelProfile): boolean {
+  if (profile.configuration.apiCompatible || profile.configuration.apiKey) return false;
+  try {
+    const url = new URL(profile.configuration.endpoint);
+    return url.protocol === 'http:' && !url.username && !url.password &&
+      ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  } catch { return false; }
+}
+
 export function makePilotProfiles(endpoint: string, timestamp: string): AiModelProfile[] {
   // Only local Ollama: no configured cloud endpoint or credential may be inherited.
   const localEndpoint = (() => {
