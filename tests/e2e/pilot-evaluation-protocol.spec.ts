@@ -27,9 +27,9 @@ test('the guided biology protocol reuses the evaluator selection without creatin
   const assignmentsBefore = await page.evaluate(() => localStorage.getItem('companion-correcteur:assignments:v1'));
 
   await panel.getByRole('button', { name: 'Préparer le protocole en un clic' }).click();
-  await expect(panel.getByText('A — correcte')).toBeVisible();
-  await expect(panel.getByText('B — inversions')).toBeVisible();
-  await expect(panel.getByText('C — partielle')).toBeVisible();
+  await expect(panel.getByText('A — correcte', { exact: true })).toBeVisible();
+  await expect(panel.getByText('B — inversions', { exact: true })).toBeVisible();
+  await expect(panel.getByText('C — partielle', { exact: true })).toBeVisible();
   await expect(panel.getByText('0 profil(s) sélectionné(s)', { exact: false })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeDisabled();
   await expect(panel.getByRole('button', { name: 'Comparer 1, 2 et 4 appels parallèles' })).toBeDisabled();
