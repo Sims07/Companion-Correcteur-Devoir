@@ -410,6 +410,29 @@ export class IndexedDbBackgroundCorrectionRepository implements BackgroundCorrec
     } finally { database.close(); }
   }
 
+  async getNextPendingJob(assignmentId: string): Promise<BackgroundCorrectionJob | null> {
+    const database = await openDatabase();
+    try {
+      const transaction = database.transaction(BACKGROUND_CORRECTION_STORE_NAME, 'readonly');
+      return await new Promise<BackgroundCorrectionJob | null>((resolve, reject) => {
+        // Existing createdAt index preserves the exact FIFO order of the worker.
+        const cursor = transaction.objectStore(BACKGROUND_CORRECTION_STORE_NAME).index('createdAt').openCursor();
+        cursor.onsuccess = () => {
+          const current = cursor.result;
+          if (!current) { resolve(null); return; }
+          const job = current.value as BackgroundCorrectionJob;
+          if (job.assignmentId === assignmentId && (job.status === 'pending' || job.status === 'processing')) {
+            resolve(job);
+            return;
+          }
+          current.continue();
+        };
+        cursor.onerror = () => reject(cursor.error ?? new Error('Recherche de la prochaine copie impossible.'));
+        transaction.onabort = () => reject(transaction.error ?? new Error('Recherche de la prochaine copie interrompue.'));
+      });
+    } finally { database.close(); }
+  }
+
   async fingerprintImages(images: ImageInput[]): Promise<string> {
     if (!globalThis.crypto?.subtle) throw new Error('Le navigateur ne permet pas de calculer une empreinte locale des images.');
     const encoder = new TextEncoder();
