@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles } from '../src/domain/aiModelProfiles.ts';
+import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, removeAiModelProfile } from '../src/domain/aiModelProfiles.ts';
 
 describe('AI model configuration defaults', () => {
+  it('removes only the selected saved configuration and keeps other profiles loadable', () => {
+    const first = { id: 'first', name: 'Vision', mode: 'single' as const, updatedAt: '2026-11-06T10:00:00Z', configuration: { ...defaultAiModelConfiguration, visionModel: 'gemma3:4b' } };
+    const other = { ...first, id: 'other', name: 'Décision', configuration: { ...first.configuration, analysisModel: 'tev1:4b' } };
+    const profiles = [first, other];
+    const remaining = removeAiModelProfile(profiles, first.id);
+    expect(remaining).toEqual([other]);
+    expect(profiles).toEqual([first, other]);
+    expect(removeAiModelProfile(profiles, 'missing')).toEqual(profiles);
+    expect(parseAiModelProfiles(JSON.stringify(remaining))).toEqual([other]);
+    expect(removeAiModelProfile([first], first.id)).toEqual([]);
+  });
+
   it('does not expose per-copy annotation detection in AI model configuration', () => {
     expect(defaultAiModelConfiguration).not.toHaveProperty('detectTeacherAnnotations');
     expect(parseAiModelConfiguration(null)).not.toHaveProperty('detectTeacherAnnotations');

@@ -24,3 +24,13 @@
 @media (max-width: 560px) {
   .ai-profile-row { grid-template-columns: minmax(0, 1fr); }
 }
+
+.ai-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-3);
+}
+
+.ai-profile-actions > .ds-button {
+  flex: 1 1 220px;
+}
