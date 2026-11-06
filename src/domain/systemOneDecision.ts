@@ -254,7 +254,7 @@ function criterionQuestions(
   selected.forEach((target, index) => {
     const detail = target.description.trim();
     const selfContained = targets.length > 0 && !visualEvidence
-      && detail.split(/\\s+/).length >= 5 && /[.!?]$/.test(detail);
+      && detail.split(/\s+/).length >= 5 && /[.!?]$/.test(detail);
     const teacherContext = 'CRITÈRE « ' + criterion.title + ' »'
       + (criterion.description.trim() && !selfContained
         ? ' — CONTEXTE ENSEIGNANT (pas un attendu supplémentaire) : ' + criterion.description.trim() : '') + ' : ';
