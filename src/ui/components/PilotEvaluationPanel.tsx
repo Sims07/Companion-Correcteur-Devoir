@@ -71,7 +71,7 @@ export function PilotEvaluationPanel({
           <p>Test expérimental en analyse seule, sans photo et sans modifier la correction réelle.
             Un appel indépendant est lancé par critère, avec le même texte et les mêmes critères pour les trois niveaux.
             Un modèle décisionnel System One peut normalement regrouper plusieurs questions dans un seul appel :
-            les résultats ici mesurent la concurrence entre appels séparés, pas la performance optimale de System One.</p>
+            les résultats ici mesurent la concurrence entre appels séparés, pas la performance optimale de System One. Ollama peut mettre en file d’attente ces requêtes selon son paramètre OLLAMA_NUM_PARALLEL : « simultané » désigne ici des requêtes actives côté navigateur, pas la preuve d’inférences parallèles côté serveur.</p>
         </div>
         <div className="pilot-evaluation-actions">
           <label htmlFor="pilot-concurrency-case">Réponse de référence</label>
