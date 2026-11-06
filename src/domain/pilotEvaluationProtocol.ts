@@ -73,6 +73,26 @@ export function isLocalPilotProfile(profile: AiModelProfile): boolean {
   } catch { return false; }
 }
 
+/** Reuse the very same saved configurations selected in the evaluator below the protocol. */
+export function selectPilotProfiles(profiles: readonly AiModelProfile[], selectedIds: readonly string[]): AiModelProfile[] {
+  const ids = new Set(selectedIds.slice(0, 3));
+  return profiles.filter((profile) => ids.has(profile.id)).slice(0, 3);
+}
+
+/** The guided campaign deliberately stays on local Ollama, including text-only trials. */
+export function pilotSelectionIssue(profiles: readonly AiModelProfile[], stage: 'analysis' | 'integrated'): string | null {
+  if (!profiles.length) return 'Sélectionnez au moins une configuration dans « Configurations à exécuter » ci-dessous.';
+  const remote = profiles.filter((profile) => !isLocalPilotProfile(profile));
+  if (remote.length) return 'Le protocole protège les copies : Ollama local sans clé API est requis. Configuration(s) incompatible(s) : ' + remote.map((profile) => profile.name).join(', ') + '.';
+  const missingAnalysis = profiles.filter((profile) => !profile.configuration.analysisModel.trim());
+  if (missingAnalysis.length) return 'Définissez un modèle d’analyse pour : ' + missingAnalysis.map((profile) => profile.name).join(', ') + '.';
+  if (stage === 'integrated') {
+    const missingVision = profiles.filter((profile) => !profile.configuration.visionModel.trim());
+    if (missingVision.length) return 'Définissez un modèle de lecture Vision pour : ' + missingVision.map((profile) => profile.name).join(', ') + '.';
+  }
+  return null;
+}
+
 export function makePilotProfiles(endpoint: string, timestamp: string): AiModelProfile[] {
   // Only local Ollama: no configured cloud endpoint or credential may be inherited.
   const localEndpoint = (() => {
