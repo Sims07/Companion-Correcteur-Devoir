@@ -131,7 +131,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Lecture des images');
     expect(text).toContain('Analyse et notation');
     expect(text).toContain('Analyse comparative des configurations');
-    expect(text).toContain('Sans note de référence validée par l’enseignant');
+    expect(text).toContain('Sans correction de référence');
   });
 
   it('presents saved model configurations as responsive, accessible design-system cards', () => {
@@ -360,12 +360,12 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Analyse comparative des configurations');
     expect(text).toContain('Écart entre les notes');
     expect(text).toContain('Note moyenne');
-    expect(text).toContain('Critères en désaccord');
+    expect(text).toContain('Critères notés en désaccord');
     expect(text).toContain('Questions à vérifier');
-    expect(text).toContain('Critères à examiner en priorité');
+    expect(text).toContain('Écarts entre notes effectivement attribuées');
     expect(text).toContain('faible confiance');
     expect(text).toContain('Afficher les comparaisons détaillées deux à deux');
-    expect(text).toContain('Sans note de référence validée par l’enseignant');
+    expect(text).toContain('Sans correction de référence');
     expect(styles).toContain('.evaluation-analysis-metrics');
     expect(styles).toContain('.evaluation-disagreement-list');
   });
