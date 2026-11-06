@@ -5,6 +5,8 @@ import type { LocalCorrectionRepository } from '../ports/localCorrectionReposito
 export interface LocalCorrectionService {
   saveCorrection(correction: LocalCorrection): Promise<void>;
   listCorrections(): Promise<LocalCorrection[]>;
+  listCorrectionSummaries?(): Promise<LocalCorrection[]>;
+  getCorrection?(id: string): Promise<LocalCorrection | null>;
   deleteCorrection(correctionId: string): Promise<void>;
   saveMemory(entry: LocalMemoryEntry): Promise<void>;
   listMemory(query?: LocalMemoryQuery): Promise<LocalMemoryEntry[]>;
@@ -28,6 +30,10 @@ export function createLocalCorrectionService(repository: LocalCorrectionReposito
       await repository.saveCorrection(correction);
     },
     listCorrections: () => repository.listCorrections(),
+    listCorrectionSummaries: () => repository.listCorrectionSummaries?.() ?? repository.listCorrections(),
+    getCorrection: async (id) => repository.getCorrection
+      ? repository.getCorrection(id)
+      : (await repository.listCorrections()).find((item) => item.id === id) ?? null,
     async deleteCorrection(correctionId) {
       if (!correctionId.trim()) throw new Error('Identifiant de correction obligatoire.');
       await repository.deleteCorrection(correctionId);
