@@ -10,7 +10,6 @@ import { resolveIdentifiedCopyLabel, type StudentIdentity } from '../domain/stud
 import { partitionScientificRubric, mergeScientificDiagramCriteria } from '../domain/scientificRubricRouting.ts';
 import { mergeDecisionScientificDiagramCriteria } from '../domain/scientificDiagramDecisions.ts';
 import { routeScientificPages } from '../domain/scientificPageClassification.ts';
-import { isNativeDecisionModel } from '../domain/systemOneDecision.ts';
 import type { ScientificDiagramAnalyzer } from '../ports/scientificDiagramAnalysis.ts';
 
 // Abort requests that stop producing any response, without limiting slow but active
@@ -374,12 +373,10 @@ export function createBackgroundCorrectionService(
             const remaining = remainingRubric(current.rubric, current.partialCriteria);
             if (!remaining.criteria.length) break;
             const criterion = remaining.criteria[0];
-            // Native System One accepts the entire rubric with one shared student
-            // transcription. Avoid one expensive model round-trip per criterion,
-            // while keeping the independent decisions and teacher review flags.
-            // Generative and chat-based closed decisions stay one criterion per call.
+            // Decision mode always uses one native System One request for the
+            // remaining rubric, regardless of model name. Classic grading stays
+            // sequential, with one criterion per request on CPU-only machines.
             const requestCriteria = (current.correctionMethod ?? 'generative') === 'decision'
-              && isNativeDecisionModel(current.analysisModel)
               ? remaining.criteria : [criterion];
             // Persist the real work item before inference: slow first responses
             // should not leave the teacher staring at a static 0/N counter.

@@ -1,15 +1,12 @@
 import { promptTrace, type PromptId } from './prompts/promptRegistry.ts';
 import { MODEL_READINESS_PROBE_PROMPT } from './prompts/modelProbePrompt.ts';
-import { buildCriterionDecisionRepairPrompt } from './prompts/repairPrompts.ts';
 import { buildArbitrationPrompt, buildArbitrationRepairPrompt, buildIncrementalGradingRepairPrompt, buildGradingRepairPrompt } from './prompts/repairPrompts.ts';
 import { buildSubjectReferencePrompt, buildStudentIdentityFallbackPrompt, buildTeacherAnnotationRepairPrompt, buildRubricPageTranscriptionPrompt } from './prompts/visionPrompts.ts';
 import { buildFullGradingPrompt } from './prompts/fullGradingPrompt.ts';
 import { buildTranscriptionPrompt, buildStudentIdentityPrompt, buildTeacherAnnotationPrompt } from './prompts/visionPrompts.ts';
 import { requireCorrectionMethodAvailable } from '../../domain/correctionMethod.ts';
-import { scoreCriterionDecisions } from '../../domain/criterionDecision.ts';
-import { isNativeDecisionModel, isVisualDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from '../../domain/systemOneDecision.ts';
+import { isVisualDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from '../../domain/systemOneDecision.ts';
 import { requestSystemOneDecision } from './systemOneTransport.ts';
-import { buildCriterionDecisionPrompt, criterionDecisionSchema } from './decisionPrompts.ts';
 import type { CriterionAnalysisUpdate, DiagnosticModelResult, GradingProgressEvent, GradingProvider, GradingRequest, OllamaModel, OllamaSettings } from '../../ports/aiProvider.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
 import { reconcileIncrementalScore } from '../../domain/incrementalGradingReconciliation.ts';
@@ -315,14 +312,11 @@ export function createOllamaProvider(
       const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
       const analysisModel = settings.analysisModel?.trim() || settings.model?.trim() || '';
       const useTwoModels = Boolean(settings.visionModel?.trim() && settings.analysisModel?.trim());
-      if (!visionOnly && settings.correctionMethod !== 'decision' && isNativeDecisionModel(analysisModel)) {
-        throw new Error('Le modèle « ' + analysisModel + ' » est décisionnel et ne prend pas en charge le chat. Sélectionnez la méthode de correction décisionnelle ou un modèle génératif.');
-      }
-      if (!directVisualDecision && !hasTranscription && isNativeDecisionModel(visionModel)) {
-        throw new Error('Le modèle de lecture « ' + visionModel + ' » ne prend pas en charge la transcription via le chat. Choisissez un modèle Vision génératif.');
-      }
-      if (settings.correctionMethod === 'decision' && isNativeDecisionModel(analysisModel) && settings.apiCompatible) {
-        throw new Error('Le modèle « ' + analysisModel + ' » nécessite l’API System One d’Ollama. Sélectionnez Ollama local comme fournisseur, et non l’API compatible Chat Completions.');
+      // The explicit correction method, never the model name, selects the grading API.
+      // Vision transcription still uses Chat. OpenAI-compatible providers do not expose
+      // Ollama's native /v1/systemone endpoint; fail before grading, never fall back.
+      if (!visionOnly && settings.correctionMethod === 'decision' && settings.apiCompatible) {
+        throw new Error('La correction décisionnelle requiert l’API /v1/systemone d’Ollama local. Choisissez Ollama local comme fournisseur ; aucune conversion en appel Chat n’est effectuée.');
       }
       if (directVisualDecision) {
         if (settings.correctionMethod !== 'decision' || !isVisualDecisionModel(analysisModel) || settings.apiCompatible) {
@@ -906,81 +900,36 @@ export function createOllamaProvider(
         const criteria = parsedRubric.criteria ?? [];
         if (!criteria.length) throw new Error('Le mode décisionnel requiert un barème structuré avec au moins un critère.');
         const proposals: import('../../domain/grading.ts').CriterionProposal[] = [];
-        if (isNativeDecisionModel(analysisModel)) {
-          // System One accepts multiple closed questions in one request. Reuse the
-          // student's transcription ONCE, including on larger 20-point rubrics.
-          const prepared = prepareSystemOneRubric({
-            criteria, transcription: transcription ?? '', question: request.question,
-            ...(subjectTranscription ? { subjectTranscription } : {}),
-            ...(directVisualDecision ? { visualEvidence: true } : {}),
+        // System One accepts multiple closed questions in one request. Reuse the
+        // student's transcription ONCE, including on larger 20-point rubrics.
+        const prepared = prepareSystemOneRubric({
+          criteria, transcription: transcription ?? '', question: request.question,
+          ...(subjectTranscription ? { subjectTranscription } : {}),
+          ...(directVisualDecision ? { visualEvidence: true } : {}),
+        });
+        for (const [index, criterion] of criteria.entries()) {
+          onCriterionUpdate?.({ criterionId: criterion.id, index: index + 1, total: criteria.length, attempt: 1, status: 'started' });
+          onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'started' });
+        }
+        try {
+          const result = await requestSystemOneDecision({
+            endpoint, model: analysisModel, prepared, fetchImpl,
+            ...(directVisualDecision ? { images: request.images } : {}),
+            ...(signal ? { signal } : {}), onDiagnosticResult,
           });
-          for (const [index, criterion] of criteria.entries()) {
-            onCriterionUpdate?.({ criterionId: criterion.id, index: index + 1, total: criteria.length, attempt: 1, status: 'started' });
-            onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'started' });
-          }
-          try {
-            const result = await requestSystemOneDecision({
-              endpoint, model: analysisModel, prepared, fetchImpl,
-              ...(directVisualDecision ? { images: request.images } : {}),
-              ...(signal ? { signal } : {}), onDiagnosticResult,
-            });
-            const scored = scoreSystemOneRubric(transcription ?? '', prepared, result, directVisualDecision);
-            scored.forEach((proposal, index) => {
-              proposals.push(proposal);
-              onCriterionUpdate?.({ criterionId: proposal.criterionId, index: index + 1, total: criteria.length, attempt: 1, status: 'completed', proposal });
-              onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'completed' });
-            });
-          } catch (cause) {
-            const detail = cause instanceof Error ? cause.message : 'Réponse décisionnelle inexploitable.';
-            criteria.forEach((criterion, index) => {
-              onCriterionUpdate?.({ criterionId: criterion.id, index: index + 1, total: criteria.length, attempt: 1, status: 'failed', error: detail });
-              onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'failed' });
-            });
-            throw new Error('Décision native indisponible : ' + detail);
-          }
-        } else {
-          // Prompt-based closed decisions remain supported for chat-capable LLMs.
-          for (const [index, criterion] of criteria.entries()) {
-            const progress = { criterionId: criterion.id, index: index + 1, total: criteria.length };
-            onCriterionUpdate?.({ ...progress, attempt: 1, status: 'started' });
-            onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'started' });
-            const prompt = buildCriterionDecisionPrompt({
-              criterion, transcription: transcription ?? '', teacherQuestion: request.question,
-              ...(subjectTranscription ? { subjectTranscription } : {}),
-            });
-            let proposal: import('../../domain/grading.ts').CriterionProposal | null = null;
-            let previousError = '';
-            for (let attempt = 1; attempt <= 2; attempt += 1) {
-              if (attempt > 1) {
-                onCriterionUpdate?.({ ...progress, attempt, status: 'retrying' });
-                onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'retrying' });
-              }
-              try {
-                const raw = await sendStream(
-                  analysisModel,
-                  attempt === 1 ? prompt : buildCriterionDecisionRepairPrompt(prompt, previousError),
-                  undefined, onChunk, criterionDecisionSchema(criterion), false,
-                  { kind: 'model', stage: 'analysis', promptId: attempt === 1 ? 'decision.chat' : 'decision.chat-repair', temperature: 0,
-                    generationTokenLimit: Math.min(1024, 256 + 96 * Math.max(1, getRubricSubcriteria(criterion).length)),
-                    intent: 'Vérifier les attendus du critère ' + criterion.title,
-                    context: 'Décisions structurées · critère ' + (index + 1) + '/' + criteria.length },
-                );
-                proposal = scoreCriterionDecisions(criterion, parseModelJson(raw), transcription ?? '');
-                break;
-              } catch (cause) {
-                previousError = cause instanceof Error ? cause.message : 'Réponse décisionnelle inexploitable.';
-                if (signal?.aborted) break;
-              }
-            }
-            if (!proposal) {
-              onCriterionUpdate?.({ ...progress, attempt: 2, status: 'failed', error: previousError });
-              onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'failed' });
-              throw new Error('Décision indisponible pour « ' + criterion.title + ' » : ' + previousError);
-            }
+          const scored = scoreSystemOneRubric(transcription ?? '', prepared, result, directVisualDecision);
+          scored.forEach((proposal, index) => {
             proposals.push(proposal);
-            onCriterionUpdate?.({ ...progress, attempt: 1, status: 'completed', proposal });
+            onCriterionUpdate?.({ criterionId: proposal.criterionId, index: index + 1, total: criteria.length, attempt: 1, status: 'completed', proposal });
             onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'completed' });
-          }
+          });
+        } catch (cause) {
+          const detail = cause instanceof Error ? cause.message : 'Réponse décisionnelle inexploitable.';
+          criteria.forEach((criterion, index) => {
+            onCriterionUpdate?.({ criterionId: criterion.id, index: index + 1, total: criteria.length, attempt: 1, status: 'failed', error: detail });
+            onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'failed' });
+          });
+          throw new Error('Décision native indisponible : ' + detail);
         }
         return JSON.stringify({
           summary: directVisualDecision ? 'Décisions provisoires directement sur les photos, à vérifier par le professeur.' : 'Décisions structurées selon les attendus du barème.',

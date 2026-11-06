@@ -20,6 +20,41 @@ const envelope = (aligned: string) => ({
   usage: { input_tokens: 295, output_tokens: 6 },
 });
 describe('native Ollama System One routing', () => {
+  it('uses Chat only for the photographed copy transcription and System One for kev:latest scoring', async () => {
+    const seen: string[] = [];
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      const url = String(input);
+      seen.push(url);
+      if (url.endsWith('/api/chat')) {
+        return new Response([
+          JSON.stringify({ message: { content: 'CO2 et H2O avec lumière produisent du glucose et de l’oxygène dans les chloroplastes.' }, done: false }),
+          JSON.stringify({ message: {}, done: true, eval_count: 40, prompt_eval_count: 80 }),
+        ].join('\n') + '\n', { status: 200 });
+      }
+      if (url.endsWith('/v1/systemone')) {
+        return new Response(JSON.stringify({ ...envelope('aligned'), model: 'kev:latest' }), { status: 200 });
+      }
+      throw new Error('Endpoint inattendu : ' + url);
+    });
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'gemma4e:4b', analysisModel: 'kev:latest',
+      correctionMethod: 'decision',
+    }, fetchMock);
+    await provider.generate({
+      question: 'Décrire la photosynthèse', rubric: JSON.stringify(rubric),
+      images: [{ fileName: 'copie-1.png', mimeType: 'image/png', base64: 'aGVsbG8=' }],
+    });
+    expect(seen).toEqual([
+      'http://localhost:11434/api/chat',
+      'http://localhost:11434/v1/systemone',
+    ]);
+    const chat = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(chat.model).toBe('gemma4e:4b');
+    const decision = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(decision.model).toBe('kev:latest');
+    expect(decision).not.toHaveProperty('messages');
+  });
+
   it('POSTs actual closed questions to /v1/systemone with no chat payload or fake streaming', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(envelope('aligned')),{status:200}));
     const diagnostic = vi.fn();
@@ -107,16 +142,17 @@ describe('native Ollama System One routing', () => {
     expect(parseGradingProposal(raw, rubric).finalScore).toBe(5);
   });
 
-  it('refuses Perplexity decision-only models in generative mode before /api/chat', async () => {
-    const fetchMock = vi.fn<typeof fetch>();
+  it('uses classic Chat routing when classic mode is explicitly selected, regardless of the model name', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('Unsupported API', { status: 400 }));
     const provider = createOllamaProvider({
       endpoint: 'http://localhost:11434', visionModel: 'gemma4e:4b',
       analysisModel: 'pplx-decider-flash:4b', correctionMethod: 'generative',
     }, fetchMock);
     await expect(provider.generate({
       question: 'Décrire la photosynthèse', rubric: JSON.stringify(rubric), transcription: 'Réponse.',
-    })).rejects.toThrow(/décisionnel/);
-    expect(fetchMock).not.toHaveBeenCalled();
+    })).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalled();
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:11434/api/chat');
   });
 
   it('flags a mismatched rubric and copy for teacher review rather than granting points', async () => {
@@ -136,11 +172,17 @@ describe('native Ollama System One routing', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:11434/v1/systemone');
   });
-  it('rejects a decision-only model mistakenly configured in classic mode before any call', async () => {
-    const fetchMock=vi.fn<typeof fetch>();
-    const provider=createOllamaProvider({endpoint:'http://localhost:11434',visionModel:'vision:4b',analysisModel:'d3:4b',correctionMethod:'generative'},fetchMock);
-    await expect(provider.generate({question:'Photosynthèse',rubric:JSON.stringify(rubric),transcription:'Réponse.'})).rejects.toThrow(/décisionnel/);
-    expect(fetchMock).not.toHaveBeenCalled();
+  it('never auto-overrides a classic-mode user selection based on a known decision model name', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('Unsupported API', { status: 400 }));
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'vision:4b',
+      analysisModel: 'd3:4b', correctionMethod: 'generative',
+    }, fetchMock);
+    await expect(provider.generate({
+      question: 'Photosynthèse', rubric: JSON.stringify(rubric), transcription: 'Réponse.',
+    })).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalled();
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:11434/api/chat');
   });
   it('grades a complete four-criterion, twenty-point rubric in ONE native request, without withholding low-probability proposals', async () => {
     const fullRubric: Rubric = {
