@@ -471,7 +471,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   useEffect(() => {
     let active = true;
     const settings = { endpoint, apiCompatible, apiKey, visionModel, analysisModel, thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection };
-    void backgroundService.listJobs().then(async (jobs) => {
+    void loadQueueOverviews().then(async (jobs) => {
       if (!active || !autoBackgroundCorrection || !jobs.some((job) => job.status === 'pending' || job.status === 'processing')) return;
       if (active) await backgroundService.processPending(settings, activeAssignmentId);
     }).catch(() => { /* A later explicit retry will expose any configuration problem. */ });
@@ -2319,10 +2319,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     // or processing copy must not be blocked by the foreground copy's analysis flag.
     if (isAnalyzing && !jobId) { setReviewMessage('Attendez la fin du traitement avant de changer de copie.'); return; }
 
-    const availableJobs = jobId ? await backgroundService.listJobs(activeAssignmentId) : backgroundJobs;
     const requestedJob = jobId
-      ? availableJobs.find((job) => job.id === jobId && job.assignmentId === activeAssignmentId) ?? null
+      ? await loadFullQueuedJob(jobId)
       : copyNavigation.nextCopyToReview?.job ?? null;
+    if (requestedJob && requestedJob.assignmentId !== activeAssignmentId) {
+      setReviewMessage('Cette copie appartient à un autre devoir.');
+      return;
+    }
     if (!requestedJob) {
       setReviewMessage('Aucune autre copie à vérifier pour le moment. Les autres corrections se poursuivent.');
       return;
@@ -2336,8 +2339,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (canBeMarkedForReview) {
       await backgroundService.markForReview(requestedJob.id);
     }
-    const refreshedJobs = await backgroundService.listJobs(activeAssignmentId);
-    const next = refreshedJobs.find((job) => job.id === requestedJob.id) ?? requestedJob;
+    const next = await loadFullQueuedJob(requestedJob.id);
+    if (!next || next.assignmentId !== activeAssignmentId) {
+      setReviewMessage('Cette copie n’est plus disponible. Actualisez le suivi avant de poursuivre.');
+      return;
+    }
     const canReview = Boolean(next.proposal) && ['ready', 'needs-review', 'reviewing'].includes(next.status);
 
     // Publish the refreshed queue and selected copy together after all async work.
@@ -3158,7 +3164,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         onStopCorrections={() => { void stopCurrentOperations(); }}
         onStartCorrections={() => { void startSeriesCorrections(); }}
         onOpenJob={(jobId) => { void loadNextQueuedCopy(jobId); }}
-        onRemoveJob={(jobId) => { void (async () => { const job = (await backgroundService.listJobs(activeAssignmentId)).find((item) => item.id === jobId); if (job) requestRemoveSeriesCopy(job); })(); }}
+        onRemoveJob={(jobId) => { void (async () => { const job = await loadFullQueuedJob(jobId); if (job?.assignmentId === activeAssignmentId) requestRemoveSeriesCopy(job); })(); }}
         onRetryJob={(jobId) => { void retryQueuedCorrection(jobId); }}
         onReviewNextCopy={() => {
           if (images.length > 0 && !currentBackgroundJobId && proposal) {
