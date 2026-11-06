@@ -50,3 +50,6 @@
   border-radius: var(--ds-radius-md);
 }
 @media (max-width: 780px) { .pilot-evaluation-reading-columns { grid-template-columns: 1fr; } }
+
+.pilot-evaluation-reference summary { cursor: pointer; font-size: .83rem; font-weight: 600; }
+.pilot-evaluation-reference p { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: var(--ds-space-2); font-size: .83rem; }
