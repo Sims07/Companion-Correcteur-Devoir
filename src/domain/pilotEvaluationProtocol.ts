@@ -124,8 +124,17 @@ export function summarizePilotResult(testCase: PilotCase, result: ModelEvaluatio
       const expected: 0 | 1 = testCase.presentSubcriteria.includes(sub.id) ? 1 : 0;
       const criterionProposal = result.proposal?.criteria.find((item) => item.criterionId === criterion.id);
       const assessment = criterionProposal?.subcriteria?.find((item) => item.subcriterionId === sub.id);
-      const awarded = result.status !== 'success' || criterionProposal?.assessmentStatus === 'not-evaluated' ||
-        !assessment ? null : assessment.points;
+      // New reports carry independent verdicts per subcriterion. Do not erase a
+      // reliable sibling merely because a different subcriterion is pending.
+      // Older archives without per-item statuses retain the conservative
+      // criterion-wide fallback.
+      const granular = Boolean(criterionProposal?.subcriteria?.some((entry) =>
+        entry.assessmentStatus !== undefined || entry.evidenceStatus !== undefined));
+      const notEvaluated = granular
+        ? assessment?.assessmentStatus === 'not-evaluated'
+        : criterionProposal?.assessmentStatus === 'not-evaluated';
+      const awarded = result.status !== 'success' || notEvaluated || !assessment
+        ? null : assessment.points;
       const outcome: PilotSubcriterionResult['outcome'] = awarded === null ? 'unresolved'
         : awarded === expected ? 'correct' : expected === 0 ? 'false-positive' : 'false-negative';
       return { id: sub.id, expected, awarded, outcome, ...(assessment?.evidence ? { evidence: assessment.evidence } : {}) };
