@@ -23,7 +23,7 @@ export function buildIncrementalCriterionPrompt(
     : 'Aucun sous-critère défini : omets subcriteria.';
   const scoringRule = criterion.maxPoints < 0
     ? 'NOTATION : un malus explicite peut être négatif, uniquement si le professeur a défini un critère de malus ; respecte les limites négatives du barème.'
-    : 'NOTATION : critère à points positifs. Toute réponse scientifiquement fausse ou explicitement contradictoire vaut zéro pour les attendus concernés, JAMAIS un point négatif. Compare la relation entière (sujet, action, objet, affirmation ou négation), pas les seuls mots. N’accorde aucun point sur une phrase qui dit ignorer l’information. Accepte les équivalences scientifiques et distingue absence de réponse et passage illisible.';
+    : 'NOTATION : critère à points positifs. Toute réponse scientifiquement fausse ou explicitement contradictoire vaut zéro pour les attendus concernés, JAMAIS un point négatif. Compare la relation entière (sujet, action, objet, affirmation ou négation), pas les seuls mots. N’accorde aucun point sur une phrase qui dit ignorer l’information. Accepte les équivalences scientifiques. Distingue absence et illisibilité.';
 
   return [
     compactCriterionContext(sharedContext),
