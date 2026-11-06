@@ -82,7 +82,7 @@ export function PilotEvaluationPanel({
         </div>
         <small>Une seule configuration est exécutée à la fois, puis libérée d’Ollama. Un essai par niveau : résultat exploratoire, non prédictif.
           La consommation RAM maximale du processus n’est pas accessible depuis le navigateur ; utilisez le Moniteur d’activité sur votre Mac.
-          La première série peut comprendre le chargement à froid du modèle.</small>
+          Un appel de préchauffage non chronométré est effectué avant les séries pour limiter le biais du chargement à froid.</small>
       </section>
       {!readyForImages && <p className="pilot-evaluation-hint">Pour Vision seule ou le parcours complet, associez une photo correspondant au texte de référence de chaque copie. Pour démarrer sans images, choisissez « Lancer les 3 analyses » : les transcriptions de référence sont déjà intégrées.</p>}
       {(message || currentCase) && <p className="pilot-evaluation-message" role="status">{currentCase ? `Copie ${currentCase} en cours · ` : ''}{message}</p>}
