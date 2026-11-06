@@ -10,6 +10,7 @@ import { isModelEvaluationQuotaError, type ModelEvaluationService } from '../app
 import type { StorageDiagnosticsService } from '../application/storageDiagnosticsService.ts';
 import { createAsyncActionGuard } from '../domain/asyncActionGuard.ts';
 import { normalizeGradeScore, parseGradingProposal, toReviewedCriteria, type GradingProposal, type ReviewedCriterion, type CriterionProposal } from '../domain/grading.ts';
+import { resolveReviewedSubcriterion, resolveManualCriterionOverride, type SubcriterionTeacherDecision } from '../domain/subcriterionReview.ts';
 import { validateReviewedCorrection } from '../domain/reviewFinalization.ts';
 import { calculateReportedTokensPerSecondForStage, canCompareModelEvaluationRecords, toModelEvaluationSummary, getModelEvaluationStage, runModelEvaluation, sumReportedTokensForStage, type ModelEvaluationProgress, type ModelEvaluationRecord, type ModelEvaluationResultSnapshot, type ModelEvaluationConfiguration } from '../domain/modelEvaluation.ts';
 import { getRubricSubcriteria, validateRubric, type Rubric, type RubricCriterion } from '../domain/rubric.ts';
@@ -1866,8 +1867,22 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       updateCurrentReviewTraceMetrics((metrics) => markGroupConfirmedCriterionModified(metrics, id));
     }
     setReview((current) => current.map((item) => item.criterionId === id
-      ? { ...item, ...patch, ...(patch.teacherPoints !== undefined ? { assessmentStatus: 'evaluated' as const } : {}) }
+      ? patch.teacherPoints !== undefined && !patch.subcriteria
+        ? resolveManualCriterionOverride({ ...item, ...patch })
+        : { ...item, ...patch }
       : item));
+  }
+
+  function verifySubcriterion(criterionId: string, subcriterionId: string, action: SubcriterionTeacherDecision) {
+    const item = review.find((candidate) => candidate.criterionId === criterionId);
+    if (!item) return;
+    const next = resolveReviewedSubcriterion(item, subcriterionId, action);
+    if (next === item) return;
+    updateReview(criterionId, {
+      subcriteria: next.subcriteria, teacherPoints: next.teacherPoints,
+      assessmentStatus: next.assessmentStatus, decision: next.decision,
+      questionForTeacher: next.questionForTeacher,
+    });
   }
 
   async function finalizeReview(advanceToNextCopy = false) {
@@ -3921,7 +3936,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               } : undefined}
             />}
-            <details className="review-explanation">
+            <details className="review-explanation" open={item.subcriteria?.some((sub) => sub.assessmentStatus === 'not-evaluated') || undefined}>
               <summary>Voir la preuve et la justification détaillées</summary>
             <div className="evidence"><span>ÉLÉMENTS REPÉRÉS</span><p>{item.evidence}</p>{item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Repérer la preuve du critère ${criterion?.title ?? item.criterionId} sur la page ${item.pageNumber}`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Repérer sur la page {item.pageNumber}</button>}</div>
             {item.annotationSuggestion && item.pageNumber !== undefined && item.pageNumber >= 1 && item.pageNumber <= images.length && <button type="button" className="evidence-location-button" aria-label={`Afficher la page ${item.pageNumber} pour le commentaire proposé`} onClick={() => { setFocusedEvidencePage(item.pageNumber!); document.getElementById(`review-copy-page-${item.pageNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Afficher la page liée</button>}
@@ -3932,11 +3947,24 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             {item.rationale && <p className="rationale">{item.rationale}</p>}
 
 
-            {item.subcriteria && <details className="scientific-diagram-quality-details review-quality-details">
-              <summary>Sous-critères évalués · {item.subcriteria.length}</summary>
+            {item.subcriteria && <details className="scientific-diagram-quality-details review-quality-details" open={item.subcriteria.some((entry) => entry.assessmentStatus === 'not-evaluated') || undefined}>
+              <summary>Sous-critères · {item.subcriteria.filter((entry) => entry.assessmentStatus === 'not-evaluated').length
+                ? item.subcriteria.filter((entry) => entry.assessmentStatus === 'not-evaluated').length + ' à vérifier sur ' + item.subcriteria.length
+                : item.subcriteria.length + ' évalués'}</summary>
               <ul>{item.subcriteria.map((subcriterion) => <li key={subcriterion.subcriterionId}>
-                <div><strong>{subcriterion.title}</strong><span className="quality-status">{subcriterion.points} / {subcriterion.maxPoints} pt</span></div>
+                <div><strong>{subcriterion.title}</strong>
+                  <span className="quality-status">{subcriterion.assessmentStatus === 'not-evaluated'
+                    ? 'À vérifier · proposition ' + subcriterion.points + ' / ' + subcriterion.maxPoints
+                    : subcriterion.points + ' / ' + subcriterion.maxPoints + ' pt'}</span></div>
                 <p>{subcriterion.evidence}</p>
+                {subcriterion.verificationSource === 'teacher' && <small>Vérifié par le professeur</small>}
+                {subcriterion.assessmentStatus === 'not-evaluated' && <>
+                  <p className="teacher-question">{subcriterion.questionForTeacher || 'Vérifiez cette décision sur la réponse de l’étudiant.'}</p>
+                  {!isAnalyzing && <div className="review-controls" role="group" aria-label={`Arbitrage du sous-critère ${subcriterion.title}`}>
+                    <button type="button" className="secondary-button" onClick={() => verifySubcriterion(item.criterionId, subcriterion.subcriterionId, 'confirm')}>Confirmer {subcriterion.points} pt</button>
+                    {subcriterion.points > 0 && <button type="button" className="text-button" onClick={() => verifySubcriterion(item.criterionId, subcriterion.subcriterionId, 'reject')}>Refuser · 0 pt</button>}
+                  </div>}
+                </>}
               </li>)}</ul>
             </details>}
             {item.questionForTeacher && <p className="teacher-question"><strong>Question pour vous :</strong> {item.questionForTeacher}</p>}

@@ -114,7 +114,8 @@ describe('Atelier pédagogique correction workspace', () => {
   it('preserves all existing evidence, note adjustments and teacher comments', () => {
     const app = read('src/ui/App.tsx');
     expect(app).toContain('<TeacherReviewAlert');
-    expect(app).toContain('<details className="review-explanation">');
+    expect(app).toContain('<details className="review-explanation"');
+    expect(app).toContain("open={item.subcriteria?.some((sub) => sub.assessmentStatus === 'not-evaluated') || undefined}");
     expect(app).toContain('className="comment-field"');
     expect(app).toContain('normalizeGradeScore(Number(event.target.value))');
     expect(read('src/ui/components/TeacherReviewAlert.tsx')).toContain('Copier le commentaire');
