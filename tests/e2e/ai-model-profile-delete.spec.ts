@@ -70,7 +70,7 @@ test('deleting a saved profile requires confirmation, updates evaluation selecti
   await expect(page.locator('#evaluation-profile-select')).not.toContainText('Configuration à supprimer');
 });
 
-test('teacher and technical settings also offer deletion for the selected saved configuration', async ({ page }) => {
+test('teacher deletion is reflected immediately in the evaluator profiles', async ({ page }) => {
   await page.goto('/');
   await page.locator('.assignment-overview-card').first().getByRole('button', { name: /Reprendre le devoir/ }).click();
   await page.getByRole('button', { name: /Réglages de l’IA locale|IA locale à configurer/ }).click();
@@ -83,9 +83,9 @@ test('teacher and technical settings also offer deletion for the selected saved 
   await expect(teacherPanel.locator('#ai-model-profile option')).toHaveCount(2);
 
   await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Inspecteur réseau/ }).click();
-  const debugPanel = page.locator('.diagnostic-ai-profile-controls');
-  await expect(debugPanel.getByRole('button', { name: 'Supprimer cette configuration' })).toBeDisabled();
-  await debugPanel.locator('#debug-ai-model-profile').selectOption('saved-two');
-  await expect(debugPanel.getByRole('button', { name: 'Supprimer cette configuration' })).toBeEnabled();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await expect(page.locator('#evaluation-profile-select')).not.toContainText('Configuration à supprimer');
+  await expect(page.locator('#evaluation-profile-select')).toContainText('Configuration à conserver');
+  await page.locator('#evaluation-profile-select').selectOption('saved-two');
+  await expect(page.getByRole('button', { name: 'Supprimer cette configuration' })).toBeEnabled();
 });
