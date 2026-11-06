@@ -115,7 +115,7 @@ export function summarizePilotResult(testCase: PilotCase, result: ModelEvaluatio
       const criterionProposal = result.proposal?.criteria.find((item) => item.criterionId === criterion.id);
       const assessment = criterionProposal?.subcriteria?.find((item) => item.subcriterionId === sub.id);
       const awarded = result.status !== 'success' || criterionProposal?.assessmentStatus === 'not-evaluated' ||
-        !assessment || result.proposal?.scoreIncomplete ? null : assessment.points;
+        !assessment ? null : assessment.points;
       const outcome: PilotSubcriterionResult['outcome'] = awarded === null ? 'unresolved'
         : awarded === expected ? 'correct' : expected === 0 ? 'false-positive' : 'false-negative';
       return { id: sub.id, expected, awarded, outcome, ...(assessment?.evidence ? { evidence: assessment.evidence } : {}) };
