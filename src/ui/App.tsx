@@ -2144,7 +2144,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function rotateQueuedCopyPage(job: BackgroundCorrectionJob, pageIndex: number, clockwiseDegrees: 90 | 270) {
-    if (job.status === 'completed' || isPreparingSeriesCopies || rotatingQueuedPage !== null) return;
+    const currentStatus = backgroundJobs.find((entry) => entry.id === job.id)?.status ?? job.status;
+    if (currentStatus === 'completed' || isPreparingSeriesCopies || rotatingQueuedPage !== null) return;
     const original = job.originalImages[pageIndex] ?? job.images[pageIndex];
     if (!original) return;
     const rotationKey = `${job.id}:${pageIndex}`;
@@ -2153,7 +2154,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     try {
       // A batch can start immediately. Pause at the next safe model boundary so the
       // teacher can still correct orientation without racing an in-flight image read.
-      if (job.status === 'processing') {
+      if (currentStatus === 'processing') {
         await backgroundService.pauseAndWait();
         pausedForRotation = true;
       }
