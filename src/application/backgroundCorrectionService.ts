@@ -1,7 +1,7 @@
 import { parseGradingProposal } from '../domain/grading.ts';
 import { sumGradeScores } from '../domain/scorePrecision.ts';
 
-import { toBackgroundJobSummary, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
+import { toBackgroundJobOverview, toBackgroundJobSummary, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import type { Rubric } from '../domain/rubric.ts';
 import type { BackgroundCorrectionRepository } from '../ports/backgroundCorrectionRepository.ts';
 import type { GradingProgressEvent, OllamaSettings } from '../ports/aiProvider.ts';
@@ -53,6 +53,8 @@ export interface BackgroundCorrectionService {
   enqueue(job: BackgroundCorrectionJob, settings: OllamaSettings): Promise<void>;
   updateImages(jobId: string, images: BackgroundCorrectionJob['images'], rotationAngles: NonNullable<BackgroundCorrectionJob['rotationAngles']>, settings: OllamaSettings): Promise<void>;
   listJobs(assignmentId?: string): Promise<BackgroundCorrectionJob[]>;
+  listJobOverviews?(assignmentId?: string): Promise<BackgroundCorrectionJob[]>;
+  getJob?(id: string): Promise<BackgroundCorrectionJob | null>;
   listJobSummaries(assignmentId?: string): Promise<BackgroundJobSummary[]>;
   prewarm(settings: OllamaSettings): Promise<void>;
   pauseAndWait(modelToKeepWarm?: string): Promise<void>;
@@ -60,6 +62,7 @@ export interface BackgroundCorrectionService {
   resume(assignmentId: string): void;
   processPending(settings: OllamaSettings, assignmentId: string): Promise<void>;
   subscribe(listener: (jobs: BackgroundCorrectionJob[]) => void): () => void;
+  subscribeOverviews?(listener: (jobs: BackgroundCorrectionJob[]) => void): () => void;
   subscribeSummaries(listener: (jobs: BackgroundJobSummary[]) => void): () => void;
   markForReview(jobId: string): Promise<void>;
   saveReviewDraft(jobId: string, reviewDraft: BackgroundCorrectionJob['reviewDraft'], teacherQuestionsDraft: string): Promise<void>;
@@ -141,13 +144,53 @@ export function createBackgroundCorrectionService(
   let prewarmRetryAt = 0;
   let activeRequestAbortController: AbortController | null = null;
   const listeners = new Set<(jobs: BackgroundCorrectionJob[]) => void>();
+  const overviewListeners = new Set<(jobs: BackgroundCorrectionJob[]) => void>();
   const summaryListeners = new Set<(jobs: BackgroundJobSummary[]) => void>();
+
+  async function notifySubscribers(): Promise<void> {
+    // Legacy full-image listeners are supported, but the teacher UI subscribes
+    // to compact queue projections so progress writes do not getAll every photo.
+    if (listeners.size) {
+      const jobs = await repository.listJobs();
+      for (const listener of listeners) listener(jobs);
+    }
+    if (overviewListeners.size || summaryListeners.size) {
+      const overviews = repository.listJobOverviews
+        ? await repository.listJobOverviews()
+        : (await repository.listJobs()).map(toBackgroundJobOverview);
+      for (const listener of overviewListeners) listener(overviews);
+      if (summaryListeners.size) {
+        const summaries = overviews.map(toBackgroundJobSummary);
+        for (const listener of summaryListeners) listener(summaries);
+      }
+    }
+  }
+
+  async function readStoredJob(id: string): Promise<BackgroundCorrectionJob | null> {
+    return repository.getJob
+      ? repository.getJob(id)
+      : (await repository.listJobs()).find((job) => job.id === id) ?? null;
+  }
+
   async function persist(job: BackgroundCorrectionJob): Promise<void> {
     await repository.saveJob(job);
-    const jobs = await repository.listJobs();
-    for (const listener of listeners) listener(jobs);
-    const summaries = jobs.map(toBackgroundJobSummary);
-    for (const listener of summaryListeners) listener(summaries);
+    await notifySubscribers();
+  }
+
+  async function listOverviewJobs(assignmentId?: string): Promise<BackgroundCorrectionJob[]> {
+    if (!repository.listJobOverviews) {
+      return (await listWithIdentifiedLabels(assignmentId)).map(toBackgroundJobOverview);
+    }
+    const overviews = await repository.listJobOverviews(assignmentId);
+    // On a reload, an orphaned processing state or an old filename still needs
+    // the existing recovery logic. Only this exceptional path reads full jobs.
+    const needsRecovery = overviews.some((job) =>
+      (job.status === 'processing' && activeLoopAssignmentId !== job.assignmentId) ||
+      (job.studentIdentity && job.status !== 'processing' &&
+        resolveIdentifiedCopyLabel(job.label, job.studentIdentity, job.images[0]?.fileName) !== job.label)
+    );
+    if (needsRecovery) return (await listWithIdentifiedLabels(assignmentId)).map(toBackgroundJobOverview);
+    return overviews;
   }
 
   /**
@@ -185,12 +228,7 @@ export function createBackgroundCorrectionService(
         normalized.push(job);
       }
     }
-    if (changed) {
-      const allJobs = await repository.listJobs();
-      for (const listener of listeners) listener(allJobs);
-      const summaries = allJobs.map(toBackgroundJobSummary);
-      for (const listener of summaryListeners) listener(summaries);
-    }
+    if (changed) await notifySubscribers();
     return normalized;
   }
 
@@ -218,10 +256,11 @@ export function createBackgroundCorrectionService(
     activeLoopAssignmentId = assignmentId;
     activeLoop = (async () => {
       while (!paused && !foregroundPriority) {
-        const jobs = await repository.listJobs(assignmentId);
-        const job = jobs
-          .filter((candidate) => candidate.status === 'pending' || candidate.status === 'processing')
-          .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
+        const job = repository.getNextPendingJob
+          ? await repository.getNextPendingJob(assignmentId)
+          : (await repository.listJobs(assignmentId))
+            .filter((candidate) => candidate.status === 'pending' || candidate.status === 'processing')
+            .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
         if (!job) break;
         // Keep model configuration fresh within this assignment only. A queued
         // copy from a different devoir must not override its settings.
@@ -509,7 +548,9 @@ export function createBackgroundCorrectionService(
       })();
     },
     listJobs: (assignmentId) => listWithIdentifiedLabels(assignmentId),
-    listJobSummaries: async (assignmentId) => (await listWithIdentifiedLabels(assignmentId)).map(toBackgroundJobSummary),
+    listJobOverviews: (assignmentId) => listOverviewJobs(assignmentId),
+    getJob: (id) => readStoredJob(id),
+    listJobSummaries: async (assignmentId) => (await listOverviewJobs(assignmentId)).map(toBackgroundJobSummary),
     async prewarm(settings) {
       // A remote OpenAI-compatible endpoint must not receive background generation
       // requests just because a copy was imported or the application was opened.
@@ -604,9 +645,10 @@ export function createBackgroundCorrectionService(
       await run(settings, assignmentId);
     },
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+    subscribeOverviews(listener) { overviewListeners.add(listener); return () => overviewListeners.delete(listener); },
     subscribeSummaries(listener) { summaryListeners.add(listener); return () => summaryListeners.delete(listener); },
     async updateImages(jobId, images, rotationAngles, settings) {
-      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      const job = await readStoredJob(jobId);
       if (!job) throw new Error('Cette copie n’existe plus dans la file de correction.');
       if (job.status === 'processing' && !paused) throw new Error('Attendez la fin du traitement avant de réorienter cette copie.');
       if (job.status === 'completed') throw new Error('Une copie archivée ne peut plus être réorientée.');
@@ -639,11 +681,11 @@ export function createBackgroundCorrectionService(
       }
     },
     async markForReview(jobId) {
-      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      const job = await readStoredJob(jobId);
       if (job) await persist({ ...job, status: 'reviewing', updatedAt: new Date().toISOString() });
     },
     async saveReviewDraft(jobId, reviewDraft, teacherQuestionsDraft) {
-      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      const job = await readStoredJob(jobId);
       if (job) await persist({
         ...job,
         reviewDraft: structuredClone(reviewDraft ?? []),
@@ -652,22 +694,19 @@ export function createBackgroundCorrectionService(
       });
     },
     async remove(jobId) {
-      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      const job = await readStoredJob(jobId);
       if (!job) return;
       if (job.status === 'processing') throw new Error('Cette copie est en cours de correction et ne peut pas être supprimée maintenant.');
       if (job.status === 'completed') throw new Error('Une correction archivée ne peut pas être retirée depuis la file de copies.');
       await repository.deleteJob(jobId);
-      const jobs = await repository.listJobs();
-      for (const listener of listeners) listener(jobs);
-      const summaries = jobs.map(toBackgroundJobSummary);
-      for (const listener of summaryListeners) listener(summaries);
+      await notifySubscribers();
     },
     async markCompleted(jobId) {
-      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      const job = await readStoredJob(jobId);
       if (job) await persist({ ...job, status: 'completed', updatedAt: new Date().toISOString() });
     },
     async retry(jobId, settings) {
-      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      const job = await readStoredJob(jobId);
       if (!job || !['failed', 'needs-review', 'reviewing'].includes(job.status)) return;
       await persist({
         ...job,
@@ -696,8 +735,10 @@ export function createBackgroundCorrectionService(
       // before this job was persisted as pending. Re-check after the joined loop
       // settles so the retry cannot remain pending without a generation request.
       if (!paused && !foregroundPriority) {
-        const remainingJobs = await repository.listJobs(job.assignmentId);
-        if (remainingJobs.some((item) => item.status === 'pending' || item.status === 'processing')) {
+        const remaining = repository.getNextPendingJob
+          ? await repository.getNextPendingJob(job.assignmentId)
+          : (await repository.listJobs(job.assignmentId)).find((item) => item.status === 'pending' || item.status === 'processing');
+        if (remaining) {
           await run(settings, job.assignmentId);
         }
       }

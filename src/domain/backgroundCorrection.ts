@@ -42,6 +42,8 @@ export interface BackgroundCorrectionJob {
   correctionMode: 'integrated' | 'separate';
   images: ImageInput[];
   originalImages: ImageInput[];
+  /** UI-only projection: image bytes must be fetched before preview or grading. */
+  imagesDeferred?: boolean;
   subjectImages: ImageInput[];
   subjectTranscription?: string;
   scientificPageClassifications?: ScientificPageClassification[];
@@ -75,6 +77,18 @@ export interface BackgroundCorrectionJob {
   teacherQuestionsDraft?: string;
   error: string | null;
   imageFingerprint: string | null;
+}
+
+/** Retain page count and grading progress but release all batch image payloads
+ * from the React queue state. Never persist this projection over the full job. */
+export function toBackgroundJobOverview(job: BackgroundCorrectionJob): BackgroundCorrectionJob {
+  return {
+    ...job,
+    imagesDeferred: true,
+    images: job.images.map(({ mimeType, fileName }) => ({ mimeType, fileName, base64: '' })),
+    originalImages: [],
+    subjectImages: [],
+  };
 }
 
 export function toBackgroundJobSummary(job: BackgroundCorrectionJob): BackgroundJobSummary {

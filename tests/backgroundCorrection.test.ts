@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { backgroundCorrectionStatusLabel, createBackgroundCorrection, findBackgroundCorrectionToOpen, nextBackgroundCorrection, toBackgroundJobSummary } from '../src/domain/backgroundCorrection.ts';
+import { backgroundCorrectionStatusLabel, createBackgroundCorrection, findBackgroundCorrectionToOpen, nextBackgroundCorrection, toBackgroundJobOverview, toBackgroundJobSummary } from '../src/domain/backgroundCorrection.ts';
 import { getBackgroundCorrectionResult } from '../src/domain/backgroundCorrectionResult.ts';
 
 const base = {
@@ -23,6 +23,27 @@ const base = {
 };
 
 describe('background correction jobs', () => {
+  it('keeps copy count, status and grading metadata while removing image bytes from queue views', () => {
+    const original = createBackgroundCorrection({
+      ...base,
+      images: [{ base64: 'STUDENT_PRIVATE_IMAGE', mimeType: 'image/png', fileName: 'page-1.png' }],
+      originalImages: [{ base64: 'ORIGINAL_PRIVATE_IMAGE', mimeType: 'image/png', fileName: 'page-1.png' }],
+      subjectImages: [{ base64: 'SUBJECT_PRIVATE_IMAGE', mimeType: 'image/png' }],
+    });
+    const view = toBackgroundJobOverview(original);
+    expect(view).toMatchObject({
+      id: original.id, assignmentId: original.assignmentId, status: 'pending',
+      imagesDeferred: true, images: [{ base64: '', mimeType: 'image/png', fileName: 'page-1.png' }],
+      originalImages: [], subjectImages: [],
+    });
+    expect(toBackgroundJobSummary(view).pageCount).toBe(1);
+    expect(toBackgroundJobSummary(view).progress.totalPages).toBe(1);
+    expect(JSON.stringify(view)).not.toContain('PRIVATE_IMAGE');
+    expect(original.images[0].base64).toBe('STUDENT_PRIVATE_IMAGE');
+    expect(original.originalImages[0].base64).toBe('ORIGINAL_PRIVATE_IMAGE');
+    expect(original.subjectImages[0].base64).toBe('SUBJECT_PRIVATE_IMAGE');
+  });
+
   it('creates a validated pending job with empty progress', () => {
     const job = createBackgroundCorrection(base);
     expect(job.status).toBe('pending');
