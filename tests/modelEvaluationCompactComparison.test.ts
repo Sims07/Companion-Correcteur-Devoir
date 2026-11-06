@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canCompareModelEvaluationRecords, type ModelEvaluationRecord } from '../src/domain/modelEvaluation.ts';
+import { canCompareModelEvaluationRecords, toModelEvaluationSummary, type ModelEvaluationRecord } from '../src/domain/modelEvaluation.ts';
 import { modelEvaluationImageSignature } from '../src/domain/modelEvaluationImageIdentity.ts';
 
 const record = (id: string, image = 'copy-A'): ModelEvaluationRecord => ({
@@ -28,6 +28,28 @@ function compact(value: ModelEvaluationRecord): ModelEvaluationRecord {
 }
 
 describe('comparing lightweight model-evaluation archives', () => {
+  it('keeps comparison identity when removing photos from browser history', () => {
+    const source = record('source');
+    const matching = record('matching');
+    const different = record('different', 'copy-B');
+    const summary = toModelEvaluationSummary(source);
+    expect(summary.images).toEqual([]);
+    expect(summary.subjectImages).toEqual([]);
+    expect(summary.imagesDeferred).toBe(true);
+    expect(summary.originalImagesArchived).toBeUndefined();
+    expect(summary.originalImageCount).toBe(1);
+    expect(canCompareModelEvaluationRecords([summary, matching])).toBe(true);
+    expect(canCompareModelEvaluationRecords([summary, toModelEvaluationSummary(matching)])).toBe(true);
+    expect(canCompareModelEvaluationRecords([summary, different])).toBe(false);
+    // Projecting an experiment must not mutate its original photo payloads.
+    expect(source.images[0]?.base64).toBe('copy-A');
+    const quotaReduced = compact(source);
+    const quotaSummary = toModelEvaluationSummary(quotaReduced);
+    expect(quotaSummary.imagesDeferred).toBe(false);
+    expect(quotaSummary.originalImagesArchived).toBe(false);
+    expect(quotaSummary.imageSignatures).toEqual(quotaReduced.imageSignatures);
+  });
+
   it('permits comparing full and compact archives only for the same copy', () => {
     const d1=record('d1'), tev=record('tev'), other=record('other','different copy');
     expect(canCompareModelEvaluationRecords([d1,tev])).toBe(true);
