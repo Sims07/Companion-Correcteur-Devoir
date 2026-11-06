@@ -26,6 +26,18 @@ describe('grounding of positive marks in student answer', () => {
     expect(normalizeEvidenceText('Grâce à l’énergie et à H₂O (CO₂)')).toBe('grace a l energie et a h2o co2');
   });
 
+  it('rejects printed-question passages as evidence of a credited student answer', () => {
+    const source = "Question\\nLa photosynthèse se déroule dans les chloroplastes.\\nRéponse de l'étudiant\\nJe ne sais pas.";
+    const proposal = gradeOne(criterion('c1'), {
+      p1: { points: 1, evidence: 'La photosynthèse se déroule dans les chloroplastes.' },
+      p2: { points: 0, evidence: 'Aucune affirmation sur la lumière.' },
+    }, source);
+    expect(proposal.scoreIncomplete).toBe(true);
+    expect(proposal.criteria[0]?.subcriteria?.[0]).toMatchObject({
+      points: 1, evidenceStatus: 'needs-review', assessmentStatus: 'not-evaluated',
+    });
+  });
+
   it('keeps genuine evidence with pronouns and contextual subject without requesting excessive reviews', () => {
     const a = PILOT_CASES[0]!;
     const proposal = gradeOne(criterion('c3'), {

@@ -61,6 +61,26 @@ describe('teacher-verifiable per-subcriterion decisions', () => {
       .every((entry) => entry.assessmentStatus !== 'not-evaluated' && entry.evidenceStatus === 'located')).toBe(true);
   });
 
+  it('never treats a printed question as proof even when both native choices agree on an incorrect point', () => {
+    const transcript = "Question\\nLa photosynthèse se déroule dans les chloroplastes.\\nRéponse de l'étudiant\\nJe ne sais pas.";
+    const rubric = PILOT_RUBRIC.criteria[0]!;
+    const prepared = prepareSystemOneRubric({
+      criteria: [rubric], transcription: transcript,
+      question: 'Vérifier la réponse de l’étudiant.',
+    });
+    const [criterion] = scoreSystemOneRubric(transcript, prepared, {
+      answers: {
+        alignment: choice('aligned'),
+        expected_1: choice('present'), support_1: choice('supported'),
+        expected_2: choice('absent'), support_2: choice('not_demonstrated'),
+      },
+    });
+    expect(criterion?.subcriteria?.[0]).toMatchObject({
+      points: 1, evidenceStatus: 'needs-review', assessmentStatus: 'not-evaluated',
+    });
+    expect(criterion?.assessmentStatus).toBe('not-evaluated');
+  });
+
   it('rejects a complete scientifically inverted copy when decisions understand negations', () => {
     const { proposal, summary } = benchmark('B');
     expect(proposal.scoreIncomplete).toBeUndefined();

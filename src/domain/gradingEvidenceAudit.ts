@@ -32,6 +32,14 @@ function keywords(text: string): string[] {
     .filter((token) => token.length > 2 && !neutral.has(token)))];
 }
 
+/** OCR may contain the printed assignment question as well as the student answer.
+ * A source quote from the printed question must NEVER validate an awarded point.
+ * If no explicit answer delimiter exists, retain the original transcription. */
+export function studentAnswerForEvidence(transcription: string): string {
+  const marker = /(?:^|\\n)\\s*(?:\\*\\*)?r[eé]ponse(?:\\s+de\\s+l['’](?:[eé]tudiant|[eé]l[eè]ve))?(?:\\*\\*)?\\s*:?\\s*(?:\\r?\\n|$)/i.exec(transcription);
+  return marker ? transcription.slice(marker.index + marker[0].length).trim() : transcription;
+}
+
 function findCitation(transcription: string, evidence: string): { excerpt: string; at: number } | null {
   const clean = normalizeEvidenceText(evidence);
   const source = normalizeEvidenceText(transcription);
@@ -104,7 +112,7 @@ export function findStudentExcerptForExpectation(
   const contextKeywords = new Set(parentConcept(criterion));
   const headingKeywords = keywords(subcriterion.title).filter((word) => !contextKeywords.has(word));
   const descriptionKeywords = keywords(subcriterion.description).filter((word) => !contextKeywords.has(word));
-  const source = transcription.replace(/^\s*r[ée]ponse\s+de\s+l[’']étudiant\s*/i, '');
+  const source = studentAnswerForEvidence(transcription);
   const sentences = source.split(/\n+|(?<=[.!?])\s+/g).map((sentence) => sentence.trim())
     .filter((sentence) => sentence.length >= 8 && sentence.length <= 400);
   let best = '';
@@ -125,7 +133,7 @@ export function findStudentExcerptForExpectation(
 export function checkStudentEvidence(
   transcription: string, evidence: string, criterion: RubricCriterion, subcriterion: RubricSubcriterion,
 ): GradingEvidenceCheck {
-  return inspectPositiveEvidence(transcription, evidence, criterion, subcriterion);
+  return inspectPositiveEvidence(studentAnswerForEvidence(transcription), evidence, criterion, subcriterion);
 }
 
 function inspectPositiveEvidence(
@@ -146,6 +154,7 @@ export function auditGradingEvidence(
   proposal: GradingProposal, rubric: Rubric, transcription: string,
 ): GradingProposal {
   if (!transcription.trim()) return proposal;
+  const studentText = studentAnswerForEvidence(transcription);
   const questions = [...proposal.questionsForTeacher];
   const criteria = proposal.criteria.map((item) => {
     const teacherCriterion = rubric.criteria.find((candidate) => candidate.id === item.criterionId);
@@ -156,7 +165,7 @@ export function auditGradingEvidence(
     const subcriteria = item.subcriteria.map((sub) => {
       const expected = defined.find((entry) => entry.id === sub.subcriterionId);
       if (!expected || sub.points <= 0 || sub.assessmentStatus === 'not-evaluated') return sub;
-      const evidenceStatus = inspectPositiveEvidence(transcription, sub.evidence, teacherCriterion, expected);
+      const evidenceStatus = inspectPositiveEvidence(studentText, sub.evidence, teacherCriterion, expected);
       if (evidenceStatus === 'located') return { ...sub, evidenceStatus };
       const question = 'Vérifiez la preuve de « ' + teacherCriterion.title + ' / ' + expected.title
         + ' » : citation absente, non littérale ou ne démontrant pas clairement l’attendu.';
