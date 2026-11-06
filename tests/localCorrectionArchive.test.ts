@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { deleteLocalCorrection, listLocalCorrections, saveLocalCorrection } from '../src/adapters/storage/indexedDbMemory.ts';
+import { deleteLocalCorrection, getLocalCorrection, listLocalCorrectionSummaries, listLocalCorrections, saveLocalCorrection } from '../src/adapters/storage/indexedDbMemory.ts';
 import type { LocalCorrection } from '../src/domain/localCorrection.ts';
 
 const correction: LocalCorrection = {
@@ -63,6 +63,33 @@ describe('local correction archive persistence', () => {
         scientificDiagramAnalysis: { diagrams: [{ id: 'diagram-1', pageNumber: 1, diagramType: 'Cellule', summary: 'Schéma de cellule végétale', criteria: [{ criterionId: 'knowledge', points: 3, maxPoints: 4, evidence: 'Les structures attendues sont présentes.' }] }], overallUncertainties: [] },
       },
     });
+  });
+
+  it('lists archived scores and page counts without retaining image bytes, then restores the exact original on demand', async () => {
+    const full = {
+      ...correction,
+      snapshot: {
+        ...correction.snapshot!,
+        images: [{ base64: 'LARGE_PRIVATE_PAGE_DATA_'.repeat(5000), mimeType: 'image/jpeg' }],
+        originalImages: [{ base64: 'ORIGINAL_PRIVATE_PAGE_DATA_'.repeat(5000), mimeType: 'image/jpeg' }],
+        subjectImages: [{ base64: 'SUBJECT_PRIVATE_PAGE_DATA_'.repeat(5000), mimeType: 'image/jpeg' }],
+      },
+    };
+    await saveLocalCorrection(full);
+    const summaries = await listLocalCorrectionSummaries();
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({
+      id: correction.id,
+      imagesDeferred: true,
+      pageCount: 1,
+      snapshot: { images: [], subjectImages: [], maximumPoints: 4, review: [{ teacherPoints: 3.5 }] },
+    });
+    expect(JSON.stringify(summaries)).not.toContain('PRIVATE_PAGE_DATA_');
+    const restored = await getLocalCorrection(correction.id);
+    expect(restored).toEqual(full);
+    expect(restored?.imagesDeferred).toBeUndefined();
+    expect((await listLocalCorrectionSummaries())[0].snapshot?.images).toEqual([]);
+    expect(await getLocalCorrection('archive-that-does-not-exist')).toBeNull();
   });
 
   it('updates an existing archive entry rather than creating duplicates', async () => {
