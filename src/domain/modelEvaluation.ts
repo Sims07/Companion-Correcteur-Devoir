@@ -44,6 +44,8 @@ export interface ModelEvaluationOptions<T> {
   stages?: Array<'reading' | 'analysis'>;
   stagesForConfiguration?: (configuration: ModelEvaluationConfiguration) => Array<'reading' | 'analysis'>;
   execute: (configuration: ModelEvaluationConfiguration, isCancelled: () => boolean, onStage: (stage: 'reading' | 'analysis') => void) => Promise<T>;
+  /** Await cleanup after every configuration, including failed or cancelled ones, before loading the next. */
+  onConfigurationSettled?: (configuration: ModelEvaluationConfiguration, output: ModelEvaluationOutput<T>) => Promise<void> | void;
   isCancelled?: () => boolean;
   onProgress?: (progress: ModelEvaluationProgress) => void;
   now?: () => number;
@@ -83,7 +85,6 @@ export async function runModelEvaluation<T>(options: ModelEvaluationOptions<T>):
       const finished = now();
       if (currentStage && activeStages.includes(currentStage)) completedSteps += 1;
       outputs.push({ configuration, startedAt, finishedAt: new Date(finished).toISOString(), elapsedMs: Math.max(0, finished - started), status: 'success', value });
-      if (isCancelled()) break;
     } catch (cause) {
       const finished = now();
       const partialValue = typeof cause === 'object' && cause !== null && 'partialValue' in cause
@@ -95,8 +96,11 @@ export async function runModelEvaluation<T>(options: ModelEvaluationOptions<T>):
         ...(partialValue !== undefined ? { value: partialValue } : {}),
         ...(isCancelled() ? {} : { error: cause instanceof Error ? cause.message : String(cause) }),
       });
-      if (isCancelled()) break;
     }
+    // A protocol may release Ollama RAM here. Never start the next profile
+    // until its cleanup has completed; do this even after a failed generation.
+    if (options.onConfigurationSettled) await options.onConfigurationSettled(configuration, outputs[outputs.length - 1]!);
+    if (isCancelled()) break;
     report(null, 'running');
   }
 
