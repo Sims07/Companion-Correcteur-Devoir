@@ -73,6 +73,36 @@ function fixture() {
 }
 
 describe('background correction service', () => {
+  it('groups all remaining criteria in a single decision request even for an unrecognized model name', async () => {
+    const f = fixture();
+    f.jobs.set('copy-1', { ...f.job, correctionMethod: 'decision' });
+    f.setGenerateImplementation(async (request, _chunk, _stage, onTranscription) => {
+      f.requests.push(request);
+      onTranscription?.('La copie contient deux réponses.', 'copy');
+      const sent = JSON.parse(request.rubric) as { criteria: Array<{ id: string; maxPoints: number }> };
+      return JSON.stringify({
+        summary: 'Décisions fermées',
+        criteria: sent.criteria.map((criterion) => ({
+          criterionId: criterion.id, points: criterion.maxPoints,
+          evidence: 'preuve', rationale: '', confidence: 'high',
+        })),
+        questionsForTeacher: [], finalScore: sent.criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0),
+      });
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.processPending({
+      endpoint: 'http://localhost:11434', visionModel: 'gemma4e:4b',
+      analysisModel: 'kev:latest', correctionMethod: 'decision',
+    }, 'assignment-1');
+    expect(f.requests).toHaveLength(1);
+    const sent = JSON.parse(f.requests[0].rubric) as { criteria: Array<{ id: string }> };
+    expect(sent.criteria.map((criterion) => criterion.id)).toEqual(['c1', 'c2']);
+    expect(f.createProvider).toHaveBeenCalledWith(expect.objectContaining({
+      correctionMethod: 'decision', analysisModel: 'kev:latest',
+    }));
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'ready', completedCriteria: 2 });
+  });
+
   it('marks a partial LLM failure as retryable, without pretending it only needs review', async () => {
     const f = fixture();
     let calls = 0;
