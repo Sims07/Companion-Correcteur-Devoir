@@ -41,6 +41,10 @@ export interface CorrectionArchiveSnapshot {
 }
 
 export interface LocalCorrection {
+  /** Summary-only view: original pages are fetched on demand before opening. */
+  imagesDeferred?: boolean;
+  /** Page count retained when image payloads are not loaded. */
+  pageCount?: number;
   id: string;
   label: string;
   rubricTitle: string;
