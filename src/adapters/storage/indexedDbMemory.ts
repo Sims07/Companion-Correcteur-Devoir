@@ -2,7 +2,7 @@ import type { LocalCorrection } from '../../domain/localCorrection.ts';
 import type { BackgroundCorrectionJob } from '../../domain/backgroundCorrection.ts';
 import type { BackgroundCorrectionRepository } from '../../ports/backgroundCorrectionRepository.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
-import type { ModelEvaluationRecord } from '../../domain/modelEvaluation.ts';
+import { toModelEvaluationSummary, type ModelEvaluationRecord } from '../../domain/modelEvaluation.ts';
 import type { LocalMemoryEntry, LocalMemoryQuery } from '../../domain/localMemory.ts';
 import { rankLocalMemories } from '../../domain/localMemory.ts';
 
@@ -262,6 +262,36 @@ export async function listModelEvaluations(): Promise<ModelEvaluationRecord[]> {
   } finally { database.close(); }
 }
 
+/** Avoid loading all saved experiment image bytes into the history UI at once. */
+export async function listModelEvaluationSummaries(): Promise<ModelEvaluationRecord[]> {
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(MODEL_EVALUATION_STORE_NAME, 'readonly');
+    const summaries = await new Promise<ModelEvaluationRecord[]>((resolve, reject) => {
+      const rows: ModelEvaluationRecord[] = [];
+      const cursor = transaction.objectStore(MODEL_EVALUATION_STORE_NAME).openCursor();
+      cursor.onsuccess = () => {
+        const current = cursor.result;
+        if (!current) { resolve(rows); return; }
+        rows.push(toModelEvaluationSummary(current.value as ModelEvaluationRecord));
+        current.continue();
+      };
+      cursor.onerror = () => reject(cursor.error ?? new Error('Lecture des résumés d’évaluations impossible.'));
+      transaction.onabort = () => reject(transaction.error ?? new Error('Lecture des évaluations interrompue.'));
+    });
+    return summaries.sort((left, right) => right.completedAt.localeCompare(left.completedAt));
+  } finally { database.close(); }
+}
+
+export async function getModelEvaluation(id: string): Promise<ModelEvaluationRecord | null> {
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(MODEL_EVALUATION_STORE_NAME, 'readonly');
+    const result = await requestToPromise(transaction.objectStore(MODEL_EVALUATION_STORE_NAME).get(id)) as ModelEvaluationRecord | undefined;
+    return result ?? null;
+  } finally { database.close(); }
+}
+
 export async function deleteModelEvaluation(evaluationId: string): Promise<void> {
   const database = await openDatabase();
   try {
@@ -282,6 +312,14 @@ export class IndexedDbModelEvaluationRepository implements ModelEvaluationReposi
 
   list(): Promise<ModelEvaluationRecord[]> {
     return listModelEvaluations();
+  }
+
+  listSummaries(): Promise<ModelEvaluationRecord[]> {
+    return listModelEvaluationSummaries();
+  }
+
+  get(id: string): Promise<ModelEvaluationRecord | null> {
+    return getModelEvaluation(id);
   }
 
   delete(id: string): Promise<void> {

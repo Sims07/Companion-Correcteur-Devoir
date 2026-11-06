@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { deleteModelEvaluation, listDiagnosticHistory, listModelEvaluations, saveDiagnosticHistory, saveModelEvaluation } from '../src/adapters/storage/indexedDbMemory.ts';
+import { deleteModelEvaluation, getModelEvaluation, listDiagnosticHistory, listModelEvaluationSummaries, listModelEvaluations, saveDiagnosticHistory, saveModelEvaluation } from '../src/adapters/storage/indexedDbMemory.ts';
 import type { ModelEvaluationRecord } from '../src/domain/modelEvaluation.ts';
 
 const record: ModelEvaluationRecord = {
@@ -40,6 +40,28 @@ describe('local model evaluation archive', () => {
       configurations: [{ visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b' }],
       results: [{ score: 3, readingMs: 12000, analysisMs: 30000, tokens: 1234, proposal: { criteria: [{ evidence: 'prophase et métaphase' }] } }],
     });
+  });
+
+  it('loads scores and image signatures for history without copying photos into RAM', async () => {
+    const full: ModelEvaluationRecord = {
+      ...record,
+      images: [{ mimeType: 'image/jpeg', base64: 'STUDENT_PHOTO_PRIVATE_'.repeat(5000) }],
+      subjectImages: [{ mimeType: 'image/png', base64: 'SUBJECT_PHOTO_PRIVATE_'.repeat(5000) }],
+    };
+    await saveModelEvaluation(full);
+
+    const summaries = await listModelEvaluationSummaries();
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({
+      id: full.id, imagesDeferred: true, originalImageCount: 1,
+      images: [], subjectImages: [], results: [{ score: 3 }],
+    });
+    expect(summaries[0].imageSignatures).toHaveLength(1);
+    expect(summaries[0].subjectImageSignatures).toHaveLength(1);
+    expect(JSON.stringify(summaries)).not.toMatch(/PHOTO_PRIVATE/);
+
+    expect(await getModelEvaluation(full.id)).toEqual(full);
+    expect(await getModelEvaluation('nonexistent-evaluation')).toBeNull();
   });
 
   it('persists a reduced archive without photos when storage space is constrained', async () => {

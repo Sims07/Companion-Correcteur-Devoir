@@ -27,6 +27,24 @@ describe('model evaluation application service', () => {
     expect(repository.delete).toHaveBeenCalledWith(record.id);
   });
 
+  it('keeps compatibility fallback and delegates lightweight experiment reads', async () => {
+    const repo: ModelEvaluationRepository = {
+      save: vi.fn(async () => undefined),
+      list: vi.fn(async () => [record]),
+      delete: vi.fn(async () => undefined),
+      saveDiagnosticHistory: vi.fn(async () => undefined),
+      listDiagnosticHistory: vi.fn(async () => []),
+    };
+    const service = createModelEvaluationService(repo);
+    expect(await service.listSummaries?.()).toEqual([record]);
+    expect(await service.get?.(record.id)).toEqual(record);
+    expect(await service.get?.('missing')).toBeNull();
+    repo.listSummaries = vi.fn(async () => [{ ...record, imagesDeferred: true }]);
+    repo.get = vi.fn(async () => record);
+    expect(await service.listSummaries?.()).toMatchObject([{ imagesDeferred: true }]);
+    expect(await service.get?.(record.id)).toEqual(record);
+  });
+
   it('delegates diagnostic trace persistence to the same persistence port', async () => {
     const diagnostic = [{ id: 'trace-1', prompt: 'private local prompt', raw: 'raw response' }];
     const repository: ModelEvaluationRepository = {
