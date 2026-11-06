@@ -34,7 +34,7 @@ test('the guided biology protocol reuses the evaluator selection without creatin
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeDisabled();
   await expect(panel.getByText(/Sélectionnez au moins une configuration dans/)).toBeVisible();
 
-  await choices.getByRole('checkbox').nth(0).check();
+  await choices.locator('label.evaluation-profile-option').nth(0).click();
   await expect(panel.getByText('Ma configuration locale', { exact: false })).toBeVisible();
   await expect(panel.getByText('1 profil(s) sélectionné(s)', { exact: false })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
@@ -47,10 +47,10 @@ test('the guided biology protocol reuses the evaluator selection without creatin
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('companion-correcteur:ollama-profiles:v1') ?? '[]'))).toEqual(profiles);
 
   // An incompatible remote profile must block the guided campaign rather than send copy data out.
-  await choices.getByRole('checkbox').nth(1).check();
+  await choices.locator('label.evaluation-profile-option').nth(1).click();
   await expect(panel.getByText(/Configuration\(s\) incompatible\(s\) : Ma configuration distante/)).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeDisabled();
-  await choices.getByRole('checkbox').nth(1).uncheck();
+  await choices.locator('label.evaluation-profile-option').nth(1).click();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
 
   await expect(page.getByRole('group', { name: 'Type d’évaluation' })
