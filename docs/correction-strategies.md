@@ -30,3 +30,11 @@ Le type de stratégie est défini dans le domaine, transmis en option au port IA
 - Observabilité et évaluations comparatives par stratégie, sans métriques techniques dans l'écran enseignant.
 
 Chaque lot passe par une PR indépendante, les tests unitaires du domaine puis les tests d'intégration et quelques parcours Playwright ciblés. Fusion uniquement après CI verte et revue.
+
+## Contrat de routage Ollama (novembre 2026)
+
+- Le choix explicite **Classique** sélectionne `/api/chat` pour l’analyse / notation.
+- Le choix explicite **Décisionnelle — décisions par attendu** sélectionne `/v1/systemone` pour l’analyse / notation, **indépendamment du nom du modèle** (y compris `kev:latest`). Un modèle incompatible produit une erreur explicite, sans repli automatique vers Chat.
+- Les photos restent lues par le modèle Vision via `/api/chat`; les appels auxiliaires de lecture ne doivent pas être confondus avec la notation.
+- Le fournisseur OpenAI compatible ne propose pas l’API native Ollama System One : le mode décisionnel y est refusé avec un message explicite plutôt que redirigé silencieusement.
+- La correction en série regroupe tous les critères restants en un appel natif décisionnel pour une copie, tout en conservant le traitement séquentiel des copies.
