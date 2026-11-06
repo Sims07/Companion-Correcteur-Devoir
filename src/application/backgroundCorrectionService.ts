@@ -428,7 +428,8 @@ export function createBackgroundCorrectionService(
             if (progressWriteError) throw progressWriteError;
             if (generationError) throw generationError;
             if (raw === null) throw new Error('Le modèle n’a retourné aucun résultat pour ce critère.');
-            const parsed = parseGradingProposal(raw, { ...remaining, criteria: requestCriteria });
+            const parsed = parseGradingProposal(raw, { ...remaining, criteria: requestCriteria },
+              (current.correctionMethod ?? 'generative') === 'generative' ? current.transcription ?? undefined : undefined);
             current = {
               ...current,
               partialCriteria: mergeCriteria(current.partialCriteria, parsed.criteria),
