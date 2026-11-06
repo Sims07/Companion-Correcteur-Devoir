@@ -32,6 +32,7 @@ test('the guided biology protocol reuses the evaluator selection without creatin
   await expect(panel.getByText('C — partielle')).toBeVisible();
   await expect(panel.getByText('0 profil(s) sélectionné(s)', { exact: false })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeDisabled();
+  await expect(panel.getByRole('button', { name: 'Lancer les 3 lectures (Vision seule)' })).toBeDisabled();
   await expect(panel.getByText(/Sélectionnez au moins une configuration dans/)).toBeVisible();
 
   await choices.locator('label.evaluation-profile-option').nth(0).click();
@@ -39,11 +40,23 @@ test('the guided biology protocol reuses the evaluator selection without creatin
   await expect(panel.getByText('1 profil(s) sélectionné(s)', { exact: false })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
   await expect(panel.getByRole('button', { name: 'Tester les 3 photos (Vision + analyse)' })).toBeDisabled();
+  await expect(panel.getByRole('button', { name: 'Lancer les 3 lectures (Vision seule)' })).toBeDisabled();
+
+  // The guided Vision-only scenario requires one local image per reference case.
+  // Its availability does not require changing the evaluator's selected stage.
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZckAAAAASUVORK5CYII=', 'base64');
+  const uploads = panel.locator('input[type="file"]');
+  for (let index = 0; index < 3; index++) {
+    await uploads.nth(index).setInputFiles({ name: `reference-${index}.png`, mimeType: 'image/png', buffer: png });
+    await expect(panel.getByText('1 page(s) prête(s)')).toHaveCount(index + 1);
+  }
+  await expect(panel.getByRole('button', { name: 'Lancer les 3 lectures (Vision seule)' })).toBeEnabled();
 
   // Preparing again must not reset the evaluator selection or overwrite saved model settings.
   await panel.getByRole('button', { name: 'Réinitialiser le protocole' }).click();
   await expect(choices.getByRole('checkbox').nth(0)).toBeChecked();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
+  await expect(panel.getByRole('button', { name: 'Lancer les 3 lectures (Vision seule)' })).toBeDisabled();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('companion-correcteur:ollama-profiles:v1') ?? '[]'))).toEqual(profiles);
 
   // An incompatible remote profile must block the guided campaign rather than send copy data out.

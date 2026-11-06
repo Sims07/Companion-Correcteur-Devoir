@@ -41,6 +41,15 @@ describe('pilot-only Ollama RAM cleanup', () => {
     expect(server.requests[1]?.body).toEqual({ model: 'qwen3.5:4b', prompt: '', keep_alive: 0, stream: false });
   });
 
+  it('unloads only the vision model in Vision seule, preserving the unused analysis model', async () => {
+    const server = memoryServer(['qwen3.5:4b', 'd1:3b']);
+    expect(await unloadPilotOllamaModels(config({ analysisModel: 'd1:3b' }), 'vision', server.fetchMock))
+      .toEqual(['qwen3.5:4b']);
+    expect([...server.loaded]).toEqual(['d1:3b']);
+    expect(server.requests.filter((request) => request.method === 'POST').map((request) => request.body?.model))
+      .toEqual(['qwen3.5:4b']);
+  });
+
   it('unloads both distinct models after Vision + analysis, but a shared model only once', async () => {
     const server = memoryServer(['qwen3.5:4b', 'd1:3b', 'another:7b']);
     const released = await unloadPilotOllamaModels(config({ analysisModel: 'd1:3b' }), 'integrated', server.fetchMock);
