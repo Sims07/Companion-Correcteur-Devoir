@@ -4,7 +4,7 @@ import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './mod
 import { validateRubric } from './rubric.ts';
 import {
   PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC,
-  buildPilotReport, isLocalPilotProfile, makePilotProfiles, summarizePilotResult,
+  buildPilotReport, isLocalPilotProfile, makePilotProfiles, pilotSelectionIssue, selectPilotProfiles, summarizePilotResult,
 } from './pilotEvaluationProtocol.ts';
 
 function resultFor(caseId: 'A' | 'B' | 'C', override?: Record<string, number>): ModelEvaluationResultSnapshot {
@@ -92,6 +92,37 @@ describe('protocole pilote de biologie', () => {
     expect(isLocalPilotProfile({ ...original, configuration: { ...original.configuration, apiCompatible: true } })).toBe(false);
     expect(isLocalPilotProfile({ ...original, configuration: { ...original.configuration, apiKey: 'secret' } })).toBe(false);
     expect(isLocalPilotProfile({ ...original, configuration: { ...original.configuration, endpoint: 'http://127.0.0.1.evil.example:11434' } })).toBe(false);
+  });
+
+  it('uses any saved evaluator profiles selected below the protocol, without replacing their settings', () => {
+    const prepared = makePilotProfiles('http://localhost:11434', 'now');
+    const existing = [
+      { ...prepared[0]!, id: 'custom-llm', name: 'Mon génératif', configuration: { ...prepared[0]!.configuration, analysisModel: 'gemma3:4b', analysisThinking: true } },
+      { ...prepared[1]!, id: 'custom-decision', name: 'Mon décisionnel', configuration: { ...prepared[1]!.configuration, analysisModel: 'd1:3b', visionModel: '' } },
+      { ...prepared[2]!, id: 'custom-other', name: 'Non retenu' },
+    ];
+    const snapshot = structuredClone(existing);
+    const selected = selectPilotProfiles(existing, ['custom-decision', 'custom-llm', 'missing-id']);
+    expect(selected.map((item) => item.id)).toEqual(['custom-llm', 'custom-decision']);
+    expect(selected.map((item) => item.configuration.analysisModel)).toEqual(['gemma3:4b', 'd1:3b']);
+    expect(selected[0]!.configuration.analysisThinking).toBe(true);
+    expect(existing).toEqual(snapshot);
+    expect(pilotSelectionIssue(selected, 'analysis')).toBeNull();
+    expect(pilotSelectionIssue(selected, 'integrated')).toContain('Mon décisionnel');
+    expect(selectPilotProfiles(existing, [])).toEqual([]);
+    expect(pilotSelectionIssue([], 'analysis')).toContain('Configurations à exécuter');
+  });
+
+  it('blocks non-local or incomplete selections before any pilot network request', () => {
+    const [local] = makePilotProfiles('http://localhost:11434', 'now');
+    expect(pilotSelectionIssue([local!], 'integrated')).toBeNull();
+    const remote = { ...local!, id: 'external-profile', name: 'Serveur externe',
+      configuration: { ...local!.configuration, apiCompatible: true, endpoint: 'https://external.example/v1/chat/completions' } };
+    expect(pilotSelectionIssue([remote], 'analysis')).toContain('Serveur externe');
+    expect(pilotSelectionIssue([remote], 'integrated')).toContain('Ollama local');
+    expect(pilotSelectionIssue([{ ...local!, configuration: { ...local!.configuration, analysisModel: '' } }], 'analysis')).toContain('modèle d’analyse');
+    expect(pilotSelectionIssue([{ ...local!, configuration: { ...local!.configuration, visionModel: '' } }], 'analysis')).toBeNull();
+    expect(pilotSelectionIssue([{ ...local!, configuration: { ...local!.configuration, visionModel: '' } }], 'integrated')).toContain('Vision');
   });
 
   it('detects keyword-only false positives on scientifically inverted answers', () => {
