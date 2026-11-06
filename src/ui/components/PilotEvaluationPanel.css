@@ -1,0 +1,29 @@
+.pilot-evaluation-panel {
+  display: grid;
+  gap: var(--ds-space-4);
+  padding: var(--ds-space-5);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text);
+}
+.pilot-evaluation-panel h3, .pilot-evaluation-panel h4 { margin: 0; }
+.pilot-evaluation-panel p { margin: 0; color: var(--ds-color-text-muted); line-height: 1.5; }
+.pilot-evaluation-head, .pilot-evaluation-report-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--ds-space-4); }
+.pilot-evaluation-head > div { flex: 1 1 310px; display: grid; gap: var(--ds-space-2); }
+.pilot-evaluation-cases { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: var(--ds-space-3); }
+.pilot-evaluation-case { display: grid; gap: var(--ds-space-2); padding: var(--ds-space-4); background: var(--ds-color-surface); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); min-width: 0; }
+.pilot-evaluation-case > div { display: grid; gap: var(--ds-space-1); }
+.pilot-evaluation-case small, .pilot-evaluation-case label { font-size: .79rem; line-height: 1.4; }
+.pilot-evaluation-case small { color: var(--ds-color-text-muted); }
+.pilot-evaluation-case input[type="file"] { width: 100%; min-width: 0; font-size: .79rem; }
+.pilot-evaluation-actions, .pilot-evaluation-report-actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-3); }
+.pilot-evaluation-hint, .pilot-evaluation-guide { font-size: .83rem; }
+.pilot-evaluation-message { padding: var(--ds-space-3); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); background: var(--ds-color-surface); font-size: .88rem; }
+.pilot-evaluation-report { display: grid; gap: var(--ds-space-3); }
+.pilot-evaluation-report-head > div:first-child { flex: 1 1 300px; }
+.pilot-evaluation-table-scroll { max-width: 100%; overflow-x: auto; }
+.pilot-evaluation-table { width: 100%; min-width: 750px; border-collapse: collapse; font-size: .82rem; background: var(--ds-color-surface); }
+.pilot-evaluation-table th, .pilot-evaluation-table td { padding: var(--ds-space-3); text-align: left; border-bottom: 1px solid var(--ds-color-border); }
+.pilot-evaluation-table thead { background: var(--ds-color-surface-subtle); }
+@media (max-width: 780px) { .pilot-evaluation-cases { grid-template-columns: 1fr; } }
