@@ -59,6 +59,29 @@ describe('teacher-reference local visual benchmark', () => {
     expect(results.every((item) => item.referenceCopies === 1)).toBe(true);
   });
 
+  it('never aggregates different teacher expectations even with identical subcriterion IDs and points', () => {
+    const detailed: Rubric = {
+      ...rubric,
+      criteria: rubric.criteria.map((criterion) => criterion.id === 'title'
+        ? { ...criterion, subcriteria: [
+          { id: 'position', title: 'Titre au-dessus', description: 'Titre centré sur le schéma', maxPoints: 2 },
+        ] } : criterion),
+    };
+    const changed: Rubric = {
+      ...detailed,
+      criteria: detailed.criteria.map((criterion) => criterion.id === 'title'
+        ? { ...criterion, subcriteria: [
+          { id: 'position', title: 'Titre au-dessus', description: 'Titre placé à gauche du schéma', maxPoints: 2 },
+        ] } : criterion),
+    };
+    const results = buildLocalDecisionBenchmark([
+      { ...complete, id: 'first', rubricSnapshot: detailed },
+      { ...complete, id: 'second', rubricSnapshot: changed },
+    ]);
+    expect(results).toHaveLength(2);
+    expect(results.map((row) => row.referenceCopies)).toEqual([1, 1]);
+  });
+
   it('retains a failed request as a non-comparable reference case', () => {
     const failed = { ...complete, id: 'failed', outcome: 'error' as const, totalSeconds: 50 };
     expect(buildLocalDecisionBenchmark([complete, failed])[0]).toMatchObject({
