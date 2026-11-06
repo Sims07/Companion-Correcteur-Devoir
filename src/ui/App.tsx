@@ -470,6 +470,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   ).map((job) => job.id).join('|');
 
   useEffect(() => {
+    if (interfaceMode !== 'teacher' || teacherStep !== 'overview' || showAssignmentsHome) {
+      setDetailsThumbnailsOpen(false);
+    }
+  }, [interfaceMode, teacherStep, showAssignmentsHome]);
+
+  useEffect(() => {
     const active = detailsThumbnailsOpen && interfaceMode === 'teacher' && teacherStep === 'overview' && !showAssignmentsHome;
     if (!active) {
       setDetailThumbnails({});
