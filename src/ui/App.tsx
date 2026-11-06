@@ -1407,7 +1407,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const selectedProfiles = options?.profiles ?? aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
     if (selectedProfiles.length < 1) { setError('Sélectionnez au moins une configuration enregistrée pour la tester.'); return; }
     if (!runValidation.valid) { setError(runValidation.errors.join(' ')); return; }
-    if (runStage === 'analysis' && !runTranscription?.trim()) { setError('Pour évaluer l’analyse seule, lancez d’abord une lecture Vision et vérifiez sa runTranscription.'); return; }
+    if (runStage === 'analysis' && !runTranscription?.trim()) { setError('Pour évaluer l’analyse seule, lancez d’abord une lecture Vision et vérifiez sa transcription.'); return; }
     if (runStage !== 'analysis' && !runImages.length) { setError('Importez une copie avant de lancer une évaluation Vision.'); return; }
     if (runStage === 'integrated' && runCorrectionMode === 'separate' && !runSubjectImages.length && !runSubjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
     evaluationCancelledRef.current = false;
@@ -1469,7 +1469,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         setStreamedOutput('');
         try {
           raw = await provider.generate({
-            question: buildAssignmentContext({ title: runTitle, description: runDescription, runLevel, runQuestion }),
+            question: buildAssignmentContext({ title: runTitle, description: runDescription, educationLevel: runLevel, question: runQuestion }),
             rubric: rubricAsJson(runRubric),
             ...(runStage === 'analysis' ? { transcription: runTranscription ?? '' } : {}),
             ...(runStage === 'vision' ? { visionOnly: true } : {}),
@@ -1532,8 +1532,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: 'running' } : current);
     setEvaluationStage('saving');
     if (runStage === 'vision') {
-      const firstReadableResult = outputs.find((output) => output.status === 'success' && output.value?.runTranscription.trim());
-      if (firstReadableResult?.value?.runTranscription) setTranscription(firstReadableResult.value.runTranscription);
+      const firstReadableResult = outputs.find((output) => output.status === 'success' && output.value?.transcription.trim());
+      if (firstReadableResult?.value?.transcription) setTranscription(firstReadableResult.value.transcription);
     }
     const results = outputs.map((output) => ({
       profileId: output.configuration.id,
@@ -1547,7 +1547,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       analysisTokensPerSecond: output.value?.analysisTokensPerSecond ?? null,
       tokens: output.value?.tokens ?? null,
       status: output.status,
-      transcription: runStage === 'analysis' ? runTranscription ?? '' : output.value?.runTranscription ?? '',
+      transcription: runStage === 'analysis' ? runTranscription ?? '' : output.value?.transcription ?? '',
       raw: output.value?.raw ?? '',
       score: output.value?.score ?? null,
       proposal: output.value?.proposal ?? null,
@@ -1563,12 +1563,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       completedAt: new Date().toISOString(),
       assignmentId: runAssignmentId,
       assignmentTitle: runTitle.trim() || 'Devoir sans titre',
-      runQuestion,
+      question: runQuestion,
       rubricSnapshot: structuredClone(runRubric),
-      runCorrectionMode,
+      correctionMode: runCorrectionMode,
       images: runStage === 'analysis' ? [] : structuredClone(runImages),
       subjectImages: structuredClone(runSubjectImages),
-      runSubjectTranscription,
+      subjectTranscription: runSubjectTranscription,
       referenceTranscription: runStage === 'analysis' ? runTranscription : null,
       configurations: selectedProfiles.map((profile) => ({
         id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
