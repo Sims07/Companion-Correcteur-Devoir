@@ -27,6 +27,38 @@ describe('real System One decisions', () => {
     expect(prepared.questions.expected_1.criteria).toHaveProperty('partial');
     expect(prepared.questions.expected_5.instructions).toContain('chloroplastes');
   });
+  it('avoids repeating detailed teacher subcriteria in the shared native context while retaining each independent check', () => {
+    const uniqueDescription = 'Observer la position de la légende « membrane externe » et vérifier sa cohérence avec le tracé scientifique.';
+    const detailed: RubricCriterion = {
+      id: 'schema', title: 'Schéma biologique', description: 'Vérifier le schéma transmis.',
+      maxPoints: 2, subcriteria: [
+        { id: 'schema-1', title: 'Légende membrane', description: uniqueDescription, maxPoints: 1 },
+        { id: 'schema-2', title: 'Sens de la flèche', description: 'La flèche suit le trajet enseigné.', maxPoints: 1 },
+      ],
+    };
+    const prepared = prepareSystemOneRubric({
+      criteria: [detailed], question: 'Vérifier le schéma scientifique',
+      transcription: 'Réponse de l’étudiant\nUn schéma accompagne cette copie.',
+    });
+    expect(prepared.state).toContain('Schéma biologique');
+    expect(prepared.state).toContain('Vérifier le schéma transmis');
+    expect(prepared.state).not.toContain('Réponse de l’étudiant');
+    expect(prepared.state).not.toContain(uniqueDescription);
+    expect(prepared.questions.expected_1.instructions).toContain(uniqueDescription);
+    expect(prepared.questions.support_1.instructions).toContain(uniqueDescription);
+    expect(prepared.questions.expected_2.instructions).toContain('La flèche suit le trajet enseigné.');
+    expect(Object.keys(prepared.questions)).toEqual([
+      'alignment', 'expected_1', 'support_1', 'expected_2', 'support_2',
+    ]);
+    // Visual decision requests have a separate context and are not altered.
+    const visual = prepareSystemOneRubric({
+      criteria: [detailed], question: 'Vérifier le schéma scientifique',
+      transcription: '', visualEvidence: true,
+    });
+    expect(Object.keys(visual.questions)).toEqual(['alignment', 'expected_1', 'expected_2']);
+    expect(visual.state).toContain('ÉVALUATION EXPÉRIMENTALE');
+  });
+
   it('reuses all explicitly weighted multiline teacher expectations without creating implicit weights', () => {
     const complex: RubricCriterion = {
       id: 'methods', title: 'Matière & Méthodes', maxPoints: 2,
