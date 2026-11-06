@@ -166,6 +166,12 @@ export function createBackgroundCorrectionService(
     }
   }
 
+  async function readStoredJob(id: string): Promise<BackgroundCorrectionJob | null> {
+    return repository.getJob
+      ? repository.getJob(id)
+      : (await repository.listJobs()).find((job) => job.id === id) ?? null;
+  }
+
   async function persist(job: BackgroundCorrectionJob): Promise<void> {
     await repository.saveJob(job);
     await notifySubscribers();
@@ -250,10 +256,11 @@ export function createBackgroundCorrectionService(
     activeLoopAssignmentId = assignmentId;
     activeLoop = (async () => {
       while (!paused && !foregroundPriority) {
-        const jobs = await repository.listJobs(assignmentId);
-        const job = jobs
-          .filter((candidate) => candidate.status === 'pending' || candidate.status === 'processing')
-          .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
+        const job = repository.getNextPendingJob
+          ? await repository.getNextPendingJob(assignmentId)
+          : (await repository.listJobs(assignmentId))
+            .filter((candidate) => candidate.status === 'pending' || candidate.status === 'processing')
+            .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
         if (!job) break;
         // Keep model configuration fresh within this assignment only. A queued
         // copy from a different devoir must not override its settings.
@@ -542,9 +549,7 @@ export function createBackgroundCorrectionService(
     },
     listJobs: (assignmentId) => listWithIdentifiedLabels(assignmentId),
     listJobOverviews: (assignmentId) => listOverviewJobs(assignmentId),
-    getJob: async (id) => repository.getJob
-      ? repository.getJob(id)
-      : (await repository.listJobs()).find((job) => job.id === id) ?? null,
+    getJob: (id) => readStoredJob(id),
     listJobSummaries: async (assignmentId) => (await listOverviewJobs(assignmentId)).map(toBackgroundJobSummary),
     async prewarm(settings) {
       // A remote OpenAI-compatible endpoint must not receive background generation
@@ -643,7 +648,7 @@ export function createBackgroundCorrectionService(
     subscribeOverviews(listener) { overviewListeners.add(listener); return () => overviewListeners.delete(listener); },
     subscribeSummaries(listener) { summaryListeners.add(listener); return () => summaryListeners.delete(listener); },
     async updateImages(jobId, images, rotationAngles, settings) {
-      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      const job = await readStoredJob(jobId);
       if (!job) throw new Error('Cette copie n’existe plus dans la file de correction.');
       if (job.status === 'processing' && !paused) throw new Error('Attendez la fin du traitement avant de réorienter cette copie.');
       if (job.status === 'completed') throw new Error('Une copie archivée ne peut plus être réorientée.');
@@ -676,11 +681,11 @@ export function createBackgroundCorrectionService(
       }
     },
     async markForReview(jobId) {
-      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      const job = await readStoredJob(jobId);
       if (job) await persist({ ...job, status: 'reviewing', updatedAt: new Date().toISOString() });
     },
     async saveReviewDraft(jobId, reviewDraft, teacherQuestionsDraft) {
-      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      const job = await readStoredJob(jobId);
       if (job) await persist({
         ...job,
         reviewDraft: structuredClone(reviewDraft ?? []),
@@ -689,7 +694,7 @@ export function createBackgroundCorrectionService(
       });
     },
     async remove(jobId) {
-      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      const job = await readStoredJob(jobId);
       if (!job) return;
       if (job.status === 'processing') throw new Error('Cette copie est en cours de correction et ne peut pas être supprimée maintenant.');
       if (job.status === 'completed') throw new Error('Une correction archivée ne peut pas être retirée depuis la file de copies.');
@@ -697,11 +702,11 @@ export function createBackgroundCorrectionService(
       await notifySubscribers();
     },
     async markCompleted(jobId) {
-      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      const job = await readStoredJob(jobId);
       if (job) await persist({ ...job, status: 'completed', updatedAt: new Date().toISOString() });
     },
     async retry(jobId, settings) {
-      const job = (await repository.listJobs()).find((item) => item.id === jobId);
+      const job = await readStoredJob(jobId);
       if (!job || !['failed', 'needs-review', 'reviewing'].includes(job.status)) return;
       await persist({
         ...job,
@@ -730,8 +735,10 @@ export function createBackgroundCorrectionService(
       // before this job was persisted as pending. Re-check after the joined loop
       // settles so the retry cannot remain pending without a generation request.
       if (!paused && !foregroundPriority) {
-        const remainingJobs = await repository.listJobs(job.assignmentId);
-        if (remainingJobs.some((item) => item.status === 'pending' || item.status === 'processing')) {
+        const remaining = repository.getNextPendingJob
+          ? await repository.getNextPendingJob(job.assignmentId)
+          : (await repository.listJobs(job.assignmentId)).find((item) => item.status === 'pending' || item.status === 'processing');
+        if (remaining) {
           await run(settings, job.assignmentId);
         }
       }
