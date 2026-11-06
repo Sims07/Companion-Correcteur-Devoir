@@ -140,3 +140,18 @@ justifications biologiques ou des preuves graphiques.
 - Les poids et seuils de revue restent expérimentaux ; une décision non signalée
   n'est pas une décision certifiée. La précision pédagogique n'est attestée
   qu'avec les références d'enseignants.
+
+## Réduction du contexte natif System One (novembre 2026)
+
+Les questions de l'API native sont indépendantes et portent chacune le titre,
+le contexte du critère parent, l'attendu et sa description propres au barème
+du professeur. Le contexte `state` du texte ne duplique plus l'ensemble des
+sous-critères : il conserve la liste des critères, la consigne et la transcription
+de l'étudiant. L'analyse visuelle n'est pas modifiée.
+
+Le nombre de décisions et leur vérification sémantique ne changent pas ;
+aucun seuil ni pondération pédagogique n'est supprimé. Cette optimisation de
+l'enveloppe est tracée en version 5 du prompt `decision.system-one`.
+Son effet sur les tokens, le temps CPU et les erreurs doit être mesuré sur
+le même protocole réel : une baisse de longueur JSON ne garantit pas une
+amélioration des décisions ni du temps de correction.
