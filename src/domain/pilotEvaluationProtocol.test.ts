@@ -4,7 +4,7 @@ import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './mod
 import { validateRubric } from './rubric.ts';
 import {
   PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC,
-  buildPilotReport, makePilotProfiles, summarizePilotResult,
+  buildPilotReport, isLocalPilotProfile, makePilotProfiles, summarizePilotResult,
 } from './pilotEvaluationProtocol.ts';
 
 function resultFor(caseId: 'A' | 'B' | 'C', override?: Record<string, number>): ModelEvaluationResultSnapshot {
@@ -83,6 +83,15 @@ describe('protocole pilote de biologie', () => {
     expect(profiles.every((item) => item.configuration.endpoint === 'http://localhost:11434' &&
       item.configuration.apiKey === '' && item.configuration.apiCompatible === false)).toBe(true);
     expect(makePilotProfiles('http://127.0.0.1:11434', 'now')[0]!.configuration.endpoint).toBe('http://127.0.0.1:11434');
+  });
+
+  it('blocks any changed pilot profile that points outside local Ollama, even after preparation', () => {
+    const original = makePilotProfiles('http://localhost:11434', 'now')[0]!;
+    expect(isLocalPilotProfile(original)).toBe(true);
+    expect(isLocalPilotProfile({ ...original, configuration: { ...original.configuration, endpoint: 'https://ai.example/v1' } })).toBe(false);
+    expect(isLocalPilotProfile({ ...original, configuration: { ...original.configuration, apiCompatible: true } })).toBe(false);
+    expect(isLocalPilotProfile({ ...original, configuration: { ...original.configuration, apiKey: 'secret' } })).toBe(false);
+    expect(isLocalPilotProfile({ ...original, configuration: { ...original.configuration, endpoint: 'http://127.0.0.1.evil.example:11434' } })).toBe(false);
   });
 
   it('detects keyword-only false positives on scientifically inverted answers', () => {
