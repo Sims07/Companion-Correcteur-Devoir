@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createOllamaProvider } from '../../../src/adapters/ai/ollamaProvider.ts';
 import { parseGradingProposal } from '../../../src/domain/grading.ts';
+import { PILOT_CASES, PILOT_RUBRIC } from '../../../src/domain/pilotEvaluationProtocol.ts';
 import type { Rubric } from '../../../src/domain/rubric.ts';
 
 const rubric: Rubric = {
@@ -44,6 +45,44 @@ describe('native Ollama System One routing', () => {
     expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({model:'d3:4b',promptTokens:295,requestMetadata:expect.objectContaining({stream:false})}));
     expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({status:'completed'}));
   });
+  it('sends TEV1 the isolated subcriterion prompts and preserves the pilot partial grade', async () => {
+    const testCase = PILOT_CASES[2]!;
+    const answers: Record<string, ReturnType<typeof answer>> = { alignment: answer('aligned') };
+    PILOT_RUBRIC.criteria.forEach((criterion, i) => criterion.subcriteria?.forEach((item, j) => {
+      const prefix = 'criterion_' + (i + 1) + '_';
+      const demonstrated = testCase.presentSubcriteria.includes(item.id);
+      answers[prefix + 'expected_' + (j + 1)] = answer(demonstrated ? 'present' : 'absent');
+      answers[prefix + 'support_' + (j + 1)] = answer(demonstrated ? 'supported' : 'not_demonstrated');
+    }));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(
+      JSON.stringify({ model: 'tev1:4b', answers, usage: { input_tokens: 1200, output_tokens: 0 } }),
+      { status: 200 },
+    ));
+    const diagnostic = vi.fn();
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'qwen3.5:4b', analysisModel: 'tev1:4b',
+      correctionMethod: 'decision',
+    }, fetchMock);
+    const raw = await provider.generate({
+      question: 'Biologie', rubric: JSON.stringify(PILOT_RUBRIC),
+      transcription: testCase.transcription,
+    }, undefined, undefined, undefined, diagnostic);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![0]).toBe('http://localhost:11434/v1/systemone');
+    const payload = JSON.parse(String(fetchMock.mock.calls[0]![1]?.body));
+    expect(Object.keys(payload.questions)).toHaveLength(21);
+    expect(payload.questions.criterion_2_expected_1.instructions).not.toContain(PILOT_RUBRIC.criteria[1]!.description);
+    expect(payload.questions.criterion_4_support_1.instructions).not.toContain(PILOT_RUBRIC.criteria[3]!.description);
+    expect(payload.questions.criterion_4_support_1.criteria).toHaveProperty('contradicted');
+    expect(payload.state).toContain(PILOT_RUBRIC.criteria[1]!.description);
+    const parsed = parseGradingProposal(raw, PILOT_RUBRIC);
+    expect(parsed.criteria.map((item) => item.points)).toEqual([2, 1, 1, 1, 0]);
+    expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({
+      model: 'tev1:4b', promptId: 'decision.system-one', promptVersion: 6,
+      promptTokens: 1200, generatedTokens: 0,
+    }));
+  });
+
   it('routes pplx-decider-flash through native System One, not the decision chat fallback', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(JSON.stringify({ ...envelope('aligned'), model: 'pplx-decider-flash:4b' }), { status: 200 }),
