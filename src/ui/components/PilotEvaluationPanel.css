@@ -66,11 +66,4 @@
 .pilot-evaluation-parallel h4 { margin: 0; }
 .pilot-evaluation-parallel small { color: var(--ds-color-text-muted); line-height: 1.5; }
 .pilot-evaluation-parallel .pilot-evaluation-actions { align-items: center; }
-.pilot-evaluation-parallel select {
-  min-width: 160px;
-  color: var(--ds-color-text);
-  background: var(--ds-color-surface);
-  border: 1px solid var(--ds-color-border);
-  border-radius: var(--ds-radius-sm);
-  padding: var(--ds-space-2) var(--ds-space-3);
-}
+.pilot-evaluation-parallel .design-system-select { min-width: 160px; }
