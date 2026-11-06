@@ -50,7 +50,7 @@ import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluatio
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotProfile, makePilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
-import { unloadPilotOllamaModels } from '../adapters/ai/pilotOllamaMemory.ts';
+import type { PilotModelMemoryRelease } from '../ports/pilotModelMemory.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { NetworkInspector } from './NetworkInspector.tsx';
 import { DeveloperToolsNavigation, type DeveloperTool } from './DeveloperToolsNavigation.tsx';
@@ -306,7 +306,7 @@ function getLocalMemoryCorrectionId(): string | null {
   }
 }
 
-export function App({ service, archiveService, evaluationService, backgroundCorrectionService, diagramAnalysisService, loadSalukiModel, storageDiagnosticsService }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; backgroundCorrectionService?: BackgroundCorrectionService; diagramAnalysisService: ScientificDiagramAnalysisService; storageDiagnosticsService?: StorageDiagnosticsService; loadSalukiModel: (settings: { endpoint: string; apiKey: string }) => Promise<void> }) {
+export function App({ service, archiveService, evaluationService, backgroundCorrectionService, diagramAnalysisService, loadSalukiModel, storageDiagnosticsService, releasePilotModels }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; backgroundCorrectionService?: BackgroundCorrectionService; diagramAnalysisService: ScientificDiagramAnalysisService; storageDiagnosticsService?: StorageDiagnosticsService; loadSalukiModel: (settings: { endpoint: string; apiKey: string }) => Promise<void>; releasePilotModels?: PilotModelMemoryRelease }) {
   const backgroundService: BackgroundCorrectionService = backgroundCorrectionService ?? {
     enqueue: async () => undefined,
     updateImages: async () => undefined,
@@ -1447,7 +1447,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       ...(options ? { onConfigurationSettled: async (configuration: ModelEvaluationConfiguration) => {
         setPilotMessage('Libération de la mémoire Ollama après « ' + configuration.name + ' »…');
         try {
-          const released = await unloadPilotOllamaModels(configuration, runStage === 'analysis' ? 'analysis' : 'integrated');
+          if (!releasePilotModels) throw new Error('Gestionnaire de mémoire Ollama indisponible.');
+          const released = await releasePilotModels(configuration, runStage === 'analysis' ? 'analysis' : 'integrated');
           setPilotMessage(released.length
             ? 'Mémoire libérée : ' + released.join(', ') + '. Préparation du profil suivant.'
             : 'Aucun modèle de « ' + configuration.name + ' » encore chargé ; suite du protocole.');
@@ -1648,6 +1649,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const profiles = aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)
       && ['pilot-biology-qwen', 'pilot-biology-d1', 'pilot-biology-tev'].includes(profile.id));
     if (!profiles.length) { setPilotMessage('Sélectionnez au moins un des trois profils du protocole.'); return; }
+    if (!releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : protocole bloqué pour éviter de saturer la RAM.'); return; }
     if (profiles.some((profile) => !isLocalPilotProfile(profile))) { setPilotMessage('Ce protocole exige Ollama local sans clé API. Réinitialisez les profils du pilote avant de relancer.'); return; }
     if (stage === 'integrated' && PILOT_CASES.some((testCase) => !pilotImages[testCase.id]?.length)) {
       setPilotMessage('Ajoutez les photos des copies A, B et C avant de lancer le parcours complet.');
