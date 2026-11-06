@@ -1,3 +1,4 @@
+import { parseCorrectionContract } from './questionContract.ts';
 import { getRubricSubcriteria, validateRubric, type Rubric, type RubricCriterion } from './rubric.ts';
 import { RUBRIC_EXPORT_FORMAT, RUBRIC_EXPORT_VERSION, type RubricExportV1 } from './rubricExport.ts';
 
@@ -21,7 +22,7 @@ export function parseRubricImport(value: unknown): RubricExportV1 {
    if (!isRecord(sub) || typeof sub.id !== 'string' || !sub.id.trim() || typeof sub.title !== 'string' || !sub.title.trim() || typeof sub.description !== 'string' || typeof sub.maxPoints !== 'number' || !Number.isFinite(sub.maxPoints)) throw new Error(`Le sous-critère n°${subIndex + 1} du critère « ${raw.title} » est invalide.`);
    return { id: sub.id, title: sub.title, description: sub.description, maxPoints: sub.maxPoints };
   });
-  const criterion: RubricCriterion = { id: raw.id, title: raw.title, description: raw.description, maxPoints: raw.maxPoints, ...(raw.analysisMode ? { analysisMode: raw.analysisMode } : {}), ...(subcriteria ? { subcriteria } : {}) };
+  const criterion: RubricCriterion = { id: raw.id, title: raw.title, description: raw.description, maxPoints: raw.maxPoints, ...(raw.correctionContract !== undefined ? { correctionContract: parseCorrectionContract(raw.correctionContract) } : {}), ...(raw.analysisMode ? { analysisMode: raw.analysisMode } : {}), ...(subcriteria ? { subcriteria } : {}) };
   const validation = validateRubric({ title: 'Import', criteria: [criterion] });
   if (!validation.valid) throw new Error(`Le critère « ${criterion.title} » ne peut pas être importé : ${validation.errors.join(' ')}`);
   return criterion;
@@ -32,7 +33,7 @@ export function parseRubricImport(value: unknown): RubricExportV1 {
 }
 function normalizedTitle(value: string): string { return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr-FR').replace(/[^a-z0-9]+/g, ' ').trim(); }
 function comparableCriterion(criterion: RubricCriterion): Omit<RubricCriterion, 'id'> {
- return { title: normalizedTitle(criterion.title), description: criterion.description.trim(), maxPoints: criterion.maxPoints, ...(criterion.analysisMode ? { analysisMode: criterion.analysisMode } : {}), subcriteria: getRubricSubcriteria(criterion).map((item) => ({ ...item, title: item.title.trim(), description: item.description.trim() })) };
+ return { title: normalizedTitle(criterion.title), description: criterion.description.trim(), maxPoints: criterion.maxPoints, ...(criterion.correctionContract ? { correctionContract: criterion.correctionContract } : {}), ...(criterion.analysisMode ? { analysisMode: criterion.analysisMode } : {}), subcriteria: getRubricSubcriteria(criterion).map((item) => ({ ...item, title: item.title.trim(), description: item.description.trim() })) };
 }
 function sameContent(left: RubricCriterion, right: RubricCriterion): boolean { return JSON.stringify(comparableCriterion(left)) === JSON.stringify(comparableCriterion(right)); }
 

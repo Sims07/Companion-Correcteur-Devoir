@@ -1,3 +1,4 @@
+import { parseCorrectionContract } from '../../domain/questionContract.ts';
 import { readSheet } from 'read-excel-file/browser';
 import { validateRubric, type Rubric, type RubricCriterion } from '../../domain/rubric.ts';
 import type { ImportedRubric } from '../../ports/correctionWorkspace.ts';
@@ -47,6 +48,7 @@ function rubricFromJson(value: unknown, fileName: string): ImportedRubric {
       id: String(criterion.id ?? slugify(title, index)), title,
       description: String(criterion.description ?? criterion.attendus ?? criterion.details ?? ''), maxPoints: points,
       ...(analysisMode ? { analysisMode } : {}),
+      ...(criterion.correctionContract !== undefined ? { correctionContract: parseCorrectionContract(criterion.correctionContract) } : {}),
       ...(subcriteria ? { subcriteria } : expectedElements ? { subcriteria: expectedElements } : {}),
     };
   });

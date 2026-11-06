@@ -1,3 +1,4 @@
+import { parseCorrectionContract, type CorrectionContract } from './questionContract.ts';
 import { sumGradeScores } from './scorePrecision.ts';
 
 export interface RubricSubcriterion {
@@ -8,6 +9,7 @@ export interface RubricSubcriterion {
 }
 
 export interface RubricCriterion {
+  correctionContract?: CorrectionContract;
   id: string;
   title: string;
   description: string;
@@ -50,6 +52,7 @@ export function rubricEvaluationSignature(rubric: Rubric): string {
       description: criterion.description,
       maxPoints: criterion.maxPoints,
       analysisMode: criterion.analysisMode ?? 'text',
+      ...(criterion.correctionContract ? { correctionContract: criterion.correctionContract } : {}),
       subcriteria: getRubricSubcriteria(criterion).map(({ id, title, description, maxPoints }) =>
         ({ id, title, description, maxPoints })),
     })),
@@ -62,6 +65,8 @@ export function validateRubric(rubric: Rubric): RubricValidation {
   if (!rubric.title.trim()) errors.push('Le barème doit avoir un titre.');
   if (rubric.criteria.length === 0) errors.push('Ajoutez au moins un critère.');
   for (const criterion of rubric.criteria) {
+    try { parseCorrectionContract(criterion.correctionContract); } catch (error) { errors.push(String(error)); }
+    if (criterion.correctionContract && criterion.analysisMode === 'scientific-diagram') errors.push('Le contrat par question est réservé aux critères textuels.');
     if (!criterion.id.trim()) errors.push('Chaque critère doit avoir un identifiant.');
     else if (ids.has(criterion.id)) errors.push(`Identifiant de critère dupliqué : ${criterion.id}`);
     ids.add(criterion.id);
