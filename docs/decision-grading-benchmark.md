@@ -174,9 +174,10 @@ l'autre et déchargés entre profils.
   requête**. La variante « un appel par critère » peut y être moins efficace
   que la méthode native. Comparer uniquement la concurrence *à architecture
   d'appels identique* ; ne pas assimiler ce benchmark à la correction réelle.
-- Le premier niveau peut inclure le chargement du modèle. L'ordre constant
-  1 → 2 → 4, la mise en cache et l'absence de répétitions peuvent biaiser
-  les résultats. Répéter sur des copies variées avant une décision produit.
+- Un appel initial de préchauffage est réalisé **hors chronométrage** par profil
+  pour limiter le biais du chargement à froid. L'ordre constant 1 → 2 → 4,
+  la mise en cache et l'absence de répétitions peuvent encore biaiser les
+  résultats. Répéter sur des copies variées avant une décision produit.
 - Les navigateurs ne peuvent pas mesurer directement le pic RAM du processus
   Ollama sur macOS. Pour cette mesure, relever en parallèle le Moniteur
   d'activité. L'export JSON omet photos, textes des copies, prompts, corps
