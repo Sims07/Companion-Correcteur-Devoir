@@ -7,6 +7,7 @@ test('the guided biology protocol provisions three local profiles and runs indep
 
   const panel = page.getByRole('region', { name: 'Protocole de test guidé' });
   await expect(panel.getByRole('heading', { name: 'Protocole de test — 3 copies de biologie' })).toBeVisible();
+  const assignmentsBefore = await page.evaluate(() => localStorage.getItem('companion-correcteur:assignments:v1'));
   await panel.getByRole('button', { name: 'Préparer le protocole en un clic' }).click();
 
   await expect(panel.getByText('A — correcte')).toBeVisible();
@@ -31,5 +32,6 @@ test('the guided biology protocol provisions three local profiles and runs indep
     profile.configuration.apiKey === '' && profile.configuration.endpoint === 'http://localhost:11434')).toBe(true);
 
   // The pilot is isolated: the main teacher/editor rubric remains the original example.
-  await expect(page.getByText('Barème de biologie — exemple').first()).toBeVisible();
+  const assignmentsAfter = await page.evaluate(() => localStorage.getItem('companion-correcteur:assignments:v1'));
+  expect(assignmentsAfter).toBe(assignmentsBefore);
 });
