@@ -50,6 +50,22 @@ describe('benchmark de concurrence sur les critères', () => {
     }
   });
 
+  it('warms once before measurements without charging that call to any sample', async () => {
+    let calls = 0;
+    const samples = await runPilotCriterionConcurrency({
+      testCase: PILOT_CASES[0]!,
+      warmup: true,
+      executeCriterion: async (criterion) => {
+        calls += 1;
+        if (calls === 1) throw new Error('Premier chargement indisponible');
+        return measure(criterion, 'A');
+      },
+    });
+    expect(calls).toBe(16);
+    expect(samples.map((sample) => sample.completed)).toEqual([5, 5, 5]);
+    expect(samples.map((sample) => sample.totalTokens)).toEqual([100, 100, 100]);
+  });
+
   it('never treats failed or unknown criteria as zeros or a complete score', async () => {
     const samples = await runPilotCriterionConcurrency({
       testCase: PILOT_CASES[2]!,
