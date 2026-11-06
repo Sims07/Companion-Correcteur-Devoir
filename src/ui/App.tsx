@@ -1837,8 +1837,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           await service.checkReady({
             endpoint: config.endpoint, apiCompatible: false, model: config.analysisModel,
           });
+          setPilotMessage('Préchauffage local de « ' + profile.name + ' » (non chronométré)…');
           const samples = await runPilotCriterionConcurrency({
-            testCase,
+            testCase, warmup: true,
             isStopped: () => pilotStopRef.current,
             onProgress: (level, done, total) => setPilotMessage(
               profile.name + ' · ' + level + ' requête(s) simultanée(s) · ' + done + '/' + total + ' critère(s) terminés.'),
