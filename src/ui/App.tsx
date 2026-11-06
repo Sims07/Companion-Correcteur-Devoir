@@ -1,3 +1,4 @@
+import { QuestionContractEditor, QuestionScopePreview } from './components/QuestionContractEditor.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FilePicker } from './components/FilePicker.tsx';
 import type { ScientificDiagramAnalysisService } from '../application/scientificDiagramAnalysisService.ts';
@@ -3037,6 +3038,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         {evaluationStageMode === 'analysis' && <section className="evaluation-analysis-reference" aria-labelledby="evaluation-analysis-reference-title">
           <div><p className="eyebrow">SOURCE DE RÉFÉRENCE</p><h3 id="evaluation-analysis-reference-title">Transcription à noter</h3><p>Vérifiez et corrigez le texte une fois pour toutes : chaque modèle d’analyse recevra exactement cette même transcription, sans nouvelle lecture d’image.</p></div>
           <textarea aria-label="Transcription de référence pour l’évaluation de l’analyse" rows={8} value={transcription ?? ''} onChange={(event) => setTranscription(event.target.value)} placeholder="Lancez d’abord une évaluation Vision, ou collez ici une transcription déjà vérifiée…" />
+          <QuestionScopePreview criteria={rubric.criteria} transcription={transcription ?? ''} />
           <p className="evaluation-reference-meta">{transcription?.trim() ? `${transcription.trim().split(/\s+/).filter(Boolean).length} mots dans la transcription de référence` : 'Aucune transcription de référence pour le moment'}</p>
         </section>}
         <div className="evaluation-selection-block"><div className="evaluation-section-heading compact"><div><h3>Sélection pour cette expérience</h3><p>Choisissez une à trois configurations. Une seule suffit pour mesurer ses performances ; plusieurs permettent de comparer leurs résultats sur les mêmes pages et le même barème.</p></div><span aria-live="polite" className={selectedEvaluationProfileIds.length >= 1 ? 'evaluation-step-chip ready' : 'evaluation-step-chip'}>{selectedEvaluationProfileIds.length} / 3 sélectionnée(s)</span></div>
@@ -3524,7 +3526,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               <label><span className="field-label">Description / attendus</span><textarea rows={2} value={criterion.description} onChange={(event) => updateCriterion(criterion.id, { description: event.target.value })} /></label>
             </div>
             <label className="points-field"><span className="field-label">Points max.</span><input type="number" min="0" step="0.5" value={criterion.maxPoints} onChange={(event) => updateCriterion(criterion.id, { maxPoints: Number(event.target.value) })} /></label>
-            <label className="criterion-visual-toggle"><input type="checkbox" checked={partitionScientificRubric({ title: rubric.title, criteria: [criterion] }).diagramCriteria.length > 0} onChange={(event) => updateCriterion(criterion.id, { analysisMode: event.target.checked ? 'scientific-diagram' : 'text' })} /><span><strong>Analyse de schéma scientifique</strong><small>Évaluer ce critère sur l’image avec Vision, jamais sur la transcription.</small></span></label>
+            <label className="criterion-visual-toggle"><input type="checkbox" checked={partitionScientificRubric({ title: rubric.title, criteria: [criterion] }).diagramCriteria.length > 0} onChange={(event) => updateCriterion(criterion.id, { analysisMode: event.target.checked ? 'scientific-diagram' : 'text', ...(event.target.checked ? { correctionContract: undefined } : {}) })} /><span><strong>Analyse de schéma scientifique</strong><small>Évaluer ce critère sur l’image avec Vision, jamais sur la transcription.</small></span></label>
+            <QuestionContractEditor criterion={criterion} onChange={(patch) => updateCriterion(criterion.id, patch)} />
             <div className="subcriteria-editor">
               <strong>Sous-critères (facultatifs)</strong>
               <SubcriteriaSuggestionPanel criterion={criterion} onApply={(patch) => updateCriterion(criterion.id, patch)} />
@@ -3926,6 +3929,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             {transcription && <section className="transcription-text-block">
               <h3>Texte de la copie étudiante</h3>
               <pre>{transcription}</pre>
+              <QuestionScopePreview criteria={rubric.criteria} transcription={transcription} />
             </section>}
           </div>
         </details>

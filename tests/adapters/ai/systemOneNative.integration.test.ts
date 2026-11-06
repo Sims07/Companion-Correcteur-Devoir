@@ -113,7 +113,7 @@ describe('native Ollama System One routing', () => {
     const parsed = parseGradingProposal(raw, PILOT_RUBRIC);
     expect(parsed.criteria.map((item) => item.points)).toEqual([2, 1, 1, 1, 0]);
     expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({
-      model: 'tev1:4b', promptId: 'decision.system-one', promptVersion: 6,
+      model: 'tev1:4b', promptId: 'decision.system-one', promptVersion: 7,
       promptTokens: 1200, generatedTokens: 0,
     }));
   });

@@ -1,3 +1,4 @@
+import { contractContext } from './questionContract.ts';
 import type { CriterionProposal } from './grading.ts';
 import { getRubricSubcriteria, type RubricCriterion, type RubricSubcriterion } from './rubric.ts';
 import { suggestSubcriteriaFromDescription } from './rubricSubcriteriaSuggestion.ts';
@@ -81,8 +82,9 @@ export function separateStudentAnswer(transcription: string): StudentAnswerSecti
  * Repeating those expectations in shared state multiplies the native System One
  * prompt cost for every question without adding information to its decision. */
 function rubricOverview(criteria: RubricCriterion[]) {
-  return criteria.map(({ id, title, description }) => ({
+  return criteria.map(({ id, title, description, correctionContract }) => ({
     id, title, ...(description.trim() ? { description } : {}),
+    ...(correctionContract ? { contract: contractContext(correctionContract) } : {}),
   }));
 }
 
