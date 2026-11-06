@@ -187,3 +187,39 @@ l'autre et déchargés entre profils.
   réseau, endpoints et secrets.
 - Le bouton d'arrêt laisse terminer les requêtes déjà lancées. Aucune
   simultanéité n'est introduite dans la correction professeur.
+
+
+## Itération System One v6 : sous-critères autonomes (TEV1, D3, D1)
+
+Les résultats locaux du protocole A/B/C montrent que TEV1 et D3 peuvent répondre
+`partial` à un sous-critère pourtant explicitement satisfait dans la réponse C
+(par exemple « CO₂ utilisé » ou « Mitochondries »). Une hypothèse vérifiable est
+la répétition de la description **composite** du critère parent dans chacune
+des questions indépendantes : elle introduit involontairement des exigences
+supplémentaires dans un sous-critère individuel.
+
+La version 6 du prompt textuel System One :
+
+- isole l'attendu courant : la description complète du parent reste dans
+  l'état commun, mais n'est plus recopiée dans la question quand la description
+  du sous-critère est une phrase autonome et suffisamment explicite ;
+- conserve les détails du parent pour un sous-critère très court ou
+  insuffisamment décrit (afin de préserver le sens du barème enseignant) ;
+- raccourcit les instructions répétées de `expected` et `support` sans
+  supprimer le contrôle indépendant de la négation, du sujet, de l'action,
+  de l'objet et du sens scientifique ;
+- maintient `partial` comme réponse autorisée pour les attentes réellement
+  composites et **ne transforme jamais** une décision incertaine en points.
+
+Les prompts de Vision décisionnelle ne changent pas. Cette modification est
+générique : elle n'introduit aucune règle de score ni vocabulaire de biologie
+codé en dur. Les tests unitaires vérifient le cadrage, les variantes
+descriptives, la préservation des vrais `partial` et les négations.
+
+**À confirmer expérimentalement** : relancer exactement les trois cas A, B et
+C avec TEV1 4B, en gardant le même profil et la même version d'Ollama.
+Comparer au rapport v5 : nombre d'attendus résolus, faux positifs,
+faux négatifs, durée et `input_tokens`. Le but est de diminuer les
+vérifications inutiles sur C **sans** dégrader le 0/10 de la copie B.
+Une baisse de tokens ou d'incertitudes n'est pas encore prouvée par les
+seuls tests automatisés ; elle dépendra des réponses réelles du modèle.

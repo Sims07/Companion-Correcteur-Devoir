@@ -20,7 +20,7 @@ export const PROMPT_REVISIONS = {
   'grading.arbitration-repair': 1,
   'decision.chat': 1,
   'decision.chat-repair': 1,
-  'decision.system-one': 5,
+  'decision.system-one': 6,
   'decision.system-one-visual': 3,
   'diagram.page-classification': 1,
   'diagram.scientific-analysis': 4,
