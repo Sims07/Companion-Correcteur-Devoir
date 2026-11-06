@@ -48,7 +48,7 @@ import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision 
 import { buildLocalDecisionBenchmark } from '../domain/localDecisionBenchmark.ts';
 import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluationScores, visualChoiceLabels } from '../domain/visualDecisionEvaluation.ts';
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
-import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotProfile, makePilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
+import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import type { PilotModelMemoryRelease } from '../ports/pilotModelMemory.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
@@ -405,7 +405,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationArchiveStatus, setEvaluationArchiveStatus] = useState<'idle' | 'saving' | 'saved' | 'without-images' | 'failed'>('idle');
   const [evaluationArchiveError, setEvaluationArchiveError] = useState('');
   const [pendingEvaluationArchive, setPendingEvaluationArchive] = useState<ModelEvaluationRecord | null>(null);
-  const selectedEvaluationProfiles = aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
+  const selectedEvaluationProfiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
   const visibleEvaluationHistoryRecords = savedModelEvaluations.filter((record) => evaluationHistoryStageFilter === 'all' || getModelEvaluationStage(record) === evaluationHistoryStageFilter);
   const selectedEvaluationHistoryRecords = visibleEvaluationHistoryRecords.filter((record) => selectedEvaluationHistoryIds.includes(record.id));
   const evaluationCancelledRef = useRef(false);
@@ -1718,19 +1718,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   function preparePilotProtocol() {
     if (busy || pilotBusy) return;
-    const profiles = makePilotProfiles(endpoint, new Date().toISOString());
-    const next = profiles.reduce((current, profile) => upsertAiModelProfile(current, profile), aiModelProfiles);
-    setAiModelProfiles(next);
-    setSelectedEvaluationProfileIds(profiles.map((profile) => profile.id));
     setPilotEnabled(true);
     setPilotRuns([]);
     setPilotImages({});
-    setPilotMessage('Prêt : barème de test isolé, trois textes de référence et profils locaux configurés. Lancez les analyses ou ajoutez trois photos.');
+    setPilotMessage('Prêt : barème isolé et trois textes de référence. Utilisez les configurations sélectionnées dans « Configurations à exécuter » ci-dessous, ou sélectionnez-en de nouvelles.');
     setPilotCurrentCase(null);
     setEvaluationStageMode('analysis');
     setEvaluationVisualDirect(false);
-    try { window.localStorage.setItem(aiModelProfilesKey, JSON.stringify(next)); }
-    catch { setPilotMessage('Protocole préparé pour cette session, mais les profils n’ont pas pu être sauvegardés dans ce navigateur.'); }
   }
 
   async function uploadPilotImages(caseId: PilotCase['id'], files: FileList | null) {
@@ -1747,11 +1741,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   async function runPilotProtocol(stage: 'analysis' | 'integrated') {
     if (!pilotEnabled || pilotBusy || busy || pilotUploadingCase) return;
-    const profiles = aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)
-      && ['pilot-biology-qwen', 'pilot-biology-d1', 'pilot-biology-tev'].includes(profile.id));
-    if (!profiles.length) { setPilotMessage('Sélectionnez au moins un des trois profils du protocole.'); return; }
+    const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+    const selectionIssue = pilotSelectionIssue(profiles, stage);
+    if (selectionIssue) { setPilotMessage(selectionIssue); return; }
     if (!releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : protocole bloqué pour éviter de saturer la RAM.'); return; }
-    if (profiles.some((profile) => !isLocalPilotProfile(profile))) { setPilotMessage('Ce protocole exige Ollama local sans clé API. Réinitialisez les profils du pilote avant de relancer.'); return; }
     if (stage === 'integrated' && PILOT_CASES.some((testCase) => !pilotImages[testCase.id]?.length)) {
       setPilotMessage('Ajoutez les photos des copies A, B et C avant de lancer le parcours complet.');
       return;
@@ -2859,7 +2852,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}
           message={pilotMessage} runs={pilotRuns}
           imageCounts={Object.fromEntries(Object.entries(pilotImages).map(([caseId, pages]) => [caseId, pages.length]))}
-          selectedProfiles={aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id) && profile.id.startsWith('pilot-biology-')).length}
+          selectedProfiles={selectedEvaluationProfiles}
           onPrepare={preparePilotProtocol}
           onUpload={(caseId, files) => { void uploadPilotImages(caseId, files); }}
           onRun={(mode) => { void runPilotProtocol(mode); }}
@@ -2896,7 +2889,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <p className="evaluation-reference-meta">{transcription?.trim() ? `${transcription.trim().split(/\s+/).filter(Boolean).length} mots dans la transcription de référence` : 'Aucune transcription de référence pour le moment'}</p>
         </section>}
         <div className="evaluation-selection-block"><div className="evaluation-section-heading compact"><div><h3>Sélection pour cette expérience</h3><p>Choisissez une à trois configurations. Une seule suffit pour mesurer ses performances ; plusieurs permettent de comparer leurs résultats sur les mêmes pages et le même barème.</p></div><span aria-live="polite" className={selectedEvaluationProfileIds.length >= 1 ? 'evaluation-step-chip ready' : 'evaluation-step-chip'}>{selectedEvaluationProfileIds.length} / 3 sélectionnée(s)</span></div>
-          {aiModelProfiles.length < 1 ? <div className="evaluation-empty-inline"><strong>Aucune configuration enregistrée.</strong><p>Créez un profil ci-dessus pour pouvoir lancer une première évaluation.</p></div> : <fieldset className="evaluation-profile-list" aria-describedby="evaluation-profile-selection-help"><legend>Configurations à exécuter</legend><p id="evaluation-profile-selection-help" className="evaluation-selection-help">La même copie sera relue et notée par chaque configuration. L’ordre reste séquentiel pour limiter la mémoire utilisée par Ollama.</p><div className="evaluation-profile-options">{aiModelProfiles.map((profile) => { const selected = selectedEvaluationProfileIds.includes(profile.id); const disabled = busy || (!selected && selectedEvaluationProfileIds.length >= 3); return <label key={profile.id} className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}><input className="evaluation-profile-checkbox" type="checkbox" checked={selected} disabled={disabled} onChange={(event) => setSelectedEvaluationProfileIds((current) => event.target.checked ? [...current, profile.id].slice(-3) : current.filter((id) => id !== profile.id))} /><span className="evaluation-profile-card-content"><strong>{profile.name}</strong><span className="evaluation-profile-models"><span><small>LECTURE</small><b>{profile.configuration.visionModel || 'Modèle non défini'}</b></span><span><small>ANALYSE</small><b>{profile.configuration.analysisModel || 'Modèle non défini'}</b></span></span>{profile.configuration.analysisThinking && <span className="evaluation-profile-thinking">Thinking activé</span>}</span><span className="evaluation-profile-selection-mark" aria-hidden="true">{selected ? '✓' : '+'}</span></label>; })}</div></fieldset>}
+          {aiModelProfiles.length < 1 ? <div className="evaluation-empty-inline"><strong>Aucune configuration enregistrée.</strong><p>Créez un profil ci-dessus pour pouvoir lancer une première évaluation.</p></div> : <fieldset className="evaluation-profile-list" aria-describedby="evaluation-profile-selection-help"><legend>Configurations à exécuter</legend><p id="evaluation-profile-selection-help" className="evaluation-selection-help">La même copie sera relue et notée par chaque configuration. L’ordre reste séquentiel pour limiter la mémoire utilisée par Ollama.</p><div className="evaluation-profile-options">{aiModelProfiles.map((profile) => { const selected = selectedEvaluationProfileIds.includes(profile.id); const disabled = busy || pilotBusy || (!selected && selectedEvaluationProfileIds.length >= 3); return <label key={profile.id} className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}><input className="evaluation-profile-checkbox" type="checkbox" checked={selected} disabled={disabled} onChange={(event) => setSelectedEvaluationProfileIds((current) => event.target.checked ? [...current, profile.id].slice(-3) : current.filter((id) => id !== profile.id))} /><span className="evaluation-profile-card-content"><strong>{profile.name}</strong><span className="evaluation-profile-models"><span><small>LECTURE</small><b>{profile.configuration.visionModel || 'Modèle non défini'}</b></span><span><small>ANALYSE</small><b>{profile.configuration.analysisModel || 'Modèle non défini'}</b></span></span>{profile.configuration.analysisThinking && <span className="evaluation-profile-thinking">Thinking activé</span>}</span><span className="evaluation-profile-selection-mark" aria-hidden="true">{selected ? '✓' : '+'}</span></label>; })}</div></fieldset>}
         </div>
       </section>}
       {(interfaceMode as string) === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
