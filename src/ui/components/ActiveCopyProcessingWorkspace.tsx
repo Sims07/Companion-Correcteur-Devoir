@@ -1,8 +1,11 @@
 import type { BackgroundCorrectionJob } from '../../domain/backgroundCorrection.ts';
+import type { ImageInput } from '../../ports/aiProvider.ts';
 import { BackgroundCopyActivity } from './BackgroundCopyActivity.tsx';
 
 interface Props {
   job: BackgroundCorrectionJob;
+  /** Full pages loaded for the selected copy; queue overviews intentionally exclude image bytes. */
+  pages?: ImageInput[];
   studentLabel?: string;
   onStopCorrections?: () => void;
   isStoppingCorrections?: boolean;
@@ -21,7 +24,10 @@ function phaseStatus(current: Phase, position: number): 'complete' | 'current' |
  * Teacher-facing processing state, designed as the in-progress counterpart to
  * Atelier B's evidence-first review screen. No copy image leaves the browser.
  */
-export function ActiveCopyProcessingWorkspace({ job, studentLabel, onStopCorrections, isStoppingCorrections = false }: Props) {
+export function ActiveCopyProcessingWorkspace({ job, pages, studentLabel, onStopCorrections, isStoppingCorrections = false }: Props) {
+  // Never render the empty base64 placeholders from IndexedDB queue overviews.
+  // The teacher workspace already loaded the selected copy's full pages on opening it.
+  const fullPages = pages ?? (job.imagesDeferred ? [] : job.images);
   const phase = job.phase;
   const currentTitle = phase === 'preparation' ? 'Préparation' : phase === 'reading' ? 'Lecture de la copie' : 'Correction des réponses';
   const phases = [
@@ -62,14 +68,19 @@ export function ActiveCopyProcessingWorkspace({ job, studentLabel, onStopCorrect
             <span>{job.images.length} page{job.images.length > 1 ? 's' : ''}</span>
           </div>
           <div className="atelier-processing-pages" aria-label="Pages de la copie en cours">
-            {job.images.map((image, index) => (
-              <figure className="atelier-processing-page" key={image.fileName + '-' + index}>
-                <div className="atelier-processing-page-stage">
-                  <img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page ${index + 1} de la copie en cours de correction`} loading={index === 0 ? 'eager' : 'lazy'} />
-                </div>
-                <figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption>
-              </figure>
-            ))}
+            {job.images.map((image, index) => {
+              const fullPage = fullPages[index];
+              return (
+                <figure className="atelier-processing-page" key={image.fileName + '-' + index}>
+                  <div className="atelier-processing-page-stage">
+                    {fullPage?.base64 ? (
+                      <img src={`data:${fullPage.mimeType};base64,${fullPage.base64}`} alt={`Page ${index + 1} de la copie en cours de correction`} loading={index === 0 ? 'eager' : 'lazy'} />
+                    ) : <p role="status">Chargement de la page {index + 1}…</p>}
+                  </div>
+                  <figcaption><span>PAGE {index + 1}</span><span>{image.fileName || `Page ${index + 1}`}</span></figcaption>
+                </figure>
+              );
+            })}
           </div>
         </section>
         <BackgroundCopyActivity job={job} />

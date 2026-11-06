@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { createBackgroundCorrection } from '../../../src/domain/backgroundCorrection.ts';
+import { createBackgroundCorrection, toBackgroundJobOverview } from '../../../src/domain/backgroundCorrection.ts';
 import { ActiveCopyProcessingWorkspace } from '../../../src/ui/components/ActiveCopyProcessingWorkspace.tsx';
 
 /**
@@ -61,5 +61,5 @@ export function mountActiveCorrectionVisualFixture(): void {
   document.body.appendChild(fixture);
   const container = fixture.querySelector<HTMLElement>('#atelier-processing-fixture-root');
   if (!container) throw new Error('Unable to mount the live processing fixture.');
-  createRoot(container).render(<ActiveCopyProcessingWorkspace job={job} studentLabel="Copie 1 - biologie cellulaire" />);
+  createRoot(container).render(<ActiveCopyProcessingWorkspace job={toBackgroundJobOverview(job)} pages={job.images} studentLabel="Copie 1 - biologie cellulaire" />);
 }

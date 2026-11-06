@@ -3796,7 +3796,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </section>}
 
       {currentBackgroundJobId && activeBackgroundJob?.status === 'processing' && interfaceMode === 'teacher' && teacherStep === 'review' && (
-        <ActiveCopyProcessingWorkspace job={activeBackgroundJob} studentLabel={studentLabel} onStopCorrections={() => { void stopCurrentOperations(); }} isStoppingCorrections={isStoppingOperation} />
+        <ActiveCopyProcessingWorkspace job={activeBackgroundJob} pages={images} studentLabel={studentLabel} onStopCorrections={() => { void stopCurrentOperations(); }} isStoppingCorrections={isStoppingOperation} />
       )}
 
       {error && <div className="error-banner" role="alert"><strong>Une action est nécessaire</strong><p>{error}</p></div>}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { createBackgroundCorrection } from '../../domain/backgroundCorrection.ts';
+import { createBackgroundCorrection, toBackgroundJobOverview } from '../../domain/backgroundCorrection.ts';
 import { ActiveCopyProcessingWorkspace } from './ActiveCopyProcessingWorkspace.tsx';
 
 const job = createBackgroundCorrection({
@@ -43,6 +43,22 @@ describe('Atelier B: correction en cours centrée sur la copie', () => {
     expect(markup).toContain('background-copy-activity');
     expect(markup).not.toContain('background-copy-progress');
     expect(markup).not.toContain('live-copy-preview');
+  });
+
+
+  it('renders selected full pages instead of empty queue placeholders after the memory optimization', () => {
+    const overview = toBackgroundJobOverview({ ...job, status: 'processing', phase: 'reading' });
+    expect(overview.images[0].base64).toBe('');
+    const markup = renderToStaticMarkup(<ActiveCopyProcessingWorkspace job={overview} pages={job.images} />);
+    expect(markup).toContain('data:image/png;base64,cGFnZTE=');
+    expect(markup).toContain('data:image/png;base64,cGFnZTI=');
+    expect(markup).not.toContain('Chargement de la page');
+
+    // A pending asynchronous page load must never produce a broken data URL.
+    const loading = renderToStaticMarkup(<ActiveCopyProcessingWorkspace job={overview} />);
+    expect(loading).toContain('Chargement de la page 1');
+    expect(loading).not.toContain('<img');
+    expect(loading).not.toContain('data:image/png;base64,');
   });
 
   it('marks exactly the current processing stage without inventing grades', () => {

@@ -8,11 +8,17 @@ describe('Atelier B : invariants du poste de correction pendant l’analyse', ()
   const css = read('src/ui/atelierBProcessing.css');
 
   it('uses one dedicated processing workspace rather than two stacked progress panels', () => {
-    expect(app).toContain('<ActiveCopyProcessingWorkspace job={activeBackgroundJob}');
+    expect(app).toContain('<ActiveCopyProcessingWorkspace job={activeBackgroundJob} pages={images}');
     expect(app).not.toContain('className="analysis-progress teacher-progress-card background-copy-progress"');
     expect(app).not.toContain('className="live-copy-preview panel background-copy-progress"');
     expect(app).toContain("activeBackgroundJob?.status !== 'processing'");
     expect(app).toContain("!(currentBackgroundJobId && activeBackgroundJob?.status === 'processing')");
+  });
+
+  it('loads full pages for the selected copy, never the deferred queue thumbnails', () => {
+    expect(app).toContain('setImages(structuredClone(next.images))');
+    expect(app).toContain('<ActiveCopyProcessingWorkspace job={activeBackgroundJob} pages={images}');
+    expect(app).toContain('const activeBackgroundJob = backgroundJobs.find(');
   });
 
   it('keeps a balanced, large image and flat cards', () => {

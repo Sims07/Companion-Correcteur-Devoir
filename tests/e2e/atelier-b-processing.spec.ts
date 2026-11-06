@@ -27,6 +27,10 @@ test('correction en cours : le vrai composant React respecte la maquette B', asy
   await expect(surface.getByRole('heading', { name: 'Correction en cours' })).toBeVisible();
   await expect(left).toBeVisible();
   await expect(right).toBeVisible();
+  // The queue overview deliberately contains blank base64 placeholders.
+  // The selected original must still decode rather than render a broken image icon.
+  await expect(surface.locator('.atelier-processing-page img')).toHaveJSProperty('complete', true);
+  expect(await surface.locator('.atelier-processing-page img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
   await expect(surface.getByRole('status')).toContainText('Correction des réponses');
   await expect(surface.locator('.background-copy-activity-criteria li.is-active')).toContainText('Titre');
   await expect(surface.getByRole('progressbar', { name: 'Critères du barème traités' })).toHaveAttribute('aria-valuenow', '1');
