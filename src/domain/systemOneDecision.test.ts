@@ -14,7 +14,11 @@ const answer = (choice: string) => ({
 describe('real System One decisions', () => {
   it('recognizes decision-only models without hijacking a classical chat model', () => {
     expect(isNativeDecisionModel('d3:4b')).toBe(true);
+    expect(isNativeDecisionModel('pplx-decider-flash:4b')).toBe(true);
+    expect(isNativeDecisionModel('pplx-decider:27b')).toBe(true);
+    expect(isNativeDecisionModel(' PPLX-DECIDER-FLASH:4B ')).toBe(true);
     expect(isNativeDecisionModel('qwen3.5:4b')).toBe(false);
+    expect(isNativeDecisionModel('pplx-decider-chat:4b')).toBe(false);
   });
   it('builds five separate one-point questions from the teacher-defined allocations', () => {
     expect(expectedDecisionTargets(rubric).map(x => x.maxPoints)).toEqual([1,1,1,1,1]);
