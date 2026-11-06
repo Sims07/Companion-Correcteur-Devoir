@@ -61,6 +61,8 @@ export interface PilotConcurrencyOptions {
   testCase: PilotCase;
   executeCriterion: (criterion: RubricCriterion) => Promise<PilotCriterionMeasurement>;
   isStopped?: () => boolean;
+  /** Prime the model outside all timed samples, to exclude cold-start bias. */
+  warmup?: boolean;
   onProgress?: (level: PilotConcurrencyLevel, completed: number, total: number) => void;
   now?: () => number;
 }
@@ -75,6 +77,10 @@ export async function runPilotCriterionConcurrency(options: PilotConcurrencyOpti
   const now = options.now ?? (() => performance.now());
   const stopped = options.isStopped ?? (() => false);
   const samples: PilotConcurrencySample[] = [];
+  if (options.warmup && !stopped()) {
+    try { await options.executeCriterion(criteria[0]!); }
+    catch { /* Report failures in the timed series; never declare a warmup failure a zero. */ }
+  }
 
   for (const concurrency of PILOT_CONCURRENCY_LEVELS) {
     if (stopped()) break;
