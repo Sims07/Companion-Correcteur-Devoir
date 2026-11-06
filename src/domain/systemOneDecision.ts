@@ -166,6 +166,26 @@ function visualExpectedQuestion(target: { title: string; description: string }):
   };
 }
 
+/**
+ * Independent closed question: the first decision may recognize vocabulary but miss
+ * a negation, inversion or a different subject. This asks for the FULL relation,
+ * with no biology-specific words or answer examples embedded in the prompt.
+ */
+function semanticSupportQuestion(target: { title: string; description: string }): SystemOneQuestion {
+  return {
+    type: 'choice',
+    instructions: 'Vérification indépendante de cet ATTENDU : ' + target.title
+      + (target.description ? '. ' + target.description : '')
+      + '. Lis la RÉPONSE étudiante (pas l’énoncé). Vérifie que la bonne entité accomplit la bonne action sur le bon objet, avec le bon sens causal et la bonne polarité (affirmation ou négation). Ne te contente jamais du vocabulaire présent, de la relation écrite dans le barème ou d’une autre phrase qui concerne un phénomène voisin. Choisis contradicted si la réponse affirme explicitement une relation INCOMPATIBLE avec cet attendu ; not_demonstrated si elle n’exprime pas la relation demandée, même si les mêmes mots apparaissent ; supported uniquement si la relation complète et correcte est affirmée par l’étudiant. Ne devine rien.',
+    criteria: {
+      supported: 'Une phrase de l’étudiant soutient explicitement la relation demandée et son sens exact.',
+      contradicted: 'L’étudiant contredit explicitement la relation attendue (négation, inversion, rôle ou sens erroné).',
+      not_demonstrated: 'La relation n’est pas démontrée dans la réponse étudiante ; les mots isolés ne suffisent pas.',
+      uncertain: 'La relation est ambiguë ou impossible à lire correctement.',
+    },
+  };
+}
+
 function expectedQuestion(target: { title: string; description: string }): SystemOneQuestion {
   return {
     type: 'choice',
@@ -204,7 +224,9 @@ function pointsScaleQuestion(criterion: RubricCriterion): SystemOneQuestion {
   };
 }
 
-function criterionQuestions(criterion: RubricCriterion, visualEvidence = false): Pick<SystemOnePrepared, 'questions' | 'targetIds' | 'scoringCriterion' | 'scoringMode'> {
+function criterionQuestions(
+  criterion: RubricCriterion, visualEvidence = false, auditSemanticSupport = false,
+): Pick<SystemOnePrepared, 'questions' | 'targetIds' | 'scoringCriterion' | 'scoringMode'> {
   const targets = expectedDecisionTargets(criterion);
   if (targets.length > 60) throw new Error('Trop d’attendus pour une seule requête décisionnelle.');
   const questions: Record<string, SystemOneQuestion> = { alignment: visualEvidence ? visualAlignmentQuestion : alignmentQuestion };
@@ -227,6 +249,10 @@ function criterionQuestions(criterion: RubricCriterion, visualEvidence = false):
   selected.forEach((target, index) => {
     const question = visualEvidence ? visualExpectedQuestion(target) : expectedQuestion(target);
     questions['expected_' + (index + 1)] = { ...question, instructions: teacherContext + question.instructions };
+    if (auditSemanticSupport && !visualEvidence) {
+      const support = semanticSupportQuestion(target);
+      questions['support_' + (index + 1)] = { ...support, instructions: teacherContext + support.instructions };
+    }
   });
   return {
     questions,
@@ -244,7 +270,7 @@ export function prepareSystemOneCriterion(input: {
 }): SystemOnePrepared {
   return {
     state: commonState({ ...input, criteria: [input.criterion] }),
-    ...criterionQuestions(input.criterion),
+    ...criterionQuestions(input.criterion, false, expectedDecisionTargets(input.criterion).length <= 31),
   };
 }
 
@@ -270,14 +296,22 @@ export function prepareSystemOneRubric(input: {
   const questions: Record<string, SystemOneQuestion> = sharedAlignment
     ? { alignment: input.visualEvidence ? visualAlignmentQuestion : rubricAlignmentQuestion }
     : {};
+  // One extra independent relation check per explicitly weighted target.
+  // The 64-question protocol also supports large rubrics: preserve the existing
+  // one-question-per-target path where an audit would exceed that limit.
+  const targetCount = input.criteria.reduce((sum, criterion) =>
+    sum + expectedDecisionTargets(criterion).length, 0);
+  const auditSemanticSupport = !input.visualEvidence && (
+    (sharedAlignment ? 1 : 0) + input.criteria.length + 2 * targetCount <= 64
+  );
   const entries = input.criteria.map((criterion, index) => {
-    const { questions: criterionChoices, ...prepared } = criterionQuestions(criterion, input.visualEvidence);
+    const { questions: criterionChoices, ...prepared } = criterionQuestions(criterion, input.visualEvidence, auditSemanticSupport);
     const prefix = input.criteria.length === 1 ? '' : 'criterion_' + (index + 1) + '_';
     for (const [key, question] of Object.entries(criterionChoices)) {
       if (sharedAlignment && key === 'alignment') continue;
       questions[prefix + key] = {
         ...question,
-        instructions: key.startsWith('expected_')
+        instructions: key.startsWith('expected_') || key.startsWith('support_')
           ? question.instructions // already contains parent title and teacher context
           : 'CRITÈRE « ' + criterion.title + ' » : ' + question.instructions,
       };
@@ -424,12 +458,27 @@ export function scoreSystemOneCriterion(
     : [{ id: criterion.id, title: criterion.title, maxPoints: criterion.maxPoints }];
   const observations = effectiveTargets.map((target, index) => {
     const answer = selectedChoice(result.answers['expected_' + (index + 1)], ['present','absent','partial','uncertain']);
+    const auditKey = 'support_' + (index + 1);
+    const audited = Object.hasOwn(prepared.questions, auditKey);
+    const support = audited
+      ? selectedChoice(result.answers[auditKey], ['supported','contradicted','not_demonstrated','uncertain'])
+      : null;
+    // A disagreement between independent decisions is NOT a reason to fabricate
+    // a zero or to assume that the more positive model is right. Request review.
+    const disagreement = Boolean(support && (
+      (answer.choice === 'present' && support.choice !== 'supported')
+      || (answer.choice === 'absent' && support.choice === 'supported')
+      || (answer.choice === 'partial' && (support.choice === 'supported' || support.choice === 'contradicted'))
+    ));
+    const unresolvedSupport = Boolean(support && (
+      support.weak || support.choice === 'uncertain' || disagreement
+    ));
     const evidence = answer.choice === 'present' || answer.choice === 'partial'
       ? findLiteralStudentEvidence(transcription, target.title) : '';
-    // A closed 'partial' decision has no teacher-defined numeric allocation. Keep
-    // the decision visible but do not invent a half-credit mark.
-    const points = answer.choice === 'present' ? target.maxPoints : 0;
-    return { ...target, answer, evidence, points: normalizeGradeScore(points) };
+    const supported = answer.choice === 'present' && (!support || (support.choice === 'supported' && !support.weak));
+    // A closed 'partial' decision has no teacher-defined numeric allocation.
+    const points = supported ? target.maxPoints : 0;
+    return { ...target, answer, support, unresolvedSupport, evidence, points: normalizeGradeScore(points) };
   });
   // A confidently unrelated question is likely a wrong rubric, never a poor student answer.
   if ((alignment.choice === 'different' && alignment.probability >= 0.75)
@@ -445,7 +494,7 @@ export function scoreSystemOneCriterion(
   }
   const reviewed = observations.filter((observation) =>
     observation.answer.weak || observation.answer.choice === 'partial'
-    || observation.answer.choice === 'uncertain'
+    || observation.answer.choice === 'uncertain' || observation.unresolvedSupport
   );
   // Native choice models do not generate text excerpts. A heuristic keyword
   // lookup is useful as a hint, but its failure never proves that an otherwise
@@ -457,7 +506,8 @@ export function scoreSystemOneCriterion(
   // Partial and uncertain targets make the criterion unscored until a teacher
   // resolves them. Weak confidence alone keeps the provisional score visible.
   const unresolved = observations.some((observation) =>
-    observation.answer.choice === 'partial' || observation.answer.choice === 'uncertain');
+    observation.answer.choice === 'partial' || observation.answer.choice === 'uncertain'
+    || observation.unresolvedSupport);
   const points = sumGradeScores(observations.map((observation) => observation.points));
   const literalHint = observations.find((observation) => observation.evidence)?.evidence;
   const evidence = literalHint
@@ -465,7 +515,8 @@ export function scoreSystemOneCriterion(
     : observations.some((observation) => observation.answer.choice === 'present')
       ? 'Présence signalée par le modèle ; citation non localisée automatiquement.'
       : 'Attendu non démontré dans la réponse.';
-  const reviewTitles = reviewed.map((observation) => observation.title);
+  const reviewTitles = reviewed.map((observation) => observation.title
+    + (observation.unresolvedSupport ? ' (vérifier le sens de la relation et les négations)' : ''));
   return {
     criterionId: criterion.id,
     points,
