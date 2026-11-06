@@ -7,7 +7,7 @@ describe('correction launch feedback', () => {
   it('shows the progress state before waiting for background corrections to finish', () => {
     const source = appSource();
     const start = source.indexOf('async function gradeCopies(');
-    const end = source.indexOf('async function startModelEvaluation()', start);
+    const end = source.indexOf('async function startModelEvaluation(', start);
     const gradeCopies = source.slice(start, end);
 
     expect(start).toBeGreaterThanOrEqual(0);
@@ -30,7 +30,7 @@ describe('correction launch feedback', () => {
   it('re-reads the copy on every deliberate correction instead of reusing prior transcriptions', () => {
     const source = appSource();
     const start = source.indexOf('async function gradeCopies(');
-    const end = source.indexOf('async function startModelEvaluation()', start);
+    const end = source.indexOf('async function startModelEvaluation(', start);
     const gradeCopies = source.slice(start, end);
 
     expect(gradeCopies).toContain("const isFreshCorrection = strategyOverride !== 'arbitrate-only';");
