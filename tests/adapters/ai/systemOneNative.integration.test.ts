@@ -44,6 +44,42 @@ describe('native Ollama System One routing', () => {
     expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({model:'d3:4b',promptTokens:295,requestMetadata:expect.objectContaining({stream:false})}));
     expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({status:'completed'}));
   });
+  it('routes pplx-decider-flash through native System One, not the decision chat fallback', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ ...envelope('aligned'), model: 'pplx-decider-flash:4b' }), { status: 200 }),
+    );
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434',
+      visionModel: 'gemma4e:4b',
+      analysisModel: 'pplx-decider-flash:4b',
+      correctionMethod: 'decision',
+    }, fetchMock);
+    const raw = await provider.generate({
+      question: 'Décrire la photosynthèse',
+      rubric: JSON.stringify(rubric),
+      transcription: "Réponse de l'étudiant\nCO2 et H2O grâce à la lumière produisent le glucose et le O2 dans les chloroplastes.",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:11434/v1/systemone');
+    const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(request).toMatchObject({ model: 'pplx-decider-flash:4b', state: expect.any(String), questions: expect.any(Object) });
+    expect(request).not.toHaveProperty('messages');
+    expect(request).not.toHaveProperty('stream');
+    expect(parseGradingProposal(raw, rubric).finalScore).toBe(5);
+  });
+
+  it('refuses Perplexity decision-only models in generative mode before /api/chat', async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    const provider = createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: 'gemma4e:4b',
+      analysisModel: 'pplx-decider-flash:4b', correctionMethod: 'generative',
+    }, fetchMock);
+    await expect(provider.generate({
+      question: 'Décrire la photosynthèse', rubric: JSON.stringify(rubric), transcription: 'Réponse.',
+    })).rejects.toThrow(/décisionnel/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('flags a mismatched rubric and copy for teacher review rather than granting points', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(envelope('different')),{status:200}));
     const provider = createOllamaProvider({endpoint:'http://localhost:11434',visionModel:'qwen3.5:4b',analysisModel:'d3:4b',correctionMethod:'decision'},fetchMock);
