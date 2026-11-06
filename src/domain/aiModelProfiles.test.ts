@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelProfile } from './aiModelProfiles.ts';
+import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, removeAiModelProfile, upsertAiModelProfile, type AiModelProfile } from './aiModelProfiles.ts';
 
 const profile: AiModelProfile = {
   id: 'profile-1', name: 'Biologie comparaison', mode: 'compare',
@@ -51,6 +51,15 @@ describe('AI model configuration persistence', () => {
     expect(parseAiModelProfiles(JSON.stringify([profile, { id: 'broken' }, null]))).toEqual([profile]);
     expect(parseAiModelProfiles('not-json')).toEqual([]);
   });
+  it('removes exactly the requested saved profile without mutating other profiles or settings', () => {
+    const second = { ...profile, id: 'profile-2', name: 'Autre configuration' };
+    const originals = [profile, second];
+    expect(removeAiModelProfile(originals, profile.id)).toEqual([second]);
+    expect(originals).toEqual([profile, second]);
+    expect(removeAiModelProfile(originals, 'unknown')).toEqual(originals);
+    expect(removeAiModelProfile([profile], profile.id)).toEqual([]);
+  });
+
   it('adds a profile and replaces a saved profile with the same id', () => {
     const updated = { ...profile, name: 'Biologie arbitre', mode: 'arbitrate' as const, configuration: { ...profile.configuration, diagnosticStrategy: 'arbitrate' as const } };
     expect(upsertAiModelProfile([], profile)).toEqual([profile]);
