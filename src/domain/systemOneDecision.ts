@@ -107,7 +107,7 @@ function commonState(input: {
       'BARÈME : ' + JSON.stringify(visualRubricContext(input.criteria)),
       ...(input.question.trim() ? ['CONSIGNE ENSEIGNANT : ' + input.question.trim()] : []),
       ...(input.subjectTranscription?.trim() ? ['SUJET DE RÉFÉRENCE (contexte uniquement, pas une réponse) : ' + input.subjectTranscription] : []),
-      'PREUVE ÉTUDIANTE : juge uniquement les dessins et écrits visibles sur les images jointes, pas les consignes imprimées ni les annotations du professeur. Si la photo ne permet pas de trancher, choisis « uncertain », jamais une faute supposée. Les réponses sont des décisions fermées, sans justification textuelle.',
+      'PREUVE ÉTUDIANTE : juge uniquement les éléments visibles du travail étudiant (texte, schéma ou figure) sur les images jointes, pas les consignes imprimées ni les annotations du professeur. Si les images ne permettent pas de trancher, choisis « uncertain », jamais une faute supposée. Les réponses sont des décisions fermées, sans justification textuelle.',
     ].join('\n\n');
   }
   const parts = separateStudentAnswer(input.transcription);
@@ -143,20 +143,20 @@ const rubricAlignmentQuestion: SystemOneQuestion = {
 
 const visualAlignmentQuestion: SystemOneQuestion = {
   type: 'choice',
-  instructions: 'Les dessins et légendes visibles concernent-ils globalement le sujet du barème ? Un travail incomplet ou incorrect reste sur le bon sujet. Ignore les titres imprimés.',
+  instructions: 'Les éléments visibles de la copie concernent-ils globalement le sujet du barème ? Une réponse incomplète ou incorrecte reste sur le bon sujet. Ignore les consignes imprimées.',
   criteria: {
-    aligned: 'Le dessin concerne globalement le sujet attendu.',
-    different: 'Le dessin concerne clairement un autre sujet.',
-    uncertain: 'Le sujet du dessin ne peut pas être déterminé sur la photo.',
+    aligned: 'La réponse visible concerne globalement le sujet attendu.',
+    different: 'La réponse visible concerne clairement un autre sujet.',
+    uncertain: 'Le sujet traité ne peut pas être déterminé sur les images.',
   },
 };
 
 function visualExpectedQuestion(target: { title: string; description: string }): SystemOneQuestion {
   return {
     type: 'choice',
-    instructions: 'Sur les photos de la copie, vérifie visuellement : ' + target.title
+    instructions: 'Sur les images de la copie, vérifie uniquement cet attendu observable : ' + target.title
       + (target.description ? '. ' + target.description : '')
-      + ' Ne juge pas la qualité de la photographie comme un défaut du dessin.',
+      + ' Ne confonds pas un défaut de prise de vue avec un défaut du travail étudiant.',
     criteria: {
       present: 'Attendu entièrement satisfait par les éléments visibles.',
       absent: 'Attendu visiblement absent ou incorrect.',
@@ -223,7 +223,7 @@ function criterionQuestions(criterion: RubricCriterion, visualEvidence = false):
     questions.score = visualEvidence
       ? {
           ...pointsScaleQuestion(criterion),
-          instructions: 'Observe exclusivement le dessin sur les photos pour attribuer un niveau de points au critère « '
+          instructions: 'Observe exclusivement la réponse de l’étudiant sur les images pour attribuer un niveau de points au critère « '
             + criterion.title + ' ». Suis les exigences de son barème, sans inventer de preuve ou de note.',
         }
       : pointsScaleQuestion(criterion);
