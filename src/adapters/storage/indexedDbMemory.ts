@@ -180,7 +180,8 @@ export async function getLocalCorrection(id: string): Promise<LocalCorrection | 
   const database = await openDatabase();
   try {
     const transaction = database.transaction(CORRECTION_STORE_NAME, 'readonly');
-    return await requestToPromise(transaction.objectStore(CORRECTION_STORE_NAME).get(id)) as LocalCorrection | undefined ?? null;
+    const result = await requestToPromise(transaction.objectStore(CORRECTION_STORE_NAME).get(id)) as LocalCorrection | undefined;
+    return result ?? null;
   } finally { database.close(); }
 }
 
