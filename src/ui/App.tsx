@@ -65,6 +65,7 @@ import { SubcriteriaSuggestionPanel } from './components/SubcriteriaSuggestionPa
 import { CorrectionOverview } from './CorrectionOverview.tsx';
 import { TeacherCopyIntake } from './components/TeacherCopyIntake.tsx';
 import { CopyPageViewer } from './components/CopyPageViewer.tsx';
+import { createQueuedCopyThumbnail } from './queuedCopyThumbnail.ts';
 import { ActiveCopyProcessingWorkspace } from './components/ActiveCopyProcessingWorkspace.tsx';
 import { TeacherWorkspaceNavigation } from './components/TeacherWorkspaceNavigation.tsx';
 import { Button, Checkbox, Dialog, StatusNotice, type StatusTone } from './design-system/index.ts';
@@ -426,9 +427,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [originalImages, setOriginalImages] = useState<ImageInput[]>([]);
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
   const [selectedSeriesPreviewJob, setSelectedSeriesPreviewJob] = useState<BackgroundCorrectionJob | null>(null);
+  const [queuedViewerFullJob, setQueuedViewerFullJob] = useState<BackgroundCorrectionJob | null>(null);
+  const [detailsThumbnailsOpen, setDetailsThumbnailsOpen] = useState(false);
+  const [detailThumbnails, setDetailThumbnails] = useState<Record<string, Array<ImageInput | null>>>({});
   const previewLoadSequence = useRef(0);
+  const queuedViewerLoadSequence = useRef(0);
   const queuedViewerJob = queuedViewer
-    ? selectedSeriesPreviewJob?.id === queuedViewer.jobId ? selectedSeriesPreviewJob
+    ? queuedViewerFullJob?.id === queuedViewer.jobId ? queuedViewerFullJob
+      : selectedSeriesPreviewJob?.id === queuedViewer.jobId ? selectedSeriesPreviewJob
       : backgroundJobs.find((job) => job.id === queuedViewer.jobId && job.assignmentId === activeAssignmentId && !job.imagesDeferred)
     : undefined;
   const [allBackgroundJobs, setAllBackgroundJobs] = useState<BackgroundJobSummary[]>([]);
@@ -457,6 +463,39 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   useEffect(() => (backgroundService.subscribeOverviews ?? backgroundService.subscribe)((jobs) => {
     setBackgroundJobs(jobs.filter((job) => job.assignmentId === activeAssignmentId));
   }), [backgroundCorrectionService, activeAssignmentId]);
+
+  const expandedDetailJobIds = backgroundJobs.filter((job) =>
+    job.assignmentId === activeAssignmentId && job.status !== 'completed'
+  ).map((job) => job.id).join('|');
+
+  useEffect(() => {
+    const active = detailsThumbnailsOpen && interfaceMode === 'teacher' && teacherStep === 'overview' && !showAssignmentsHome;
+    if (!active) {
+      setDetailThumbnails({});
+      return;
+    }
+    let cancelled = false;
+    // A collapsed list stores no thumbnails; an expanded list stores only
+    // bounded previews. Fetch each source job separately and release its pages.
+    void (async () => {
+      for (const jobId of expandedDetailJobIds.split('|').filter(Boolean)) {
+        if (cancelled) return;
+        try {
+          const full = await loadFullQueuedJob(jobId);
+          if (!full || cancelled) continue;
+          const thumbnails: Array<ImageInput | null> = [];
+          for (const image of full.images) {
+            thumbnails.push(await createQueuedCopyThumbnail(image));
+            if (cancelled) return;
+          }
+          setDetailThumbnails((current) => ({ ...current, [jobId]: thumbnails }));
+        } catch {
+          // Page viewers still open the original, even if a thumbnail fails.
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [detailsThumbnailsOpen, activeAssignmentId, expandedDetailJobIds, teacherStep, interfaceMode, showAssignmentsHome]);
   useEffect(() => backgroundService.subscribeSummaries((jobs) => setAllBackgroundJobs(jobs)), [backgroundCorrectionService]);
   useEffect(() => {
     let active = true;
