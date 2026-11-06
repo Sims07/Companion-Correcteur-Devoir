@@ -80,13 +80,15 @@ export function selectPilotProfiles(profiles: readonly AiModelProfile[], selecte
 }
 
 /** The guided campaign deliberately stays on local Ollama, including text-only trials. */
-export function pilotSelectionIssue(profiles: readonly AiModelProfile[], stage: 'analysis' | 'integrated'): string | null {
+export function pilotSelectionIssue(profiles: readonly AiModelProfile[], stage: 'vision' | 'analysis' | 'integrated'): string | null {
   if (!profiles.length) return 'Sélectionnez au moins une configuration dans « Configurations à exécuter » ci-dessous.';
   const remote = profiles.filter((profile) => !isLocalPilotProfile(profile));
   if (remote.length) return 'Le protocole protège les copies : Ollama local sans clé API est requis. Configuration(s) incompatible(s) : ' + remote.map((profile) => profile.name).join(', ') + '.';
-  const missingAnalysis = profiles.filter((profile) => !profile.configuration.analysisModel.trim());
-  if (missingAnalysis.length) return 'Définissez un modèle d’analyse pour : ' + missingAnalysis.map((profile) => profile.name).join(', ') + '.';
-  if (stage === 'integrated') {
+  if (stage !== 'vision') {
+    const missingAnalysis = profiles.filter((profile) => !profile.configuration.analysisModel.trim());
+    if (missingAnalysis.length) return 'Définissez un modèle d’analyse pour : ' + missingAnalysis.map((profile) => profile.name).join(', ') + '.';
+  }
+  if (stage !== 'analysis') {
     const missingVision = profiles.filter((profile) => !profile.configuration.visionModel.trim());
     if (missingVision.length) return 'Définissez un modèle de lecture Vision pour : ' + missingVision.map((profile) => profile.name).join(', ') + '.';
   }
@@ -125,6 +127,72 @@ export function makePilotProfiles(endpoint: string, timestamp: string): AiModelP
 export interface PilotRun {
   caseId: PilotCase['id'];
   record: ModelEvaluationRecord;
+}
+
+
+/** Word-level reading fidelity, not a biology grade. Formatting and accents are ignored,
+ * but scientific terms, negations, insertions and omissions remain significant. */
+export interface PilotTranscriptionBenchmark {
+  referenceWords: number;
+  transcribedWords: number;
+  substitutions: number;
+  deletions: number;
+  insertions: number;
+  wordErrorRate: number;
+  fidelityPercent: number;
+}
+
+function pilotWords(text: string): string[] {
+  const normalized = text.normalize('NFKC').toLowerCase()
+    .replace(/œ/g, 'oe').replace(/æ/g, 'ae')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ').trim();
+  return normalized ? normalized.split(/\s+/) : [];
+}
+
+export function comparePilotTranscription(
+  reference: string, transcription: string, status: ModelEvaluationResultSnapshot['status'] = 'success',
+): PilotTranscriptionBenchmark | null {
+  if (status !== 'success' || !transcription.trim()) return null;
+  const expected = pilotWords(reference);
+  const actual = pilotWords(transcription);
+  if (!expected.length || !actual.length) return null;
+
+  // Levenshtein with explicit edit operations, so substitutions, missing words,
+  // and hallucinated additional words are reported separately.
+  const distance = Array.from({ length: expected.length + 1 }, () => Array<number>(actual.length + 1).fill(0));
+  for (let i = 0; i <= expected.length; i++) distance[i]![0] = i;
+  for (let j = 0; j <= actual.length; j++) distance[0]![j] = j;
+  for (let i = 1; i <= expected.length; i++) {
+    for (let j = 1; j <= actual.length; j++) {
+      distance[i]![j] = Math.min(
+        distance[i - 1]![j]! + 1,
+        distance[i]![j - 1]! + 1,
+        distance[i - 1]![j - 1]! + (expected[i - 1] === actual[j - 1] ? 0 : 1),
+      );
+    }
+  }
+  let substitutions = 0, deletions = 0, insertions = 0;
+  let i = expected.length, j = actual.length;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && expected[i - 1] === actual[j - 1] && distance[i]![j] === distance[i - 1]![j - 1]) {
+      i--; j--;
+    } else if (i > 0 && j > 0 && distance[i]![j] === distance[i - 1]![j - 1]! + 1) {
+      substitutions++; i--; j--;
+    } else if (i > 0 && distance[i]![j] === distance[i - 1]![j]! + 1) {
+      deletions++; i--;
+    } else {
+      insertions++; j--;
+    }
+  }
+  const errors = substitutions + deletions + insertions;
+  const wordErrorRate = errors / expected.length;
+  return {
+    referenceWords: expected.length, transcribedWords: actual.length,
+    substitutions, deletions, insertions,
+    wordErrorRate: Math.round(wordErrorRate * 10000) / 10000,
+    fidelityPercent: Math.round(Math.max(0, 1 - wordErrorRate) * 1000) / 10,
+  };
 }
 
 export interface PilotSubcriterionResult {
@@ -173,11 +241,11 @@ export function summarizePilotResult(testCase: PilotCase, result: ModelEvaluatio
 export function buildPilotReport(runs: readonly PilotRun[], createdAt: string) {
   return {
     format: 'companion-correcteur-pilot-report',
-    version: 1,
+    version: 2,
     protocolId: PILOT_PROTOCOL_ID,
     createdAt,
     localOnly: true,
-    limitations: 'Résultats expérimentaux sur trois réponses synthétiques. Les scores incomplets ne sont pas des zéros ; la confiance des modèles ne certifie pas la justesse biologique.',
+    limitations: 'Résultats expérimentaux sur trois réponses de référence. La fidélité Vision est une comparaison mot à mot, pas une note de biologie ; elle dépend de la correspondance entre la photo et le texte de référence. Les scores incomplets ne sont pas des zéros.',
     question: PILOT_QUESTION,
     rubric: structuredClone(PILOT_RUBRIC),
     cases: PILOT_CASES.map((testCase) => ({
@@ -197,11 +265,13 @@ export function buildPilotReport(runs: readonly PilotRun[], createdAt: string) {
           analysisModel: record.configurations.find((item) => item.id === result.profileId)?.analysisModel ?? '',
           method: record.configurations.find((item) => item.id === result.profileId)?.correctionMethod ?? 'generative',
           status: result.status, error: result.error ?? null, score: result.score,
-          referenceScore: testCase.referenceScore,
+          referenceScore: record.stage === 'vision' ? null : testCase.referenceScore,
           durationMs: { reading: result.readingMs, analysis: result.analysisMs, total: result.elapsedMs },
           tokens: { reading: result.readingTokens ?? null, analysis: result.analysisTokens ?? null, total: result.tokens },
           transcription: result.transcription, proposal: result.proposal, raw: result.raw,
-          benchmark: summarizePilotResult(testCase, result),
+          benchmark: record.stage === 'vision' ? null : summarizePilotResult(testCase, result),
+          transcriptionBenchmark: record.stage === 'vision'
+            ? comparePilotTranscription(testCase.transcription, result.transcription, result.status) : null,
           traces: (result.diagnosticRuns ?? []).map((trace) => ({
             stage: trace.stage, kind: trace.kind, model: trace.model,
             promptId: trace.promptId, promptVersion: trace.promptVersion,
