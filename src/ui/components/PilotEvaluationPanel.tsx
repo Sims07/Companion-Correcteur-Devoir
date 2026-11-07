@@ -71,7 +71,7 @@ export function PilotEvaluationPanel({
           <Button variant="secondary" disabled={busy} onClick={onExport}>Exporter JSON complet</Button>
         </>}
       </div>
-      {analysisIssue && <p className="pilot-evaluation-hint" role="status">{analysisIssue}</p>}
+      {analysisIssue && !enabled && <p className="pilot-evaluation-hint" role="status">{analysisIssue}</p>}
       {questionContractReport && <div className="pilot-evaluation-report" aria-label="Résultats variante B">
         <h4>Comparaison par configuration et par copie</h4>
         <div className="pilot-evaluation-table-scroll">
