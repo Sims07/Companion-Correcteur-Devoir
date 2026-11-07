@@ -40,4 +40,32 @@ describe('compact criterion grading prompts', () => {
   });
 
 
+
+  it('keeps the whole teacher-and-student context as a shared prefix before each different criterion', () => {
+    const first = buildIncrementalCriterionPrompt(sharedContext, {
+      id: 'mitosis', title: 'Mitose', description: 'Étapes', maxPoints: 2,
+    });
+    const second = buildIncrementalCriterionPrompt(sharedContext, {
+      id: 'meiosis', title: 'Méiose', description: 'Étapes', maxPoints: 2,
+    });
+    const firstPrefix = first.split('CRITÈRE À ÉVALUER')[0];
+    const secondPrefix = second.split('CRITÈRE À ÉVALUER')[0];
+    expect(firstPrefix).toBe(secondPrefix);
+    expect(firstPrefix).toContain('Des chromosomes se séparent');
+    expect(firstPrefix).toContain('Expliquez la mitose');
+    expect(first).toContain('"id":"mitosis"');
+    expect(second).toContain('"id":"meiosis"');
+    expect(first).not.toContain('"id":"meiosis"');
+    expect(second).not.toContain('"id":"mitosis"');
+  });
+
+  it('does not reuse the same student prefix when the transcription changes', () => {
+    const criterion = { id: 'mitosis', title: 'Mitose', description: 'Étapes', maxPoints: 2 };
+    const first = buildIncrementalCriterionPrompt(sharedContext, criterion);
+    const anotherCopy = sharedContext.replace('Des chromosomes se séparent', 'Une cellule se divise');
+    const second = buildIncrementalCriterionPrompt(anotherCopy, criterion);
+    expect(first.split('CRITÈRE À ÉVALUER')[0]).not.toBe(second.split('CRITÈRE À ÉVALUER')[0]);
+    expect(second).not.toContain('Des chromosomes se séparent');
+  });
+
 });
