@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('the question-contract comparison is one click with saved local profiles, with no teacher data altered', async ({ page }) => {
+test('the question-contract comparison supports locally saved OpenAI-compatible profiles, without extra consent or teacher-data changes', async ({ page }) => {
   const configuration = {
     endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '',
     visionModel: '', transcriptionTokenLimit: 2048, transcriptionPromptMode: 'auto',
@@ -14,7 +14,7 @@ test('the question-contract comparison is one click with saved local profiles, w
     { id: 'local-two', name: 'Décisionnel local', mode: 'single', updatedAt: '2026-11-07T10:00:00Z',
       configuration: { ...configuration, analysisModel: 'd1:3b', correctionMethod: 'decision' } },
     { id: 'remote', name: 'Profil distant', mode: 'single', updatedAt: '2026-11-07T10:00:00Z',
-      configuration: { ...configuration, endpoint: 'https://remote.example/v1', apiCompatible: true } },
+      configuration: { ...configuration, endpoint: 'https://remote.example/v1/chat/completions', apiCompatible: true, apiKey: 'fake-remote-token', visionModel: 'vision-remote' } },
   ];
   await page.addInitScript((savedProfiles) => {
     localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify(savedProfiles));
@@ -52,10 +52,14 @@ test('the question-contract comparison is one click with saved local profiles, w
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toHaveCount(0);
 
   await choices.locator('label.evaluation-profile-option').nth(2).click();
-  await expect(action).toBeDisabled();
-  await expect(repeatAction).toBeDisabled();
-  await expect(contract.getByText(/Profil distant/)).toBeVisible();
-  await choices.locator('label.evaluation-profile-option').nth(2).click();
+  await expect(action).toBeEnabled();
+  await expect(repeatAction).toBeEnabled();
+  await expect(panel.getByRole('button', { name: 'Comparer 1, 2 et 4 appels parallèles' })).toBeDisabled();
+  await expect(contract.getByText(/Profil distant/)).toHaveCount(0);
+  // No extra consent control: choosing the saved provider is enough.
+  await expect(panel.getByText(/Autoriser l’API externe/)).toHaveCount(0);
+  await choices.locator('label.evaluation-profile-option').nth(0).click();
+  await choices.locator('label.evaluation-profile-option').nth(1).click();
   await expect(action).toBeEnabled();
   await expect(repeatAction).toBeEnabled();
 
