@@ -1,3 +1,4 @@
+import './ContractPreparationPanel.css';
 import { useEffect, useRef, useState } from 'react';
 import type { CorrectionWorkspaceService } from '../../application/correctionWorkspaceService.ts';
 import { transcribeSubjectReference } from '../../application/transcribeSubjectReference.ts';
@@ -72,7 +73,7 @@ export function ContractPreparationPanel({ rubric, service, settings, assignment
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Application impossible.'); }
   }
   const locked = Boolean(disabled || running);
-  return <details className="rubric-import-panel"><summary>Préparer les contrats depuis la feuille d’examen</summary><section aria-label="Préparation automatique des contrats">
+  return <details className="contract-preparation-panel"><summary>Préparer les contrats depuis la feuille d’examen</summary><section aria-label="Préparation automatique des contrats">
     <p>Importez le sujet, avec ou sans correction type. L’IA propose les questions et contrats à partir des documents et du barème actuel ; vous relisez puis appliquez en une fois. Le corrigé est facultatif. Les informations absentes restent signalées.</p>
     {!rubric.criteria.length && <StatusNotice tone="info">Importez d’abord le barème pour disposer des critères et de leurs points.</StatusNotice>}
     <FilePicker id="contract-subject-file" title="Feuille d’examen" description="PDF, photos, TXT ou Markdown · plusieurs fichiers possibles" accept=".pdf,.txt,.md,image/jpeg,image/png,image/webp" multiple disabled={locked} onFilesSelected={files => void importDocument(files, 'subject')} />
