@@ -77,6 +77,15 @@ export function buildQuestionContractRepeatabilityReport(
       // A null score is never treated as zero or as a complete grade.
       completeGrades: group.filter((experiment) =>
         experiment.status === 'success' && experiment.score !== null && experiment.benchmark.unresolved === 0).length,
+      // A numeric score may coexist with a review request on the criterion's
+      // overall question/rubric alignment. Track teacher workload separately
+      // from evaluated subcriteria, otherwise this is silently reported as 0.
+      teacherReviewRuns: group.filter((experiment) =>
+        (experiment.proposal?.questionsForTeacher?.length ?? 0) > 0).length,
+      autonomousGrades: group.filter((experiment) =>
+        experiment.status === 'success' && experiment.score !== null
+        && experiment.benchmark.unresolved === 0
+        && !(experiment.proposal?.questionsForTeacher?.length)).length,
       stableDecisions: decisions.filter((decision) => decision.stable).length,
       stableResolvedDecisions: decisions.filter((decision) => decision.stableAndResolved).length,
       correctEveryTime: decisions.filter((decision) => decision.correctEveryTime).length,

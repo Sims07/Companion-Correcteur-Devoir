@@ -523,12 +523,13 @@ export function scoreSystemOneCriterion(
   // decisions to agree on absence for EVERY target; otherwise keep review.
   // In particular never convert an unknown/partial answer, close probabilities,
   // or an unverified question heading into an automatic zero.
-  const confirmedOffQuestionAnswer = Boolean(prepared.verifiedQuestionId
-    && alignment.choice === 'different' && alignment.probability >= 0.75 && !alignment.weak
+  const independentlyConfirmedAbsentTargets = Boolean(prepared.verifiedQuestionId
     && observations.length > 0 && observations.every((observation) =>
       observation.answer.choice === 'absent' && !observation.answer.weak
       && observation.support && !observation.support.weak
       && ['contradicted', 'not_demonstrated'].includes(observation.support.choice)));
+  const confirmedOffQuestionAnswer = independentlyConfirmedAbsentTargets
+    && alignment.choice === 'different' && alignment.probability >= 0.75 && !alignment.weak;
   // A confidently unrelated, UNVERIFIED question is likely a wrong rubric.
   if ((alignment.choice === 'different' && alignment.probability >= 0.75 && !confirmedOffQuestionAnswer)
       || (alignment.choice === 'uncertain' && observations.every((observation) => observation.answer.choice === 'uncertain'))
@@ -548,9 +549,16 @@ export function scoreSystemOneCriterion(
   // Native choice models do not generate text excerpts. A heuristic keyword
   // lookup is useful as a hint, but its failure never proves that an otherwise
   // decisive answer needs human arbitration.
-  const alignmentReview = !suppressSharedAlignmentReview && !confirmedOffQuestionAnswer && (
-    alignment.choice !== 'aligned' || (alignment.weak && alignment.probability < 0.5)
-  );
+  // An empty/undemonstrated answer to a VERIFIED question is correctly scored
+  // zero even when the shared topic-alignment classifier hesitates (notably
+  // when a student writes "Je ne sais pas"). Keep alignment warnings whenever
+  // the question scope is unverified or any target audit is weak/contradictory.
+  const scopedNegativeAlignmentResolved = independentlyConfirmedAbsentTargets
+    && alignment.choice === 'uncertain';
+  const alignmentReview = !suppressSharedAlignmentReview
+    && !confirmedOffQuestionAnswer && !scopedNegativeAlignmentResolved && (
+      alignment.choice !== 'aligned' || (alignment.weak && alignment.probability < 0.5)
+    );
   const incomplete = reviewed.length > 0 || alignmentReview;
   // Partial and uncertain targets make the criterion unscored until a teacher
   // resolves them. Weak confidence alone keeps the provisional score visible.

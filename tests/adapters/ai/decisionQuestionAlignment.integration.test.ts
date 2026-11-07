@@ -3,7 +3,7 @@ import { createOllamaProvider } from '../../../src/adapters/ai/ollamaProvider.ts
 import { parseGradingProposal } from '../../../src/domain/grading.ts';
 import { questionGroups } from '../../../src/domain/questionContract.ts';
 import {
-  QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_QUESTION, questionContractRubric,
+  QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_STRESS_CASES, QUESTION_CONTRACT_QUESTION, questionContractRubric,
 } from '../../../src/domain/questionContractPilot.ts';
 import { prepareSystemOneRubric, scoreSystemOneRubric, type SystemOneBatchPrepared } from '../../../src/domain/systemOneDecision.ts';
 
@@ -68,6 +68,51 @@ describe('System One question-scoped alignment regression (variant B)', () => {
     weak.criterion_1_expected_1 = verdict('absent', 'present');
     expect(scoreSystemOneRubric(group!.transcription, prepared, { answers: weak })[0]!.assessmentStatus)
       .toBe('not-evaluated');
+  });
+
+  it('keeps a verified explicitly unanswered exam at 0/10 without a phantom teacher-review request', () => {
+    const exam = QUESTION_CONTRACT_STRESS_CASES.find(({ id }) => id === 'G')!;
+    const groups = questionGroups(rubric.criteria, exam.transcription, QUESTION_CONTRACT_QUESTION);
+    expect(groups.map((group) => group.verifiedQuestionId)).toEqual(['1', '2']);
+    expect(groups.map((group) => group.transcription)).toEqual(['Je ne sais pas.', 'Je ne sais pas.']);
+    const graded = groups.flatMap((group, index) => {
+      const prepared = prepareSystemOneRubric(group);
+      const answers = negativeAnswers(prepared);
+      answers.alignment = index === 1 ? {
+        type: 'choice', choice: 'uncertain', probabilities: {
+          aligned: 0.3659187732720683, different: 0.06763989890542382, uncertain: 0.5664413278225079,
+        }, confidence: 0.34966199173376183,
+      } : verdict('aligned');
+      return scoreSystemOneRubric(group.transcription, prepared, { answers });
+    });
+    expect(graded).toHaveLength(5);
+    expect(graded.every((criterion) => criterion.points === 0
+      && criterion.assessmentStatus === 'evaluated' && !criterion.questionForTeacher)).toBe(true);
+    expect(graded.flatMap((criterion) => criterion.subcriteria ?? [])
+      .every((sub) => sub.points === 0 && sub.assessmentStatus === 'evaluated')).toBe(true);
+  });
+
+  it('retains a teacher warning for uncertain alignment when question ownership is not verified', () => {
+    const prepared = prepareSystemOneRubric({
+      criteria: rubric.criteria.slice(0, 3),
+      transcription: 'Je ne sais pas.', question: QUESTION_CONTRACT_QUESTION,
+    });
+    const answers = negativeAnswers(prepared);
+    answers.alignment = verdict('uncertain');
+    const graded = scoreSystemOneRubric('Je ne sais pas.', prepared, { answers });
+    expect(graded[0]?.questionForTeacher).toMatch(/Correspondance copie\/barème/);
+  });
+
+  it('does not clear alignment review if any independently assessed target is ambiguous', () => {
+    const exam = QUESTION_CONTRACT_STRESS_CASES.find(({ id }) => id === 'G')!;
+    const [group] = questionGroups(rubric.criteria, exam.transcription, QUESTION_CONTRACT_QUESTION);
+    const prepared = prepareSystemOneRubric(group!);
+    const answers = negativeAnswers(prepared);
+    answers.alignment = verdict('uncertain');
+    answers.criterion_1_support_1 = verdict('uncertain');
+    const graded = scoreSystemOneRubric(group!.transcription, prepared, { answers });
+    expect(graded[0]?.assessmentStatus).toBe('not-evaluated');
+    expect(graded[0]?.questionForTeacher).toBeTruthy();
   });
 
   it('runs both native API question groups sequentially and returns a fully evaluated 0/10', async () => {
