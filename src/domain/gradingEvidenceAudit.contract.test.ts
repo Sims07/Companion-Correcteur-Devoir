@@ -8,14 +8,14 @@ const rubric = questionContractRubric('contract');
 describe('teacher-authored equivalent evidence in the native decision path', () => {
   it('locates accepted scientific synonyms and singular forms in an explicitly verified question only', () => {
     const copy = QUESTION_CONTRACT_STRESS_CASES.find((item) => item.id === 'E')!;
-    const question1 = questionAnswer(copy.transcription, '1');
-    for (const [criterionIndex, targetIndex] of [[0,0],[0,1],[2,0],[2,1]] as const) {
-      const criterion = rubric.criteria[criterionIndex]!;
-      const target = criterion.subcriteria![targetIndex]!;
-      const excerpt = findStudentExcerptForExpectation(question1, criterion, target);
-      expect(excerpt, target.id).not.toBe('');
-      expect(question1).toContain(excerpt);
-      expect(checkStudentEvidence(question1, excerpt, criterion, target, true), target.id).toBe('located');
+    for (const [criterionIndex, criterion] of rubric.criteria.entries()) {
+      const scoped = questionAnswer(copy.transcription, criterionIndex < 3 ? '1' : '2');
+      for (const target of criterion.subcriteria ?? []) {
+        const excerpt = findStudentExcerptForExpectation(scoped, criterion, target);
+        expect(excerpt, target.id).not.toBe('');
+        expect(scoped).toContain(excerpt);
+        expect(checkStudentEvidence(scoped, excerpt, criterion, target, true), target.id).toBe('located');
+      }
     }
   });
 
