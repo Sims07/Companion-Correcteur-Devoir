@@ -18,7 +18,7 @@ test('a scientific diagram protocol accepts a photo, rubric, teacher decisions a
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
 
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
-  await expect(panel.getByText('15 attendus', { exact: false })).toBeVisible();
+  await expect(panel.getByText('15 attendus', { exact: false }).first()).toBeVisible();
   await expect(panel.getByText('8 points', { exact: false }).first()).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Tester le schéma en un clic' })).toBeDisabled();
   await expect(panel.getByRole('combobox', { name: 'Répétitions' })).toHaveValue('3');
