@@ -175,9 +175,11 @@ def write_report(report: dict) -> None:
     OUTPUT.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
 
 
-def run_samples(engine: str, model: str, cache: bool | None, report: dict) -> None:
+def run_samples(engine: str, model: str, cache: bool | None, report: dict, only: str | None = None) -> None:
     sequences = scenarios()
     for scenario_name, prompts in sequences.items():
+        if only is not None and only != scenario_name:
+            continue
         key = f'{engine}_{"cache_on" if cache else "cache_off"}' if cache is not None else engine
         print(f'\n{key} / {scenario_name}', flush=True)
         report['results'].setdefault(key, {})[scenario_name] = []
@@ -252,34 +254,37 @@ def main() -> int:
     print('Comparaison : Ollama cache natif, llama.cpp cache désactivé puis activé.')
     proc = None
     try:
-        unload_ollama(args.model)
-        http_json(OLLAMA, '/api/generate', ollama_payload(args.model, 'Bonjour.'))
-        run_samples('ollama', args.model, None, report)
+        # Unload between scenarios: cold/warm sequences must not contaminate one another.
+        for scenario_name in sequences:
+            unload_ollama(args.model)
+            http_json(OLLAMA, '/api/generate', ollama_payload(args.model, 'Bonjour.'))
+            run_samples('ollama', args.model, None, report, only=scenario_name)
         unload_ollama(args.model)
         for cache in (False, True):
-            if port_busy(8081):
-                raise RuntimeError('Port 8081 occupé avant démarrage')
-            print('\nDémarrage llama.cpp, cache_prompt =', cache, flush=True)
-            with LOG.open('w', encoding='utf-8') as log:
-                proc = subprocess.Popen(
-                    [str(SERVER), '-m', str(gguf), '--no-mmproj', '--host', '127.0.0.1',
-                     '--port', '8081', '-c', str(CONTEXT), '-np', '1', '-t', str(THREADS),
-                     '-ngl', '0', '-fa', 'off'],
-                    cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
-                )
-                try:
-                    wait_for_llama(proc)
-                    http_json(LLAMA, '/completion', llama_payload('Bonjour.', cache))
-                    run_samples('llama', args.model, cache, report)
-                finally:
-                    if proc.poll() is None:
-                        proc.terminate()
-                        try:
-                            proc.wait(timeout=12)
-                        except subprocess.TimeoutExpired:
-                            proc.kill()
-                            proc.wait()
-                    proc = None
+            for scenario_name in sequences:
+                if port_busy(8081):
+                    raise RuntimeError('Port 8081 occupé avant démarrage')
+                print('\nDémarrage llama.cpp, cache_prompt =', cache, ', scénario =', scenario_name, flush=True)
+                with LOG.open('w', encoding='utf-8') as log:
+                    proc = subprocess.Popen(
+                        [str(SERVER), '-m', str(gguf), '--no-mmproj', '--host', '127.0.0.1',
+                         '--port', '8081', '-c', str(CONTEXT), '-np', '1', '-t', str(THREADS),
+                         '-ngl', '0', '-fa', 'off'],
+                        cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
+                    )
+                    try:
+                        wait_for_llama(proc)
+                        http_json(LLAMA, '/completion', llama_payload('Bonjour.', cache))
+                        run_samples('llama', args.model, cache, report, only=scenario_name)
+                    finally:
+                        if proc.poll() is None:
+                            proc.terminate()
+                            try:
+                                proc.wait(timeout=12)
+                            except subprocess.TimeoutExpired:
+                                proc.kill()
+                                proc.wait()
+                        proc = None
     except KeyboardInterrupt:
         report['errors'].append({'stage': 'main', 'error_type': 'KeyboardInterrupt'})
         print('Interrompu : résultats partiels sauvegardés.')
