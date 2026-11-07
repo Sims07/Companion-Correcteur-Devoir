@@ -233,7 +233,7 @@ export function ScientificDiagramProtocolPanel({
         {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={'fixture-' + issue}>{issue}</p>)}
         {(fixtureMessage || (busy && progress)) && <p role="status" className="pilot-evaluation-message">{fixtureMessage || progress}</p>}
       </div>
-      {fixtureReport && <div className="pilot-evaluation-report" aria-label="Résultats des schémas A B C">
+      {fixtureReport && <section className="pilot-evaluation-report" aria-label="Résultats des schémas A B C">
         <div className="pilot-evaluation-report-head">
           <div><h4>Comparaison aux trois notes attendues</h4><p>Écart de note et décisions correctes sur les 19 sous-critères. « Indécidable » n’est pas un zéro.</p></div>
           <div className="pilot-evaluation-report-actions">
@@ -273,7 +273,7 @@ export function ScientificDiagramProtocolPanel({
           </div>)}
         </details>
         <p className="pilot-evaluation-hint">{fixtureReport.limitations}</p>
-      </div>}
+      </section>}
     </section>
     <div className="diagram-protocol-inputs">
       <div className="diagram-protocol-import">
