@@ -13,6 +13,7 @@ export function createCorrectionWorkspaceService(
   files: LocalFileGateway,
 ): CorrectionWorkspaceService {
   return {
+    ...(ollama.prepareQuestionContracts ? { prepareQuestionContracts: ollama.prepareQuestionContracts.bind(ollama) } : {}),
     checkReady: (settings: OllamaSettings) => ollama.checkReady(settings),
     listModels: (endpoint) => ollama.listModels(endpoint),
     createProvider: (settings) => ollama.createProvider(settings),

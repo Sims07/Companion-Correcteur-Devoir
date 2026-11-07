@@ -9,6 +9,7 @@ export async function transcribeSubjectReference(
   subjectImages: ImageInput[],
   signal?: AbortSignal,
   onDiagnosticResult?: (result: DiagnosticModelResult) => void,
+  referenceIncludesCorrection = false,
 ): Promise<string> {
   if (!subjectImages.length) throw new Error('Importez le sujet de référence pour analyser les schémas.');
   const transcription = await provider.generate({
@@ -18,6 +19,7 @@ export async function transcribeSubjectReference(
     subjectImages,
     visionOnly: true,
     subjectOnly: true,
+    referenceIncludesCorrection,
   }, undefined, undefined, undefined, onDiagnosticResult, undefined, undefined, undefined, signal);
   if (!transcription.trim()) throw new Error('Le sujet de référence n’a pas pu être lu : aucune note ne peut en dépendre.');
   return transcription.trim();

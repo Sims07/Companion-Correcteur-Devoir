@@ -4,8 +4,9 @@
  * This is metadata only: no student data or provider parameters are persisted.
  */
 export const PROMPT_REVISIONS = {
+  'contract.preparation': 1,
   'vision.copy-transcription': 2,
-  'vision.subject-reference': 1,
+  'vision.subject-reference': 2,
   'vision.student-identity': 1,
   'vision.student-identity-fallback': 1,
   'vision.teacher-annotations': 1,

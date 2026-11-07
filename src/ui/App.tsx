@@ -1,3 +1,4 @@
+import { ContractPreparationPanel } from './components/ContractPreparationPanel.tsx';
 import { QuestionContractEditor, QuestionScopePreview } from './components/QuestionContractEditor.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FilePicker } from './components/FilePicker.tsx';
@@ -3516,6 +3517,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           </section>}
           {rubricImportMessage && <StatusNotice tone={rubricImportTone}>{rubricImportMessage}</StatusNotice>}
         </div></details>
+        <ContractPreparationPanel key={activeAssignmentId} assignmentId={activeAssignmentId ?? 'current'} rubric={rubric} service={service} settings={{ endpoint, apiCompatible, apiKey, visionModel, analysisModel, correctionMethod }} disabled={busy || rubricFileImporting || rubricImageImporting} existingDocument={subjectTranscription || rubricImportVisionResponse} onApply={(next) => { setRubric(next); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); }} />
         <div className="rubric-editor-toolbar"><button type="button" className="primary-button" onClick={addCriterion}>＋ Ajouter un critère</button><span className={validation.valid ? 'validation valid' : 'validation invalid'}>{validation.valid ? '✓ Barème cohérent' : validation.errors.join(' ')}</span></div>
         {interfaceMode === 'teacher' && <RubricReusePanel assignments={assignmentProfiles} activeAssignmentId={activeAssignmentId} rubric={rubric} onReuse={(criteria) => { setRubric((current) => ({ ...current, criteria: [...current.criteria, ...criteria] })); setProposal(null); setReview([]); setScientificDiagramAnalysis(null); setTeacherAnnotations(''); setExpandedCriterionId(criteria[0]?.id ?? null); }} />}
         <div className="criteria-list">
