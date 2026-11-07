@@ -235,7 +235,7 @@ export interface PilotSubcriterionResult {
   evidence?: string;
 }
 
-export function summarizePilotResult(testCase: PilotCase, result: ModelEvaluationResultSnapshot): {
+export function summarizePilotResult(testCase: Pick<PilotCase, 'presentSubcriteria'>, result: ModelEvaluationResultSnapshot): {
   correct: number; falsePositives: number; falseNegatives: number; unresolved: number;
   subcriteria: PilotSubcriterionResult[];
 } {

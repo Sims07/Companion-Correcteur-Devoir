@@ -29,7 +29,40 @@ export function normalizeEvidenceText(value: string): string {
 
 function keywords(text: string): string[] {
   return [...new Set((normalizeEvidenceText(text).match(/[a-z0-9]+/g) ?? [])
-    .filter((token) => token.length > 2 && !neutral.has(token)))];
+    .filter((token) => (token.length > 2 || /^[a-z]+[0-9]+$/.test(token)) && !neutral.has(token)))];
+}
+
+/** A conservative lexical normalizer for French singular/plural surface forms.
+ * It does not turn word similarity into evidence of scientific correctness. */
+function evidenceRoot(token: string): string {
+  return token.length >= 5 ? token.replace(/[sx]$/, '') : token;
+}
+function hasRoot(tokens: Iterable<string>, root: string): boolean {
+  return [...tokens].some((token) => evidenceRoot(token) === root);
+}
+
+/**
+ * Use alternatives supplied by the TEACHER only when the same clause explicitly
+ * refers to this particular subcriterion. Never spread all contract synonyms
+ * across every expected relation.
+ */
+function expectationKeywords(criterion: RubricCriterion, subcriterion: RubricSubcriterion): {
+  heading: string[]; description: string[]; alternatives: string[];
+} {
+  const contextKeywords = new Set(parentConcept(criterion).map(evidenceRoot));
+  const heading = keywords(subcriterion.title).filter((word) => !contextKeywords.has(evidenceRoot(word)));
+  const description = keywords(subcriterion.description).filter((word) => !contextKeywords.has(evidenceRoot(word)));
+  const anchorRoots = new Set(normalizeEvidenceText(subcriterion.title + ' ' + subcriterion.description)
+    .split(' ').filter((token) => token.length > 2).map(evidenceRoot));
+  const alternatives = (criterion.correctionContract?.acceptedAlternatives ?? '').split(/[;\n]/)
+    .flatMap((clause) => {
+      const clauseTokens = normalizeEvidenceText(clause).split(' ').filter(Boolean);
+      // The phrase must refer to this teacher-authored expectation, including
+      // short meaningful anchors such as "ATP" and "O2".
+      return clauseTokens.some((token) => anchorRoots.has(evidenceRoot(token)))
+        ? keywords(clause).filter((token) => !contextKeywords.has(evidenceRoot(token))) : [];
+    });
+  return { heading, description, alternatives: [...new Set(alternatives)] };
 }
 
 /** OCR may contain the printed assignment question as well as the student answer.
@@ -77,22 +110,22 @@ function evidenceConcernsExpectation(
   at: number,
   criterion: RubricCriterion,
   subcriterion: RubricSubcriterion,
+  verifiedQuestionScope = false,
 ): boolean {
   const citation = normalizeEvidenceText(evidence);
   const contextKeywords = new Set(parentConcept(criterion));
-  const headingKeywords = keywords(subcriterion.title).filter((word) => !contextKeywords.has(word));
-  // The teacher's detailed description contributes synonym candidates (e.g.
-  // a chemical formula in the heading, the substance name in the description).
-  // Do not use the parent topic itself as proof of a specific subcriterion.
-  const alternatives = keywords(subcriterion.description).filter((word) => !contextKeywords.has(word));
-  const relevantKeywords = [...new Set([...headingKeywords, ...alternatives])];
-  if (relevantKeywords.length && !relevantKeywords.some((word) => citation.split(' ').includes(word))) return false;
-  if (contextKeywords.size) {
+  const terms = expectationKeywords(criterion, subcriterion);
+  const relevantKeywords = [...new Set([...terms.heading, ...terms.description, ...terms.alternatives])];
+  const citationTokens = citation.split(' ').map(evidenceRoot);
+  if (relevantKeywords.length && !relevantKeywords.some((word) => citationTokens.includes(evidenceRoot(word)))) return false;
+  // A question number validated against the teacher's contract supplies scope:
+  // the student's answer need not repeat the phenomenon already in its question.
+  // Unscoped copies still require textual subject context, preserving the
+  // existing protection against cross-question keyword leakage.
+  if (contextKeywords.size && !verifiedQuestionScope) {
     const normalizedSource = normalizeEvidenceText(transcription);
-    // Preceding context resolves normal anaphora ("Elle ..."), but never infer
-    // the subject from a later sentence or from the teacher's rubric.
     const localContext = normalizedSource.slice(Math.max(0, at - 480), at + Math.min(140, citation.length));
-    if (![...contextKeywords].some((word) => localContext.split(' ').includes(word))) return false;
+    if (![...contextKeywords].some((word) => hasRoot(localContext.split(' '), evidenceRoot(word)))) return false;
   }
   // Explicit contradiction or polarity reversal needs a teacher review.
   // This heuristic is deliberately conservative; it never awards/removes points.
@@ -109,18 +142,19 @@ function evidenceConcernsExpectation(
 export function findStudentExcerptForExpectation(
   transcription: string, criterion: RubricCriterion, subcriterion: RubricSubcriterion,
 ): string {
-  const contextKeywords = new Set(parentConcept(criterion));
-  const headingKeywords = keywords(subcriterion.title).filter((word) => !contextKeywords.has(word));
-  const descriptionKeywords = keywords(subcriterion.description).filter((word) => !contextKeywords.has(word));
+  const contextKeywords = new Set(parentConcept(criterion).map(evidenceRoot));
+  const terms = expectationKeywords(criterion, subcriterion);
+  const headingKeywords = terms.heading;
+  const descriptionKeywords = [...new Set([...terms.description, ...terms.alternatives])];
   const source = studentAnswerForEvidence(transcription);
   const sentences = source.split(/\n+|(?<=[.!?])\s+/g).map((sentence) => sentence.trim())
     .filter((sentence) => sentence.length >= 8 && sentence.length <= 400);
   let best = '';
   let bestScore = 0;
   for (const sentence of sentences) {
-    const tokens = new Set(normalizeEvidenceText(sentence).split(' '));
-    const headingHits = headingKeywords.filter((word) => tokens.has(word)).length;
-    const descriptionHits = descriptionKeywords.filter((word) => tokens.has(word)).length;
+    const tokens = new Set(normalizeEvidenceText(sentence).split(' ').map(evidenceRoot));
+    const headingHits = headingKeywords.filter((word) => tokens.has(evidenceRoot(word))).length;
+    const descriptionHits = descriptionKeywords.filter((word) => tokens.has(evidenceRoot(word))).length;
     if (!headingHits && !descriptionHits) continue;
     const subjectHits = [...contextKeywords].filter((word) => tokens.has(word)).length;
     const score = 3 * headingHits + descriptionHits + 4 * subjectHits;
@@ -132,17 +166,18 @@ export function findStudentExcerptForExpectation(
 /** "located" only means a plausible quote was found, not scientific validity. */
 export function checkStudentEvidence(
   transcription: string, evidence: string, criterion: RubricCriterion, subcriterion: RubricSubcriterion,
+  verifiedQuestionScope = false,
 ): GradingEvidenceCheck {
-  return inspectPositiveEvidence(studentAnswerForEvidence(transcription), evidence, criterion, subcriterion);
+  return inspectPositiveEvidence(studentAnswerForEvidence(transcription), evidence, criterion, subcriterion, verifiedQuestionScope);
 }
 
 function inspectPositiveEvidence(
   transcription: string, evidence: string, criterion: RubricCriterion,
-  subcriterion: RubricSubcriterion,
+  subcriterion: RubricSubcriterion, verifiedQuestionScope = false,
 ): GradingEvidenceCheck {
   const match = findCitation(transcription, evidence);
   if (!match) return 'needs-review';
-  if (!evidenceConcernsExpectation(transcription, evidence, match.at, criterion, subcriterion)) return 'needs-review';
+  if (!evidenceConcernsExpectation(transcription, evidence, match.at, criterion, subcriterion, verifiedQuestionScope)) return 'needs-review';
   return 'located';
 }
 
