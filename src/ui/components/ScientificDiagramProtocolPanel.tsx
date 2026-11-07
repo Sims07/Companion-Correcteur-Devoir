@@ -6,6 +6,10 @@ import { getRubricSubcriteria, validateRubric } from '../../domain/rubric.ts';
 import { Button, TextArea } from '../design-system/index.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import { FilePicker } from './FilePicker.tsx';
+import cleanDiagramUrl from '../../assets/pilot/scientific-mitosis-10.webp';
+import intermediateDiagramUrl from '../../assets/pilot/scientific-mitosis-5.webp';
+import poorDiagramUrl from '../../assets/pilot/scientific-mitosis-0.webp';
+import { SCIENTIFIC_DIAGRAM_FIXTURES, type ScientificDiagramFixtureId, type buildScientificDiagramFixtureReport } from '../../domain/scientificDiagramFixtures.ts';
 import {
   SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, diagramProtocolProfileIssue,
   diagramTargetKey, parseScientificDiagramProtocolRubric, usesDirectDiagramVision,
@@ -22,6 +26,11 @@ export interface DiagramProtocolRequest {
   repetitions: DiagramProtocolCount;
 }
 type DiagramReport = ReturnType<typeof buildScientificDiagramProtocolReport>;
+type FixtureReport = ReturnType<typeof buildScientificDiagramFixtureReport>;
+
+const fixtureImageUrls: Record<ScientificDiagramFixtureId, string> = {
+  A: cleanDiagramUrl, B: intermediateDiagramUrl, C: poorDiagramUrl,
+};
 
 export interface ScientificDiagramProtocolPanelProps {
   selectedProfiles: readonly AiModelProfile[];
@@ -29,11 +38,15 @@ export interface ScientificDiagramProtocolPanelProps {
   progress: string;
   onPrepareImages: (files: File[]) => Promise<ImageInput[]>;
   onRun: (request: DiagramProtocolRequest) => Promise<DiagramReport>;
+  onRunFixtures: (request: {
+    cases: Array<{ id: ScientificDiagramFixtureId; images: ImageInput[] }>;
+    repetitions: DiagramProtocolCount;
+  }) => Promise<FixtureReport>;
   onStop: () => void;
 }
 
 export function ScientificDiagramProtocolPanel({
-  selectedProfiles, busy, progress, onPrepareImages, onRun, onStop,
+  selectedProfiles, busy, progress, onPrepareImages, onRun, onRunFixtures, onStop,
 }: ScientificDiagramProtocolPanelProps) {
   const [rubric, setRubric] = useState<Rubric>(() => structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC));
   const [context, setContext] = useState('');
@@ -43,6 +56,10 @@ export function ScientificDiagramProtocolPanel({
   const [gold, setGold] = useState<DiagramGold>({});
   const [report, setReport] = useState<DiagramReport | null>(null);
   const [message, setMessage] = useState('');
+  const [fixtureCount, setFixtureCount] = useState<DiagramProtocolCount>(1);
+  const [fixtureLoading, setFixtureLoading] = useState(false);
+  const [fixtureReport, setFixtureReport] = useState<FixtureReport | null>(null);
+  const [fixtureMessage, setFixtureMessage] = useState('');
   const targets = rubric.criteria.flatMap((criterion) =>
     getRubricSubcriteria(criterion).map((item) => ({ criterion, item, key: diagramTargetKey(criterion.id, item.id) })));
   const validation = validateRubric(rubric);
@@ -51,7 +68,57 @@ export function ScientificDiagramProtocolPanel({
     try { return !['localhost', '127.0.0.1', '[::1]'].includes(new URL(profile.configuration.endpoint).hostname); }
     catch { return true; }
   });
-  const canRun = !busy && !uploading && images.length > 0 && validation.valid && selectedProfiles.length > 0 && profileIssues.length === 0;
+  const canRun = !busy && !uploading && !fixtureLoading && images.length > 0 && validation.valid && selectedProfiles.length > 0 && profileIssues.length === 0;
+  const canRunFixtures = !busy && !uploading && !fixtureLoading && selectedProfiles.length > 0 && profileIssues.length === 0;
+
+  async function runPreparedFixtures(ids: readonly ScientificDiagramFixtureId[]) {
+    if (!canRunFixtures) return;
+    setFixtureLoading(true);
+    setFixtureReport(null);
+    setFixtureMessage('Chargement des schémas intégrés…');
+    try {
+      const cases: Array<{ id: ScientificDiagramFixtureId; images: ImageInput[] }> = [];
+      for (const id of ids) {
+        // Vite bundles and precaches the images with the application. Nothing
+        // is fetched from a third-party image service or sent to a cloud here.
+        const response = await fetch(fixtureImageUrls[id], { cache: 'force-cache' });
+        if (!response.ok) throw new Error('Image intégrée indisponible pour le cas ' + id);
+        const file = new File([await response.blob()], 'mitose-' + id + '.webp', { type: 'image/webp' });
+        const prepared = await onPrepareImages([file]);
+        if (!prepared.length) throw new Error('Le schéma ' + id + ' n’a pas pu être préparé.');
+        cases.push({ id, images: prepared });
+      }
+      setFixtureMessage('');
+      const result = await onRunFixtures({ cases, repetitions: fixtureCount });
+      setFixtureReport(result);
+      const completed = result.cases.reduce((sum, item) => sum + item.experiments.length, 0);
+      setFixtureMessage(completed + ' passage(s) terminés. Comparez les notes et les verdicts, puis exportez le rapport.');
+    } catch (cause) {
+      setFixtureMessage('Protocole interrompu : ' + (cause instanceof Error ? cause.message : String(cause)));
+    } finally {
+      setFixtureLoading(false);
+    }
+  }
+
+  function downloadFixtureReport() {
+    if (!fixtureReport) return;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(fixtureReport, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'companion-trois-schemas-scientifiques.json';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function copyFixtureReport() {
+    if (!fixtureReport) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(fixtureReport, null, 2));
+      setFixtureMessage('Rapport des trois dessins copié : collez-le dans notre conversation.');
+    } catch {
+      setFixtureMessage('Copie bloquée : utilisez « Exporter le rapport JSON ».');
+    }
+  }
 
   async function importRubric(files: FileList | null) {
     if (!files?.length || busy || uploading) return;
@@ -124,6 +191,90 @@ export function ScientificDiagramProtocolPanel({
         <p>Un dessin réel, un barème professeur et 3 ou 5 répétitions par configuration. Comparer la justesse avec des décisions de référence, la couverture, la stabilité et le temps CPU. Le devoir en cours n’est pas modifié.</p>
       </div>
     </div>
+    <section className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
+      <div className="diagram-protocol-fixtures-heading">
+        <div>
+          <h4>Trois schémas prêts à tester — 10, 5 et 0 sur 10</h4>
+          <p>Les images et leur barème sur 10 points sont déjà intégrés. Notes et décisions proposées pour un <strong>jeu synthétique</strong>, à valider par un enseignant avant d’en tirer des conclusions scientifiques. Les notes attendues ne sont jamais envoyées au modèle.</p>
+        </div>
+      </div>
+      <div className="diagram-fixture-grid">
+        {SCIENTIFIC_DIAGRAM_FIXTURES.map((fixture) => <article key={fixture.id} className="diagram-fixture-card">
+          <img src={fixtureImageUrls[fixture.id]} alt={'Schéma de mitose végétale — ' + fixture.label} loading="lazy" />
+          <div className="diagram-fixture-card-body">
+            <div className="diagram-fixture-card-title">
+              <strong>{fixture.label}</strong>
+              <span>{fixture.referenceScore}/10 attendu</span>
+            </div>
+            <p>{fixture.description}</p>
+            <Button variant="secondary" disabled={!canRunFixtures}
+              onClick={() => { void runPreparedFixtures([fixture.id]); }}>
+              Tester ce schéma
+            </Button>
+          </div>
+        </article>)}
+      </div>
+      <div className="diagram-fixture-run-controls">
+        <div className="pilot-evaluation-actions">
+          <label htmlFor="diagram-fixture-repeat-count">Passages par schéma</label>
+          <DesignSystemSelect id="diagram-fixture-repeat-count" value={fixtureCount} disabled={busy || fixtureLoading}
+            onChange={(event) => setFixtureCount(event.currentTarget.value === '5' ? 5 : event.currentTarget.value === '3' ? 3 : 1)}>
+            <option value={1}>1 passage rapide</option>
+            <option value={3}>3 répétitions</option>
+            <option value={5}>5 répétitions</option>
+          </DesignSystemSelect>
+          <Button disabled={!canRunFixtures} onClick={() => { void runPreparedFixtures(['A', 'B', 'C']); }}>
+            Tester les 3 schémas en un clic
+          </Button>
+          {(busy || fixtureLoading) && <Button variant="secondary" onClick={onStop} disabled={!busy}>Arrêter après l’appel en cours</Button>}
+        </div>
+        <p className="pilot-evaluation-hint">Choisissez 1 à 3 configurations ci-dessous. D1/D3 : image directement vers System One. TEV1 et modèles génératifs : lecture Vision puis analyse. Exécution strictement séquentielle. Un seul passage mesure la justesse, pas la répétabilité.</p>
+        {hasRemote && <p className="pilot-evaluation-hint" role="status">Une configuration distante est sélectionnée : les photos seront envoyées uniquement à son serveur configuré.</p>}
+        {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={'fixture-' + issue}>{issue}</p>)}
+        {(fixtureMessage || (busy && progress)) && <p role="status" className="pilot-evaluation-message">{fixtureMessage || progress}</p>}
+      </div>
+      {fixtureReport && <div className="pilot-evaluation-report" aria-label="Résultats des schémas A B C">
+        <div className="pilot-evaluation-report-head">
+          <div><h4>Comparaison aux trois notes attendues</h4><p>Écart de note et décisions correctes sur les 19 sous-critères. « Indécidable » n’est pas un zéro.</p></div>
+          <div className="pilot-evaluation-report-actions">
+            <Button variant="secondary" onClick={() => { void copyFixtureReport(); }}>Copier le rapport pour ChatGPT</Button>
+            <Button variant="secondary" onClick={downloadFixtureReport}>Exporter le rapport JSON</Button>
+          </div>
+        </div>
+        <div className="pilot-evaluation-table-scroll">
+          <table className="pilot-evaluation-table">
+            <thead><tr><th>Schéma</th><th>Configuration</th><th>Parcours</th><th>Attendu</th><th>Notes obtenues</th><th>Décisions justes</th><th>Stabilité</th><th>Temps moyen</th></tr></thead>
+            <tbody>{fixtureReport.cases.flatMap((caseResult) => caseResult.summaries.map((summary) => {
+              const experiments = caseResult.experiments.filter((experiment) => experiment.profileId === summary.profileId);
+              return <tr key={caseResult.caseId + '-' + summary.profileId}>
+                <th scope="row">{caseResult.label}</th>
+                <td>{summary.profileName}</td>
+                <td>{summary.method === 'direct-image-systemone' ? 'Vision décisionnelle' : 'Vision puis analyse'}</td>
+                <td>{caseResult.referenceScore}/10</td>
+                <td>{experiments.map((experiment) => experiment.score === null ? 'Incomplet' : experiment.score + '/10').join(' · ')}</td>
+                <td>{summary.accuracyPercent === null ? 'Non mesurée' : summary.accuracyPercent + ' %'}</td>
+                <td>{summary.stableResolvedTargets === null ? 'Non mesurée' : summary.stableResolvedTargets + '/19'}</td>
+                <td>{summary.meanDurationMs === null ? '—' : (summary.meanDurationMs / 1000).toFixed(1) + ' s'}</td>
+              </tr>;
+            }))}</tbody>
+          </table>
+        </div>
+        <details className="pilot-evaluation-reference">
+          <summary>Voir les décisions attendues et obtenues sur chaque dessin</summary>
+          {fixtureReport.cases.filter((item) => item.summaries.length).map((caseResult) => <div key={caseResult.caseId}>
+            <strong>{caseResult.label} — référence {caseResult.referenceScore}/10</strong>
+            {caseResult.summaries.map((summary) => <div key={summary.profileId} className="diagram-protocol-decision-list">
+              <strong>{summary.profileName} — {summary.model}</strong>
+              {summary.decisions.map((decision) => <div key={decision.key}>
+                <code>{decision.key}</code> · référence : {decision.reference ?? 'non renseignée'}
+                {' · '}réponses : {decision.choices.join(', ')}
+              </div>)}
+            </div>)}
+          </div>)}
+        </details>
+        <p className="pilot-evaluation-hint">{fixtureReport.limitations}</p>
+      </div>}
+    </section>
     <div className="diagram-protocol-inputs">
       <div className="diagram-protocol-import">
         <h4>1. Schéma et barème</h4>
