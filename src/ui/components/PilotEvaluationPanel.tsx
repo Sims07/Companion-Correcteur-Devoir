@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import { Button } from '../design-system/components/Button.tsx';
 import type { PilotConcurrencyRun } from '../../application/pilotCriterionConcurrency.ts';
@@ -41,7 +41,9 @@ export function PilotEvaluationPanel({
   const [benchmarkCase, setBenchmarkCase] = useState<PilotCase['id']>('C');
   const [repeatabilityCount, setRepeatabilityCount] = useState<RepeatabilityCount>(3);
   const questionContractReport = contractRuns.length ? buildQuestionContractReport(contractRuns, '') : null;
-  const repeatabilityReport = repeatabilityRuns.length ? buildQuestionContractRepeatabilityReport(repeatabilityRuns, '', repeatabilityPlanned) : null;
+  const repeatabilityReport = useMemo(() => repeatabilityRuns.length
+    ? buildQuestionContractRepeatabilityReport(repeatabilityRuns, '', repeatabilityPlanned) : null,
+    [repeatabilityRuns, repeatabilityPlanned]);
   const readyForImages = PILOT_CASES.every((testCase) => (imageCounts[testCase.id] ?? 0) > 0);
   const visionIssue = pilotSelectionIssue(selectedProfiles, 'vision');
   const analysisIssue = pilotSelectionIssue(selectedProfiles, 'analysis');
