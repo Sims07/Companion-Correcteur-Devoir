@@ -64,13 +64,29 @@ export const PILOT_CASES: readonly PilotCase[] = [
   },
 ];
 
-/** A pilot run may only send student-copy images to the local Ollama instance. */
-export function isLocalPilotProfile(profile: AiModelProfile): boolean {
-  if (profile.configuration.apiCompatible || profile.configuration.apiKey) return false;
+/** Any pilot with student-copy images must stay on local, unauthenticated Ollama. */
+export function isLocalPilotConfiguration(configuration: { endpoint: string; apiCompatible?: boolean; apiKey?: string }): boolean {
+  if (configuration.apiCompatible || configuration.apiKey) return false;
   try {
-    const url = new URL(profile.configuration.endpoint);
+    const url = new URL(configuration.endpoint);
     return url.protocol === 'http:' && !url.username && !url.password &&
       ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  } catch { return false; }
+}
+
+export function isLocalPilotProfile(profile: AiModelProfile): boolean {
+  return isLocalPilotConfiguration(profile.configuration);
+}
+
+/** Only synthetic, pre-transcribed fixtures may be evaluated through an OpenAI-compatible API. */
+export function isSyntheticTextPilotProfile(profile: AiModelProfile): boolean {
+  if (isLocalPilotProfile(profile)) return true;
+  if (!profile.configuration.apiCompatible) return false;
+  try {
+    const url = new URL(profile.configuration.endpoint);
+    const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    return !url.username && !url.password && !url.hash &&
+      (url.protocol === 'https:' || (url.protocol === 'http:' && loopback));
   } catch { return false; }
 }
 
@@ -80,11 +96,19 @@ export function selectPilotProfiles(profiles: readonly AiModelProfile[], selecte
   return profiles.filter((profile) => ids.has(profile.id)).slice(0, 3);
 }
 
-/** The guided campaign deliberately stays on local Ollama, including text-only trials. */
-export function pilotSelectionIssue(profiles: readonly AiModelProfile[], stage: 'vision' | 'analysis' | 'integrated'): string | null {
+/** External APIs are opt-in only for the built-in text fixtures, never for images or imported student responses. */
+export function pilotSelectionIssue(
+  profiles: readonly AiModelProfile[], stage: 'vision' | 'analysis' | 'integrated',
+  options: { syntheticTextOnly?: boolean } = {},
+): string | null {
   if (!profiles.length) return 'Sélectionnez au moins une configuration dans « Configurations à exécuter » ci-dessous.';
-  const remote = profiles.filter((profile) => !isLocalPilotProfile(profile));
-  if (remote.length) return 'Le protocole protège les copies : Ollama local sans clé API est requis. Configuration(s) incompatible(s) : ' + remote.map((profile) => profile.name).join(', ') + '.';
+  const syntheticTextOnly = stage === 'analysis' && options.syntheticTextOnly === true;
+  const remote = profiles.filter((profile) =>
+    !(syntheticTextOnly ? isSyntheticTextPilotProfile(profile) : isLocalPilotProfile(profile)));
+  if (remote.length) return (syntheticTextOnly
+    ? 'Pour ce test fictif, choisissez Ollama local ou une API compatible OpenAI en HTTPS (HTTP local autorisé).'
+    : 'Le protocole protège les copies : Ollama local sans clé API est requis.') +
+    ' Configuration(s) incompatible(s) : ' + remote.map((profile) => profile.name).join(', ') + '.';
   if (stage !== 'vision') {
     const missingAnalysis = profiles.filter((profile) => !profile.configuration.analysisModel.trim());
     if (missingAnalysis.length) return 'Définissez un modèle d’analyse pour : ' + missingAnalysis.map((profile) => profile.name).join(', ') + '.';
