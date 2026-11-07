@@ -1,8 +1,13 @@
 import { isLoopbackPilotEndpoint } from './pilotEvaluationProtocol.ts';
 import type { ModelEvaluationRecord } from './modelEvaluation.ts';
-import { QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, buildQuestionContractReport, type QuestionContractCase } from './questionContractPilot.ts';
+import { QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_STRESS_CASES, QUESTION_CONTRACT_PROTOCOL_ID, buildQuestionContractReport, type QuestionContractCase } from './questionContractPilot.ts';
 
 export type RepeatabilityCount = 3 | 5;
+export type RepeatabilitySuite = 'baseline' | 'stress';
+
+export function repeatabilitySuiteCases(suite: RepeatabilitySuite) {
+  return suite === 'stress' ? QUESTION_CONTRACT_STRESS_CASES : QUESTION_CONTRACT_CASES;
+}
 
 export interface QuestionContractRepeatabilityRun {
   repetition: number;
@@ -11,9 +16,9 @@ export interface QuestionContractRepeatabilityRun {
 }
 
 /** Keep the same synthetic answers and rubric for every run; never combine cases in one model call. */
-export function questionContractRepeatabilitySteps(repetitions: RepeatabilityCount) {
+export function questionContractRepeatabilitySteps(repetitions: RepeatabilityCount, suite: RepeatabilitySuite = 'baseline') {
   return Array.from({ length: repetitions }, (_, index) => index + 1).flatMap((repetition) =>
-    QUESTION_CONTRACT_CASES.map((testCase) => ({ repetition, caseId: testCase.id })));
+    repeatabilitySuiteCases(suite).map((testCase) => ({ repetition, caseId: testCase.id })));
 }
 
 /**
@@ -23,6 +28,7 @@ export function questionContractRepeatabilitySteps(repetitions: RepeatabilityCou
  */
 export function buildQuestionContractRepeatabilityReport(
   runs: readonly QuestionContractRepeatabilityRun[], createdAt: string, plannedRepetitions: RepeatabilityCount,
+  suite: RepeatabilitySuite = 'baseline',
 ) {
   const experiments = runs.flatMap(({ repetition, caseId, record }) =>
     buildQuestionContractReport([{ caseId, variant: 'contract', record }], createdAt).experiments
@@ -92,9 +98,10 @@ export function buildQuestionContractRepeatabilityReport(
     createdAt,
     localOnly: runs.every(({ record }) => record.configurations.every((configuration) => isLoopbackPilotEndpoint(configuration.endpoint))),
     variant: 'contract' as const,
+    suite,
     plannedRepetitions,
-    plannedEvaluationsPerProfile: plannedRepetitions * QUESTION_CONTRACT_CASES.length,
-    limitations: 'Trois réponses synthétiques prétranscrites avec contrats enrichis déjà renseignés ; aucune photo ni génération automatique de contrat. La répétabilité sur ces réponses ne prouve pas la fiabilité sur de vraies copies. Les notes nulles et décisions à vérifier ne sont pas des zéros.',
+    plannedEvaluationsPerProfile: plannedRepetitions * repeatabilitySuiteCases(suite).length,
+    limitations: 'Réponses synthétiques prétranscrites avec contrats enrichis déjà renseignés ; aucune photo ni génération automatique de contrat. Les notes nulles et décisions à vérifier ne sont pas des zéros. La répétabilité sur ces cas ne démontre pas la fiabilité pédagogique sur de vraies copies.',
     cases,
     experiments,
   };

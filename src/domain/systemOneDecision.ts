@@ -509,7 +509,7 @@ export function scoreSystemOneCriterion(
         id: target.id, title: target.title,
         description: 'description' in target && typeof target.description === 'string' ? target.description : '',
         maxPoints: target.maxPoints,
-      })
+      }, Boolean(prepared.verifiedQuestionId))
       : undefined;
     const unresolvedEvidence = evidenceStatus === 'needs-review';
     const supported = answer.choice === 'present' && (!support || (support.choice === 'supported' && !support.weak));

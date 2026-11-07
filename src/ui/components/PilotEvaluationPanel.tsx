@@ -6,7 +6,7 @@ import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import type { PilotCase, PilotRun } from '../../domain/pilotEvaluationProtocol.ts';
 import { PILOT_CASES, comparePilotTranscription, isLocalPilotProfile, pilotSelectionIssue, summarizePilotResult } from '../../domain/pilotEvaluationProtocol.ts';
 import { QUESTION_CONTRACT_CASES, buildQuestionContractReport, type QuestionContractRun } from '../../domain/questionContractPilot.ts';
-import { buildQuestionContractRepeatabilityReport, type QuestionContractRepeatabilityRun, type RepeatabilityCount } from '../../domain/questionContractRepeatability.ts';
+import { buildQuestionContractRepeatabilityReport, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../../domain/questionContractRepeatability.ts';
 import './PilotEvaluationPanel.css';
 
 interface PilotEvaluationPanelProps {
@@ -20,6 +20,7 @@ interface PilotEvaluationPanelProps {
   contractRuns: readonly QuestionContractRun[];
   repeatabilityRuns: readonly QuestionContractRepeatabilityRun[];
   repeatabilityPlanned: RepeatabilityCount;
+  repeatabilitySuite: RepeatabilitySuite;
   repeatabilityProgress: { completed: number; total: number } | null;
   concurrencyRuns: readonly PilotConcurrencyRun[];
   selectedProfiles: readonly AiModelProfile[];
@@ -28,22 +29,23 @@ interface PilotEvaluationPanelProps {
   onRun: (mode: 'vision' | 'analysis' | 'integrated') => void;
   onRunConcurrency: (caseId: PilotCase['id']) => void;
   onRunContracts: () => void;
-  onRunRepeatability: (count: RepeatabilityCount) => void;
+  onRunRepeatability: (count: RepeatabilityCount, suite: RepeatabilitySuite) => void;
   onStop: () => void;
   onExport: () => void;
   onCopy: () => void;
 }
 
 export function PilotEvaluationPanel({
-  enabled, busy, uploadingCase, currentCase, message, imageCounts, runs, contractRuns, repeatabilityRuns, repeatabilityPlanned, repeatabilityProgress, concurrencyRuns, selectedProfiles,
+  enabled, busy, uploadingCase, currentCase, message, imageCounts, runs, contractRuns, repeatabilityRuns, repeatabilityPlanned, repeatabilitySuite, repeatabilityProgress, concurrencyRuns, selectedProfiles,
   onPrepare, onUpload, onRun, onRunConcurrency, onRunContracts, onRunRepeatability, onStop, onExport, onCopy,
 }: PilotEvaluationPanelProps) {
   const [benchmarkCase, setBenchmarkCase] = useState<PilotCase['id']>('C');
   const [repeatabilityCount, setRepeatabilityCount] = useState<RepeatabilityCount>(3);
+  const [repeatabilityMode, setRepeatabilityMode] = useState<RepeatabilitySuite>('baseline');
   const questionContractReport = contractRuns.length ? buildQuestionContractReport(contractRuns, '') : null;
   const repeatabilityReport = useMemo(() => repeatabilityRuns.length
-    ? buildQuestionContractRepeatabilityReport(repeatabilityRuns, '', repeatabilityPlanned) : null,
-    [repeatabilityRuns, repeatabilityPlanned]);
+    ? buildQuestionContractRepeatabilityReport(repeatabilityRuns, '', repeatabilityPlanned, repeatabilitySuite) : null,
+    [repeatabilityRuns, repeatabilityPlanned, repeatabilitySuite]);
   const readyForImages = PILOT_CASES.every((testCase) => (imageCounts[testCase.id] ?? 0) > 0);
   const visionIssue = pilotSelectionIssue(selectedProfiles, 'vision');
   const analysisIssue = pilotSelectionIssue(selectedProfiles, 'analysis');
@@ -104,10 +106,16 @@ export function PilotEvaluationPanel({
     <section className="pilot-evaluation-parallel" aria-label="Test de répétabilité variante B">
       <div>
         <h4>Répétabilité · Variante B</h4>
-        <p>Relance les mêmes réponses A, B et C avec le même contrat par question et les profils sélectionnés (Ollama local ou API compatible OpenAI autorisée). Mesure la stabilité des 10 décisions, la justesse, les notes et les demandes de validation : un modèle toujours faux ou indécis n’est pas fiable.</p>
+        <p>Choisissez le protocole initial A/B/C ou quatre cas de robustesse D/E/F/G (négations, équivalences, contradictions et énoncé imprimé). La même copie et le même contrat sont rejoués pour mesurer justesse, stabilité et demandes de vérification, sans confondre décision stable et décision correcte.</p>
         <p>Analyse seule, sans photo ; appels strictement séquentiels et libération des modèles Ollama locaux entre profils. Des appels et frais d’API peuvent s’appliquer. Gardez l’onglet ouvert et le Mac éveillé pendant le test.</p>
       </div>
       <div className="pilot-evaluation-actions">
+        <label htmlFor="pilot-repeatability-suite">Jeu de copies</label>
+        <DesignSystemSelect id="pilot-repeatability-suite" value={repeatabilityMode} disabled={busy}
+          onChange={(event) => setRepeatabilityMode(event.target.value as RepeatabilitySuite)}>
+          <option value="baseline">Référence A/B/C · 3 copies</option>
+          <option value="stress">Robustesse D/E/F/G · 4 copies</option>
+        </DesignSystemSelect>
         <label htmlFor="pilot-repeatability-count">Nombre de passages</label>
         <DesignSystemSelect id="pilot-repeatability-count" value={repeatabilityCount} disabled={busy}
           onChange={(event) => setRepeatabilityCount(Number(event.target.value) as RepeatabilityCount)}>
@@ -115,7 +123,7 @@ export function PilotEvaluationPanel({
           <option value={5}>5 répétitions</option>
         </DesignSystemSelect>
         <Button disabled={busy || uploadingCase !== null || Boolean(analysisIssue)}
-          onClick={() => onRunRepeatability(repeatabilityCount)}>Lancer le test de répétabilité en un clic</Button>
+          onClick={() => onRunRepeatability(repeatabilityCount, repeatabilityMode)}>Lancer le test de répétabilité en un clic</Button>
         {repeatabilityRuns.length > 0 && <>
           <Button variant="secondary" disabled={busy} onClick={onCopy}>Copier le rapport pour ChatGPT</Button>
           <Button variant="secondary" disabled={busy} onClick={onExport}>Exporter JSON complet</Button>
@@ -123,7 +131,7 @@ export function PilotEvaluationPanel({
       </div>
       {repeatabilityProgress && <p role="status">Répétabilité : {repeatabilityProgress.completed}/{repeatabilityProgress.total} séries copie × passage terminées.</p>}
       {repeatabilityReport && <div className="pilot-evaluation-report" aria-label="Résultats de répétabilité">
-        <h4>Stabilité et justesse par modèle et par copie</h4>
+        <h4>Stabilité et justesse par modèle et par copie · {repeatabilityReport.suite === 'stress' ? 'robustesse D/E/F/G' : 'référence A/B/C'}</h4>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
             <thead><tr><th scope="col">Modèle</th><th scope="col">Copie</th><th scope="col">Passages</th><th scope="col">Notes</th><th scope="col">Accord</th><th scope="col">Toujours corrects</th><th scope="col">Stables et évalués</th><th scope="col">À vérifier</th><th scope="col">Durée moy.</th></tr></thead>
