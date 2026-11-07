@@ -54,7 +54,6 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
   await choices.locator('label.evaluation-profile-option').nth(2).click();
   await expect(action).toBeEnabled();
   await expect(repeatAction).toBeEnabled();
-  await expect(panel.getByRole('button', { name: 'Comparer 1, 2 et 4 appels parallèles' })).toBeDisabled();
   await expect(contract.getByText(/Profil distant/)).toHaveCount(0);
   // No extra consent control: choosing the saved provider is enough.
   await expect(panel.getByText(/Autoriser l’API externe/)).toHaveCount(0);
@@ -67,6 +66,7 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
   // integrated pilot; none of these test images are transmitted until a run is clicked.
   await expect(choices.locator('label.evaluation-profile-option').nth(2)).toBeVisible();
   await panel.getByRole('button', { name: 'Préparer le protocole en un clic' }).click();
+  await expect(panel.getByRole('button', { name: 'Comparer 1, 2 et 4 appels parallèles' })).toBeDisabled();
   const sample = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLytQAAAABJRU5ErkJggg==', 'base64');
   for (const caseId of ['A', 'B', 'C']) {
     await panel.locator('#pilot-image-' + caseId).setInputFiles({
