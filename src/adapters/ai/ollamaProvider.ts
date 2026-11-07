@@ -1,3 +1,4 @@
+import { questionGroups, scopedCriterionInput } from '../../domain/questionContract.ts';
 import { promptTrace, type PromptId } from './prompts/promptRegistry.ts';
 import { MODEL_READINESS_PROBE_PROMPT } from './prompts/modelProbePrompt.ts';
 import { buildArbitrationPrompt, buildArbitrationRepairPrompt, buildIncrementalGradingRepairPrompt, buildGradingRepairPrompt } from './prompts/repairPrompts.ts';
@@ -652,7 +653,7 @@ export function createOllamaProvider(
         }
       }
 
-      if (!request.visionOnly && settings.correctionMethod !== 'decision' && !useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription && !request.detectTeacherAnnotations && !request.identifyStudent) {
+      if (!rubricCriteriaForSchema.some(c => c.correctionContract) && !request.visionOnly && settings.correctionMethod !== 'decision' && !useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription && !request.detectTeacherAnnotations && !request.identifyStudent) {
         // Compatibility mode for existing callers configured with one model.
         return sendGradingWithRepair(analysisModel, buildPrompt(), (request.images ?? []).map(providerImage), onChunk, { kind: 'model', stage: 'analysis' });
       }
@@ -752,7 +753,7 @@ export function createOllamaProvider(
       if (!transcription && !directVisualDecision) {
         onStage?.('reading');
         onProgress?.({ type: 'phase', phase: 'reading' });
-        
+
         for (const [index, image] of (request.images ?? []).entries()) {
           onProgress?.({ type: 'page', pageIndex: request.pageNumbers?.[index] ?? index + 1, pageTotal: request.totalPageCount ?? request.images?.length ?? 0, status: 'started' });
           const pageLabel = image.fileName || `page ${index + 1}`;
@@ -760,7 +761,8 @@ export function createOllamaProvider(
           const transcriptionLimit = Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048)));
           const pageTranscription = await sendStream(
             visionModel,
-            buildTranscriptionPrompt(visionModel, settings.transcriptionPromptMode),
+            buildTranscriptionPrompt(visionModel, settings.transcriptionPromptMode) + (rubricCriteriaForSchema.some(c => c.correctionContract?.question)
+              ? '\nSi un numéro de question est clairement visible, conserve-le sur une ligne « Question N ». Sépare l’énoncé imprimé de la réponse manuscrite par « Réponse : ». Ne crée aucun numéro ni réponse absents. Une suite de réponse sur une autre page reste une suite : ne répète pas les repères si aucun nouveau numéro n’est visible.' : ''),
             [providerImage(image)],
             undefined,
             false,
@@ -891,6 +893,13 @@ export function createOllamaProvider(
       if (teacherAnnotationsText) onTranscription?.(teacherAnnotationsText, 'annotations');
       onStage?.('grading');
       onProgress?.({ type: 'phase', phase: 'grading' });
+      const hasQuestionContracts = rubricCriteriaForSchema.some((criterion) => criterion.correctionContract);
+      if (hasQuestionContracts && (directVisualDecision || (settings.diagnosticStrategy && settings.diagnosticStrategy !== 'single'))) {
+        throw new Error('La variante B est disponible en analyse textuelle avec une seule configuration, sans comparaison interne ni décision visuelle directe.');
+      }
+      // Resolve ALL scopes before any grading request: no partial grade after a mapping failure.
+      const scopedGroups = hasQuestionContracts
+        ? questionGroups(rubricCriteriaForSchema, transcription ?? '', request.question) : undefined;
       const gradingPrompt = buildPrompt(transcription, subjectTranscription);
       if (settings.correctionMethod === 'decision') {
         if (settings.diagnosticStrategy && settings.diagnosticStrategy !== 'single') {
@@ -902,30 +911,37 @@ export function createOllamaProvider(
         const proposals: import('../../domain/grading.ts').CriterionProposal[] = [];
         // System One accepts multiple closed questions in one request. Reuse the
         // student's transcription ONCE, including on larger 20-point rubrics.
-        const prepared = prepareSystemOneRubric({
-          criteria, transcription: transcription ?? '', question: request.question,
-          ...(subjectTranscription ? { subjectTranscription } : {}),
-          ...(directVisualDecision ? { visualEvidence: true } : {}),
-        });
         for (const [index, criterion] of criteria.entries()) {
           onCriterionUpdate?.({ criterionId: criterion.id, index: index + 1, total: criteria.length, attempt: 1, status: 'started' });
           onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'started' });
         }
         try {
-          const result = await requestSystemOneDecision({
-            endpoint, model: analysisModel, prepared, fetchImpl,
-            ...(directVisualDecision ? { images: request.images } : {}),
-            ...(signal ? { signal } : {}), onDiagnosticResult,
-          });
-          const scored = scoreSystemOneRubric(transcription ?? '', prepared, result, directVisualDecision);
-          scored.forEach((proposal, index) => {
-            proposals.push(proposal);
-            onCriterionUpdate?.({ criterionId: proposal.criterionId, index: index + 1, total: criteria.length, attempt: 1, status: 'completed', proposal });
-            onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'completed' });
-          });
+          for (const group of scopedGroups ?? [{ criteria, transcription: transcription ?? '', question: request.question }]) {
+            if (signal?.aborted) throw new DOMException('Traitement arrêté', 'AbortError');
+            const prepared = prepareSystemOneRubric({
+              ...group,
+              ...(subjectTranscription && !group.criteria.some(c => c.correctionContract?.question) ? { subjectTranscription } : {}),
+              ...(directVisualDecision ? { visualEvidence: true } : {}),
+            });
+            const result = await requestSystemOneDecision({
+              endpoint, model: analysisModel, prepared, fetchImpl,
+              ...(directVisualDecision ? { images: request.images } : {}),
+              ...(signal ? { signal } : {}), onDiagnosticResult,
+            });
+            const scored = scoreSystemOneRubric(group.transcription, prepared, result, directVisualDecision);
+            scored.forEach((proposal) => {
+              const index = criteria.findIndex((criterion) => criterion.id === proposal.criterionId);
+              proposals.push(proposal);
+              onCriterionUpdate?.({ criterionId: proposal.criterionId, index: index + 1, total: criteria.length, attempt: 1, status: 'completed', proposal });
+              onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'completed' });
+            });
+          }
+          proposals.sort((a, b) => criteria.findIndex(c => c.id === a.criterionId) - criteria.findIndex(c => c.id === b.criterionId));
         } catch (cause) {
+          if (signal?.aborted) throw cause;
           const detail = cause instanceof Error ? cause.message : 'Réponse décisionnelle inexploitable.';
           criteria.forEach((criterion, index) => {
+            if (proposals.some(proposal => proposal.criterionId === criterion.id)) return;
             onCriterionUpdate?.({ criterionId: criterion.id, index: index + 1, total: criteria.length, attempt: 1, status: 'failed', error: detail });
             onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'failed' });
           });
@@ -1035,7 +1051,7 @@ export function createOllamaProvider(
         return mergedRaw;
       };
 
-      if (strategy === 'single' && diagnosticTracking && settings.criterionByCriterion !== true) {
+      if (strategy === 'single' && diagnosticTracking && settings.criterionByCriterion !== true && !hasQuestionContracts) {
         // Whole-rubric mode remains available as a controlled baseline in diagnostics.
         return sendGradingWithRepair(analysisModel, gradingPrompt, undefined, onChunk, { kind: 'model', stage: 'analysis' });
       }
@@ -1057,7 +1073,11 @@ export function createOllamaProvider(
             index: index + 1,
             total: criteria.length,
           };
-          const criterionPrompt = buildIncrementalCriterionPrompt(gradingPrompt, { ...criterion, subcriteria: getRubricSubcriteria(criterion) });
+          const scoped = scopedCriterionInput(criterion, transcription ?? '', request.question);
+          const criterionContext = criterion.correctionContract
+            ? buildFullGradingPrompt({ ...request, question: scoped.question, rubric: JSON.stringify({ title: parsedRubric.title, criteria: [criterion] }) }, scoped.transcription, criterion.correctionContract.question ? undefined : subjectTranscription)
+            : gradingPrompt;
+          const criterionPrompt = buildIncrementalCriterionPrompt(criterionContext, { ...criterion, subcriteria: getRubricSubcriteria(criterion) });
           const expectedSubcriteria = getRubricSubcriteria(criterion);
           const currentCriterionSchema = {
             ...criterionSchema,

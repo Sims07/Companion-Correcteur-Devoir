@@ -1,0 +1,34 @@
+import { expect, test } from '@playwright/test';
+import { openActiveAssignment } from './helpers/teacher-workspace';
+
+test('teacher prepares, persists and exports a question contract without changing points', async ({ page }) => {
+  await page.goto('/'); await openActiveAssignment(page);
+  await page.getByRole('tab', { name: 'Barème' }).click();
+  const criterion = page.locator('.criterion-editor').first();
+  if (!(await criterion.evaluate(el => el.hasAttribute('open')))) await criterion.locator('summary').click();
+  const panel = criterion.getByRole('region', { name: /Contrat de correction/ });
+  await panel.getByRole('checkbox').check();
+  await panel.getByLabel('Portée du critère').selectOption('question');
+  await panel.getByLabel('Numéro de question').fill('1');
+  await panel.getByLabel('Consigne de cette question').fill('Expliquer le mécanisme');
+  await panel.getByLabel('Relation ou raisonnement attendu').fill('Cause puis conséquence');
+  await panel.getByLabel('Formulations équivalentes acceptées').fill('La conséquence résulte de la cause');
+  await panel.getByLabel('Contradictions à distinguer d’une omission').fill('Relation inversée');
+  const points = await criterion.getByLabel('Points max.').inputValue();
+  await expect(page.locator('.rubric-editor-toolbar')).toContainText('Barème cohérent');
+  await page.reload();
+  await openActiveAssignment(page); await page.getByRole('tab', { name: 'Barème' }).click();
+  if (!(await criterion.evaluate(el => el.hasAttribute('open')))) await criterion.locator('summary').click();
+  await expect(panel.getByLabel('Numéro de question')).toHaveValue('1');
+  await expect(panel.getByLabel('Relation ou raisonnement attendu')).toHaveValue('Cause puis conséquence');
+  await expect(criterion.getByLabel('Points max.')).toHaveValue(points);
+  const exported = page.locator('.rubric-export-panel'); await exported.locator('summary').click();
+  const downloadPromise = page.waitForEvent('download');
+  await exported.getByRole('button', { name: 'Télécharger le JSON' }).click();
+  const download = await downloadPromise;
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = []; for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+  const json = JSON.parse(Buffer.concat(chunks).toString());
+  expect(json.criteria[0].correctionContract.question).toEqual({ id: '1', instruction: 'Expliquer le mécanisme' });
+  expect(json.criteria[0].maxPoints).toBe(Number(points));
+});

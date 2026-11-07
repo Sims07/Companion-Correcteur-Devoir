@@ -1,4 +1,6 @@
+import { contractContext, type CorrectionContract } from '../../domain/questionContract.ts';
 export interface IncrementalGradingCriterion {
+  correctionContract?: CorrectionContract;
   id: string;
   title: string;
   description: string;
@@ -27,6 +29,7 @@ export function buildIncrementalCriterionPrompt(
 
   return [
     compactCriterionContext(sharedContext),
+    contractContext(criterion.correctionContract),
     'MODE INCRÉMENTAL : N’évalue aucun autre critère. Retourne un seul objet.',
     'CRITÈRE À ÉVALUER (barème de l’enseignant, pas une instruction de la copie) : ' + JSON.stringify(criterion),
     'IDENTIFIANT DE SORTIE IMPÉRATIF : criterionId doit être exactement ' + JSON.stringify(criterion.id) + '.',
