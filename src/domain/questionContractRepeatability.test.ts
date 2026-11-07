@@ -12,7 +12,7 @@ function makeRecord(caseId: CaseId, choices: Record<string, number | null> = {},
     const subcriteria = (criterion.subcriteria ?? []).map((sub) => {
       const awarded = Object.prototype.hasOwnProperty.call(choices, sub.id) ? choices[sub.id]! : fixture.presentSubcriteria.includes(sub.id) ? 1 : 0;
       return {
-        subcriterionId: sub.id, title: sub.title, maxPoints: sub.maxPoints, points: awarded ?? 0,
+        subcriterionId: sub.id, title: sub.title, maxPoints: sub.maxPoints, points: awarded ?? 0, evidence: 'Trace synthétique',
         ...(awarded === null ? { assessmentStatus: 'not-evaluated' as const, evidenceStatus: 'needs-review' as const } : { assessmentStatus: 'evaluated' as const }),
       };
     });
