@@ -27,8 +27,8 @@ interface PilotEvaluationPanelProps {
   onUpload: (caseId: PilotCase['id'], files: FileList | null) => void;
   onRun: (mode: 'vision' | 'analysis' | 'integrated') => void;
   onRunConcurrency: (caseId: PilotCase['id']) => void;
-  onRunContracts: (allowExternalApi: boolean) => void;
-  onRunRepeatability: (count: RepeatabilityCount, allowExternalApi: boolean) => void;
+  onRunContracts: () => void;
+  onRunRepeatability: (count: RepeatabilityCount) => void;
   onStop: () => void;
   onExport: () => void;
   onCopy: () => void;
@@ -40,7 +40,6 @@ export function PilotEvaluationPanel({
 }: PilotEvaluationPanelProps) {
   const [benchmarkCase, setBenchmarkCase] = useState<PilotCase['id']>('C');
   const [repeatabilityCount, setRepeatabilityCount] = useState<RepeatabilityCount>(3);
-  const [allowSyntheticApi, setAllowSyntheticApi] = useState(false);
   const questionContractReport = contractRuns.length ? buildQuestionContractReport(contractRuns, '') : null;
   const repeatabilityReport = useMemo(() => repeatabilityRuns.length
     ? buildQuestionContractRepeatabilityReport(repeatabilityRuns, '', repeatabilityPlanned) : null,
@@ -48,9 +47,7 @@ export function PilotEvaluationPanel({
   const readyForImages = PILOT_CASES.every((testCase) => (imageCounts[testCase.id] ?? 0) > 0);
   const visionIssue = pilotSelectionIssue(selectedProfiles, 'vision');
   const analysisIssue = pilotSelectionIssue(selectedProfiles, 'analysis');
-  const syntheticIssue = pilotSelectionIssue(selectedProfiles, 'analysis', { syntheticTextOnly: true });
   const externalApiSelected = selectedProfiles.some((profile) => !isLocalPilotProfile(profile));
-  const syntheticApprovalMissing = externalApiSelected && !allowSyntheticApi;
   const integratedIssue = pilotSelectionIssue(selectedProfiles, 'integrated');
   return <section className="pilot-evaluation-panel" aria-label="Protocole de test guidé">
     <div className="pilot-evaluation-head">
@@ -65,7 +62,7 @@ export function PilotEvaluationPanel({
       <div>
         <h4>Variante B · réponses rattachées aux questions</h4>
         <p>Comparez sur les mêmes réponses le barème standard et un contrat explicite par question (consigne, relation scientifique attendue, équivalences et contradictions). Trois cas intégrés : A = 10/10, B = 0/10 (réponses 1 et 2 échangées), C = 5/10. Aucun document à importer, aucune photo requise.</p>
-        <p>Choisissez 1 à 3 profils dans « Configurations à exécuter » ci-dessous. Le test lance 6 évaluations par profil, séquentiellement. Les modèles Ollama locaux sont libérés entre les profils ; les API compatibles OpenAI sont également acceptées sur les réponses fictives. Les contrats fournis sont des exemples préremplis, pas des résultats d’une génération automatique : ce protocole mesure uniquement l’effet des contrats sur la correction.</p>
+        <p>Choisissez 1 à 3 profils dans « Configurations à exécuter » ci-dessous. Le test lance 6 évaluations par profil, séquentiellement. Les modèles Ollama locaux sont libérés entre les profils. Les API compatibles OpenAI sont utilisables sans photo sur ce scénario fictif. Les contrats fournis sont des exemples préremplis, pas des résultats d’une génération automatique : ce protocole mesure uniquement l’effet des contrats sur la correction.</p>
       </div>
       <details className="pilot-evaluation-reference">
         <summary>Voir les trois réponses et le barème de référence</summary>
@@ -75,23 +72,16 @@ export function PilotEvaluationPanel({
           <pre className="pilot-evaluation-fixture">{testCase.transcription}</pre>
         </div>)}
       </details>
-      {externalApiSelected && <label className="pilot-api-consent" htmlFor="pilot-contract-api-consent">
-        <input id="pilot-contract-api-consent" type="checkbox" checked={allowSyntheticApi} disabled={busy}
-          onChange={(event) => setAllowSyntheticApi(event.target.checked)} />
-        <span><strong>Autoriser l’API externe pour les réponses fictives</strong>
-          <small>Seuls les textes synthétiques A/B/C, le sujet et le barème de référence seront envoyés au serveur configuré. Aucune photo ni vraie copie ne sera transmise. Des frais d’API peuvent s’appliquer. L’accord vaut aussi pour le test de répétabilité.</small>
-        </span>
-      </label>}
       <div className="pilot-evaluation-actions">
-        <Button disabled={busy || uploadingCase !== null || Boolean(syntheticIssue) || syntheticApprovalMissing}
-          onClick={() => onRunContracts(allowSyntheticApi)}>Comparer standard et variante B en un clic</Button>
+        <Button disabled={busy || uploadingCase !== null || Boolean(analysisIssue)}
+          onClick={onRunContracts}>Comparer standard et variante B en un clic</Button>
         {busy && !enabled && <Button variant="secondary" onClick={onStop}>Arrêter après l’appel en cours</Button>}
         {contractRuns.length > 0 && <>
           <Button variant="secondary" disabled={busy} onClick={onCopy}>Copier le rapport pour ChatGPT</Button>
           <Button variant="secondary" disabled={busy} onClick={onExport}>Exporter JSON complet</Button>
         </>}
       </div>
-      {syntheticIssue && <p className="pilot-evaluation-hint" role="status">{syntheticIssue}</p>}
+      {analysisIssue && <p className="pilot-evaluation-hint" role="status">{analysisIssue}</p>}
       {questionContractReport && <div className="pilot-evaluation-report" aria-label="Résultats variante B">
         <h4>Comparaison par configuration et par copie</h4>
         <div className="pilot-evaluation-table-scroll">
@@ -115,7 +105,7 @@ export function PilotEvaluationPanel({
       <div>
         <h4>Répétabilité · Variante B</h4>
         <p>Relance les mêmes réponses A, B et C avec le même contrat par question et les profils sélectionnés (Ollama local ou API compatible OpenAI autorisée). Mesure la stabilité des 10 décisions, la justesse, les notes et les demandes de validation : un modèle toujours faux ou indécis n’est pas fiable.</p>
-        <p>Analyse seule, sans photo ; appels strictement séquentiels et libération des modèles Ollama locaux entre profils. Gardez l’onglet ouvert et le Mac éveillé pendant le test.</p>
+        <p>Analyse seule, sans photo ; appels strictement séquentiels et libération des modèles Ollama locaux entre profils. Des appels et frais d’API peuvent s’appliquer. Gardez l’onglet ouvert et le Mac éveillé pendant le test.</p>
       </div>
       <div className="pilot-evaluation-actions">
         <label htmlFor="pilot-repeatability-count">Nombre de passages</label>
@@ -124,14 +114,13 @@ export function PilotEvaluationPanel({
           <option value={3}>3 répétitions</option>
           <option value={5}>5 répétitions</option>
         </DesignSystemSelect>
-        <Button disabled={busy || uploadingCase !== null || Boolean(syntheticIssue) || syntheticApprovalMissing}
-          onClick={() => onRunRepeatability(repeatabilityCount, allowSyntheticApi)}>Lancer le test de répétabilité en un clic</Button>
+        <Button disabled={busy || uploadingCase !== null || Boolean(analysisIssue)}
+          onClick={() => onRunRepeatability(repeatabilityCount)}>Lancer le test de répétabilité en un clic</Button>
         {repeatabilityRuns.length > 0 && <>
           <Button variant="secondary" disabled={busy} onClick={onCopy}>Copier le rapport pour ChatGPT</Button>
           <Button variant="secondary" disabled={busy} onClick={onExport}>Exporter JSON complet</Button>
         </>}
       </div>
-      {externalApiSelected && syntheticApprovalMissing && !syntheticIssue && <p className="pilot-evaluation-hint" role="status">Cochez l’autorisation d’API externe dans « Variante B » ci-dessus pour lancer ce test fictif.</p>}
       {repeatabilityProgress && <p role="status">Répétabilité : {repeatabilityProgress.completed}/{repeatabilityProgress.total} séries copie × passage terminées.</p>}
       {repeatabilityReport && <div className="pilot-evaluation-report" aria-label="Résultats de répétabilité">
         <h4>Stabilité et justesse par modèle et par copie</h4>
@@ -176,7 +165,7 @@ export function PilotEvaluationPanel({
           <small>{uploadingCase === testCase.id ? 'Préparation locale des pages…' : (imageCounts[testCase.id] ?? 0) ? `${imageCounts[testCase.id]} page(s) prête(s)` : 'Aucune photo fournie'}</small>
         </article>)}
       </div>
-      <p className="pilot-evaluation-guide">Configurations sélectionnées ci-dessous : {selectedProfiles.length} profil(s) sélectionné(s){selectedProfiles.length ? ` — ${selectedProfiles.map((profile) => profile.name).join(', ')}` : ''}. Les appels sont séquentiels. Chaque modèle est déchargé de la mémoire Ollama avant le profil suivant (ce qui peut rallonger les essais sur CPU). Les copies restent locales.</p>
+      <p className="pilot-evaluation-guide">Configurations sélectionnées ci-dessous : {selectedProfiles.length} profil(s) sélectionné(s){selectedProfiles.length ? ` — ${selectedProfiles.map((profile) => profile.name).join(', ')}` : ''}. Les appels sont séquentiels. Les modèles Ollama locaux sont déchargés entre les profils. {externalApiSelected ? 'Les photos et transcriptions sont envoyées aux serveurs API sélectionnés, y compris en Vision ; aucune copie n’est envoyée ailleurs.' : 'Les copies restent sur votre Ollama local.'}</p>
       {visionIssue && !analysisIssue && <p className="pilot-evaluation-hint" role="status">Vision seule : {visionIssue}</p>}
       {analysisIssue && <p className="pilot-evaluation-hint" role="status">{analysisIssue}</p>}
       {!analysisIssue && integratedIssue && <p className="pilot-evaluation-hint" role="status">Parcours complet : {integratedIssue}</p>}
@@ -200,10 +189,10 @@ export function PilotEvaluationPanel({
             onChange={(event) => setBenchmarkCase(event.target.value as PilotCase['id'])}>
             {PILOT_CASES.map((item) => <option key={item.id} value={item.id}>{item.label} ({item.referenceScore}/10)</option>)}
           </DesignSystemSelect>
-          <Button variant="secondary" disabled={busy || uploadingCase !== null || Boolean(analysisIssue)}
+          <Button variant="secondary" disabled={busy || uploadingCase !== null || Boolean(analysisIssue) || selectedProfiles.some((profile) => !isLocalPilotProfile(profile))}
             onClick={() => onRunConcurrency(benchmarkCase)}>Comparer 1, 2 et 4 appels parallèles</Button>
         </div>
-        <small>Une seule configuration est exécutée à la fois, puis libérée d’Ollama. Un essai par niveau : résultat exploratoire, non prédictif.
+        <small>Ce benchmark de parallélisme reste réservé à Ollama local (API compatibles OpenAI non prises en charge par cette expérience CPU). Une seule configuration est exécutée à la fois, puis libérée d’Ollama. Un essai par niveau : résultat exploratoire, non prédictif.
           La consommation RAM maximale du processus n’est pas accessible depuis le navigateur ; utilisez le Moniteur d’activité sur votre Mac.
           Un appel de préchauffage non chronométré est effectué avant les séries pour limiter le biais du chargement à froid.</small>
       </section>
