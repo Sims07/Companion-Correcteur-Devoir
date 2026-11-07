@@ -15,7 +15,7 @@ export const QUESTION_CONTRACT_QUESTION = [
   'Question 2 (4 points) — Expliquez la respiration aérobie des cellules végétales : lieu, besoin en oxygène, ATP et fonctionnement nocturne.',
 ].join('\n');
 export type QuestionContractVariant = 'standard' | 'contract';
-export type QuestionContractCase = PilotCase;
+export type QuestionContractCase = Omit<PilotCase, 'id'> & { id: PilotCase['id'] | 'D' | 'E' | 'F' | 'G' };
 
 const instructions = {
   '1': 'Décrivez la photosynthèse : lieu, source d’énergie, réactifs et produits.',
