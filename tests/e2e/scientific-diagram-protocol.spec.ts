@@ -40,7 +40,7 @@ test('a scientific diagram protocol accepts a photo, rubric, teacher decisions a
       { id: 'a', title: 'Dessiner', maxPoints: 2, subcriteria: [
         { id: 'a-1', title: 'Deux structures', maxPoints: 2 },
       ] },
-      { id: 'b', title: 'Compréhension', description: 'phase de mitose', maxPoints: 2, subcriteria: [] },
+      { id: 'b', title: 'Compréhension', description: 'phase de mitose', maxPoints: 2 },
     ],
   };
   await panel.locator('#diagram-protocol-rubric').setInputFiles({
