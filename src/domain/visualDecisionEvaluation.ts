@@ -28,43 +28,65 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const visualChoices = new Set<VisualChoice>(['present', 'absent', 'partial', 'uncertain']);
 
+/** Reconstruct the native choice answers without interpreting the provisional
+ * numeric grade. Decision-only models can return valid choices even when a
+ * teacher must review the evidence and the score is therefore null.
+ *
+ * Text-only System One requests have imageCount=0. The diagram laboratory
+ * compares these choices to the reference separately from D1/D3 image choices.
+ * Never reinterpret missing answers as 'absent'. */
+export function extractSystemOneDecisions(
+  result: Pick<ModelEvaluationResultSnapshot, 'diagnosticRuns'>,
+  rubric: Rubric,
+  source: 'image' | 'text',
+): VisualDecisionObservation[] {
+  const runs = result.diagnosticRuns ?? [];
+  const matches = runs.filter((entry) =>
+    (entry.promptId === 'decision.system-one' || entry.promptId === 'decision.system-one-visual')
+    && (source === 'image' ? (entry.requestMetadata?.imageCount ?? 0) > 0
+      : (entry.requestMetadata?.imageCount ?? 0) === 0));
+  if (matches.length === 0) return [];
+  // A scoring request may be split in the future. Keep the first valid answer
+  // for each known rubric key without allowing model-authored identifiers.
+  const observed = new Map<string, VisualDecisionObservation>();
+  for (const run of matches) {
+    let answerMap: Record<string, unknown>;
+    try {
+      const decoded: unknown = JSON.parse(run.raw);
+      if (!isRecord(decoded) || !isRecord(decoded.answers)) continue;
+      answerMap = decoded.answers;
+    } catch { continue; }
+    for (const [criterionIndex, criterion] of rubric.criteria.entries()) {
+      const targets = expectedDecisionTargets(criterion);
+      const prefix = rubric.criteria.length === 1 ? '' : 'criterion_' + (criterionIndex + 1) + '_';
+      for (const [targetIndex, target] of targets.entries()) {
+        const answer = answerMap[prefix + 'expected_' + (targetIndex + 1)];
+        if (!isRecord(answer) || !visualChoices.has(answer.choice as VisualChoice)) continue;
+        const choice = answer.choice as VisualChoice;
+        const probabilities = isRecord(answer.probabilities) ? answer.probabilities : {};
+        const weight = probabilities[choice];
+        const key = criterion.id + '::' + target.id;
+        if (!observed.has(key)) observed.set(key, {
+          criterionId: criterion.id, criterionTitle: criterion.title,
+          targetId: target.id, title: target.title, choice,
+          probability: typeof weight === 'number' && Number.isFinite(weight) && weight >= 0 && weight <= 1
+            ? weight : null,
+        });
+      }
+    }
+  }
+  return [...observed.values()];
+}
+
 /**
- * Reconstruct native decisions from the already-saved LOCAL request trace.
- * This also works for visual evaluations archived before this feature, without
- * rerunning D3 or reloading any photo. Never use model-provided labels as IDs.
+ * Reconstruct native image decisions from saved local request traces.
+ * This keeps the existing visual comparison strictly image-only.
  */
 export function extractVisualDecisions(
   result: Pick<ModelEvaluationResultSnapshot, 'directVisualDecision' | 'diagnosticRuns'>,
   rubric: Rubric,
 ): VisualDecisionObservation[] {
-  if (!result.directVisualDecision) return [];
-  const run = result.diagnosticRuns?.find((entry) =>
-    entry.requestMetadata?.imageCount && entry.requestMetadata.imageCount > 0
-    && (entry.promptId === 'decision.system-one' || entry.promptId === 'decision.system-one-visual'));
-  if (!run) return [];
-  let answerMap: Record<string, unknown>;
-  try {
-    const decoded: unknown = JSON.parse(run.raw);
-    if (!isRecord(decoded) || !isRecord(decoded.answers)) return [];
-    answerMap = decoded.answers;
-  } catch { return []; }
-  return rubric.criteria.flatMap((criterion, criterionIndex) => {
-    const targets = expectedDecisionTargets(criterion);
-    const prefix = rubric.criteria.length === 1 ? '' : 'criterion_' + (criterionIndex + 1) + '_';
-    return targets.flatMap((target, targetIndex) => {
-      const answer = answerMap[prefix + 'expected_' + (targetIndex + 1)];
-      if (!isRecord(answer) || !visualChoices.has(answer.choice as VisualChoice)) return [];
-      const choice = answer.choice as VisualChoice;
-      const probabilities = isRecord(answer.probabilities) ? answer.probabilities : {};
-      const weight = probabilities[choice];
-      return [{
-        criterionId: criterion.id, criterionTitle: criterion.title,
-        targetId: target.id, title: target.title, choice,
-        probability: typeof weight === 'number' && Number.isFinite(weight) && weight >= 0 && weight <= 1
-          ? weight : null,
-      }];
-    });
-  });
+  return result.directVisualDecision ? extractSystemOneDecisions(result, rubric, 'image') : [];
 }
 
 export function compareVisualDecisions(
