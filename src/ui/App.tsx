@@ -53,6 +53,7 @@ import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluatio
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
+import { QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant } from '../domain/questionContractPilot.ts';
 import { runPilotCriterionConcurrency, type PilotConcurrencyRun } from '../application/pilotCriterionConcurrency.ts';
 import type { PilotModelMemoryRelease } from '../ports/pilotModelMemory.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
@@ -85,6 +86,7 @@ interface PilotRunOptions {
   stage: 'vision' | 'analysis' | 'integrated';
   profiles: AiModelProfile[];
   caseImages: ImageInput[];
+  contractVariant?: QuestionContractVariant;
 }
 
 const initialRubric: Rubric = {
@@ -394,6 +396,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationVisualDirect, setEvaluationVisualDirect] = useState(false);
   const [pilotEnabled, setPilotEnabled] = useState(false);
   const [pilotRuns, setPilotRuns] = useState<PilotRun[]>([]);
+  const [pilotContractRuns, setPilotContractRuns] = useState<QuestionContractRun[]>([]);
   const [pilotConcurrencyRuns, setPilotConcurrencyRuns] = useState<PilotConcurrencyRun[]>([]);
   const [pilotImages, setPilotImages] = useState<Record<string, ImageInput[]>>({});
   const [pilotBusy, setPilotBusy] = useState(false);
@@ -1525,19 +1528,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   async function startModelEvaluation(options?: PilotRunOptions): Promise<ModelEvaluationRecord | undefined> {
     const runStage = options?.stage ?? evaluationStageMode;
-    const runRubric = options ? PILOT_RUBRIC : rubric;
+    const runRubric = options?.contractVariant ? questionContractRubric(options.contractVariant) : options ? PILOT_RUBRIC : rubric;
     const runValidation = validateRubric(runRubric);
     const runTranscription = options ? options.pilotCase.transcription : transcription;
     const runImages = options ? options.caseImages : images;
-    const runQuestion = options ? PILOT_QUESTION : question;
-    const runTitle = options ? PILOT_TITLE : assignmentTitle;
+    const runQuestion = options?.contractVariant ? QUESTION_CONTRACT_QUESTION : options ? PILOT_QUESTION : question;
+    const runTitle = options?.contractVariant ? QUESTION_CONTRACT_TITLE : options ? PILOT_TITLE : assignmentTitle;
     const runDescription = options ? '' : assignmentDescription;
     const runLevel = options ? 'Université' : educationLevel;
     const runCorrectionMode = options ? 'integrated' as const : correctionMode;
     const runSubjectImages = options ? [] : subjectImages;
     const runSubjectTranscription = options ? null : subjectTranscription;
     const runVisualDirect = options ? false : evaluationVisualDirect;
-    const runAssignmentId = options ? 'pilot-' + PILOT_PROTOCOL_ID : activeAssignmentId;
+    const runAssignmentId = options?.contractVariant ? 'pilot-' + QUESTION_CONTRACT_PROTOCOL_ID : options ? 'pilot-' + PILOT_PROTOCOL_ID : activeAssignmentId;
     const selectedProfiles = options?.profiles ?? aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
     if (selectedProfiles.length < 1) { setError('Sélectionnez au moins une configuration enregistrée pour la tester.'); return; }
     if (!runValidation.valid) { setError(runValidation.errors.join(' ')); return; }
@@ -1712,7 +1715,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     // Render results immediately; IndexedDB writes must never block navigation.
     if (results.length > 0 && !options) setEvaluationWorkspaceStep('results');
     const savedRecord: ModelEvaluationRecord = {
-      id: 'evaluation-' + Date.now() + (options ? '-' + options.pilotCase.id + '-' + runStage : ''),
+      id: 'evaluation-' + Date.now() + (options ? '-' + options.pilotCase.id + '-' + runStage + (options.contractVariant ? '-' + options.contractVariant : '') : ''),
       completedAt: new Date().toISOString(),
       assignmentId: runAssignmentId,
       assignmentTitle: runTitle.trim() || 'Devoir sans titre',
@@ -1753,6 +1756,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (busy || pilotBusy) return;
     setPilotEnabled(true);
     setPilotRuns([]);
+    setPilotContractRuns([]);
     setPilotConcurrencyRuns([]);
     setPilotImages({});
     setPilotMessage('Prêt : barème isolé et trois textes de référence. Utilisez les configurations sélectionnées dans « Configurations à exécuter » ci-dessous, ou sélectionnez-en de nouvelles.');
@@ -1806,6 +1810,48 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           : 'Campagne terminée. Les modèles du protocole ont été libérés de la mémoire Ollama. Exportez le rapport complet.'));
     } catch (cause) {
       setPilotMessage('Erreur du protocole : ' + (cause instanceof Error ? cause.message : String(cause)) + '. Les essais terminés restent exportables.');
+    } finally {
+      setPilotBusy(false);
+      setPilotCurrentCase(null);
+    }
+  }
+
+  async function runPilotQuestionContractBenchmark() {
+    if (pilotBusy || busy || pilotUploadingCase) return;
+    const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+    const issue = pilotSelectionIssue(profiles, 'analysis');
+    if (issue) { setPilotMessage(issue); return; }
+    if (!releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : comparaison bloquée pour protéger la RAM.'); return; }
+    pilotStopRef.current = false;
+    evaluationCancelledRef.current = false;
+    pilotMemoryErrorRef.current = null;
+    setPilotContractRuns([]);
+    setPilotBusy(true);
+    setEvaluationStageMode('analysis');
+    setEvaluationVisualDirect(false);
+    try {
+      for (const testCase of QUESTION_CONTRACT_CASES) {
+        for (const variant of ['standard', 'contract'] as const) {
+          if (pilotStopRef.current || evaluationCancelledRef.current) break;
+          setPilotCurrentCase(testCase.id);
+          setPilotMessage('Contrats par question · copie ' + testCase.id + ' · ' +
+            (variant === 'contract' ? 'variante B enrichie' : 'barème standard') +
+            ' · ' + profiles.length + ' configuration(s).');
+          const record = await startModelEvaluation({
+            pilotCase: testCase, stage: 'analysis', profiles, caseImages: [], contractVariant: variant,
+          });
+          if (record) setPilotContractRuns((current) => [...current, { caseId: testCase.id, variant, record }]);
+          if (pilotStopRef.current || evaluationCancelledRef.current) break;
+        }
+        if (pilotStopRef.current || evaluationCancelledRef.current) break;
+      }
+      setPilotMessage(pilotMemoryErrorRef.current ??
+        (pilotStopRef.current || evaluationCancelledRef.current
+          ? 'Comparaison interrompue : les résultats terminés restent exportables.'
+          : 'Comparaison standard / variante B terminée. Copiez le rapport JSON pour analyser les écarts.'));
+    } catch (cause) {
+      setPilotMessage('Erreur de comparaison : ' + (cause instanceof Error ? cause.message : String(cause)) +
+        '. Les essais terminés restent exportables.');
     } finally {
       setPilotBusy(false);
       setPilotCurrentCase(null);
@@ -1920,9 +1966,17 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     cancelModelEvaluation();
   }
 
+  function combinedPilotReport() {
+    const createdAt = new Date().toISOString();
+    const baseReport = buildPilotReport(pilotRuns, createdAt, pilotConcurrencyRuns);
+    if (!pilotContractRuns.length) return baseReport;
+    const contractReport = buildQuestionContractReport(pilotContractRuns, createdAt);
+    return pilotRuns.length || pilotConcurrencyRuns.length ? { ...baseReport, questionContractPilot: contractReport } : contractReport;
+  }
+
   function exportPilotReport() {
-    if (!pilotRuns.length && !pilotConcurrencyRuns.length) return;
-    const report = buildPilotReport(pilotRuns, new Date().toISOString(), pilotConcurrencyRuns);
+    if (!pilotRuns.length && !pilotConcurrencyRuns.length && !pilotContractRuns.length) return;
+    const report = combinedPilotReport();
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
@@ -1936,9 +1990,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function copyPilotReport() {
-    if (!pilotRuns.length && !pilotConcurrencyRuns.length) return;
+    if (!pilotRuns.length && !pilotConcurrencyRuns.length && !pilotContractRuns.length) return;
     try {
-      await navigator.clipboard.writeText(JSON.stringify(buildPilotReport(pilotRuns, new Date().toISOString(), pilotConcurrencyRuns), null, 2));
+      await navigator.clipboard.writeText(JSON.stringify(combinedPilotReport(), null, 2));
       setPilotMessage('Rapport copié dans le presse-papiers : collez-le dans notre conversation pour l’analyse.');
     } catch {
       setPilotMessage('Copie bloquée par le navigateur. Utilisez « Exporter JSON complet » pour joindre le fichier.');
@@ -3001,13 +3055,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="evaluation-section-heading"><div><p className="eyebrow">ÉTAPE 1 · CONFIGURATIONS</p><h2 id="evaluation-config-title">Choisir les configurations à évaluer</h2><p>Créez ou modifiez vos profils ici, sans passer par les réglages du parcours de correction. Les profils sont enregistrés localement sur cet appareil.</p></div><span className="evaluation-step-chip">{aiModelProfiles.length} profil(s)</span></div>
         <PilotEvaluationPanel
           enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}
-          message={pilotMessage} runs={pilotRuns} concurrencyRuns={pilotConcurrencyRuns}
+          message={pilotMessage} runs={pilotRuns} contractRuns={pilotContractRuns} concurrencyRuns={pilotConcurrencyRuns}
           imageCounts={Object.fromEntries(Object.entries(pilotImages).map(([caseId, pages]) => [caseId, pages.length]))}
           selectedProfiles={selectedEvaluationProfiles}
           onPrepare={preparePilotProtocol}
           onUpload={(caseId, files) => { void uploadPilotImages(caseId, files); }}
           onRun={(mode) => { void runPilotProtocol(mode); }}
           onRunConcurrency={(caseId) => { void runPilotConcurrencyBenchmark(caseId); }}
+          onRunContracts={() => { void runPilotQuestionContractBenchmark(); }}
           onStop={stopPilotProtocol} onExport={exportPilotReport}
           onCopy={() => { void copyPilotReport(); }}
         />
