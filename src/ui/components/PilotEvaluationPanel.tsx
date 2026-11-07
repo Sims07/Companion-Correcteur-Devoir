@@ -5,6 +5,7 @@ import type { PilotConcurrencyRun } from '../../application/pilotCriterionConcur
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import type { PilotCase, PilotRun } from '../../domain/pilotEvaluationProtocol.ts';
 import { PILOT_CASES, comparePilotTranscription, pilotSelectionIssue, summarizePilotResult } from '../../domain/pilotEvaluationProtocol.ts';
+import { QUESTION_CONTRACT_CASES, buildQuestionContractReport, type QuestionContractRun } from '../../domain/questionContractPilot.ts';
 import './PilotEvaluationPanel.css';
 
 interface PilotEvaluationPanelProps {
@@ -15,22 +16,25 @@ interface PilotEvaluationPanelProps {
   message: string;
   imageCounts: Record<string, number>;
   runs: readonly PilotRun[];
+  contractRuns: readonly QuestionContractRun[];
   concurrencyRuns: readonly PilotConcurrencyRun[];
   selectedProfiles: readonly AiModelProfile[];
   onPrepare: () => void;
   onUpload: (caseId: PilotCase['id'], files: FileList | null) => void;
   onRun: (mode: 'vision' | 'analysis' | 'integrated') => void;
   onRunConcurrency: (caseId: PilotCase['id']) => void;
+  onRunContracts: () => void;
   onStop: () => void;
   onExport: () => void;
   onCopy: () => void;
 }
 
 export function PilotEvaluationPanel({
-  enabled, busy, uploadingCase, currentCase, message, imageCounts, runs, concurrencyRuns, selectedProfiles,
-  onPrepare, onUpload, onRun, onRunConcurrency, onStop, onExport, onCopy,
+  enabled, busy, uploadingCase, currentCase, message, imageCounts, runs, contractRuns, concurrencyRuns, selectedProfiles,
+  onPrepare, onUpload, onRun, onRunConcurrency, onRunContracts, onStop, onExport, onCopy,
 }: PilotEvaluationPanelProps) {
   const [benchmarkCase, setBenchmarkCase] = useState<PilotCase['id']>('C');
+  const questionContractReport = contractRuns.length ? buildQuestionContractReport(contractRuns, '') : null;
   const readyForImages = PILOT_CASES.every((testCase) => (imageCounts[testCase.id] ?? 0) > 0);
   const visionIssue = pilotSelectionIssue(selectedProfiles, 'vision');
   const analysisIssue = pilotSelectionIssue(selectedProfiles, 'analysis');
@@ -44,6 +48,50 @@ export function PilotEvaluationPanel({
       </div>
       <button type="button" className="secondary-button" disabled={busy} onClick={onPrepare}>{enabled ? 'Réinitialiser le protocole' : 'Préparer le protocole en un clic'}</button>
     </div>
+    <section className="pilot-evaluation-parallel" aria-label="Protocole variante B par question">
+      <div>
+        <h4>Variante B · réponses rattachées aux questions</h4>
+        <p>Comparez sur les mêmes réponses le barème standard et un contrat explicite par question (consigne, relation scientifique attendue, équivalences et contradictions). Trois cas intégrés : A = 10/10, B = 0/10 (réponses 1 et 2 échangées), C = 5/10. Aucun document à importer, aucune photo requise.</p>
+        <p>Choisissez 1 à 3 profils dans « Configurations à exécuter » ci-dessous. Le test lance 6 évaluations par profil, séquentiellement sur Ollama local, et libère la mémoire entre les profils. Les contrats fournis sont des exemples préremplis, pas des résultats d’une génération automatique : ce protocole mesure uniquement l’effet des contrats sur la correction.</p>
+      </div>
+      <details className="pilot-evaluation-reference">
+        <summary>Voir les trois réponses et le barème de référence</summary>
+        {QUESTION_CONTRACT_CASES.map((testCase) => <div key={testCase.id}>
+          <strong>{testCase.label} · attendu {testCase.referenceScore}/10</strong>
+          <p>{testCase.description}</p>
+          <pre className="pilot-evaluation-fixture">{testCase.transcription}</pre>
+        </div>)}
+      </details>
+      <div className="pilot-evaluation-actions">
+        <Button disabled={busy || uploadingCase !== null || Boolean(analysisIssue)}
+          onClick={onRunContracts}>Comparer standard et variante B en un clic</Button>
+        {busy && !enabled && <Button variant="secondary" onClick={onStop}>Arrêter après l’appel en cours</Button>}
+        {contractRuns.length > 0 && <>
+          <Button variant="secondary" disabled={busy} onClick={onCopy}>Copier le rapport pour ChatGPT</Button>
+          <Button variant="secondary" disabled={busy} onClick={onExport}>Exporter JSON complet</Button>
+        </>}
+      </div>
+      {analysisIssue && <p className="pilot-evaluation-hint" role="status">{analysisIssue}</p>}
+      {questionContractReport && <div className="pilot-evaluation-report" aria-label="Résultats variante B">
+        <h4>Comparaison par configuration et par copie</h4>
+        <div className="pilot-evaluation-table-scroll">
+          <table className="pilot-evaluation-table">
+            <thead><tr><th scope="col">Modèle</th><th scope="col">Copie</th><th scope="col">Référence</th><th scope="col">Standard</th><th scope="col">Variante B</th><th scope="col">Attendus exacts A → B</th><th scope="col">Faux positifs A → B</th><th scope="col">À examiner A → B</th><th scope="col">Durée A → B</th></tr></thead>
+            <tbody>{questionContractReport.comparison.map((item) => <tr key={item.profileId + '-' + item.caseId}>
+              <th scope="row">{item.profile}</th><td>{item.caseId}</td><td>{item.referenceScore}/10</td>
+              <td>{item.standard?.score === null || !item.standard ? 'Non évaluée' : item.standard.score + '/10'}</td>
+              <td>{item.contract?.score === null || !item.contract ? 'Non évaluée' : item.contract.score + '/10'}</td>
+              <td>{item.standard?.correct ?? '—'} → {item.contract?.correct ?? '—'} /10</td>
+              <td>{item.standard?.falsePositives ?? '—'} → {item.contract?.falsePositives ?? '—'}</td>
+              <td>{item.standard?.unresolved ?? '—'} → {item.contract?.unresolved ?? '—'}</td>
+              <td>{item.standard ? (item.standard.durationMs / 1000).toFixed(1) + ' s' : '—'} → {item.contract ? (item.contract.durationMs / 1000).toFixed(1) + ' s' : '—'}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+        <p className="pilot-evaluation-hint">Les erreurs de modèles et les sous-critères non évalués restent distincts des zéros. Le JSON inclut chaque décision, la preuve, les traces et les durées, sans images, secrets ni URL de serveur. Les résultats sont exploratoires.</p>
+      </div>}
+    </section>
+    {(message || currentCase) && <p className="pilot-evaluation-message" role="status">{currentCase ? `Copie ${currentCase} en cours · ` : ''}{message}</p>}
     {enabled && <>
       <div className="pilot-evaluation-cases">
         {PILOT_CASES.map((testCase) => <article className="pilot-evaluation-case" key={testCase.id}>
@@ -87,7 +135,6 @@ export function PilotEvaluationPanel({
           Un appel de préchauffage non chronométré est effectué avant les séries pour limiter le biais du chargement à froid.</small>
       </section>
       {!readyForImages && <p className="pilot-evaluation-hint">Pour Vision seule ou le parcours complet, associez une photo correspondant au texte de référence de chaque copie. Pour démarrer sans images, choisissez « Lancer les 3 analyses » : les transcriptions de référence sont déjà intégrées.</p>}
-      {(message || currentCase) && <p className="pilot-evaluation-message" role="status">{currentCase ? `Copie ${currentCase} en cours · ` : ''}{message}</p>}
       {concurrencyRuns.length > 0 && <section className="pilot-evaluation-report" aria-label="Résultats du parallélisme">
         <div className="pilot-evaluation-report-head">
           <div><h4>Parallélisme · analyse seule</h4><p>Durée totale de 5 critères, résultats de référence, sorties du modèle et débit effectif (tokens / durée totale).</p></div>
