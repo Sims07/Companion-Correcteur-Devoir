@@ -77,6 +77,9 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   const results = fixtures.getByRole('region', { name: 'Résultats des schémas A B C' });
   await expect(results).toBeVisible({ timeout: 30_000 });
   await expect(results.locator('tbody tr')).toHaveCount(3);
+  // All 19 native image decisions remain measurable even if a resulting
+  // provisional grade needs teacher review.
+  await expect(results.getByText('19/19', { exact: true })).toHaveCount(3);
   await expect(results.getByText('10/10', { exact: true }).first()).toBeVisible();
   await expect(results.getByText('5/10', { exact: true }).first()).toBeVisible();
   await expect(results.getByText('0/10', { exact: true }).first()).toBeVisible();
