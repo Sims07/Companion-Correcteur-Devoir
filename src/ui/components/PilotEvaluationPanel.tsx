@@ -134,7 +134,7 @@ export function PilotEvaluationPanel({
         <h4>Stabilité et justesse par modèle et par copie · {repeatabilityReport.suite === 'stress' ? 'robustesse D/E/F/G' : 'référence A/B/C'}</h4>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
-            <thead><tr><th scope="col">Modèle</th><th scope="col">Copie</th><th scope="col">Passages</th><th scope="col">Notes</th><th scope="col">Accord</th><th scope="col">Toujours corrects</th><th scope="col">Stables et évalués</th><th scope="col">À vérifier</th><th scope="col">Durée moy.</th></tr></thead>
+            <thead><tr><th scope="col">Modèle</th><th scope="col">Copie</th><th scope="col">Passages</th><th scope="col">Notes</th><th scope="col">Accord</th><th scope="col">Toujours corrects</th><th scope="col">Stables et évalués</th><th scope="col">Attendus non évalués</th><th scope="col">Demandes au professeur</th><th scope="col">Durée moy.</th></tr></thead>
             <tbody>{repeatabilityReport.cases.map((item) => <tr key={item.profileId + '-' + item.caseId}>
               <th scope="row">{item.profile} · {item.analysisModel}</th>
               <td>{item.caseId} · réf. {item.referenceScore}/10</td>
@@ -144,6 +144,7 @@ export function PilotEvaluationPanel({
               <td>{item.correctEveryTime}/10</td>
               <td>{item.stableResolvedDecisions}/10</td>
               <td>{item.unresolved}</td>
+              <td>{item.teacherReviewRuns}/{item.repetitionsCompleted} passages</td>
               <td>{(item.meanDurationMs / 1000).toFixed(1)} s</td>
             </tr>)}</tbody>
           </table>
@@ -158,7 +159,7 @@ export function PilotEvaluationPanel({
               : <p>Chaque attendu est correct à chaque passage terminé.</p>}
           </div>)}
         </details>
-        <p className="pilot-evaluation-hint">L’accord compare les paires de décisions (y compris « non évalué »). L’indicateur « stables et évalués » exclut ces décisions non résolues. Une série interrompue n’est pas déclarée répétable ; les traces et essais partiels restent exportables sans secrets ni images.</p>
+        <p className="pilot-evaluation-hint">L’accord compare les paires de décisions (y compris « non évalué »). L’indicateur « stables et évalués » exclut ces décisions non résolues. Les demandes au professeur comprennent aussi les alertes globales de correspondance copie/barème, même lorsque les 10 attendus sont notés. Une série interrompue n’est pas déclarée répétable ; les traces et essais partiels restent exportables sans secrets ni images.</p>
       </div>}
     </section>
     {(message || currentCase) && <p className="pilot-evaluation-message" role="status">{currentCase ? `Copie ${currentCase} en cours · ` : ''}{message}</p>}
