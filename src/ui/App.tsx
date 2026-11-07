@@ -54,6 +54,7 @@ import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import { QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant } from '../domain/questionContractPilot.ts';
+import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount } from '../domain/questionContractRepeatability.ts';
 import { runPilotCriterionConcurrency, type PilotConcurrencyRun } from '../application/pilotCriterionConcurrency.ts';
 import type { PilotModelMemoryRelease } from '../ports/pilotModelMemory.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
@@ -397,6 +398,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [pilotEnabled, setPilotEnabled] = useState(false);
   const [pilotRuns, setPilotRuns] = useState<PilotRun[]>([]);
   const [pilotContractRuns, setPilotContractRuns] = useState<QuestionContractRun[]>([]);
+  const [pilotRepeatabilityRuns, setPilotRepeatabilityRuns] = useState<QuestionContractRepeatabilityRun[]>([]);
+  const [pilotRepeatabilityPlanned, setPilotRepeatabilityPlanned] = useState<RepeatabilityCount>(3);
+  const [pilotRepeatabilityProgress, setPilotRepeatabilityProgress] = useState<{ completed: number; total: number } | null>(null);
   const [pilotConcurrencyRuns, setPilotConcurrencyRuns] = useState<PilotConcurrencyRun[]>([]);
   const [pilotImages, setPilotImages] = useState<Record<string, ImageInput[]>>({});
   const [pilotBusy, setPilotBusy] = useState(false);
@@ -1730,6 +1734,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
         visionModel: profile.configuration.visionModel, analysisModel: profile.configuration.analysisModel,
         thinking: profile.configuration.analysisThinking,
+        criterionByCriterion: profile.configuration.criterionByCriterion,
         correctionMethod: profile.configuration.correctionMethod,
         directVisualDecision: directProfiles(profile),
       })),
@@ -1757,6 +1762,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setPilotEnabled(true);
     setPilotRuns([]);
     setPilotContractRuns([]);
+    setPilotRepeatabilityRuns([]);
+    setPilotRepeatabilityProgress(null);
     setPilotConcurrencyRuns([]);
     setPilotImages({});
     setPilotMessage('Prêt : barème isolé et trois textes de référence. Utilisez les configurations sélectionnées dans « Configurations à exécuter » ci-dessous, ou sélectionnez-en de nouvelles.');
@@ -1852,6 +1859,53 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     } catch (cause) {
       setPilotMessage('Erreur de comparaison : ' + (cause instanceof Error ? cause.message : String(cause)) +
         '. Les essais terminés restent exportables.');
+    } finally {
+      setPilotBusy(false);
+      setPilotCurrentCase(null);
+    }
+  }
+
+  async function runPilotRepeatabilityBenchmark(repetitions: RepeatabilityCount) {
+    if (pilotBusy || busy || pilotUploadingCase || (repetitions !== 3 && repetitions !== 5)) return;
+    const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+    const issue = pilotSelectionIssue(profiles, 'analysis');
+    if (issue) { setPilotMessage(issue); return; }
+    if (!releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : répétabilité bloquée pour protéger la RAM.'); return; }
+    const steps = questionContractRepeatabilitySteps(repetitions);
+    // Snapshot the selected profiles once: edits to saved settings cannot change a running campaign.
+    pilotStopRef.current = false;
+    evaluationCancelledRef.current = false;
+    pilotMemoryErrorRef.current = null;
+    setPilotRepeatabilityRuns([]);
+    setPilotRepeatabilityPlanned(repetitions);
+    setPilotRepeatabilityProgress({ completed: 0, total: steps.length });
+    setPilotBusy(true);
+    setEvaluationStageMode('analysis');
+    setEvaluationVisualDirect(false);
+    try {
+      for (const [index, step] of steps.entries()) {
+        if (pilotStopRef.current || evaluationCancelledRef.current) break;
+        const testCase = QUESTION_CONTRACT_CASES.find((item) => item.id === step.caseId)!;
+        setPilotCurrentCase(step.caseId);
+        setPilotMessage('Répétabilité variante B · passage ' + step.repetition + '/' + repetitions +
+          ' · copie ' + step.caseId + ' · ' + profiles.length + ' profil(s) · série ' +
+          (index + 1) + '/' + steps.length + '.');
+        const record = await startModelEvaluation({
+          pilotCase: testCase, stage: 'analysis', profiles, caseImages: [], contractVariant: 'contract',
+        });
+        if (record) {
+          setPilotRepeatabilityRuns((current) => [...current, { repetition: step.repetition, caseId: step.caseId, record }]);
+          setPilotRepeatabilityProgress({ completed: index + 1, total: steps.length });
+        }
+        if (pilotStopRef.current || evaluationCancelledRef.current) break;
+      }
+      setPilotMessage(pilotMemoryErrorRef.current ??
+        (pilotStopRef.current || evaluationCancelledRef.current
+          ? 'Répétabilité interrompue : les passages terminés restent exportables, sans être présentés comme répétables.'
+          : 'Répétabilité terminée. Comparez les décisions et exportez le rapport JSON pour ChatGPT.'));
+    } catch (cause) {
+      setPilotMessage('Erreur de répétabilité : ' + (cause instanceof Error ? cause.message : String(cause)) +
+        '. Les passages terminés restent exportables.');
     } finally {
       setPilotBusy(false);
       setPilotCurrentCase(null);
@@ -1969,13 +2023,21 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   function combinedPilotReport() {
     const createdAt = new Date().toISOString();
     const baseReport = buildPilotReport(pilotRuns, createdAt, pilotConcurrencyRuns);
-    if (!pilotContractRuns.length) return baseReport;
-    const contractReport = buildQuestionContractReport(pilotContractRuns, createdAt);
-    return pilotRuns.length || pilotConcurrencyRuns.length ? { ...baseReport, questionContractPilot: contractReport } : contractReport;
+    const hasOtherPilotResults = pilotRuns.length || pilotConcurrencyRuns.length;
+    const contractReport = pilotContractRuns.length ? buildQuestionContractReport(pilotContractRuns, createdAt) : null;
+    const repeatabilityReport = pilotRepeatabilityRuns.length
+      ? buildQuestionContractRepeatabilityReport(pilotRepeatabilityRuns, createdAt, pilotRepeatabilityPlanned) : null;
+    if (repeatabilityReport && !contractReport && !hasOtherPilotResults) return repeatabilityReport;
+    if (contractReport && !repeatabilityReport && !hasOtherPilotResults) return contractReport;
+    return {
+      ...(hasOtherPilotResults ? { pilot: baseReport } : {}),
+      ...(contractReport ? { questionContractPilot: contractReport } : {}),
+      ...(repeatabilityReport ? { questionContractRepeatability: repeatabilityReport } : {}),
+    };
   }
 
   function exportPilotReport() {
-    if (!pilotRuns.length && !pilotConcurrencyRuns.length && !pilotContractRuns.length) return;
+    if (!pilotRuns.length && !pilotConcurrencyRuns.length && !pilotContractRuns.length && !pilotRepeatabilityRuns.length) return;
     const report = combinedPilotReport();
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -1990,7 +2052,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function copyPilotReport() {
-    if (!pilotRuns.length && !pilotConcurrencyRuns.length && !pilotContractRuns.length) return;
+    if (!pilotRuns.length && !pilotConcurrencyRuns.length && !pilotContractRuns.length && !pilotRepeatabilityRuns.length) return;
     try {
       await navigator.clipboard.writeText(JSON.stringify(combinedPilotReport(), null, 2));
       setPilotMessage('Rapport copié dans le presse-papiers : collez-le dans notre conversation pour l’analyse.');
@@ -3055,7 +3117,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="evaluation-section-heading"><div><p className="eyebrow">ÉTAPE 1 · CONFIGURATIONS</p><h2 id="evaluation-config-title">Choisir les configurations à évaluer</h2><p>Créez ou modifiez vos profils ici, sans passer par les réglages du parcours de correction. Les profils sont enregistrés localement sur cet appareil.</p></div><span className="evaluation-step-chip">{aiModelProfiles.length} profil(s)</span></div>
         <PilotEvaluationPanel
           enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}
-          message={pilotMessage} runs={pilotRuns} contractRuns={pilotContractRuns} concurrencyRuns={pilotConcurrencyRuns}
+          message={pilotMessage} runs={pilotRuns} contractRuns={pilotContractRuns}
+          repeatabilityRuns={pilotRepeatabilityRuns} repeatabilityPlanned={pilotRepeatabilityPlanned}
+          repeatabilityProgress={pilotRepeatabilityProgress} concurrencyRuns={pilotConcurrencyRuns}
           imageCounts={Object.fromEntries(Object.entries(pilotImages).map(([caseId, pages]) => [caseId, pages.length]))}
           selectedProfiles={selectedEvaluationProfiles}
           onPrepare={preparePilotProtocol}
@@ -3063,6 +3127,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           onRun={(mode) => { void runPilotProtocol(mode); }}
           onRunConcurrency={(caseId) => { void runPilotConcurrencyBenchmark(caseId); }}
           onRunContracts={() => { void runPilotQuestionContractBenchmark(); }}
+          onRunRepeatability={(count) => { void runPilotRepeatabilityBenchmark(count); }}
           onStop={stopPilotProtocol} onExport={exportPilotReport}
           onCopy={() => { void copyPilotReport(); }}
         />
