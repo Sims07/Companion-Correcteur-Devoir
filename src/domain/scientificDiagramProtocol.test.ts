@@ -127,4 +127,78 @@ describe('protocole de schémas scientifiques', () => {
     );
     expect(noGold.summaries[0]).toMatchObject({ complete: false, accuracyPercent: null, stableResolvedTargets: null });
   });
+  it('récupère les choix natifs TEV1 sur transcription même si le modèle ne peut attribuer une note', () => {
+    const base = result();
+    const textRun: ModelEvaluationResultSnapshot = {
+      ...base, directVisualDecision: false, score: null, proposal: null,
+      transcription: 'Mitose végétale, schéma sur feuille.',
+      diagnosticRuns: [{
+        ...base.diagnosticRuns![0]!,
+        promptId: 'decision.system-one',
+        requestMetadata: { ...base.diagnosticRuns![0]!.requestMetadata!, imageCount: 0 },
+        raw: JSON.stringify({ answers: {
+          criterion_1_expected_1: { choice: 'present', probabilities: { present: 0.82 } },
+          criterion_1_expected_2: { choice: 'partial', probabilities: { partial: 0.61 } },
+          criterion_2_expected_1: { choice: 'absent', probabilities: { absent: 0.97 } },
+          criterion_3_expected_1: { choice: 'uncertain', probabilities: { uncertain: 0.95 } },
+        } }),
+      }],
+    };
+    const observations = diagramObservations(textRun, SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC);
+    expect(observations).toHaveLength(15);
+    expect(observations[0]).toMatchObject({ choice: 'present', decisionSource: 'native-text', probability: 0.82 });
+    expect(observations[1]).toMatchObject({ choice: 'partial', decisionSource: 'native-text', probability: 0.61 });
+    expect(observations[6]).toMatchObject({ choice: 'absent', decisionSource: 'native-text' });
+    expect(observations[12]).toMatchObject({ choice: 'uncertain', decisionSource: 'native-text' });
+    expect(observations[2]).toMatchObject({ choice: 'uncertain', decisionSource: 'none' });
+    const gold = { [diagramTargetKey('drawing', 'drawing-page')]: 'present' as const };
+    const report = buildScientificDiagramProtocolReport(
+      [{ repetition: 1, record: record(textRun) }],
+      SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, gold, 1, 'test', 1,
+    );
+    expect(report.experiments[0]).toMatchObject({
+      method: 'vision-then-analysis', scoreStatus: 'teacher-review-or-unscorable', score: null,
+    });
+    expect(report.summaries[0]).toMatchObject({
+      successfulRuns: 1, scoredRuns: 0, unscoredRuns: 1,
+      resolvedDecisions: 3, totalDecisions: 15,
+      coveragePercent: 20, accuracyPercent: 100,
+      stableResolvedTargets: null,
+    });
+    expect(report.summaries[0]?.decisions[0]?.stable).toBe(false);
+    expect(JSON.stringify(report)).not.toContain('PRIVATE_BASE64_IMAGE');
+  });
+
+  it('n’affiche pas une fausse exactitude de 0 % quand aucun choix n’est récupéré', () => {
+    const noDecisions: ModelEvaluationResultSnapshot = {
+      ...result(), directVisualDecision: false, diagnosticRuns: [], proposal: null,
+    };
+    const gold = { [diagramTargetKey('drawing', 'drawing-page')]: 'present' as const };
+    const report = buildScientificDiagramProtocolReport(
+      [{ repetition: 1, record: record(noDecisions) }],
+      SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, gold, 1, 'test', 1,
+    );
+    expect(report.summaries[0]).toMatchObject({
+      complete: true, scoredRuns: 0, unscoredRuns: 1, resolvedDecisions: 0,
+      accuracyPercent: null, coveragePercent: 0, stableResolvedTargets: null,
+    });
+    expect(report.summaries[0]?.decisions.every((decision) => !decision.stable)).toBe(true);
+  });
+
+  it('distingue un échec avant analyse sans exporter ses éventuels secrets', () => {
+    const failed: ModelEvaluationResultSnapshot = {
+      ...result('failed'), error: 'https://PRIVATE_ENDPOINT?apiKey=PRIVATE_API_KEY',
+      readingMs: 0, analysisMs: 0, diagnosticRuns: [],
+    };
+    const report = buildScientificDiagramProtocolReport(
+      [{ repetition: 1, record: record(failed) }],
+      SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, {}, 1, 'test', 1,
+    );
+    expect(report.summaries[0]).toMatchObject({
+      successfulRuns: 0, failedRuns: 1, resolvedDecisions: 0, accuracyPercent: null,
+    });
+    expect(report.experiments[0]?.error).toContain('avant traitement');
+    expect(JSON.stringify(report)).not.toContain('PRIVATE_ENDPOINT');
+    expect(JSON.stringify(report)).not.toContain('PRIVATE_API_KEY');
+  });
 });
