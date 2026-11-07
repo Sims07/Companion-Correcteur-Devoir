@@ -51,7 +51,7 @@ import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision 
 import { buildLocalDecisionBenchmark } from '../domain/localDecisionBenchmark.ts';
 import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluationScores, visualChoiceLabels } from '../domain/visualDecisionEvaluation.ts';
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
-import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
+import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import { QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant } from '../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount } from '../domain/questionContractRepeatability.ts';
@@ -1578,12 +1578,15 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         analysisModel: profile.configuration.analysisModel,
         thinking: profile.configuration.analysisThinking,
         criterionByCriterion: profile.configuration.criterionByCriterion,
+        apiCompatible: profile.configuration.apiCompatible,
         correctionMethod: profile.configuration.correctionMethod,
         directVisualDecision: directProfiles(profile),
       })),
       isCancelled: () => evaluationCancelledRef.current,
       onProgress: setEvaluationProgress,
       ...(options ? { onConfigurationSettled: async (configuration: ModelEvaluationConfiguration) => {
+        // A remote OpenAI-compatible API or nonlocal Ollama does not expose a safe local unload endpoint.
+        if (!isLocalPilotConfiguration(configuration)) return;
         setPilotMessage('Libération de la mémoire Ollama après « ' + configuration.name + ' »…');
         try {
           if (!releasePilotModels) throw new Error('Gestionnaire de mémoire Ollama indisponible.');
@@ -1789,7 +1792,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     const selectionIssue = pilotSelectionIssue(profiles, stage);
     if (selectionIssue) { setPilotMessage(selectionIssue); return; }
-    if (!releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : protocole bloqué pour éviter de saturer la RAM.'); return; }
+    if (profiles.some(isLocalPilotProfile) && !releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : protocole bloqué pour éviter de saturer la RAM.'); return; }
     if (stage !== 'analysis' && PILOT_CASES.some((testCase) => !pilotImages[testCase.id]?.length)) {
       setPilotMessage('Ajoutez les photos des copies A, B et C avant de lancer le test Vision.');
       return;
@@ -1828,7 +1831,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     const issue = pilotSelectionIssue(profiles, 'analysis');
     if (issue) { setPilotMessage(issue); return; }
-    if (!releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : comparaison bloquée pour protéger la RAM.'); return; }
+    if (profiles.some(isLocalPilotProfile) && !releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : comparaison bloquée pour protéger la RAM.'); return; }
     pilotStopRef.current = false;
     evaluationCancelledRef.current = false;
     pilotMemoryErrorRef.current = null;
@@ -1870,7 +1873,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     const issue = pilotSelectionIssue(profiles, 'analysis');
     if (issue) { setPilotMessage(issue); return; }
-    if (!releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : répétabilité bloquée pour protéger la RAM.'); return; }
+    if (profiles.some(isLocalPilotProfile) && !releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : répétabilité bloquée pour protéger la RAM.'); return; }
     const steps = questionContractRepeatabilitySteps(repetitions);
     // Snapshot the selected profiles once: edits to saved settings cannot change a running campaign.
     pilotStopRef.current = false;
@@ -1917,7 +1920,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     const issue = pilotSelectionIssue(profiles, 'analysis');
     if (issue) { setPilotMessage(issue); return; }
-    if (!releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : benchmark bloqué pour protéger la RAM.'); return; }
+    const nonLocal = profiles.filter((profile) => !isLocalPilotProfile(profile));
+    if (nonLocal.length) {
+      setPilotMessage('Le benchmark CPU / parallélisme ne prend en charge que les modèles Ollama locaux : ' +
+        nonLocal.map((profile) => profile.name).join(', ') + '.');
+      return;
+    }
+    if (profiles.some(isLocalPilotProfile) && !releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : benchmark bloqué pour protéger la RAM.'); return; }
     const testCase = PILOT_CASES.find((item) => item.id === caseId);
     if (!testCase) return;
     pilotStopRef.current = false;
