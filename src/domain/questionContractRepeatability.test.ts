@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
 import type { GradingProposal } from './grading.ts';
-import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, questionContractRubric } from './questionContractPilot.ts';
+import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, questionContractRubric } from './questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps } from './questionContractRepeatability.ts';
 
 type CaseId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G';
