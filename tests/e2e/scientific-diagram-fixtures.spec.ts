@@ -31,6 +31,10 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
       await route.fulfill({ status: 200, headers, body: JSON.stringify({ models: [{ name: 'd1:3b', model: 'd1:3b' }] }) });
       return;
     }
+    if (url.pathname === '/api/show') {
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({ model_info: {} }) });
+      return;
+    }
     if (url.pathname === '/api/ps') {
       await route.fulfill({ status: 200, headers, body: JSON.stringify({ models: [] }) });
       return;
