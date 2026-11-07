@@ -55,7 +55,10 @@ describe('decision stress protocol: native scoring + contract evidence isolation
 
     const proposal = parseGradingProposal(raw, rubric);
     expect(proposal.finalScore).toBe(testCase.referenceScore);
-    expect(proposal.scoreIncomplete).not.toBe(true);
+    expect(proposal.scoreIncomplete, JSON.stringify(proposal.criteria.flatMap((criterion) =>
+      (criterion.subcriteria ?? []).filter((sub) => sub.assessmentStatus === 'not-evaluated')
+        .map((sub) => ({ criterion: criterion.criterionId, target: sub.subcriterionId,
+          evidence: sub.evidence, status: sub.evidenceStatus, reason: sub.questionForTeacher }))))).not.toBe(true);
     expect(proposal.criteria.flatMap((criterion) => criterion.subcriteria ?? [])
       .filter((subcriterion) => subcriterion.assessmentStatus === 'not-evaluated')).toHaveLength(0);
   });
