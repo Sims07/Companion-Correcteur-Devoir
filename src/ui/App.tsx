@@ -53,7 +53,7 @@ import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluatio
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
-import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant } from '../domain/questionContractPilot.ts';
+import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../domain/questionContractRepeatability.ts';
 import { runPilotCriterionConcurrency, type PilotConcurrencyRun } from '../application/pilotCriterionConcurrency.ts';
 import type { PilotModelMemoryRelease } from '../ports/pilotModelMemory.ts';
@@ -83,7 +83,7 @@ import { createReviewTraceMetrics, markGroupConfirmedCriterionModified, type Rev
 
 type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
 interface PilotRunOptions {
-  pilotCase: PilotCase;
+  pilotCase: PilotCase | QuestionContractCase;
   stage: 'vision' | 'analysis' | 'integrated';
   profiles: AiModelProfile[];
   caseImages: ImageInput[];
