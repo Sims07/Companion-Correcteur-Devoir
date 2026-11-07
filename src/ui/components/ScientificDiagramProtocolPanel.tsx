@@ -252,7 +252,17 @@ export function ScientificDiagramProtocolPanel({
                 <td>{summary.method === 'direct-image-systemone' ? 'Vision décisionnelle' : 'Vision puis analyse'}</td>
                 <td>{caseResult.referenceScore}/10</td>
                 <td>{experiments.map((experiment) => experiment.score === null ? 'Non noté' : experiment.score + '/10').join(' · ')}</td>
-                <td>{summary.failedRuns ? summary.failedRuns + ' échec(s)' : summary.unscoredRuns ? summary.unscoredRuns + ' sans note' : 'Réussie'}</td>
+                <td>{experiments.map((experiment) => {
+                  if (experiment.status !== 'success') {
+                    return experiment.failureCategory === 'model-unavailable' ? 'Modèle indisponible'
+                      : experiment.failureCategory === 'connection' ? 'Connexion échouée'
+                      : experiment.failureCategory === 'system-one-unavailable' ? 'System One indisponible'
+                      : 'Échec avant/ou pendant traitement';
+                  }
+                  return experiment.scoreStatus === 'scored' ? 'Notée'
+                    : experiment.scoreStatus === 'teacher-review-required' ? 'Arbitrage nécessaire'
+                    : 'Réponse non notée';
+                }).join(' · ')}</td>
                 <td>{summary.resolvedDecisions}/{summary.totalDecisions}</td>
                 <td>{summary.accuracyPercent === null ? 'Non mesurable' : summary.accuracyPercent + ' %'}</td>
                 <td>{summary.stableResolvedTargets === null ? 'Non mesurée' : summary.stableResolvedTargets + '/19'}</td>
