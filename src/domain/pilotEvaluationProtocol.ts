@@ -78,15 +78,21 @@ export function isLocalPilotProfile(profile: AiModelProfile): boolean {
   return isLocalPilotConfiguration(profile.configuration);
 }
 
-/** Only synthetic, pre-transcribed fixtures may be evaluated through an OpenAI-compatible API. */
-export function isSyntheticTextPilotProfile(profile: AiModelProfile): boolean {
-  if (isLocalPilotProfile(profile)) return true;
-  if (!profile.configuration.apiCompatible) return false;
+/** A profile can target the teacher-selected Ollama or OpenAI-compatible API.
+ * Do not allow embedded URL credentials or unsupported schemes. */
+export function isSupportedPilotProfile(profile: AiModelProfile): boolean {
   try {
     const url = new URL(profile.configuration.endpoint);
-    const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-    return !url.username && !url.password && !url.hash &&
-      (url.protocol === 'https:' || (url.protocol === 'http:' && loopback));
+    return (url.protocol === 'http:' || url.protocol === 'https:')
+      && !url.username && !url.password && !url.hash;
+  } catch { return false; }
+}
+
+/** Loopback alone determines whether data stays on this device, independent of API dialect. */
+export function isLoopbackPilotEndpoint(endpoint: string): boolean {
+  try {
+    const url = new URL(endpoint);
+    return ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
   } catch { return false; }
 }
 
@@ -96,19 +102,17 @@ export function selectPilotProfiles(profiles: readonly AiModelProfile[], selecte
   return profiles.filter((profile) => ids.has(profile.id)).slice(0, 3);
 }
 
-/** External APIs are opt-in only for the built-in text fixtures, never for images or imported student responses. */
-export function pilotSelectionIssue(
-  profiles: readonly AiModelProfile[], stage: 'vision' | 'analysis' | 'integrated',
-  options: { syntheticTextOnly?: boolean } = {},
-): string | null {
+/** Saved provider choice is explicit; all pilot stages can use an OpenAI-compatible API.
+ * Images are sent only to the provider configured by the user, never in an exported report. */
+export function pilotSelectionIssue(profiles: readonly AiModelProfile[], stage: 'vision' | 'analysis' | 'integrated'): string | null {
   if (!profiles.length) return 'Sélectionnez au moins une configuration dans « Configurations à exécuter » ci-dessous.';
-  const syntheticTextOnly = stage === 'analysis' && options.syntheticTextOnly === true;
-  const remote = profiles.filter((profile) =>
-    !(syntheticTextOnly ? isSyntheticTextPilotProfile(profile) : isLocalPilotProfile(profile)));
-  if (remote.length) return (syntheticTextOnly
-    ? 'Pour ce test fictif, choisissez Ollama local ou une API compatible OpenAI en HTTPS (HTTP local autorisé).'
-    : 'Le protocole protège les copies : Ollama local sans clé API est requis.') +
-    ' Configuration(s) incompatible(s) : ' + remote.map((profile) => profile.name).join(', ') + '.';
+  const unsupported = profiles.filter((profile) => !isSupportedPilotProfile(profile));
+  if (unsupported.length) return 'Vérifiez l’URL du serveur (HTTP ou HTTPS, sans identifiants intégrés) : ' +
+    unsupported.map((profile) => profile.name).join(', ') + '.';
+  const invalidMethod = profiles.filter((profile) =>
+    stage !== 'vision' && profile.configuration.apiCompatible && profile.configuration.correctionMethod === 'decision');
+  if (invalidMethod.length) return 'La méthode décisionnelle System One n’est pas disponible via l’API compatible OpenAI. Utilisez une méthode classique pour : ' +
+    invalidMethod.map((profile) => profile.name).join(', ') + '.';
   if (stage !== 'vision') {
     const missingAnalysis = profiles.filter((profile) => !profile.configuration.analysisModel.trim());
     if (missingAnalysis.length) return 'Définissez un modèle d’analyse pour : ' + missingAnalysis.map((profile) => profile.name).join(', ') + '.';
