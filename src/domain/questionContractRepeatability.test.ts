@@ -69,6 +69,7 @@ describe('pilote répétabilité — variante B', () => {
       completeGrades: 3, resolutionPercent: 100,
     });
     expect(report.experiments).toHaveLength(3);
+    expect(report.localOnly).toBe(false);
     expect(report.experiments.map((experiment) => experiment.repetition)).toEqual([1, 2, 3]);
     expect(JSON.stringify(report)).not.toMatch(/PRIVATE_IMAGE_BASE64|PRIVATE_HOST|requestPayload|requestMetadata/);
   });
