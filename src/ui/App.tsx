@@ -91,6 +91,7 @@ interface PilotRunOptions {
   caseImages: ImageInput[];
   contractVariant?: QuestionContractVariant;
   diagram?: { rubric: Rubric; question: string; directVisualDecision: boolean };
+  retainModelAfterRun?: boolean;
 }
 
 const initialRubric: Rubric = {
@@ -1589,7 +1590,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       onProgress: setEvaluationProgress,
       ...(options ? { onConfigurationSettled: async (configuration: ModelEvaluationConfiguration) => {
         // A remote OpenAI-compatible API or nonlocal Ollama does not expose a safe local unload endpoint.
-        if (!isLocalPilotConfiguration(configuration)) return;
+        if (!isLocalPilotConfiguration(configuration) || options?.retainModelAfterRun) return;
         setPilotMessage('Libération de la mémoire Ollama après « ' + configuration.name + ' »…');
         try {
           if (!releasePilotModels) throw new Error('Gestionnaire de mémoire Ollama indisponible.');
@@ -2047,21 +2048,43 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       // Profiles and repetitions are sequential: safe for a 16 GB CPU-only machine.
       // Each repetition uses the same prepared image group and exactly one profile.
       for (const profile of profiles) {
-        for (let repetition = 1; repetition <= request.repetitions; repetition++) {
-          if (pilotStopRef.current || evaluationCancelledRef.current) break;
-          setDiagramProtocolProgress(profile.name + ' · passage ' + repetition + '/' + request.repetitions
-            + ' · ' + (usesDirectDiagramVision(profile) ? 'System One image' : 'Vision puis analyse'));
-          const record = await startModelEvaluation({
-            pilotCase: PILOT_CASES[0]!, stage: 'integrated', profiles: [profile],
-            caseImages: request.images,
-            diagram: {
-              rubric: request.rubric,
-              question: request.context || 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni. N’invente pas de structures biologiques absentes du sujet.',
-              directVisualDecision: usesDirectDiagramVision(profile),
-            },
-          });
-          if (record) runs.push({ repetition, record });
-          if (pilotStopRef.current || evaluationCancelledRef.current) break;
+        try {
+          for (let repetition = 1; repetition <= request.repetitions; repetition++) {
+            if (pilotStopRef.current || evaluationCancelledRef.current) break;
+            setDiagramProtocolProgress(profile.name + ' · passage ' + repetition + '/' + request.repetitions
+              + ' · ' + (usesDirectDiagramVision(profile) ? 'System One image' : 'Vision puis analyse'));
+            const record = await startModelEvaluation({
+              pilotCase: PILOT_CASES[0]!, stage: 'integrated', profiles: [profile],
+              caseImages: request.images, retainModelAfterRun: true,
+              diagram: {
+                rubric: request.rubric,
+                question: request.context || 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni. N’invente pas de structures biologiques absentes du sujet.',
+                directVisualDecision: usesDirectDiagramVision(profile),
+              },
+            });
+            if (record) runs.push({ repetition, record });
+            if (pilotStopRef.current || evaluationCancelledRef.current) break;
+          }
+        } finally {
+          // Keep a single model in RAM throughout identical repetitions, then
+          // unload before any different profile (including after cancellation).
+          if (isLocalPilotProfile(profile) && releasePilotModels) {
+            setDiagramProtocolProgress('Libération de la mémoire après « ' + profile.name + ' »…');
+            try {
+              await releasePilotModels({
+                id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
+                apiCompatible: false, visionModel: profile.configuration.visionModel,
+                analysisModel: profile.configuration.analysisModel,
+                thinking: profile.configuration.analysisThinking,
+                correctionMethod: profile.configuration.correctionMethod,
+              }, 'integrated');
+            } catch (cause) {
+              pilotMemoryErrorRef.current = 'Impossible de libérer « ' + profile.name + ' » : ' +
+                (cause instanceof Error ? cause.message : String(cause));
+              pilotStopRef.current = true;
+              evaluationCancelledRef.current = true;
+            }
+          }
         }
         if (pilotStopRef.current || evaluationCancelledRef.current) break;
       }
