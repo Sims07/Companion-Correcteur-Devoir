@@ -29,6 +29,7 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
   const repeatability = panel.getByRole('region', { name: 'Test de répétabilité variante B' });
   const repeatAction = repeatability.getByRole('button', { name: 'Lancer le test de répétabilité en un clic' });
   const count = repeatability.getByLabel('Nombre de passages');
+  const suite = repeatability.getByLabel('Jeu de copies');
   const choices = page.getByRole('group', { name: 'Configurations à exécuter' });
   const assignmentsBefore = await page.evaluate(() => localStorage.getItem('companion-correcteur:assignments:v1'));
 
@@ -36,6 +37,10 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
   await expect(action).toBeDisabled();
   await expect(repeatAction).toBeVisible();
   await expect(repeatAction).toBeDisabled();
+  await expect(suite).toHaveValue('baseline');
+  await suite.selectOption('stress');
+  await expect(suite).toHaveValue('stress');
+  await suite.selectOption('baseline');
   await expect(count).toHaveValue('3');
   await count.selectOption('5');
   await expect(count).toHaveValue('5');
