@@ -4,7 +4,7 @@ import { Button } from '../design-system/components/Button.tsx';
 import type { PilotConcurrencyRun } from '../../application/pilotCriterionConcurrency.ts';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import type { PilotCase, PilotRun } from '../../domain/pilotEvaluationProtocol.ts';
-import { PILOT_CASES, comparePilotTranscription, pilotSelectionIssue, summarizePilotResult } from '../../domain/pilotEvaluationProtocol.ts';
+import { PILOT_CASES, comparePilotTranscription, isLocalPilotProfile, pilotSelectionIssue, summarizePilotResult } from '../../domain/pilotEvaluationProtocol.ts';
 import { QUESTION_CONTRACT_CASES, buildQuestionContractReport, type QuestionContractRun } from '../../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, type QuestionContractRepeatabilityRun, type RepeatabilityCount } from '../../domain/questionContractRepeatability.ts';
 import './PilotEvaluationPanel.css';
@@ -27,8 +27,8 @@ interface PilotEvaluationPanelProps {
   onUpload: (caseId: PilotCase['id'], files: FileList | null) => void;
   onRun: (mode: 'vision' | 'analysis' | 'integrated') => void;
   onRunConcurrency: (caseId: PilotCase['id']) => void;
-  onRunContracts: () => void;
-  onRunRepeatability: (count: RepeatabilityCount) => void;
+  onRunContracts: (allowExternalApi: boolean) => void;
+  onRunRepeatability: (count: RepeatabilityCount, allowExternalApi: boolean) => void;
   onStop: () => void;
   onExport: () => void;
   onCopy: () => void;
@@ -40,6 +40,7 @@ export function PilotEvaluationPanel({
 }: PilotEvaluationPanelProps) {
   const [benchmarkCase, setBenchmarkCase] = useState<PilotCase['id']>('C');
   const [repeatabilityCount, setRepeatabilityCount] = useState<RepeatabilityCount>(3);
+  const [allowSyntheticApi, setAllowSyntheticApi] = useState(false);
   const questionContractReport = contractRuns.length ? buildQuestionContractReport(contractRuns, '') : null;
   const repeatabilityReport = useMemo(() => repeatabilityRuns.length
     ? buildQuestionContractRepeatabilityReport(repeatabilityRuns, '', repeatabilityPlanned) : null,
@@ -47,6 +48,9 @@ export function PilotEvaluationPanel({
   const readyForImages = PILOT_CASES.every((testCase) => (imageCounts[testCase.id] ?? 0) > 0);
   const visionIssue = pilotSelectionIssue(selectedProfiles, 'vision');
   const analysisIssue = pilotSelectionIssue(selectedProfiles, 'analysis');
+  const syntheticIssue = pilotSelectionIssue(selectedProfiles, 'analysis', { syntheticTextOnly: true });
+  const externalApiSelected = selectedProfiles.some((profile) => !isLocalPilotProfile(profile));
+  const syntheticApprovalMissing = externalApiSelected && !allowSyntheticApi;
   const integratedIssue = pilotSelectionIssue(selectedProfiles, 'integrated');
   return <section className="pilot-evaluation-panel" aria-label="Protocole de test guidé">
     <div className="pilot-evaluation-head">
@@ -61,7 +65,7 @@ export function PilotEvaluationPanel({
       <div>
         <h4>Variante B · réponses rattachées aux questions</h4>
         <p>Comparez sur les mêmes réponses le barème standard et un contrat explicite par question (consigne, relation scientifique attendue, équivalences et contradictions). Trois cas intégrés : A = 10/10, B = 0/10 (réponses 1 et 2 échangées), C = 5/10. Aucun document à importer, aucune photo requise.</p>
-        <p>Choisissez 1 à 3 profils dans « Configurations à exécuter » ci-dessous. Le test lance 6 évaluations par profil, séquentiellement sur Ollama local, et libère la mémoire entre les profils. Les contrats fournis sont des exemples préremplis, pas des résultats d’une génération automatique : ce protocole mesure uniquement l’effet des contrats sur la correction.</p>
+        <p>Choisissez 1 à 3 profils dans « Configurations à exécuter » ci-dessous. Le test lance 6 évaluations par profil, séquentiellement. Les modèles Ollama locaux sont libérés entre les profils ; les API compatibles OpenAI sont également acceptées sur les réponses fictives. Les contrats fournis sont des exemples préremplis, pas des résultats d’une génération automatique : ce protocole mesure uniquement l’effet des contrats sur la correction.</p>
       </div>
       <details className="pilot-evaluation-reference">
         <summary>Voir les trois réponses et le barème de référence</summary>
@@ -71,16 +75,23 @@ export function PilotEvaluationPanel({
           <pre className="pilot-evaluation-fixture">{testCase.transcription}</pre>
         </div>)}
       </details>
+      {externalApiSelected && <label className="pilot-api-consent" htmlFor="pilot-contract-api-consent">
+        <input id="pilot-contract-api-consent" type="checkbox" checked={allowSyntheticApi} disabled={busy}
+          onChange={(event) => setAllowSyntheticApi(event.target.checked)} />
+        <span><strong>Autoriser l’API externe pour les réponses fictives</strong>
+          <small>Seuls les textes synthétiques A/B/C, le sujet et le barème de référence seront envoyés au serveur configuré. Aucune photo ni vraie copie ne sera transmise. Des frais d’API peuvent s’appliquer. L’accord vaut aussi pour le test de répétabilité.</small>
+        </span>
+      </label>}
       <div className="pilot-evaluation-actions">
-        <Button disabled={busy || uploadingCase !== null || Boolean(analysisIssue)}
-          onClick={onRunContracts}>Comparer standard et variante B en un clic</Button>
+        <Button disabled={busy || uploadingCase !== null || Boolean(syntheticIssue) || syntheticApprovalMissing}
+          onClick={() => onRunContracts(allowSyntheticApi)}>Comparer standard et variante B en un clic</Button>
         {busy && !enabled && <Button variant="secondary" onClick={onStop}>Arrêter après l’appel en cours</Button>}
         {contractRuns.length > 0 && <>
           <Button variant="secondary" disabled={busy} onClick={onCopy}>Copier le rapport pour ChatGPT</Button>
           <Button variant="secondary" disabled={busy} onClick={onExport}>Exporter JSON complet</Button>
         </>}
       </div>
-      {analysisIssue && !enabled && <p className="pilot-evaluation-hint" role="status">{analysisIssue}</p>}
+      {syntheticIssue && <p className="pilot-evaluation-hint" role="status">{syntheticIssue}</p>}
       {questionContractReport && <div className="pilot-evaluation-report" aria-label="Résultats variante B">
         <h4>Comparaison par configuration et par copie</h4>
         <div className="pilot-evaluation-table-scroll">
@@ -103,8 +114,8 @@ export function PilotEvaluationPanel({
     <section className="pilot-evaluation-parallel" aria-label="Test de répétabilité variante B">
       <div>
         <h4>Répétabilité · Variante B</h4>
-        <p>Relance les mêmes réponses A, B et C avec le même contrat par question et les mêmes profils locaux. Mesure la stabilité des 10 décisions, la justesse, les notes et les demandes de validation : un modèle toujours faux ou indécis n’est pas fiable.</p>
-        <p>Analyse seule, sans photo ; appels strictement séquentiels et libération Ollama entre profils. Gardez l’onglet ouvert et le Mac éveillé pendant le test.</p>
+        <p>Relance les mêmes réponses A, B et C avec le même contrat par question et les profils sélectionnés (Ollama local ou API compatible OpenAI autorisée). Mesure la stabilité des 10 décisions, la justesse, les notes et les demandes de validation : un modèle toujours faux ou indécis n’est pas fiable.</p>
+        <p>Analyse seule, sans photo ; appels strictement séquentiels et libération des modèles Ollama locaux entre profils. Gardez l’onglet ouvert et le Mac éveillé pendant le test.</p>
       </div>
       <div className="pilot-evaluation-actions">
         <label htmlFor="pilot-repeatability-count">Nombre de passages</label>
@@ -113,13 +124,14 @@ export function PilotEvaluationPanel({
           <option value={3}>3 répétitions</option>
           <option value={5}>5 répétitions</option>
         </DesignSystemSelect>
-        <Button disabled={busy || uploadingCase !== null || Boolean(analysisIssue)}
-          onClick={() => onRunRepeatability(repeatabilityCount)}>Lancer le test de répétabilité en un clic</Button>
+        <Button disabled={busy || uploadingCase !== null || Boolean(syntheticIssue) || syntheticApprovalMissing}
+          onClick={() => onRunRepeatability(repeatabilityCount, allowSyntheticApi)}>Lancer le test de répétabilité en un clic</Button>
         {repeatabilityRuns.length > 0 && <>
           <Button variant="secondary" disabled={busy} onClick={onCopy}>Copier le rapport pour ChatGPT</Button>
           <Button variant="secondary" disabled={busy} onClick={onExport}>Exporter JSON complet</Button>
         </>}
       </div>
+      {externalApiSelected && syntheticApprovalMissing && !syntheticIssue && <p className="pilot-evaluation-hint" role="status">Cochez l’autorisation d’API externe dans « Variante B » ci-dessus pour lancer ce test fictif.</p>}
       {repeatabilityProgress && <p role="status">Répétabilité : {repeatabilityProgress.completed}/{repeatabilityProgress.total} séries copie × passage terminées.</p>}
       {repeatabilityReport && <div className="pilot-evaluation-report" aria-label="Résultats de répétabilité">
         <h4>Stabilité et justesse par modèle et par copie</h4>
