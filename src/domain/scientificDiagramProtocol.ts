@@ -164,6 +164,16 @@ export function diagramObservations(result: ModelEvaluationResultSnapshot, rubri
   }));
 }
 
+/** Only export a fixed failure category: original errors may contain URLs,
+ * identifiers, network payloads or credentials from a provider exception. */
+export function diagramFailureCategory(error?: string): 'model-unavailable' | 'connection' | 'system-one-unavailable' | 'other' | null {
+  if (!error) return null;
+  if (/n.est pas install.|not installed|unknown model|model not found|ollama pull/i.test(error)) return 'model-unavailable';
+  if (/injoignable|failed to fetch|networkerror|econnrefused|cors|connection refused/i.test(error)) return 'connection';
+  if (/system one|systemone/i.test(error)) return 'system-one-unavailable';
+  return 'other';
+}
+
 /** A report only contains authored rubric, decisions and timings. No images,
  * copied responses, API endpoints, credentials, prompts or raw model messages. */
 export function buildScientificDiagramProtocolReport(
@@ -177,6 +187,7 @@ export function buildScientificDiagramProtocolReport(
     model: record.configurations.find((entry) => entry.id === result.profileId)?.analysisModel ?? '',
     method: result.directVisualDecision ? 'direct-image-systemone' as const : 'vision-then-analysis' as const,
     status: result.status,
+    failureCategory: result.status !== 'success' ? diagramFailureCategory(result.error) : null,
     error: result.error
       ? result.readingMs === 0 && result.analysisMs === 0
         ? 'Échec avant traitement du schéma : vérifiez la configuration ou les modèles dans l’observabilité locale.'
@@ -185,7 +196,8 @@ export function buildScientificDiagramProtocolReport(
     durationMs: result.elapsedMs, readingMs: result.readingMs, analysisMs: result.analysisMs,
     tokens: result.tokens, score: result.score,
     scoreStatus: result.status !== 'success' ? 'execution-failed' as const
-      : result.score === null ? 'teacher-review-or-unscorable' as const : 'scored' as const,
+      : result.score !== null ? 'scored' as const
+      : result.proposal ? 'teacher-review-required' as const : 'invalid-or-incomplete-proposal' as const,
     observations: diagramObservations(result, rubric),
   })));
   const summaries = profiles.map((profileId) => {
@@ -217,7 +229,9 @@ export function buildScientificDiagramProtocolReport(
       runsCompleted: items.length, plannedRepetitions,
       successfulRuns: items.filter((item) => item.status === 'success').length,
       scoredRuns: items.filter((item) => item.scoreStatus === 'scored').length,
-      unscoredRuns: items.filter((item) => item.scoreStatus === 'teacher-review-or-unscorable').length,
+      unscoredRuns: items.filter((item) =>
+        item.scoreStatus === 'teacher-review-required'
+        || item.scoreStatus === 'invalid-or-incomplete-proposal').length,
       failedRuns: items.filter((item) => item.scoreStatus === 'execution-failed').length,
       resolvedDecisions: resolved, totalDecisions: items.length * ids.length,
       complete,
