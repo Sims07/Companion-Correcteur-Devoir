@@ -67,7 +67,7 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
   await expect(choices.locator('label.evaluation-profile-option').nth(2)).toBeVisible();
   await panel.getByRole('button', { name: 'Préparer le protocole en un clic' }).click();
   await expect(panel.getByRole('button', { name: 'Comparer 1, 2 et 4 appels parallèles' })).toBeDisabled();
-  const sample = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLytQAAAABJRU5ErkJggg==', 'base64');
+  const sample = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZckAAAAASUVORK5CYII=', 'base64');
   for (const caseId of ['A', 'B', 'C']) {
     await panel.locator('#pilot-image-' + caseId).setInputFiles({
       name: 'synthetic-' + caseId + '.png', mimeType: 'image/png', buffer: sample,
