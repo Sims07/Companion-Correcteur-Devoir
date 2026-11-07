@@ -64,7 +64,7 @@ export const PILOT_CASES: readonly PilotCase[] = [
   },
 ];
 
-/** Any pilot with student-copy images must stay on local, unauthenticated Ollama. */
+/** Detect local Ollama for safe memory cleanup; other configured providers can run the tests. */
 export function isLocalPilotConfiguration(configuration: { endpoint: string; apiCompatible?: boolean; apiKey?: string }): boolean {
   if (configuration.apiCompatible || configuration.apiKey) return false;
   try {
