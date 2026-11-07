@@ -48,3 +48,13 @@ Les traces montrent le contexte réellement envoyé. Les versions de prompts dis
 5. Inclure le temps de préparation des contrats dans le coût du lot. Conserver B seulement si le gain net et la qualité sont meilleurs ; aucune supériorité n’est présumée.
 
 Le regroupement de réponses entre étudiants (variante C) et le modèle spécialisé d’inférence ne font pas partie de cette expérience.
+
+## Préremplir depuis la feuille d’examen
+
+Dans Barème → « Préparer les contrats depuis la feuille d’examen », importer le sujet (PDF, photos, TXT ou Markdown) puis, si disponible, la correction type. Un seul document contenant les deux convient. Le document déjà transcrit lors de l’import du barème ou de la lecture du sujet peut être réutilisé sans nouvel appel de vision. Les textes préparés sont conservés localement par devoir.
+
+Le barème doit déjà contenir les critères et points du professeur : le préparer avec l’import existant si nécessaire. Le bouton « Préparer les contrats » utilise le modèle génératif renseigné et la connexion IA actuelle ; il ne change pas les modèles de correction. Même avec un modèle décisionnel pour la notation, cette tâche de rédaction nécessite un modèle génératif. Les critères textuels sont préparés séquentiellement, avec arrêt possible. Les schémas ne sont pas traités par ce préremplissage.
+
+L’aperçu distingue les extraits littéraux vérifiés, les propositions/reformulations à valider et les informations absentes. Un extrait annoncé par le modèle n’est marqué comme tel que si sa citation et sa valeur sont retrouvées dans la source déclarée. Ce contrôle de présence ne garantit pas la pertinence scientifique de l’association : relire l’aperçu. Sans corrigé, aucune équivalence n’est exigée et le modèle est invité à laisser les champs non documentés vides. Une citation invalide est déclassée en proposition, jamais présentée comme un extrait validé.
+
+Les propositions sont modifiables puis appliquées ensemble sur les critères sélectionnés. Les contrats préexistants ne sont pas présélectionnés. Les poids, sous-critères et autres propriétés du barème sont conservés ; une modification du barème pendant la préparation rend l’aperçu caduc. Une association ambiguë doit être précisée avant application. Le document est limité à un budget de contexte explicite : un texte trop long est refusé, jamais tronqué silencieusement. Les documents Word ne sont pas pris en charge dans ce panneau : exporter en PDF ou coller le texte.

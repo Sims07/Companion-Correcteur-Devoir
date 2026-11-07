@@ -1,3 +1,4 @@
+import type { ContractPreparation, ContractSources } from '../domain/contractPreparation.ts';
 import type { ImageInput, GradingProvider, OllamaModel, OllamaSettings } from './aiProvider.ts';
 import type { Rubric } from '../domain/rubric.ts';
 import type { TeacherAnnotationInkColor } from '../domain/teacherAnnotationColor.ts';
@@ -35,6 +36,7 @@ export interface ImportedRubric {
 
 /** Outbound ports required by the correction workspace. */
 export interface OllamaGateway {
+  prepareQuestionContracts?(rubric: Rubric, sources: ContractSources, settings: OllamaSettings, onProgress?: (message: string) => void, signal?: AbortSignal): Promise<ContractPreparation>;
   checkReady(settings: OllamaSettings): Promise<void>;
   prewarmModel?(settings: OllamaSettings, model: string, signal?: AbortSignal): Promise<void>;
   unloadModel?(settings: OllamaSettings, model: string): Promise<void>;

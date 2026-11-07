@@ -1,0 +1,7 @@
+.contract-preparation-panel { margin: 10px 0 4px; border: 1px solid var(--ds-color-border); border-radius: 3px; background: var(--ds-color-surface-subtle); color: var(--ds-color-text); min-width: 0; }
+.atelier-rubric-editor > .contract-preparation-panel { order: 7; }
+.contract-preparation-panel > summary { padding: 10px 12px; cursor: pointer; font-size: 12px; font-weight: 650; color: var(--ds-color-text-muted); list-style-position: inside; }
+.contract-preparation-panel > section { display: grid; gap: 12px; padding: 0 12px 12px; min-width: 0; }
+.contract-preparation-panel label { display: block; min-width: 0; }
+.contract-preparation-panel textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+.contract-preparation-panel p, .contract-preparation-panel small { overflow-wrap: anywhere; }

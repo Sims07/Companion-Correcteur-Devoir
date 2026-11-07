@@ -666,7 +666,7 @@ export function createOllamaProvider(
         for (const [index, image] of subjectImages.entries()) {
           const pageLabel = image.fileName || `sujet page ${index + 1}`;
           let subjectTruncated = false;
-          const pageText = await sendStream(visionModel, buildSubjectReferencePrompt(pageLabel), [providerImage(image)], onChunk, false, false, {
+          const pageText = await sendStream(visionModel, buildSubjectReferencePrompt(pageLabel, request.referenceIncludesCorrection), [providerImage(image)], onChunk, false, false, {
             kind: 'vision', stage: 'reading', promptId: 'vision.subject-reference', intent: 'Lire et transcrire une page du sujet', context: `${pageLabel} · page ${index + 1}/${subjectImages.length}`, temperature: 0,
             generationTokenLimit: Math.min(2048, Math.max(128, Math.floor(settings.transcriptionTokenLimit ?? 2048))),
             stop: ['\n\n\n\n'], repeatPenalty: settings.transcriptionRepeatPenalty ?? 1.05,

@@ -31,6 +31,8 @@ export interface GradingRequest {
   directVisualDecision?: boolean;
   /** Read only the reference subject with the dedicated subject prompt, without transcribing or grading a copy. */
   subjectOnly?: boolean;
+  /** Reference preparation may include an existing teacher answer key; transcribe it literally. */
+  referenceIncludesCorrection?: boolean;
   detectTeacherAnnotations?: boolean;
   /** Keep the analysis model warm between background criteria; false unloads it after this call. */
 }
