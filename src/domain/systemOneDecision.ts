@@ -60,6 +60,8 @@ export interface SystemOnePrepared extends SystemOnePayload {
   targetIds: string[];
   scoringCriterion: RubricCriterion;
   scoringMode: 'targets' | 'points-scale';
+  /** Set only after an explicit student-answer heading was verified against the teacher's contract. */
+  verifiedQuestionId?: string;
 }
 
 export interface StudentAnswerSections {
@@ -303,6 +305,8 @@ export function prepareSystemOneRubric(input: {
   subjectTranscription?: string;
   /** Score directly from the supplied image evidence, without an OCR transcription. */
   visualEvidence?: boolean;
+  /** Provenance supplied by questionGroups after strict question/answer extraction. */
+  verifiedQuestionId?: string;
 }): SystemOneBatchPrepared {
   if (!input.criteria.length) throw new Error('Le barème ne contient aucun critère.');
   const sharedAlignment = input.criteria.length > 1;
@@ -332,7 +336,9 @@ export function prepareSystemOneRubric(input: {
     return {
       criterion,
       prefix,
-      prepared: { ...prepared, state: '', questions: criterionChoices },
+      prepared: { ...prepared, state: '', questions: criterionChoices,
+        ...(input.verifiedQuestionId ? { verifiedQuestionId: input.verifiedQuestionId } : {}),
+      },
     };
   });
   if (Object.keys(questions).length > 64) {
@@ -511,8 +517,20 @@ export function scoreSystemOneCriterion(
     const points = supported ? target.maxPoints : 0;
     return { ...target, answer, support, unresolvedSupport, unresolvedEvidence, evidenceStatus, evidence, points: normalizeGradeScore(points) };
   });
-  // A confidently unrelated question is likely a wrong rubric, never a poor student answer.
-  if ((alignment.choice === 'different' && alignment.probability >= 0.75)
+  // A scoped answer can be completely off-question and merit ZERO according
+  // to the teacher's explicit question contract. This is not equivalent to a
+  // whole-copy/rubric mismatch. Require independent expected + semantic
+  // decisions to agree on absence for EVERY target; otherwise keep review.
+  // In particular never convert an unknown/partial answer, close probabilities,
+  // or an unverified question heading into an automatic zero.
+  const confirmedOffQuestionAnswer = Boolean(prepared.verifiedQuestionId
+    && alignment.choice === 'different' && alignment.probability >= 0.75 && !alignment.weak
+    && observations.length > 0 && observations.every((observation) =>
+      observation.answer.choice === 'absent' && !observation.answer.weak
+      && observation.support && !observation.support.weak
+      && ['contradicted', 'not_demonstrated'].includes(observation.support.choice)));
+  // A confidently unrelated, UNVERIFIED question is likely a wrong rubric.
+  if ((alignment.choice === 'different' && alignment.probability >= 0.75 && !confirmedOffQuestionAnswer)
       || (alignment.choice === 'uncertain' && observations.every((observation) => observation.answer.choice === 'uncertain'))
       || effectiveTargets.some((target) => target.maxPoints < 0)
       || observations.every((observation) => observation.answer.choice === 'uncertain')) {
@@ -530,7 +548,7 @@ export function scoreSystemOneCriterion(
   // Native choice models do not generate text excerpts. A heuristic keyword
   // lookup is useful as a hint, but its failure never proves that an otherwise
   // decisive answer needs human arbitration.
-  const alignmentReview = !suppressSharedAlignmentReview && (
+  const alignmentReview = !suppressSharedAlignmentReview && !confirmedOffQuestionAnswer && (
     alignment.choice !== 'aligned' || (alignment.weak && alignment.probability < 0.5)
   );
   const incomplete = reviewed.length > 0 || alignmentReview;
