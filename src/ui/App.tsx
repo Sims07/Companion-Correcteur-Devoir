@@ -1734,6 +1734,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
         visionModel: profile.configuration.visionModel, analysisModel: profile.configuration.analysisModel,
         thinking: profile.configuration.analysisThinking,
+        criterionByCriterion: profile.configuration.criterionByCriterion,
         correctionMethod: profile.configuration.correctionMethod,
         directVisualDecision: directProfiles(profile),
       })),
