@@ -67,8 +67,8 @@ export function parseScientificDiagramProtocolRubric(value: unknown): Rubric {
   if (!Array.isArray(source.criteria)) throw new Error('Le barème doit contenir une liste de critères.');
   const criteria = source.criteria.map((entry) => {
     const criterion = asObject(entry, 'Critère invalide.');
-    if (!Array.isArray(criterion.subcriteria)) throw new Error('Chaque critère doit fournir des sous-critères explicites (notamment la compréhension).');
-    const subcriteria = criterion.subcriteria.map((child) => {
+    if (criterion.subcriteria !== undefined && !Array.isArray(criterion.subcriteria)) throw new Error('Les sous-critères doivent former une liste.');
+    const subcriteria = (criterion.subcriteria ?? []).map((child: unknown) => {
       const sub = asObject(child, 'Sous-critère invalide.');
       return {
         id: checkedString(sub.id, 'Identifiant de sous-critère'),
@@ -171,7 +171,7 @@ export function buildScientificDiagramProtocolReport(
     repetition, profileId: result.profileId, profileName: result.profileName,
     model: record.configurations.find((entry) => entry.id === result.profileId)?.analysisModel ?? '',
     method: result.directVisualDecision ? 'direct-image-systemone' as const : 'vision-then-analysis' as const,
-    status: result.status, error: result.error ?? null,
+    status: result.status, error: result.error ? 'Échec de l’évaluation (détails dans l’observabilité locale)' : null,
     durationMs: result.elapsedMs, readingMs: result.readingMs, analysisMs: result.analysisMs,
     tokens: result.tokens, score: result.score,
     observations: diagramObservations(result, rubric),
