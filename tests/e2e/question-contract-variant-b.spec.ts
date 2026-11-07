@@ -65,8 +65,6 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
 
   // A private OpenAI-compatible profile must also be usable by the Vision and
   // integrated pilot; none of these test images are transmitted until a run is clicked.
-  await choices.locator('label.evaluation-profile-option').nth(0).click();
-  await choices.locator('label.evaluation-profile-option').nth(1).click();
   await expect(choices.locator('label.evaluation-profile-option').nth(2)).toBeVisible();
   await panel.getByRole('button', { name: 'Préparer le protocole en un clic' }).click();
   const sample = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLytQAAAABJRU5ErkJggg==', 'base64');
