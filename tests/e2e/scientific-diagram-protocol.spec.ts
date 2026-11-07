@@ -48,7 +48,7 @@ test('a scientific diagram protocol accepts a photo, rubric, teacher decisions a
     buffer: Buffer.from(JSON.stringify(imported)),
   });
   await expect(panel.getByText('Barème faculté', { exact: false })).toBeVisible();
-  await expect(panel.getByText('1 attendus', { exact: false })).toBeVisible();
+  await expect(panel.getByText('1 attendu', { exact: false })).toBeVisible();
   await expect(panel.getByRole('combobox', { name: 'Référence : Deux structures' })).toHaveValue('');
 
   const choices = page.getByRole('group', { name: 'Configurations à exécuter' });
