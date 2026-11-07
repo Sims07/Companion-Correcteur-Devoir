@@ -46,8 +46,8 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
       });
       const answers = Object.fromEntries(Object.keys(body.questions).map((key) => [
         key, key === 'alignment'
-          ? { choice: 'aligned', probabilities: { aligned: 1 } }
-          : { choice: 'absent', probabilities: { absent: 1 } },
+          ? { type: 'choice', choice: 'aligned', confidence: 0.99, probabilities: { aligned: 1 } }
+          : { type: 'choice', choice: 'absent', confidence: 0.99, probabilities: { absent: 1 } },
       ]));
       await route.fulfill({ status: 200, headers, body: JSON.stringify({ answers, usage: { input_tokens: 20, output_tokens: 0 } }) });
       return;
