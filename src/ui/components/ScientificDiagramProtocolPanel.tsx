@@ -130,7 +130,7 @@ export function ScientificDiagramProtocolPanel({
         <FilePicker id="diagram-protocol-photos" title="Schéma à analyser" description="Photo(s) ou PDF du même schéma ; pages conservées ensemble dans un seul essai" accept="image/png,image/jpeg,image/webp,application/pdf,.pdf" multiple disabled={busy || uploading} onFilesSelected={(files) => { void importImages(files); }} />
         <p className="pilot-evaluation-hint">{uploading ? 'Préparation locale…' : images.length ? images.length + ' page(s) prêtes' : 'Aucune image fournie.'}</p>
         <FilePicker id="diagram-protocol-rubric" title="Barème du professeur (JSON)" description="Par défaut : 15 attendus visuels, 8 points. Importez un barème propre au sujet pour évaluer aussi la compréhension." accept=".json,application/json" disabled={busy || uploading} onFilesSelected={(files) => { void importRubric(files); }} />
-        <p className="pilot-evaluation-hint">Barème actif : <strong>{rubric.title}</strong> — {validation.maximumPoints} points, {targets.length} attendus. Les 2 points « Compréhension » de l’exemple sont exclus par défaut : ils nécessitent des structures attendues propres au schéma.</p>
+        <p className="pilot-evaluation-hint">Barème actif : <strong>{rubric.title}</strong> — {validation.maximumPoints} points, {targets.length} attendu{targets.length > 1 ? 's' : ''}. Les 2 points « Compréhension » de l’exemple sont exclus par défaut : ils nécessitent des structures attendues propres au schéma.</p>
         <label htmlFor="diagram-protocol-context">Contexte biologique du dessin (facultatif pour les seuls critères de présentation)</label>
         <TextArea id="diagram-protocol-context" rows={2} disabled={busy} value={context}
           onChange={(event) => { setContext(event.currentTarget.value); setReport(null); }}
@@ -184,7 +184,7 @@ export function ScientificDiagramProtocolPanel({
         <Button disabled={!canRun} onClick={() => { void start(); }}>Tester le schéma en un clic</Button>
         {busy && <Button variant="secondary" onClick={onStop}>Arrêter après l’appel en cours</Button>}
       </div>
-      {(progress || message) && <p role="status" className="pilot-evaluation-message">{progress || message}</p>}
+      {(progress || message) && <p role="status" className="pilot-evaluation-message">{message || progress}</p>}
     </div>
     {report && <div className="pilot-evaluation-report" aria-label="Résultats du protocole schéma">
       <div className="pilot-evaluation-report-head">
