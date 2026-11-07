@@ -73,6 +73,19 @@ class PromptCacheBenchmarkTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 bench.find_ollama_gguf({'modelfile': f'FROM {file}'})
 
+    def test_one_scenario_isolated_with_predictable_repetition_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(bench, 'OUTPUT', Path(tmp) / 'report.json'):
+                report = {'results': {}, 'errors': []}
+                fixture = {'content': 'ok', 'timings': {'predicted_n': 3, 'predicted_ms': 100,
+                                                        'prompt_n': 9, 'prompt_ms': 15}}
+                with patch.object(bench, 'http_json', return_value=fixture) as mock:
+                    bench.run_samples('llama', 'qwen3.5:4b', True, report, only='prefixe_commun')
+                self.assertEqual(mock.call_count, 3)
+                self.assertEqual(list(report['results']['llama_cache_on']), ['prefixe_commun'])
+                self.assertEqual(len(report['results']['llama_cache_on']['prefixe_commun']), 3)
+                self.assertFalse(report['errors'])
+
     def test_report_is_json_and_no_student_text_or_home_path_required(self):
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(bench, 'OUTPUT', Path(tmp) / 'report.json'):
