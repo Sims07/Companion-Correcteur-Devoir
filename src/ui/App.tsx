@@ -54,7 +54,8 @@ import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import { ScientificDiagramProtocolPanel, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
-import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramProtocolProfileIssue, usesDirectDiagramVision, type DiagramProtocolRun } from '../domain/scientificDiagramProtocol.ts';
+import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramProtocolProfileIssue, usesDirectDiagramVision, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
+import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../domain/questionContractRepeatability.ts';
 import { runPilotCriterionConcurrency, type PilotConcurrencyRun } from '../application/pilotCriterionConcurrency.ts';
@@ -2035,7 +2036,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  async function runScientificDiagramProtocol(request: DiagramProtocolRequest) {
+  type DiagramCaseInput = { id: 'manual' | ScientificDiagramFixtureId; images: ImageInput[] };
+
+  /** Reuse the same evaluator/provider for the manual case and the three
+   * bundled teacher-reference cases. The model never receives the expected
+   * score, benchmark decisions or case label. */
+  async function executeScientificDiagramCases(
+    rubric: Rubric, context: string, cases: readonly DiagramCaseInput[], repetitions: DiagramProtocolCount,
+  ): Promise<Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }>> {
     if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
     const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     if (!profiles.length) throw new Error('Sélectionnez une configuration dans l’évaluateur.');
@@ -2044,36 +2052,41 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (profiles.some(isLocalPilotProfile) && !releasePilotModels) {
       throw new Error('Gestionnaire de mémoire Ollama indisponible : impossible de sécuriser les passages successifs.');
     }
-    const runs: DiagramProtocolRun[] = [];
+    if (!cases.length || cases.some((testCase) => !testCase.images.length)) {
+      throw new Error('Chaque schéma doit contenir au moins une image.');
+    }
+    const runs: Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }> = [];
     pilotStopRef.current = false;
     evaluationCancelledRef.current = false;
     pilotMemoryErrorRef.current = null;
     setPilotBusy(true);
     setDiagramProtocolProgress('Préparation de l’évaluation des schémas…');
     try {
-      // Profiles and repetitions are sequential: safe for a 16 GB CPU-only machine.
-      // Each repetition uses the same prepared image group and exactly one profile.
+      // One profile loaded at a time; reuse it across all cases/repetitions
+      // before unloading. Each case is one independent image group.
       for (const profile of profiles) {
         try {
-          for (let repetition = 1; repetition <= request.repetitions; repetition++) {
-            if (pilotStopRef.current || evaluationCancelledRef.current) break;
-            setDiagramProtocolProgress(profile.name + ' · passage ' + repetition + '/' + request.repetitions
-              + ' · ' + (usesDirectDiagramVision(profile) ? 'System One image' : 'Vision puis analyse'));
-            const record = await startModelEvaluation({
-              pilotCase: PILOT_CASES[0]!, stage: 'integrated', profiles: [profile],
-              caseImages: request.images, retainModelAfterRun: true,
-              diagram: {
-                rubric: request.rubric,
-                question: request.context || 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni. N’invente pas de structures biologiques absentes du sujet.',
-                directVisualDecision: usesDirectDiagramVision(profile),
-              },
-            });
-            if (record) runs.push({ repetition, record });
+          for (const testCase of cases) {
+            for (let repetition = 1; repetition <= repetitions; repetition++) {
+              if (pilotStopRef.current || evaluationCancelledRef.current) break;
+              setDiagramProtocolProgress('Schéma ' + testCase.id + ' · ' + profile.name + ' · passage '
+                + repetition + '/' + repetitions + ' · '
+                + (usesDirectDiagramVision(profile) ? 'System One image' : 'Vision puis analyse'));
+              const record = await startModelEvaluation({
+                pilotCase: PILOT_CASES[0]!, stage: 'integrated', profiles: [profile],
+                caseImages: testCase.images, retainModelAfterRun: true,
+                diagram: {
+                  rubric,
+                  question: context || 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni. N’invente pas de structures biologiques absentes du sujet.',
+                  directVisualDecision: usesDirectDiagramVision(profile),
+                },
+              });
+              if (record) runs.push({ caseId: testCase.id, repetition, record });
+              if (pilotStopRef.current || evaluationCancelledRef.current) break;
+            }
             if (pilotStopRef.current || evaluationCancelledRef.current) break;
           }
         } finally {
-          // Keep a single model in RAM throughout identical repetitions, then
-          // unload before any different profile (including after cancellation).
           if (isLocalPilotProfile(profile) && releasePilotModels) {
             setDiagramProtocolProgress('Libération de la mémoire après « ' + profile.name + ' »…');
             try {
@@ -2083,6 +2096,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 analysisModel: profile.configuration.analysisModel,
                 thinking: profile.configuration.analysisThinking,
                 correctionMethod: profile.configuration.correctionMethod,
+                directVisualDecision: usesDirectDiagramVision(profile),
               }, 'integrated');
             } catch (cause) {
               pilotMemoryErrorRef.current = 'Impossible de libérer « ' + profile.name + ' » : ' +
@@ -2096,14 +2110,34 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       }
       setDiagramProtocolProgress(pilotMemoryErrorRef.current ??
         (pilotStopRef.current || evaluationCancelledRef.current
-          ? 'Essai arrêté. Les passages terminés restent analysables.'
+          ? 'Essai arrêté. Les passages terminés restent exportables.'
           : 'Série terminée.'));
     } finally {
       setPilotBusy(false);
     }
+    return runs;
+  }
+
+  async function runScientificDiagramProtocol(request: DiagramProtocolRequest) {
+    const runs = await executeScientificDiagramCases(
+      request.rubric, request.context, [{ id: 'manual', images: request.images }], request.repetitions,
+    );
     return buildScientificDiagramProtocolReport(
-      runs, request.rubric, request.gold, request.repetitions,
-      new Date().toISOString(), request.images.length,
+      runs.map(({ repetition, record }) => ({ repetition, record })),
+      request.rubric, request.gold, request.repetitions, new Date().toISOString(), request.images.length,
+    );
+  }
+
+  async function runScientificDiagramFixtures(
+    request: { cases: Array<{ id: ScientificDiagramFixtureId; images: ImageInput[] }>; repetitions: DiagramProtocolCount },
+  ) {
+    const runs = await executeScientificDiagramCases(
+      SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT,
+      request.cases, request.repetitions,
+    );
+    return buildScientificDiagramFixtureReport(
+      runs.filter((run): run is ScientificDiagramFixtureRun => run.caseId !== 'manual'),
+      request.repetitions, new Date().toISOString(),
     );
   }
 
@@ -3212,6 +3246,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           progress={diagramProtocolProgress}
           onPrepareImages={(files) => service.prepareFiles(files)}
           onRun={runScientificDiagramProtocol}
+          onRunFixtures={runScientificDiagramFixtures}
           onStop={stopPilotProtocol}
         />
         <PilotEvaluationPanel

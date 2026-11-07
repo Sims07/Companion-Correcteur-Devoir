@@ -52,3 +52,16 @@ Deux enseignants consignent indépendamment les verdicts, résolvent les désacc
 ## Périmètre technique et limites de cette première PR
 
 Cette PR ajoute un **protocole d’évaluation**, pas un nouveau mode de correction en production. Les décisions et temps passent par les moteurs déjà disponibles et l’évaluateur existant. Les annotations de référence et les résultats restent en mémoire pendant la session ; les répétitions expérimentales ne dupliquent pas les photographies dans IndexedDB. Exporter le rapport JSON avant de recharger la page. Le rapport mesure un seul groupe d’images par série ; une future évolution pourra importer un jeu multi-schémas et calculer une agrégation statistique hors répétitions. La segmentation de structures, le calcul géométrique déterministe (alignement / centrage) et la calibration des probabilités ne font pas encore partie de ce protocole.
+
+## Jeu A/B/C intégré — protocole « en un clic »
+
+Trois **images originales générées pour ce laboratoire** sont incluses dans le bundle (WebP) :
+- A : travail soigné de mitose végétale, **cible 10/10**.
+- B : travail intermédiaire de mitose végétale, **cible 5/10**.
+- C : dessin volontairement insuffisant, **cible 0/10**.
+
+Les trois cartes montrent les images et leurs notes cibles. Le bouton **« Tester les 3 schémas en un clic »** charge les trois images localement, les prépare avec le même pipeline que les imports et appelle les configurations sélectionnées dans l’évaluateur. Des boutons par carte permettent de ne lancer que A, B ou C. Le passage unique (par défaut) donne un premier diagnostic rapide ; 3 ou 5 répétitions permettent de mesurer la stabilité.
+
+Ce jeu utilise **le barème professeur complet /10** : les 15 attendus visuels inchangés (4 + 2 + 2 points) et 4 attendus de compréhension propres à cet exercice (2 points : interphase, télophase avec phragmoplaste, deux autres étapes distinctes). Toutes les références sont définies par sous-critère et le cas B contient des allocations partielles explicites qui totalisent 5,00 points. Les intitulés, la vérité terrain et les points cibles ne sont **jamais transmis dans les prompts en tant que corrigé**, uniquement les critères scientifiques de l’exercice.
+
+**Attention :** le jeu est synthétique et les notes 10/5/0 restent des **cibles de travail proposées**, non validées par un enseignant. Ce sont des scénarios d’essai, pas une preuve de précision sur de véritables copies. Les scores partiels ou l’absence de preuve visuelle demandent une vérification humaine. Le rapport JSON liste les attentes, les décisions, les notes obtenues, durées, modèles et erreurs, sans inclure les images, endpoints, clés ou données d’identification.

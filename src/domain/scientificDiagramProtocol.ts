@@ -52,7 +52,7 @@ export const SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC: Rubric = {
 export type DiagramTeacherDecision = 'present' | 'absent' | 'partial';
 export type DiagramGold = Record<string, DiagramTeacherDecision>;
 export type DiagramProtocolRun = { repetition: number; record: ModelEvaluationRecord };
-export type DiagramProtocolCount = 3 | 5;
+export type DiagramProtocolCount = 1 | 3 | 5;
 
 export function diagramTargetKey(criterionId: string, subcriterionId: string): string {
   return criterionId + '::' + subcriterionId;
@@ -207,8 +207,8 @@ export function buildScientificDiagramProtocolReport(
       labelledTargets: labelled.length, totalTargets,
       accuracyPercent: totalLabelledObservations ? Math.round(1000 * correct / totalLabelledObservations) / 10 : null,
       coveragePercent: items.length && ids.length ? Math.round(1000 * resolved / (items.length * ids.length)) / 10 : null,
-      stableResolvedTargets: complete ? decisions.filter((item) => item.stableAndResolved).length : null,
-      correctEveryTime: complete && labelled.length ? decisions.filter((item) => item.correctEveryTime).length : null,
+      stableResolvedTargets: complete && plannedRepetitions > 1 ? decisions.filter((item) => item.stableAndResolved).length : null,
+      correctEveryTime: complete && plannedRepetitions > 1 && labelled.length ? decisions.filter((item) => item.correctEveryTime).length : null,
       decisions,
     };
   });
