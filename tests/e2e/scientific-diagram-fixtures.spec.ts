@@ -57,9 +57,9 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   const fixtures = panel.getByRole('region', { name: 'Schémas de référence intégrés' });
   await expect(fixtures.locator('.diagram-fixture-card')).toHaveCount(3);
-  await expect(fixtures.getByText('10/10 attendu')).toBeVisible();
-  await expect(fixtures.getByText('5/10 attendu')).toBeVisible();
-  await expect(fixtures.getByText('0/10 attendu')).toBeVisible();
+  await expect(fixtures.getByText('10/10 attendu', { exact: true })).toBeVisible();
+  await expect(fixtures.getByText('5/10 attendu', { exact: true })).toBeVisible();
+  await expect(fixtures.getByText('0/10 attendu', { exact: true })).toBeVisible();
   await expect(fixtures.getByRole('combobox', { name: 'Passages par schéma' })).toHaveValue('1');
   await expect.poll(async () => fixtures.locator('img').evaluateAll((images) =>
     images.filter((image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0).length),
@@ -73,9 +73,9 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   const results = fixtures.getByRole('region', { name: 'Résultats des schémas A B C' });
   await expect(results).toBeVisible({ timeout: 30_000 });
   await expect(results.locator('tbody tr')).toHaveCount(3);
-  await expect(results.getByText('10/10').first()).toBeVisible();
-  await expect(results.getByText('5/10').first()).toBeVisible();
-  await expect(results.getByText('0/10').first()).toBeVisible();
+  await expect(results.getByText('10/10', { exact: true }).first()).toBeVisible();
+  await expect(results.getByText('5/10', { exact: true }).first()).toBeVisible();
+  await expect(results.getByText('0/10', { exact: true }).first()).toBeVisible();
   expect(systemOneRequests).toHaveLength(3);
   for (const req of systemOneRequests) {
     expect(req.imageCount).toBe(1);
