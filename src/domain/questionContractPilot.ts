@@ -1,3 +1,4 @@
+import { isLoopbackPilotEndpoint } from './pilotEvaluationProtocol.ts';
 import type { ModelEvaluationRecord } from './modelEvaluation.ts';
 import type { Rubric } from './rubric.ts';
 import type { PilotCase } from './pilotEvaluationProtocol.ts';
@@ -133,6 +134,7 @@ export function buildQuestionContractReport(runs: readonly QuestionContractRun[]
       return {
         caseId, variant, profileId: result.profileId, profile: result.profileName,
         analysisModel: configuration?.analysisModel ?? '', method: configuration?.correctionMethod ?? 'generative',
+        provider: configuration?.apiCompatible ? 'openai-compatible' : 'ollama',
         completedAt: record.completedAt, status: result.status, error: result.error ?? null,
         score: result.score, referenceScore: testCase.referenceScore,
         benchmark: summarizePilotResult(testCase, result),
@@ -167,7 +169,7 @@ export function buildQuestionContractReport(runs: readonly QuestionContractRun[]
     version: 1,
     protocolId: QUESTION_CONTRACT_PROTOCOL_ID,
     createdAt,
-    localOnly: true,
+    localOnly: runs.every(({ record }) => record.configurations.every((configuration) => isLoopbackPilotEndpoint(configuration.endpoint))),
     limitations: 'Jeu de réponses synthétiques, contrats de référence déjà renseignés pour mesurer la correction, pas la qualité de leur génération automatique. Trois cas exploratoires ne prouvent pas la fiabilité pédagogique. Les points incertains/non évalués ne sont jamais comptés comme des zéros.',
     question: QUESTION_CONTRACT_QUESTION,
     rubricStandard: questionContractRubric('standard'),

@@ -64,13 +64,35 @@ export const PILOT_CASES: readonly PilotCase[] = [
   },
 ];
 
-/** A pilot run may only send student-copy images to the local Ollama instance. */
-export function isLocalPilotProfile(profile: AiModelProfile): boolean {
-  if (profile.configuration.apiCompatible || profile.configuration.apiKey) return false;
+/** Detect local Ollama for safe memory cleanup; other configured providers can run the tests. */
+export function isLocalPilotConfiguration(configuration: { endpoint: string; apiCompatible?: boolean; apiKey?: string }): boolean {
+  if (configuration.apiCompatible || configuration.apiKey) return false;
   try {
-    const url = new URL(profile.configuration.endpoint);
+    const url = new URL(configuration.endpoint);
     return url.protocol === 'http:' && !url.username && !url.password &&
       ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  } catch { return false; }
+}
+
+export function isLocalPilotProfile(profile: AiModelProfile): boolean {
+  return isLocalPilotConfiguration(profile.configuration);
+}
+
+/** A profile can target the teacher-selected Ollama or OpenAI-compatible API.
+ * Do not allow embedded URL credentials or unsupported schemes. */
+export function isSupportedPilotProfile(profile: AiModelProfile): boolean {
+  try {
+    const url = new URL(profile.configuration.endpoint);
+    return (url.protocol === 'http:' || url.protocol === 'https:')
+      && !url.username && !url.password && !url.hash;
+  } catch { return false; }
+}
+
+/** Loopback alone determines whether data stays on this device, independent of API dialect. */
+export function isLoopbackPilotEndpoint(endpoint: string): boolean {
+  try {
+    const url = new URL(endpoint);
+    return ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
   } catch { return false; }
 }
 
@@ -80,11 +102,17 @@ export function selectPilotProfiles(profiles: readonly AiModelProfile[], selecte
   return profiles.filter((profile) => ids.has(profile.id)).slice(0, 3);
 }
 
-/** The guided campaign deliberately stays on local Ollama, including text-only trials. */
+/** Saved provider choice is explicit; all pilot stages can use an OpenAI-compatible API.
+ * Images are sent only to the provider configured by the user, never in an exported report. */
 export function pilotSelectionIssue(profiles: readonly AiModelProfile[], stage: 'vision' | 'analysis' | 'integrated'): string | null {
   if (!profiles.length) return 'Sélectionnez au moins une configuration dans « Configurations à exécuter » ci-dessous.';
-  const remote = profiles.filter((profile) => !isLocalPilotProfile(profile));
-  if (remote.length) return 'Le protocole protège les copies : Ollama local sans clé API est requis. Configuration(s) incompatible(s) : ' + remote.map((profile) => profile.name).join(', ') + '.';
+  const unsupported = profiles.filter((profile) => !isSupportedPilotProfile(profile));
+  if (unsupported.length) return 'Vérifiez l’URL du serveur (HTTP ou HTTPS, sans identifiants intégrés) : ' +
+    unsupported.map((profile) => profile.name).join(', ') + '.';
+  const invalidMethod = profiles.filter((profile) =>
+    stage !== 'vision' && profile.configuration.apiCompatible && profile.configuration.correctionMethod === 'decision');
+  if (invalidMethod.length) return 'La méthode décisionnelle System One n’est pas disponible via l’API compatible OpenAI. Utilisez une méthode classique pour : ' +
+    invalidMethod.map((profile) => profile.name).join(', ') + '.';
   if (stage !== 'vision') {
     const missingAnalysis = profiles.filter((profile) => !profile.configuration.analysisModel.trim());
     if (missingAnalysis.length) return 'Définissez un modèle d’analyse pour : ' + missingAnalysis.map((profile) => profile.name).join(', ') + '.';
@@ -249,7 +277,7 @@ export function buildPilotReport(runs: readonly PilotRun[], createdAt: string, c
     ...(concurrencyRuns.length ? { concurrencyBenchmarks: structuredClone(concurrencyRuns) } : {}),
     protocolId: PILOT_PROTOCOL_ID,
     createdAt,
-    localOnly: true,
+    localOnly: runs.every(({ record }) => record.configurations.every((configuration) => isLoopbackPilotEndpoint(configuration.endpoint))),
     limitations: 'Résultats expérimentaux sur trois réponses de référence. La fidélité Vision est une comparaison mot à mot, pas une note de biologie ; elle dépend de la correspondance entre la photo et le texte de référence. Les scores incomplets ne sont pas des zéros.',
     question: PILOT_QUESTION,
     rubric: structuredClone(PILOT_RUBRIC),
@@ -269,6 +297,7 @@ export function buildPilotReport(runs: readonly PilotRun[], createdAt: string, c
           visionModel: record.configurations.find((item) => item.id === result.profileId)?.visionModel ?? '',
           analysisModel: record.configurations.find((item) => item.id === result.profileId)?.analysisModel ?? '',
           method: record.configurations.find((item) => item.id === result.profileId)?.correctionMethod ?? 'generative',
+          provider: record.configurations.find((item) => item.id === result.profileId)?.apiCompatible ? 'openai-compatible' : 'ollama',
           status: result.status, error: result.error ?? null, score: result.score,
           referenceScore: record.stage === 'vision' ? null : testCase.referenceScore,
           durationMs: { reading: result.readingMs, analysis: result.analysisMs, total: result.elapsedMs },

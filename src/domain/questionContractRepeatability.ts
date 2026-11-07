@@ -1,3 +1,4 @@
+import { isLoopbackPilotEndpoint } from './pilotEvaluationProtocol.ts';
 import type { ModelEvaluationRecord } from './modelEvaluation.ts';
 import { QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, buildQuestionContractReport, type QuestionContractCase } from './questionContractPilot.ts';
 
@@ -89,7 +90,7 @@ export function buildQuestionContractRepeatabilityReport(
     version: 1,
     protocolId: QUESTION_CONTRACT_PROTOCOL_ID,
     createdAt,
-    localOnly: true,
+    localOnly: runs.every(({ record }) => record.configurations.every((configuration) => isLoopbackPilotEndpoint(configuration.endpoint))),
     variant: 'contract' as const,
     plannedRepetitions,
     plannedEvaluationsPerProfile: plannedRepetitions * QUESTION_CONTRACT_CASES.length,
