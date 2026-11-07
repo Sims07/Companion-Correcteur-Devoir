@@ -59,14 +59,18 @@ export function scopedCriterionInput(criterion: RubricCriterion, transcription: 
 }
 
 export function questionGroups(criteria: RubricCriterion[], transcription: string, question: string) {
-  const groups: Array<{ criteria: RubricCriterion[]; transcription: string; question: string }> = [];
+  const groups: Array<{ criteria: RubricCriterion[]; transcription: string; question: string; verifiedQuestionId?: string }> = [];
   const byScope = new Map<string, typeof groups[number]>();
   for (const criterion of criteria) {
     const input = scopedCriterionInput(criterion, transcription, question);
-    const key = JSON.stringify([criterion.correctionContract?.question?.id ?? null, input.question]);
+    // A validated answer heading is the only basis for treating a scientifically
+    // unrelated response as a wrong answer to THIS question, rather than a
+    // potentially incorrect rubric selected for the whole copy.
+    const verifiedQuestionId = parseCorrectionContract(criterion.correctionContract)?.question?.id;
+    const key = JSON.stringify([verifiedQuestionId ?? null, input.question]);
     const group = byScope.get(key);
     if (group) group.criteria.push(criterion);
-    else { const next = { criteria: [criterion], ...input }; byScope.set(key, next); groups.push(next); }
+    else { const next = { criteria: [criterion], ...input, ...(verifiedQuestionId ? { verifiedQuestionId } : {}) }; byScope.set(key, next); groups.push(next); }
   }
   return groups;
 }
