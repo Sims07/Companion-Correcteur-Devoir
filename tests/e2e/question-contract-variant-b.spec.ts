@@ -63,6 +63,22 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
   await expect(action).toBeEnabled();
   await expect(repeatAction).toBeEnabled();
 
+  // A private OpenAI-compatible profile must also be usable by the Vision and
+  // integrated pilot; none of these test images are transmitted until a run is clicked.
+  await choices.locator('label.evaluation-profile-option').nth(0).click();
+  await choices.locator('label.evaluation-profile-option').nth(1).click();
+  await expect(choices.locator('label.evaluation-profile-option').nth(2)).toBeVisible();
+  await panel.getByRole('button', { name: 'Préparer le protocole en un clic' }).click();
+  const sample = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLytQAAAABJRU5ErkJggg==', 'base64');
+  for (const caseId of ['A', 'B', 'C']) {
+    await panel.locator('#pilot-image-' + caseId).setInputFiles({
+      name: 'synthetic-' + caseId + '.png', mimeType: 'image/png', buffer: sample,
+    });
+    await expect(panel.getByText('1 page(s) prête(s)')).toHaveCount(['A', 'B', 'C'].indexOf(caseId) + 1);
+  }
+  await expect(panel.getByRole('button', { name: 'Lancer les 3 lectures (Vision seule)' })).toBeEnabled();
+  await expect(panel.getByRole('button', { name: 'Tester les 3 photos (Vision + analyse)' })).toBeEnabled();
+
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('companion-correcteur:ollama-profiles:v1') ?? '[]'))).toEqual(profiles);
   expect(await page.evaluate(() => localStorage.getItem('companion-correcteur:assignments:v1'))).toBe(assignmentsBefore);
 });
