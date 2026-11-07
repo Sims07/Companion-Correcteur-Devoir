@@ -21,7 +21,7 @@ python3 scripts/benchmark_prompt_cache.py
 
 Le script utilise le même fichier GGUF que l'installation Ollama (par défaut `qwen3.5:4b`) et le binaire CPU `~/ai-lab/llama.cpp/build-cpu-sdk/bin/llama-server`, créés lors du protocole local. Aucun service distant ni dépendance Python externe n'est requis.
 
-Il exécute deux scénarios fictifs : (1) prompts identiques, (2) transcription commune et critère variable en suffixe. Pour llama.cpp, l'option `cache_prompt` est explicitement testée en `false` et `true`, à serveur propre pour chaque configuration. Ollama utilise sa politique native, sans interrupteur cache équivalent.
+Il exécute deux scénarios fictifs : (1) prompts identiques, (2) transcription commune et critère variable en suffixe. Pour llama.cpp, l'option `cache_prompt` est explicitement testée en `false` et `true`, avec un nouveau serveur pour chaque scénario et chaque configuration, afin d'éviter qu'un premier scénario préchauffe artificiellement le suivant. Ollama utilise sa politique native, sans interrupteur cache équivalent, et est déchargé entre scénarios.
 
 Le rapport `~/ai-lab/benchmark-cache-ollama-llamacpp-qwen35.json` contient uniquement les compteurs, métadonnées et empreintes SHA-256 des réponses : ni copie, ni prompt intégral, ni clé API. Les journaux de serveur restent sur le poste.
 
