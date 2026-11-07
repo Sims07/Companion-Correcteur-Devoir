@@ -63,7 +63,7 @@ describe('protocole de schémas scientifiques', () => {
         { id: 'a', title: 'Qualité du dessin', maxPoints: 1, subcriteria: [
           { id: 'a-1', title: 'Centré', maxPoints: 1 },
         ] },
-        { id: 'b', title: 'Compréhension', maxPoints: 2, description: 'Mitose', subcriteria: [] },
+        { id: 'b', title: 'Compréhension', maxPoints: 2, description: 'Mitose' },
       ],
     };
     const result = parseScientificDiagramProtocolRubric(source);
