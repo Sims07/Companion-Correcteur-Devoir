@@ -26,11 +26,19 @@ test('the question-contract comparison is one click with saved local profiles, w
   const panel = page.getByRole('region', { name: 'Protocole de test guidé' });
   const contract = panel.getByRole('region', { name: 'Protocole variante B par question' });
   const action = contract.getByRole('button', { name: 'Comparer standard et variante B en un clic' });
+  const repeatability = panel.getByRole('region', { name: 'Test de répétabilité variante B' });
+  const repeatAction = repeatability.getByRole('button', { name: 'Lancer le test de répétabilité en un clic' });
+  const count = repeatability.getByLabel('Nombre de passages');
   const choices = page.getByRole('group', { name: 'Configurations à exécuter' });
   const assignmentsBefore = await page.evaluate(() => localStorage.getItem('companion-correcteur:assignments:v1'));
 
   await expect(action).toBeVisible();
   await expect(action).toBeDisabled();
+  await expect(repeatAction).toBeVisible();
+  await expect(repeatAction).toBeDisabled();
+  await expect(count).toHaveValue('3');
+  await count.selectOption('5');
+  await expect(count).toHaveValue('5');
   await expect(contract.getByText('A = 10/10', { exact: false })).toBeVisible();
   await contract.getByText('Voir les trois réponses et le barème de référence').click();
   await expect(contract.getByText('B — réponses inversées', { exact: false })).toBeVisible();
@@ -39,14 +47,17 @@ test('the question-contract comparison is one click with saved local profiles, w
   await choices.locator('label.evaluation-profile-option').nth(0).click();
   await choices.locator('label.evaluation-profile-option').nth(1).click();
   await expect(action).toBeEnabled();
+  await expect(repeatAction).toBeEnabled();
   // Do not need the Vision model for this analysis-only protocol.
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toHaveCount(0);
 
   await choices.locator('label.evaluation-profile-option').nth(2).click();
   await expect(action).toBeDisabled();
+  await expect(repeatAction).toBeDisabled();
   await expect(contract.getByText(/Profil distant/)).toBeVisible();
   await choices.locator('label.evaluation-profile-option').nth(2).click();
   await expect(action).toBeEnabled();
+  await expect(repeatAction).toBeEnabled();
 
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('companion-correcteur:ollama-profiles:v1') ?? '[]'))).toEqual(profiles);
   expect(await page.evaluate(() => localStorage.getItem('companion-correcteur:assignments:v1'))).toBe(assignmentsBefore);
