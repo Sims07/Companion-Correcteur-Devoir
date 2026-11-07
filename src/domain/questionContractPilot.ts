@@ -118,6 +118,69 @@ export const QUESTION_CONTRACT_CASES: readonly QuestionContractCase[] = [
   },
 ];
 
+
+/**
+ * A separate stress suite: it never changes the three baseline A/B/C cases.
+ * These are synthetic, teacher-approved reference scores for evaluating native
+ * decisions and their evidence gates, NOT examples for production prompts.
+ */
+export const QUESTION_CONTRACT_STRESS_CASES: readonly QuestionContractCase[] = [
+  {
+    id: 'D', label: 'D — négations', description: 'Tous les mots-clés sont présents, mais leurs relations sont niées : aucun attendu validé.',
+    transcription: [
+      'Question 1',
+      'Réponse :',
+      'La photosynthèse ne se déroule pas dans les chloroplastes. La lumière ne fournit pas son énergie. Le CO₂ et l’eau ne sont pas utilisés ; aucun sucre n’est fabriqué et aucun dioxygène n’est libéré.',
+      'Question 2',
+      'Réponse :',
+      'La respiration aérobie ne se déroule pas dans les mitochondries, ne consomme pas de dioxygène, ne produit pas d’ATP et s’arrête la nuit.',
+    ].join('\n'),
+    referenceScore: 0, presentSubcriteria: [],
+  },
+  {
+    id: 'E', label: 'E — équivalences', description: 'Dix attendus exprimés à travers les synonymes explicitement acceptés par les contrats.',
+    transcription: [
+      'Question 1',
+      'Réponse :',
+      'Dans le chloroplaste, le rayonnement lumineux apporte l’énergie. La plante prélève du CO₂ et de l’H₂O, synthétise des glucides et relâche de l’O₂.',
+      'Question 2',
+      'Réponse :',
+      'Dans la mitochondrie, la respiration aérobie consomme de l’O₂ pour dégrader des molécules organiques et produire de l’ATP ; cette respiration continue dans l’obscurité.',
+    ].join('\n'),
+    referenceScore: 10, presentSubcriteria: ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10'],
+  },
+  {
+    id: 'F', label: 'F — vrai et faux', description: 'Sept attendus corrects et trois inversions explicites : note de référence 7/10.',
+    transcription: [
+      'Question 1',
+      'Réponse :',
+      'La photosynthèse a lieu dans les chloroplastes grâce à la lumière. Elle utilise du CO₂ mais rejette l’eau, forme des sucres et consomme du dioxygène.',
+      'Question 2',
+      'Réponse :',
+      'La respiration aérobie se déroule dans les mitochondries, libère du dioxygène, produit de l’ATP à partir de matière organique et se poursuit la nuit.',
+    ].join('\n'),
+    referenceScore: 7, presentSubcriteria: ['p1','p2','p3','p5','p7','p9','p10'],
+  },
+  {
+    id: 'G', label: 'G — énoncé piège', description: 'Les attendus figurent dans les énoncés imprimés, pas dans les réponses de l’étudiant.',
+    transcription: [
+      'Question 1',
+      'Énoncé imprimé : photosynthèse dans les chloroplastes, lumière, utilisation de CO₂ et d’eau, synthèse de sucres et libération d’O₂.',
+      'Réponse :',
+      'Je ne sais pas.',
+      'Question 2',
+      'Énoncé imprimé : respiration aérobie mitochondriale, consommation d’O₂, production d’ATP et respiration la nuit.',
+      'Réponse :',
+      'Je ne sais pas.',
+    ].join('\n'),
+    referenceScore: 0, presentSubcriteria: [],
+  },
+];
+
+export const ALL_QUESTION_CONTRACT_CASES: readonly QuestionContractCase[] = [
+  ...QUESTION_CONTRACT_CASES, ...QUESTION_CONTRACT_STRESS_CASES,
+];
+
 export interface QuestionContractRun {
   caseId: QuestionContractCase['id'];
   variant: QuestionContractVariant;
@@ -127,7 +190,7 @@ export interface QuestionContractRun {
 /** The resulting JSON contains only synthetic answers, public benchmark metadata and text traces. */
 export function buildQuestionContractReport(runs: readonly QuestionContractRun[], createdAt: string) {
   const experiments = runs.flatMap(({ caseId, variant, record }) => {
-    const testCase = QUESTION_CONTRACT_CASES.find((item) => item.id === caseId);
+    const testCase = ALL_QUESTION_CONTRACT_CASES.find((item) => item.id === caseId);
     if (!testCase) throw new Error('Cas de test de contrat inconnu : ' + caseId);
     return record.results.map((result) => {
       const configuration = record.configurations.find((item) => item.id === result.profileId);
