@@ -114,6 +114,7 @@ describe('pilote variante B — contrats rattachés aux questions', () => {
       { caseId: 'B', variant: 'contract', record: variantB },
     ], '2026-11-07T11:00:00.000Z');
     expect(report.protocolId).toBe(QUESTION_CONTRACT_PROTOCOL_ID);
+    expect(report.localOnly).toBe(false);
     expect(report.comparison).toHaveLength(1);
     expect(report.comparison[0]).toMatchObject({
       caseId: 'B', referenceScore: 0, differenceInCorrectExpectations: 2,
