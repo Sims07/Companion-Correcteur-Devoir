@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
 import type { GradingProposal } from './grading.ts';
-import { QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, questionContractRubric } from './questionContractPilot.ts';
+import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, questionContractRubric } from './questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps } from './questionContractRepeatability.ts';
 
-type CaseId = 'A' | 'B' | 'C';
+type CaseId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G';
 
 function makeRecord(caseId: CaseId, choices: Record<string, number | null> = {}, failed = false): ModelEvaluationRecord {
-  const fixture = QUESTION_CONTRACT_CASES.find((item) => item.id === caseId)!;
+  const fixture = ALL_QUESTION_CONTRACT_CASES.find((item) => item.id === caseId)!;
   const criteria = questionContractRubric('contract').criteria.map((criterion) => {
     const subcriteria = (criterion.subcriteria ?? []).map((sub) => {
       const awarded = Object.prototype.hasOwnProperty.call(choices, sub.id) ? choices[sub.id]! : fixture.presentSubcriteria.includes(sub.id) ? 1 : 0;
@@ -55,6 +55,17 @@ describe('pilote répétabilité — variante B', () => {
       { repetition: 3, caseId: 'A' }, { repetition: 3, caseId: 'B' }, { repetition: 3, caseId: 'C' },
     ]);
     expect(questionContractRepeatabilitySteps(5)).toHaveLength(15);
+  });
+
+  it('reports stress reference and excludes missing repetitions from stability claims', () => {
+    const report = buildQuestionContractRepeatabilityReport([
+      { repetition: 1, caseId: 'F', record: makeRecord('F') },
+    ], 'now', 3, 'stress');
+    expect(report).toMatchObject({ suite: 'stress', plannedEvaluationsPerProfile: 12 });
+    expect(report.cases[0]).toMatchObject({ referenceScore: 7, scores: [7], completeGrades: 1,
+      scoreStable: false, correctDecisions: 10, falsePositives: 0, falseNegatives: 0 });
+    expect(report.experiments[0]).toMatchObject({ caseId: 'F', referenceScore: 7 });
+    expect(JSON.stringify(report)).not.toMatch(/PRIVATE_IMAGE_BASE64|PRIVATE_HOST|requestPayload|requestMetadata/);
   });
 
   it('separates repeatable and correct results from wrong but repeatable results', () => {
