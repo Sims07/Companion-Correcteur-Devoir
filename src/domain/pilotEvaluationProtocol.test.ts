@@ -161,6 +161,7 @@ describe('protocole pilote de biologie', () => {
 
   it('exports a standalone report with scores, reference decisions and model traces, without photos or secrets', () => {
     const report = buildPilotReport([{ caseId: 'B', record: recordFor('B', resultFor('B', { p1: 1 })) }], '2026-11-06T09:20:00.000Z');
+    expect(report.localOnly).toBe(false); // Fixture's configured provider is remote, even with anonymized exports.
     expect(report.experiments).toHaveLength(1);
     expect(report.experiments[0]!.modelResults[0]).toMatchObject({
       score: 1, referenceScore: 0,
