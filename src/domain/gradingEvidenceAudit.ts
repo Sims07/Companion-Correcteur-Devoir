@@ -29,7 +29,7 @@ export function normalizeEvidenceText(value: string): string {
 
 function keywords(text: string): string[] {
   return [...new Set((normalizeEvidenceText(text).match(/[a-z0-9]+/g) ?? [])
-    .filter((token) => token.length > 2 && !neutral.has(token)))];
+    .filter((token) => (token.length > 2 || /^[a-z]+[0-9]+$/.test(token)) && !neutral.has(token)))];
 }
 
 /** A conservative lexical normalizer for French singular/plural surface forms.
