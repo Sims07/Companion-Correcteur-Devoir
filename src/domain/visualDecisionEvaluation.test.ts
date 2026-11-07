@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluationScores } from './visualDecisionEvaluation.ts';
+import { compareVisualDecisions, extractSystemOneDecisions, extractVisualDecisions, summarizeModelEvaluationScores } from './visualDecisionEvaluation.ts';
 import type { ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
 import type { Rubric } from './rubric.ts';
 
@@ -52,6 +52,16 @@ describe('native visual decision comparison and score completeness', () => {
     const summary = summarizeModelEvaluationScores([incomplete, assessed], rubric);
     expect(summary.disagreements).toEqual([]);
     expect(summary.averageScore).toBe(1);
+  });
+  it('reads native TEV1 text-only decisions without treating them as direct vision', () => {
+    const textOnly = result('TEV1', ['present', 'absent'], null);
+    textOnly.directVisualDecision = false;
+    textOnly.diagnosticRuns![0]!.requestMetadata!.imageCount = 0;
+    expect(extractVisualDecisions(textOnly, rubric)).toEqual([]);
+    expect(extractSystemOneDecisions(textOnly, rubric, 'image')).toEqual([]);
+    expect(extractSystemOneDecisions(textOnly, rubric, 'text').map((item) => item.choice))
+      .toEqual(['present', 'absent']);
+    expect(compareVisualDecisions([textOnly, result('D1', ['present', 'absent'], 2)], rubric).models).toBe(1);
   });
   it('ignores missing, malformed, text-only, or unmatched decisions', () => {
     const missing = result('D3', ['present'], null);

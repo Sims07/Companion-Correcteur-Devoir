@@ -2,7 +2,7 @@ import type { AiModelProfile } from './aiModelProfiles.ts';
 import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
 import { getRubricSubcriteria, validateRubric, type Rubric } from './rubric.ts';
 import { isVisualDecisionModel } from './systemOneDecision.ts';
-import { extractVisualDecisions, type VisualChoice } from './visualDecisionEvaluation.ts';
+import { extractSystemOneDecisions, type VisualChoice } from './visualDecisionEvaluation.ts';
 import { isSupportedPilotProfile, isLoopbackPilotEndpoint } from './pilotEvaluationProtocol.ts';
 
 export const SCIENTIFIC_DIAGRAM_PROTOCOL_ID = 'scientific-diagram-observable-v1';
@@ -132,31 +132,46 @@ export function usesDirectDiagramVision(profile: AiModelProfile): boolean {
 }
 
 export function diagramObservations(result: ModelEvaluationResultSnapshot, rubric: Rubric) {
-  const native = result.directVisualDecision
-    ? new Map(extractVisualDecisions(result, rubric).map((observation) =>
-      [diagramTargetKey(observation.criterionId, observation.targetId), observation]))
-    : null;
+  const source = result.directVisualDecision ? 'image' : 'text';
+  const native = new Map(extractSystemOneDecisions(result, rubric, source).map((observation) =>
+    [diagramTargetKey(observation.criterionId, observation.targetId), observation]));
   return rubric.criteria.flatMap((criterion) => getRubricSubcriteria(criterion).map((sub) => {
     const key = diagramTargetKey(criterion.id, sub.id);
-    const observed = native?.get(key);
+    const observed = native.get(key);
     const proposal = result.proposal?.criteria.find((item) => item.criterionId === criterion.id);
     const assessment = proposal?.subcriteria?.find((item) => item.subcriterionId === sub.id);
     let choice: VisualChoice = 'uncertain';
+    let decisionSource: 'native-image' | 'native-text' | 'scored-proposal' | 'none' = 'none';
     if (result.status === 'success') {
-      if (native) {
-        choice = observed?.choice ?? 'uncertain';
+      if (observed) {
+        // The native decision is observable independently from score validity.
+        // In particular, missing literal evidence must not erase TEV1 choices.
+        choice = observed.choice;
+        decisionSource = source === 'image' ? 'native-image' : 'native-text';
       } else if (proposal && proposal.assessmentStatus !== 'not-evaluated' && assessment
         && assessment.assessmentStatus !== 'not-evaluated' && Number.isFinite(assessment.points)
         && assessment.points >= 0 && assessment.points <= sub.maxPoints) {
         choice = assessment.points === 0 ? 'absent'
           : Math.abs(assessment.points - sub.maxPoints) < 0.0001 ? 'present' : 'partial';
+        decisionSource = 'scored-proposal';
       }
     }
     return {
-      key, criterion: criterion.title, title: sub.title, choice,
-      probability: observed?.probability ?? null,
+      key, criterion: criterion.title, title: sub.title, choice, decisionSource,
+      probability: decisionSource === 'native-image' || decisionSource === 'native-text'
+        ? observed?.probability ?? null : null,
     };
   }));
+}
+
+/** Only export a fixed failure category: original errors may contain URLs,
+ * identifiers, network payloads or credentials from a provider exception. */
+export function diagramFailureCategory(error?: string): 'model-unavailable' | 'connection' | 'system-one-unavailable' | 'other' | null {
+  if (!error) return null;
+  if (/n.est pas install.|not installed|unknown model|model not found|ollama pull/i.test(error)) return 'model-unavailable';
+  if (/injoignable|failed to fetch|networkerror|econnrefused|cors|connection refused/i.test(error)) return 'connection';
+  if (/system one|systemone/i.test(error)) return 'system-one-unavailable';
+  return 'other';
 }
 
 /** A report only contains authored rubric, decisions and timings. No images,
@@ -171,9 +186,18 @@ export function buildScientificDiagramProtocolReport(
     repetition, profileId: result.profileId, profileName: result.profileName,
     model: record.configurations.find((entry) => entry.id === result.profileId)?.analysisModel ?? '',
     method: result.directVisualDecision ? 'direct-image-systemone' as const : 'vision-then-analysis' as const,
-    status: result.status, error: result.error ? 'Échec de l’évaluation (détails dans l’observabilité locale)' : null,
+    status: result.status,
+    failureCategory: result.status !== 'success' ? diagramFailureCategory(result.error) : null,
+    error: result.error
+      ? result.readingMs === 0 && result.analysisMs === 0
+        ? 'Échec avant traitement du schéma : vérifiez la configuration ou les modèles dans l’observabilité locale.'
+        : 'Échec durant le traitement : détails dans l’observabilité locale.'
+      : null,
     durationMs: result.elapsedMs, readingMs: result.readingMs, analysisMs: result.analysisMs,
     tokens: result.tokens, score: result.score,
+    scoreStatus: result.status !== 'success' ? 'execution-failed' as const
+      : result.score !== null ? 'scored' as const
+      : result.proposal ? 'teacher-review-required' as const : 'invalid-or-incomplete-proposal' as const,
     observations: diagramObservations(result, rubric),
   })));
   const summaries = profiles.map((profileId) => {
@@ -185,7 +209,8 @@ export function buildScientificDiagramProtocolReport(
       const known = gold[key] ?? null;
       return {
         key, reference: known, choices,
-        stable: items.length === plannedRepetitions && choices.every((choice) => choice === choices[0]),
+        stable: plannedRepetitions > 1 && items.length === plannedRepetitions
+          && choices.every((choice) => choice === choices[0]),
         stableAndResolved: items.length === plannedRepetitions && resolved.length === items.length && new Set(choices).size === 1,
         correctEveryTime: Boolean(known) && items.length === plannedRepetitions && choices.every((choice) => choice === known),
       };
@@ -197,15 +222,25 @@ export function buildScientificDiagramProtocolReport(
     const resolved = decisions.reduce((sum, decision) => sum +
       decision.choices.filter((choice) => choice !== 'uncertain').length, 0);
     const complete = items.length === plannedRepetitions && items.every((item) => item.status === 'success');
+    const anyResolved = resolved > 0;
     return {
       profileId, profileName: items[0]?.profileName ?? profileId, model: items[0]?.model ?? '',
       method: items[0]?.method ?? 'vision-then-analysis',
       runsCompleted: items.length, plannedRepetitions,
       successfulRuns: items.filter((item) => item.status === 'success').length,
+      scoredRuns: items.filter((item) => item.scoreStatus === 'scored').length,
+      unscoredRuns: items.filter((item) =>
+        item.scoreStatus === 'teacher-review-required'
+        || item.scoreStatus === 'invalid-or-incomplete-proposal').length,
+      failedRuns: items.filter((item) => item.scoreStatus === 'execution-failed').length,
+      resolvedDecisions: resolved, totalDecisions: items.length * ids.length,
       complete,
       meanDurationMs: items.length ? Math.round(items.reduce((sum, item) => sum + item.durationMs, 0) / items.length) : null,
       labelledTargets: labelled.length, totalTargets,
-      accuracyPercent: totalLabelledObservations ? Math.round(1000 * correct / totalLabelledObservations) / 10 : null,
+      // Zero recovered answers is a technical/no-coverage state, NOT evidence
+      // that the model is wrong on every rubric item.
+      accuracyPercent: totalLabelledObservations && anyResolved
+        ? Math.round(1000 * correct / totalLabelledObservations) / 10 : null,
       coveragePercent: items.length && ids.length ? Math.round(1000 * resolved / (items.length * ids.length)) / 10 : null,
       stableResolvedTargets: complete && plannedRepetitions > 1 ? decisions.filter((item) => item.stableAndResolved).length : null,
       correctEveryTime: complete && plannedRepetitions > 1 && labelled.length ? decisions.filter((item) => item.correctEveryTime).length : null,
@@ -217,7 +252,7 @@ export function buildScientificDiagramProtocolReport(
     protocolId: SCIENTIFIC_DIAGRAM_PROTOCOL_ID, createdAt, plannedRepetitions,
     localOnly: runs.every(({ record }) => record.configurations.every((configuration) => isLoopbackPilotEndpoint(configuration.endpoint))),
     rubric: structuredClone(rubric), imageCount, gold: structuredClone(gold),
-    limitations: 'Un seul schéma et la même image par répétition. Sans étiquettes de référence du professeur, la justesse est inconnue. Indécidable ne compte jamais comme juste. Répétabilité ne prouve pas exactitude. Proportions et structures biologiques exigent un référentiel propre au dessin. Les probabilités sont des sorties du modèle et non des confiances calibrées.',
+    limitations: 'Un seul schéma et la même image par répétition. Aucune décision récupérée signifie « justesse non mesurée », pas 0 % d’exactitude. Une réponse indécidable pénalise la justesse stricte dès lors que des décisions sont récupérées, mais ne prouve pas une erreur de fond. Les choix System One sur transcription (TEV1) sont provisoires : mise en page, centrage et traits exigent la photographie. Une note nulle (null) indique un besoin de revue, jamais un zéro attribué. Répétabilité ne prouve pas exactitude. Les probabilités ne sont pas calibrées.',
     summaries, experiments,
   };
 }
