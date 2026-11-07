@@ -1733,7 +1733,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       question: runQuestion,
       rubricSnapshot: structuredClone(runRubric),
       correctionMode: runCorrectionMode,
-      images: runStage === 'analysis' ? [] : structuredClone(runImages),
+      images: runStage === 'analysis' || options?.diagram ? [] : structuredClone(runImages),
       subjectImages: structuredClone(runSubjectImages),
       subjectTranscription: runSubjectTranscription,
       referenceTranscription: runStage === 'analysis' ? runTranscription : null,
@@ -1749,9 +1749,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       results,
       stage: runStage,
     };
-    const previousComparable = savedModelEvaluations.find((record) => canCompareModelEvaluationRecords([record, savedRecord]));
-    if (previousComparable) setSuggestedEvaluationComparisonIds([previousComparable.id, savedRecord.id]);
-    await persistModelEvaluationRecord(savedRecord);
+    // The diagram lab is ephemeral: avoid copying photos into IndexedDB
+    // for every repetition. Users explicitly export its sanitized report.
+    if (!options?.diagram) {
+      const previousComparable = savedModelEvaluations.find((record) => canCompareModelEvaluationRecords([record, savedRecord]));
+      if (previousComparable) setSuggestedEvaluationComparisonIds([previousComparable.id, savedRecord.id]);
+      await persistModelEvaluationRecord(savedRecord);
+    }
     setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: evaluationCancelledRef.current ? 'cancelled' : 'completed' } : current);
     setEvaluationStage('completed');
     setIsAnalyzing(false);
