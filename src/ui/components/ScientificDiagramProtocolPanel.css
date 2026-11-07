@@ -1,0 +1,23 @@
+.diagram-protocol-panel { margin-bottom: var(--ds-space-4); }
+.diagram-protocol-panel h4 { margin: 0; }
+.diagram-protocol-inputs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--ds-space-4); }
+.diagram-protocol-import, .diagram-protocol-reference, .diagram-protocol-run {
+  display: grid; gap: var(--ds-space-3); padding: var(--ds-space-4);
+  background: var(--ds-color-surface); border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md); min-width: 0; align-content: start;
+}
+.diagram-protocol-import > label { font-size: .86rem; font-weight: 600; }
+.diagram-protocol-labels { max-height: 450px; overflow-y: auto; display: grid; gap: var(--ds-space-3); }
+.diagram-protocol-labels fieldset { border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-sm); min-width: 0; }
+.diagram-protocol-labels legend { font-weight: 600; font-size: .85rem; }
+.diagram-protocol-label-row {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-2);
+  padding: var(--ds-space-2) 0; font-size: .83rem;
+}
+.diagram-protocol-label-row > span { flex: 1; overflow-wrap: anywhere; }
+.diagram-protocol-label-row .design-system-select { max-width: 160px; width: 45%; font-size: .8rem; }
+.diagram-protocol-label-row + .diagram-protocol-label-row { border-top: 1px solid var(--ds-color-border); }
+.diagram-protocol-run > .pilot-evaluation-actions { align-items: center; }
+.diagram-protocol-decision-list { display: grid; gap: var(--ds-space-2); padding: var(--ds-space-3) 0; font-size: .81rem; }
+.diagram-protocol-decision-list code { overflow-wrap: anywhere; }
+@media (max-width: 850px) { .diagram-protocol-inputs { grid-template-columns: 1fr; } }
