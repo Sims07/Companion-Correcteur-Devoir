@@ -113,13 +113,26 @@ describe('protocole pilote de biologie', () => {
     expect(pilotSelectionIssue([], 'analysis')).toContain('Configurations à exécuter');
   });
 
-  it('blocks non-local or incomplete selections before any pilot network request', () => {
+  it('accepts user-selected OpenAI-compatible or remote servers for Vision, analysis and integrated tests', () => {
     const [local] = makePilotProfiles('http://localhost:11434', 'now');
     expect(pilotSelectionIssue([local!], 'integrated')).toBeNull();
-    const remote = { ...local!, id: 'external-profile', name: 'Serveur externe',
-      configuration: { ...local!.configuration, apiCompatible: true, endpoint: 'https://external.example/v1/chat/completions' } };
-    expect(pilotSelectionIssue([remote], 'analysis')).toContain('Serveur externe');
-    expect(pilotSelectionIssue([remote], 'integrated')).toContain('Ollama local');
+    const remote = { ...local!, id: 'external-profile', name: 'Serveur collègue',
+      configuration: { ...local!.configuration, apiCompatible: true, apiKey: 'token', endpoint: 'https://ai.example/v1/chat/completions' } };
+    expect(pilotSelectionIssue([remote], 'analysis')).toBeNull();
+    expect(pilotSelectionIssue([remote], 'vision')).toBeNull();
+    expect(pilotSelectionIssue([remote], 'integrated')).toBeNull();
+    expect(pilotSelectionIssue([local!, remote], 'integrated')).toBeNull();
+    expect(pilotSelectionIssue([{ ...remote, configuration: { ...remote.configuration, endpoint: 'http://192.168.1.22:8080/v1/chat/completions' } }], 'vision')).toBeNull();
+    // Do not treat malformed or credential-bearing URLs as valid model providers.
+    for (const endpoint of ['javascript:alert(1)', 'ftp://ai.example', 'http://username:password@ai.example/v1', 'not a URL']) {
+      expect(pilotSelectionIssue([{ ...remote, configuration: { ...remote.configuration, endpoint } }], 'vision')).toContain('URL');
+    }
+    expect(pilotSelectionIssue([{ ...remote, configuration: { ...remote.configuration, correctionMethod: 'decision' } }], 'vision')).toBeNull();
+    expect(pilotSelectionIssue([{ ...remote, configuration: { ...remote.configuration, correctionMethod: 'decision' } }], 'analysis')).toContain('System One');
+  });
+
+  it('continues to validate missing Vision and analysis models independently of the provider', () => {
+    const [local] = makePilotProfiles('http://localhost:11434', 'now');
     expect(pilotSelectionIssue([{ ...local!, configuration: { ...local!.configuration, analysisModel: '' } }], 'analysis')).toContain('modèle d’analyse');
     expect(pilotSelectionIssue([{ ...local!, configuration: { ...local!.configuration, visionModel: '' } }], 'analysis')).toBeNull();
     expect(pilotSelectionIssue([{ ...local!, configuration: { ...local!.configuration, visionModel: '' } }], 'integrated')).toContain('Vision');
