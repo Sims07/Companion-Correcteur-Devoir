@@ -89,9 +89,9 @@ test.describe('visual regression contracts', () => {
       await expect(page.locator('.evaluation-workspace-shell')).toBeVisible();
       await expect(page.locator('.evaluation-config-workspace')).toBeVisible();
       const hiddenFileInputs = page.locator('.file-picker-input');
-      // Includes the two optional exam/answer-key document pickers.
-      await expect(hiddenFileInputs).toHaveCount(5);
-      for (let index = 0; index < 5; index += 1) {
+      // Includes the optional exam/answer-key pickers and two diagram-protocol imports.
+      await expect(hiddenFileInputs).toHaveCount(7);
+      for (let index = 0; index < 7; index += 1) {
         await expect(hiddenFileInputs.nth(index)).toHaveCSS('width', '1px');
         await expect(hiddenFileInputs.nth(index)).toHaveCSS('height', '1px');
         await expect(hiddenFileInputs.nth(index)).toHaveCSS('position', 'absolute');
