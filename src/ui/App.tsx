@@ -53,6 +53,8 @@ import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluatio
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
+import { ScientificDiagramProtocolPanel, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
+import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramProtocolProfileIssue, usesDirectDiagramVision, type DiagramProtocolRun } from '../domain/scientificDiagramProtocol.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../domain/questionContractRepeatability.ts';
 import { runPilotCriterionConcurrency, type PilotConcurrencyRun } from '../application/pilotCriterionConcurrency.ts';
@@ -88,6 +90,8 @@ interface PilotRunOptions {
   profiles: AiModelProfile[];
   caseImages: ImageInput[];
   contractVariant?: QuestionContractVariant;
+  diagram?: { rubric: Rubric; question: string; directVisualDecision: boolean };
+  retainModelAfterRun?: boolean;
 }
 
 const initialRubric: Rubric = {
@@ -408,6 +412,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [pilotUploadingCase, setPilotUploadingCase] = useState<string | null>(null);
   const [pilotCurrentCase, setPilotCurrentCase] = useState<string | null>(null);
   const [pilotMessage, setPilotMessage] = useState('');
+  const [diagramProtocolProgress, setDiagramProtocolProgress] = useState('');
   const pilotStopRef = useRef(false);
   const pilotMemoryErrorRef = useRef<string | null>(null);
   const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
@@ -1533,19 +1538,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   async function startModelEvaluation(options?: PilotRunOptions): Promise<ModelEvaluationRecord | undefined> {
     const runStage = options?.stage ?? evaluationStageMode;
-    const runRubric = options?.contractVariant ? questionContractRubric(options.contractVariant) : options ? PILOT_RUBRIC : rubric;
+    const runRubric = options?.diagram?.rubric ?? (options?.contractVariant ? questionContractRubric(options.contractVariant) : options ? PILOT_RUBRIC : rubric);
     const runValidation = validateRubric(runRubric);
     const runTranscription = options ? options.pilotCase.transcription : transcription;
     const runImages = options ? options.caseImages : images;
-    const runQuestion = options?.contractVariant ? QUESTION_CONTRACT_QUESTION : options ? PILOT_QUESTION : question;
-    const runTitle = options?.contractVariant ? QUESTION_CONTRACT_TITLE : options ? PILOT_TITLE : assignmentTitle;
+    const runQuestion = options?.diagram?.question ?? (options?.contractVariant ? QUESTION_CONTRACT_QUESTION : options ? PILOT_QUESTION : question);
+    const runTitle = options?.diagram?.rubric.title ?? (options?.contractVariant ? QUESTION_CONTRACT_TITLE : options ? PILOT_TITLE : assignmentTitle);
     const runDescription = options ? '' : assignmentDescription;
     const runLevel = options ? 'Université' : educationLevel;
     const runCorrectionMode = options ? 'integrated' as const : correctionMode;
     const runSubjectImages = options ? [] : subjectImages;
     const runSubjectTranscription = options ? null : subjectTranscription;
-    const runVisualDirect = options ? false : evaluationVisualDirect;
-    const runAssignmentId = options?.contractVariant ? 'pilot-' + QUESTION_CONTRACT_PROTOCOL_ID : options ? 'pilot-' + PILOT_PROTOCOL_ID : activeAssignmentId;
+    const runVisualDirect = options?.diagram?.directVisualDecision ?? (options ? false : evaluationVisualDirect);
+    const runAssignmentId = options?.diagram ? 'pilot-' + SCIENTIFIC_DIAGRAM_PROTOCOL_ID : options?.contractVariant ? 'pilot-' + QUESTION_CONTRACT_PROTOCOL_ID : options ? 'pilot-' + PILOT_PROTOCOL_ID : activeAssignmentId;
     const selectedProfiles = options?.profiles ?? aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
     if (selectedProfiles.length < 1) { setError('Sélectionnez au moins une configuration enregistrée pour la tester.'); return; }
     if (!runValidation.valid) { setError(runValidation.errors.join(' ')); return; }
@@ -1586,7 +1591,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       onProgress: setEvaluationProgress,
       ...(options ? { onConfigurationSettled: async (configuration: ModelEvaluationConfiguration) => {
         // A remote OpenAI-compatible API or nonlocal Ollama does not expose a safe local unload endpoint.
-        if (!isLocalPilotConfiguration(configuration)) return;
+        if (!isLocalPilotConfiguration(configuration) || options?.retainModelAfterRun) return;
         setPilotMessage('Libération de la mémoire Ollama après « ' + configuration.name + ' »…');
         try {
           if (!releasePilotModels) throw new Error('Gestionnaire de mémoire Ollama indisponible.');
@@ -1729,7 +1734,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       question: runQuestion,
       rubricSnapshot: structuredClone(runRubric),
       correctionMode: runCorrectionMode,
-      images: runStage === 'analysis' ? [] : structuredClone(runImages),
+      images: runStage === 'analysis' || options?.diagram ? [] : structuredClone(runImages),
       subjectImages: structuredClone(runSubjectImages),
       subjectTranscription: runSubjectTranscription,
       referenceTranscription: runStage === 'analysis' ? runTranscription : null,
@@ -1745,9 +1750,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       results,
       stage: runStage,
     };
-    const previousComparable = savedModelEvaluations.find((record) => canCompareModelEvaluationRecords([record, savedRecord]));
-    if (previousComparable) setSuggestedEvaluationComparisonIds([previousComparable.id, savedRecord.id]);
-    await persistModelEvaluationRecord(savedRecord);
+    // The diagram lab is ephemeral: avoid copying photos into IndexedDB
+    // for every repetition. Users explicitly export its sanitized report.
+    if (!options?.diagram) {
+      const previousComparable = savedModelEvaluations.find((record) => canCompareModelEvaluationRecords([record, savedRecord]));
+      if (previousComparable) setSuggestedEvaluationComparisonIds([previousComparable.id, savedRecord.id]);
+      await persistModelEvaluationRecord(savedRecord);
+    }
     setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: evaluationCancelledRef.current ? 'cancelled' : 'completed' } : current);
     setEvaluationStage('completed');
     setIsAnalyzing(false);
@@ -2024,6 +2033,78 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setPilotCurrentCase(null);
       setPilotBusy(false);
     }
+  }
+
+  async function runScientificDiagramProtocol(request: DiagramProtocolRequest) {
+    if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
+    const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+    if (!profiles.length) throw new Error('Sélectionnez une configuration dans l’évaluateur.');
+    const issue = profiles.map(diagramProtocolProfileIssue).find(Boolean);
+    if (issue) throw new Error(issue);
+    if (profiles.some(isLocalPilotProfile) && !releasePilotModels) {
+      throw new Error('Gestionnaire de mémoire Ollama indisponible : impossible de sécuriser les passages successifs.');
+    }
+    const runs: DiagramProtocolRun[] = [];
+    pilotStopRef.current = false;
+    evaluationCancelledRef.current = false;
+    pilotMemoryErrorRef.current = null;
+    setPilotBusy(true);
+    setDiagramProtocolProgress('Préparation de l’évaluation des schémas…');
+    try {
+      // Profiles and repetitions are sequential: safe for a 16 GB CPU-only machine.
+      // Each repetition uses the same prepared image group and exactly one profile.
+      for (const profile of profiles) {
+        try {
+          for (let repetition = 1; repetition <= request.repetitions; repetition++) {
+            if (pilotStopRef.current || evaluationCancelledRef.current) break;
+            setDiagramProtocolProgress(profile.name + ' · passage ' + repetition + '/' + request.repetitions
+              + ' · ' + (usesDirectDiagramVision(profile) ? 'System One image' : 'Vision puis analyse'));
+            const record = await startModelEvaluation({
+              pilotCase: PILOT_CASES[0]!, stage: 'integrated', profiles: [profile],
+              caseImages: request.images, retainModelAfterRun: true,
+              diagram: {
+                rubric: request.rubric,
+                question: request.context || 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni. N’invente pas de structures biologiques absentes du sujet.',
+                directVisualDecision: usesDirectDiagramVision(profile),
+              },
+            });
+            if (record) runs.push({ repetition, record });
+            if (pilotStopRef.current || evaluationCancelledRef.current) break;
+          }
+        } finally {
+          // Keep a single model in RAM throughout identical repetitions, then
+          // unload before any different profile (including after cancellation).
+          if (isLocalPilotProfile(profile) && releasePilotModels) {
+            setDiagramProtocolProgress('Libération de la mémoire après « ' + profile.name + ' »…');
+            try {
+              await releasePilotModels({
+                id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
+                apiCompatible: false, visionModel: profile.configuration.visionModel,
+                analysisModel: profile.configuration.analysisModel,
+                thinking: profile.configuration.analysisThinking,
+                correctionMethod: profile.configuration.correctionMethod,
+              }, 'integrated');
+            } catch (cause) {
+              pilotMemoryErrorRef.current = 'Impossible de libérer « ' + profile.name + ' » : ' +
+                (cause instanceof Error ? cause.message : String(cause));
+              pilotStopRef.current = true;
+              evaluationCancelledRef.current = true;
+            }
+          }
+        }
+        if (pilotStopRef.current || evaluationCancelledRef.current) break;
+      }
+      setDiagramProtocolProgress(pilotMemoryErrorRef.current ??
+        (pilotStopRef.current || evaluationCancelledRef.current
+          ? 'Essai arrêté. Les passages terminés restent analysables.'
+          : 'Série terminée.'));
+    } finally {
+      setPilotBusy(false);
+    }
+    return buildScientificDiagramProtocolReport(
+      runs, request.rubric, request.gold, request.repetitions,
+      new Date().toISOString(), request.images.length,
+    );
   }
 
   function stopPilotProtocol() {
@@ -3126,6 +3207,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </nav>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && <section id="evaluation-configurations" className="panel evaluation-config-workspace" aria-labelledby="evaluation-config-title">
         <div className="evaluation-section-heading"><div><p className="eyebrow">ÉTAPE 1 · CONFIGURATIONS</p><h2 id="evaluation-config-title">Choisir les configurations à évaluer</h2><p>Créez ou modifiez vos profils ici, sans passer par les réglages du parcours de correction. Les profils sont enregistrés localement sur cet appareil.</p></div><span className="evaluation-step-chip">{aiModelProfiles.length} profil(s)</span></div>
+        <ScientificDiagramProtocolPanel
+          selectedProfiles={selectedEvaluationProfiles} busy={busy || pilotBusy}
+          progress={diagramProtocolProgress}
+          onPrepareImages={(files) => service.prepareFiles(files)}
+          onRun={runScientificDiagramProtocol}
+          onStop={stopPilotProtocol}
+        />
         <PilotEvaluationPanel
           enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}
           message={pilotMessage} runs={pilotRuns} contractRuns={pilotContractRuns}
