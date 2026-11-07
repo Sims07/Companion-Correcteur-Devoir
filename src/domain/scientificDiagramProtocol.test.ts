@@ -157,7 +157,7 @@ describe('protocole de schémas scientifiques', () => {
       SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, gold, 1, 'test', 1,
     );
     expect(report.experiments[0]).toMatchObject({
-      method: 'vision-then-analysis', scoreStatus: 'teacher-review-or-unscorable', score: null,
+      method: 'vision-then-analysis', scoreStatus: 'invalid-or-incomplete-proposal', score: null,
     });
     expect(report.summaries[0]).toMatchObject({
       successfulRuns: 1, scoredRuns: 0, unscoredRuns: 1,
@@ -198,6 +198,7 @@ describe('protocole de schémas scientifiques', () => {
       successfulRuns: 0, failedRuns: 1, resolvedDecisions: 0, accuracyPercent: null,
     });
     expect(report.experiments[0]?.error).toContain('avant traitement');
+    expect(report.experiments[0]?.failureCategory).toBe('other');
     expect(JSON.stringify(report)).not.toContain('PRIVATE_ENDPOINT');
     expect(JSON.stringify(report)).not.toContain('PRIVATE_API_KEY');
   });
