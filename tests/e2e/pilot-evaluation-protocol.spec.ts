@@ -64,11 +64,12 @@ test('the guided biology protocol reuses the evaluator selection without creatin
   await expect(panel.getByRole('button', { name: 'Lancer les 3 lectures (Vision seule)' })).toBeDisabled();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('companion-correcteur:ollama-profiles:v1') ?? '[]'))).toEqual(profiles);
 
-  // An incompatible remote profile must block the guided campaign rather than send copy data out.
+  // A configured OpenAI-compatible provider is allowed in the guided analysis protocol;
+  // only the CPU concurrency experiment remains specific to native local Ollama.
   await choices.locator('label.evaluation-profile-option').nth(1).click();
-  await expect(panel.getByText(/Configuration\(s\) incompatible\(s\) : Ma configuration distante/)).toBeVisible();
-  await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeDisabled();
+  await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
   await expect(panel.getByRole('button', { name: 'Comparer 1, 2 et 4 appels parallèles' })).toBeDisabled();
+  await expect(panel.getByText(/Configuration\(s\) incompatible\(s\)/)).toHaveCount(0);
   await choices.locator('label.evaluation-profile-option').nth(1).click();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
 
