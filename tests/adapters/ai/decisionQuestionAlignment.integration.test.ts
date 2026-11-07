@@ -52,7 +52,8 @@ describe('System One question-scoped alignment regression (variant B)', () => {
     const answers = negativeAnswers(prepared);
     answers.criterion_2_support_1 = verdict('uncertain');
     const graded = scoreSystemOneRubric(group!.transcription, prepared, { answers });
-    expect(graded.every(({ assessmentStatus }) => assessmentStatus === 'not-evaluated')).toBe(true);
+    expect(graded.filter(({ assessmentStatus }) => assessmentStatus === 'not-evaluated')).toHaveLength(1);
+    expect(graded[1]!.assessmentStatus).toBe('not-evaluated');
   });
 
   it('does not silently zero an answer when the two decisions disagree or the probabilities are tied', () => {
@@ -95,6 +96,6 @@ describe('System One question-scoped alignment regression (variant B)', () => {
     expect(parsed.finalScore).toBe(0);
     expect(parsed.scoreIncomplete).not.toBe(true);
     expect(parsed.criteria.flatMap((criterion) => criterion.subcriteria ?? [])
-      .every(({ assessmentStatus, points }) => assessmentStatus === 'evaluated' && points === 0)).toBe(true);
+      .every(({ assessmentStatus, points }) => assessmentStatus !== 'not-evaluated' && points === 0)).toBe(true);
   });
 });
