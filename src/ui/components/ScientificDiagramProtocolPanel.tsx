@@ -235,7 +235,7 @@ export function ScientificDiagramProtocolPanel({
       </div>
       {fixtureReport && <section className="pilot-evaluation-report" aria-label="Résultats des schémas A B C">
         <div className="pilot-evaluation-report-head">
-          <div><h4>Comparaison aux trois notes attendues</h4><p>Écart de note et décisions correctes sur les 19 sous-critères. « Indécidable » n’est pas un zéro.</p></div>
+          <div><h4>Comparaison aux trois notes attendues</h4><p>La note reste « Non noté » lorsque le modèle demande une revue. Les décisions System One sont mesurées séparément, même si la note finale reste indisponible.</p></div>
           <div className="pilot-evaluation-report-actions">
             <Button variant="secondary" onClick={() => { void copyFixtureReport(); }}>Copier le rapport pour ChatGPT</Button>
             <Button variant="secondary" onClick={downloadFixtureReport}>Exporter le rapport JSON</Button>
@@ -243,7 +243,7 @@ export function ScientificDiagramProtocolPanel({
         </div>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
-            <thead><tr><th>Schéma</th><th>Configuration</th><th>Parcours</th><th>Attendu</th><th>Notes obtenues</th><th>Décisions justes</th><th>Stabilité</th><th>Temps moyen</th></tr></thead>
+            <thead><tr><th>Schéma</th><th>Configuration</th><th>Parcours</th><th>Attendu</th><th>Notes obtenues</th><th>Exécution</th><th>Décisions récupérées</th><th>Justesse stricte</th><th>Stabilité</th><th>Temps moyen</th></tr></thead>
             <tbody>{fixtureReport.cases.flatMap((caseResult) => caseResult.summaries.map((summary) => {
               const experiments = caseResult.experiments.filter((experiment) => experiment.profileId === summary.profileId);
               return <tr key={caseResult.caseId + '-' + summary.profileId}>
@@ -251,8 +251,10 @@ export function ScientificDiagramProtocolPanel({
                 <td>{summary.profileName}</td>
                 <td>{summary.method === 'direct-image-systemone' ? 'Vision décisionnelle' : 'Vision puis analyse'}</td>
                 <td>{caseResult.referenceScore}/10</td>
-                <td>{experiments.map((experiment) => experiment.score === null ? 'Incomplet' : experiment.score + '/10').join(' · ')}</td>
-                <td>{summary.accuracyPercent === null ? 'Non mesurée' : summary.accuracyPercent + ' %'}</td>
+                <td>{experiments.map((experiment) => experiment.score === null ? 'Non noté' : experiment.score + '/10').join(' · ')}</td>
+                <td>{summary.failedRuns ? summary.failedRuns + ' échec(s)' : summary.unscoredRuns ? summary.unscoredRuns + ' sans note' : 'Réussie'}</td>
+                <td>{summary.resolvedDecisions}/{summary.totalDecisions}</td>
+                <td>{summary.accuracyPercent === null ? 'Non mesurable' : summary.accuracyPercent + ' %'}</td>
                 <td>{summary.stableResolvedTargets === null ? 'Non mesurée' : summary.stableResolvedTargets + '/19'}</td>
                 <td>{summary.meanDurationMs === null ? '—' : (summary.meanDurationMs / 1000).toFixed(1) + ' s'}</td>
               </tr>;
@@ -272,6 +274,7 @@ export function ScientificDiagramProtocolPanel({
             </div>)}
           </div>)}
         </details>
+        <p className="pilot-evaluation-hint">Une exécution « Réussie » sans note peut contenir des choix utilisables ; inspectez « Décisions récupérées ». Une configuration échouée avant lecture peut être indisponible ou mal paramétrée : l’erreur précise figure dans Observabilité, pas dans cet export sans informations de connexion.</p>
         <p className="pilot-evaluation-hint">{fixtureReport.limitations}</p>
       </section>}
     </section>
@@ -352,7 +355,7 @@ export function ScientificDiagramProtocolPanel({
             <th scope="row">{summary.profileName} · {summary.model}</th>
             <td>{summary.method === 'direct-image-systemone' ? 'Image directe' : 'Vision + analyse'}</td>
             <td>{summary.runsCompleted}/{summary.plannedRepetitions}</td>
-            <td>{summary.accuracyPercent === null ? 'Non mesurée' : summary.accuracyPercent + ' %'}{summary.labelledTargets ? ' (' + summary.labelledTargets + ' références)' : ''}</td>
+            <td>{summary.accuracyPercent === null ? 'Non mesurable' : summary.accuracyPercent + ' %'}{summary.labelledTargets ? ' (' + summary.labelledTargets + ' références)' : ''}</td>
             <td>{summary.coveragePercent === null ? '—' : summary.coveragePercent + ' %'}</td>
             <td>{summary.stableResolvedTargets === null ? 'Série incomplète' : summary.stableResolvedTargets + '/' + summary.totalTargets}</td>
             <td>{summary.meanDurationMs === null ? '—' : (summary.meanDurationMs / 1000).toFixed(1) + ' s'}</td>
