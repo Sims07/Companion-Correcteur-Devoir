@@ -2096,6 +2096,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 analysisModel: profile.configuration.analysisModel,
                 thinking: profile.configuration.analysisThinking,
                 correctionMethod: profile.configuration.correctionMethod,
+                directVisualDecision: usesDirectDiagramVision(profile),
               }, 'integrated');
             } catch (cause) {
               pilotMemoryErrorRef.current = 'Impossible de libérer « ' + profile.name + ' » : ' +
