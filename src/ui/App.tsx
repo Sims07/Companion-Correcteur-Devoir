@@ -1578,7 +1578,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         analysisModel: profile.configuration.analysisModel,
         thinking: profile.configuration.analysisThinking,
         criterionByCriterion: profile.configuration.criterionByCriterion,
-        apiCompatible: profile.configuration.apiCompatible,
         correctionMethod: profile.configuration.correctionMethod,
         directVisualDecision: directProfiles(profile),
       })),
@@ -1926,7 +1925,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         nonLocal.map((profile) => profile.name).join(', ') + '.');
       return;
     }
-    if (profiles.some(isLocalPilotProfile) && !releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : benchmark bloqué pour protéger la RAM.'); return; }
+    if (!releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : benchmark bloqué pour protéger la RAM.'); return; }
     const testCase = PILOT_CASES.find((item) => item.id === caseId);
     if (!testCase) return;
     pilotStopRef.current = false;
