@@ -43,9 +43,15 @@ describe('decision stress protocol: native scoring + contract evidence isolation
       transcription: testCase.transcription,
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(requests[0]!.state).not.toContain(groups[1]!.transcription);
-    expect(requests[1]!.state).not.toContain(groups[0]!.transcription);
-    if (testCase.id === 'G') expect(requests.every((request) => !request.state.includes('Énoncé imprimé :'))).toBe(true);
+    if (testCase.id === 'G') {
+      // The two student answers deliberately contain the SAME text. Check
+      // printed-subject isolation, not the impossible absence of that answer.
+      expect(requests.every((request) => !request.state.includes('Énoncé imprimé :'))).toBe(true);
+      expect(requests.every((request) => request.state.includes('Je ne sais pas.'))).toBe(true);
+    } else {
+      expect(requests[0]!.state).not.toContain(groups[1]!.transcription);
+      expect(requests[1]!.state).not.toContain(groups[0]!.transcription);
+    }
 
     const proposal = parseGradingProposal(raw, rubric);
     expect(proposal.finalScore).toBe(testCase.referenceScore);
