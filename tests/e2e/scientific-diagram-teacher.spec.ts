@@ -38,6 +38,9 @@ async function createDiagramAssignment(page: Page, title = 'Mitose · L1') {
   await diagram.getByText('Voir le barème graphique', { exact: false }).click();
   await expect(diagram.locator('ol > li')).toHaveCount(3);
   await expect(diagram.locator('ul > li')).toHaveCount(15);
+  await expect(diagram.getByText('Barème cumulé : 4 / 8 pts')).toBeVisible();
+  await expect(diagram.getByText('Barème cumulé : 6 / 8 pts')).toBeVisible();
+  await expect(diagram.getByText('Barème cumulé : 8 / 8 pts')).toBeVisible();
   return diagram;
 }
 
@@ -74,11 +77,13 @@ function mockOllama(page: Page, requests: Record<string, any>[], failed: () => b
   });
 }
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page }, testInfo) => {
   await page.addInitScript((config) => {
     localStorage.setItem('companion-correcteur:auto-background-correction:v1', 'false');
     localStorage.setItem('companion-correcteur:ollama-configuration:v1', JSON.stringify(config));
-  }, configuration);
+  }, testInfo.title.startsWith('remote diagram assignments')
+    ? { ...configuration, endpoint: 'https://ai.example/v1/chat/completions', apiCompatible: true }
+    : configuration);
 });
 
 test('a diagram devoir has the normal library, several copies, review rail and locally archived corrections', async ({ page }) => {
@@ -107,6 +112,10 @@ test('a diagram devoir has the normal library, several copies, review rail and l
   await expect(page.getByRole('complementary', { name: 'Navigation entre les copies' })).toBeVisible();
   await expect(page.locator('.teacher-copy-rail-list > li')).toHaveCount(2);
   await expect(page.locator('.review-source-pane')).toBeVisible();
+  await page.getByRole('button', { name: 'Agrandir la page 1 du schéma' }).click();
+  const viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 1' });
+  await expect(viewer.getByRole('button', { name: 'Zoomer', exact: true })).toBeVisible();
+  await viewer.getByRole('button', { name: 'Fermer le visualiseur' }).click();
   await expect(page.locator('.review-main-column .review-card')).toHaveCount(3);
   await expect(page.locator('.copy-review-header-score')).toContainText('0 / 8');
   const firstCriterion = page.locator('.review-main-column .review-card').first();
@@ -143,8 +152,6 @@ test('a failed diagram image call becomes À reprendre and retry restores an unv
 
 test('remote diagram assignments never queue images without explicit consent, even when the rubric is ready', async ({ page }) => {
   let remoteCalls = 0;
-  await page.addInitScript((config) => localStorage.setItem('companion-correcteur:ollama-configuration:v1', JSON.stringify(config)),
-    { ...configuration, endpoint: 'https://ai.example/v1/chat/completions', apiCompatible: true });
   await page.route('https://ai.example/**', async (route) => {
     remoteCalls += 1;
     await route.fulfill({ status: 503, body: '{}' });
