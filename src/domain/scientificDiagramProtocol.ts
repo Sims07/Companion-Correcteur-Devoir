@@ -234,6 +234,7 @@ export function diagramFailureCategory(error?: string): DiagramFailureCategory |
   if (/injoignable|failed to fetch|networkerror|econnrefused|cors|connection refused/i.test(error)) return 'connection';
   if (/system one|systemone/i.test(error)) return 'system-one-unavailable';
   if (/done_reason=length|limite de g.n.ration|maximum output tokens|num_predict/i.test(error)) return 'generation-limit';
+  if (/\[diagram-output:/.test(error)) return 'invalid-or-incomplete-output';
   if (/r.ponse tronqu.e|json invalide|json tronqu.|objet json|sous-crit.re manquant|sous-crit.res manquants|r.ponse.*incompl.te|proposition.*invalide|doit contenir.*crit.re|ne contient pas tous les sous-crit.res/i.test(error)) return 'invalid-or-incomplete-output';
   if (/timeout|timed out|d.lai d.pass.|trop de temps|d.lai d.attente/i.test(error)) return 'timeout';
   return 'other';
@@ -243,7 +244,7 @@ export function diagramFailureCategory(error?: string): DiagramFailureCategory |
  * traces, prompts, image data, provider errors or request/response payloads.
  * This allows diagnosing expensive JSON repair loops from a pasted report. */
 export function diagramAnalysisDiagnostics(
-  result: Pick<ModelEvaluationResultSnapshot, 'diagnosticRuns'>,
+  result: Pick<ModelEvaluationResultSnapshot, 'diagnosticRuns' | 'error'>,
 ) {
   const calls = (result.diagnosticRuns ?? []).filter((run) => run.kind === 'model' && run.stage === 'analysis');
   const budget = calls.map((run) => run.requestMetadata?.options.generationTokenLimit ?? run.generationTokenLimit)
@@ -252,11 +253,13 @@ export function diagramAnalysisDiagnostics(
     && Number.isFinite(run.generatedTokens) && run.generatedTokens >= 0);
   return {
     analysisCalls: calls.length,
-    repairCalls: calls.filter((run) => run.promptId === 'grading.full-repair' || run.promptId === 'grading.incremental-repair').length,
+    repairCalls: calls.filter((run) => run.promptId === 'grading.full-repair' || run.promptId === 'grading.incremental-repair' || run.promptId === 'diagram.direct-repair').length,
     generationLimitHits: calls.filter((run) => run.doneReason === 'length').length,
     generationBudgetTokens: budget ?? null,
     generatedTokens: generated.length
       ? Math.round(generated.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0)) : null,
+    ...(result.error?.match(/\[diagram-output:(invalid-json|invalid-shape|missing-id|unknown-id|missing-evidence|invalid-points|invalid-confidence|generation-limit)\]/)
+      ? { outputFailure: result.error.match(/\[diagram-output:(invalid-json|invalid-shape|missing-id|unknown-id|missing-evidence|invalid-points|invalid-confidence|generation-limit)\]/)![1] } : {}),
   };
 }
 
