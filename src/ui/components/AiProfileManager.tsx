@@ -80,7 +80,7 @@ export function AiProfileManager({
               onChange={(event) => toggle(profile.id, event.target.checked)}>
               <span className="ai-profile-manager-item-detail">
                 <strong>{profile.name}</strong>
-                <small>{profile.configuration.visionModel || 'Vision non définie'} → {profile.configuration.analysisModel || 'Analyse non définie'} · {profile.configuration.correctionMethod === 'decision' ? 'Décisionnelle' : 'Classique'} · {profile.configuration.apiCompatible ? 'API compatible' : 'Ollama'}</small>
+                <small>{profile.configuration.visionModel || 'Vision non définie'} → {profile.configuration.analysisModel || 'Analyse non définie'} · {profile.configuration.correctionMethod === 'visual-decision' ? 'Vision + Décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'Décisionnelle' : 'Classique'} · {profile.configuration.apiCompatible ? 'API compatible' : 'Ollama'}</small>
                 {(activeProfileId === profile.id || selectedEvaluationProfileIds.includes(profile.id)) && <small className="ai-profile-manager-item-hint">
                   {activeProfileId === profile.id ? 'Configuration chargée' : ''}
                   {activeProfileId === profile.id && selectedEvaluationProfileIds.includes(profile.id) ? ' · ' : ''}
