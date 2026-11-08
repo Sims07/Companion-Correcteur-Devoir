@@ -158,7 +158,7 @@ export function ScientificDiagramProtocolPanel({
 
   async function start() {
     if (!canRun) return;
-    setReport(null);
+    onClearReport();
     setMessage('');
     try {
       const completed = await onRun({
@@ -299,7 +299,7 @@ export function ScientificDiagramProtocolPanel({
         <p className="pilot-evaluation-hint">Barème actif : <strong>{rubric.title}</strong> — {validation.maximumPoints} points, {targets.length} attendu{targets.length > 1 ? 's' : ''}. Les 2 points « Compréhension » de l’exemple sont exclus par défaut : ils nécessitent des structures attendues propres au schéma.</p>
         <label htmlFor="diagram-protocol-context">Contexte biologique du dessin (facultatif pour les seuls critères de présentation)</label>
         <TextArea id="diagram-protocol-context" rows={2} disabled={busy} value={context}
-          onChange={(event) => { setContext(event.currentTarget.value); setReport(null); }}
+          onChange={(event) => { setContext(event.currentTarget.value); onClearReport(); }}
           placeholder="Ex. coupe longitudinale de racine ; structures attendues, espèce, préparation…" />
       </div>
       <div className="diagram-protocol-reference">
@@ -321,7 +321,7 @@ export function ScientificDiagramProtocolPanel({
                       else delete next[key];
                       return next;
                     });
-                    setReport(null);
+                    onClearReport();
                   }}>
                   <option value="">Non renseigné</option>
                   <option value="present">Présent</option>
