@@ -15,8 +15,8 @@ type Phase = BackgroundCorrectionJob['phase'];
 
 const phaseOrder: readonly Phase[] = ['preparation', 'reading', 'grading', 'complete'];
 
-function phaseStatus(current: Phase, position: number): 'complete' | 'current' | 'pending' {
-  const activeIndex = phaseOrder.indexOf(current);
+function phaseStatus(current: Phase, position: number, order: readonly Phase[] = phaseOrder): 'complete' | 'current' | 'pending' {
+  const activeIndex = order.indexOf(current);
   return activeIndex > position ? 'complete' : activeIndex === position ? 'current' : 'pending';
 }
 
@@ -29,8 +29,13 @@ export function ActiveCopyProcessingWorkspace({ job, pages, studentLabel, onStop
   // The teacher workspace already loaded the selected copy's full pages on opening it.
   const fullPages = pages ?? (job.imagesDeferred ? [] : job.images);
   const phase = job.phase;
-  const currentTitle = phase === 'preparation' ? 'Préparation' : phase === 'reading' ? 'Lecture de la copie' : 'Correction des réponses';
-  const phases = [
+  const isDiagram = job.gradingFlow === 'scientific-diagram-direct';
+  const order: readonly Phase[] = isDiagram ? ['preparation', 'grading', 'complete'] : phaseOrder;
+  const currentTitle = phase === 'preparation' ? 'Préparation' : isDiagram ? 'Analyse directe du schéma' : phase === 'reading' ? 'Lecture de la copie' : 'Correction des réponses';
+  const phases = isDiagram ? [
+    { label: 'Préparation', detail: 'Préparation des images et du modèle' },
+    { label: 'Analyse directe du schéma', detail: 'Résultats fournis ensemble à la fin de la réponse' },
+  ] : [
     { label: 'Préparation', detail: 'Démarrage de la correction' },
     { label: 'Lecture de la copie', detail: `${job.completedPages} / ${job.images.length} pages lues` },
     { label: 'Correction des réponses', detail: `${job.completedCriteria} / ${job.totalCriteria} critères traités` },
@@ -41,7 +46,7 @@ export function ActiveCopyProcessingWorkspace({ job, pages, studentLabel, onStop
       <header className="atelier-processing-heading">
         <div>
           <p className="eyebrow">COPIE EN COURS</p>
-          <h2 id="atelier-processing-title">Correction en cours</h2>
+          <h2 id="atelier-processing-title">{isDiagram ? 'Correction du schéma en cours' : 'Correction en cours'}</h2>
           <p className="atelier-processing-student">{studentLabel?.trim() || job.label}</p>
         </div>
         <p className="atelier-processing-current" role="status" aria-live="polite">
@@ -50,7 +55,7 @@ export function ActiveCopyProcessingWorkspace({ job, pages, studentLabel, onStop
       </header>
       <ol className="atelier-processing-phases" aria-label="Progression de la correction">
         {phases.map((item, index) => {
-          const status = phaseStatus(phase, index);
+          const status = phaseStatus(phase, index, order);
           return (
             <li key={item.label} className={`is-${status}`} aria-current={status === 'current' ? 'step' : undefined}>
               <span className="atelier-processing-phase-number" aria-hidden="true">{status === 'complete' ? '✓' : index + 1}</span>
