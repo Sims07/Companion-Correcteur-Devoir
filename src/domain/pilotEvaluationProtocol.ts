@@ -110,15 +110,23 @@ export function pilotSelectionIssue(profiles: readonly AiModelProfile[], stage: 
   if (unsupported.length) return 'Vérifiez l’URL du serveur (HTTP ou HTTPS, sans identifiants intégrés) : ' +
     unsupported.map((profile) => profile.name).join(', ') + '.';
   const invalidMethod = profiles.filter((profile) =>
-    stage !== 'vision' && profile.configuration.apiCompatible && profile.configuration.correctionMethod === 'decision');
+    stage !== 'vision' && profile.configuration.apiCompatible
+    && (profile.configuration.correctionMethod === 'decision'
+      || profile.configuration.correctionMethod === 'visual-decision'));
   if (invalidMethod.length) return 'La méthode décisionnelle System One n’est pas disponible via l’API compatible OpenAI. Utilisez une méthode classique pour : ' +
     invalidMethod.map((profile) => profile.name).join(', ') + '.';
   if (stage !== 'vision') {
     const missingAnalysis = profiles.filter((profile) => !profile.configuration.analysisModel.trim());
     if (missingAnalysis.length) return 'Définissez un modèle d’analyse pour : ' + missingAnalysis.map((profile) => profile.name).join(', ') + '.';
   }
+  if (stage === 'analysis' && profiles.some((profile) =>
+    profile.configuration.correctionMethod === 'visual-decision')) {
+    return 'Vision + Décisionnel direct a besoin de l’image de la copie. Sélectionnez le parcours complet.';
+  }
   if (stage !== 'analysis') {
-    const missingVision = profiles.filter((profile) => !profile.configuration.visionModel.trim());
+    const missingVision = profiles.filter((profile) =>
+      !profile.configuration.visionModel.trim()
+      && !(stage === 'integrated' && profile.configuration.correctionMethod === 'visual-decision'));
     if (missingVision.length) return 'Définissez un modèle de lecture Vision pour : ' + missingVision.map((profile) => profile.name).join(', ') + '.';
   }
   return null;
