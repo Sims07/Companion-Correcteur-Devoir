@@ -21,6 +21,30 @@ export function isLoopbackDiagramEndpoint(endpoint: string): boolean {
   } catch { return false; }
 }
 
+/** Validate the selected diagram assignment before admitting any student image
+ * into the queue. Consent is tied to the exact endpoint, not a boolean that
+ * would silently authorize a different server after settings change. */
+export function directDiagramAssignmentIssue(
+  rubric: Rubric,
+  configuration: Pick<AiModelConfiguration, 'correctionMethod' | 'analysisModel' | 'endpoint'>,
+  consentedEndpoint: string | null,
+): string | null {
+  const validation = validateRubric(rubric);
+  if (!validation.valid) return validation.errors.join(' ');
+  if (rubric.criteria.some((item) => item.analysisMode !== 'scientific-diagram')) {
+    return 'Le barème de ce devoir doit contenir exclusivement des critères de schéma scientifique.';
+  }
+  if (configuration.correctionMethod !== 'generative') {
+    return 'Pour ce devoir, choisissez la méthode classique (générative), avec un modèle de vision.';
+  }
+  if (!configuration.analysisModel.trim()) return 'Choisissez un modèle génératif capable de lire le schéma.';
+  if (!configuration.endpoint.trim()) return 'Configurez une adresse de serveur IA.';
+  if (!isLoopbackDiagramEndpoint(configuration.endpoint) && consentedEndpoint !== configuration.endpoint) {
+    return 'Autorisez explicitement l’envoi des schémas au serveur configuré avant de lancer la correction.';
+  }
+  return null;
+}
+
 /** Teacher-facing, single-pass diagram grading. Reuses the same strictly
  * validated direct-image provider route as the evaluation laboratory.
  * No OCR, no copy archive, no automatic teacher approval or fallback to text.
