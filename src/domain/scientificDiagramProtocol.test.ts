@@ -6,6 +6,7 @@ import { validateRubric } from './rubric.ts';
 import {
   SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, buildScientificDiagramProtocolReport,
   availableDiagramMethods, selectDiagramMethods, diagramMethodIssue,
+  diagramAnalysisDiagnostics, diagramFailureCategory,
   diagramObservations, diagramProtocolProfileIssue, diagramTargetKey,
   parseScientificDiagramProtocolRubric, usesDirectDiagramVision,
 } from './scientificDiagramProtocol.ts';
@@ -171,6 +172,71 @@ describe('protocole de schémas scientifiques', () => {
     );
     expect(noGold.summaries[0]).toMatchObject({ complete: false, accuracyPercent: null, stableResolvedTargets: null });
   });
+  it('ne prétend jamais mesurer la stabilité ni la réussite à chaque fois sur un seul passage', () => {
+    const gold = { [diagramTargetKey('drawing', 'drawing-page')]: 'present' as const };
+    const single = buildScientificDiagramProtocolReport(
+      [{ repetition: 1, record: record() }], SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC,
+      gold, 1, '2026-11-08T12:00:00Z', 1,
+    );
+    expect(single.summaries[0]?.decisions[0]).toMatchObject({
+      reference: 'present', choices: ['present'],
+      stable: false, stableAndResolved: null, correctEveryTime: null,
+    });
+    expect(single.summaries[0]?.stableResolvedTargets).toBeNull();
+    expect(single.summaries[0]?.correctEveryTime).toBeNull();
+  });
+
+  it('diagnostique les réparations JSON coûteuses sans jamais exporter de secrets', () => {
+    const base = result('failed');
+    const first = { ...base.diagnosticRuns![0]!, promptId: 'grading.full',
+      model: 'qwen3.5:4b', doneReason: 'length',
+      requestPayload: 'IMAGE_SECRETE', requestPrompt: 'PROMPT_SECRET',
+      requestMetadata: { ...base.diagnosticRuns![0]!.requestMetadata!,
+        options: { contextTokens: 8192, generationTokenLimit: 2048 } },
+      generatedTokens: 2048, raw: 'CONTENU_CONFIDENTIEL',
+    };
+    const repaired = { ...first, promptId: 'grading.full-repair', doneReason: 'stop',
+      generatedTokens: 712, raw: 'AUTRE_CONTENU_CONFIDENTIEL',
+      error: 'ERREUR_INTERNE_SECRETE',
+    };
+    const failed: ModelEvaluationResultSnapshot = {
+      ...base, directVisualDecision: false,
+      diagnosticRuns: [first, repaired],
+      error: 'Réponse tronquée ou JSON invalide après une tentative de réparation : SECRET_SERVER_TOKEN',
+    };
+    expect(diagramFailureCategory(failed.error)).toBe('invalid-or-incomplete-output');
+    expect(diagramFailureCategory('Analyse incomplète : done_reason=length, num_predict=2048')).toBe('generation-limit');
+    expect(diagramFailureCategory('Le modèle met trop de temps à répondre')).toBe('timeout');
+    expect(diagramAnalysisDiagnostics(failed)).toEqual({
+      analysisCalls: 2, repairCalls: 1, generationLimitHits: 1,
+      generationBudgetTokens: 2048, generatedTokens: 2760,
+    });
+    const generative = {
+      ...record(failed),
+      configurations: [{ ...record().configurations[0]!, analysisModel: 'qwen3.5:4b', directGenerativeVision: true }],
+    };
+    const report = buildScientificDiagramProtocolReport(
+      [{ repetition: 1, record: generative }],
+      SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, {}, 1, 'today', 1,
+    );
+    expect(report.experiments[0]).toMatchObject({
+      method: 'direct-image-generative', failureCategory: 'invalid-or-incomplete-output',
+      diagnostics: { analysisCalls: 2, repairCalls: 1, generationLimitHits: 1 },
+    });
+    const serialized = JSON.stringify(report);
+    for (const secret of ['IMAGE_SECRETE', 'PROMPT_SECRET', 'SECRET_SERVER_TOKEN',
+      'CONTENU_CONFIDENTIEL', 'ERREUR_INTERNE_SECRETE', 'SECRET_SERVER']) {
+      expect(serialized).not.toContain(secret);
+    }
+  });
+
+  it('considère les traces absentes comme données non mesurées, jamais un nombre de tokens inventé', () => {
+    expect(diagramAnalysisDiagnostics({ diagnosticRuns: [] })).toEqual({
+      analysisCalls: 0, repairCalls: 0, generationLimitHits: 0,
+      generationBudgetTokens: null, generatedTokens: null,
+    });
+  });
+
   it('récupère les choix natifs TEV1 sur transcription même si le modèle ne peut attribuer une note', () => {
     const base = result();
     const textRun: ModelEvaluationResultSnapshot = {
