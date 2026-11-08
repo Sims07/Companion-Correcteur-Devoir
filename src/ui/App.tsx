@@ -731,9 +731,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   ], [rubric.criteria, flaggedCriteriaIds]);
   const unreadableCopySignal = hasUnreadableCopySignal(transcription, images.length > 0);
   useEffect(() => { setShowOnlyFlagged(!isFinalized); }, [isFinalized]);
-  const subjectReady = correctionMode === 'integrated' || subjectImages.length > 0 || Boolean(subjectTranscription);
+  const subjectReady = isScientificDiagramAssignment || correctionMode === 'integrated' || subjectImages.length > 0 || Boolean(subjectTranscription);
   const gradingModelsReady = Boolean(analysisModel.trim()
-    && (correctionMethod === 'visual-decision' || visionModel.trim()));
+    && (isScientificDiagramAssignment ? correctionMethod === 'generative' : (correctionMethod === 'visual-decision' || visionModel.trim())));
   const setupChecks = [
     { label: 'Barème vérifié', detail: validation.valid ? `${validation.maximumPoints} points répartis sur ${rubric.criteria.length} critères` : 'Corrigez les points ou les critères signalés', ready: validation.valid },
     { label: 'Sujet prêt', detail: correctionMode === 'integrated' ? 'Questions intégrées aux pages de la copie' : subjectReady ? `${subjectImages.length} page(s) du sujet importée(s)` : 'Importez le sujet de référence', ready: subjectReady },
@@ -2547,7 +2547,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (!files?.length || isAnalyzing || isPreparingSeriesCopies) return;
     if (diagramIssue) { setError(diagramIssue); return; }
     if (!validation.valid) { setError(validation.errors.join(' ')); return; }
-    if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant d’ajouter des copies.'); return; }
+    if (!isScientificDiagramAssignment && correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant d’ajouter des copies.'); return; }
     setIsPreparingSeriesCopies(true);
     setCopyOverviewNotice('');
     setError('');
@@ -2769,7 +2769,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (!images.length || isAnalyzing || proposal) return;
     if (diagramIssue) { setError(diagramIssue); return; }
     if (!validation.valid) { setError(validation.errors.join(' ')); setTeacherStep('rubric'); return; }
-    if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant de mettre cette copie en file.'); return; }
+    if (!isScientificDiagramAssignment && correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant de mettre cette copie en file.'); return; }
     if (annotationInkColor !== 'none' && !annotationInkColorApplied) { setError('Prévisualisez puis appliquez le retrait de la couleur des annotations avant de mettre cette copie en file.'); return; }
     const now = new Date().toISOString();
     const id = `queued-copy-${crypto.randomUUID()}`;
@@ -2849,6 +2849,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   async function startSeriesCorrections() {
     if (isStartingSeriesCorrectionsRef.current) return;
+    if (diagramIssue) { setError(diagramIssue); return; }
     const pendingCount = backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').length;
     if (!pendingCount) return;
     isStartingSeriesCorrectionsRef.current = true;
@@ -3179,15 +3180,15 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
 
   return (
-    <main className={interfaceMode === 'teacher' ? `app-shell teacher-flow-shell${showAssignmentsHome ? ' teacher-assignments-home' : ''}` : interfaceMode === 'diagram' ? 'app-shell teacher-flow-shell diagram-teacher-shell' : interfaceMode === 'diagnostic' ? 'app-shell evaluation-workspace-shell ai-tools-view' : 'app-shell ai-tools-view'}>
+    <main className={interfaceMode === 'teacher' ? `app-shell teacher-flow-shell${showAssignmentsHome ? ' teacher-assignments-home' : ''}` : interfaceMode === 'diagnostic' ? 'app-shell evaluation-workspace-shell ai-tools-view' : 'app-shell ai-tools-view'}>
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagram' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagram'} onClick={() => { setShowAiSettings(false); setInterfaceMode('diagram'); }}>Schémas scientifiques</button><button type="button" className={interfaceMode !== 'teacher' && interfaceMode !== 'diagram' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode !== 'teacher' && interfaceMode !== 'diagram'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(interfaceMode === 'teacher' || interfaceMode === 'diagram' ? 'observability' : interfaceMode); }}>Outils IA</button></div></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode !== 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode !== 'teacher'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(interfaceMode === 'teacher' ? 'observability' : interfaceMode); }}>Outils IA</button></div></div>
       </header>
 
-      {interfaceMode !== 'teacher' && interfaceMode !== 'diagram' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
-      {interfaceMode !== 'teacher' && interfaceMode !== 'diagram' && (diagramFixtureReport || diagramProtocolReport) && <section className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
+      {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
+      {interfaceMode !== 'teacher' && (diagramFixtureReport || diagramProtocolReport) && <section className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
         <div>
           <strong>Rapports de schémas disponibles</strong>
           <p>Résultats conservés pendant la navigation · les passages terminés restent exportables même si la série est interrompue.</p>
@@ -3202,15 +3203,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </div>
       </section>}
       {interfaceMode === 'debug' && <NetworkInspector initialFilter={networkInitialFilter} />}
-      {interfaceMode === 'diagram' && <ScientificDiagramTeacherPanel
-        profiles={aiModelProfiles}
-        currentConfiguration={{ ...defaultAiModelConfiguration, endpoint, apiCompatible, apiKey, visionModel, analysisModel, analysisThinking, correctionMethod }}
-        onPrepareImages={(files) => service.prepareFiles(files)}
-        onRotateImage={(image, degrees) => service.rotateImage(image, degrees)}
-        onRun={(request) => correctScientificDiagramDirect(service, request)}
-        onOpenSettings={() => { setInterfaceMode('teacher'); setShowAssignmentsHome(false); setShowAiSettings(true); }}
-      />}
-
       {interfaceMode === 'teacher' && showAssignmentsHome && <AssignmentsHome
         assignments={assignmentProfiles}
         activeAssignmentId={activeAssignmentId}
@@ -3227,7 +3219,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
 
 
-      {interfaceMode !== 'debug' && interfaceMode !== 'diagram' && !(interfaceMode === 'teacher' && showAssignmentsHome) && <div className={interfaceMode === 'teacher' ? 'teacher-content-column' + (teacherStep === 'review' && !showAiSettings ? ' has-copy-rail' : '') : 'diagnostic-content-column'}>
+      {interfaceMode !== 'debug' && !(interfaceMode === 'teacher' && showAssignmentsHome) && <div className={interfaceMode === 'teacher' ? 'teacher-content-column' + (teacherStep === 'review' && !showAiSettings ? ' has-copy-rail' : '') : 'diagnostic-content-column'}>
       {interfaceMode === 'teacher' && <TeacherWorkspaceNavigation
         assignmentTitle={assignmentTitle}
         studentLabel={studentLabel}
@@ -3257,6 +3249,26 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         onOpenNextReviewCopy={() => { const next = copyNavigation.nextCopyToReview; if (next) void openCopyNavigationItem(next.id); }}
         onOpenCopy={(copyId) => { setShowAiSettings(false); void openCopyNavigationItem(copyId); }}
       />}
+      {interfaceMode === 'teacher' && isScientificDiagramAssignment && !showAiSettings && <section
+        className="panel diagram-assignment-context" aria-label="Devoir de schéma scientifique">
+        <div><p className="eyebrow">DEVOIR · SCHÉMA SCIENTIFIQUE</p>
+          <strong>Correction directe du dessin, sans transcription OCR</strong>
+          <p>Les copies de ce devoir suivent les mêmes états et la même vérification que vos autres devoirs.</p>
+        </div>
+        <details><summary>Voir le barème graphique · {validation.maximumPoints} points</summary>
+          <ol>{rubric.criteria.map((item) => <li key={item.id}><strong>{item.title} · {item.maxPoints} pt</strong>
+            <ul>{getRubricSubcriteria(item).map((sub) => <li key={sub.id}>{sub.title} · {sub.maxPoints} pt</li>)}</ul>
+          </li>)}</ol>
+        </details>
+        {!isLoopbackDiagramEndpoint(endpoint) ? <div className="diagram-assignment-consent">
+          <p><strong>Serveur non local :</strong> les copies seront envoyées à l’adresse configurée uniquement avec votre accord.</p>
+          <Checkbox checked={diagramConsentEndpoint === endpoint}
+            onChange={(event) => setDiagramConsentEndpoint(event.currentTarget.checked ? endpoint : null)}>
+            J’autorise l’envoi des images de ce devoir au serveur actuellement configuré.
+          </Checkbox>
+        </div> : <p className="hint">Serveur local (localhost) : les images ne sont pas envoyées au cloud.</p>}
+        {diagramIssue && <p className="hint" role="status">{diagramIssue}</p>}
+      </section>}
       {interfaceMode === 'diagnostic' && <section className="privacy-strip">
         <span className="privacy-icon">⌂</span>
         <div><strong>Fournisseur IA configuré</strong><p>Les fichiers sont préparés dans le navigateur puis transmis uniquement au serveur sélectionné. {apiCompatible ? 'Une API compatible OpenAI peut être distante : vérifiez le serveur choisi avant de lancer un essai.' : 'Avec Ollama local, les copies restent sur votre infrastructure.'}</p></div>
@@ -3457,7 +3469,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
           {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
           <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p></article>
-          <div className="debug-run-actions"><button type="button" className="primary-button" disabled={busy || !images.length || !gradingModelsReady || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? 'Diagnostic local en cours…' : 'Lancer le diagnostic avancé'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
+          <div className="debug-run-actions"><button type="button" className="primary-button" disabled={busy || !images.length || !gradingModelsReady || !validation.valid || !subjectReady || Boolean(diagramIssue)} onClick={() => { if (isScientificDiagramAssignment) void queueCurrentCopy(); else void gradeCopies(); }}>{busy ? 'Diagnostic local en cours…' : 'Lancer le diagnostic avancé'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
         </section>
         <section className="transcription-review"><h3>Transcription actuellement chargée</h3>{transcription ? <pre>{transcription}</pre> : <p className="hint">Aucune transcription disponible.</p>}</section>
         <section className="transcription-review"><h3>Dernière réponse reçue en streaming</h3>{streamedOutput ? <pre>{streamedOutput}</pre> : <p className="hint">Aucune réponse en streaming disponible.</p>}</section>
@@ -4231,7 +4243,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <label className="field-label" htmlFor="grading-question">Consigne / question de l’exercice</label>
           <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
         </details>
-        <button className="primary-button grade-button" aria-busy={busy} disabled={busy || !images.length || !gradingModelsReady || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? analysisStage === 'checking' ? 'Préparation de la correction…' : analysisStage === 'reading' ? 'Lecture de la copie…' : 'Correction en cours…' : 'Analyse locale en cours…') : interfaceMode === 'teacher' ? 'Corriger' : transcription ? 'Relancer l’analyse sans relire les images' : 'Lire puis analyser les copies'}</button>
+        <button className="primary-button grade-button" aria-busy={busy} disabled={busy || !images.length || !gradingModelsReady || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? analysisStage === 'checking' ? 'Préparation de la correction…' : analysisStage === 'reading' ? 'Lecture de la copie…' : 'Correction en cours…' : 'Analyse locale en cours…')  : interfaceMode === 'teacher' ? (isScientificDiagramAssignment ? 'Corriger le schéma' : 'Corriger') : transcription ? 'Relancer l’analyse sans relire les images' : 'Lire puis analyser les copies'}</button>
         {interfaceMode === 'teacher' && <p className="launch-footnote">Après l’analyse, la proposition est retenue automatiquement. Les alertes restent visibles et vous pouvez ajuster chaque note si nécessaire.</p>}
       </section>}
       {interfaceMode === 'teacher' && teacherStep === 'copy' && correctionSessionMode === 'individual' && <div className="teacher-copy-footer"><button type="button" className="secondary-button" onClick={() => setTeacherStep('rubric')}>← Revoir le barème</button><span>Une seule copie à la fois · ajustement facultatif des propositions</span></div>}
