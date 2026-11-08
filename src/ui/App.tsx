@@ -1184,7 +1184,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     let effectiveSubjectTranscription: string | null = isFreshCorrection ? null : subjectTranscription;
     let classificationWasJustCreated = false;
     const rubricRouting = partitionScientificRubric(rubric);
-    const gradingRubric: Rubric = interfaceMode === 'teacher' ? { ...rubric, criteria: rubricRouting.textCriteria } : rubric;
+    // A direct image decision evaluates the entire rubric on the supplied pages,
+    // without splitting diagrams into a second AI pipeline.
+    const gradingRubric: Rubric = interfaceMode === 'teacher' && correctionMethod !== 'visual-decision'
+      ? { ...rubric, criteria: rubricRouting.textCriteria } : rubric;
     const diagramRubric: Rubric = { ...rubric, criteria: rubricRouting.diagramCriteria };
     setBusy(true);
     if ((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') && strategyOverride !== 'arbitrate-only') {
@@ -1217,13 +1220,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF de la copie.');
       if (!apiCompatible && strategyOverride !== 'arbitrate-only') {
         const modelsToCheck = new Set<string>();
-        if (isFreshCorrection && visionModel.trim()) modelsToCheck.add(visionModel.trim());
+        if (isFreshCorrection && correctionMethod !== 'visual-decision' && visionModel.trim()) modelsToCheck.add(visionModel.trim());
         if (gradingRubric.criteria.length > 0 && analysisModel.trim()) modelsToCheck.add(analysisModel.trim());
         for (const model of modelsToCheck) {
           await service.checkReady({ endpoint, apiCompatible: false, model });
         }
       }
-      if (shouldRunTeacherScientificDiagramWorkflow(interfaceMode) && diagramRubric.criteria.length > 0) {
+      if (correctionMethod !== 'visual-decision' && shouldRunTeacherScientificDiagramWorkflow(interfaceMode) && diagramRubric.criteria.length > 0) {
         if (correctionMode === 'separate' && !effectiveSubjectTranscription) {
           if (!subjectImages.length) throw new Error('Importez le sujet de référence avant la notation des schémas.');
           setCriterionProgressMessage('Lecture du sujet de référence avant la notation des schémas…');
@@ -1335,10 +1338,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         }
       }
       const shouldRunTextGrading = textImages.length > 0 && gradingRubric.criteria.length > 0;
-      if (shouldRunTextGrading && correctionMode === 'separate' && !subjectImages.length && (isFreshCorrection || !subjectTranscription)) throw new Error('Importez le sujet de référence pour ce mode de correction.');
+      if (shouldRunTextGrading && correctionMethod === 'visual-decision' && correctionMode === 'separate'
+        && !effectiveSubjectTranscription?.trim()) {
+        throw new Error('Vision + Décisionnel direct ne transcrit pas le sujet : utilisez un devoir intégré ou préparez séparément la transcription du sujet.');
+      }
+      if (shouldRunTextGrading && correctionMethod !== 'visual-decision' && correctionMode === 'separate' && !subjectImages.length && (isFreshCorrection || !subjectTranscription)) throw new Error('Importez le sujet de référence pour ce mode de correction.');
       let textProposal: GradingProposal | null = null;
       if (shouldRunTextGrading) {
-        const gradingTranscription = isFreshCorrection ? null : transcription;
+        const gradingTranscription = correctionMethod === 'visual-decision' || isFreshCorrection ? null : transcription;
         let latestStudentTranscription: string | null = gradingTranscription;
         // Ollama model metadata was checked above without loading the models.
         setAnalysisStage('reading');
@@ -1353,7 +1360,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           }))
           : undefined;
         const raw = await provider.generate(
-          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, identifyStudent: !gradingTranscription, ...(images[0] ? { identityImage: images[0] } : {}), ...(teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(effectiveSubjectTranscription ? { subjectTranscription: effectiveSubjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
+          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, identifyStudent: correctionMethod !== 'visual-decision' && !gradingTranscription, ...(correctionMethod !== 'visual-decision' && images[0] ? { identityImage: images[0] } : {}), ...(correctionMethod !== 'visual-decision' && teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations: correctionMethod !== 'visual-decision' && detectTeacherAnnotations, ...(correctionMode === 'separate' ? { ...(correctionMethod !== 'visual-decision' ? { subjectImages } : {}), ...(effectiveSubjectTranscription ? { subjectTranscription: effectiveSubjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
           (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
           (stage) => {
             const now = Date.now();
@@ -1434,7 +1441,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         setTeacherStep('review');
         setCriterionProgressMessage('Les critères graphiques sont évalués directement sur les schémas ; les critères textuels sans page rédigée restent à vérifier.');
       }
-      const parsed = interfaceMode === 'teacher'
+      const parsed = interfaceMode === 'teacher' && correctionMethod !== 'visual-decision'
         ? (correctionMethod === 'decision'
           ? mergeDecisionScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult)
           : mergeScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult))
@@ -1564,6 +1571,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const selectedProfiles = options?.profiles ?? aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
     if (selectedProfiles.length < 1) { setError('Sélectionnez au moins une configuration enregistrée pour la tester.'); return; }
     if (!runValidation.valid) { setError(runValidation.errors.join(' ')); return; }
+    if (runStage === 'analysis' && selectedProfiles.some((profile) => profile.configuration.correctionMethod === 'visual-decision')) {
+      setError('Vision + Décisionnel direct nécessite les photos : choisissez « Parcours complet » et non « Analyse seule ».'); return;
+    }
     if (runStage === 'analysis' && !runTranscription?.trim()) { setError('Pour évaluer l’analyse seule, lancez d’abord une lecture Vision et vérifiez sa transcription.'); return; }
     if (runStage !== 'analysis' && !runImages.length) { setError('Importez une copie avant de lancer une évaluation Vision.'); return; }
     if (runStage === 'integrated' && runCorrectionMode === 'separate' && !runSubjectImages.length && !runSubjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
@@ -1573,8 +1583,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setEvaluationArchiveStatus('idle');
     setPendingEvaluationArchive(null);
     const measuredStages = runStage === 'vision' ? ['reading'] as const : runStage === 'analysis' ? ['analysis'] as const : ['reading', 'analysis'] as const;
-    const directProfiles = (profile: AiModelProfile) => runStage === 'integrated' && runVisualDirect
-      && profile.configuration.correctionMethod === 'decision' && isVisualDecisionModel(profile.configuration.analysisModel);
+    const directProfiles = (profile: AiModelProfile) => runStage === 'integrated' && (
+      profile.configuration.correctionMethod === 'visual-decision'
+      || (runVisualDirect && profile.configuration.correctionMethod === 'decision'
+        && isVisualDecisionModel(profile.configuration.analysisModel))
+    );
     const totalEvaluationSteps = selectedProfiles.reduce((sum, profile) => sum + (directProfiles(profile) ? 1 : measuredStages.length), 0);
     setEvaluationProgress({ completed: 0, total: selectedProfiles.length, currentConfiguration: null, status: 'running', completedSteps: 0, totalSteps: totalEvaluationSteps, currentStage: null });
     setEvaluationStage('preparing');
@@ -1620,6 +1633,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       } } : {}),
       execute: async (configuration, _isCancelled, onStage) => {
         setEvaluationStage('preparing');
+        if (configuration.correctionMethod === 'visual-decision' && !isVisualDecisionModel(configuration.analysisModel)) {
+          throw new Error(/^tev1(?::|$)/i.test(configuration.analysisModel)
+            ? 'TEV1 ne supporte pas les images dans System One : sélectionnez une méthode Vision puis Analyse, ou Clef-Flash.'
+            : 'Le modèle choisi ne prend pas en charge les décisions directes sur images dans System One.');
+        }
         if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un modèle de vision pour cette expérience.');
         if (runStage !== 'vision' && !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle d’analyse pour cette expérience.');
         if (runStage !== 'analysis' && !configuration.directVisualDecision) await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.visionModel });
@@ -2080,7 +2098,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               if (pilotStopRef.current || evaluationCancelledRef.current) break;
               setDiagramProtocolProgress('Schéma ' + testCase.id + ' · ' + profile.name + ' · passage '
                 + repetition + '/' + repetitions + ' · '
-                + (usesDirectDiagramVision(profile) ? 'System One image' : 'Vision puis analyse'));
+                + (usesDirectDiagramVision(profile) ? 'System One image (appel unique)' : 'Vision puis analyse'));
               const record = await startModelEvaluation({
                 pilotCase: PILOT_CASES[0]!, stage: 'integrated', profiles: [profile],
                 caseImages: testCase.images, retainModelAfterRun: true,
