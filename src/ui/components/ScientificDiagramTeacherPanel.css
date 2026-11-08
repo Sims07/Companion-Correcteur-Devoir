@@ -1,0 +1,38 @@
+.diagram-teacher-shell { min-height: 100vh; }
+.diagram-teacher-workspace { width: min(1180px, calc(100% - 32px)); margin: 32px auto 60px; }
+.diagram-teacher-heading { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 24px; }
+.diagram-teacher-heading h2 { margin: 5px 0 10px; font-size: clamp(1.55rem, 2.5vw, 2.2rem); }
+.diagram-teacher-heading p { max-width: 720px; }
+.diagram-teacher-grid { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr); gap: 20px; align-items: start; }
+.diagram-teacher-grid .panel { min-width: 0; }
+.diagram-teacher-setup h3, .diagram-teacher-run h3 { margin-top: 0; margin-bottom: 18px; }
+.diagram-teacher-setup .file-picker { margin-bottom: 12px; }
+.diagram-teacher-previews { display: flex; gap: 10px; max-width: 100%; overflow-x: auto; margin: 14px 0 20px; }
+.diagram-teacher-previews img { max-width: 145px; width: 100%; height: 136px; border-radius: 10px; border: 1px solid var(--border, #ddd); object-fit: contain; background: var(--surface, #fff); }
+.diagram-teacher-rubric-summary { display: grid; gap: 5px; margin: 10px 0 18px; padding: 13px 15px; border: 1px solid var(--border, #ddd); border-radius: 12px; }
+.diagram-teacher-rubric-summary p { margin: 3px 0 0; font-size: .87rem; }
+.diagram-teacher-rubric-summary span { font-size: .9rem; }
+.diagram-teacher-run .field-label { display: block; }
+.diagram-teacher-run .hint { margin: 10px 0 18px; }
+.diagram-teacher-remote, .diagram-teacher-notice { border: 1px solid var(--border, #d5d5d5); border-radius: 12px; padding: 14px; margin: 18px 0; }
+.diagram-teacher-remote p { margin-top: 0; }
+.diagram-teacher-notice .ds-button { margin-top: 14px; }
+.diagram-teacher-local { margin: 18px 0; font-size: .9rem; }
+.diagram-teacher-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.diagram-teacher-error { padding: 12px; border-radius: 10px; border: 1px solid var(--border, #ddd); margin-top: 14px; }
+.diagram-teacher-message { margin-top: 14px; }
+.diagram-teacher-result { margin-top: 22px; }
+.diagram-teacher-result-head, .diagram-teacher-criterion > div:first-child { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+.diagram-teacher-result-head h3 { margin: 5px 0; }
+.diagram-teacher-criterion { padding: 16px 0; border-top: 1px solid var(--border, #ddd); }
+.diagram-teacher-criterion p { margin: 8px 0; }
+.diagram-teacher-criterion ul { list-style: none; padding: 0; margin: 14px 0 0; }
+.diagram-teacher-criterion li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border, #eee); }
+.diagram-teacher-criterion li strong { white-space: nowrap; }
+.diagram-teacher-question { font-weight: 600; }
+.diagram-teacher-questions { margin-bottom: 18px; }
+@media (max-width: 790px) {
+  .diagram-teacher-grid { grid-template-columns: 1fr; }
+  .diagram-teacher-heading, .diagram-teacher-result-head { flex-direction: column; }
+  .diagram-teacher-workspace { width: calc(100% - 24px); margin: 20px auto; }
+}
