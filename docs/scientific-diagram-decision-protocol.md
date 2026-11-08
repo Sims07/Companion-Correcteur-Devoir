@@ -57,14 +57,14 @@ Cette PR ajoute un **protocole d’évaluation**, pas un nouveau mode de correct
 
 Trois **images originales générées pour ce laboratoire** sont incluses dans le bundle (WebP) :
 - A : travail soigné de mitose végétale, **cible 10/10**.
-- B : travail intermédiaire de mitose végétale, **cible 5/10**.
+- B : travail intermédiaire de mitose végétale, **référence provisoire 7,36/10**, après revue visuelle du 8 novembre 2026.
 - C : dessin volontairement insuffisant, **cible 0/10**.
 
 Les trois cartes montrent les images et leurs notes cibles. Le bouton **« Tester les 3 schémas en un clic »** charge les trois images localement, les prépare avec le même pipeline que les imports et appelle les configurations sélectionnées dans l’évaluateur. Des boutons par carte permettent de ne lancer que A, B ou C. Le passage unique (par défaut) donne un premier diagnostic rapide ; 3 ou 5 répétitions permettent de mesurer la stabilité.
 
-Ce jeu utilise **le barème professeur complet /10** : les 15 attendus visuels inchangés (4 + 2 + 2 points) et 4 attendus de compréhension propres à cet exercice (2 points : interphase, télophase avec phragmoplaste, deux autres étapes distinctes). Toutes les références sont définies par sous-critère et le cas B contient des allocations partielles explicites qui totalisent 5,00 points. Les intitulés, la vérité terrain et les points cibles ne sont **jamais transmis dans les prompts en tant que corrigé**, uniquement les critères scientifiques de l’exercice.
+Ce jeu utilise **le barème professeur complet /10** : les 15 attendus visuels inchangés (4 + 2 + 2 points) et 4 attendus de compréhension propres à cet exercice (2 points : interphase, télophase avec phragmoplaste, deux autres étapes distinctes). Toutes les références sont définies par sous-critère et le cas B contient des allocations partielles explicites qui totalisent 7,36 points. Les intitulés, la vérité terrain et les points cibles ne sont **jamais transmis dans les prompts en tant que corrigé**, uniquement les critères scientifiques de l’exercice.
 
-**Attention :** le jeu est synthétique et les notes 10/5/0 restent des **cibles de travail proposées**, non validées par un enseignant. Ce sont des scénarios d’essai, pas une preuve de précision sur de véritables copies. Les scores partiels ou l’absence de preuve visuelle demandent une vérification humaine. Le rapport JSON liste les attentes, les décisions, les notes obtenues, durées, modèles et erreurs, sans inclure les images, endpoints, clés ou données d’identification.
+**Attention :** le jeu est synthétique et les références actuelles 10/7,36/0 restent des **cibles de travail proposées**, non validées par un enseignant. Ce sont des scénarios d’essai, pas une preuve de précision sur de véritables copies. Les scores partiels ou l’absence de preuve visuelle demandent une vérification humaine. Le rapport JSON liste les attentes, les décisions, les notes obtenues, durées, modèles et erreurs, sans inclure les images, endpoints, clés ou données d’identification.
 
 ## Interpréter les résultats et les erreurs (correctif du premier pilote)
 
@@ -87,3 +87,36 @@ La méthode de correction enregistrée `visual-decision` est un **nouveau choix 
 La méthode est persistée dans les profils, utilisable depuis l’évaluateur de schémas et depuis le parcours enseignant avec un barème unique. Les choix visuels sont **provisoires**, sans preuve textuelle localisée ; la vérification humaine demeure obligatoire. La note n’est pas déduite si la proposition est incomplète. Un modèle Clef-Flash 9B peut dépasser les capacités de postes à faible RAM : aucune promesse de performance n’est faite sans mesure sur la machine cible.
 
 Références officielles : https://github.com/ollama/ollama/blob/main/decision/systemone.go ; https://ollama.com/library/tev1:4b ; https://ollama.com/library/clef-flash .
+
+
+## Révision de la référence B — 8 novembre 2026
+
+L’image intégrée est identique au dessin fourni pour revue. La cible initiale de 5/10
+était trop sévère sur plusieurs observations : départs des cellules voisines
+visibles aux coins, légendes globalement horizontales et composition lisible.
+La couleur n’est pas interdite par le barème et ne constitue pas une pénalité en soi.
+
+La nouvelle référence est une **proposition de revue visuelle, pas une validation
+par un enseignant**. Les points partiels sont des appréciations ; 7,36/10 correspond
+à leur somme explicite, pas à une précision pédagogique démontrée.
+
+| Catégorie | Points proposés |
+| --- | ---: |
+| Qualité du dessin | 3,02 / 4 |
+| Titre | 0,67 / 2 |
+| Légendes | 1,67 / 2 |
+| Compréhension selon les quatre attendus actuels | 2 / 2 |
+| Total | 7,36 / 10 |
+
+Les 19 justifications sont consultables dans la carte B et exportées dans
+`referenceReview`. Proportions, propreté, occupation de page et centrage restent
+à confirmer. Le titre ne mentionne pas de coupe : zéro selon la règle actuelle,
+mais son applicabilité à cet exercice doit être décidée par le professeur.
+La plaque cellulaire dessinée satisfait le contrat existant de télophase ; cela
+ne certifie pas la représentation détaillée du phragmoplaste.
+
+Le rapport passe à la version 2 et au protocole `scientific-diagram-generated-a-b-c-v2`.
+Les anciens exports restent inchangés : ne pas comparer leurs pourcentages d’accord
+avec les nouveaux sans recalcul explicite sur une même référence. A et C conservent
+leurs cibles provisoires, non réévaluées dans cette revue. Aucun prompt de correction,
+barème, modèle, image ni point prédit n’est modifié par cette calibration.
