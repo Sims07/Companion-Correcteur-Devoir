@@ -91,3 +91,12 @@
 }
 .diagram-protocol-export-strip p { margin: var(--ds-space-1) 0 0; font-size: .85rem; }
 .diagram-protocol-export-actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+
+/* Compact, non-sensitive execution diagnostics below a failed lab result. */
+.diagram-protocol-diagnostic {
+  display: block;
+  margin-top: var(--ds-space-1);
+  color: var(--ds-color-text-muted);
+  font-size: .76rem;
+  line-height: 1.45;
+}

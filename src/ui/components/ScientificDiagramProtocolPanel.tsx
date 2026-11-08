@@ -272,17 +272,33 @@ export function ScientificDiagramProtocolPanel({
                 <td>{diagramMethodLabels[summary.method]}</td>
                 <td>{caseResult.referenceScore}/10</td>
                 <td>{experiments.map((experiment) => experiment.score === null ? 'Non noté' : experiment.score + '/10').join(' · ')}</td>
-                <td>{experiments.map((experiment) => {
-                  if (experiment.status !== 'success') {
-                    return experiment.failureCategory === 'model-unavailable' ? 'Modèle indisponible'
-                      : experiment.failureCategory === 'connection' ? 'Connexion échouée'
-                      : experiment.failureCategory === 'system-one-unavailable' ? 'System One indisponible'
-                      : 'Échec avant/ou pendant traitement';
-                  }
-                  return experiment.scoreStatus === 'scored' ? 'Notée'
-                    : experiment.scoreStatus === 'teacher-review-required' ? 'Arbitrage nécessaire'
-                    : 'Réponse non notée';
-                }).join(' · ')}</td>
+                <td>
+                  {experiments.map((experiment) => {
+                    if (experiment.status !== 'success') {
+                      return experiment.failureCategory === 'model-unavailable' ? 'Modèle indisponible'
+                        : experiment.failureCategory === 'connection' ? 'Connexion échouée'
+                        : experiment.failureCategory === 'system-one-unavailable' ? 'System One indisponible'
+                        : experiment.failureCategory === 'generation-limit' ? 'Limite de génération atteinte'
+                        : experiment.failureCategory === 'invalid-or-incomplete-output' ? 'Réponse JSON invalide ou incomplète'
+                        : experiment.failureCategory === 'timeout' ? 'Délai dépassé'
+                        : 'Échec de traitement (cause à consulter localement)';
+                    }
+                    return experiment.scoreStatus === 'scored' ? 'Notée'
+                      : experiment.scoreStatus === 'teacher-review-required' ? 'Arbitrage nécessaire'
+                      : 'Réponse non notée';
+                  }).join(' · ')}
+                  {experiments.some((experiment) => experiment.status !== 'success' && experiment.diagnostics.analysisCalls > 0)
+                    && <small className="diagram-protocol-diagnostic">
+                      {experiments.filter((experiment) => experiment.status !== 'success' && experiment.diagnostics.analysisCalls > 0)
+                        .map((experiment) => experiment.diagnostics.analysisCalls + ' appel(s) IA, '
+                          + experiment.diagnostics.repairCalls + ' réparation(s)'
+                          + (experiment.diagnostics.generationLimitHits
+                            ? ', ' + experiment.diagnostics.generationLimitHits + ' arrêt(s) sur limite' : '')
+                          + (experiment.diagnostics.generationBudgetTokens
+                            ? ', plafond ' + experiment.diagnostics.generationBudgetTokens + ' tokens/appel' : '')
+                        ).join(' · ')}
+                    </small>}
+                </td>
                 <td>{summary.resolvedDecisions}/{summary.totalDecisions}</td>
                 <td>{summary.accuracyPercent === null ? 'Non mesurable' : summary.accuracyPercent + ' %'}</td>
                 <td>{summary.stableResolvedTargets === null ? 'Non mesurée' : summary.stableResolvedTargets + '/' + summary.totalTargets}</td>

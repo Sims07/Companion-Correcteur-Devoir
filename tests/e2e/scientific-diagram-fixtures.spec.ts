@@ -116,9 +116,16 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   ]);
   expect(completeDownload.suggestedFilename()).toBe('companion-trois-schemas-scientifiques.json');
   const complete = JSON.parse(await readFile(await completeDownload.path(), 'utf8')) as {
-    cases: { experiments: unknown[] }[];
+    cases: { experiments: unknown[]; summaries: { decisions: {
+      stable: boolean; stableAndResolved: boolean | null; correctEveryTime: boolean | null;
+    }[] }[] }[];
   };
   expect(complete.cases.flatMap((entry) => entry.experiments)).toHaveLength(3);
+  // One run must not be presented as proof that a model is "always correct".
+  expect(complete.cases.flatMap((entry) => entry.summaries)
+    .flatMap((summary) => summary.decisions)
+    .every((decision) => !decision.stable
+      && decision.stableAndResolved === null && decision.correctEveryTime === null)).toBe(true);
   await page.getByRole('button', { name: /3.*Résultats/ }).click();
   await expect(exportStrip).toBeVisible();
   await page.getByRole('button', { name: /1.*Configuration/ }).click();

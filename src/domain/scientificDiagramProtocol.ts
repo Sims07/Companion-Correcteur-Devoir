@@ -222,12 +222,42 @@ export function diagramObservations(result: ModelEvaluationResultSnapshot, rubri
 
 /** Only export a fixed failure category: original errors may contain URLs,
  * identifiers, network payloads or credentials from a provider exception. */
-export function diagramFailureCategory(error?: string): 'model-unavailable' | 'connection' | 'system-one-unavailable' | 'other' | null {
+export type DiagramFailureCategory = 'model-unavailable' | 'connection' | 'system-one-unavailable'
+  | 'generation-limit' | 'invalid-or-incomplete-output' | 'timeout' | 'other';
+
+/** The diagnostic export contains ONLY a predefined category, never the
+ * exception text itself (which could contain a private endpoint or token).
+ * Ambiguous errors stay ambiguous: do not mislabel them as model mistakes. */
+export function diagramFailureCategory(error?: string): DiagramFailureCategory | null {
   if (!error) return null;
   if (/n.est pas install.|not installed|unknown model|model not found|ollama pull/i.test(error)) return 'model-unavailable';
   if (/injoignable|failed to fetch|networkerror|econnrefused|cors|connection refused/i.test(error)) return 'connection';
   if (/system one|systemone/i.test(error)) return 'system-one-unavailable';
+  if (/done_reason=length|limite de g.n.ration|maximum output tokens|num_predict/i.test(error)) return 'generation-limit';
+  if (/r.ponse tronqu.e|json invalide|json tronqu.|objet json|sous-crit.re manquant|sous-crit.res manquants|r.ponse.*incompl.te|proposition.*invalide|doit contenir.*crit.re|ne contient pas tous les sous-crit.res/i.test(error)) return 'invalid-or-incomplete-output';
+  if (/timeout|timed out|d.lai d.pass.|trop de temps|d.lai d.attente/i.test(error)) return 'timeout';
   return 'other';
+}
+
+/** Only aggregated, allowlisted model-call metadata is exported. Never include
+ * traces, prompts, image data, provider errors or request/response payloads.
+ * This allows diagnosing expensive JSON repair loops from a pasted report. */
+export function diagramAnalysisDiagnostics(
+  result: Pick<ModelEvaluationResultSnapshot, 'diagnosticRuns'>,
+) {
+  const calls = (result.diagnosticRuns ?? []).filter((run) => run.kind === 'model' && run.stage === 'analysis');
+  const budget = calls.map((run) => run.requestMetadata?.options.generationTokenLimit ?? run.generationTokenLimit)
+    .find((value) => typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 65536);
+  const generated = calls.filter((run) => typeof run.generatedTokens === 'number'
+    && Number.isFinite(run.generatedTokens) && run.generatedTokens >= 0);
+  return {
+    analysisCalls: calls.length,
+    repairCalls: calls.filter((run) => run.promptId === 'grading.full-repair' || run.promptId === 'grading.incremental-repair').length,
+    generationLimitHits: calls.filter((run) => run.doneReason === 'length').length,
+    generationBudgetTokens: budget ?? null,
+    generatedTokens: generated.length
+      ? Math.round(generated.reduce((sum, run) => sum + (run.generatedTokens ?? 0), 0)) : null,
+  };
 }
 
 /** A report only contains authored rubric, decisions and timings. No images,
@@ -252,6 +282,7 @@ export function buildScientificDiagramProtocolReport(
       : null,
     durationMs: result.elapsedMs, readingMs: result.readingMs, analysisMs: result.analysisMs,
     tokens: result.tokens, score: result.score,
+    diagnostics: diagramAnalysisDiagnostics(result),
     scoreStatus: result.status !== 'success' ? 'execution-failed' as const
       : result.score !== null ? 'scored' as const
       : result.proposal ? 'teacher-review-required' as const : 'invalid-or-incomplete-proposal' as const,
@@ -272,8 +303,14 @@ export function buildScientificDiagramProtocolReport(
         key, reference: known, choices,
         stable: plannedRepetitions > 1 && items.length === plannedRepetitions
           && choices.every((choice) => choice === choices[0]),
-        stableAndResolved: items.length === plannedRepetitions && resolved.length === items.length && new Set(choices).size === 1,
-        correctEveryTime: Boolean(known) && items.length === plannedRepetitions && choices.every((choice) => choice === known),
+        // A single run cannot establish repetition, even if its answer matches
+        // the reference. Use null (unmeasured) instead of a misleading true.
+        stableAndResolved: plannedRepetitions > 1
+          ? items.length === plannedRepetitions && resolved.length === items.length && new Set(choices).size === 1
+          : null,
+        correctEveryTime: plannedRepetitions > 1
+          ? Boolean(known) && items.length === plannedRepetitions && choices.every((choice) => choice === known)
+          : null,
       };
     });
     const labelled = decisions.filter((item) => item.reference !== null);
@@ -313,7 +350,7 @@ export function buildScientificDiagramProtocolReport(
     protocolId: SCIENTIFIC_DIAGRAM_PROTOCOL_ID, createdAt, plannedRepetitions,
     localOnly: runs.every(({ record }) => record.configurations.every((configuration) => isLoopbackPilotEndpoint(configuration.endpoint))),
     rubric: structuredClone(rubric), imageCount, gold: structuredClone(gold),
-    limitations: 'Un seul schéma et la même image par répétition. Aucune décision récupérée signifie « justesse non mesurée », pas 0 % d’exactitude. Une réponse indécidable pénalise la justesse stricte dès lors que des décisions sont récupérées, mais ne prouve pas une erreur de fond. Les choix System One sur transcription (TEV1) sont provisoires : mise en page, centrage et traits exigent la photographie. Une note nulle (null) indique un besoin de revue, jamais un zéro attribué. Répétabilité ne prouve pas exactitude. Les probabilités ne sont pas calibrées.',
+    limitations: 'Un seul schéma et la même image par répétition. À une répétition, aucune stabilité ni justesse « à chaque fois » ne peut être mesurée. Aucune décision récupérée signifie « justesse non mesurée », pas 0 % d’exactitude. Une réponse indécidable pénalise la justesse stricte dès lors que des décisions sont récupérées, mais ne prouve pas une erreur de fond. Les diagnostics de génération indiquent seulement le nombre d’appels, les réparations et les plafonds déclarés : ils ne prouvent pas pourquoi le modèle a échoué. Les choix System One sur transcription (TEV1) sont provisoires : mise en page, centrage et traits exigent la photographie. Une note nulle (null) indique un besoin de revue, jamais un zéro attribué. Répétabilité ne prouve pas exactitude. Les probabilités ne sont pas calibrées.',
     summaries, experiments,
   };
 }
