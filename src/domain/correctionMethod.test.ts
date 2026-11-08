@@ -10,11 +10,13 @@ describe('correction method boundaries', () => {
   });
   it('accepts only an explicit decision strategy', () => {
     expect(parseCorrectionMethod('decision')).toBe('decision');
+    expect(parseCorrectionMethod('visual-decision')).toBe('visual-decision');
     expect(parseCorrectionMethod('generative')).toBe('generative');
   });
   it('never substitutes generative inference when the selected decision adapter is absent', () => {
     const available = new Set(['generative'] as const);
     expect(() => requireCorrectionMethodAvailable('generative', available)).not.toThrow();
     expect(() => requireCorrectionMethodAvailable('decision', available)).toThrow(/décisionnelle n’est pas disponible/);
+    expect(() => requireCorrectionMethodAvailable('visual-decision', available)).toThrow(/décisionnelle n’est pas disponible/);
   });
 });
