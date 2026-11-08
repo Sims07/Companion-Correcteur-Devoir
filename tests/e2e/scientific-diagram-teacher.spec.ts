@@ -54,7 +54,12 @@ test('the teacher corrects a scientific diagram directly, reviews criterion evid
   await page.getByRole('button', { name: 'Schémas scientifiques' }).click();
   const workspace = page.getByLabel('Correction des schémas scientifiques');
   await expect(workspace.getByRole('heading', { name: 'Corriger un schéma scientifique' })).toBeVisible();
-  await expect(workspace.locator('.diagram-teacher-rubric-summary').getByText('15 attendus', { exact: false })).toBeVisible();
+  const rubric = workspace.getByRole('region', { name: 'Détail du barème' });
+  await expect(rubric.getByText('15 attendus', { exact: false })).toBeVisible();
+  await expect(rubric.locator('.diagram-teacher-criterion')).toHaveCount(3);
+  await expect(rubric.locator('.diagram-teacher-subcriteria > li')).toHaveCount(15);
+  await expect(rubric.getByText('Barème cumulé : 4 / 8 pts')).toBeVisible();
+  await expect(rubric.getByText('Barème cumulé : 8 / 8 pts')).toBeVisible();
   await workspace.getByRole('combobox', { name: 'Configuration IA' }).selectOption('teacher-qwen');
 
   const correct = workspace.getByRole('button', { name: 'Corriger directement l’image' });
@@ -63,6 +68,16 @@ test('the teacher corrects a scientific diagram directly, reviews criterion evid
     name: 'mitose.png', mimeType: 'image/png', buffer: onePixelPng,
   });
   await expect(workspace.getByText('1 page(s) sélectionnée(s)')).toBeVisible();
+  await expect(workspace.getByRole('region', { name: 'Schéma original' })).toBeVisible();
+  await expect(workspace.locator('.diagram-teacher-image-stage img')).toBeVisible();
+  // The viewer shared with the normal correction is available from this workflow.
+  await workspace.getByRole('button', { name: 'Agrandir', exact: true }).click();
+  const viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 1' });
+  await expect(viewer).toBeVisible();
+  await expect(viewer.getByRole('button', { name: 'Zoomer' })).toBeVisible();
+  await viewer.getByRole('button', { name: 'Tourner l’image à droite de 90 degrés' }).click();
+  await expect(workspace.getByText('Orientation 90°')).toBeVisible();
+  await viewer.getByRole('button', { name: 'Fermer le visualiseur' }).click();
   await expect(correct).toBeEnabled();
   await correct.click();
 
@@ -73,6 +88,9 @@ test('the teacher corrects a scientific diagram directly, reviews criterion evid
   expect(directRequests).toHaveLength(1);
   expect(directRequests[0]!.model).toBe('qwen3.5:4b');
   expect((directRequests[0]!.messages as any[])[0].images).toHaveLength(1);
+  // A manual rotation is applied to the actual pixels sent for grading, not just CSS.
+  expect((directRequests[0]!.messages as any[])[0].images[0]).not.toBe(onePixelPng.toString('base64'));
+  await expect(workspace.getByRole('status').filter({ hasText: 'À vérifier par l’enseignant' })).toBeVisible();
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
