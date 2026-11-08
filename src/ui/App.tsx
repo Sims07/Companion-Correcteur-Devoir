@@ -347,7 +347,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   };
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
-  const isScientificDiagramAssignment = assignmentProfiles.find((profile) => profile.id === activeAssignmentId)?.kind === 'scientific-diagram';
+  const [assignmentKind, setAssignmentKind] = useState<AssignmentKind>(() => readActiveAssignmentProfile().kind ?? 'standard');
+  const isScientificDiagramAssignment = assignmentKind === 'scientific-diagram';
   const [showAssignmentsHome, setShowAssignmentsHome] = useState(true);
   const [pendingRemoval, setPendingRemoval] = useState<{ kind: 'assignment'; profile: AssignmentProfile } | { kind: 'copy'; job: BackgroundCorrectionJob } | null>(null);
   const [copyOverviewFilter, setCopyOverviewFilter] = useState<CopyOverviewFilter>('all');
@@ -830,7 +831,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   useEffect(() => {
-    const current: AssignmentProfile = { id: activeAssignmentId, title: assignmentTitle, description: assignmentDescription, educationLevel, rubric, question, correctionMode, hasScientificDiagrams };
+    const current: AssignmentProfile = { id: activeAssignmentId, title: assignmentTitle, description: assignmentDescription, educationLevel, rubric, question, correctionMode, hasScientificDiagrams, kind: assignmentKind };
     setAssignmentProfiles((profiles) => {
       const next = profiles.some((profile) => profile.id === activeAssignmentId)
         ? profiles.map((profile) => profile.id === activeAssignmentId ? current : profile)
@@ -844,7 +845,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       } catch { /* Keep the current assignment usable when browser storage is unavailable. */ }
       return next;
     });
-  }, [activeAssignmentId, assignmentTitle, assignmentDescription, educationLevel, rubric, question, correctionMode, hasScientificDiagrams]);
+  }, [activeAssignmentId, assignmentTitle, assignmentDescription, educationLevel, rubric, question, correctionMode, hasScientificDiagrams, assignmentKind]);
 
   useEffect(() => {
     let active = true;
@@ -2445,6 +2446,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setShowOnlyFlagged(true);
     setFocusedEvidencePage(null);
     setActiveAssignmentId(profile.id);
+    setAssignmentKind(profile.kind ?? 'standard');
     setAssignmentTitle(profile.title);
     setAssignmentDescription(profile.description ?? '');
     setEducationLevel(profile.educationLevel ?? '');
