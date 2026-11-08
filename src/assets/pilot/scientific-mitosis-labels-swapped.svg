@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1040" viewBox="0 0 1200 1040" role="img" aria-label="Dessin scientifique de mitose végétale, quatre phases et légendes à traits de rappel">
+<defs>
+ <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 Z" fill="#374151"/></marker>
+ <style>
+ .wall{fill:#fbfcf9;stroke:#384b42;stroke-width:5;stroke-linejoin:round}
+ .interior{fill:none;stroke:#58736d;stroke-width:2.5;stroke-linecap:round}
+ .nucleus{fill:#e7eefa;stroke:#344d75;stroke-width:3}
+ .chrom{fill:none;stroke:#435c8b;stroke-width:9;stroke-linecap:round}
+ .plate{stroke:#51765a;stroke-width:9;stroke-linecap:round}
+ .phase{font:600 26px "Arial",sans-serif;fill:#243b33;letter-spacing:1px}
+ .legend{font:22px "Arial",sans-serif;fill:#1f2937}
+ .pointer{fill:none;stroke:#374151;stroke-width:2.7;marker-end:url(#arrow)}
+ </style>
+</defs>
+<rect x="3" y="3" width="1194" height="1034" rx="8" fill="white" stroke="#d3dbd4" stroke-width="3"/>
+<text x="292" y="112" text-anchor="middle" class="phase">INTERPHASE</text>
+<text x="896" y="112" text-anchor="middle" class="phase">PROPHASE</text>
+<text x="292" y="542" text-anchor="middle" class="phase">MÉTAPHASE</text>
+<text x="896" y="542" text-anchor="middle" class="phase">TÉLOPHASE</text>
+<!-- Cellules végétales avec continuité de la paroi vers les cellules voisines -->
+<g class="wall"><rect x="95" y="150" width="395" height="260" rx="8"/><rect x="705" y="150" width="395" height="260" rx="8"/><rect x="95" y="575" width="395" height="260" rx="8"/><rect x="705" y="575" width="395" height="260" rx="8"/></g>
+<g class="interior">
+<path d="M95 179 H62 M95 376 H62 M490 179 H523 M490 376 H523 M705 179 H672 M705 376 H672 M1100 179 H1133 M1100 376 H1133"/>
+<path d="M95 602 H62 M95 806 H62 M490 602 H523 M490 806 H523 M705 602 H672 M705 806 H672 M1100 602 H1133 M1100 806 H1133"/>
+</g>
+<!-- Interphase : noyau entier, nucléole -->
+<ellipse cx="255" cy="267" rx="66" ry="75" class="nucleus"/>
+<circle cx="270" cy="250" r="16" fill="#6f81aa"/>
+<path d="M218 296 Q248 276 277 305 M220 239 Q246 231 279 216" class="interior"/>
+<!-- Prophase : chromosomes condensés dans le noyau en désagrégation -->
+<ellipse cx="873" cy="277" rx="86" ry="82" fill="#f4f6fa" stroke="#8195af" stroke-width="3" stroke-dasharray="11 9"/>
+<g class="chrom">
+<path d="M822 225 l24 42 m1 -46 l-28 45"/>
+<path d="M876 251 l28 40 m-2 -44 l-26 47"/>
+<path d="M843 306 l22 34 m2 -36 l-27 37"/>
+<path d="M925 289 l15 25 m-1 -29 l-20 30"/>
+</g>
+<!-- Métaphase : fuseau et chromosomes sur la plaque équatoriale -->
+<g class="interior">
+ <path d="M150 704 L274 660 L423 703 M150 704 L270 686 L423 703 M150 704 L280 711 L423 703"/>
+ <path d="M150 704 L279 734 L423 703 M150 704 L280 762 L423 703"/>
+ <path d="M150 683 V724 M423 683 V724" stroke-width="5"/>
+</g>
+<g class="chrom">
+ <path d="M260 643 l28 38 m0 -38 l-28 38"/>
+ <path d="M260 686 l28 38 m0 -38 l-28 38"/>
+ <path d="M260 729 l28 38 m0 -38 l-28 38"/>
+</g>
+<!-- Télophase : deux noyaux fils, phragmoplaste et plaque cellulaire -->
+<ellipse cx="798" cy="688" rx="49" ry="67" class="nucleus"/>
+<ellipse cx="1004" cy="688" rx="49" ry="67" class="nucleus"/>
+<path d="M790 677 q18 -10 23 19 M993 671 q18 -10 23 19" class="interior"/>
+<g class="interior">
+ <path d="M855 624 L897 681 L946 624 M857 753 L902 710 L949 753"/>
+ <path d="M868 626 L899 676 L930 627 M868 755 L903 715 L933 755"/>
+</g>
+<path class="plate" d="M902 622 V755"/>
+<!-- Textes rigoureusement identiques entre les deux versions -->
+<text class="legend" x="225" y="482" text-anchor="middle">Noyau</text>
+<text class="legend" x="860" y="482" text-anchor="middle">Chromosomes</text>
+<text class="legend" x="211" y="908" text-anchor="middle">Chromosomes</text>
+<text class="legend" x="433" y="908" text-anchor="middle">Fuseau mitotique</text>
+<text class="legend" x="807" y="908" text-anchor="middle">Noyau fils</text>
+<text class="legend" x="1021" y="908" text-anchor="middle">Plaque cellulaire</text>
+<line id="pointer-interphase-noyau" class="pointer" x1="225" y1="449" x2="255" y2="267"/>
+<line id="pointer-prophase-chromosomes" class="pointer" x1="860" y1="449" x2="863" y2="273"/>
+<line id="pointer-metaphase-chromosomes" class="pointer" x1="211" y1="873" x2="397" y2="706"/>
+<line id="pointer-metaphase-fuseau" class="pointer" x1="433" y1="873" x2="279" y2="681"/>
+<line id="pointer-telophase-noyau" class="pointer" x1="807" y1="873" x2="902" y2="708"/>
+<line id="pointer-telophase-plaque" class="pointer" x1="1021" y1="873" x2="798" y2="688"/>
+<text x="600" y="982" text-anchor="middle" font-family="Arial,sans-serif" font-size="26" font-weight="600" fill="#243b33">Mitose dans le méristème racinaire d’oignon (Allium cepa) — coupe longitudinale</text>
+<path d="M133 999 H1067" stroke="#344d46" stroke-width="3"/>
+</svg>
