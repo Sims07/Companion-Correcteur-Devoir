@@ -72,3 +72,10 @@
 @media (max-width: 520px) {
   .ai-profile-manager-toolbar > span { width: 100%; margin-left: 0; }
 }
+
+.ai-profile-management-entry {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .75rem;
+}
