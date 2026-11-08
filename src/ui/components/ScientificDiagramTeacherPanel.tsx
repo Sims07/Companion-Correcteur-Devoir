@@ -2,18 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import type { AiModelConfiguration, AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import type { GradingProposal } from '../../domain/grading.ts';
 import { getRubricSubcriteria, validateRubric, type Rubric } from '../../domain/rubric.ts';
+import { accumulateClockwiseRotation } from '../../domain/scientificPageOrientation.ts';
 import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, parseScientificDiagramProtocolRubric } from '../../domain/scientificDiagramProtocol.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import { isLoopbackDiagramEndpoint, type DirectScientificDiagramRequest } from '../../application/directScientificDiagramCorrection.ts';
 import { Button, Checkbox, TextArea } from '../design-system/index.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import { FilePicker } from './FilePicker.tsx';
+import { CopyPageViewer } from './CopyPageViewer.tsx';
 import './ScientificDiagramTeacherPanel.css';
 
 export interface ScientificDiagramTeacherPanelProps {
   profiles: readonly AiModelProfile[];
   currentConfiguration: AiModelConfiguration;
   onPrepareImages: (files: File[]) => Promise<ImageInput[]>;
+  onRotateImage: (image: ImageInput, degrees: 90 | 270) => Promise<ImageInput>;
   onRun: (request: DirectScientificDiagramRequest) => Promise<GradingProposal>;
   onOpenSettings: () => void;
 }
@@ -22,12 +25,16 @@ export interface ScientificDiagramTeacherPanelProps {
  * scores: this is a standalone evaluation of one scientific drawing.
  */
 export function ScientificDiagramTeacherPanel({
-  profiles, currentConfiguration, onPrepareImages, onRun, onOpenSettings,
+  profiles, currentConfiguration, onPrepareImages, onRotateImage, onRun, onOpenSettings,
 }: ScientificDiagramTeacherPanelProps) {
   const [selectedProfileId, setSelectedProfileId] = useState('');
   const [rubric, setRubric] = useState<Rubric>(() => structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC));
   const [question, setQuestion] = useState('');
   const [images, setImages] = useState<ImageInput[]>([]);
+  const [viewerPage, setViewerPage] = useState<number | null>(null);
+  const [rotationAngles, setRotationAngles] = useState<Record<number, number>>({});
+  const [rotatingPage, setRotatingPage] = useState<number | null>(null);
+  const rotationBusyRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [running, setRunning] = useState(false);
   const [consent, setConsent] = useState(false);
@@ -45,7 +52,7 @@ export function ScientificDiagramTeacherPanel({
   const isLocal = isLoopbackDiagramEndpoint(configuration.endpoint);
   const validation = validateRubric(rubric);
   const compatible = configuration.correctionMethod === 'generative' && Boolean(configuration.analysisModel.trim());
-  const canRun = !running && !uploading && images.length > 0 && validation.valid
+  const canRun = !running && !uploading && rotatingPage === null && images.length > 0 && validation.valid
     && compatible && (isLocal || consent);
 
   function invalidate() {
@@ -56,9 +63,11 @@ export function ScientificDiagramTeacherPanel({
   }
 
   async function addImages(files: FileList | null) {
-    if (!files?.length || running || uploading) return;
+    if (!files?.length || running || uploading || rotationBusyRef.current) return;
     invalidate();
     setImages([]);
+    setViewerPage(null);
+    setRotationAngles({});
     setUploading(true);
     try {
       const prepared = await onPrepareImages(Array.from(files));
@@ -70,8 +79,33 @@ export function ScientificDiagramTeacherPanel({
     } finally { setUploading(false); }
   }
 
+  async function rotatePage(pageIndex: number, degrees: 90 | 270) {
+    if (running || uploading || rotationBusyRef.current) return;
+    const source = images[pageIndex];
+    if (!source) return;
+    rotationBusyRef.current = true;
+    setRotatingPage(pageIndex);
+    setError('');
+    try {
+      // Rotate the working image pixels (not a CSS preview), so the model
+      // receives exactly what the teacher sees in the shared viewer.
+      const rotated = await onRotateImage(source, degrees);
+      setImages((current) => current.map((image, index) => index === pageIndex ? rotated : image));
+      setRotationAngles((current) => ({
+        ...current, [pageIndex]: accumulateClockwiseRotation(current[pageIndex] ?? 0, degrees),
+      }));
+      invalidate();
+      setMessage('Page ' + (pageIndex + 1) + ' tournée. La prochaine correction utilisera cette orientation.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'La rotation de cette page a échoué.');
+    } finally {
+      rotationBusyRef.current = false;
+      setRotatingPage(null);
+    }
+  }
+
   async function addRubric(files: FileList | null) {
-    if (!files?.length || running || uploading) return;
+    if (!files?.length || running || uploading || rotationBusyRef.current) return;
     invalidate();
     try {
       const parsed = JSON.parse(await files[0]!.text()) as unknown;
@@ -84,7 +118,7 @@ export function ScientificDiagramTeacherPanel({
   }
 
   async function start() {
-    if (!canRun) return;
+    if (!canRun || rotationBusyRef.current) return;
     invalidate();
     setRunning(true);
     const controller = new AbortController();
@@ -144,16 +178,25 @@ export function ScientificDiagramTeacherPanel({
         <FilePicker id="teacher-diagram-images" title="Photo ou PDF du dessin"
           description="Une image, ou plusieurs pages d’un même schéma (PNG, JPG, WEBP, PDF)."
           accept="image/png,image/jpeg,image/webp,application/pdf,.pdf" multiple
-          disabled={running || uploading} onFilesSelected={(files) => { void addImages(files); }} />
+          disabled={running || uploading || rotatingPage !== null} onFilesSelected={(files) => { void addImages(files); }} />
         {uploading ? <p role="status">Préparation des images sur cet appareil…</p> :
           <p className="hint">{images.length ? images.length + ' page(s) sélectionnée(s)' : 'Aucune image sélectionnée.'}</p>}
-        {images.length > 0 && <div className="diagram-teacher-previews" aria-label="Aperçu des pages">
-          {images.map((image, index) => <img key={index} alt={'Schéma, page ' + (index + 1)}
-            src={'data:' + image.mimeType + ';base64,' + image.base64} />)}
-        </div>}
+        {images.length > 0 && <>
+          <p className="hint">Cliquez sur une page pour l’agrandir, zoomer ou la tourner avant correction.</p>
+          <div className="diagram-teacher-previews" aria-label="Aperçu des pages">
+            {images.map((image, index) => <button key={index} type="button"
+              className="diagram-teacher-preview"
+              aria-label={'Agrandir le schéma, page ' + (index + 1)}
+              onClick={() => setViewerPage(index)} disabled={uploading}>
+              <img alt={'Schéma, page ' + (index + 1)}
+                src={'data:' + image.mimeType + ';base64,' + image.base64} />
+              <span>Page {index + 1}{rotationAngles[index] ? ' · ' + rotationAngles[index] + '°' : ''}{rotatingPage === index ? ' · rotation…' : ''}</span>
+            </button>)}
+          </div>
+        </>}
         <FilePicker id="teacher-diagram-rubric" title="Importer mon barème (JSON)"
           description="Facultatif : 15 attendus graphiques et 8 points sont proposés par défaut."
-          accept=".json,application/json" disabled={running || uploading} onFilesSelected={(files) => { void addRubric(files); }} />
+          accept=".json,application/json" disabled={running || uploading || rotatingPage !== null} onFilesSelected={(files) => { void addRubric(files); }} />
         <div className="diagram-teacher-rubric-summary">
           <strong>{rubric.title}</strong>
           <span>{validation.maximumPoints} points · {rubric.criteria.reduce((count, criterion) => count + getRubricSubcriteria(criterion).length, 0)} attendus</span>
@@ -195,6 +238,16 @@ export function ScientificDiagramTeacherPanel({
         {message && <p className="diagram-teacher-message" role="status">{message}</p>}
       </section>
     </div>
+    {viewerPage !== null && images[viewerPage] && <CopyPageViewer
+      pages={images}
+      pageIndex={viewerPage}
+      copyLabel="Schéma scientifique"
+      onPageChange={setViewerPage}
+      onRotate={(pageIndex, degrees) => { void rotatePage(pageIndex, degrees); }}
+      onClose={() => setViewerPage(null)}
+      rotationDisabled={running || uploading || rotatingPage !== null}
+      rotationDegrees={rotationAngles[viewerPage] ?? 0}
+    />}
     {proposal && <section className="panel diagram-teacher-result" aria-label="Proposition de correction du schéma">
       <div className="diagram-teacher-result-head">
         <div><p className="eyebrow">3. VÉRIFICATION PAR L’ENSEIGNANT</p>

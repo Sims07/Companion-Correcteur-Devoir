@@ -59,10 +59,44 @@ test('the teacher corrects a scientific diagram directly, reviews criterion evid
 
   const correct = workspace.getByRole('button', { name: 'Corriger directement l’image' });
   await expect(correct).toBeDisabled();
+  // Use an asymmetric drawing: visual CSS rotation alone would not change
+  // naturalWidth/naturalHeight or the actual bytes sent to the model.
+  const sourceBase64 = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 8;
+    canvas.height = 4;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = '#174f78';
+    context.fillRect(0, 0, 4, 4);
+    context.fillStyle = '#e4a23a';
+    context.fillRect(4, 0, 4, 4);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
   await workspace.locator('#teacher-diagram-images').setInputFiles({
-    name: 'mitose.png', mimeType: 'image/png', buffer: onePixelPng,
+    name: 'mitose.png', mimeType: 'image/png', buffer: Buffer.from(sourceBase64, 'base64'),
   });
   await expect(workspace.getByText('1 page(s) sélectionnée(s)')).toBeVisible();
+  const thumb = workspace.getByRole('button', { name: 'Agrandir le schéma, page 1' });
+  await thumb.click();
+  const viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 1' });
+  await expect(viewer).toBeVisible();
+  const enlarged = viewer.getByRole('img', { name: 'Page 1 agrandie' });
+  await expect.poll(() => enlarged.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([8, 4]);
+  await viewer.getByRole('button', { name: 'Zoomer', exact: true }).click();
+  await expect(viewer.getByText('125 %')).toBeVisible();
+  await viewer.getByRole('button', { name: 'Tourner l’image à droite de 90 degrés' }).click();
+  await expect.poll(() => enlarged.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([4, 8]);
+  await expect.poll(() => thumb.locator('img').evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([4, 8]);
+  await expect(thumb).toContainText('90°');
+  // The shared viewer offers both directions; turn back then right once more.
+  await viewer.getByRole('button', { name: 'Tourner l’image à gauche de 90 degrés' }).click();
+  await expect.poll(() => enlarged.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([8, 4]);
+  await viewer.getByRole('button', { name: 'Tourner l’image à droite de 90 degrés' }).click();
+  await expect.poll(() => enlarged.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([4, 8]);
+  await page.keyboard.press('Escape');
+  await expect(viewer).toHaveCount(0);
+  await expect(thumb).toBeFocused();
+  const correctedImage = (await thumb.locator('img').getAttribute('src'))!.split(',')[1];
   await expect(correct).toBeEnabled();
   await correct.click();
 
@@ -73,6 +107,9 @@ test('the teacher corrects a scientific diagram directly, reviews criterion evid
   expect(directRequests).toHaveLength(1);
   expect(directRequests[0]!.model).toBe('qwen3.5:4b');
   expect((directRequests[0]!.messages as any[])[0].images).toHaveLength(1);
+  // Regression: the AI actually receives the rotated PNG, not the original.
+  expect((directRequests[0]!.messages as any[])[0].images[0]).toBe(correctedImage);
+  expect(correctedImage).not.toBe(sourceBase64);
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -86,6 +123,13 @@ test('the teacher corrects a scientific diagram directly, reviews criterion evid
   expect(reportText).not.toContain('base64');
   expect(reportText).not.toContain('http://localhost');
   expect(reportText).not.toContain('apiKey');
+  // An orientation change after grading makes the old provisional result stale.
+  await thumb.click();
+  await page.getByRole('dialog', { name: 'Visualiseur de la page 1' })
+    .getByRole('button', { name: 'Tourner l’image à gauche de 90 degrés' }).click();
+  await expect(result).toHaveCount(0);
+  await page.getByRole('dialog', { name: 'Visualiseur de la page 1' })
+    .getByRole('button', { name: 'Fermer le visualiseur' }).click();
   await page.getByRole('button', { name: 'Correction', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
 });
@@ -112,4 +156,51 @@ test('a remote scientific diagram model cannot receive photos without explicit o
   await workspace.getByRole('combobox', { name: 'Configuration IA' }).selectOption('remote-qwen');
   await expect(workspace.getByRole('checkbox', { name: /J’autorise l’envoi de ces images/ })).not.toBeChecked();
   await expect(workspace.getByRole('button', { name: 'Corriger directement l’image' })).toBeDisabled();
+});
+
+test('multi-page scientific diagrams navigate in the shared viewer and rotation is reset on a new import', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Schémas scientifiques' }).click();
+  const workspace = page.getByLabel('Correction des schémas scientifiques');
+  // A browser-generated, decodable asymmetric image is required here:
+  // the tiny legacy fixture is not reliably supported by createImageBitmap.
+  const imageBase64 = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 8;
+    canvas.height = 4;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = '#174f78';
+    context.fillRect(0, 0, 4, 4);
+    context.fillStyle = '#e4a23a';
+    context.fillRect(4, 0, 4, 4);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  const imageBuffer = Buffer.from(imageBase64, 'base64');
+  await workspace.locator('#teacher-diagram-images').setInputFiles([
+    { name: 'page-a.png', mimeType: 'image/png', buffer: imageBuffer },
+    { name: 'page-b.png', mimeType: 'image/png', buffer: imageBuffer },
+  ]);
+  const firstThumb = workspace.getByRole('button', { name: 'Agrandir le schéma, page 1' });
+  await expect(firstThumb).toBeVisible();
+  await firstThumb.click();
+  let viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 1' });
+  await viewer.getByRole('button', { name: 'Page suivante' }).click();
+  viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 2' });
+  await expect(viewer).toBeVisible();
+  await viewer.getByRole('button', { name: 'Tourner l’image à droite de 90 degrés' }).click();
+  await expect.poll(() => viewer.getByRole('img', { name: 'Page 2 agrandie' }).evaluate(
+    (image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight],
+  )).toEqual([4, 8]);
+  await expect(workspace.getByRole('button', { name: 'Agrandir le schéma, page 2' })).toContainText('90°');
+  await viewer.getByRole('button', { name: 'Page précédente' }).click();
+  await expect(page.getByRole('dialog', { name: 'Visualiseur de la page 1' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await workspace.locator('#teacher-diagram-images').setInputFiles({
+    name: 'nouveau-schema.png', mimeType: 'image/png', buffer: imageBuffer,
+  });
+  await expect(workspace.getByRole('button', { name: 'Agrandir le schéma, page 2' })).toHaveCount(0);
+  await expect(firstThumb).not.toContainText('90°');
+  await firstThumb.click();
+  await expect(page.getByRole('dialog', { name: 'Visualiseur de la page 1' }).getByText('Tournée de')).toHaveCount(0);
 });

@@ -8,7 +8,11 @@
 .diagram-teacher-setup h3, .diagram-teacher-run h3 { margin-top: 0; margin-bottom: 18px; }
 .diagram-teacher-setup .file-picker { margin-bottom: 12px; }
 .diagram-teacher-previews { display: flex; gap: 10px; max-width: 100%; overflow-x: auto; margin: 14px 0 20px; }
-.diagram-teacher-previews img { max-width: 145px; width: 100%; height: 136px; border-radius: 10px; border: 1px solid var(--border, #ddd); object-fit: contain; background: var(--surface, #fff); }
+.diagram-teacher-preview { appearance: none; flex: 0 0 145px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; border: 1px solid var(--border, #ddd); border-radius: 12px; padding: 6px; cursor: zoom-in; background: var(--surface, #fff); color: inherit; font: inherit; font-size: .84rem; }
+.diagram-teacher-preview:hover { border-color: var(--ds-color-progress, #a14d37); }
+.diagram-teacher-preview:focus-visible { outline: 3px solid var(--focus-ring, #a14d37); outline-offset: 2px; }
+.diagram-teacher-preview span { font-weight: 600; }
+.diagram-teacher-previews img { max-width: 100%; width: 100%; height: 136px; border-radius: 10px; border: 1px solid var(--border, #ddd); object-fit: contain; background: var(--surface, #fff); }
 .diagram-teacher-rubric-summary { display: grid; gap: 5px; margin: 10px 0 18px; padding: 13px 15px; border: 1px solid var(--border, #ddd); border-radius: 12px; }
 .diagram-teacher-rubric-summary p { margin: 3px 0 0; font-size: .87rem; }
 .diagram-teacher-rubric-summary span { font-size: .9rem; }
