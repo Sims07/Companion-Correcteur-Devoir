@@ -138,6 +138,18 @@ describe('protocole pilote de biologie', () => {
     expect(pilotSelectionIssue([{ ...local!, configuration: { ...local!.configuration, visionModel: '' } }], 'integrated')).toContain('Vision');
   });
 
+  it('accepts a compatible direct-image decision model without a separate Vision model, but never TEV1 in native image mode', () => {
+    const [sample] = makePilotProfiles('http://localhost:11434', 'now');
+    const clef = { ...sample!, configuration: {
+      ...sample!.configuration, visionModel: '', analysisModel: 'clef-flash',
+      correctionMethod: 'visual-decision' as const,
+    } };
+    expect(pilotSelectionIssue([clef], 'integrated')).toBeNull();
+    expect(pilotSelectionIssue([clef], 'analysis')).toContain('besoin de l’image');
+    expect(pilotSelectionIssue([{ ...clef, configuration: { ...clef.configuration, apiCompatible: true } }], 'integrated')).toContain('System One');
+    expect(pilotSelectionIssue([clef], 'vision')).toContain('Vision');
+  });
+
   it('detects keyword-only false positives on scientifically inverted answers', () => {
     const b = PILOT_CASES[1]!;
     const correct = summarizePilotResult(b, resultFor('B'));
