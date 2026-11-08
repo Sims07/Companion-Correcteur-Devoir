@@ -64,8 +64,20 @@ test('the teacher corrects a scientific diagram directly, reviews criterion evid
 
   const correct = workspace.getByRole('button', { name: 'Corriger directement l’image' });
   await expect(correct).toBeDisabled();
+  // Asymmetric browser-decoded fixture: a CSS-only rotation would not alter pixels.
+  const sourceBase64 = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 8;
+    canvas.height = 4;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = '#174f78';
+    context.fillRect(0, 0, 4, 4);
+    context.fillStyle = '#e4a23a';
+    context.fillRect(4, 0, 4, 4);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
   await workspace.locator('#teacher-diagram-images').setInputFiles({
-    name: 'mitose.png', mimeType: 'image/png', buffer: onePixelPng,
+    name: 'mitose.png', mimeType: 'image/png', buffer: Buffer.from(sourceBase64, 'base64'),
   });
   await expect(workspace.getByText('1 page(s) sélectionnée(s)')).toBeVisible();
   await expect(workspace.getByRole('region', { name: 'Schéma original' })).toBeVisible();
@@ -74,10 +86,16 @@ test('the teacher corrects a scientific diagram directly, reviews criterion evid
   await workspace.getByRole('button', { name: 'Agrandir', exact: true }).click();
   const viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 1' });
   await expect(viewer).toBeVisible();
-  await expect(viewer.getByRole('button', { name: 'Zoomer', exact: true })).toBeVisible();
+  const enlarged = viewer.getByRole('img', { name: 'Page 1 agrandie' });
+  await expect.poll(() => enlarged.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([8, 4]);
+  await viewer.getByRole('button', { name: 'Zoomer', exact: true }).click();
+  await expect(viewer.getByText('125 %')).toBeVisible();
   await viewer.getByRole('button', { name: 'Tourner l’image à droite de 90 degrés' }).click();
-  await expect(workspace.getByText('Orientation 90°')).toBeVisible();
+  await expect.poll(() => enlarged.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([4, 8]);
   await viewer.getByRole('button', { name: 'Fermer le visualiseur' }).click();
+  await expect(workspace.getByText('Orientation 90°')).toBeVisible();
+  const rotatedSrc = await workspace.locator('.diagram-teacher-image-stage img').getAttribute('src');
+  const correctedImage = rotatedSrc!.split(',')[1];
   await expect(correct).toBeEnabled();
   await correct.click();
 
@@ -89,7 +107,8 @@ test('the teacher corrects a scientific diagram directly, reviews criterion evid
   expect(directRequests[0]!.model).toBe('qwen3.5:4b');
   expect((directRequests[0]!.messages as any[])[0].images).toHaveLength(1);
   // A manual rotation is applied to the actual pixels sent for grading, not just CSS.
-  expect((directRequests[0]!.messages as any[])[0].images[0]).not.toBe(onePixelPng.toString('base64'));
+  expect((directRequests[0]!.messages as any[])[0].images[0]).toBe(correctedImage);
+  expect(correctedImage).not.toBe(sourceBase64);
   await expect(workspace.getByRole('status').filter({ hasText: 'À vérifier par l’enseignant' })).toBeVisible();
 
   const [download] = await Promise.all([
@@ -104,6 +123,10 @@ test('the teacher corrects a scientific diagram directly, reviews criterion evid
   expect(reportText).not.toContain('base64');
   expect(reportText).not.toContain('http://localhost');
   expect(reportText).not.toContain('apiKey');
+  // Changing orientation after a grade invalidates its previous proposal.
+  await workspace.getByRole('button', { name: 'Tourner le schéma à gauche de 90 degrés' }).click();
+  await expect(result).toHaveCount(0);
+  await expect(workspace.getByText('Orientation d’origine')).toBeVisible();
   await page.getByRole('button', { name: 'Correction', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
 });
@@ -130,4 +153,51 @@ test('a remote scientific diagram model cannot receive photos without explicit o
   await workspace.getByRole('combobox', { name: 'Configuration IA' }).selectOption('remote-qwen');
   await expect(workspace.getByRole('checkbox', { name: /J’autorise l’envoi de ces images/ })).not.toBeChecked();
   await expect(workspace.getByRole('button', { name: 'Corriger directement l’image' })).toBeDisabled();
+});
+
+test('multi-page diagrams keep each orientation independent, and a new import resets it', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Schémas scientifiques' }).click();
+  const workspace = page.getByLabel('Correction des schémas scientifiques');
+  const imageBase64 = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 8;
+    canvas.height = 4;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = '#174f78';
+    context.fillRect(0, 0, 4, 4);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  const buffer = Buffer.from(imageBase64, 'base64');
+  await workspace.locator('#teacher-diagram-images').setInputFiles([
+    { name: 'page-a.png', mimeType: 'image/png', buffer },
+    { name: 'page-b.png', mimeType: 'image/png', buffer },
+  ]);
+  const first = workspace.getByRole('button', { name: 'Afficher la page 1' });
+  const second = workspace.getByRole('button', { name: 'Afficher la page 2' });
+  await expect(first).toBeVisible();
+  await expect(second).toBeVisible();
+  await workspace.getByRole('button', { name: 'Agrandir', exact: true }).click();
+  let viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 1' });
+  await viewer.getByRole('button', { name: 'Page suivante' }).click();
+  viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 2' });
+  await expect(viewer).toBeVisible();
+  await viewer.getByRole('button', { name: 'Tourner l’image à droite de 90 degrés' }).click();
+  await expect.poll(() => viewer.getByRole('img', { name: 'Page 2 agrandie' }).evaluate(
+    (image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight],
+  )).toEqual([4, 8]);
+  await viewer.getByRole('button', { name: 'Page précédente' }).click();
+  await expect(page.getByRole('dialog', { name: 'Visualiseur de la page 1' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await first.click();
+  await expect(workspace.getByText('Orientation d’origine')).toBeVisible();
+  await second.click();
+  await expect(workspace.getByText('Orientation 90°')).toBeVisible();
+
+  await workspace.locator('#teacher-diagram-images').setInputFiles({
+    name: 'nouveau-schema.png', mimeType: 'image/png', buffer,
+  });
+  await expect(second).toHaveCount(0);
+  await expect(workspace.getByText('Orientation d’origine')).toBeVisible();
+  await expect(workspace.getByText('1 page(s) sélectionnée(s)')).toBeVisible();
 });
