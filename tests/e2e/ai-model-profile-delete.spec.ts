@@ -133,7 +133,7 @@ test('manage 16 saved configurations at once: select all, retain 3, confirm, and
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Gérer les configurations (3)' })).toBeVisible();
   await expect(options.getByRole('checkbox')).toHaveCount(3);
-  await expect(options.getByRole('checkbox').filter({ hasText: /Ancien 16/ })).toHaveCount(0);
+  await expect(options.getByText('Ancien 16')).toHaveCount(0);
   await expect(page.locator('#evaluation-profile-select')).toHaveValue('');
   await expect(page.locator('#evaluation-profile-name')).toHaveValue('');
   // The editor retains the loaded configuration even when its saved entry is removed.
@@ -171,6 +171,6 @@ test('batch removal aborts safely if local storage fails, keeping all saved prof
   await expect(confirm.getByRole('alert')).toContainText('La suppression n’a pas été enregistrée');
   expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '[]').length, profileStorageKey)).toBe(2);
   await confirm.getByRole('button', { name: 'Retour à la liste' }).click();
-  await page.getByRole('dialog', { name: 'Gérer mes configurations IA' }).getByRole('button', { name: 'Fermer' }).click();
+  await page.getByRole('dialog', { name: 'Gérer mes configurations IA' }).getByRole('button', { name: 'Fermer', exact: true }).click();
   await expect(page.locator('#evaluation-profile-select option')).toHaveCount(3);
 });
