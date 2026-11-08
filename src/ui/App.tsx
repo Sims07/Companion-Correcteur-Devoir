@@ -56,6 +56,8 @@ import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
+import { ScientificDiagramTeacherPanel } from './components/ScientificDiagramTeacherPanel.tsx';
+import { correctScientificDiagramDirect } from '../application/directScientificDiagramCorrection.ts';
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
@@ -452,7 +454,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
   const [selectedSeriesPreviewJob, setSelectedSeriesPreviewJob] = useState<BackgroundCorrectionJob | null>(null);
   const [queuedViewerFullJob, setQueuedViewerFullJob] = useState<BackgroundCorrectionJob | null>(null);
-  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher');
+  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagram' | 'diagnostic' | 'debug' | 'observability'>('teacher');
   const [detailsThumbnailsOpen, setDetailsThumbnailsOpen] = useState(false);
   const [detailThumbnails, setDetailThumbnails] = useState<Record<string, Array<ImageInput | null>>>({});
   const previewLoadSequence = useRef(0);
@@ -3159,15 +3161,15 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
 
   return (
-    <main className={interfaceMode === 'teacher' ? `app-shell teacher-flow-shell${showAssignmentsHome ? ' teacher-assignments-home' : ''}` : interfaceMode === 'diagnostic' ? 'app-shell evaluation-workspace-shell ai-tools-view' : 'app-shell ai-tools-view'}>
+    <main className={interfaceMode === 'teacher' ? `app-shell teacher-flow-shell${showAssignmentsHome ? ' teacher-assignments-home' : ''}` : interfaceMode === 'diagram' ? 'app-shell teacher-flow-shell diagram-teacher-shell' : interfaceMode === 'diagnostic' ? 'app-shell evaluation-workspace-shell ai-tools-view' : 'app-shell ai-tools-view'}>
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode !== 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode !== 'teacher'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(interfaceMode === 'teacher' ? 'observability' : interfaceMode); }}>Outils IA</button></div></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode === 'diagram' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'diagram'} onClick={() => { setShowAiSettings(false); setInterfaceMode('diagram'); }}>Schémas scientifiques</button><button type="button" className={interfaceMode !== 'teacher' && interfaceMode !== 'diagram' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode !== 'teacher' && interfaceMode !== 'diagram'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(interfaceMode === 'teacher' || interfaceMode === 'diagram' ? 'observability' : interfaceMode); }}>Outils IA</button></div></div>
       </header>
 
-      {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
-      {interfaceMode !== 'teacher' && (diagramFixtureReport || diagramProtocolReport) && <section className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
+      {interfaceMode !== 'teacher' && interfaceMode !== 'diagram' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
+      {interfaceMode !== 'teacher' && interfaceMode !== 'diagram' && (diagramFixtureReport || diagramProtocolReport) && <section className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
         <div>
           <strong>Rapports de schémas disponibles</strong>
           <p>Résultats conservés pendant la navigation · les passages terminés restent exportables même si la série est interrompue.</p>
@@ -3182,6 +3184,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </div>
       </section>}
       {interfaceMode === 'debug' && <NetworkInspector initialFilter={networkInitialFilter} />}
+      {interfaceMode === 'diagram' && <ScientificDiagramTeacherPanel
+        profiles={aiModelProfiles}
+        currentConfiguration={{ ...defaultAiModelConfiguration, endpoint, apiCompatible, apiKey, visionModel, analysisModel, analysisThinking, correctionMethod }}
+        onPrepareImages={(files) => service.prepareFiles(files)}
+        onRun={(request) => correctScientificDiagramDirect(service, request)}
+        onOpenSettings={() => { setInterfaceMode('teacher'); setShowAssignmentsHome(false); setShowAiSettings(true); }}
+      />}
 
       {interfaceMode === 'teacher' && showAssignmentsHome && <AssignmentsHome
         assignments={assignmentProfiles}
@@ -3199,7 +3208,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
 
 
-      {interfaceMode !== 'debug' && !(interfaceMode === 'teacher' && showAssignmentsHome) && <div className={interfaceMode === 'teacher' ? 'teacher-content-column' + (teacherStep === 'review' && !showAiSettings ? ' has-copy-rail' : '') : 'diagnostic-content-column'}>
+      {interfaceMode !== 'debug' && interfaceMode !== 'diagram' && !(interfaceMode === 'teacher' && showAssignmentsHome) && <div className={interfaceMode === 'teacher' ? 'teacher-content-column' + (teacherStep === 'review' && !showAiSettings ? ' has-copy-rail' : '') : 'diagnostic-content-column'}>
       {interfaceMode === 'teacher' && <TeacherWorkspaceNavigation
         assignmentTitle={assignmentTitle}
         studentLabel={studentLabel}
