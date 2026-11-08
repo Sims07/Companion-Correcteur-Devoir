@@ -721,11 +721,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const unreadableCopySignal = hasUnreadableCopySignal(transcription, images.length > 0);
   useEffect(() => { setShowOnlyFlagged(!isFinalized); }, [isFinalized]);
   const subjectReady = correctionMode === 'integrated' || subjectImages.length > 0 || Boolean(subjectTranscription);
+  const gradingModelsReady = Boolean(analysisModel.trim()
+    && (correctionMethod === 'visual-decision' || visionModel.trim()));
   const setupChecks = [
     { label: 'Barème vérifié', detail: validation.valid ? `${validation.maximumPoints} points répartis sur ${rubric.criteria.length} critères` : 'Corrigez les points ou les critères signalés', ready: validation.valid },
     { label: 'Sujet prêt', detail: correctionMode === 'integrated' ? 'Questions intégrées aux pages de la copie' : subjectReady ? `${subjectImages.length} page(s) du sujet importée(s)` : 'Importez le sujet de référence', ready: subjectReady },
     { label: 'Copie importée', detail: images.length ? `${images.length} page(s) · une seule copie à la fois` : 'Ajoutez les pages d’un étudiant', ready: images.length > 0 },
-    { label: 'IA locale configurée', detail: visionModel.trim() && analysisModel.trim() ? `Lecture : ${visionModel} · analyse : ${analysisModel}` : 'Choisissez les modèles Ollama', ready: Boolean(visionModel.trim() && analysisModel.trim()) },
+    { label: 'IA locale configurée', detail: gradingModelsReady
+      ? correctionMethod === 'visual-decision' ? `Lecture et décisions sur images : ${analysisModel}`
+        : `Lecture : ${visionModel} · analyse : ${analysisModel}`
+      : 'Choisissez les modèles Ollama', ready: gradingModelsReady },
   ];
 
   useEffect(() => {
@@ -1184,7 +1189,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     let effectiveSubjectTranscription: string | null = isFreshCorrection ? null : subjectTranscription;
     let classificationWasJustCreated = false;
     const rubricRouting = partitionScientificRubric(rubric);
-    const gradingRubric: Rubric = interfaceMode === 'teacher' ? { ...rubric, criteria: rubricRouting.textCriteria } : rubric;
+    // A direct image decision evaluates the entire rubric on the supplied pages,
+    // without splitting diagrams into a second AI pipeline.
+    const gradingRubric: Rubric = interfaceMode === 'teacher' && correctionMethod !== 'visual-decision'
+      ? { ...rubric, criteria: rubricRouting.textCriteria } : rubric;
     const diagramRubric: Rubric = { ...rubric, criteria: rubricRouting.diagramCriteria };
     setBusy(true);
     if ((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') && strategyOverride !== 'arbitrate-only') {
@@ -1215,15 +1223,21 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       await backgroundService.pauseAndWait(strategyOverride === 'arbitrate-only' ? undefined : visionModel);
       if (!validation.valid) throw new Error(validation.errors.join(' '));
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF de la copie.');
+      if (correctionMethod === 'visual-decision') {
+        if (apiCompatible) throw new Error('Vision + Décisionnel direct nécessite Ollama local et son API /v1/systemone.');
+        if (!isVisualDecisionModel(analysisModel)) throw new Error(/^tev1(?::|$)/i.test(analysisModel)
+          ? 'TEV1 ne prend pas en charge les photos via System One. Choisissez « Décisionnelle — Vision puis System One texte » ou un modèle visuel comme Clef-Flash.'
+          : 'Le modèle d’analyse ne prend pas en charge l’entrée image System One. Sélectionnez un modèle compatible comme Clef-Flash.');
+      }
       if (!apiCompatible && strategyOverride !== 'arbitrate-only') {
         const modelsToCheck = new Set<string>();
-        if (isFreshCorrection && visionModel.trim()) modelsToCheck.add(visionModel.trim());
+        if (isFreshCorrection && correctionMethod !== 'visual-decision' && visionModel.trim()) modelsToCheck.add(visionModel.trim());
         if (gradingRubric.criteria.length > 0 && analysisModel.trim()) modelsToCheck.add(analysisModel.trim());
         for (const model of modelsToCheck) {
           await service.checkReady({ endpoint, apiCompatible: false, model });
         }
       }
-      if (shouldRunTeacherScientificDiagramWorkflow(interfaceMode) && diagramRubric.criteria.length > 0) {
+      if (correctionMethod !== 'visual-decision' && shouldRunTeacherScientificDiagramWorkflow(interfaceMode) && diagramRubric.criteria.length > 0) {
         if (correctionMode === 'separate' && !effectiveSubjectTranscription) {
           if (!subjectImages.length) throw new Error('Importez le sujet de référence avant la notation des schémas.');
           setCriterionProgressMessage('Lecture du sujet de référence avant la notation des schémas…');
@@ -1335,16 +1349,21 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         }
       }
       const shouldRunTextGrading = textImages.length > 0 && gradingRubric.criteria.length > 0;
-      if (shouldRunTextGrading && correctionMode === 'separate' && !subjectImages.length && (isFreshCorrection || !subjectTranscription)) throw new Error('Importez le sujet de référence pour ce mode de correction.');
+      if (shouldRunTextGrading && correctionMethod === 'visual-decision' && correctionMode === 'separate'
+        && !effectiveSubjectTranscription?.trim()) {
+        throw new Error('Vision + Décisionnel direct ne transcrit pas le sujet : utilisez un devoir intégré ou préparez séparément la transcription du sujet.');
+      }
+      if (shouldRunTextGrading && correctionMethod !== 'visual-decision' && correctionMode === 'separate' && !subjectImages.length && (isFreshCorrection || !subjectTranscription)) throw new Error('Importez le sujet de référence pour ce mode de correction.');
       let textProposal: GradingProposal | null = null;
       if (shouldRunTextGrading) {
         const gradingTranscription = isFreshCorrection ? null : transcription;
-        let latestStudentTranscription: string | null = gradingTranscription;
+        const directGradingTranscription = correctionMethod === 'visual-decision' ? null : gradingTranscription;
+        let latestStudentTranscription: string | null = directGradingTranscription;
         // Ollama model metadata was checked above without loading the models.
         setAnalysisStage('reading');
-        if (!gradingTranscription) setCriterionProgressMessage('Chargement du modèle de lecture, cela peut prendre quelques minutes…');
+        if (!directGradingTranscription) setCriterionProgressMessage('Chargement du modèle de lecture, cela peut prendre quelques minutes…');
         const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, correctionMethod, ...((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
-        const teacherAnnotationImages = detectTeacherAnnotations
+        const teacherAnnotationImages = detectTeacherAnnotations && correctionMethod !== 'visual-decision'
           ? await Promise.all(textPageNumbers.map(async (pageNumber) => {
             const pageIndex = pageNumber - 1;
             const image = originalImages[pageIndex] ?? images[pageIndex];
@@ -1353,7 +1372,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           }))
           : undefined;
         const raw = await provider.generate(
-          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, identifyStudent: !gradingTranscription, ...(images[0] ? { identityImage: images[0] } : {}), ...(teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations, ...(correctionMode === 'separate' ? { subjectImages, ...(effectiveSubjectTranscription ? { subjectTranscription: effectiveSubjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
+          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, identifyStudent: correctionMethod !== 'visual-decision' && !directGradingTranscription, ...(correctionMethod !== 'visual-decision' && images[0] ? { identityImage: images[0] } : {}), ...(correctionMethod !== 'visual-decision' && teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations: correctionMethod !== 'visual-decision' && detectTeacherAnnotations, ...(correctionMode === 'separate' ? { ...(correctionMethod !== 'visual-decision' ? { subjectImages } : {}), ...(effectiveSubjectTranscription ? { subjectTranscription: effectiveSubjectTranscription } : {}) } : {}), ...(directGradingTranscription ? { transcription: directGradingTranscription } : {}) },
           (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
           (stage) => {
             const now = Date.now();
@@ -1434,7 +1453,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         setTeacherStep('review');
         setCriterionProgressMessage('Les critères graphiques sont évalués directement sur les schémas ; les critères textuels sans page rédigée restent à vérifier.');
       }
-      const parsed = interfaceMode === 'teacher'
+      const parsed = interfaceMode === 'teacher' && correctionMethod !== 'visual-decision'
         ? (correctionMethod === 'decision'
           ? mergeDecisionScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult)
           : mergeScientificDiagramCriteria(rubric, textProposal, diagramAnalysisResult))
@@ -1564,6 +1583,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const selectedProfiles = options?.profiles ?? aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
     if (selectedProfiles.length < 1) { setError('Sélectionnez au moins une configuration enregistrée pour la tester.'); return; }
     if (!runValidation.valid) { setError(runValidation.errors.join(' ')); return; }
+    if (runStage === 'analysis' && selectedProfiles.some((profile) => profile.configuration.correctionMethod === 'visual-decision')) {
+      setError('Vision + Décisionnel direct nécessite les photos : choisissez « Parcours complet » et non « Analyse seule ».'); return;
+    }
     if (runStage === 'analysis' && !runTranscription?.trim()) { setError('Pour évaluer l’analyse seule, lancez d’abord une lecture Vision et vérifiez sa transcription.'); return; }
     if (runStage !== 'analysis' && !runImages.length) { setError('Importez une copie avant de lancer une évaluation Vision.'); return; }
     if (runStage === 'integrated' && runCorrectionMode === 'separate' && !runSubjectImages.length && !runSubjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
@@ -1573,8 +1595,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setEvaluationArchiveStatus('idle');
     setPendingEvaluationArchive(null);
     const measuredStages = runStage === 'vision' ? ['reading'] as const : runStage === 'analysis' ? ['analysis'] as const : ['reading', 'analysis'] as const;
-    const directProfiles = (profile: AiModelProfile) => runStage === 'integrated' && runVisualDirect
-      && profile.configuration.correctionMethod === 'decision' && isVisualDecisionModel(profile.configuration.analysisModel);
+    const directProfiles = (profile: AiModelProfile) => runStage === 'integrated' && (
+      profile.configuration.correctionMethod === 'visual-decision'
+      || (runVisualDirect && profile.configuration.correctionMethod === 'decision'
+        && isVisualDecisionModel(profile.configuration.analysisModel))
+    );
     const totalEvaluationSteps = selectedProfiles.reduce((sum, profile) => sum + (directProfiles(profile) ? 1 : measuredStages.length), 0);
     setEvaluationProgress({ completed: 0, total: selectedProfiles.length, currentConfiguration: null, status: 'running', completedSteps: 0, totalSteps: totalEvaluationSteps, currentStage: null });
     setEvaluationStage('preparing');
@@ -1620,6 +1645,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       } } : {}),
       execute: async (configuration, _isCancelled, onStage) => {
         setEvaluationStage('preparing');
+        if (configuration.correctionMethod === 'visual-decision' && !isVisualDecisionModel(configuration.analysisModel)) {
+          throw new Error(/^tev1(?::|$)/i.test(configuration.analysisModel)
+            ? 'TEV1 ne supporte pas les images dans System One : sélectionnez une méthode Vision puis Analyse, ou Clef-Flash.'
+            : 'Le modèle choisi ne prend pas en charge les décisions directes sur images dans System One.');
+        }
         if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un modèle de vision pour cette expérience.');
         if (runStage !== 'vision' && !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle d’analyse pour cette expérience.');
         if (runStage !== 'analysis' && !configuration.directVisualDecision) await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.visionModel });
@@ -2080,7 +2110,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               if (pilotStopRef.current || evaluationCancelledRef.current) break;
               setDiagramProtocolProgress('Schéma ' + testCase.id + ' · ' + profile.name + ' · passage '
                 + repetition + '/' + repetitions + ' · '
-                + (usesDirectDiagramVision(profile) ? 'System One image' : 'Vision puis analyse'));
+                + (usesDirectDiagramVision(profile) ? 'System One image (appel unique)' : 'Vision puis analyse'));
               const record = await startModelEvaluation({
                 pilotCase: PILOT_CASES[0]!, stage: 'integrated', profiles: [profile],
                 caseImages: testCase.images, retainModelAfterRun: true,
@@ -3149,7 +3179,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           updatedAt: copy.updatedAt,
         }))}
         activeCopyId={currentCopyId}
-        aiConfigured={Boolean(visionModel.trim() && analysisModel.trim())}
+        aiConfigured={gradingModelsReady}
         settingsExpanded={showAiSettings}
         isAnalyzing={isAnalyzing}
         processingStatus={isAnalyzing ? analysisStage === 'checking' ? 'Préparation de la correction' : analysisStage === 'reading' ? 'Lecture de la copie' : 'Correction des réponses' : 'Correction sur cet ordinateur'}
@@ -3169,7 +3199,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <span className="privacy-status">{apiCompatible ? 'API CONFIGURÉE' : 'OLLAMA LOCAL'}</span>
       </section>}
 
-      {interfaceMode === 'teacher' && showAiSettings && <section id="teacher-ai-settings-panel" className={`panel ollama-panel teacher-model-panel ai-settings-view ${visionModel.trim() && analysisModel.trim() ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
+      {interfaceMode === 'teacher' && showAiSettings && <section id="teacher-ai-settings-panel" className={`panel ollama-panel teacher-model-panel ai-settings-view ${gradingModelsReady ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
         <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DU POSTE</p><h2 id="teacher-model-title">Paramètres de l’IA locale</h2></div><span className="step-count">OLLAMA</span></div>
         <p className="settings-intro">Configurez les modèles utilisés par le parcours de correction. Avec Ollama, les traitements restent sur votre serveur local. Une API compatible OpenAI transmet les contenus au serveur distant configuré.</p>
         <div className="ai-profile-controls" aria-label="Profils de configuration IA">
@@ -3177,7 +3207,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <div className="ai-profile-row">
             <DesignSystemSelect id="ai-model-profile" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else setSelectedAiModelProfileId(''); }}>
               <option value="">Configuration actuelle</option>
-              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'} · {profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}
+              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'} · {profile.configuration.correctionMethod === 'visual-decision' ? 'vision + décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}
             </DesignSystemSelect>
             <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
           </div>
@@ -3220,10 +3250,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <label className="field-label" htmlFor="ai-correction-method">Méthode de correction</label>
         <DesignSystemSelect id="ai-correction-method" value={correctionMethod} onChange={(event) => setCorrectionMethod(event.target.value as CorrectionMethod)}>
           <option value="generative">Classique — vision et analyse</option>
-          <option value="decision">Décisionnelle — décisions par attendu</option>
+          <option value="decision">Décisionnelle — Vision puis System One texte</option>
+          <option value="visual-decision">Vision + Décisionnel direct — 1 appel image System One</option>
         </DesignSystemSelect>
-        <p className="hint">Le mode classique utilise Chat pour la notation. Le mode décisionnel appelle toujours /v1/systemone sur Ollama local, quel que soit le nom du modèle : ce dernier doit être compatible System One. La lecture des photos continue d’utiliser Chat. Les décisions incertaines restent à vérifier par le professeur.</p>
-        <label className="analysis-thinking-option" htmlFor="ai-criterion-by-criterion"><input id="ai-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod === 'decision'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère, avec affichage progressif. Désactivez cette option pour envoyer tout le barème dans un seul appel et comparer les deux approches.</small></span></label>
+        {correctionMethod === 'visual-decision' && !isVisualDecisionModel(analysisModel) && <StatusNotice tone="warning">Le modèle {analysisModel || 'non sélectionné'} n’est pas reconnu comme compatible avec les images System One. TEV1 accepte les questions sur texte, mais refuse les photos dans cette API. Utilisez Clef-Flash ou revenez au mode décisionnel sur transcription.</StatusNotice>}
+        <p className="hint">Classique : lecture Vision puis correction Chat. Décisionnelle : lecture Vision puis System One sur texte. Vision + Décisionnel direct : schéma et barème transmis ensemble dans un seul appel /v1/systemone, sans transcription. Modèles compatibles : Clef-Flash/Clef, et D1/D3 expérimentaux. TEV1 est textuel dans System One : il ne peut pas recevoir les images via cet endpoint. Aucun repli Chat automatique.</p>
+        <label className="analysis-thinking-option" htmlFor="ai-criterion-by-criterion"><input id="ai-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère, avec affichage progressif. Désactivez cette option pour envoyer tout le barème dans un seul appel et comparer les deux approches.</small></span></label>
         {apiCompatible && <section className="saluki-load-card" aria-labelledby="saluki-load-title">
           <div className="saluki-load-heading"><div><p className="eyebrow">MODÈLE AVANCÉ · À LA DEMANDE</p><h3 id="saluki-load-title">Saluki 27B <span className="saluki-beta">BÊTA</span></h3></div><span className={salukiLoaded ? 'saluki-status is-loaded' : 'saluki-status'}>{salukiLoaded ? 'Chargé' : 'Non chargé'}</span></div>
           <p>Modèle texte et images plus puissant, chargé temporairement à la place de <code>system1</code> et <code>system1-vision</code>. Les mêmes endpoints de correction restent utilisés : les sélecteurs de modèles ne changent pas.</p>
@@ -3284,17 +3316,17 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="evaluation-config-editor">
           <div className="evaluation-config-editor-heading"><div><h3>Configuration IA locale</h3><p>Un profil = un modèle de lecture, un modèle d’analyse et ses options.</p></div><button type="button" className="secondary-button" disabled={busy} onClick={() => { setSelectedAiModelProfileId(''); setAiModelProfileName(''); setAiModelProfileTone('info'); setAiModelProfileMessage('Nouvelle configuration : renseignez les modèles puis enregistrez.'); setEndpoint(defaultAiModelConfiguration.endpoint); setVisionModel(''); setAnalysisModel(''); setSecondAnalysisModel(''); setArbitratorModel(''); setDiagnosticStrategy('single'); setCorrectionMethod(defaultAiModelConfiguration.correctionMethod); setAnalysisThinking(false); setCriterionByCriterion(true); setAvailableModels([]); setConnectionMessage(''); }}>＋ Nouvelle configuration</button></div>
           <div className="evaluation-config-fields">
-            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}</DesignSystemSelect></div>
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.configuration.correctionMethod === 'visual-decision' ? 'vision + décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}</DesignSystemSelect></div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-name">Nom de la configuration</label><input id="evaluation-profile-name" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Ex. Gemma rapide, Qwen raisonnement…" /></div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-provider">Fournisseur IA</label><DesignSystemSelect id="evaluation-provider" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://serveur/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}><option value="ollama">Ollama local</option><option value="openai">API compatible OpenAI</option></DesignSystemSelect></div><div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-ollama-endpoint">{apiCompatible ? 'URL Chat Completions' : 'Adresse du serveur Ollama'}</label><input id="evaluation-ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} /></div>{apiCompatible && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-api-key">Token API (Bearer)</label><input id="evaluation-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><small>Utilisé pour les appels au serveur compatible OpenAI et conservé dans le stockage local de ce navigateur.</small></div>}
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-vision-model">Modèle de lecture des images</label>{availableModels.length ? <DesignSystemSelect id="evaluation-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)}><option value="">Choisir un modèle vision</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="Ex. gemma3:4b" />}</div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-analysis-model">Modèle d’analyse et de notation</label>{availableModels.length ? <DesignSystemSelect id="evaluation-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}><option value="">Choisir un modèle d’analyse</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="Ex. qwen3.5:4b" />}</div>
-            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-correction-method">Méthode de correction</label><DesignSystemSelect id="evaluation-correction-method" value={correctionMethod} onChange={(event) => setCorrectionMethod(event.target.value as CorrectionMethod)}><option value="generative">Classique — vision et analyse</option><option value="decision">Décisionnelle — décisions par attendu</option></DesignSystemSelect><small>Le mode décisionnel utilise /v1/systemone avec Ollama local, quel que soit le nom du modèle d’analyse. La lecture des photos reste en Chat ; aucun repli vers Chat n’est effectué pour la notation. Les réponses incertaines restent à valider par le professeur.</small></div>
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-correction-method">Méthode de correction</label><DesignSystemSelect id="evaluation-correction-method" value={correctionMethod} onChange={(event) => setCorrectionMethod(event.target.value as CorrectionMethod)}><option value="generative">Classique — Vision puis analyse</option><option value="decision">Décisionnelle — Vision puis System One texte</option><option value="visual-decision">Vision + Décisionnel direct — 1 appel System One image</option></DesignSystemSelect><small>Décisionnelle : transcription Vision puis questions System One sur texte (TEV1 compatible). Vision + Décisionnel direct : images et questions en un seul appel System One, sans OCR, uniquement avec un modèle image compatible (Clef-Flash/Clef, D1/D3 expérimentaux). TEV1 refuse les images via System One. Aucun repli automatique vers Chat.</small></div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-strategy">Stratégie d’analyse</label><DesignSystemSelect id="evaluation-strategy" value={diagnosticStrategy} onChange={(event) => setDiagnosticStrategy(event.target.value as DiagnosticStrategy)}><option value="single">Un modèle d’analyse</option><option value="compare">Comparer deux avis</option><option value="arbitrate">Deux avis + arbitre</option></DesignSystemSelect></div>
             {diagnosticStrategy !== 'single' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-second-model">Second modèle d’analyse</label>{availableModels.length ? <DesignSystemSelect id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}><option value="">Choisir un modèle</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle" />}</div>}
             {diagnosticStrategy === 'arbitrate' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-arbitrator-model">Modèle arbitre</label>{availableModels.length ? <DesignSystemSelect id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)}><option value="">Choisir un arbitre</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)} placeholder="Nom du modèle arbitre" />}</div>}
           </div>
-          <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-criterion-by-criterion"><input id="evaluation-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod === 'decision'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel par critère, séquentiellement. Désactivez pour comparer avec une requête globale.</small></span></label>
+          <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-criterion-by-criterion"><input id="evaluation-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel par critère, séquentiellement. Désactivez pour comparer avec une requête globale.</small></span></label>
           <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-analysis-thinking"><input id="evaluation-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} /><span><strong>Activer le mode thinking</strong><small>Désactivé par défaut. Peut améliorer le raisonnement mais allonger fortement les essais.</small></span></label>
           <div className="evaluation-config-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button><Button variant="primary" disabled={busy || pilotBusy} onClick={saveAiModelProfile}>Enregistrer la configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button></div>
           {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}{aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
@@ -3320,7 +3352,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <div className="ai-profile-row">
             <DesignSystemSelect id="debug-ai-model-profile" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else setSelectedAiModelProfileId(''); }}>
               <option value="">Configuration actuelle</option>
-              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'} · {profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}
+              {aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.mode === 'arbitrate' ? 'avec arbitre' : profile.mode === 'compare' ? 'comparaison' : 'un modèle'} · {profile.configuration.correctionMethod === 'visual-decision' ? 'vision + décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}
             </DesignSystemSelect>
             <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
           </div>
@@ -3357,7 +3389,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </>}
             <p className="hint">Ces options ne sont appliquées qu’en mode Diagnostic IA. Le mode Correction reste sur un seul modèle.</p>
           </div>
-          <label className="analysis-thinking-option" htmlFor="debug-criterion-by-criterion"><input id="debug-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod === 'decision'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère. Désactivez pour envoyer tout le barème en une seule requête.</small></span></label>
+          <label className="analysis-thinking-option" htmlFor="debug-criterion-by-criterion"><input id="debug-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère. Désactivez pour envoyer tout le barème en une seule requête.</small></span></label>
           <label className="analysis-thinking-option" htmlFor="ollama-analysis-thinking">
             <input id="ollama-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} />
             <span><strong>Activer le mode thinking pour l’analyse</strong><small>Désactivé par défaut. Peut améliorer le raisonnement, mais allonger fortement le temps de correction et ne fonctionne pas avec tous les modèles.</small></span>
@@ -3365,7 +3397,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
           {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
           <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p></article>
-          <div className="debug-run-actions"><button type="button" className="primary-button" disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? 'Diagnostic local en cours…' : 'Lancer le diagnostic avancé'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
+          <div className="debug-run-actions"><button type="button" className="primary-button" disabled={busy || !images.length || !gradingModelsReady || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? 'Diagnostic local en cours…' : 'Lancer le diagnostic avancé'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
         </section>
         <section className="transcription-review"><h3>Transcription actuellement chargée</h3>{transcription ? <pre>{transcription}</pre> : <p className="hint">Aucune transcription disponible.</p>}</section>
         <section className="transcription-review"><h3>Dernière réponse reçue en streaming</h3>{streamedOutput ? <pre>{streamedOutput}</pre> : <p className="hint">Aucune réponse en streaming disponible.</p>}</section>
@@ -4139,7 +4171,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <label className="field-label" htmlFor="grading-question">Consigne / question de l’exercice</label>
           <textarea id="grading-question" rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} />
         </details>
-        <button className="primary-button grade-button" aria-busy={busy} disabled={busy || !images.length || !visionModel.trim() || !analysisModel.trim() || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? analysisStage === 'checking' ? 'Préparation de la correction…' : analysisStage === 'reading' ? 'Lecture de la copie…' : 'Correction en cours…' : 'Analyse locale en cours…') : interfaceMode === 'teacher' ? 'Corriger' : transcription ? 'Relancer l’analyse sans relire les images' : 'Lire puis analyser les copies'}</button>
+        <button className="primary-button grade-button" aria-busy={busy} disabled={busy || !images.length || !gradingModelsReady || !validation.valid || !subjectReady} onClick={() => void gradeCopies()}>{busy ? (interfaceMode === 'teacher' ? analysisStage === 'checking' ? 'Préparation de la correction…' : analysisStage === 'reading' ? 'Lecture de la copie…' : 'Correction en cours…' : 'Analyse locale en cours…') : interfaceMode === 'teacher' ? 'Corriger' : transcription ? 'Relancer l’analyse sans relire les images' : 'Lire puis analyser les copies'}</button>
         {interfaceMode === 'teacher' && <p className="launch-footnote">Après l’analyse, la proposition est retenue automatiquement. Les alertes restent visibles et vous pouvez ajuster chaque note si nécessaire.</p>}
       </section>}
       {interfaceMode === 'teacher' && teacherStep === 'copy' && correctionSessionMode === 'individual' && <div className="teacher-copy-footer"><button type="button" className="secondary-button" onClick={() => setTeacherStep('rubric')}>← Revoir le barème</button><span>Une seule copie à la fois · ajustement facultatif des propositions</span></div>}

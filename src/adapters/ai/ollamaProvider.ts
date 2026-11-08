@@ -300,11 +300,11 @@ export function createOllamaProvider(
   return {
     id: settings.apiCompatible ? 'openai-compatible' : 'ollama',
     async generate(request: GradingRequest, onChunk?: (chunk: string) => void, onStage?: (stage: 'reading' | 'grading') => void, onTranscription?: (transcription: string, kind?: 'copy' | 'subject' | 'annotations' | 'warning' | 'identity') => void, onDiagnosticResult?: (result: DiagnosticModelResult) => void, onCriterionUpdate?: (update: CriterionAnalysisUpdate) => void, onTeacherAnnotationReview?: (candidates: TeacherAnnotationReviewCandidate[]) => Promise<TeacherAnnotationReviewDecision[]>, onProgress?: (event: GradingProgressEvent) => void, signal?: AbortSignal): Promise<string> {
-      if (!request.visionOnly) requireCorrectionMethodAvailable(settings.correctionMethod ?? 'generative', new Set(['generative', 'decision']));
+      if (!request.visionOnly) requireCorrectionMethodAvailable(settings.correctionMethod ?? 'generative', new Set(['generative', 'decision', 'visual-decision']));
       const endpoint = normalizedEndpoint(settings.endpoint);
       const providerName = settings.apiCompatible ? 'API compatible OpenAI' : 'Ollama';
       const visionOnly = request.visionOnly === true;
-      const directVisualDecision = request.directVisualDecision === true;
+      const directVisualDecision = !visionOnly && (request.directVisualDecision === true || settings.correctionMethod === 'visual-decision');
       onProgress?.({ type: 'phase', phase: 'preparation' });
       const hasTranscription = Boolean(request.transcription?.trim());
       if (!visionOnly && !directVisualDecision && !hasTranscription && !(settings.visionModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
@@ -316,12 +316,17 @@ export function createOllamaProvider(
       // The explicit correction method, never the model name, selects the grading API.
       // Vision transcription still uses Chat. OpenAI-compatible providers do not expose
       // Ollama's native /v1/systemone endpoint; fail before grading, never fall back.
-      if (!visionOnly && settings.correctionMethod === 'decision' && settings.apiCompatible) {
+      if (!visionOnly && (settings.correctionMethod === 'decision' || settings.correctionMethod === 'visual-decision') && settings.apiCompatible) {
         throw new Error('La correction décisionnelle requiert l’API /v1/systemone d’Ollama local. Choisissez Ollama local comme fournisseur ; aucune conversion en appel Chat n’est effectuée.');
       }
       if (directVisualDecision) {
-        if (settings.correctionMethod !== 'decision' || !isVisualDecisionModel(analysisModel) || settings.apiCompatible) {
-          throw new Error('La décision sur image exige un modèle Ollama local D1 ou D3 et la méthode décisionnelle.');
+        if (!['decision', 'visual-decision'].includes(settings.correctionMethod ?? '') || settings.apiCompatible) {
+          throw new Error('Vision + Décisionnel direct exige un modèle Ollama local compatible System One.');
+        }
+        if (!isVisualDecisionModel(analysisModel)) {
+          throw new Error(/^tev1(?::|$)/i.test(analysisModel)
+            ? 'TEV1 n’accepte pas les images via /v1/systemone : choisissez Décisionnelle (Vision puis TEV1 sur texte), ou Clef-Flash pour Vision + Décisionnel direct.'
+            : 'Ce modèle ne dispose pas du parcours image System One validé. Utilisez Clef-Flash (ou un D1/D3 compatible).');
         }
         if (!request.images?.length || request.transcription?.trim() || request.visionOnly
           || request.detectTeacherAnnotations || request.identifyStudent) {
@@ -653,7 +658,7 @@ export function createOllamaProvider(
         }
       }
 
-      if (!rubricCriteriaForSchema.some(c => c.correctionContract) && !request.visionOnly && settings.correctionMethod !== 'decision' && !useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription && !request.detectTeacherAnnotations && !request.identifyStudent) {
+      if (!rubricCriteriaForSchema.some(c => c.correctionContract) && !request.visionOnly && (settings.correctionMethod === undefined || settings.correctionMethod === 'generative') && !useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription && !request.detectTeacherAnnotations && !request.identifyStudent) {
         // Compatibility mode for existing callers configured with one model.
         return sendGradingWithRepair(analysisModel, buildPrompt(), (request.images ?? []).map(providerImage), onChunk, { kind: 'model', stage: 'analysis' });
       }
@@ -901,7 +906,7 @@ export function createOllamaProvider(
       const scopedGroups = hasQuestionContracts
         ? questionGroups(rubricCriteriaForSchema, transcription ?? '', request.question) : undefined;
       const gradingPrompt = buildPrompt(transcription, subjectTranscription);
-      if (settings.correctionMethod === 'decision') {
+      if (settings.correctionMethod === 'decision' || settings.correctionMethod === 'visual-decision') {
         if (settings.diagnosticStrategy && settings.diagnosticStrategy !== 'single') {
           throw new Error('Le mode décisionnel ne prend pas encore en charge les stratégies de comparaison ou d’arbitrage.');
         }

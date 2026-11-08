@@ -14,6 +14,8 @@ describe('direct visual System One evidence', () => {
   it('only enables tested vision-capable decision families', () => {
     expect(isVisualDecisionModel('d1:3b')).toBe(true);
     expect(isVisualDecisionModel('D3:4b')).toBe(true);
+    expect(isVisualDecisionModel('clef-flash')).toBe(true);
+    expect(isVisualDecisionModel('clef:27b')).toBe(true);
     expect(isVisualDecisionModel('tev1')).toBe(false);
     expect(isVisualDecisionModel('d2')).toBe(false);
     expect(isVisualDecisionModel('qwen3.5:4b')).toBe(false);
