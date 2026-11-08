@@ -86,7 +86,7 @@ describe('teacher and AI diagnostic interface modes', () => {
   });
 
   it('defaults to the teacher correction view', () => {
-    expect(app()).toContain("useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher')");
+    expect(app()).toContain("useState<'teacher' | 'diagram' | 'diagnostic' | 'debug' | 'observability'>('teacher')");
     expect(app()).toContain("interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'");
   });
 
@@ -191,13 +191,15 @@ describe('teacher and AI diagnostic interface modes', () => {
     const text = app();
     expect(text).toContain('role="group" aria-label="Mode d’interface"');
     expect(text).toContain("aria-pressed={interfaceMode === 'teacher'}");
-    expect(text).toContain("aria-pressed={interfaceMode !== 'teacher'}");
+    expect(text).toContain("aria-pressed={interfaceMode !== 'teacher' && interfaceMode !== 'diagram'}");
     expect(text).toContain("onClick={() => setInterfaceMode('teacher')}");
-    expect(text).toContain("setInterfaceMode(interfaceMode === 'teacher' ? 'observability' : interfaceMode)");
+    expect(text).toContain("setInterfaceMode(interfaceMode === 'teacher' || interfaceMode === 'diagram' ? 'observability' : interfaceMode)");
     const switcher = text.slice(text.indexOf('<div className="view-switch"'), text.indexOf('</header>', text.indexOf('<div className="view-switch"')));
     expect(switcher).not.toContain('>Inspecteur réseau</button>');
     expect(switcher).not.toContain('>Évaluation des modèles</button>');
     expect(switcher).toContain('>Outils IA</button>');
+    expect(switcher).toContain('>Schémas scientifiques</button>');
+    expect(text).toContain("aria-pressed={interfaceMode === 'diagram'}");
   });
 
   it('keeps local AI setup and processing status visible in the workspace navigation', () => {
