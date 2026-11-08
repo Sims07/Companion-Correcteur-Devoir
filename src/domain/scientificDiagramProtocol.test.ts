@@ -88,6 +88,9 @@ describe('protocole de schémas scientifiques', () => {
   it('réserve la décision image native à D1/D3 et n’invente pas de vision TEV1', () => {
     expect(usesDirectDiagramVision(profile('d1:3b'))).toBe(true);
     expect(usesDirectDiagramVision(profile('d3:4b'))).toBe(true);
+    expect(usesDirectDiagramVision(profile('clef-flash', 'visual-decision'))).toBe(true);
+    expect(usesDirectDiagramVision(profile('tev1:4b', 'visual-decision'))).toBe(false);
+    expect(diagramProtocolProfileIssue(profile('tev1:4b', 'visual-decision'))).toContain('TEV1');
     expect(usesDirectDiagramVision(profile('tev1:4b'))).toBe(false);
     expect(usesDirectDiagramVision(profile('qwen3.5:4b', 'generative'))).toBe(false);
     expect(diagramProtocolProfileIssue({ ...profile('tev1:4b'),
@@ -96,6 +99,8 @@ describe('protocole de schémas scientifiques', () => {
       configuration: { ...profile('d1:3b').configuration, visionModel: '' } })).toBeNull();
     expect(diagramProtocolProfileIssue({ ...profile('d1:3b'),
       configuration: { ...profile('d1:3b').configuration, apiCompatible: true } })).toContain('System One');
+    expect(diagramProtocolProfileIssue({ ...profile('clef-flash', 'visual-decision'),
+      configuration: { ...profile('clef-flash', 'visual-decision').configuration, visionModel: '' } })).toBeNull();
   });
   it('lit les décisions visuelles sans déduire absent lorsque le modèle ne répond pas', () => {
     const observations = diagramObservations(result(), SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC);
