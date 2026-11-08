@@ -3,6 +3,8 @@ import { parseGradingProposal, type GradingProposal } from '../domain/grading.ts
 import { validateRubric, type Rubric } from '../domain/rubric.ts';
 import type { ImageInput } from '../ports/aiProvider.ts';
 import type { CorrectionWorkspaceService } from './correctionWorkspaceService.ts';
+import { isLoopbackDiagramEndpoint } from '../domain/directDiagramAssignment.ts';
+export { isLoopbackDiagramEndpoint, directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
 
 export interface DirectScientificDiagramRequest {
   images: ImageInput[];
@@ -12,37 +14,6 @@ export interface DirectScientificDiagramRequest {
   /** Required when the configured server is not on this computer. */
   remoteConsent: boolean;
   signal?: AbortSignal;
-}
-
-export function isLoopbackDiagramEndpoint(endpoint: string): boolean {
-  try {
-    const hostname = new URL(endpoint).hostname.toLowerCase();
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
-  } catch { return false; }
-}
-
-/** Validate the selected diagram assignment before admitting any student image
- * into the queue. Consent is tied to the exact endpoint, not a boolean that
- * would silently authorize a different server after settings change. */
-export function directDiagramAssignmentIssue(
-  rubric: Rubric,
-  configuration: Pick<AiModelConfiguration, 'correctionMethod' | 'analysisModel' | 'endpoint'>,
-  consentedEndpoint: string | null,
-): string | null {
-  const validation = validateRubric(rubric);
-  if (!validation.valid) return validation.errors.join(' ');
-  if (rubric.criteria.some((item) => item.analysisMode !== 'scientific-diagram')) {
-    return 'Le barème de ce devoir doit contenir exclusivement des critères de schéma scientifique.';
-  }
-  if (configuration.correctionMethod !== 'generative') {
-    return 'Pour ce devoir, choisissez la méthode classique (générative), avec un modèle de vision.';
-  }
-  if (!configuration.analysisModel.trim()) return 'Choisissez un modèle génératif capable de lire le schéma.';
-  if (!configuration.endpoint.trim()) return 'Configurez une adresse de serveur IA.';
-  if (!isLoopbackDiagramEndpoint(configuration.endpoint) && consentedEndpoint !== configuration.endpoint) {
-    return 'Autorisez explicitement l’envoi des schémas au serveur configuré avant de lancer la correction.';
-  }
-  return null;
 }
 
 /** Teacher-facing, single-pass diagram grading. Reuses the same strictly
