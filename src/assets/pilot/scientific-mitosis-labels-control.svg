@@ -63,7 +63,7 @@
 <text class="legend" x="807" y="908" text-anchor="middle">Noyau fils</text>
 <text class="legend" x="1021" y="908" text-anchor="middle">Plaque cellulaire</text>
 <line id="pointer-interphase-noyau" class="pointer" x1="225" y1="449" x2="255" y2="267"/>
-<line id="pointer-prophase-chromosomes" class="pointer" x1="860" y1="449" x2="863" y2="273"/>
+<line id="pointer-prophase-chromosomes" class="pointer" x1="860" y1="449" x2="895" y2="278"/>
 <line id="pointer-metaphase-chromosomes" class="pointer" x1="211" y1="873" x2="279" y2="681"/>
 <line id="pointer-metaphase-fuseau" class="pointer" x1="433" y1="873" x2="397" y2="706"/>
 <line id="pointer-telophase-noyau" class="pointer" x1="807" y1="873" x2="798" y2="688"/>
