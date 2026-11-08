@@ -85,6 +85,14 @@ export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMe
   if (!isSupportedPilotProfile(profile)) return 'Adresse de serveur invalide : ' + profile.name;
   if (!profile.configuration.analysisModel.trim()) return 'Modèle d’analyse manquant : ' + profile.name;
   if (selectDiagramMethods(profile, selection).length) return null;
+  // Preserve the actionable incompatibility explanation if an obsolete or
+  // misconfigured profile explicitly requests image-based System One.
+  if (profile.configuration.correctionMethod === 'visual-decision'
+    && !isVisualDecisionModel(profile.configuration.analysisModel)) {
+    return /^tev1(?::|$)/i.test(profile.configuration.analysisModel)
+      ? 'TEV1 ne prend pas en charge les images via System One. Choisissez Vision puis TEV1 texte ou un modèle visuel compatible.'
+      : 'Ce modèle ne peut pas recevoir directement le schéma via System One : ' + profile.name;
+  }
   return selection === 'direct-image-generative'
     ? 'Le parcours génératif direct exige une configuration générative et un modèle acceptant les images : ' + profile.name
     : selection === 'direct-image-systemone'
