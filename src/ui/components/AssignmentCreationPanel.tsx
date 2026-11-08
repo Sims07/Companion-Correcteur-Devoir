@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { Button, Field, TextArea, TextInput } from '../design-system/index.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
+import type { AssignmentKind } from '../../domain/assignmentKind.ts';
 
 export interface NewAssignmentDetails {
   title: string;
   description: string;
   educationLevel: string;
+  kind?: AssignmentKind;
 }
 
 interface Props {
@@ -17,20 +19,30 @@ export function AssignmentCreationPanel({ onCreate, onCancel }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [educationLevel, setEducationLevel] = useState('');
+  const [kind, setKind] = useState<AssignmentKind>('standard');
   const [attempted, setAttempted] = useState(false);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAttempted(true);
     if (!title.trim()) return;
-    onCreate({ title: title.trim(), description: description.trim(), educationLevel });
+    onCreate({ title: title.trim(), description: description.trim(), educationLevel, kind });
   }
 
   return <section className="assignment-creation-panel panel" aria-labelledby="assignment-creation-heading">
     <div className="assignment-creation-heading">
-      <div><p className="eyebrow">NOUVEAU DEVOIR</p><h3 id="assignment-creation-heading">Préparer une évaluation</h3><p>Donnez un nom au devoir. Vous préparerez ensuite son barème, à partir de zéro ou d’un ancien devoir.</p></div>
+      <div><p className="eyebrow">NOUVEAU DEVOIR</p><h3 id="assignment-creation-heading">Préparer une évaluation</h3><p>Choisissez votre type de devoir. Les schémas scientifiques disposent déjà d’un barème graphique que vous pourrez adapter.</p></div>
     </div>
     <form onSubmit={submit} className="assignment-creation-form" noValidate>
+      <Field label="Type de devoir" htmlFor="new-assignment-kind">
+        <DesignSystemSelect id="new-assignment-kind" value={kind} onChange={(event) => setKind(event.target.value as AssignmentKind)}>
+          <option value="standard">Devoir classique · réponses rédigées</option>
+          <option value="scientific-diagram">Schéma scientifique · correction directe de l’image</option>
+        </DesignSystemSelect>
+      </Field>
+      {kind === 'scientific-diagram' && <p className="hint" role="status">
+        Barème initial : 15 attendus graphiques, 8 points. Le devoir retrouvera la même liste de copies, le même suivi et les mêmes archives que les autres devoirs.
+      </p>}
       <Field label="Nom du devoir" htmlFor="new-assignment-title" required error={attempted && !title.trim() ? 'Donnez un nom à ce devoir.' : undefined}>
         <TextInput id="new-assignment-title" autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ex. Partiel de biologie cellulaire" />
       </Field>
@@ -54,7 +66,7 @@ export function AssignmentCreationPanel({ onCreate, onCancel }: Props) {
       </Field>
       <div className="assignment-creation-actions">
         <Button variant="secondary" onClick={onCancel}>Annuler</Button>
-        <Button type="submit">Créer et préparer le barème →</Button>
+        <Button type="submit">{kind === 'scientific-diagram' ? 'Créer le devoir de schéma →' : 'Créer et préparer le barème →'}</Button>
       </div>
     </form>
   </section>;

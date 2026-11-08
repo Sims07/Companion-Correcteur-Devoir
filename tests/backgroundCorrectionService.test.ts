@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createBackgroundCorrection, toBackgroundJobOverview } from '../src/domain/backgroundCorrection.ts';
 import { createBackgroundCorrectionService } from '../src/application/backgroundCorrectionService.ts';
 import { createScientificDiagramAnalysisService } from '../src/application/scientificDiagramAnalysisService.ts';
+import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC } from '../src/domain/scientificDiagramProtocol.ts';
 import type { BackgroundCorrectionJob } from '../src/domain/backgroundCorrection.ts';
 import type { BackgroundCorrectionRepository } from '../src/ports/backgroundCorrectionRepository.ts';
 import type { GradingProvider, GradingRequest, OllamaSettings } from '../src/ports/aiProvider.ts';
@@ -1300,5 +1301,130 @@ describe('background correction cancellation', () => {
     await service.stopAndWait();
     await processing;
     expect(f.jobs.get('copy-1')).toMatchObject({ status: 'pending', partialCriteria: [], transcription: 'Texte extrait de la copie' });
+  });
+});
+
+describe('diagram assignments share the resumable correction queue', () => {
+  function diagramFixture() {
+    const f = fixture();
+    const rubric = structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC);
+    const first = {
+      ...f.job,
+      rubric, totalCriteria: rubric.criteria.length,
+      correctionMethod: 'generative' as const,
+      gradingFlow: 'scientific-diagram-direct' as const,
+    };
+    f.jobs.set('copy-1', first);
+    return { f, rubric, first };
+  }
+
+  function diagramResponse(rubric: typeof SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC) {
+    return JSON.stringify({
+      summary: 'Schéma à examiner', finalScore: 0,
+      criteria: rubric.criteria.map((criterion) => ({
+        criterionId: criterion.id, points: 0, evidence: 'Pas de preuve graphique',
+        confidence: 'low', rationale: '',
+        subcriteria: (criterion.subcriteria ?? []).map((sub) => ({
+          subcriterionId: sub.id, points: 0, evidence: 'Non observé',
+        })),
+      })),
+    });
+  }
+
+  it('analyzes two student diagrams in one direct visual call each, without OCR, and keeps both in the same devoir', async () => {
+    const { f, rubric, first } = diagramFixture();
+    f.jobs.set('copy-2', { ...structuredClone(first), id: 'copy-2',
+      images: [{ base64: 'Y29waWU=', mimeType: 'image/png', fileName: 'b.png' }],
+      originalImages: [{ base64: 'Y29waWU=', mimeType: 'image/png', fileName: 'b.png' }],
+      createdAt: '2026-11-01T10:00:00.000Z' });
+    f.setGenerateImplementation(async (request) => {
+      f.requests.push(request);
+      return diagramResponse(rubric);
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    await service.processPending({
+      endpoint: 'http://localhost:11434', visionModel: '',
+      analysisModel: 'qwen3.5:4b', correctionMethod: 'generative',
+    }, 'assignment-1');
+    expect(f.requests).toHaveLength(2);
+    expect(f.requests.every((request) => request.directGenerativeVision === true)).toBe(true);
+    expect(f.requests.map((request) => request.images?.[0]?.base64)).toEqual(['aGVsbG8=', 'Y29waWU=']);
+    expect(f.requests.every((request) => request.transcription === undefined && !request.identifyStudent)).toBe(true);
+    expect(f.jobs.get('copy-1')).toMatchObject({
+      status: 'ready', phase: 'complete', completedPages: 1,
+      completedCriteria: 3, transcription: null, proposal: { finalScore: 0 },
+    });
+    expect(f.jobs.get('copy-2')).toMatchObject({ status: 'ready', proposal: { finalScore: 0 } });
+    expect((await service.listJobSummaries('assignment-1'))).toHaveLength(2);
+  });
+
+  it('refuses all network calls for remote models without consent and allows an explicit retry for that exact endpoint', async () => {
+    const { f, rubric } = diagramFixture();
+    f.setGenerateImplementation(async (request) => {
+      f.requests.push(request);
+      return diagramResponse(rubric);
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'https://remote.example/v1/chat/completions',
+      apiCompatible: true, visionModel: '', analysisModel: 'qwen-vision',
+      correctionMethod: 'generative' as const };
+    await service.processPending(settings, 'assignment-1');
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'failed' });
+    expect(f.requests).toHaveLength(0);
+    expect(f.workspace.checkReady).not.toHaveBeenCalled();
+    await expect(service.retry('copy-1', settings, 'https://other.example/v1')).rejects.toThrow('Autorisez');
+    expect(f.jobs.get('copy-1')?.status).toBe('failed');
+    await service.retry('copy-1', settings, settings.endpoint);
+    expect(f.jobs.get('copy-1')).toMatchObject({
+      status: 'ready', diagramConsentedEndpoint: settings.endpoint,
+    });
+    expect(f.requests).toHaveLength(1);
+    const altered = { ...settings, endpoint: 'https://another.example/v1/chat/completions' };
+    f.jobs.set('copy-1', { ...f.jobs.get('copy-1')!, status: 'failed' });
+    await expect(service.retry('copy-1', altered)).rejects.toThrow('Autorisez');
+    expect(f.requests).toHaveLength(1);
+  });
+
+  it('keeps a malformed visual response retryable instead of inventing a score', async () => {
+    const { f, rubric } = diagramFixture();
+    f.setGenerateImplementation(async (request) => {
+      f.requests.push(request);
+      return 'pas un JSON';
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const settings = { endpoint: 'http://localhost:11434', visionModel: '',
+      analysisModel: 'qwen-vision', correctionMethod: 'generative' as const };
+    await service.processPending(settings, 'assignment-1');
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'failed', proposal: null, completedCriteria: 0 });
+    f.setGenerateImplementation(async (request) => {
+      f.requests.push(request);
+      return diagramResponse(rubric);
+    });
+    await service.retry('copy-1', settings);
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'ready', completedCriteria: 3 });
+    expect(f.requests).toHaveLength(2);
+  });
+
+  it('stops a stuck direct visual inference and retains the same copy for resumption', async () => {
+    const { f } = diagramFixture();
+    let started!: () => void;
+    const inFlight = new Promise<void>((resolve) => { started = resolve; });
+    let signal: AbortSignal | undefined;
+    f.setGenerateImplementation(async (_request, _chunk, _stage, _transcript, _diagnostic, _criterion, _annotation, _progress, requestSignal) => {
+      signal = requestSignal;
+      started();
+      return new Promise<string>(() => undefined);
+    });
+    const service = createBackgroundCorrectionService(f.repository, f.workspace);
+    const processing = service.processPending({
+      endpoint: 'http://localhost:11434', visionModel: '',
+      analysisModel: 'qwen-vision', correctionMethod: 'generative',
+    }, 'assignment-1');
+    await inFlight;
+    expect(f.jobs.get('copy-1')).toMatchObject({ phase: 'grading', status: 'processing' });
+    await service.stopAndWait();
+    await processing;
+    expect(signal?.aborted).toBe(true);
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'pending', proposal: null });
   });
 });

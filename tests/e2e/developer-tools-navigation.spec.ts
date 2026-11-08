@@ -4,8 +4,9 @@ test('teacher correction stays simple while the AI tools remain available for tr
   await page.goto('/');
 
   const primaryNavigation = page.getByRole('group', { name: 'Mode d’interface' });
-  await expect(primaryNavigation.getByRole('button')).toHaveCount(3);
-  await expect(primaryNavigation.getByRole('button', { name: 'Schémas scientifiques' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(primaryNavigation.getByRole('button')).toHaveCount(2);
+  // Diagram corrections belong in Mes devoirs, not in a parallel navigation mode.
+  await expect(primaryNavigation.getByRole('button', { name: 'Schémas scientifiques' })).toHaveCount(0);
   await expect(primaryNavigation.getByRole('button', { name: 'Correction' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('navigation', { name: 'Navigation des outils IA' })).toHaveCount(0);
 

@@ -3,6 +3,8 @@ import { parseGradingProposal, type GradingProposal } from '../domain/grading.ts
 import { validateRubric, type Rubric } from '../domain/rubric.ts';
 import type { ImageInput } from '../ports/aiProvider.ts';
 import type { CorrectionWorkspaceService } from './correctionWorkspaceService.ts';
+import { isLoopbackDiagramEndpoint } from '../domain/directDiagramAssignment.ts';
+export { isLoopbackDiagramEndpoint, directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
 
 export interface DirectScientificDiagramRequest {
   images: ImageInput[];
@@ -12,13 +14,6 @@ export interface DirectScientificDiagramRequest {
   /** Required when the configured server is not on this computer. */
   remoteConsent: boolean;
   signal?: AbortSignal;
-}
-
-export function isLoopbackDiagramEndpoint(endpoint: string): boolean {
-  try {
-    const hostname = new URL(endpoint).hostname.toLowerCase();
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
-  } catch { return false; }
 }
 
 /** Teacher-facing, single-pass diagram grading. Reuses the same strictly

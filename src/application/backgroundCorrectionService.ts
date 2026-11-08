@@ -1,4 +1,5 @@
 import { parseGradingProposal } from '../domain/grading.ts';
+import { directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
 import { sumGradeScores } from '../domain/scorePrecision.ts';
 
 import { toBackgroundJobOverview, toBackgroundJobSummary, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
@@ -67,7 +68,7 @@ export interface BackgroundCorrectionService {
   saveReviewDraft(jobId: string, reviewDraft: BackgroundCorrectionJob['reviewDraft'], teacherQuestionsDraft: string): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
   remove(jobId: string): Promise<void>;
-  retry(jobId: string, settings: OllamaSettings): Promise<void>;
+  retry(jobId: string, settings: OllamaSettings, consentedEndpoint?: string | null): Promise<void>;
   setAutomatic(enabled: boolean, settings: OllamaSettings, assignmentId: string): Promise<void>;
 }
 
@@ -283,6 +284,59 @@ export function createBackgroundCorrectionService(
         const requestAbortController = new AbortController();
         activeRequestAbortController = requestAbortController;
         try {
+          if (current.gradingFlow === 'scientific-diagram-direct') {
+            // A scientific diagram assignment uses the same one-pass vision
+            // engine as the laboratory, never OCR or double analysis.
+            // The direct handler checks consent before any remote request.
+            current = { ...current, phase: 'grading', activeCriterionId: null, updatedAt: new Date().toISOString() };
+            await persist(current);
+            // Use the exact direct-image provider contract. There is no OCR
+            // pass and no separate scientific diagram analysis request.
+            const method = jobSettings.correctionMethod ?? current.correctionMethod ?? 'generative';
+            const issue = directDiagramAssignmentIssue(current.rubric, {
+              endpoint: jobSettings.endpoint,
+              analysisModel: jobSettings.analysisModel ?? current.analysisModel,
+              correctionMethod: method,
+            }, current.diagramConsentedEndpoint ?? null);
+            if (issue) throw new Error(issue);
+            const model = jobSettings.analysisModel ?? current.analysisModel;
+            await withModelInactivityTimeout(requestAbortController, () =>
+              workspace.checkReady({ ...jobSettings, model }));
+            if (requestAbortController.signal.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
+            const provider = workspace.createProvider({
+              ...jobSettings,
+              visionModel: current.visionModel,
+              analysisModel: model,
+              thinking: current.thinking,
+              criterionByCriterion: false,
+              correctionMethod: 'generative',
+              diagnosticStrategy: 'single',
+            });
+            const raw = await withModelInactivityTimeout(requestAbortController, (markActivity) => provider.generate({
+              question: current.question.trim() || 'Évalue uniquement les caractéristiques observables du dessin selon le barème fourni.',
+              rubric: JSON.stringify(current.rubric),
+              images: current.images,
+              directGenerativeVision: true,
+            }, () => markActivity(), undefined, undefined, undefined, undefined, undefined, undefined, requestAbortController.signal));
+            const proposal = parseGradingProposal(raw, current.rubric);
+            if (requestAbortController.signal.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
+            const complete = !proposal.scoreIncomplete;
+            await persist({
+              ...current,
+              transcription: null,
+              partialCriteria: proposal.criteria,
+              completedPages: current.images.length,
+              completedCriteria: proposal.criteria.length,
+              activeCriterionId: null,
+              proposal,
+              status: complete ? 'ready' : 'needs-review',
+              phase: 'complete',
+              updatedAt: new Date().toISOString(),
+              error: complete ? null : 'Certains attendus restent à vérifier.',
+            });
+            if (activeRequestAbortController === requestAbortController) activeRequestAbortController = null;
+            continue;
+          }
           const subjectCacheKey = await getSubjectCacheKey(current, jobSettings);
           if (subjectCacheKey && !current.subjectTranscription) {
             // Only cache OCR observed from this session, not an unverified
@@ -702,11 +756,19 @@ export function createBackgroundCorrectionService(
       const job = await readStoredJob(jobId);
       if (job) await persist({ ...job, status: 'completed', updatedAt: new Date().toISOString() });
     },
-    async retry(jobId, settings) {
+    async retry(jobId, settings, consentedEndpoint) {
       const job = await readStoredJob(jobId);
       if (!job || !['failed', 'needs-review', 'reviewing'].includes(job.status)) return;
+      if (job.gradingFlow === 'scientific-diagram-direct') {
+        const issue = directDiagramAssignmentIssue(job.rubric, {
+          endpoint: settings.endpoint, analysisModel: settings.analysisModel ?? job.analysisModel,
+          correctionMethod: settings.correctionMethod ?? job.correctionMethod ?? 'generative',
+        }, consentedEndpoint ?? job.diagramConsentedEndpoint ?? null);
+        if (issue) throw new Error(issue);
+      }
       await persist({
         ...job,
+        ...(consentedEndpoint && job.gradingFlow === 'scientific-diagram-direct' ? { diagramConsentedEndpoint: consentedEndpoint } : {}),
         transcription: null,
         transcriptionPageNumbers: undefined,
         subjectTranscription: undefined,

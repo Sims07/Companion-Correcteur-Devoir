@@ -161,7 +161,8 @@ describe('UI design system', () => {
     expect(appComponent).toContain("teacherStep === 'rubric' && <>");
     expect(appComponent).toContain('className="assignment-details-collapsible"');
     expect(appComponent).toContain('className="copy-advanced-options"');
-    expect(appComponent).toContain("interfaceMode === 'teacher' ? 'Corriger'");
+    expect(appComponent).toContain("isScientificDiagramAssignment ? 'Corriger le schéma' : 'Corriger'");
+    expect(appComponent).toContain('void queueCurrentCopy(); else void gradeCopies();');
     expect(appComponent).toContain('Valider et passer à la suivante');
     expect(appComponent).toContain("event.key === 'ArrowDown' || event.key === 'ArrowUp'");
     expect(appComponent).toContain("event.key === 'Enter'");
@@ -224,7 +225,7 @@ describe('UI design system', () => {
     expect(appComponent).toContain('assignments={assignmentProfiles}');
     expect(appComponent).toContain('onCreate={(details) => { createNewAssignment(details); setShowAssignmentsHome(false); }}');
     expect(appComponent).toContain('onDuplicate={duplicateAssignment}');
-    expect(appComponent).toContain('onOpen={(profile) => { switchAssignment(profile); setShowAssignmentsHome(false); }}');
+    expect(appComponent).toContain("if (profile.id === activeAssignmentId) { setCopyOverviewFilterTouched(false); setTeacherStep('overview'); } else switchAssignment(profile);");
     expect(appComponent).toContain('setRubric(profile.rubric)');
     expect(appComponent).toContain('setQuestion(profile.question)');
     expect(correctionFlowStylesheet).toContain('.assignments-card');
