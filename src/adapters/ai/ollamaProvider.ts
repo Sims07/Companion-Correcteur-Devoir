@@ -4,6 +4,8 @@ import { MODEL_READINESS_PROBE_PROMPT } from './prompts/modelProbePrompt.ts';
 import { buildArbitrationPrompt, buildArbitrationRepairPrompt, buildIncrementalGradingRepairPrompt, buildGradingRepairPrompt } from './prompts/repairPrompts.ts';
 import { buildSubjectReferencePrompt, buildStudentIdentityFallbackPrompt, buildTeacherAnnotationRepairPrompt, buildRubricPageTranscriptionPrompt } from './prompts/visionPrompts.ts';
 import { buildFullGradingPrompt } from './prompts/fullGradingPrompt.ts';
+import { buildDirectDiagramPrompt } from './prompts/directDiagramPrompt.ts';
+import { directDiagramSchema, parseDirectDiagramOutput } from './directDiagramOutput.ts';
 import { buildTranscriptionPrompt, buildStudentIdentityPrompt, buildTeacherAnnotationPrompt } from './prompts/visionPrompts.ts';
 import { requireCorrectionMethodAvailable } from '../../domain/correctionMethod.ts';
 import { isVisualDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from '../../domain/systemOneDecision.ts';
@@ -668,6 +670,29 @@ export function createOllamaProvider(
         // for invalid JSON, just as in the classic grading path.
         onStage?.('grading');
         onProgress?.({ type: 'phase', phase: 'grading' });
+        if (rubricCriteriaForSchema.length) {
+          const schema = directDiagramSchema(rubricCriteriaForSchema);
+          let repairReason: string | undefined;
+          for (let attempt = 0; attempt < 2; attempt += 1) {
+            let doneReason: string | undefined;
+            // Transport errors/abort are not JSON failures: never retry those here.
+            const raw = await sendStream(analysisModel, buildDirectDiagramPrompt(request, repairReason),
+              (request.images ?? []).map(providerImage), onChunk, schema, settings.thinking ?? false,
+              { kind: 'model', stage: 'analysis', temperature: 0, generationTokenLimit: 2048,
+                promptId: attempt === 0 ? 'diagram.direct-grading' : 'diagram.direct-repair',
+                allowTruncated: true, onDoneReason: reason => { doneReason = reason; },
+                intent: attempt === 0 ? 'Évaluer les attendus du schéma' : 'Réparer les attendus du schéma' });
+            try {
+              if (doneReason === 'length') throw new Error('Limite de génération atteinte [diagram-output:generation-limit].');
+              return parseDirectDiagramOutput(raw, rubricCriteriaForSchema);
+            } catch (cause) {
+              if (signal?.aborted) throw cause;
+              const reason = cause instanceof Error ? cause.message : 'Sortie schéma invalide.';
+              if (attempt === 1) throw new Error(`Évaluation du schéma inexploitable après réparation : ${reason}`);
+              repairReason = reason;
+            }
+          }
+        }
         return sendGradingWithRepair(analysisModel, buildPrompt(), (request.images ?? []).map(providerImage), onChunk,
           { kind: 'model', stage: 'analysis', intent: 'Noter le schéma directement depuis ses images' });
       }
