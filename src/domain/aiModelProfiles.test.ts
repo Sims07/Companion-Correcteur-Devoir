@@ -12,6 +12,12 @@ describe('AI model configuration persistence', () => {
     const configuration = { ...defaultAiModelConfiguration, visionModel: 'gemma3:4b', analysisModel: 'qwen3.5:4b', analysisThinking: true };
     expect(parseAiModelConfiguration(JSON.stringify(configuration))).toEqual(configuration);
   });
+  it('preserves the new explicit Vision + System One direct method across local configuration and saved profile reloads', () => {
+    const newConfiguration = { ...defaultAiModelConfiguration, correctionMethod: 'visual-decision' as const, analysisModel: 'clef-flash', visionModel: '' };
+    expect(parseAiModelConfiguration(JSON.stringify(newConfiguration))).toEqual(newConfiguration);
+    const saved = { ...profile, configuration: newConfiguration };
+    expect(parseAiModelProfiles(JSON.stringify([saved]))).toEqual([saved]);
+  });
   it('enables criterion-by-criterion analysis by default and preserves an explicit whole-rubric choice', () => {
     expect(defaultAiModelConfiguration.criterionByCriterion).toBe(true);
     expect(parseAiModelConfiguration(JSON.stringify({ ...defaultAiModelConfiguration, criterionByCriterion: false })).criterionByCriterion).toBe(false);
