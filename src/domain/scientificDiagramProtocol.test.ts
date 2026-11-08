@@ -5,6 +5,7 @@ import { defaultAiModelConfiguration } from './aiModelProfiles.ts';
 import { validateRubric } from './rubric.ts';
 import {
   SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, buildScientificDiagramProtocolReport,
+  availableDiagramMethods, selectDiagramMethods, diagramMethodIssue,
   diagramObservations, diagramProtocolProfileIssue, diagramTargetKey,
   parseScientificDiagramProtocolRubric, usesDirectDiagramVision,
 } from './scientificDiagramProtocol.ts';
@@ -102,6 +103,44 @@ describe('protocole de schémas scientifiques', () => {
     expect(diagramProtocolProfileIssue({ ...profile('clef-flash', 'visual-decision'),
       configuration: { ...profile('clef-flash', 'visual-decision').configuration, visionModel: '' } })).toBeNull();
   });
+  it('propose uniquement les méthodes réellement compatibles avec chaque profil', () => {
+    const generative = profile('qwen3.5:9b', 'generative');
+    expect(availableDiagramMethods(generative)).toEqual(['vision-then-analysis', 'direct-image-generative']);
+    expect(selectDiagramMethods(generative, 'direct-image-generative')).toEqual(['direct-image-generative']);
+    expect(diagramMethodIssue(generative, 'direct-image-systemone')).toContain('System One');
+
+    const remote = { ...generative, configuration: { ...generative.configuration,
+      endpoint: 'https://ai.example/v1/chat/completions', apiCompatible: true } };
+    expect(selectDiagramMethods(remote, 'compare')).toEqual(['vision-then-analysis', 'direct-image-generative']);
+    expect(diagramMethodIssue(remote, 'compare')).toBeNull();
+
+    const d1 = profile('d1:3b');
+    expect(selectDiagramMethods(d1, 'compare')).toEqual(['vision-then-analysis', 'direct-image-systemone']);
+    expect(selectDiagramMethods(profile('tev1:4b'), 'compare')).toEqual(['vision-then-analysis']);
+    expect(diagramMethodIssue(profile('tev1:4b'), 'direct-image-systemone')).toContain('TEV1');
+    expect(selectDiagramMethods(profile('clef-flash', 'visual-decision'), 'compare')).toEqual(['vision-then-analysis', 'direct-image-systemone']);
+    const withoutVision = { ...d1, configuration: { ...d1.configuration, visionModel: '' } };
+    expect(selectDiagramMethods(withoutVision, 'compare')).toEqual(['direct-image-systemone']);
+  });
+
+  it('sépare les mesures des méthodes du même profil sans exporter de secret', () => {
+    const twoStep = { ...record({ ...result(), directVisualDecision: false, diagnosticRuns: [] }),
+      configurations: [{ ...record().configurations[0]!, directVisualDecision: false }] };
+    const directGenerative = { ...record({ ...result(), directVisualDecision: false, diagnosticRuns: [] }),
+      configurations: [{ ...record().configurations[0]!, directVisualDecision: false, directGenerativeVision: true }] };
+    const directDecision = record();
+    const report = buildScientificDiagramProtocolReport([
+      { repetition: 1, record: twoStep }, { repetition: 1, record: directGenerative },
+      { repetition: 1, record: directDecision },
+    ], SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, {}, 1, 'test', 1);
+    expect(report.summaries.map((summary) => summary.method)).toEqual([
+      'vision-then-analysis', 'direct-image-generative', 'direct-image-systemone',
+    ]);
+    expect(report.summaries.every((summary) => summary.runsCompleted === 1)).toBe(true);
+    expect(JSON.stringify(report)).not.toContain('PRIVATE_BASE64_IMAGE');
+    expect(JSON.stringify(report)).not.toContain('PRIVATE_API_KEY');
+  });
+
   it('lit les décisions visuelles sans déduire absent lorsque le modèle ne répond pas', () => {
     const observations = diagramObservations(result(), SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC);
     expect(observations).toHaveLength(15);

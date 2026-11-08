@@ -16,6 +16,8 @@ export interface ModelEvaluationConfiguration {
   correctionMethod?: CorrectionMethod;
   /** Direct image decisions are an experimental evaluation option, not a teacher default. */
   directVisualDecision?: boolean;
+  /** Explicit one-step multimodal experiment; not enabled for teacher corrections. */
+  directGenerativeVision?: boolean;
 }
 
 export interface ModelEvaluationOutput<T> {

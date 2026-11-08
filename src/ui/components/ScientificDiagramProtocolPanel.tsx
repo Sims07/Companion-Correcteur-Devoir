@@ -11,8 +11,8 @@ import intermediateDiagramUrl from '../../assets/pilot/scientific-mitosis-5.webp
 import poorDiagramUrl from '../../assets/pilot/scientific-mitosis-0.webp';
 import { SCIENTIFIC_DIAGRAM_FIXTURES, type ScientificDiagramFixtureId, type buildScientificDiagramFixtureReport } from '../../domain/scientificDiagramFixtures.ts';
 import {
-  SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, diagramProtocolProfileIssue,
-  diagramTargetKey, parseScientificDiagramProtocolRubric, usesDirectDiagramVision,
+  SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods,
+  diagramTargetKey, parseScientificDiagramProtocolRubric, type DiagramMethodSelection,
   type DiagramGold, type DiagramProtocolCount, type buildScientificDiagramProtocolReport,
 } from '../../domain/scientificDiagramProtocol.ts';
 import './PilotEvaluationPanel.css';
@@ -24,6 +24,7 @@ export interface DiagramProtocolRequest {
   images: ImageInput[];
   gold: DiagramGold;
   repetitions: DiagramProtocolCount;
+  methodSelection: DiagramMethodSelection;
 }
 type DiagramReport = ReturnType<typeof buildScientificDiagramProtocolReport>;
 type FixtureReport = ReturnType<typeof buildScientificDiagramFixtureReport>;
@@ -54,6 +55,7 @@ export interface ScientificDiagramProtocolPanelProps {
   onRunFixtures: (request: {
     cases: Array<{ id: ScientificDiagramFixtureId; images: ImageInput[] }>;
     repetitions: DiagramProtocolCount;
+    methodSelection: DiagramMethodSelection;
   }) => Promise<FixtureReport>;
   onStop: () => void;
   report: DiagramReport | null;
@@ -76,10 +78,11 @@ export function ScientificDiagramProtocolPanel({
   const [fixtureCount, setFixtureCount] = useState<DiagramProtocolCount>(1);
   const [fixtureLoading, setFixtureLoading] = useState(false);
   const [fixtureMessage, setFixtureMessage] = useState('');
+  const [methodSelection, setMethodSelection] = useState<DiagramMethodSelection>('compare');
   const targets = rubric.criteria.flatMap((criterion) =>
     getRubricSubcriteria(criterion).map((item) => ({ criterion, item, key: diagramTargetKey(criterion.id, item.id) })));
   const validation = validateRubric(rubric);
-  const profileIssues = selectedProfiles.map(diagramProtocolProfileIssue).filter((issue): issue is string => Boolean(issue));
+  const profileIssues = selectedProfiles.map((profile) => diagramMethodIssue(profile, methodSelection)).filter((issue): issue is string => Boolean(issue));
   const hasRemote = selectedProfiles.some((profile) => {
     try { return !['localhost', '127.0.0.1', '[::1]'].includes(new URL(profile.configuration.endpoint).hostname); }
     catch { return true; }
@@ -105,7 +108,7 @@ export function ScientificDiagramProtocolPanel({
         cases.push({ id, images: prepared });
       }
       setFixtureMessage('');
-      const result = await onRunFixtures({ cases, repetitions: fixtureCount });
+      const result = await onRunFixtures({ cases, repetitions: fixtureCount, methodSelection });
       const completed = result.cases.reduce((sum, item) => sum + item.experiments.length, 0);
       setFixtureMessage(completed + ' passage(s) terminés. Comparez les notes et les verdicts, puis exportez le rapport.');
     } catch (cause) {
@@ -163,7 +166,7 @@ export function ScientificDiagramProtocolPanel({
     try {
       const completed = await onRun({
         rubric: structuredClone(rubric), context: context.trim(),
-        images, gold: { ...gold }, repetitions,
+        images, gold: { ...gold }, repetitions, methodSelection,
       });
       setMessage(completed.experiments.length ? 'Mesures disponibles : le rapport ne contient aucune photographie.' : 'Aucun essai terminé.');
     } catch (cause) {
@@ -188,10 +191,25 @@ export function ScientificDiagramProtocolPanel({
   return <section className="pilot-evaluation-panel diagram-protocol-panel" aria-label="Protocole schémas scientifiques">
     <div className="pilot-evaluation-head">
       <div>
-        <p className="eyebrow">LABORATOIRE · VISION DÉCISIONNELLE</p>
-        <h3>Protocole — schéma scientifique</h3>
-        <p>Un dessin réel, un barème professeur et 3 ou 5 répétitions par configuration. Comparer la justesse avec des décisions de référence, la couverture, la stabilité et le temps CPU. Le devoir en cours n’est pas modifié.</p>
+        <p className="eyebrow">LABORATOIRE · SCHÉMA SCIENTIFIQUE</p>
+        <h3>Mode expérimental — schéma scientifique</h3>
+        <p>Comparez les méthodes de correction sur les mêmes dessins et les mêmes critères : lecture puis analyse, analyse générative directe sur image, et décision System One directe lorsque compatible. Aucun changement au parcours de correction des copies.</p>
       </div>
+    </div>
+    <div className="diagram-fixture-run-controls">
+      <label htmlFor="diagram-method-selection">Méthode de correction scientifique à tester</label>
+      <DesignSystemSelect id="diagram-method-selection" value={methodSelection} disabled={busy || fixtureLoading || uploading}
+        onChange={(event) => {
+          setMethodSelection(event.currentTarget.value as DiagramMethodSelection);
+          onClearReport();
+          onClearFixtureReport();
+        }}>
+        <option value="compare">Comparer toutes les méthodes compatibles (recommandé)</option>
+        <option value="vision-then-analysis">Vision puis analyse — 2 étapes</option>
+        <option value="direct-image-generative">Image → modèle génératif — sans OCR</option>
+        <option value="direct-image-systemone">Image → décisionnel System One — sans OCR</option>
+      </DesignSystemSelect>
+      <p className="pilot-evaluation-hint">Les méthodes sont choisies dans ce laboratoire uniquement. Un profil génératif peut comparer deux étapes et image directe ; D1/D3 compatibles peuvent comparer deux étapes et System One image. TEV1 n’utilise l’image que via la transcription préalable. Le modèle et la méthode figurent séparément dans l’export.</p>
     </div>
     <section className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
       <div className="diagram-protocol-fixtures-heading">
@@ -230,7 +248,7 @@ export function ScientificDiagramProtocolPanel({
           </Button>
           {(busy || fixtureLoading) && <Button variant="secondary" onClick={onStop} disabled={!busy}>Arrêter après l’appel en cours</Button>}
         </div>
-        <p className="pilot-evaluation-hint">Choisissez 1 à 3 configurations ci-dessous. D1/D3 : image directement vers System One. TEV1 et modèles génératifs : lecture Vision puis analyse. Exécution strictement séquentielle. Un seul passage mesure la justesse, pas la répétabilité.</p>
+        <p className="pilot-evaluation-hint">Choisissez 1 à 3 configurations ci-dessous. Pour une comparaison équitable, le même barème et les mêmes images sont utilisés à chaque passage, par méthode et par profil. Exécution séquentielle. Un seul passage ne mesure pas la répétabilité.</p>
         {hasRemote && <p className="pilot-evaluation-hint" role="status">Une configuration distante est sélectionnée : les photos seront envoyées uniquement à son serveur configuré.</p>}
         {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={'fixture-' + issue}>{issue}</p>)}
         {(fixtureMessage || (busy && progress)) && <p role="status" className="pilot-evaluation-message">{fixtureMessage || progress}</p>}
@@ -247,11 +265,11 @@ export function ScientificDiagramProtocolPanel({
           <table className="pilot-evaluation-table">
             <thead><tr><th>Schéma</th><th>Configuration</th><th>Parcours</th><th>Attendu</th><th>Notes obtenues</th><th>Exécution</th><th>Décisions récupérées</th><th>Justesse stricte</th><th>Stabilité</th><th>Temps moyen</th></tr></thead>
             <tbody>{fixtureReport.cases.flatMap((caseResult) => caseResult.summaries.map((summary) => {
-              const experiments = caseResult.experiments.filter((experiment) => experiment.profileId === summary.profileId);
-              return <tr key={caseResult.caseId + '-' + summary.profileId}>
+              const experiments = caseResult.experiments.filter((experiment) => experiment.profileId === summary.profileId && experiment.method === summary.method);
+              return <tr key={caseResult.caseId + '-' + summary.profileId + '-' + summary.method}>
                 <th scope="row">{caseResult.label}</th>
                 <td>{summary.profileName}</td>
-                <td>{summary.method === 'direct-image-systemone' ? 'Vision décisionnelle' : 'Vision puis analyse'}</td>
+                <td>{diagramMethodLabels[summary.method]}</td>
                 <td>{caseResult.referenceScore}/10</td>
                 <td>{experiments.map((experiment) => experiment.score === null ? 'Non noté' : experiment.score + '/10').join(' · ')}</td>
                 <td>{experiments.map((experiment) => {
@@ -267,7 +285,7 @@ export function ScientificDiagramProtocolPanel({
                 }).join(' · ')}</td>
                 <td>{summary.resolvedDecisions}/{summary.totalDecisions}</td>
                 <td>{summary.accuracyPercent === null ? 'Non mesurable' : summary.accuracyPercent + ' %'}</td>
-                <td>{summary.stableResolvedTargets === null ? 'Non mesurée' : summary.stableResolvedTargets + '/19'}</td>
+                <td>{summary.stableResolvedTargets === null ? 'Non mesurée' : summary.stableResolvedTargets + '/' + summary.totalTargets}</td>
                 <td>{summary.meanDurationMs === null ? '—' : (summary.meanDurationMs / 1000).toFixed(1) + ' s'}</td>
               </tr>;
             }))}</tbody>
@@ -277,8 +295,8 @@ export function ScientificDiagramProtocolPanel({
           <summary>Voir les décisions attendues et obtenues sur chaque dessin</summary>
           {fixtureReport.cases.filter((item) => item.summaries.length).map((caseResult) => <div key={caseResult.caseId}>
             <strong>{caseResult.label} — référence {caseResult.referenceScore}/10</strong>
-            {caseResult.summaries.map((summary) => <div key={summary.profileId} className="diagram-protocol-decision-list">
-              <strong>{summary.profileName} — {summary.model}</strong>
+            {caseResult.summaries.map((summary) => <div key={summary.profileId + '-' + summary.method} className="diagram-protocol-decision-list">
+              <strong>{summary.profileName} — {summary.model} · {diagramMethodLabels[summary.method]}</strong>
               {summary.decisions.map((decision) => <div key={decision.key}>
                 <code>{decision.key}</code> · référence : {decision.reference ?? 'non renseignée'}
                 {' · '}réponses : {decision.choices.join(', ')}
@@ -337,7 +355,7 @@ export function ScientificDiagramProtocolPanel({
     <div className="diagram-protocol-run">
       <h4>3. Répéter à l’identique</h4>
       <p className="pilot-evaluation-hint">Configurations : {selectedProfiles.length ? selectedProfiles.map((profile) =>
-        profile.name + ' (' + (usesDirectDiagramVision(profile) ? 'System One image directe' : 'Vision puis analyse') + ')').join(' · ') :
+        profile.name + ' (' + selectDiagramMethods(profile, methodSelection).map((method) => diagramMethodLabels[method]).join(' / ') + ')').join(' · ') :
         'Sélectionnez les profils dans « Configurations à exécuter » plus bas.'}</p>
       {hasRemote && <p className="pilot-evaluation-hint" role="status">Attention : une configuration distante est sélectionnée. Les images seront envoyées à son serveur ; choisissez uniquement Ollama local pour un traitement sur cet appareil.</p>}
       {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={issue}>{issue}</p>)}
@@ -363,9 +381,9 @@ export function ScientificDiagramProtocolPanel({
       <div className="pilot-evaluation-table-scroll">
         <table className="pilot-evaluation-table">
           <thead><tr><th>Modèle</th><th>Parcours</th><th>Essais</th><th>Justesse</th><th>Couverture</th><th>Stables et évalués</th><th>Temps moyen</th></tr></thead>
-          <tbody>{report.summaries.map((summary) => <tr key={summary.profileId}>
+          <tbody>{report.summaries.map((summary) => <tr key={summary.profileId + '-' + summary.method}>
             <th scope="row">{summary.profileName} · {summary.model}</th>
-            <td>{summary.method === 'direct-image-systemone' ? 'Image directe' : 'Vision + analyse'}</td>
+            <td>{diagramMethodLabels[summary.method]}</td>
             <td>{summary.runsCompleted}/{summary.plannedRepetitions}</td>
             <td>{summary.accuracyPercent === null ? 'Non mesurable' : summary.accuracyPercent + ' %'}{summary.labelledTargets ? ' (' + summary.labelledTargets + ' références)' : ''}</td>
             <td>{summary.coveragePercent === null ? '—' : summary.coveragePercent + ' %'}</td>
@@ -377,7 +395,7 @@ export function ScientificDiagramProtocolPanel({
       <p className="pilot-evaluation-hint">{report.limitations} Le rapport n’exporte ni images, ni réponses brutes, ni clés API, ni adresses de serveur.</p>
       <details className="pilot-evaluation-reference">
         <summary>Voir les décisions par sous-critère et par passage</summary>
-        {report.summaries.map((summary) => <div key={summary.profileId}>
+        {report.summaries.map((summary) => <div key={summary.profileId + '-' + summary.method}>
           <strong>{summary.profileName} — {summary.model}</strong>
           <div className="diagram-protocol-decision-list">
             {summary.decisions.map((decision) => <div key={decision.key}>
