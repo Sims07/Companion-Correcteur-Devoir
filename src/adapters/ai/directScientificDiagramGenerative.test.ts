@@ -33,7 +33,7 @@ describe('vision + analyse générative directe (laboratoire scientifique)', () 
   });
 
   it('transmet directement le schéma au serveur OpenAI compatible configuré', async () => {
-    const fetchMock = vi.fn(async () => new Response(
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(
       'data: ' + JSON.stringify({ choices: [{ delta: { content: grade }, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n',
       { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
     ));
