@@ -3188,6 +3188,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         profiles={aiModelProfiles}
         currentConfiguration={{ ...defaultAiModelConfiguration, endpoint, apiCompatible, apiKey, visionModel, analysisModel, analysisThinking, correctionMethod }}
         onPrepareImages={(files) => service.prepareFiles(files)}
+        onRotateImage={(image, degrees) => service.rotateImage(image, degrees)}
         onRun={(request) => correctScientificDiagramDirect(service, request)}
         onOpenSettings={() => { setInterfaceMode('teacher'); setShowAssignmentsHome(false); setShowAiSettings(true); }}
       />}
