@@ -7,6 +7,7 @@ test('Qwen direct diagram repairs missing evidence and exports all 19 decisions 
     id: 'qwen-direct', name: 'Qwen direct', mode: 'single', updatedAt: '2026-11-08T00:00:00Z',
     configuration: { endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '',
       visionModel: 'unused-ocr', analysisModel: 'qwen3.5:4b', correctionMethod: 'generative',
+      secondAnalysisModel: '', arbitratorModel: '',
       diagnosticStrategy: 'single', analysisThinking: false, criterionByCriterion: true },
   }])));
   const payloads: Record<string, any>[] = [];
