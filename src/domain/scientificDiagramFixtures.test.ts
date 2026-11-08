@@ -50,7 +50,7 @@ describe('jeu de dessins scientifiques générés A / B / C', () => {
     const keys = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap((criterion) =>
       getRubricSubcriteria(criterion).map((sub) => diagramTargetKey(criterion.id, sub.id)));
     expect(keys).toHaveLength(19);
-    expect(SCIENTIFIC_DIAGRAM_FIXTURES.map((fixture) => fixture.referenceScore)).toEqual([10, 5, 0]);
+    expect(SCIENTIFIC_DIAGRAM_FIXTURES.map((fixture) => fixture.referenceScore)).toEqual([10, 7.36, 0]);
     for (const fixture of SCIENTIFIC_DIAGRAM_FIXTURES) {
       expect(Object.keys(fixture.gold)).toEqual(keys);
       expect(Object.keys(fixture.referencePoints)).toEqual(keys);
@@ -76,7 +76,7 @@ describe('jeu de dessins scientifiques générés A / B / C', () => {
       { caseId: 'B', repetition: 1, record: record('failed') },
     ], 3, '2026-11-07T20:10:00Z');
     expect(report.cases.map((item) => [item.caseId, item.referenceScore]))
-      .toEqual([['A', 10], ['B', 5], ['C', 0]]);
+      .toEqual([['A', 10], ['B', 7.36], ['C', 0]]);
     expect(report.cases[0]?.summaries[0]).toMatchObject({ runsCompleted: 1, complete: false });
     expect(report.cases[1]?.summaries[0]).toMatchObject({ runsCompleted: 1, successfulRuns: 0, accuracyPercent: 0 });
     expect(report.cases[2]?.summaries).toEqual([]);
