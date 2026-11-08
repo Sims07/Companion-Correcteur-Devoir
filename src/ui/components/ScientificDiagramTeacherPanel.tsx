@@ -33,6 +33,7 @@ export function ScientificDiagramTeacherPanel({
   const [question, setQuestion] = useState('');
   const [images, setImages] = useState<ImageInput[]>([]);
   const originals = useRef<ImageInput[]>([]);
+  const rotationBusyRef = useRef(false);
   const [angles, setAngles] = useState<Record<number, number>>({});
   const [pageIndex, setPageIndex] = useState(0);
   const [viewerPage, setViewerPage] = useState<number | null>(null);
@@ -73,7 +74,7 @@ export function ScientificDiagramTeacherPanel({
   }
 
   async function addImages(files: FileList | null) {
-    if (!files?.length || running || uploading || rotating) return;
+    if (!files?.length || running || uploading || rotating || rotationBusyRef.current) return;
     invalidate();
     setImages([]);
     originals.current = [];
@@ -93,7 +94,7 @@ export function ScientificDiagramTeacherPanel({
   }
 
   async function addRubric(files: FileList | null) {
-    if (!files?.length || running || uploading || rotating) return;
+    if (!files?.length || running || uploading || rotating || rotationBusyRef.current) return;
     invalidate();
     try {
       const parsed = JSON.parse(await files[0]!.text()) as unknown;
@@ -107,8 +108,9 @@ export function ScientificDiagramTeacherPanel({
 
   async function rotatePage(index: number, degrees: 90 | 270) {
     const original = originals.current[index];
-    if (!original || running || uploading || rotating) return;
+    if (!original || running || uploading || rotating || rotationBusyRef.current) return;
     const angle = accumulateClockwiseRotation(angles[index] ?? 0, degrees);
+    rotationBusyRef.current = true;
     invalidate();
     setRotating(true);
     try {
@@ -119,11 +121,11 @@ export function ScientificDiagramTeacherPanel({
       setMessage('Orientation modifiée : la prochaine correction utilisera cette image.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La rotation a échoué.');
-    } finally { setRotating(false); }
+    } finally { rotationBusyRef.current = false; setRotating(false); }
   }
 
   async function start() {
-    if (!canRun) return;
+    if (!canRun || rotationBusyRef.current) return;
     invalidate();
     setRunning(true);
     setElapsed(0);
