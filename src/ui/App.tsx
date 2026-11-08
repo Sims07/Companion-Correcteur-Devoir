@@ -3174,10 +3174,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </div>
         <div className="diagram-protocol-export-actions">
           {diagramFixtureReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramFixtureReport, 'companion-trois-schemas-scientifiques.json')}>
-            Exporter les trois schémas ({diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passages)
+            Exporter les trois schémas ({diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage{diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0) === 1 ? '' : 's'})
           </Button>}
           {diagramProtocolReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramProtocolReport, 'companion-protocole-schema-scientifique.json')}>
-            Exporter le schéma personnel ({diagramProtocolReport.experiments.length} passages)
+            Exporter le schéma personnel ({diagramProtocolReport.experiments.length} passage{diagramProtocolReport.experiments.length === 1 ? '' : 's'})
           </Button>}
         </div>
       </section>}
