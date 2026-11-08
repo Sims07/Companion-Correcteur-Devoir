@@ -102,7 +102,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await navigation.getByRole('button', { name: /Évaluation des modèles/ }).click();
   releaseSecondRequest();
 
-  const results = fixtures.getByRole('region', { name: 'Résultats des schémas A B C' });
+  const results = fixtures.getByRole('region', { name: 'Résultats des schémas scientifiques' });
   await expect(results).toBeVisible({ timeout: 30_000 });
   await expect(results.locator('tbody tr')).toHaveCount(3);
   // All 19 native image decisions remain measurable even if a resulting
@@ -117,7 +117,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     page.waitForEvent('download'),
     results.getByRole('button', { name: 'Exporter le rapport JSON' }).click(),
   ]);
-  expect(completeDownload.suggestedFilename()).toBe('companion-trois-schemas-scientifiques.json');
+  expect(completeDownload.suggestedFilename()).toBe('companion-schemas-scientifiques.json');
   const complete = JSON.parse(await readFile(await completeDownload.path(), 'utf8')) as {
     cases: { experiments: unknown[]; summaries: { decisions: {
       stable: boolean; stableAndResolved: boolean | null; correctEveryTime: boolean | null;
@@ -201,7 +201,7 @@ test('paired D/E diagrams test the pointed structure, not just the written label
   await page.getByRole('group', { name: 'Configurations à exécuter' })
     .locator('label.evaluation-profile-option').first().click();
   await fixtures.getByRole('button', { name: 'Tester les flèches D/E en un clic' }).click();
-  const results = fixtures.getByRole('region', { name: 'Résultats des schémas A B C' });
+  const results = fixtures.getByRole('region', { name: 'Résultats des schémas scientifiques' });
   await expect(results.locator('tbody tr')).toHaveCount(2, { timeout: 30_000 });
   await expect(results.getByText('1/1 détection(s)', { exact: true })).toBeVisible();
   await expect(results.getByText('0/1 détection(s)', { exact: true })).toBeVisible();
