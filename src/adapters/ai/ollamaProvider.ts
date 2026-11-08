@@ -305,9 +305,10 @@ export function createOllamaProvider(
       const providerName = settings.apiCompatible ? 'API compatible OpenAI' : 'Ollama';
       const visionOnly = request.visionOnly === true;
       const directVisualDecision = !visionOnly && (request.directVisualDecision === true || settings.correctionMethod === 'visual-decision');
+      const directGenerativeVision = !visionOnly && request.directGenerativeVision === true;
       onProgress?.({ type: 'phase', phase: 'preparation' });
       const hasTranscription = Boolean(request.transcription?.trim());
-      if (!visionOnly && !directVisualDecision && !hasTranscription && !(settings.visionModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
+      if (!visionOnly && !directVisualDecision && !directGenerativeVision && !hasTranscription && !(settings.visionModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
       if (!visionOnly && !(settings.analysisModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle d’analyse pour noter la transcription.');
       if (visionOnly && !(settings.visionModel?.trim() || settings.model?.trim())) throw new Error('Choisissez un modèle de vision pour évaluer la lecture des images.');
       const visionModel = settings.visionModel?.trim() || settings.model?.trim() || '';
@@ -318,6 +319,9 @@ export function createOllamaProvider(
       // Ollama's native /v1/systemone endpoint; fail before grading, never fall back.
       if (!visionOnly && (settings.correctionMethod === 'decision' || settings.correctionMethod === 'visual-decision') && settings.apiCompatible) {
         throw new Error('La correction décisionnelle requiert l’API /v1/systemone d’Ollama local. Choisissez Ollama local comme fournisseur ; aucune conversion en appel Chat n’est effectuée.');
+      }
+      if (directGenerativeVision && (settings.correctionMethod !== 'generative' || directVisualDecision || !request.images?.length || hasTranscription || request.detectTeacherAnnotations || request.identifyStudent)) {
+        throw new Error('Le test génératif direct exige une configuration générative, des images et aucune transcription préalable.');
       }
       if (directVisualDecision) {
         if (!['decision', 'visual-decision'].includes(settings.correctionMethod ?? '') || settings.apiCompatible) {
@@ -339,7 +343,7 @@ export function createOllamaProvider(
       const providerImage = (image: import('../../ports/aiProvider.ts').ImageInput) => settings.apiCompatible
         ? `data:${image.mimeType};base64,${image.base64}`
         : image.base64;
-      if (!visionModel && !request.transcription && !directVisualDecision) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
+      if (!visionModel && !request.transcription && !directVisualDecision && !directGenerativeVision) throw new Error('Choisissez un modèle de lecture pour transcrire les images.');
       if (!analysisModel && !request.visionOnly) throw new Error('Choisissez un modèle d’analyse pour noter la transcription.');
 
       if (!request.question.trim()) throw new Error('La consigne de correction est vide.');
@@ -656,6 +660,16 @@ export function createOllamaProvider(
           if (!diagnosticResultEmitted) publishFailedCall(cause);
           throw cause;
         }
+      }
+
+      if (directGenerativeVision) {
+        // Experimental scientific-diagram route. No OCR, no implicit switch
+        // to another model. A single full-rubric request may be retried once
+        // for invalid JSON, just as in the classic grading path.
+        onStage?.('grading');
+        onProgress?.({ type: 'phase', phase: 'grading' });
+        return sendGradingWithRepair(analysisModel, buildPrompt(), (request.images ?? []).map(providerImage), onChunk,
+          { kind: 'model', stage: 'analysis', intent: 'Noter le schéma directement depuis ses images' });
       }
 
       if (!rubricCriteriaForSchema.some(c => c.correctionContract) && !request.visionOnly && (settings.correctionMethod === undefined || settings.correctionMethod === 'generative') && !useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription && !request.detectTeacherAnnotations && !request.identifyStudent) {
