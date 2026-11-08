@@ -56,8 +56,8 @@ import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
-import { ScientificDiagramTeacherPanel } from './components/ScientificDiagramTeacherPanel.tsx';
-import { correctScientificDiagramDirect } from '../application/directScientificDiagramCorrection.ts';
+import { initialAssignmentRubric, type AssignmentKind } from '../domain/assignmentKind.ts';
+import { directDiagramAssignmentIssue, isLoopbackDiagramEndpoint } from '../application/directScientificDiagramCorrection.ts';
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
@@ -121,6 +121,7 @@ type AssignmentProfile = {
   question: string;
   correctionMode: 'integrated' | 'separate';
   hasScientificDiagrams?: boolean;
+  kind?: AssignmentKind;
   annotationInkColor?: TeacherAnnotationInkColor;
 };
 
@@ -345,6 +346,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   };
   const [assignmentProfiles, setAssignmentProfiles] = useState<AssignmentProfile[]>(readAssignmentProfiles);
   const [activeAssignmentId, setActiveAssignmentId] = useState(() => readActiveAssignmentProfile().id);
+  const isScientificDiagramAssignment = assignmentProfiles.find((profile) => profile.id === activeAssignmentId)?.kind === 'scientific-diagram';
   const [showAssignmentsHome, setShowAssignmentsHome] = useState(true);
   const [pendingRemoval, setPendingRemoval] = useState<{ kind: 'assignment'; profile: AssignmentProfile } | { kind: 'copy'; job: BackgroundCorrectionJob } | null>(null);
   const [copyOverviewFilter, setCopyOverviewFilter] = useState<CopyOverviewFilter>('all');
@@ -373,6 +375,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [rubricFileImporting, setRubricFileImporting] = useState(false);
   const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
   const [endpoint, setEndpoint] = useState(() => readAiModelConfiguration().endpoint);
+  const [diagramConsentEndpoint, setDiagramConsentEndpoint] = useState<string | null>(null);
+  useEffect(() => { setDiagramConsentEndpoint(null); }, [activeAssignmentId, endpoint]);
   const [apiCompatible, setApiCompatible] = useState(() => readAiModelConfiguration().apiCompatible);
   const [apiKey, setApiKey] = useState(() => readAiModelConfiguration().apiKey);
   const [visionModel, setVisionModel] = useState(() => readAiModelConfiguration().visionModel);
@@ -454,7 +458,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [backgroundJobs, setBackgroundJobs] = useState<BackgroundCorrectionJob[]>([]);
   const [selectedSeriesPreviewJob, setSelectedSeriesPreviewJob] = useState<BackgroundCorrectionJob | null>(null);
   const [queuedViewerFullJob, setQueuedViewerFullJob] = useState<BackgroundCorrectionJob | null>(null);
-  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagram' | 'diagnostic' | 'debug' | 'observability'>('teacher');
+  const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher');
   const [detailsThumbnailsOpen, setDetailsThumbnailsOpen] = useState(false);
   const [detailThumbnails, setDetailThumbnails] = useState<Record<string, Array<ImageInput | null>>>({});
   const previewLoadSequence = useRef(0);
@@ -640,6 +644,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   const [networkInitialFilter, setNetworkInitialFilter] = useState<'all' | 'error'>('all');
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
+  const diagramIssue = isScientificDiagramAssignment
+    ? directDiagramAssignmentIssue(rubric, { endpoint, analysisModel, correctionMethod }, diagramConsentEndpoint)
+    : null;
   const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
   const reviewedTotal = criterionProgress.provisionalPoints;
   const unassessedCount = review.filter((item) => item.assessmentStatus === 'not-evaluated').length;
@@ -2432,6 +2439,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   function applyAssignment(profile: AssignmentProfile) {
     setCopyOverviewFilter('all');
     setCopyOverviewFilterTouched(false);
+    setDiagramConsentEndpoint(null);
     setCurrentBackgroundJobId(null);
     setShowOnlyFlagged(true);
     setFocusedEvidencePage(null);
@@ -2512,10 +2520,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       title: details.title.trim(),
       description: details.description.trim(),
       educationLevel: details.educationLevel,
-      rubric: { title: 'Barème — ' + details.title.trim(), criteria: [] },
-      question: details.description.trim() || defaultQuestion,
+      rubric: initialAssignmentRubric(details.kind ?? 'standard', details.title),
+      question: details.description.trim() || (details.kind === 'scientific-diagram'
+        ? 'Évalue uniquement les éléments observables du dessin scientifique selon le barème fourni.'
+        : defaultQuestion),
       correctionMode: 'integrated',
-      hasScientificDiagrams: false,
+      kind: details.kind ?? 'standard',
+      hasScientificDiagrams: details.kind === 'scientific-diagram',
     };
     setAssignmentProfiles((current) => [...current, profile]);
     applyAssignment(profile);
@@ -2534,6 +2545,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   async function enqueueBackgroundCopy(files: FileList | null) {
     if (!files?.length || isAnalyzing || isPreparingSeriesCopies) return;
+    if (diagramIssue) { setError(diagramIssue); return; }
     if (!validation.valid) { setError(validation.errors.join(' ')); return; }
     if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant d’ajouter des copies.'); return; }
     setIsPreparingSeriesCopies(true);
@@ -2560,11 +2572,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
             rubric: structuredClone(rubric),
             correctionMode,
+            ...(isScientificDiagramAssignment ? { gradingFlow: 'scientific-diagram-direct' as const, diagramConsentedEndpoint: diagramConsentEndpoint ?? undefined } : {}),
             images: structuredClone(prepared),
             originalImages: structuredClone(prepared),
             subjectImages: structuredClone(subjectImages),
             ...(subjectTranscription ? { subjectTranscription } : {}),
-            detectTeacherAnnotations: backgroundCopyDetectTeacherAnnotations,
+            detectTeacherAnnotations: isScientificDiagramAssignment ? false : backgroundCopyDetectTeacherAnnotations,
             annotationInkColor: 'none',
             annotationInkColorApplied: true,
             visionModel,
@@ -2579,7 +2592,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       let preparedJobs = jobs;
       let automaticRotationCount = 0;
       let automaticRotationUnavailable = false;
-      if (autoRotateScientificDiagrams) {
+      if (autoRotateScientificDiagrams && !isScientificDiagramAssignment) {
         try {
           preparedJobs = [];
           for (const job of jobs) {
@@ -2754,6 +2767,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   async function queueCurrentCopy() {
     if (!images.length || isAnalyzing || proposal) return;
+    if (diagramIssue) { setError(diagramIssue); return; }
     if (!validation.valid) { setError(validation.errors.join(' ')); setTeacherStep('rubric'); return; }
     if (correctionMode === 'separate' && !subjectImages.length && !subjectTranscription) { setError('Importez le sujet de référence avant de mettre cette copie en file.'); return; }
     if (annotationInkColor !== 'none' && !annotationInkColorApplied) { setError('Prévisualisez puis appliquez le retrait de la couleur des annotations avant de mettre cette copie en file.'); return; }
@@ -2768,6 +2782,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
         rubric: structuredClone(rubric),
         correctionMode,
+        ...(isScientificDiagramAssignment ? { gradingFlow: 'scientific-diagram-direct' as const, diagramConsentedEndpoint: diagramConsentEndpoint ?? undefined } : {}),
         images: structuredClone(images),
         originalImages: structuredClone(originalImages),
         subjectImages: structuredClone(subjectImages),
@@ -2780,6 +2795,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         visionModel,
         analysisModel,
         thinking: analysisThinking,
+        correctionMethod,
         createdAt: now,
         updatedAt: now,
       });
@@ -2811,6 +2827,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setTeacherStep('copy');
       const jobs = await loadQueueOverviews(activeAssignmentId);
       setBackgroundJobs(jobs);
+      if (isScientificDiagramAssignment) await loadNextQueuedCopy(id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible d’ajouter cette copie à la liste des copies à corriger.');
     }
@@ -2824,7 +2841,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection,
         transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
         transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
-      });
+      }, diagramConsentEndpoint);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible de relancer la correction.');
     }
@@ -2956,6 +2973,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
             rubric: structuredClone(rubric),
             correctionMode,
+            ...(isScientificDiagramAssignment ? { gradingFlow: 'scientific-diagram-direct' as const, diagramConsentedEndpoint: diagramConsentEndpoint ?? undefined } : {}),
             images: structuredClone(images),
             originalImages: structuredClone(originalImages),
             subjectImages: structuredClone(subjectImages),
