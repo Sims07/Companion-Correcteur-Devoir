@@ -161,7 +161,8 @@ describe('UI design system', () => {
     expect(appComponent).toContain("teacherStep === 'rubric' && <>");
     expect(appComponent).toContain('className="assignment-details-collapsible"');
     expect(appComponent).toContain('className="copy-advanced-options"');
-    expect(appComponent).toContain("interfaceMode === 'teacher' ? 'Corriger'");
+    expect(appComponent).toContain("isScientificDiagramAssignment ? 'Corriger le schéma' : 'Corriger'");
+    expect(appComponent).toContain('void queueCurrentCopy(); else void gradeCopies();');
     expect(appComponent).toContain('Valider et passer à la suivante');
     expect(appComponent).toContain("event.key === 'ArrowDown' || event.key === 'ArrowUp'");
     expect(appComponent).toContain("event.key === 'Enter'");
