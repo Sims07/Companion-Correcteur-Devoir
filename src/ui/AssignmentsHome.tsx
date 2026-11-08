@@ -4,6 +4,7 @@ import type { Rubric } from '../domain/rubric.ts';
 import type { BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
 import { countAssignmentCopies } from '../domain/copyOverview.ts';
 import { getAssignmentOverview } from '../domain/assignmentOverview.ts';
+import { assignmentKindLabel, type AssignmentKind } from '../domain/assignmentKind.ts';
 
 type AssignmentCardProfile = {
   id: string;
@@ -14,6 +15,7 @@ type AssignmentCardProfile = {
   question: string;
   correctionMode: 'integrated' | 'separate';
   hasScientificDiagrams?: boolean;
+  kind?: AssignmentKind;
 };
 type ArchivedCopy = { assignmentTitle?: string };
 type Props = {
@@ -65,7 +67,7 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
       return <article className={active ? 'assignment-overview-card is-active' : 'assignment-overview-card'} key={profile.id}>
         <div className="assignment-overview-top"><span className="assignment-overview-icon" aria-hidden="true">▤</span><span className={totalCopies ? 'assignment-status has-corrections' : ready ? 'assignment-status ready' : 'assignment-status preparing'}>{statusLabel}</span></div>
         <div className="assignment-overview-title"><h3>{profile.title.trim() || 'Devoir sans titre'}</h3>{active && <span className="assignment-active-label">Actif</span>}</div>
-        <p className="assignment-overview-meta">{profile.educationLevel || 'Formation non renseignée'}</p>
+        <p className="assignment-overview-meta">{assignmentKindLabel(profile.kind)} · {profile.educationLevel || 'Formation non renseignée'}</p>
         {profile.description && <p className="assignment-overview-description">{profile.description}</p>}
         <div className="assignment-overview-stats"><strong>{totalCopies}</strong><span>copie(s)</span><span className="assignment-stat-separator">·</span><span>{profile.rubric.criteria.length} critères</span><span className="assignment-stat-separator">·</span><span>{maximumPoints} points</span></div>
         {copyCounts.active > 0 && <p className="assignment-overview-activity">{retryCount} à reprendre · {reviewCount} à réviser · {processingCount} en cours · {pendingCount} à corriger</p>}
