@@ -9,7 +9,8 @@ describe('visual System One is limited to the technical model benchmark', () => 
     expect(app).toContain('isVisualDecisionModel(profile.configuration.analysisModel)');
     expect(app).toContain('directVisualDecision: directProfiles(profile)');
     expect(app).toContain('directVisualDecision: output.configuration.directVisualDecision');
-    expect(app).toContain("configuration.directVisualDecision ? ['analysis']");
+    expect(app).toContain("configuration.directVisualDecision || configuration.directGenerativeVision ? ['analysis']");
+    expect(app).toContain('directGenerativeVision: directGenerativeProfiles(profile)');
   });
 
   it('keeps rubric-driven visual decisions distinguishable from provisional scores in results and history', () => {
