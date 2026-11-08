@@ -234,14 +234,15 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('id="teacher-ai-settings-panel"');
   });
 
-  it('offers on-demand Saluki 27B loading only for the OpenAI-compatible server', () => {
+  it('exposes named model preloading only for the OpenAI-compatible server', () => {
     const text = app();
-    expect(text).toContain('Saluki 27B');
-    expect(text).toContain('MODÈLE AVANCÉ · À LA DEMANDE');
-    expect(text).toContain('POST <code>/v1/models/saluki-27b/load</code>');
-    expect(text).toContain('handleLoadSaluki');
-    expect(text).toContain("await loadSalukiModel({ endpoint, apiKey })");
-    expect(text).toContain('system1-vision');
+    const panel = source('../src/ui/components/ModelPreloadPanel.tsx');
+    expect(text).toContain('{apiCompatible && <ModelPreloadPanel endpoint={endpoint} apiKey={apiKey} busy={busy} loadModel={loadOnDemandModel} />}');
+    expect(text).not.toContain('handleLoadSaluki');
+    expect(panel).toContain('Précharger un modèle');
+    expect(panel).toContain('Nom du modèle à précharger');
+    expect(panel).toContain('loadModel({ endpoint, apiKey, model: name })');
+    expect(panel).toContain("useState('saluki-27b')");
   });
 
   it('keeps model-evaluation streaming separate from technical debug traces', () => {

@@ -1,25 +1,28 @@
 import { currentFetch } from './currentFetch.ts';
 
-export interface SalukiLoadSettings {
+export interface OnDemandModelLoadSettings {
   endpoint: string;
   apiKey: string;
+  model: string;
 }
 
-function salukiLoadUrl(endpoint: string): string {
+function modelLoadUrl(endpoint: string, model: string): string {
+  const modelId = model.trim();
+  if (!modelId) throw new Error('Indiquez le nom du modèle à précharger.');
   const value = endpoint.trim().replace(/\/+$/, '');
   if (!/^https?:\/\//i.test(value)) {
     throw new Error('L’adresse du serveur doit commencer par http:// ou https://.');
   }
   const withoutChatPath = value.replace(/\/v1\/chat\/completions$/i, '');
   const base = withoutChatPath.replace(/\/v1$/i, '');
-  return base + '/v1/models/saluki-27b/load';
+  return base + '/v1/models/' + encodeURIComponent(modelId) + '/load';
 }
 
-export async function loadSalukiModel(
-  settings: SalukiLoadSettings,
+export async function loadOnDemandModel(
+  settings: OnDemandModelLoadSettings,
   fetchImpl: typeof fetch = currentFetch,
 ): Promise<void> {
-  const response = await fetchImpl(salukiLoadUrl(settings.endpoint), {
+  const response = await fetchImpl(modelLoadUrl(settings.endpoint, settings.model), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -42,5 +45,5 @@ export async function loadSalukiModel(
   } catch {
     // Keep the raw server message when it is not JSON.
   }
-  throw new Error(detail || 'Le serveur a refusé le chargement de Saluki 27B (HTTP ' + response.status + ').');
+  throw new Error(detail || 'Le serveur a refusé le préchargement du modèle « ' + settings.model.trim() + ' » (HTTP ' + response.status + ').');
 }

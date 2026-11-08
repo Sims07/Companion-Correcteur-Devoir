@@ -6,7 +6,7 @@ import { App } from './ui/App.tsx';
 import { LocalMemoryCompanion } from './ui/LocalMemoryCompanion.tsx';
 import { installLocalMemoryFetchBridge } from './adapters/ai/localMemoryFetchBridge.ts';
 import { currentFetch } from './adapters/ai/currentFetch.ts';
-import { loadSalukiModel } from './adapters/ai/modelLoadClient.ts';
+import { loadOnDemandModel } from './adapters/ai/modelLoadClient.ts';
 import { unloadPilotOllamaModels } from './adapters/ai/pilotOllamaMemory.ts';
 import { IndexedDbBackgroundCorrectionRepository, IndexedDbLocalCorrectionRepository, IndexedDbModelEvaluationRepository } from './adapters/storage/indexedDbMemory.ts';
 import { IndexedDbStorageDiagnosticsRepository } from './adapters/storage/indexedDbStorageDiagnostics.ts';
@@ -51,7 +51,7 @@ const correctionWorkspaceService = createCorrectionWorkspaceService(
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App service={correctionWorkspaceService} archiveService={localCorrectionService} evaluationService={modelEvaluationService} storageDiagnosticsService={storageDiagnosticsService} backgroundCorrectionService={backgroundCorrectionService} diagramAnalysisService={scientificDiagramAnalysisService} loadSalukiModel={loadSalukiModel} releasePilotModels={unloadPilotOllamaModels} />
+    <App service={correctionWorkspaceService} archiveService={localCorrectionService} evaluationService={modelEvaluationService} storageDiagnosticsService={storageDiagnosticsService} backgroundCorrectionService={backgroundCorrectionService} diagramAnalysisService={scientificDiagramAnalysisService} loadOnDemandModel={loadOnDemandModel} releasePilotModels={unloadPilotOllamaModels} />
     <LocalMemoryCompanion service={localCorrectionService} />
   </React.StrictMode>,
 );
