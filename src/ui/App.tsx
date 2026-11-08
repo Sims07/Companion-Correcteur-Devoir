@@ -44,6 +44,7 @@ import { autoRotateScientificPages } from '../application/autoRotateScientificPa
 import type { BackgroundCorrectionService } from '../application/backgroundCorrectionService.ts';
 import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, removeAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { AiProfileManager } from './components/AiProfileManager.tsx';
+import { ModelPreloadPanel } from './components/ModelPreloadPanel.tsx';
 import type { CorrectionMethod } from '../domain/correctionMethod.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { getArchivedCorrectionsForAssignment } from '../domain/assignmentOverview.ts';
@@ -320,7 +321,7 @@ function getLocalMemoryCorrectionId(): string | null {
   }
 }
 
-export function App({ service, archiveService, evaluationService, backgroundCorrectionService, diagramAnalysisService, loadSalukiModel, storageDiagnosticsService, releasePilotModels }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; backgroundCorrectionService?: BackgroundCorrectionService; diagramAnalysisService: ScientificDiagramAnalysisService; storageDiagnosticsService?: StorageDiagnosticsService; loadSalukiModel: (settings: { endpoint: string; apiKey: string }) => Promise<void>; releasePilotModels?: PilotModelMemoryRelease }) {
+export function App({ service, archiveService, evaluationService, backgroundCorrectionService, diagramAnalysisService, loadOnDemandModel, storageDiagnosticsService, releasePilotModels }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; backgroundCorrectionService?: BackgroundCorrectionService; diagramAnalysisService: ScientificDiagramAnalysisService; storageDiagnosticsService?: StorageDiagnosticsService; loadOnDemandModel: (settings: { endpoint: string; apiKey: string; model: string }) => Promise<void>; releasePilotModels?: PilotModelMemoryRelease }) {
   const backgroundService: BackgroundCorrectionService = backgroundCorrectionService ?? {
     enqueue: async () => undefined,
     updateImages: async () => undefined,
@@ -372,9 +373,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [endpoint, setEndpoint] = useState(() => readAiModelConfiguration().endpoint);
   const [apiCompatible, setApiCompatible] = useState(() => readAiModelConfiguration().apiCompatible);
   const [apiKey, setApiKey] = useState(() => readAiModelConfiguration().apiKey);
-  const [salukiLoading, setSalukiLoading] = useState(false);
-  const [salukiLoaded, setSalukiLoaded] = useState(false);
-  const [salukiMessage, setSalukiMessage] = useState('');
   const [visionModel, setVisionModel] = useState(() => readAiModelConfiguration().visionModel);
   const [transcriptionTokenLimit, setTranscriptionTokenLimit] = useState(() => readAiModelConfiguration().transcriptionTokenLimit);
   const [transcriptionPromptMode, setTranscriptionPromptMode] = useState<'auto' | 'ocr' | 'general'>(() => readAiModelConfiguration().transcriptionPromptMode);
@@ -1111,20 +1109,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Échec de préparation du sujet en local.');
     }
-  }
-
-  async function handleLoadSaluki() {
-    if (!apiCompatible || salukiLoading) return;
-    setSalukiLoading(true);
-    setSalukiMessage('Chargement de Saluki 27B sur le serveur…');
-    try {
-      await loadSalukiModel({ endpoint, apiKey });
-      setSalukiLoaded(true);
-      setSalukiMessage('Saluki 27B est chargé et prêt. Les modèles system1 et system1-vision utilisent maintenant ce modèle sur le serveur.');
-    } catch (cause) {
-      setSalukiLoaded(false);
-      setSalukiMessage(cause instanceof Error ? cause.message : 'Le chargement de Saluki 27B a échoué.');
-    } finally { setSalukiLoading(false); }
   }
 
   async function connectOllama() {
@@ -3292,15 +3276,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         {correctionMethod === 'visual-decision' && !isVisualDecisionModel(analysisModel) && <StatusNotice tone="warning">Le modèle {analysisModel || 'non sélectionné'} n’est pas reconnu comme compatible avec les images System One. TEV1 accepte les questions sur texte, mais refuse les photos dans cette API. Utilisez Clef-Flash ou revenez au mode décisionnel sur transcription.</StatusNotice>}
         <p className="hint">Classique : lecture Vision puis correction Chat. Décisionnelle : lecture Vision puis System One sur texte. Vision + Décisionnel direct : schéma et barème transmis ensemble dans un seul appel /v1/systemone, sans transcription. Modèles compatibles : Clef-Flash/Clef, et D1/D3 expérimentaux. TEV1 est textuel dans System One : il ne peut pas recevoir les images via cet endpoint. Aucun repli Chat automatique.</p>
         <label className="analysis-thinking-option" htmlFor="ai-criterion-by-criterion"><input id="ai-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère, avec affichage progressif. Désactivez cette option pour envoyer tout le barème dans un seul appel et comparer les deux approches.</small></span></label>
-        {apiCompatible && <section className="saluki-load-card" aria-labelledby="saluki-load-title">
-          <div className="saluki-load-heading"><div><p className="eyebrow">MODÈLE AVANCÉ · À LA DEMANDE</p><h3 id="saluki-load-title">Saluki 27B <span className="saluki-beta">BÊTA</span></h3></div><span className={salukiLoaded ? 'saluki-status is-loaded' : 'saluki-status'}>{salukiLoaded ? 'Chargé' : 'Non chargé'}</span></div>
-          <p>Modèle texte et images plus puissant, chargé temporairement à la place de <code>system1</code> et <code>system1-vision</code>. Les mêmes endpoints de correction restent utilisés : les sélecteurs de modèles ne changent pas.</p>
-          <div className="saluki-load-details"><span>Dérivé de Qwen3.8-27B</span><span>Chargement à la demande</span><span>Clé API : périmètre <code>models</code></span></div>
-          <button type="button" className="primary-button full-button" disabled={busy || salukiLoading} onClick={() => void handleLoadSaluki()}>{salukiLoading ? 'Chargement en cours…' : salukiLoaded ? 'Recharger Saluki 27B' : 'Charger Saluki 27B'}</button>
-          {salukiMessage && <p className={salukiLoaded ? 'saluki-feedback is-loaded' : 'saluki-feedback'} role="status" aria-live="polite">{salukiMessage}</p>}
-          <p className="hint">Le serveur peut décharger les autres modèles pour libérer la mémoire de la carte graphique. Le temps de chargement dépend de la taille du modèle et de la mémoire disponible.</p>
-          <details><summary>Détails techniques</summary><p>POST <code>/v1/models/saluki-27b/load</code></p><p>Le token Bearer configuré est transmis au serveur. Il doit disposer du périmètre <code>models</code>.</p></details>
-        </section>}
+        {apiCompatible && <ModelPreloadPanel endpoint={endpoint} apiKey={apiKey} busy={busy} loadModel={loadOnDemandModel} />}
         <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : apiCompatible ? 'Tester la connexion' : 'Tester la connexion et détecter les modèles'}</button>
         {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
         <p className="hint">Aucun basculement automatique vers un autre fournisseur n’est effectué.</p>
