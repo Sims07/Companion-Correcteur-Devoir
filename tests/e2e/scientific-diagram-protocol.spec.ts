@@ -56,3 +56,39 @@ test('a scientific diagram protocol accepts a photo, rubric, teacher decisions a
   await expect(panel.getByText('System One image directe', { exact: false })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Tester le schéma en un clic' })).toBeEnabled();
 });
+
+
+test('the scientific-diagram lab exposes an explicit multimodal comparison independently from teacher correction', async ({ page }) => {
+  const configuration = {
+    endpoint: 'http://localhost:11434',
+    apiCompatible: false, apiKey: '', visionModel: 'glm-ocr:4b',
+    transcriptionTokenLimit: 2048, transcriptionPromptMode: 'auto',
+    transcriptionRepeatPenalty: 1.05, transcriptionPenaltyParameter: 'none',
+    transcriptionFrequencyPenalty: 0, analysisModel: 'qwen3.5:9b',
+    secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single',
+    analysisThinking: false, criterionByCriterion: true, correctionMethod: 'generative',
+  };
+  await page.addInitScript((profiles) => {
+    localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify(profiles));
+  }, [{ id: 'qwen-image', name: 'Qwen 9B multimodal', mode: 'single', updatedAt: '2026-11-08T00:00:00Z', configuration }]);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+
+  const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
+  const method = panel.getByRole('combobox', { name: 'Méthode de correction scientifique à tester' });
+  await expect(method).toHaveValue('compare');
+  const choices = page.getByRole('group', { name: 'Configurations à exécuter' });
+  await choices.locator('label.evaluation-profile-option').first().click();
+  await expect(panel.getByText('Vision puis analyse / Image → génératif direct', { exact: false })).toBeVisible();
+
+  await method.selectOption('direct-image-generative');
+  await expect(method).toHaveValue('direct-image-generative');
+  await expect(panel.getByText('Qwen 9B multimodal (Image → génératif direct)')).toBeVisible();
+
+  await method.selectOption('direct-image-systemone');
+  await expect(panel.getByRole('button', { name: 'Tester les 3 schémas en un clic' })).toBeDisabled();
+  await expect(panel.getByText(/Le parcours System One image exige/).first()).toBeVisible();
+  await method.selectOption('compare');
+  await expect(panel.getByRole('button', { name: 'Tester les 3 schémas en un clic' })).toBeEnabled();
+});
