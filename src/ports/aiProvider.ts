@@ -29,6 +29,8 @@ export interface GradingRequest {
   visionOnly?: boolean;
   /** Diagnostic-only experiment: native D1/D3 scores the images directly, with no copy OCR. */
   directVisualDecision?: boolean;
+  /** Diagnostic lab only: grade directly from the diagram image with the generative model, without OCR. */
+  directGenerativeVision?: boolean;
   /** Read only the reference subject with the dedicated subject prompt, without transcribing or grading a copy. */
   subjectOnly?: boolean;
   /** Reference preparation may include an existing teacher answer key; transcribe it literally. */
