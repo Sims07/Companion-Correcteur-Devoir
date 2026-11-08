@@ -99,7 +99,17 @@ export function upsertAiModelProfile(profiles: AiModelProfile[], profile: AiMode
   return profiles.map((item) => item.id === profile.id ? profile : item);
 }
 
-/** Remove only a saved profile. The active editor settings and evaluation archives are independent. */
+/** Remove only saved profiles. Active editor settings and evaluation archives
+ * live elsewhere; callers persist the returned list in one localStorage write. */
+export function removeAiModelProfiles(
+  profiles: readonly AiModelProfile[], profileIds: readonly string[],
+): AiModelProfile[] {
+  const toRemove = new Set(profileIds);
+  if (toRemove.size === 0) return [...profiles];
+  return profiles.filter((profile) => !toRemove.has(profile.id));
+}
+
+/** Backwards-compatible single profile deletion. */
 export function removeAiModelProfile(profiles: AiModelProfile[], profileId: string): AiModelProfile[] {
-  return profiles.filter((profile) => profile.id !== profileId);
+  return removeAiModelProfiles(profiles, [profileId]);
 }
