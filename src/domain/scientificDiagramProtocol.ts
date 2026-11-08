@@ -117,8 +117,13 @@ export function diagramProtocolProfileIssue(profile: AiModelProfile): string | n
   if (!isSupportedPilotProfile(profile)) return 'Adresse de serveur invalide : ' + profile.name;
   const config = profile.configuration;
   if (!config.analysisModel.trim()) return 'Modèle d’analyse manquant : ' + profile.name;
-  if (config.correctionMethod === 'decision' && config.apiCompatible) {
+  if ((config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision') && config.apiCompatible) {
     return 'System One ne passe pas par l’API Chat compatible OpenAI : ' + profile.name;
+  }
+  if (config.correctionMethod === 'visual-decision' && !isVisualDecisionModel(config.analysisModel)) {
+    return /^tev1(?::|$)/i.test(config.analysisModel)
+      ? 'TEV1 ne prend pas en charge les images via System One. Pour un appel direct, choisissez Clef-Flash ; sinon utilisez Vision puis TEV1.'
+      : 'Décision directe sur image indisponible pour « ' + config.analysisModel + ' ». Choisissez un modèle compatible, par exemple Clef-Flash.';
   }
   if (!usesDirectDiagramVision(profile) && !config.visionModel.trim()) {
     return 'Modèle Vision manquant pour le parcours en deux étapes : ' + profile.name;
@@ -127,7 +132,9 @@ export function diagramProtocolProfileIssue(profile: AiModelProfile): string | n
 }
 
 export function usesDirectDiagramVision(profile: AiModelProfile): boolean {
-  return !profile.configuration.apiCompatible && profile.configuration.correctionMethod === 'decision'
+  return !profile.configuration.apiCompatible
+    && (profile.configuration.correctionMethod === 'decision'
+      || profile.configuration.correctionMethod === 'visual-decision')
     && isVisualDecisionModel(profile.configuration.analysisModel);
 }
 
