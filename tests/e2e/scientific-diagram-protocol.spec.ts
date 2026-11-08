@@ -1,4 +1,56 @@
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../src/domain/scientificDiagramFixtures';
+
+test('Qwen direct diagram repairs missing evidence and exports all 19 decisions without OCR', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
+    id: 'qwen-direct', name: 'Qwen direct', mode: 'single', updatedAt: '2026-11-08T00:00:00Z',
+    configuration: { endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '',
+      visionModel: 'unused-ocr', analysisModel: 'qwen3.5:4b', correctionMethod: 'generative',
+      secondAnalysisModel: '', arbitratorModel: '',
+      diagnosticStrategy: 'single', analysisThinking: false, criterionByCriterion: true },
+  }])));
+  const payloads: Record<string, any>[] = [];
+  await page.route('http://localhost:11434/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*',
+      'access-control-allow-methods': 'GET,POST,OPTIONS' };
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
+    if (path === '/api/tags') return route.fulfill({ headers, json: { models: [{ name: 'qwen3.5:4b' }] } });
+    if (path === '/api/ps') return route.fulfill({ headers, json: { models: [] } });
+    const body = route.request().postDataJSON();
+    if (path === '/api/chat' && body.messages?.[0]?.images?.length) {
+      payloads.push(body);
+      const criteria = Object.fromEntries(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.map(c => [c.id, {
+        evidence: 'Observation visible', confidence: 'medium', questionForTeacher: '',
+        subcriteria: Object.fromEntries(c.subcriteria!.map(s => [s.id, { points: 0, evidence: 'Élément absent' }])),
+      }]));
+      // A valid JSON with a missing proof must be repaired, never scored silently.
+      if (payloads.length === 1) criteria.drawing.subcriteria['drawing-page'].evidence = '';
+      return route.fulfill({ headers, contentType: 'application/x-ndjson', body:
+        JSON.stringify({ message: { content: JSON.stringify({ criteria }) } }) + '\n'
+        + JSON.stringify({ done: true, done_reason: 'stop', eval_count: 500 }) + '\n' });
+    }
+    return route.fulfill({ headers, json: { done: true, message: { content: '{}' } } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
+  await page.getByRole('group', { name: 'Configurations à exécuter' }).locator('label.evaluation-profile-option').first().click();
+  await panel.getByRole('combobox', { name: 'Méthode de correction scientifique à tester' }).selectOption('direct-image-generative');
+  await panel.getByRole('button', { name: 'Tester les 3 schémas en un clic' }).click();
+  const results = panel.getByRole('region', { name: 'Résultats des schémas A B C' });
+  await expect(results.locator('tbody tr')).toHaveCount(3);
+  const [download] = await Promise.all([page.waitForEvent('download'), results.getByRole('button', { name: 'Exporter le rapport JSON' }).click()]);
+  const report = JSON.parse(await readFile(await download.path(), 'utf8'));
+  const runs = report.cases.flatMap((c: { experiments: unknown[] }) => c.experiments);
+  expect(runs).toHaveLength(3);
+  expect(runs.every((r: any) => r.status === 'success' && r.score === 0 && r.observations.length === 19)).toBe(true);
+  expect(runs[0].diagnostics.repairCalls).toBe(1);
+  expect(payloads).toHaveLength(4);
+  expect(payloads.every(p => p.model === 'qwen3.5:4b' && p.messages[0].images.length === 1)).toBe(true);
+});
 
 test('a scientific diagram protocol accepts a photo, rubric, teacher decisions and saved models', async ({ page }) => {
   const configuration = {

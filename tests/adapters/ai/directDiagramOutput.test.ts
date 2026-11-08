@@ -1,0 +1,110 @@
+import { describe, expect, it, vi } from 'vitest';
+import { directDiagramSchema, parseDirectDiagramOutput } from '../../../src/adapters/ai/directDiagramOutput.ts';
+import { createOllamaProvider } from '../../../src/adapters/ai/ollamaProvider.ts';
+import { diagramAnalysisDiagnostics, diagramFailureCategory } from '../../../src/domain/scientificDiagramProtocol.ts';
+import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../../src/domain/scientificDiagramFixtures.ts';
+
+const criteria = [{ id: 'title', title: 'Titre', description: '', maxPoints: 1,
+  subcriteria: [{ id: 'position', title: 'Position', description: '', maxPoints: 0.66 },
+    { id: 'content', title: 'Contenu', description: '', maxPoints: 0.34 }] }];
+const answer = () => ({ criteria: { title: { evidence: 'Titre sous le dessin', confidence: 'medium', questionForTeacher: '',
+  subcriteria: { position: { points: 0.33, evidence: 'Titre décalé' }, content: { points: 0.34, evidence: 'Sujet précisé' } } } } });
+const stream = (raw: string, done_reason = 'stop') => new Response(
+  JSON.stringify({ message: { content: raw } }) + '\n' + JSON.stringify({ done: true, done_reason }) + '\n');
+const request = { question: 'Vérifier le dessin', rubric: JSON.stringify({ title: 'Dessin', criteria }),
+  images: [{ mimeType: 'image/png', base64: 'aW1hZ2U=', fileName: 'copy.png' }], directGenerativeVision: true };
+
+describe('compact direct diagram output', () => {
+  it('handles all 19 real fixture targets with mixed zero, partial and maximum marks', () => {
+    const rubric = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC;
+    const values = Object.fromEntries(rubric.criteria.map(c => [c.id, {
+      evidence: 'Observation du dessin', confidence: 'medium', questionForTeacher: '',
+      subcriteria: Object.fromEntries(c.subcriteria!.map((s, i) => [s.id, {
+        points: i % 3 === 0 ? 0 : i % 3 === 1 ? 0.1 : s.maxPoints, evidence: 'Détail visible',
+      }])),
+    }]));
+    const parsed = JSON.parse(parseDirectDiagramOutput(JSON.stringify({ criteria: values }), rubric.criteria));
+    expect(parsed.criteria.flatMap((c: {subcriteria: unknown[]}) => c.subcriteria)).toHaveLength(19);
+    expect(parsed.finalScore).toBeGreaterThan(0);
+    expect(parsed.finalScore).toBeLessThan(10);
+  });
+  it('computes partial decimal totals without asking the model to add or changing leaf marks', () => {
+    const parsed = JSON.parse(parseDirectDiagramOutput(JSON.stringify(answer()), criteria));
+    expect(parsed.finalScore).toBe(0.67);
+    expect(parsed.criteria[0].points).toBe(0.67);
+    expect(parsed.criteria[0].subcriteria.map((s: {points: number}) => s.points)).toEqual([0.33, 0.34]);
+  });
+  it('requires each real rubric ID as a named schema property, not alternatives in an array', () => {
+    const schema = directDiagramSchema(criteria);
+    expect(JSON.stringify(schema)).not.toContain('anyOf');
+    expect(JSON.stringify(schema)).toContain('position');
+    expect(JSON.stringify(schema)).not.toContain('finalScore');
+  });
+  it.each(['missing-id', 'unknown-id', 'missing-evidence', 'invalid-points'])(
+    'does not fabricate or clamp marks after %s', code => {
+      const value = answer();
+      if (code === 'missing-id') delete (value.criteria.title.subcriteria as Partial<typeof value.criteria.title.subcriteria>).position;
+      if (code === 'unknown-id') Object.assign(value.criteria.title.subcriteria, { invented: { points: 0, evidence: 'x' } });
+      if (code === 'missing-evidence') value.criteria.title.subcriteria.position.evidence = '';
+      if (code === 'invalid-points') value.criteria.title.subcriteria.position.points = 1;
+      expect(() => parseDirectDiagramOutput(JSON.stringify(value), criteria)).toThrow(`[diagram-output:${code}]`);
+    });
+  it.each(['qwen3.5:4b', 'qwen3.5:9b'])('repairs only once with images and exact IDs for %s', async model => {
+    const bad = answer();
+    delete (bad.criteria.title.subcriteria as Partial<typeof bad.criteria.title.subcriteria>).position;
+    const fetchMock = vi.fn().mockResolvedValueOnce(stream(JSON.stringify(bad))).mockResolvedValueOnce(stream(JSON.stringify(answer())));
+    const trace = vi.fn();
+    const raw = await createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: model,
+      correctionMethod: 'generative' }, fetchMock).generate(request, undefined, undefined, undefined, trace);
+    expect(JSON.parse(raw).finalScore).toBe(0.67);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const bodies = fetchMock.mock.calls.map(c => JSON.parse(c[1].body));
+    for (const body of bodies) {
+      expect(body.model).toBe(model);
+      expect(body.think).toBe(false);
+      expect(body.messages[0].images).toEqual(['aW1hZ2U=']);
+      expect(body.messages[0].content).not.toContain('transcription_etudiant');
+    }
+    expect(bodies[1].messages[0].content).toContain('missing-id');
+    expect(trace.mock.calls.map(c => c[0].promptId)).toEqual(['diagram.direct-grading', 'diagram.direct-repair']);
+  });
+  it('rejects a second invalid answer with a safe, exportable validation reason', async () => {
+    const fetchMock = vi.fn(async () => stream('{'));
+    await expect(createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:4b',
+      correctionMethod: 'generative' }, fetchMock).generate(request)).rejects.toThrow('[diagram-output:invalid-json]');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const error = 'secret [diagram-output:invalid-json]';
+    expect(diagramAnalysisDiagnostics({ error }).outputFailure).toBe('invalid-json');
+    expect(JSON.stringify(diagramAnalysisDiagnostics({ error }))).not.toContain('secret');
+    expect(diagramFailureCategory(error)).toBe('invalid-or-incomplete-output');
+  });
+  it('never accepts a length-stopped answer even if its JSON happens to be valid', async () => {
+    const fetchMock = vi.fn(async () => stream(JSON.stringify(answer()), 'length'));
+    await expect(createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:9b',
+      correctionMethod: 'generative' }, fetchMock).generate(request)).rejects.toThrow('[diagram-output:generation-limit]');
+  });
+  it('does not retry a failed HTTP request', async () => {
+    const fetchMock = vi.fn(async () => new Response('unavailable', { status: 503 }));
+    await expect(createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:4b',
+      correctionMethod: 'generative' }, fetchMock).generate(request)).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it('keeps the same compact contract through an OpenAI-compatible multimodal endpoint', async () => {
+    const fetchMock = vi.fn(async () => new Response('data: ' + JSON.stringify({ choices: [{
+      delta: { content: JSON.stringify(answer()) }, finish_reason: 'stop',
+    }] }) + '\n\ndata: [DONE]\n', { headers: { 'Content-Type': 'text/event-stream' } }));
+    const raw = await createOllamaProvider({ endpoint: 'https://example.invalid/v1/chat/completions',
+      apiCompatible: true, analysisModel: 'qwen3.5:9b', correctionMethod: 'generative' }, fetchMock).generate(request);
+    expect(JSON.parse(raw).finalScore).toBe(0.67);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it('keeps an explicit uncertainty and teacher question in the final proposal', () => {
+    const value = answer();
+    value.criteria.title.confidence = 'low';
+    value.criteria.title.questionForTeacher = 'Le titre est-il coupé sur la photo ?';
+    value.criteria.title.evidence = 'preuve non disponible';
+    const parsed = JSON.parse(parseDirectDiagramOutput(JSON.stringify(value), criteria));
+    expect(parsed.criteria[0].confidence).toBe('low');
+    expect(parsed.criteria[0].questionForTeacher).toContain('photo');
+  });
+});
