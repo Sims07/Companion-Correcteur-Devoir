@@ -162,9 +162,23 @@ test('multi-page scientific diagrams navigate in the shared viewer and rotation 
   await page.goto('/');
   await page.getByRole('button', { name: 'Schémas scientifiques' }).click();
   const workspace = page.getByLabel('Correction des schémas scientifiques');
+  // A browser-generated, decodable asymmetric image is required here:
+  // the tiny legacy fixture is not reliably supported by createImageBitmap.
+  const imageBase64 = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 8;
+    canvas.height = 4;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = '#174f78';
+    context.fillRect(0, 0, 4, 4);
+    context.fillStyle = '#e4a23a';
+    context.fillRect(4, 0, 4, 4);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  const imageBuffer = Buffer.from(imageBase64, 'base64');
   await workspace.locator('#teacher-diagram-images').setInputFiles([
-    { name: 'page-a.png', mimeType: 'image/png', buffer: onePixelPng },
-    { name: 'page-b.png', mimeType: 'image/png', buffer: onePixelPng },
+    { name: 'page-a.png', mimeType: 'image/png', buffer: imageBuffer },
+    { name: 'page-b.png', mimeType: 'image/png', buffer: imageBuffer },
   ]);
   const firstThumb = workspace.getByRole('button', { name: 'Agrandir le schéma, page 1' });
   await expect(firstThumb).toBeVisible();
@@ -174,13 +188,16 @@ test('multi-page scientific diagrams navigate in the shared viewer and rotation 
   viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 2' });
   await expect(viewer).toBeVisible();
   await viewer.getByRole('button', { name: 'Tourner l’image à droite de 90 degrés' }).click();
+  await expect.poll(() => viewer.getByRole('img', { name: 'Page 2 agrandie' }).evaluate(
+    (image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight],
+  )).toEqual([4, 8]);
   await expect(workspace.getByRole('button', { name: 'Agrandir le schéma, page 2' })).toContainText('90°');
   await viewer.getByRole('button', { name: 'Page précédente' }).click();
   await expect(page.getByRole('dialog', { name: 'Visualiseur de la page 1' })).toBeVisible();
   await page.keyboard.press('Escape');
 
   await workspace.locator('#teacher-diagram-images').setInputFiles({
-    name: 'nouveau-schema.png', mimeType: 'image/png', buffer: onePixelPng,
+    name: 'nouveau-schema.png', mimeType: 'image/png', buffer: imageBuffer,
   });
   await expect(workspace.getByRole('button', { name: 'Agrandir le schéma, page 2' })).toHaveCount(0);
   await expect(firstThumb).not.toContainText('90°');
