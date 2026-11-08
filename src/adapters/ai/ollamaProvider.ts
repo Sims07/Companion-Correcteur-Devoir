@@ -658,7 +658,7 @@ export function createOllamaProvider(
         }
       }
 
-      if (!rubricCriteriaForSchema.some(c => c.correctionContract) && !request.visionOnly && settings.correctionMethod !== 'decision' && !useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription && !request.detectTeacherAnnotations && !request.identifyStudent) {
+      if (!rubricCriteriaForSchema.some(c => c.correctionContract) && !request.visionOnly && (settings.correctionMethod === undefined || settings.correctionMethod === 'generative') && !useTwoModels && !request.transcription && !request.subjectImages?.length && !request.subjectTranscription && !request.detectTeacherAnnotations && !request.identifyStudent) {
         // Compatibility mode for existing callers configured with one model.
         return sendGradingWithRepair(analysisModel, buildPrompt(), (request.images ?? []).map(providerImage), onChunk, { kind: 'model', stage: 'analysis' });
       }
