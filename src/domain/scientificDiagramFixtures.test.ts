@@ -120,7 +120,7 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
       readFile(new URL('../assets/pilot/scientific-mitosis-labels-control.svg', import.meta.url), 'utf8'),
       readFile(new URL('../assets/pilot/scientific-mitosis-labels-swapped.svg', import.meta.url), 'utf8'),
     ]);
-    const line = /<line id="(pointer-[^"]+)" class="pointer" x1="(\\d+)" y1="(\\d+)" x2="(\\d+)" y2="(\\d+)"\\/>/g;
+    const line = /<line id="(pointer-[^"]+)" class="pointer" x1="(\d+)" y1="(\d+)" x2="(\d+)" y2="(\d+)"\/>/g;
     const arrows = (svg: string) => Object.fromEntries([...svg.matchAll(line)].map((m) =>
       [m[1]!, { start: [Number(m[2]), Number(m[3])], end: [Number(m[4]), Number(m[5])] }]));
     const a = arrows(control), b = arrows(trap);
