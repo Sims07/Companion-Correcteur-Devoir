@@ -53,6 +53,47 @@ export type DiagramTeacherDecision = 'present' | 'absent' | 'partial';
 export type DiagramGold = Record<string, DiagramTeacherDecision>;
 export type DiagramProtocolRun = { repetition: number; record: ModelEvaluationRecord };
 export type DiagramProtocolCount = 1 | 3 | 5;
+export type DiagramMethod = 'vision-then-analysis' | 'direct-image-generative' | 'direct-image-systemone';
+export type DiagramMethodSelection = DiagramMethod | 'compare';
+
+export const diagramMethodLabels: Record<DiagramMethod, string> = {
+  'vision-then-analysis': 'Vision puis analyse',
+  'direct-image-generative': 'Image → génératif direct',
+  'direct-image-systemone': 'Image → System One direct',
+};
+
+/** The scientific laboratory selects routes independently of the teacher workflow.
+ * Only genuinely supported routes are offered: TEV1 has no native System One image API. */
+export function availableDiagramMethods(profile: AiModelProfile): DiagramMethod[] {
+  const config = profile.configuration;
+  if (!isSupportedPilotProfile(profile) || !config.analysisModel.trim()) return [];
+  if (config.apiCompatible && config.correctionMethod !== 'generative') return [];
+  const methods: DiagramMethod[] = [];
+  if (config.visionModel.trim()) methods.push('vision-then-analysis');
+  if (config.correctionMethod === 'generative') methods.push('direct-image-generative');
+  if (!config.apiCompatible && (config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision')
+      && isVisualDecisionModel(config.analysisModel)) methods.push('direct-image-systemone');
+  return methods;
+}
+
+export function selectDiagramMethods(profile: AiModelProfile, selection: DiagramMethodSelection): DiagramMethod[] {
+  const methods = availableDiagramMethods(profile);
+  return selection === 'compare' ? methods : methods.filter((method) => method === selection);
+}
+
+export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMethodSelection): string | null {
+  if (!isSupportedPilotProfile(profile)) return 'Adresse de serveur invalide : ' + profile.name;
+  if (!profile.configuration.analysisModel.trim()) return 'Modèle d’analyse manquant : ' + profile.name;
+  if (selectDiagramMethods(profile, selection).length) return null;
+  return selection === 'direct-image-generative'
+    ? 'Le parcours génératif direct exige une configuration générative et un modèle acceptant les images : ' + profile.name
+    : selection === 'direct-image-systemone'
+      ? 'Le parcours System One image exige un modèle Ollama décisionnel compatible avec les images (pas TEV1) : ' + profile.name
+      : selection === 'vision-then-analysis'
+        ? 'Le parcours en deux étapes exige un modèle Vision et une analyse compatibles : ' + profile.name
+        : 'Aucun parcours de schéma disponible pour la configuration : ' + profile.name;
+}
+
 
 export function diagramTargetKey(criterionId: string, subcriterionId: string): string {
   return criterionId + '::' + subcriterionId;
@@ -188,11 +229,12 @@ export function buildScientificDiagramProtocolReport(
   plannedRepetitions: DiagramProtocolCount, createdAt: string, imageCount: number,
 ) {
   const totalTargets = rubric.criteria.reduce((sum, criterion) => sum + getRubricSubcriteria(criterion).length, 0);
-  const profiles = [...new Set(runs.flatMap(({ record }) => record.results.map((result) => result.profileId)))];
   const experiments = runs.flatMap(({ repetition, record }) => record.results.map((result) => ({
     repetition, profileId: result.profileId, profileName: result.profileName,
     model: record.configurations.find((entry) => entry.id === result.profileId)?.analysisModel ?? '',
-    method: result.directVisualDecision ? 'direct-image-systemone' as const : 'vision-then-analysis' as const,
+    method: result.directVisualDecision ? 'direct-image-systemone' as const
+      : record.configurations.find((entry) => entry.id === result.profileId)?.directGenerativeVision
+        ? 'direct-image-generative' as const : 'vision-then-analysis' as const,
     status: result.status,
     failureCategory: result.status !== 'success' ? diagramFailureCategory(result.error) : null,
     error: result.error
@@ -207,8 +249,12 @@ export function buildScientificDiagramProtocolReport(
       : result.proposal ? 'teacher-review-required' as const : 'invalid-or-incomplete-proposal' as const,
     observations: diagramObservations(result, rubric),
   })));
-  const summaries = profiles.map((profileId) => {
-    const items = experiments.filter((item) => item.profileId === profileId).sort((a, b) => a.repetition - b.repetition);
+  const profiles = [...new Map(experiments.map((experiment) => [
+    experiment.profileId + '::' + experiment.method,
+    { profileId: experiment.profileId, method: experiment.method },
+  ])).values()];
+  const summaries = profiles.map(({ profileId, method }) => {
+    const items = experiments.filter((item) => item.profileId === profileId && item.method === method).sort((a, b) => a.repetition - b.repetition);
     const ids = items[0]?.observations.map((item) => item.key) ?? [];
     const decisions = ids.map((key) => {
       const choices = items.map((item) => item.observations.find((entry) => entry.key === key)?.choice ?? 'uncertain');
@@ -232,7 +278,7 @@ export function buildScientificDiagramProtocolReport(
     const anyResolved = resolved > 0;
     return {
       profileId, profileName: items[0]?.profileName ?? profileId, model: items[0]?.model ?? '',
-      method: items[0]?.method ?? 'vision-then-analysis',
+      method,
       runsCompleted: items.length, plannedRepetitions,
       successfulRuns: items.filter((item) => item.status === 'success').length,
       scoredRuns: items.filter((item) => item.scoreStatus === 'scored').length,
