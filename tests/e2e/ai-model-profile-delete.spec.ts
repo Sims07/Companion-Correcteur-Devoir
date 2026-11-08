@@ -89,3 +89,88 @@ test('teacher deletion is reflected immediately in the evaluator profiles', asyn
   await page.locator('#evaluation-profile-select').selectOption('saved-two');
   await expect(page.getByRole('button', { name: 'Supprimer cette configuration' })).toBeEnabled();
 });
+
+test('manage 16 saved configurations at once: select all, retain 3, confirm, and persist without disturbing current settings', async ({ page }) => {
+  await page.goto('/');
+  const many = Array.from({ length: 16 }, (_, index) => ({
+    ...profiles[0]!,
+    id: 'bulk-' + index,
+    name: index < 3 ? 'Garder ' + (index + 1) : 'Ancien ' + (index + 1),
+    configuration: { ...configuration, analysisModel: 'model-' + index },
+  }));
+  await page.evaluate(({ key, data }) => localStorage.setItem(key, JSON.stringify(data)), {
+    key: profileStorageKey, data: many,
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  const options = page.getByRole('group', { name: 'Configurations à exécuter' });
+  await expect(options.getByRole('checkbox')).toHaveCount(16);
+  await options.locator('label.evaluation-profile-option').filter({ hasText: 'Ancien 16' }).click();
+  await page.locator('#evaluation-profile-select').selectOption('bulk-15');
+  await expect(page.locator('#evaluation-analysis-model')).toHaveValue('model-15');
+
+  await page.getByRole('button', { name: 'Gérer les configurations (16)' }).click();
+  let manager = page.getByRole('dialog', { name: 'Gérer mes configurations IA' });
+  await expect(manager.getByRole('checkbox')).toHaveCount(16);
+  await expect(manager.getByRole('button', { name: /Supprimer 0 configuration/ })).toBeDisabled();
+  await manager.getByRole('button', { name: 'Tout sélectionner' }).click();
+  for (const name of ['Garder 1', 'Garder 2', 'Garder 3']) {
+    await manager.getByRole('checkbox', { name: new RegExp(name) }).uncheck();
+  }
+  await expect(manager.getByText('13 à supprimer · 3 à conserver')).toBeVisible();
+  await manager.getByRole('button', { name: /Supprimer 13 configuration/ }).click();
+  let confirmation = page.getByRole('dialog', { name: 'Confirmer la suppression des configurations' });
+  await expect(confirmation.locator('.ai-profile-manager-confirm-list li')).toHaveCount(13);
+  await expect(confirmation).toContainText('3 configuration(s) conservée(s)');
+  await confirmation.getByRole('button', { name: 'Retour à la liste' }).click();
+  manager = page.getByRole('dialog', { name: 'Gérer mes configurations IA' });
+  expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '[]').length, profileStorageKey)).toBe(16);
+  await manager.getByRole('button', { name: /Supprimer 13 configuration/ }).click();
+  confirmation = page.getByRole('dialog', { name: 'Confirmer la suppression des configurations' });
+  await confirmation.getByRole('button', { name: 'Confirmer la suppression de 13 configuration(s)' }).click();
+
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Gérer les configurations (3)' })).toBeVisible();
+  await expect(options.getByRole('checkbox')).toHaveCount(3);
+  await expect(options.getByRole('checkbox').filter({ hasText: /Ancien 16/ })).toHaveCount(0);
+  await expect(page.locator('#evaluation-profile-select')).toHaveValue('');
+  await expect(page.locator('#evaluation-profile-name')).toHaveValue('');
+  // The editor retains the loaded configuration even when its saved entry is removed.
+  await expect(page.locator('#evaluation-analysis-model')).toHaveValue('model-15');
+  expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '[]').map((item: { id: string }) => item.id), profileStorageKey))
+    .toEqual(['bulk-0', 'bulk-1', 'bulk-2']);
+  expect(await page.evaluate((key) => localStorage.getItem(key), configurationStorageKey)).toBeTruthy();
+
+  await page.reload();
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await expect(page.getByRole('button', { name: 'Gérer les configurations (3)' })).toBeVisible();
+  await expect(page.locator('#evaluation-profile-select option')).toHaveCount(4);
+  await expect(page.locator('#evaluation-profile-select')).toContainText('Garder 1');
+  await expect(page.locator('#evaluation-profile-select')).not.toContainText('Ancien');
+});
+
+test('batch removal aborts safely if local storage fails, keeping all saved profiles', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Gérer les configurations (2)' }).click();
+  const manager = page.getByRole('dialog', { name: 'Gérer mes configurations IA' });
+  await manager.getByRole('checkbox', { name: /Configuration à supprimer/ }).check();
+  await manager.getByRole('button', { name: /Supprimer 1 configuration/ }).click();
+  await page.evaluate((key) => {
+    const normalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (itemKey: string, value: string) {
+      if (itemKey === key) throw new DOMException('Storage unavailable', 'QuotaExceededError');
+      return normalSetItem.call(this, itemKey, value);
+    };
+  }, profileStorageKey);
+  const confirm = page.getByRole('dialog', { name: 'Confirmer la suppression des configurations' });
+  await confirm.getByRole('button', { name: 'Confirmer la suppression de 1 configuration(s)' }).click();
+  await expect(confirm.getByRole('alert')).toContainText('La suppression n’a pas été enregistrée');
+  expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '[]').length, profileStorageKey)).toBe(2);
+  await confirm.getByRole('button', { name: 'Retour à la liste' }).click();
+  await page.getByRole('dialog', { name: 'Gérer mes configurations IA' }).getByRole('button', { name: 'Fermer' }).click();
+  await expect(page.locator('#evaluation-profile-select option')).toHaveCount(3);
+});
