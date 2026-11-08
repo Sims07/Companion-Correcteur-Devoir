@@ -123,6 +123,13 @@ test('the teacher corrects a scientific diagram directly, reviews criterion evid
   expect(reportText).not.toContain('base64');
   expect(reportText).not.toContain('http://localhost');
   expect(reportText).not.toContain('apiKey');
+  // An orientation change after grading makes the old provisional result stale.
+  await thumb.click();
+  await page.getByRole('dialog', { name: 'Visualiseur de la page 1' })
+    .getByRole('button', { name: 'Tourner l’image à gauche de 90 degrés' }).click();
+  await expect(result).toHaveCount(0);
+  await page.getByRole('dialog', { name: 'Visualiseur de la page 1' })
+    .getByRole('button', { name: 'Fermer le visualiseur' }).click();
   await page.getByRole('button', { name: 'Correction', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Mes devoirs' })).toBeVisible();
 });
