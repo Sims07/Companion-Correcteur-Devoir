@@ -42,7 +42,8 @@ import { getCopyNavigation, getNewlyAvailableReviewJob } from '../domain/backgro
 import { prepareBatchCopies } from '../application/prepareBatchCopies.ts';
 import { autoRotateScientificPages } from '../application/autoRotateScientificPages.ts';
 import type { BackgroundCorrectionService } from '../application/backgroundCorrectionService.ts';
-import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, removeAiModelProfile, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
+import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, removeAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
+import { AiProfileManager } from './components/AiProfileManager.tsx';
 import type { CorrectionMethod } from '../domain/correctionMethod.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
 import { getArchivedCorrectionsForAssignment } from '../domain/assignmentOverview.ts';
@@ -393,6 +394,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [aiModelProfileMessage, setAiModelProfileMessage] = useState('');
   const [aiModelProfileTone, setAiModelProfileTone] = useState<StatusTone>('info');
   const [pendingAiProfileRemoval, setPendingAiProfileRemoval] = useState<AiModelProfile | null>(null);
+  const [managingAiProfiles, setManagingAiProfiles] = useState(false);
   const [diagnosticRuns, setDiagnosticRuns] = useState<DiagnosticModelResult[]>([]);
   const [selectedEvaluationProfileIds, setSelectedEvaluationProfileIds] = useState<string[]>([]);
   const [selectedEvaluationHistoryIds, setSelectedEvaluationHistoryIds] = useState<string[]>([]);
@@ -778,29 +780,36 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     catch { setAiModelProfileTone('error'); setAiModelProfileMessage('Le navigateur n’a pas pu enregistrer ce profil. Vérifiez son espace de stockage.'); }
   }
 
-  function deleteAiModelProfile(profile: AiModelProfile) {
-    if (busy || pilotBusy) return;
-    const next = removeAiModelProfile(aiModelProfiles, profile.id);
-    if (next.length === aiModelProfiles.length) { setPendingAiProfileRemoval(null); return; }
+  function deleteAiModelProfiles(profileIds: readonly string[]): boolean {
+    if (busy || pilotBusy || profileIds.length === 0) return false;
+    const toRemove = new Set(profileIds);
+    const removed = aiModelProfiles.filter((profile) => toRemove.has(profile.id));
+    if (removed.length === 0) return false;
+    const next = removeAiModelProfiles(aiModelProfiles, profileIds);
     try {
-      // Persist first: an unavailable localStorage must not leave the UI out of sync.
+      // One atomic localStorage write; keep React state unchanged if saving fails.
       window.localStorage.setItem(aiModelProfilesKey, JSON.stringify(next));
     } catch {
       setAiModelProfileTone('error');
-      setAiModelProfileMessage('Impossible de supprimer cette configuration : le stockage local est indisponible.');
-      setPendingAiProfileRemoval(null);
-      return;
+      setAiModelProfileMessage('Impossible de supprimer les configurations : le stockage local est indisponible.');
+      return false;
     }
     setAiModelProfiles(next);
-    setSelectedEvaluationProfileIds((current) => current.filter((id) => id !== profile.id));
-    if (selectedAiModelProfileId === profile.id) {
-      // Keep the current model settings intact; they are not the saved profile itself.
+    setSelectedEvaluationProfileIds((current) => current.filter((id) => !toRemove.has(id)));
+    if (toRemove.has(selectedAiModelProfileId)) {
+      // Active editor settings and evaluation archives are independent.
       setSelectedAiModelProfileId('');
       setAiModelProfileName('');
     }
     setAiModelProfileTone('success');
-    setAiModelProfileMessage('Configuration « ' + profile.name + ' » supprimée de cet appareil. Les réglages actuels et l’historique sont conservés.');
+    setAiModelProfileMessage(removed.length + ' configuration(s) supprimée(s) de cet appareil. '
+      + next.length + ' conservée(s). Les réglages actuels, les copies et l’historique restent inchangés.');
     setPendingAiProfileRemoval(null);
+    return true;
+  }
+
+  function deleteAiModelProfile(profile: AiModelProfile) {
+    return deleteAiModelProfiles([profile.id]);
   }
 
   useEffect(() => {
@@ -3172,7 +3181,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </DesignSystemSelect>
             <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
           </div>
-          <div className="ai-profile-actions"><Button variant="secondary" onClick={saveAiModelProfile}>Enregistrer cette configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button></div>
+          <div className="ai-profile-actions"><Button variant="secondary" onClick={saveAiModelProfile}>Enregistrer cette configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button><Button variant="secondary" disabled={busy || pilotBusy || aiModelProfiles.length === 0} onClick={() => setManagingAiProfiles(true)}>Gérer les configurations ({aiModelProfiles.length})</Button></div>
           {aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
           <p className="hint">Les derniers réglages sont restaurés automatiquement. Les profils conservent le serveur, les modèles et la stratégie de diagnostic sur cet appareil.</p>
         </div>
@@ -3240,7 +3249,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <button type="button" className={evaluationWorkspaceStep === 'history' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'history' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('history')}><span>4</span><strong>Analyse & historique</strong><small>Comparer les essais passés</small></button>
       </nav>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && <section id="evaluation-configurations" className="panel evaluation-config-workspace" aria-labelledby="evaluation-config-title">
-        <div className="evaluation-section-heading"><div><p className="eyebrow">ÉTAPE 1 · CONFIGURATIONS</p><h2 id="evaluation-config-title">Choisir les configurations à évaluer</h2><p>Créez ou modifiez vos profils ici, sans passer par les réglages du parcours de correction. Les profils sont enregistrés localement sur cet appareil.</p></div><span className="evaluation-step-chip">{aiModelProfiles.length} profil(s)</span></div>
+        <div className="evaluation-section-heading"><div><p className="eyebrow">ÉTAPE 1 · CONFIGURATIONS</p><h2 id="evaluation-config-title">Choisir les configurations à évaluer</h2><p>Créez ou modifiez vos profils ici, sans passer par les réglages du parcours de correction. Les profils sont enregistrés localement sur cet appareil.</p></div><div className="ai-profile-management-entry"><span className="evaluation-step-chip">{aiModelProfiles.length} profil(s)</span><Button variant="secondary" disabled={busy || pilotBusy || aiModelProfiles.length === 0} onClick={() => setManagingAiProfiles(true)}>Gérer les configurations ({aiModelProfiles.length})</Button></div></div>
         <ScientificDiagramProtocolPanel
           selectedProfiles={selectedEvaluationProfiles} busy={busy || pilotBusy}
           progress={diagramProtocolProgress}
@@ -3315,7 +3324,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </DesignSystemSelect>
             <input aria-label="Nom du profil IA" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Nom du profil" />
           </div>
-          <div className="ai-profile-actions"><Button variant="secondary" onClick={saveAiModelProfile}>Enregistrer cette configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button></div>
+          <div className="ai-profile-actions"><Button variant="secondary" onClick={saveAiModelProfile}>Enregistrer cette configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button><Button variant="secondary" disabled={busy || pilotBusy || aiModelProfiles.length === 0} onClick={() => setManagingAiProfiles(true)}>Gérer les configurations ({aiModelProfiles.length})</Button></div>
           {aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
           <p className="hint">Les derniers réglages sont restaurés automatiquement. Les profils conservent le serveur, les modèles et la stratégie de diagnostic sur cet appareil.</p>
         </div>
@@ -4429,6 +4438,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       />}
       {(interfaceMode === 'diagnostic' || !showAiSettings) && <footer><span>Compagnon Correcteur de Devoirs</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>}
       </div>}
+      {managingAiProfiles && <AiProfileManager
+        profiles={aiModelProfiles}
+        activeProfileId={selectedAiModelProfileId}
+        selectedEvaluationProfileIds={selectedEvaluationProfileIds}
+        busy={busy || pilotBusy}
+        onDelete={deleteAiModelProfiles}
+        onClose={() => setManagingAiProfiles(false)}
+      />}
       {pendingAiProfileRemoval && <Dialog
         title="Supprimer cette configuration IA ?"
         subtitle={pendingAiProfileRemoval.name}
