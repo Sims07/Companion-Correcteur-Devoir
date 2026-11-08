@@ -299,7 +299,7 @@ export function createBackgroundCorrectionService(
               visionModel: current.visionModel,
               analysisModel: current.analysisModel,
               analysisThinking: current.thinking,
-              correctionMethod: current.correctionMethod ?? jobSettings.correctionMethod ?? 'generative',
+              correctionMethod: jobSettings.correctionMethod ?? current.correctionMethod ?? 'generative',
             };
             const proposal = await withModelInactivityTimeout(requestAbortController, () =>
               correctScientificDiagramDirect(workspace, {
@@ -753,7 +753,7 @@ export function createBackgroundCorrectionService(
       if (job.gradingFlow === 'scientific-diagram-direct') {
         const issue = directDiagramAssignmentIssue(job.rubric, {
           endpoint: settings.endpoint, analysisModel: settings.analysisModel ?? job.analysisModel,
-          correctionMethod: job.correctionMethod ?? settings.correctionMethod ?? 'generative',
+          correctionMethod: settings.correctionMethod ?? job.correctionMethod ?? 'generative',
         }, consentedEndpoint ?? job.diagramConsentedEndpoint ?? null);
         if (issue) throw new Error(issue);
       }
