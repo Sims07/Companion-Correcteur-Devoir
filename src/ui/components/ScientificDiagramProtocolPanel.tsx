@@ -247,7 +247,7 @@ export function ScientificDiagramProtocolPanel({
     <section className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
       <div className="diagram-protocol-fixtures-heading">
         <div>
-          <h4>Cinq schémas prêts à tester — dont deux pièges de légendes</h4>
+          <h4>Cinq schémas prêts à tester — dont une paire témoin / piège</h4>
           <p>A/B/C : difficulté progressive. D/E : <strong>mêmes mots et mêmes structures</strong>, mais quatre flèches volontairement inversées en E. Barème sur 10 points et références provisoires à valider par un enseignant. La différence attendue ne sera jamais envoyée au modèle.</p>
         </div>
       </div>
