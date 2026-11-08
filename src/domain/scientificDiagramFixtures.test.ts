@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { readFile } from 'node:fs/promises';
 import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
 import { diagramTargetKey } from './scientificDiagramProtocol.ts';
 import { getRubricSubcriteria, validateRubric } from './rubric.ts';
 import {
   SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES,
+  SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET,
   buildScientificDiagramFixtureReport,
 } from './scientificDiagramFixtures.ts';
 
@@ -37,7 +39,7 @@ function record(status: 'success' | 'failed' = 'success'): ModelEvaluationRecord
     results: [result], stage: 'integrated',
   };
 }
-describe('jeu de dessins scientifiques générés A / B / C', () => {
+describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () => {
   it('conserve les quatre catégories du professeur et les 10 points explicitement détaillés', () => {
     expect(validateRubric(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC))
       .toMatchObject({ valid: true, maximumPoints: 10 });
@@ -50,7 +52,9 @@ describe('jeu de dessins scientifiques générés A / B / C', () => {
     const keys = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap((criterion) =>
       getRubricSubcriteria(criterion).map((sub) => diagramTargetKey(criterion.id, sub.id)));
     expect(keys).toHaveLength(19);
-    expect(SCIENTIFIC_DIAGRAM_FIXTURES.map((fixture) => fixture.referenceScore)).toEqual([10, 7.36, 0]);
+    expect(SCIENTIFIC_DIAGRAM_FIXTURES.map((fixture) => fixture.referenceScore)).toEqual([10, 7.36, 0, 10, 9.32]);
+    expect(SCIENTIFIC_DIAGRAM_BASE_CASE_IDS).toEqual(['A', 'B', 'C']);
+    expect(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS).toEqual(['D', 'E']);
     for (const fixture of SCIENTIFIC_DIAGRAM_FIXTURES) {
       expect(Object.keys(fixture.gold)).toEqual(keys);
       expect(Object.keys(fixture.referencePoints)).toEqual(keys);
@@ -76,11 +80,70 @@ describe('jeu de dessins scientifiques générés A / B / C', () => {
       { caseId: 'B', repetition: 1, record: record('failed') },
     ], 3, '2026-11-07T20:10:00Z');
     expect(report.cases.map((item) => [item.caseId, item.referenceScore]))
-      .toEqual([['A', 10], ['B', 7.36], ['C', 0]]);
+      .toEqual([['A', 10], ['B', 7.36], ['C', 0], ['D', 10], ['E', 9.32]]);
     expect(report.cases[0]?.summaries[0]).toMatchObject({ runsCompleted: 1, complete: false });
     expect(report.cases[1]?.summaries[0]).toMatchObject({ runsCompleted: 1, successfulRuns: 0, accuracyPercent: 0 });
     expect(report.cases[2]?.summaries).toEqual([]);
+    expect(report.cases[3]?.summaries).toEqual([]);
+    expect(report.cases[4]?.summaries).toEqual([]);
     expect(report.cases[1]?.experiments[0]?.status).toBe('failed');
+  });
+  it('isole uniquement la validité des flèches entre le témoin D et le piège E', () => {
+    const control = SCIENTIFIC_DIAGRAM_FIXTURES.find((fixture) => fixture.id === 'D')!;
+    const trap = SCIENTIFIC_DIAGRAM_FIXTURES.find((fixture) => fixture.id === 'E')!;
+    const legend = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.find((criterion) => criterion.id === 'legends')!;
+    expect(legend.subcriteria?.find((sub) => sub.id === 'legends-visible')).toMatchObject({
+      maxPoints: 0.68,
+      description: expect.stringContaining('trait de rappel'),
+    });
+    expect(control.labelPointerChallenge).toMatchObject({ kind: 'label-pointer-correspondence',
+      expected: 'correct', criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET });
+    expect(trap.labelPointerChallenge).toMatchObject({ kind: 'label-pointer-correspondence',
+      expected: 'incorrect', criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET });
+    expect(control.gold[SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET]).toBe('present');
+    expect(trap.gold[SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET]).toBe('absent');
+    expect(control.referencePoints[SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET]).toBe(0.68);
+    expect(trap.referencePoints[SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET]).toBe(0);
+    expect(control.referenceScore - trap.referenceScore).toBeCloseTo(0.68);
+    for (const key of Object.keys(control.gold)) {
+      if (key === SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET) continue;
+      expect(trap.gold[key]).toBe(control.gold[key]);
+      expect(trap.referencePoints[key]).toBe(control.referencePoints[key]);
+    }
+    const report = buildScientificDiagramFixtureReport(
+      [{ caseId: 'E', repetition: 1, record: record() }], 1, '2026-11-08T23:00:00Z');
+    expect(report.cases.find((item) => item.caseId === 'E')?.labelPointerChallenge)
+      .toMatchObject({ expected: 'incorrect', criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET });
+  });
+  it('utilise des dessins D/E visuellement identiques hors extrémités de quatre traits de rappel', async () => {
+    const [control, trap] = await Promise.all([
+      readFile(new URL('../assets/pilot/scientific-mitosis-labels-control.svg', import.meta.url), 'utf8'),
+      readFile(new URL('../assets/pilot/scientific-mitosis-labels-swapped.svg', import.meta.url), 'utf8'),
+    ]);
+    const line = /<line id="(pointer-[^"]+)" class="pointer" x1="(\\d+)" y1="(\\d+)" x2="(\\d+)" y2="(\\d+)"\\/>/g;
+    const arrows = (svg: string) => Object.fromEntries([...svg.matchAll(line)].map((m) =>
+      [m[1]!, { start: [Number(m[2]), Number(m[3])], end: [Number(m[4]), Number(m[5])] }]));
+    const a = arrows(control), b = arrows(trap);
+    expect(Object.keys(a)).toHaveLength(6);
+    expect(Object.keys(b)).toEqual(Object.keys(a));
+    expect(control.replace(line, (_all, id, x1, y1) =>
+      `<line id="${id}" class="pointer" x1="${x1}" y1="${y1}" x2="TARGET" y2="TARGET"/>`))
+      .toBe(trap.replace(line, (_all, id, x1, y1) =>
+        `<line id="${id}" class="pointer" x1="${x1}" y1="${y1}" x2="TARGET" y2="TARGET"/>`));
+    for (const id of Object.keys(a)) expect(a[id]!.start).toEqual(b[id]!.start);
+    for (const [left, right] of [
+      ['pointer-metaphase-chromosomes', 'pointer-metaphase-fuseau'],
+      ['pointer-telophase-noyau', 'pointer-telophase-plaque'],
+    ]) {
+      expect(b[left]!.end).toEqual(a[right]!.end);
+      expect(b[right]!.end).toEqual(a[left]!.end);
+    }
+    for (const id of ['pointer-interphase-noyau', 'pointer-prophase-chromosomes']) {
+      expect(b[id]!.end).toEqual(a[id]!.end);
+    }
+    expect(control).toContain('Chromosomes');
+    expect(control).toContain('Plaque cellulaire');
+    expect(trap).not.toContain('piège');
   });
   it('n’exporte aucune photographie, clé, endpoint, prompt ou réponse brute', () => {
     const report = JSON.stringify(buildScientificDiagramFixtureReport(
