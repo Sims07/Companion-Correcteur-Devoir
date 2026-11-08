@@ -30,41 +30,62 @@ export interface ScientificDiagramFixtureCase {
   referenceScore: number;
   referencePoints: Record<string, number>;
   gold: DiagramGold;
+  referenceReview?: { status: 'provisional-visual-review'; reviewedOn: string; notes: Record<string, string> };
 }
 
-/** Provisional teacher-style calibration of the generated *middle-quality*
- * drawing. All 19 decisions and 0.01-point allocations are explicitly authored,
- * not inferred from its target 5/10. Educators should review the ground truth
- * before using accuracy figures as evidence about real student work. */
+/** Visual review of the actual bundled B image (2026-11-08), independent of
+ * model predictions. Fractional aesthetic judgments remain provisional. */
 const middlePointsBySubcriterion: Record<string, number> = {
-  'drawing-page': 0,
-  'drawing-centered': 0.33,
-  'drawing-lines': 0.25,
-  'drawing-clean': 0.25,
-  'drawing-proportions': 0.33,
-  'drawing-neighbors': 0.34,
+  'drawing-page': 0.33,
+  'drawing-centered': 0.66,
+  'drawing-lines': 0.33,
+  'drawing-clean': 0.50,
+  'drawing-proportions': 0.50,
+  'drawing-neighbors': 0.70,
   'title-below': 0,
-  'title-centered': 0,
+  'title-centered': 0.17,
   'title-emphasis': 0,
   'title-horizontal': 0.33,
   'title-subject': 0.17,
   'title-section': 0,
-  'legends-horizontal': 0.50,
-  'legends-aligned': 0,
-  'legends-visible': 0.50,
+  'legends-horizontal': 0.66,
+  'legends-aligned': 0.33,
+  'legends-visible': 0.68,
   'understanding-interphase': 0.50,
   'understanding-telophase': 0.50,
   'understanding-other-one': 0.50,
   'understanding-other-two': 0.50,
 };
 
-function makeCase(id: ScientificDiagramFixtureId, label: string, description: string, target: 0 | 5 | 10): ScientificDiagramFixtureCase {
+const middleReviewNotes: Record<string, string> = {
+  'drawing-page': 'Quatre cellules et leurs légendes occupent une part importante de la feuille, avec de larges marges : appréciation partielle.',
+  'drawing-centered': 'Les quatre cellules forment une composition globalement centrée ; les légendes sont réparties autour.',
+  'drawing-lines': 'Contours lisibles mais repassés, épaisseur variable et tracés intérieurs irréguliers.',
+  'drawing-clean': 'Ensemble lisible et sans grandes ratures ; hachures et reprises de crayon. La couleur seule ne justifie aucune pénalité.',
+  'drawing-proportions': 'Cellules de tailles cohérentes ; fidélité fine des proportions non vérifiable sans référence anatomique. Attribution provisoire.',
+  'drawing-neighbors': 'Des prolongements de paroi sont visibles aux coins des cellules : départs des cellules voisines indiqués.',
+  'title-below': 'Le titre général est au-dessus des dessins, pas en dessous.',
+  'title-centered': 'Le titre général est légèrement décalé à gauche du centre de la composition : appréciation partielle.',
+  'title-emphasis': 'Titre ni souligné ni encadré ni écrit entièrement en majuscules.',
+  'title-horizontal': 'Le titre est écrit horizontalement.',
+  'title-subject': 'Mitose et cellule végétale sont indiquées ; organe et organisme ne sont pas précisés.',
+  'title-section': 'Aucune indication de coupe. Zéro selon le critère actuel ; applicabilité à confirmer par le professeur.',
+  'legends-horizontal': 'Les mots des légendes sont globalement horizontaux, indépendamment de la pente des traits de rappel.',
+  'legends-aligned': 'Alignement local des légendes de droite, mais pas de colonne régulière sur l’ensemble : appréciation partielle.',
+  'legends-visible': 'Noyaux, chromosomes, traits du fuseau et plaque cellulaire sont dessinés. Vérifier les destinations précises si le professeur exige une précision anatomique supérieure.',
+  'understanding-interphase': 'Cellule avec noyau unique identifiable en haut à gauche.',
+  'understanding-telophase': 'Deux noyaux et une cloison centrale dessinés. Le contrat actuel accepte une plaque cellulaire ; cela ne prouve pas un phragmoplaste détaillé.',
+  'understanding-other-one': 'Prophase reconnaissable en haut à droite par les chromosomes condensés.',
+  'understanding-other-two': 'Métaphase distincte en bas à gauche avec chromosomes alignés et fuseau dessiné.',
+};
+
+function makeCase(id: ScientificDiagramFixtureId, label: string, description: string, calibration: 0 | 10 | Record<string, number>): ScientificDiagramFixtureCase {
   const gold: DiagramGold = {};
   const referencePoints: Record<string, number> = {};
   for (const criterion of SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria) {
     for (const sub of getRubricSubcriteria(criterion)) {
       const key = diagramTargetKey(criterion.id, sub.id);
-      const awarded = target === 10 ? sub.maxPoints : target === 0 ? 0 : middlePointsBySubcriterion[sub.id];
+      const awarded = calibration === 10 ? sub.maxPoints : calibration === 0 ? 0 : calibration[sub.id];
       if (awarded === undefined || !Number.isFinite(awarded) || awarded < 0 || awarded > sub.maxPoints) {
         throw new Error('Référence pilote incomplète ou hors barème pour ' + key);
       }
@@ -73,14 +94,15 @@ function makeCase(id: ScientificDiagramFixtureId, label: string, description: st
     }
   }
   const referenceScore = sumGradeScores(Object.values(referencePoints));
-  if (referenceScore !== target) throw new Error('Référence pilote : note ' + referenceScore + ' au lieu de ' + target);
+  if (typeof calibration === 'number' && referenceScore !== calibration) throw new Error('Référence pilote : total incohérent.');
   return { id, label, description, referenceScore, referencePoints, gold };
 }
 
 /** Generated scenarios, not a teacher-certified dataset. */
 export const SCIENTIFIC_DIAGRAM_FIXTURES: readonly ScientificDiagramFixtureCase[] = [
   makeCase('A', 'A — soigné', 'Schéma de mitose végétale clair, titré et légendé, avec les quatre étapes.', 10),
-  makeCase('B', 'B — intermédiaire', 'Schéma reconnaissable mais petit, colorié, titre incomplet et légendes irrégulières.', 5),
+  { ...makeCase('B', 'B — intermédiaire', 'Quatre étapes reconnaissables, composition lisible ; traits irréguliers, titre incomplet et légendes imparfaitement alignées.', middlePointsBySubcriterion),
+    referenceReview: { status: 'provisional-visual-review', reviewedOn: '2026-11-08', notes: middleReviewNotes } },
   makeCase('C', 'C — insuffisant', 'Une seule cellule confuse, sans déroulé de la mitose, titre et organisation inadaptés.', 0),
 ];
 
@@ -105,14 +127,15 @@ export function buildScientificDiagramFixtureReport(
       referenceScore: fixture.referenceScore,
       expectedPoints: structuredClone(fixture.referencePoints),
       gold: structuredClone(fixture.gold),
+      ...(fixture.referenceReview ? { referenceReview: structuredClone(fixture.referenceReview) } : {}),
       summaries: benchmark.summaries,
       experiments: benchmark.experiments,
     };
   });
   return {
     format: 'companion-scientific-diagram-fixture-report',
-    version: 1,
-    protocolId: 'scientific-diagram-generated-a-b-c-v1',
+    version: 2,
+    protocolId: 'scientific-diagram-generated-a-b-c-v2',
     createdAt,
     plannedRepetitions,
     rubric: structuredClone(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC),
@@ -120,7 +143,7 @@ export function buildScientificDiagramFixtureReport(
     localOnly: runs.every(({ record }) => record.configurations.every((config) => {
       try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(config.endpoint).hostname); } catch { return false; }
     })),
-    limitations: 'Trois dessins synthétiques générés, notes et décisions de référence PROVISOIRES (non validées par un enseignant). Notes attendues 10/10, 5/10, 0/10 : elles ne prouvent pas la fidélité au barème sur des dessins réels. Les décisions partielles possèdent une allocation explicite de points ; le modèle peut les déclarer à vérifier. Les images et informations de connexion ne sont jamais exportées.',
+    limitations: 'Trois dessins synthétiques générés, notes et décisions de référence PROVISOIRES (non validées par un enseignant). Références A=10/10, B=7,36/10 (revue visuelle provisoire du 08/11/2026), C=0/10 : elles ne prouvent pas la fidélité au barème sur des dessins réels. Les décisions partielles possèdent une allocation explicite de points ; le modèle peut les déclarer à vérifier. Les images et informations de connexion ne sont jamais exportées.',
     cases,
   };
 }
