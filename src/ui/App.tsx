@@ -1350,11 +1350,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       if (shouldRunTextGrading && correctionMethod !== 'visual-decision' && correctionMode === 'separate' && !subjectImages.length && (isFreshCorrection || !subjectTranscription)) throw new Error('Importez le sujet de référence pour ce mode de correction.');
       let textProposal: GradingProposal | null = null;
       if (shouldRunTextGrading) {
-        const gradingTranscription = correctionMethod === 'visual-decision' || isFreshCorrection ? null : transcription;
-        let latestStudentTranscription: string | null = gradingTranscription;
+        const gradingTranscription = isFreshCorrection ? null : transcription;
+        const directGradingTranscription = correctionMethod === 'visual-decision' ? null : gradingTranscription;
+        let latestStudentTranscription: string | null = directGradingTranscription;
         // Ollama model metadata was checked above without loading the models.
         setAnalysisStage('reading');
-        if (!gradingTranscription) setCriterionProgressMessage('Chargement du modèle de lecture, cela peut prendre quelques minutes…');
+        if (!directGradingTranscription) setCriterionProgressMessage('Chargement du modèle de lecture, cela peut prendre quelques minutes…');
         const provider = service.createProvider({ endpoint, apiCompatible, apiKey, visionModel, transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty, transcriptionPenaltyParameter, transcriptionFrequencyPenalty, analysisModel, thinking: analysisThinking, criterionByCriterion, correctionMethod, ...((interfaceMode === 'diagnostic' || (interfaceMode as string) === 'debug') ? { diagnosticStrategy: strategyOverride ?? diagnosticStrategy, secondAnalysisModel, arbitratorModel, ...(strategyOverride === 'arbitrate-only' ? { diagnosticFirstResult: previousModelResults[0]?.raw, diagnosticSecondResult: previousModelResults[1]?.raw } : {}) } : {}) });
         const teacherAnnotationImages = detectTeacherAnnotations && correctionMethod !== 'visual-decision'
           ? await Promise.all(textPageNumbers.map(async (pageNumber) => {
@@ -1365,7 +1366,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           }))
           : undefined;
         const raw = await provider.generate(
-          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, identifyStudent: correctionMethod !== 'visual-decision' && !gradingTranscription, ...(correctionMethod !== 'visual-decision' && images[0] ? { identityImage: images[0] } : {}), ...(correctionMethod !== 'visual-decision' && teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations: correctionMethod !== 'visual-decision' && detectTeacherAnnotations, ...(correctionMode === 'separate' ? { ...(correctionMethod !== 'visual-decision' ? { subjectImages } : {}), ...(effectiveSubjectTranscription ? { subjectTranscription: effectiveSubjectTranscription } : {}) } : {}), ...(gradingTranscription ? { transcription: gradingTranscription } : {}) },
+          { question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }), rubric: rubricAsJson(gradingRubric), images: textImages, pageNumbers: textPageNumbers, totalPageCount: images.length, identifyStudent: correctionMethod !== 'visual-decision' && !directGradingTranscription, ...(correctionMethod !== 'visual-decision' && images[0] ? { identityImage: images[0] } : {}), ...(correctionMethod !== 'visual-decision' && teacherAnnotationImages ? { teacherAnnotationImages, teacherAnnotationPageNumbers: textPageNumbers } : {}), detectTeacherAnnotations: correctionMethod !== 'visual-decision' && detectTeacherAnnotations, ...(correctionMode === 'separate' ? { ...(correctionMethod !== 'visual-decision' ? { subjectImages } : {}), ...(effectiveSubjectTranscription ? { subjectTranscription: effectiveSubjectTranscription } : {}) } : {}), ...(directGradingTranscription ? { transcription: directGradingTranscription } : {}) },
           (chunk) => { if (interfaceMode !== 'teacher') setStreamedOutput((current) => current + chunk); },
           (stage) => {
             const now = Date.now();
@@ -3242,7 +3243,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <p className="hint">Ce modèle applique le barème au texte lu. Le mode thinking reste désactivé pour privilégier une correction plus rapide et compatible.</p>
         <label className="field-label" htmlFor="ai-correction-method">Méthode de correction</label>
         <DesignSystemSelect id="ai-correction-method" value={correctionMethod} onChange={(event) => setCorrectionMethod(event.target.value as CorrectionMethod)}>
-          <option value="generative">Classique — Vision puis analyse générative</option>
+          <option value="generative">Classique — vision et analyse</option>
           <option value="decision">Décisionnelle — Vision puis System One texte</option>
           <option value="visual-decision">Vision + Décisionnel direct — 1 appel image System One</option>
         </DesignSystemSelect>
