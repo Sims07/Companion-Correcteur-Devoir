@@ -225,7 +225,7 @@ describe('UI design system', () => {
     expect(appComponent).toContain('assignments={assignmentProfiles}');
     expect(appComponent).toContain('onCreate={(details) => { createNewAssignment(details); setShowAssignmentsHome(false); }}');
     expect(appComponent).toContain('onDuplicate={duplicateAssignment}');
-    expect(appComponent).toContain('onOpen={(profile) => { switchAssignment(profile); setShowAssignmentsHome(false); }}');
+    expect(appComponent).toContain("if (profile.id === activeAssignmentId) { setCopyOverviewFilter('all'); setTeacherStep('overview'); } else switchAssignment(profile);");
     expect(appComponent).toContain('setRubric(profile.rubric)');
     expect(appComponent).toContain('setQuestion(profile.question)');
     expect(correctionFlowStylesheet).toContain('.assignments-card');
