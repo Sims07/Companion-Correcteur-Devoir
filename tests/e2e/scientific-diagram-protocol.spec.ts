@@ -40,7 +40,7 @@ test('Qwen direct diagram repairs missing evidence and exports all 19 decisions 
   await page.getByRole('group', { name: 'Configurations à exécuter' }).locator('label.evaluation-profile-option').first().click();
   await panel.getByRole('combobox', { name: 'Méthode de correction scientifique à tester' }).selectOption('direct-image-generative');
   await panel.getByRole('button', { name: 'Tester les 3 schémas en un clic' }).click();
-  const results = panel.getByRole('region', { name: 'Résultats des schémas A B C' });
+  const results = panel.getByRole('region', { name: 'Résultats des schémas scientifiques' });
   await expect(results.locator('tbody tr')).toHaveCount(3);
   const [download] = await Promise.all([page.waitForEvent('download'), results.getByRole('button', { name: 'Exporter le rapport JSON' }).click()]);
   const report = JSON.parse(await readFile(await download.path(), 'utf8'));

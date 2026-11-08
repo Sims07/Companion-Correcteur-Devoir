@@ -9,7 +9,9 @@ import { FilePicker } from './FilePicker.tsx';
 import cleanDiagramUrl from '../../assets/pilot/scientific-mitosis-10.webp';
 import intermediateDiagramUrl from '../../assets/pilot/scientific-mitosis-5.webp';
 import poorDiagramUrl from '../../assets/pilot/scientific-mitosis-0.webp';
-import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES, type ScientificDiagramFixtureId, type buildScientificDiagramFixtureReport } from '../../domain/scientificDiagramFixtures.ts';
+import correctPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labels-control.svg';
+import swappedPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labels-swapped.svg';
+import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS, type ScientificDiagramFixtureId, type buildScientificDiagramFixtureReport } from '../../domain/scientificDiagramFixtures.ts';
 import {
   SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods,
   diagramTargetKey, parseScientificDiagramProtocolRubric, type DiagramMethodSelection,
@@ -44,7 +46,40 @@ export function downloadScientificDiagramJson(report: DiagramReport | FixtureRep
 
 const fixtureImageUrls: Record<ScientificDiagramFixtureId, string> = {
   A: cleanDiagramUrl, B: intermediateDiagramUrl, C: poorDiagramUrl,
+  D: correctPointerDiagramUrl, E: swappedPointerDiagramUrl,
 };
+
+/** Vector test images are rasterized on this device before entering the
+ * normal image-preparation path. Models receive PNG pixels, not SVG markup. */
+async function prepareBundledDiagramFile(id: ScientificDiagramFixtureId): Promise<File> {
+  const response = await fetch(fixtureImageUrls[id], { cache: 'force-cache' });
+  if (!response.ok) throw new Error('Image intégrée indisponible pour le cas ' + id);
+  const blob = await response.blob();
+  if (id !== 'D' && id !== 'E') {
+    return new File([blob], 'mitose-' + id + '.webp', { type: 'image/webp' });
+  }
+  const blobUrl = URL.createObjectURL(blob);
+  try {
+    const image = new Image();
+    image.src = blobUrl;
+    await image.decode();
+    if (!image.naturalWidth || !image.naturalHeight) throw new Error('Dimensions du dessin impossibles à lire.');
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Conversion locale du dessin impossible.');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0);
+    const png = await new Promise<Blob>((resolve, reject) => canvas.toBlob(
+      (result) => result ? resolve(result) : reject(new Error('Conversion PNG impossible.')), 'image/png',
+    ));
+    return new File([png], 'mitose-' + id + '.png', { type: 'image/png' });
+  } finally {
+    URL.revokeObjectURL(blobUrl);
+  }
+}
 
 export interface ScientificDiagramProtocolPanelProps {
   selectedProfiles: readonly AiModelProfile[];
@@ -100,9 +135,7 @@ export function ScientificDiagramProtocolPanel({
       for (const id of ids) {
         // Vite bundles and precaches the images with the application. Nothing
         // is fetched from a third-party image service or sent to a cloud here.
-        const response = await fetch(fixtureImageUrls[id], { cache: 'force-cache' });
-        if (!response.ok) throw new Error('Image intégrée indisponible pour le cas ' + id);
-        const file = new File([await response.blob()], 'mitose-' + id + '.webp', { type: 'image/webp' });
+        const file = await prepareBundledDiagramFile(id);
         const prepared = await onPrepareImages([file]);
         if (!prepared.length) throw new Error('Le schéma ' + id + ' n’a pas pu être préparé.');
         cases.push({ id, images: prepared });
@@ -119,14 +152,14 @@ export function ScientificDiagramProtocolPanel({
   }
 
   function downloadFixtureReport() {
-    if (fixtureReport) downloadScientificDiagramJson(fixtureReport, 'companion-trois-schemas-scientifiques.json');
+    if (fixtureReport) downloadScientificDiagramJson(fixtureReport, 'companion-schemas-scientifiques.json');
   }
 
   async function copyFixtureReport() {
     if (!fixtureReport) return;
     try {
       await navigator.clipboard.writeText(JSON.stringify(fixtureReport, null, 2));
-      setFixtureMessage('Rapport des trois dessins copié : collez-le dans notre conversation.');
+      setFixtureMessage('Rapport des dessins scientifiques copié : collez-le dans notre conversation.');
     } catch {
       setFixtureMessage('Copie bloquée : utilisez « Exporter le rapport JSON ».');
     }
@@ -214,8 +247,8 @@ export function ScientificDiagramProtocolPanel({
     <section className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
       <div className="diagram-protocol-fixtures-heading">
         <div>
-          <h4>Trois schémas prêts à tester — références provisoires</h4>
-          <p>Les images et leur barème sur 10 points sont déjà intégrés. Notes et décisions proposées pour un <strong>jeu synthétique</strong>, à valider par un enseignant avant d’en tirer des conclusions scientifiques. Les notes attendues ne sont jamais envoyées au modèle.</p>
+          <h4>Cinq schémas prêts à tester — dont une paire témoin / piège</h4>
+          <p>A/B/C : difficulté progressive. D/E : <strong>mêmes mots et mêmes structures</strong>, mais quatre flèches volontairement inversées en E. Barème sur 10 points et références provisoires à valider par un enseignant. La différence attendue ne sera jamais envoyée au modèle.</p>
         </div>
       </div>
       <div className="diagram-fixture-grid">
@@ -227,6 +260,11 @@ export function ScientificDiagramProtocolPanel({
               <span>{fixture.referenceScore}/10 attendu</span>
             </div>
             <p>{fixture.description}</p>
+            {fixture.labelPointerChallenge && <details>
+              <summary>Voir les correspondances à vérifier</summary>
+              <p>{fixture.labelPointerChallenge.expected === 'incorrect' ? 'Flèches erronées attendues :' : 'Témoin sans erreur de flèche :'}</p>
+              <ul>{fixture.labelPointerChallenge.descriptions.map((description) => <li key={description}>{description}</li>)}</ul>
+            </details>}
             {fixture.referenceReview && <details>
               <summary>Voir le détail de la référence provisoire</summary>
               <p>Revue visuelle du {fixture.referenceReview.reviewedOn} — à valider par un enseignant. Les points partiels restent des appréciations.</p>
@@ -250,8 +288,12 @@ export function ScientificDiagramProtocolPanel({
             <option value={3}>3 répétitions</option>
             <option value={5}>5 répétitions</option>
           </DesignSystemSelect>
-          <Button disabled={!canRunFixtures} onClick={() => { void runPreparedFixtures(['A', 'B', 'C']); }}>
+          <Button disabled={!canRunFixtures} onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_BASE_CASE_IDS); }}>
             Tester les 3 schémas en un clic
+          </Button>
+          <Button variant="secondary" disabled={!canRunFixtures}
+            onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS); }}>
+            Tester les flèches D/E en un clic
           </Button>
           {(busy || fixtureLoading) && <Button variant="secondary" onClick={onStop} disabled={!busy}>Arrêter après l’appel en cours</Button>}
         </div>
@@ -260,9 +302,9 @@ export function ScientificDiagramProtocolPanel({
         {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={'fixture-' + issue}>{issue}</p>)}
         {(fixtureMessage || (busy && progress)) && <p role="status" className="pilot-evaluation-message">{fixtureMessage || progress}</p>}
       </div>
-      {fixtureReport && <section className="pilot-evaluation-report" aria-label="Résultats des schémas A B C">
+      {fixtureReport && <section className="pilot-evaluation-report" aria-label="Résultats des schémas scientifiques">
         <div className="pilot-evaluation-report-head">
-          <div><h4>Comparaison aux trois notes attendues</h4><p>{busy || fixtureLoading ? 'Rapport partiel : les passages terminés sont déjà exportables. ' : ''}La note reste « Non noté » lorsque le modèle demande une revue. Les décisions System One sont mesurées séparément, même si la note finale reste indisponible.</p></div>
+          <div><h4>Comparaison aux notes de référence</h4><p>{busy || fixtureLoading ? 'Rapport partiel : les passages terminés sont déjà exportables. ' : ''}La note reste « Non noté » lorsque le modèle demande une revue. Les décisions System One sont mesurées séparément, même si la note finale reste indisponible.</p></div>
           <div className="pilot-evaluation-report-actions">
             <Button variant="secondary" onClick={() => { void copyFixtureReport(); }}>Copier le rapport pour ChatGPT</Button>
             <Button variant="secondary" onClick={downloadFixtureReport}>Exporter le rapport JSON</Button>
@@ -270,7 +312,7 @@ export function ScientificDiagramProtocolPanel({
         </div>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
-            <thead><tr><th>Schéma</th><th>Configuration</th><th>Parcours</th><th>Attendu</th><th>Notes obtenues</th><th>Exécution</th><th>Décisions récupérées</th><th>Justesse stricte</th><th>Stabilité</th><th>Temps moyen</th></tr></thead>
+            <thead><tr><th>Schéma</th><th>Configuration</th><th>Parcours</th><th>Attendu</th><th>Notes obtenues</th><th>Exécution</th><th>Décisions récupérées</th><th>Justesse stricte</th><th>Légendes et flèches</th><th>Stabilité</th><th>Temps moyen</th></tr></thead>
             <tbody>{fixtureReport.cases.flatMap((caseResult) => caseResult.summaries.map((summary) => {
               const experiments = caseResult.experiments.filter((experiment) => experiment.profileId === summary.profileId && experiment.method === summary.method);
               return <tr key={caseResult.caseId + '-' + summary.profileId + '-' + summary.method}>
@@ -308,6 +350,14 @@ export function ScientificDiagramProtocolPanel({
                 </td>
                 <td>{summary.resolvedDecisions}/{summary.totalDecisions}</td>
                 <td>{summary.accuracyPercent === null ? 'Non mesurable' : summary.accuracyPercent + ' %'}</td>
+                <td>{caseResult.labelPointerChallenge
+                  ? (() => {
+                    const target = summary.decisions.find((decision) => decision.key === caseResult.labelPointerChallenge?.criterionKey);
+                    if (!target) return 'Non mesurable';
+                    const expected = caseResult.labelPointerChallenge.expected === 'correct' ? 'present' : 'absent';
+                    const correct = target.choices.filter((choice) => choice === expected).length;
+                    return correct + '/' + target.choices.length + ' détection(s)';
+                  })() : '—'}</td>
                 <td>{summary.stableResolvedTargets === null ? 'Non mesurée' : summary.stableResolvedTargets + '/' + summary.totalTargets}</td>
                 <td>{summary.meanDurationMs === null ? '—' : (summary.meanDurationMs / 1000).toFixed(1) + ' s'}</td>
               </tr>;

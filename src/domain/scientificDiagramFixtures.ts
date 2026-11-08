@@ -7,7 +7,18 @@ import { sumGradeScores } from './scorePrecision.ts';
 export const SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC: Rubric = {
   title: 'Mitose végétale — schéma scientifique (10 points)',
   criteria: [
-    ...structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria),
+    // The embedded exercise tests both visibility and the actual geometric
+    // connection between a written legend and its arrow endpoint. It does
+    // not modify the user's general teacher rubric.
+    ...structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC.criteria).map((criterion) => (
+      criterion.id === 'legends' ? {
+        ...criterion,
+        subcriteria: criterion.subcriteria?.map((sub) => sub.id === 'legends-visible'
+          ? { ...sub, title: 'Légendes : structures visibles et flèches correctes',
+            description: 'Une légende doit nommer une structure dessinée ET son trait de rappel doit réellement pointer cette structure. Des mots exacts reliés à une autre structure ne valident pas cet attendu.' }
+          : sub),
+      } : criterion
+    )),
     {
       id: 'understanding', title: 'Compréhension', maxPoints: 2,
       description: 'Interphase obligatoire, télophase avec phragmoplaste visible, et deux autres étapes distinctes parmi prophase, métaphase, anaphase.',
@@ -22,7 +33,10 @@ export const SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC: Rubric = {
   ],
 };
 
-export type ScientificDiagramFixtureId = 'A' | 'B' | 'C';
+export type ScientificDiagramFixtureId = 'A' | 'B' | 'C' | 'D' | 'E';
+export const SCIENTIFIC_DIAGRAM_BASE_CASE_IDS = ['A', 'B', 'C'] as const;
+export const SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS = ['D', 'E'] as const;
+export const SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET = diagramTargetKey('legends', 'legends-visible');
 export interface ScientificDiagramFixtureCase {
   id: ScientificDiagramFixtureId;
   label: string;
@@ -30,6 +44,12 @@ export interface ScientificDiagramFixtureCase {
   referenceScore: number;
   referencePoints: Record<string, number>;
   gold: DiagramGold;
+  labelPointerChallenge?: {
+    kind: 'label-pointer-correspondence';
+    expected: 'correct' | 'incorrect';
+    criterionKey: string;
+    descriptions: readonly string[];
+  };
   referenceReview?: { status: 'provisional-visual-review'; reviewedOn: string; notes: Record<string, string> };
 }
 
@@ -98,16 +118,36 @@ function makeCase(id: ScientificDiagramFixtureId, label: string, description: st
   return { id, label, description, referenceScore, referencePoints, gold };
 }
 
+const wrongPointerPoints = Object.fromEntries(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap((criterion) =>
+  getRubricSubcriteria(criterion).map((sub) => [
+    sub.id, diagramTargetKey(criterion.id, sub.id) === SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET ? 0 : sub.maxPoints,
+  ])));
+const POINTER_LABELS = [
+  'En métaphase : « Chromosomes » pointe le fuseau et « Fuseau mitotique » pointe les chromosomes.',
+  'En télophase : « Noyau fils » pointe la plaque cellulaire et « Plaque cellulaire » pointe le noyau fils.',
+] as const;
+
 /** Generated scenarios, not a teacher-certified dataset. */
 export const SCIENTIFIC_DIAGRAM_FIXTURES: readonly ScientificDiagramFixtureCase[] = [
   makeCase('A', 'A — soigné', 'Schéma de mitose végétale clair, titré et légendé, avec les quatre étapes.', 10),
   { ...makeCase('B', 'B — intermédiaire', 'Quatre étapes reconnaissables, composition lisible ; traits irréguliers, titre incomplet et légendes imparfaitement alignées.', middlePointsBySubcriterion),
     referenceReview: { status: 'provisional-visual-review', reviewedOn: '2026-11-08', notes: middleReviewNotes } },
   makeCase('C', 'C — insuffisant', 'Une seule cellule confuse, sans déroulé de la mitose, titre et organisation inadaptés.', 0),
+  { ...makeCase('D', 'D — témoin, flèches justes', 'Mêmes quatre phases, mêmes mots et même barème que E ; toutes les flèches désignent leur structure.', 10),
+    labelPointerChallenge: {
+      kind: 'label-pointer-correspondence', expected: 'correct',
+      criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET,
+      descriptions: ['Les flèches correspondent aux noms écrits, y compris fuseau, chromosomes, noyau fils et plaque cellulaire.'],
+    } },
+  { ...makeCase('E', 'E — piège, flèches inversées', 'Même dessin et mêmes mots que D ; quatre flèches pointent volontairement vers une autre structure.', wrongPointerPoints),
+    labelPointerChallenge: {
+      kind: 'label-pointer-correspondence', expected: 'incorrect',
+      criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET, descriptions: POINTER_LABELS,
+    } },
 ];
 
 export const SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT =
-  'Travail universitaire de biologie : réaliser un dessin scientifique montrant la mitose d’une cellule végétale, avec interphase, télophase et phragmoplaste visible, puis deux autres étapes distinctes choisies parmi prophase, métaphase, anaphase. Vérifier la qualité graphique, le titre, les légendes et la présence des étapes réellement dessinées.';
+  'Travail universitaire de biologie : réaliser un dessin scientifique montrant la mitose d’une cellule végétale, avec interphase, télophase et phragmoplaste visible, puis deux autres étapes distinctes choisies parmi prophase, métaphase, anaphase. Vérifier la qualité graphique, le titre, les légendes (y compris le point d’arrivée de chaque trait de rappel) et la présence des étapes réellement dessinées.';
 
 export type ScientificDiagramFixtureRun = DiagramProtocolRun & { caseId: ScientificDiagramFixtureId };
 
@@ -127,6 +167,7 @@ export function buildScientificDiagramFixtureReport(
       referenceScore: fixture.referenceScore,
       expectedPoints: structuredClone(fixture.referencePoints),
       gold: structuredClone(fixture.gold),
+      ...(fixture.labelPointerChallenge ? { labelPointerChallenge: structuredClone(fixture.labelPointerChallenge) } : {}),
       ...(fixture.referenceReview ? { referenceReview: structuredClone(fixture.referenceReview) } : {}),
       summaries: benchmark.summaries,
       experiments: benchmark.experiments,
@@ -134,8 +175,8 @@ export function buildScientificDiagramFixtureReport(
   });
   return {
     format: 'companion-scientific-diagram-fixture-report',
-    version: 2,
-    protocolId: 'scientific-diagram-generated-a-b-c-v2',
+    version: 3,
+    protocolId: 'scientific-diagram-generated-a-b-c-plus-label-pointers-v3',
     createdAt,
     plannedRepetitions,
     rubric: structuredClone(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC),
@@ -143,7 +184,7 @@ export function buildScientificDiagramFixtureReport(
     localOnly: runs.every(({ record }) => record.configurations.every((config) => {
       try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(config.endpoint).hostname); } catch { return false; }
     })),
-    limitations: 'Trois dessins synthétiques générés, notes et décisions de référence PROVISOIRES (non validées par un enseignant). Références A=10/10, B=7,36/10 (revue visuelle provisoire du 08/11/2026), C=0/10 : elles ne prouvent pas la fidélité au barème sur des dessins réels. Les décisions partielles possèdent une allocation explicite de points ; le modèle peut les déclarer à vérifier. Les images et informations de connexion ne sont jamais exportées.',
+    limitations: 'Cinq dessins synthétiques (A/B/C et paire contrôlée D/E), références PROVISOIRES non validées par un enseignant. A=10/10, B=7,36/10, C=0/10, D=10/10, E=9,32/10 : D/E diffèrent uniquement par les destinations de quatre flèches. Le critère « Légendes : structures visibles et flèches correctes » (0,68 point) est le seul attendu modifié entre D et E. La pénalité est une convention de test, pas une validation scientifique du barème. Les images, clés, endpoints et réponses brutes ne sont jamais exportés.',
     cases,
   };
 }

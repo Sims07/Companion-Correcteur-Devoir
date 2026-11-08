@@ -3197,8 +3197,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <p>Résultats conservés pendant la navigation · les passages terminés restent exportables même si la série est interrompue.</p>
         </div>
         <div className="diagram-protocol-export-actions">
-          {diagramFixtureReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramFixtureReport, 'companion-trois-schemas-scientifiques.json')}>
-            Exporter les trois schémas ({diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage{diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0) === 1 ? '' : 's'})
+          {diagramFixtureReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramFixtureReport, 'companion-schemas-scientifiques.json')}>
+            Exporter les schémas testés ({diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage{diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0) === 1 ? '' : 's'})
           </Button>}
           {diagramProtocolReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramProtocolReport, 'companion-protocole-schema-scientifique.json')}>
             Exporter le schéma personnel ({diagramProtocolReport.experiments.length} passage{diagramProtocolReport.experiments.length === 1 ? '' : 's'})

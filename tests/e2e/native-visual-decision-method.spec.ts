@@ -49,7 +49,7 @@ test('third method persists and sends diagram + all typed questions to Clef thro
     .getByText('Clef Vision + Décision').click();
   const fixtures = page.getByRole('region', { name: 'Schémas de référence intégrés' });
   await fixtures.getByRole('button', { name: 'Tester ce schéma' }).first().click();
-  const results = fixtures.getByRole('region', { name: 'Résultats des schémas A B C' });
+  const results = fixtures.getByRole('region', { name: 'Résultats des schémas scientifiques' });
   await expect(results).toBeVisible({ timeout: 30_000 });
   await expect(results.locator('tbody tr')).toHaveCount(1);
   await expect(results.getByText('19/19', { exact: true })).toBeVisible();
