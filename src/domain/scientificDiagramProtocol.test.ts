@@ -9,7 +9,7 @@ import {
   parseScientificDiagramProtocolRubric, usesDirectDiagramVision,
 } from './scientificDiagramProtocol.ts';
 
-const profile = (analysisModel: string, method: 'generative' | 'decision' = 'decision'): AiModelProfile => ({
+const profile = (analysisModel: string, method: 'generative' | 'decision' | 'visual-decision' = 'decision'): AiModelProfile => ({
   id: 'candidate', name: 'Candidat', mode: 'single', updatedAt: '2026-11-07T00:00:00Z',
   configuration: { ...defaultAiModelConfiguration, endpoint: 'http://localhost:11434',
     analysisModel, visionModel: 'qwen3.5:4b', correctionMethod: method },
