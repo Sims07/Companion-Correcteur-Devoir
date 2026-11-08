@@ -63,7 +63,7 @@ export function ScientificDiagramTeacherPanel({
   }
 
   async function addImages(files: FileList | null) {
-    if (!files?.length || running || uploading) return;
+    if (!files?.length || running || uploading || rotationBusyRef.current) return;
     invalidate();
     setImages([]);
     setViewerPage(null);
@@ -105,7 +105,7 @@ export function ScientificDiagramTeacherPanel({
   }
 
   async function addRubric(files: FileList | null) {
-    if (!files?.length || running || uploading) return;
+    if (!files?.length || running || uploading || rotationBusyRef.current) return;
     invalidate();
     try {
       const parsed = JSON.parse(await files[0]!.text()) as unknown;
@@ -118,7 +118,7 @@ export function ScientificDiagramTeacherPanel({
   }
 
   async function start() {
-    if (!canRun) return;
+    if (!canRun || rotationBusyRef.current) return;
     invalidate();
     setRunning(true);
     const controller = new AbortController();
@@ -178,7 +178,7 @@ export function ScientificDiagramTeacherPanel({
         <FilePicker id="teacher-diagram-images" title="Photo ou PDF du dessin"
           description="Une image, ou plusieurs pages d’un même schéma (PNG, JPG, WEBP, PDF)."
           accept="image/png,image/jpeg,image/webp,application/pdf,.pdf" multiple
-          disabled={running || uploading} onFilesSelected={(files) => { void addImages(files); }} />
+          disabled={running || uploading || rotatingPage !== null} onFilesSelected={(files) => { void addImages(files); }} />
         {uploading ? <p role="status">Préparation des images sur cet appareil…</p> :
           <p className="hint">{images.length ? images.length + ' page(s) sélectionnée(s)' : 'Aucune image sélectionnée.'}</p>}
         {images.length > 0 && <>
@@ -196,7 +196,7 @@ export function ScientificDiagramTeacherPanel({
         </>}
         <FilePicker id="teacher-diagram-rubric" title="Importer mon barème (JSON)"
           description="Facultatif : 15 attendus graphiques et 8 points sont proposés par défaut."
-          accept=".json,application/json" disabled={running || uploading} onFilesSelected={(files) => { void addRubric(files); }} />
+          accept=".json,application/json" disabled={running || uploading || rotatingPage !== null} onFilesSelected={(files) => { void addRubric(files); }} />
         <div className="diagram-teacher-rubric-summary">
           <strong>{rubric.title}</strong>
           <span>{validation.maximumPoints} points · {rubric.criteria.reduce((count, criterion) => count + getRubricSubcriteria(criterion).length, 0)} attendus</span>
