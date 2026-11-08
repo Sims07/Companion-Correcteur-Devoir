@@ -54,7 +54,7 @@ test('the teacher corrects a scientific diagram directly, reviews criterion evid
   await page.getByRole('button', { name: 'Schémas scientifiques' }).click();
   const workspace = page.getByLabel('Correction des schémas scientifiques');
   await expect(workspace.getByRole('heading', { name: 'Corriger un schéma scientifique' })).toBeVisible();
-  await expect(workspace.getByText('15 attendus', { exact: false })).toBeVisible();
+  await expect(workspace.locator('.diagram-teacher-rubric-summary').getByText('15 attendus', { exact: false })).toBeVisible();
   await workspace.getByRole('combobox', { name: 'Configuration IA' }).selectOption('teacher-qwen');
 
   const correct = workspace.getByRole('button', { name: 'Corriger directement l’image' });
