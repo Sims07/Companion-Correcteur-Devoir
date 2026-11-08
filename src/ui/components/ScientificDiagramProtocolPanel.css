@@ -75,3 +75,19 @@
   .diagram-fixture-grid { grid-template-columns: 1fr; }
   .diagram-fixture-card img { height: 320px; }
 }
+
+/* Reports are kept at application level and stay reachable in all AI tool views. */
+.diagram-protocol-export-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  margin: var(--ds-space-3) 0;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+}
+.diagram-protocol-export-strip p { margin: var(--ds-space-1) 0 0; font-size: .85rem; }
+.diagram-protocol-export-actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
