@@ -1,38 +1,139 @@
-.diagram-teacher-shell { min-height: 100vh; }
-.diagram-teacher-workspace { width: min(1180px, calc(100% - 32px)); margin: 32px auto 60px; }
-.diagram-teacher-heading { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 24px; }
-.diagram-teacher-heading h2 { margin: 5px 0 10px; font-size: clamp(1.55rem, 2.5vw, 2.2rem); }
-.diagram-teacher-heading p { max-width: 720px; }
-.diagram-teacher-grid { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr); gap: 20px; align-items: start; }
-.diagram-teacher-grid .panel { min-width: 0; }
-.diagram-teacher-setup h3, .diagram-teacher-run h3 { margin-top: 0; margin-bottom: 18px; }
-.diagram-teacher-setup .file-picker { margin-bottom: 12px; }
-.diagram-teacher-previews { display: flex; gap: 10px; max-width: 100%; overflow-x: auto; margin: 14px 0 20px; }
-.diagram-teacher-previews img { max-width: 145px; width: 100%; height: 136px; border-radius: 10px; border: 1px solid var(--border, #ddd); object-fit: contain; background: var(--surface, #fff); }
-.diagram-teacher-rubric-summary { display: grid; gap: 5px; margin: 10px 0 18px; padding: 13px 15px; border: 1px solid var(--border, #ddd); border-radius: 12px; }
-.diagram-teacher-rubric-summary p { margin: 3px 0 0; font-size: .87rem; }
-.diagram-teacher-rubric-summary span { font-size: .9rem; }
-.diagram-teacher-run .field-label { display: block; }
-.diagram-teacher-run .hint { margin: 10px 0 18px; }
-.diagram-teacher-remote, .diagram-teacher-notice { border: 1px solid var(--border, #d5d5d5); border-radius: 12px; padding: 14px; margin: 18px 0; }
-.diagram-teacher-remote p { margin-top: 0; }
-.diagram-teacher-notice .ds-button { margin-top: 14px; }
-.diagram-teacher-local { margin: 18px 0; font-size: .9rem; }
-.diagram-teacher-actions { display: flex; gap: 12px; flex-wrap: wrap; }
-.diagram-teacher-error { padding: 12px; border-radius: 10px; border: 1px solid var(--border, #ddd); margin-top: 14px; }
-.diagram-teacher-message { margin-top: 14px; }
-.diagram-teacher-result { margin-top: 22px; }
-.diagram-teacher-result-head, .diagram-teacher-criterion > div:first-child { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
-.diagram-teacher-result-head h3 { margin: 5px 0; }
-.diagram-teacher-criterion { padding: 16px 0; border-top: 1px solid var(--border, #ddd); }
-.diagram-teacher-criterion p { margin: 8px 0; }
-.diagram-teacher-criterion ul { list-style: none; padding: 0; margin: 14px 0 0; }
-.diagram-teacher-criterion li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border, #eee); }
-.diagram-teacher-criterion li strong { white-space: nowrap; }
-.diagram-teacher-question { font-weight: 600; }
-.diagram-teacher-questions { margin-bottom: 18px; }
-@media (max-width: 790px) {
-  .diagram-teacher-grid { grid-template-columns: 1fr; }
-  .diagram-teacher-heading, .diagram-teacher-result-head { flex-direction: column; }
-  .diagram-teacher-workspace { width: calc(100% - 24px); margin: 20px auto; }
+/* Teacher diagram workspace: one visual source of truth, evidence next to the page.
+   Reuses the shared design-system controls and the existing CopyPageViewer. */
+.diagram-teacher-workspace {
+  width: min(1500px, calc(100% - 40px));
+  margin: 28px auto 64px;
+  color: var(--ds-color-text);
+}
+.diagram-teacher-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:24px; margin-bottom:20px; }
+.diagram-teacher-heading h2 { margin:4px 0 8px; font-size:clamp(1.6rem, 2.5vw, 2.15rem); }
+.diagram-teacher-heading p { margin:0; max-width:740px; color:var(--ds-color-text-muted); }
+.diagram-teacher-controls { margin-bottom:16px; padding:20px; }
+.diagram-teacher-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:28px; align-items:start; }
+.diagram-teacher-grid > div { min-width:0; }
+.diagram-teacher-grid h3 { font-size:1rem; margin:0 0 14px; }
+.diagram-teacher-setup .file-picker { margin-bottom:8px; }
+.diagram-teacher-run .field-label { display:block; }
+.diagram-teacher-options { padding:12px 0 0; border-top:1px solid var(--ds-color-border); }
+.diagram-teacher-options summary { cursor:pointer; font-size:.85rem; font-weight:650; padding:4px 0; }
+.diagram-teacher-options summary span { font-weight:400; color:var(--ds-color-text-muted); }
+.diagram-teacher-options .file-picker { margin-top:14px; }
+.diagram-teacher-options .field-label { display:block; margin:12px 0 6px; }
+.diagram-teacher-grid .hint { margin:10px 0; font-size:.78rem; color:var(--ds-color-text-muted); }
+.diagram-teacher-remote, .diagram-teacher-notice {
+  margin:12px 0; padding:12px; border:1px solid var(--ds-color-border);
+  border-radius:var(--ds-radius-md); background:var(--ds-color-surface-subtle);
+}
+.diagram-teacher-remote p, .diagram-teacher-notice p { margin:0 0 10px; font-size:.85rem; }
+.diagram-teacher-notice .ds-button { margin-left:10px; }
+.diagram-teacher-local { margin:12px 0; color:var(--ds-color-text-muted); font-size:.82rem; }
+.diagram-teacher-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; }
+.diagram-teacher-error, .diagram-teacher-message {
+  padding:12px 14px; margin:14px 0 0; border:1px solid var(--ds-color-border);
+  border-radius:var(--ds-radius-md); background:var(--ds-color-surface-subtle);
+}
+.diagram-teacher-error { border-left:3px solid var(--ds-color-progress); }
+.diagram-teacher-review-layout {
+  display:grid; grid-template-columns:minmax(0,1.25fr) minmax(360px, .85fr);
+  align-items:start; gap:16px; min-width:0;
+}
+.diagram-teacher-copy, .diagram-teacher-activity {
+  min-width:0; border:1px solid var(--ds-color-border); border-radius:var(--ds-radius-md);
+  background:var(--ds-color-surface); box-shadow:none;
+}
+.diagram-teacher-copy { padding:16px; }
+.diagram-teacher-activity { padding:0; max-height:85vh; overflow-y:auto; overscroll-behavior:contain; }
+.diagram-teacher-section-head {
+  display:flex; justify-content:space-between; align-items:center;
+  gap:12px; padding:0 0 14px; border-bottom:1px solid var(--ds-color-border);
+}
+.diagram-teacher-activity > .diagram-teacher-section-head { padding:16px; }
+.diagram-teacher-section-head .eyebrow { margin:0 0 4px; }
+.diagram-teacher-section-head h3 { font-size:1rem; margin:0; }
+.diagram-teacher-section-head > span { flex:none; font-size:.8rem; color:var(--ds-color-text-muted); }
+.diagram-teacher-section-head > .diagram-teacher-total { color:var(--ds-color-text); font-size:1.1rem; font-weight:750; font-variant-numeric:tabular-nums; }
+.diagram-teacher-image-tools { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:12px 0; }
+.diagram-teacher-image-tools > span { font-size:.8rem; color:var(--ds-color-text-muted); }
+.diagram-teacher-image-tools > div { display:flex; gap:7px; flex-wrap:wrap; }
+.diagram-teacher-image-tools .ds-button { font-size:.8rem; padding:7px 10px; }
+.diagram-teacher-image-stage {
+  display:grid; place-items:center; width:100%; min-height:400px;
+  padding:12px; border:1px solid var(--ds-color-border);
+  border-radius:var(--ds-radius-sm); background:#e9ecef; cursor:zoom-in;
+}
+.diagram-teacher-image-stage:focus-visible { outline:3px solid var(--ds-color-brand-700); outline-offset:2px; }
+.diagram-teacher-image-stage img { display:block; width:100%; height:clamp(440px, 62vh, 820px); max-height:calc(85vh - 170px); object-fit:contain; }
+.diagram-teacher-image-caption { display:flex; justify-content:space-between; gap:12px; padding:10px 0; font-size:.76rem; color:var(--ds-color-text-muted); overflow-wrap:anywhere; }
+.diagram-teacher-previews { display:flex; align-items:start; gap:9px; overflow-x:auto; padding:8px 0 12px; }
+.diagram-teacher-previews button {
+  flex:0 0 94px; min-width:0; padding:5px;
+  border:1px solid var(--ds-color-border); border-radius:var(--ds-radius-sm);
+  background:var(--ds-color-surface); color:var(--ds-color-text);
+  cursor:pointer; text-align:center;
+}
+.diagram-teacher-previews button.is-selected { border:2px solid var(--ds-color-brand-700); background:var(--ds-color-surface-subtle); }
+.diagram-teacher-previews img { display:block; width:100%; height:85px; object-fit:contain; }
+.diagram-teacher-previews span { font-size:.7rem; }
+.diagram-teacher-copy .hint { font-size:.76rem; color:var(--ds-color-text-muted); margin-bottom:0; }
+.diagram-teacher-empty-copy {
+  min-height:440px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; padding:20px; background:var(--ds-color-surface-subtle); color:var(--ds-color-text-muted);
+}
+.diagram-teacher-empty-copy strong { color:var(--ds-color-text); }
+.diagram-teacher-empty-copy p { max-width:310px; }
+.diagram-teacher-rubric-title { margin:0; padding:0 16px 12px; font-size:.82rem; color:var(--ds-color-text-muted); }
+.diagram-teacher-progress {
+  display:flex; gap:12px; align-items:center; padding:13px 16px;
+  border-top:1px solid var(--ds-color-border); border-bottom:1px solid var(--ds-color-border);
+  background:var(--ds-color-surface-subtle);
+}
+.diagram-teacher-progress > div { display:grid; gap:3px; }
+.diagram-teacher-progress strong { font-size:.88rem; }
+.diagram-teacher-progress small { font-size:.75rem; color:var(--ds-color-text-muted); }
+.diagram-teacher-progress-dot {
+  display:block; width:10px; height:10px; flex:none; border-radius:50%; background:var(--ds-color-border-strong);
+}
+.diagram-teacher-progress-dot.is-running { background:var(--ds-color-progress); animation:diagram-teacher-pulse 1.25s ease-in-out infinite; }
+@keyframes diagram-teacher-pulse { 50% { opacity:.32; } }
+@media(prefers-reduced-motion:reduce) { .diagram-teacher-progress-dot.is-running { animation:none; } }
+.diagram-teacher-running-note, .diagram-teacher-rubric-intro {
+  margin:0; padding:12px 16px; font-size:.8rem; line-height:1.5; color:var(--ds-color-text-muted);
+}
+.diagram-teacher-result-head { display:grid; gap:12px; padding:16px; border-bottom:1px solid var(--ds-color-border); }
+.diagram-teacher-result-head h3 { margin:5px 0; font-size:1.2rem; }
+.diagram-teacher-result-head p { margin:0; font-size:.83rem; }
+.diagram-teacher-result-head .ds-button { justify-self:start; }
+.diagram-teacher-criteria { list-style:none; padding:0; margin:0; }
+.diagram-teacher-criterion { padding:16px; border-top:1px solid var(--ds-color-border); }
+.diagram-teacher-criterion:first-child { border-top:0; }
+.diagram-teacher-criterion-head { display:flex; justify-content:space-between; gap:14px; align-items:start; }
+.diagram-teacher-criterion-head strong { font-size:.9rem; }
+.diagram-teacher-criterion-head strong:last-child { white-space:nowrap; font-variant-numeric:tabular-nums; }
+.diagram-teacher-cumulative { margin:4px 0 12px; font-size:.74rem; color:var(--ds-color-text-muted); }
+.diagram-teacher-criterion > p:not(.diagram-teacher-cumulative) { margin:10px 0; font-size:.83rem; }
+.diagram-teacher-criterion > small { color:var(--ds-color-text-muted); }
+.diagram-teacher-subcriteria { list-style:none; padding:0; margin:8px 0 0; }
+.diagram-teacher-subcriteria li {
+  display:flex; justify-content:space-between; gap:12px; padding:9px 0;
+  border-top:1px solid var(--ds-color-border); font-size:.8rem; align-items:start;
+}
+.diagram-teacher-subcriteria li > span { display:grid; gap:3px; min-width:0; }
+.diagram-teacher-subcriteria li small { font-size:.75rem; line-height:1.45; color:var(--ds-color-text-muted); }
+.diagram-teacher-subcriteria li strong { white-space:nowrap; font-size:.8rem; font-variant-numeric:tabular-nums; }
+.diagram-teacher-question { font-weight:650; }
+.diagram-teacher-questions { padding:14px 16px; border-top:1px solid var(--ds-color-border); }
+.diagram-teacher-questions h4 { margin:0; }
+.diagram-teacher-questions ul { padding-left:20px; font-size:.83rem; }
+.diagram-teacher-result > .hint { padding:0 16px 16px; font-size:.78rem; color:var(--ds-color-text-muted); }
+@media (max-width:950px) {
+  .diagram-teacher-review-layout { grid-template-columns:minmax(0,1fr) minmax(315px,.9fr); }
+  .diagram-teacher-image-stage img { height:55vh; min-height:350px; }
+}
+@media (max-width:760px) {
+  .diagram-teacher-workspace { width:calc(100% - 24px); margin:20px auto 36px; }
+  .diagram-teacher-heading { flex-direction:column; gap:10px; }
+  .diagram-teacher-grid, .diagram-teacher-review-layout { grid-template-columns:minmax(0,1fr); }
+  .diagram-teacher-activity { max-height:none; }
+  .diagram-teacher-image-stage { min-height:320px; }
+  .diagram-teacher-image-stage img { height:clamp(280px, 56vh, 610px); min-height:0; }
 }
