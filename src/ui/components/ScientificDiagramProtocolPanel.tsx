@@ -152,14 +152,14 @@ export function ScientificDiagramProtocolPanel({
   }
 
   function downloadFixtureReport() {
-    if (fixtureReport) downloadScientificDiagramJson(fixtureReport, 'companion-trois-schemas-scientifiques.json');
+    if (fixtureReport) downloadScientificDiagramJson(fixtureReport, 'companion-schemas-scientifiques.json');
   }
 
   async function copyFixtureReport() {
     if (!fixtureReport) return;
     try {
       await navigator.clipboard.writeText(JSON.stringify(fixtureReport, null, 2));
-      setFixtureMessage('Rapport des trois dessins copié : collez-le dans notre conversation.');
+      setFixtureMessage('Rapport des dessins scientifiques copié : collez-le dans notre conversation.');
     } catch {
       setFixtureMessage('Copie bloquée : utilisez « Exporter le rapport JSON ».');
     }
@@ -302,7 +302,7 @@ export function ScientificDiagramProtocolPanel({
         {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={'fixture-' + issue}>{issue}</p>)}
         {(fixtureMessage || (busy && progress)) && <p role="status" className="pilot-evaluation-message">{fixtureMessage || progress}</p>}
       </div>
-      {fixtureReport && <section className="pilot-evaluation-report" aria-label="Résultats des schémas A B C">
+      {fixtureReport && <section className="pilot-evaluation-report" aria-label="Résultats des schémas scientifiques">
         <div className="pilot-evaluation-report-head">
           <div><h4>Comparaison aux notes de référence</h4><p>{busy || fixtureLoading ? 'Rapport partiel : les passages terminés sont déjà exportables. ' : ''}La note reste « Non noté » lorsque le modèle demande une revue. Les décisions System One sont mesurées séparément, même si la note finale reste indisponible.</p></div>
           <div className="pilot-evaluation-report-actions">
