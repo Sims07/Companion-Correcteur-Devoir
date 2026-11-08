@@ -1223,6 +1223,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       await backgroundService.pauseAndWait(strategyOverride === 'arbitrate-only' ? undefined : visionModel);
       if (!validation.valid) throw new Error(validation.errors.join(' '));
       if (!images.length) throw new Error('Importez au moins une photo ou un PDF de la copie.');
+      if (correctionMethod === 'visual-decision') {
+        if (apiCompatible) throw new Error('Vision + Décisionnel direct nécessite Ollama local et son API /v1/systemone.');
+        if (!isVisualDecisionModel(analysisModel)) throw new Error(/^tev1(?::|$)/i.test(analysisModel)
+          ? 'TEV1 ne prend pas en charge les photos via System One. Choisissez « Décisionnelle — Vision puis System One texte » ou un modèle visuel comme Clef-Flash.'
+          : 'Le modèle d’analyse ne prend pas en charge l’entrée image System One. Sélectionnez un modèle compatible comme Clef-Flash.');
+      }
       if (!apiCompatible && strategyOverride !== 'arbitrate-only') {
         const modelsToCheck = new Set<string>();
         if (isFreshCorrection && correctionMethod !== 'visual-decision' && visionModel.trim()) modelsToCheck.add(visionModel.trim());
@@ -3247,6 +3253,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <option value="decision">Décisionnelle — Vision puis System One texte</option>
           <option value="visual-decision">Vision + Décisionnel direct — 1 appel image System One</option>
         </DesignSystemSelect>
+        {correctionMethod === 'visual-decision' && !isVisualDecisionModel(analysisModel) && <StatusNotice tone="warning">Le modèle {analysisModel || 'non sélectionné'} n’est pas reconnu comme compatible avec les images System One. TEV1 accepte les questions sur texte, mais refuse les photos dans cette API. Utilisez Clef-Flash ou revenez au mode décisionnel sur transcription.</StatusNotice>}
         <p className="hint">Classique : lecture Vision puis correction Chat. Décisionnelle : lecture Vision puis System One sur texte. Vision + Décisionnel direct : schéma et barème transmis ensemble dans un seul appel /v1/systemone, sans transcription. Modèles compatibles : Clef-Flash/Clef, et D1/D3 expérimentaux. TEV1 est textuel dans System One : il ne peut pas recevoir les images via cet endpoint. Aucun repli Chat automatique.</p>
         <label className="analysis-thinking-option" htmlFor="ai-criterion-by-criterion"><input id="ai-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère, avec affichage progressif. Désactivez cette option pour envoyer tout le barème dans un seul appel et comparer les deux approches.</small></span></label>
         {apiCompatible && <section className="saluki-load-card" aria-labelledby="saluki-load-title">
