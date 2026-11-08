@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, upsertAiModelProfile, type AiModelProfile } from './aiModelProfiles.ts';
+import { defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, removeAiModelProfile, removeAiModelProfiles, upsertAiModelProfile, type AiModelProfile } from './aiModelProfiles.ts';
 
 const profile: AiModelProfile = {
   id: 'profile-1', name: 'Biologie comparaison', mode: 'compare',
@@ -50,6 +50,20 @@ describe('AI model configuration persistence', () => {
   it('keeps only valid named profiles when restoring profiles', () => {
     expect(parseAiModelProfiles(JSON.stringify([profile, { id: 'broken' }, null]))).toEqual([profile]);
     expect(parseAiModelProfiles('not-json')).toEqual([]);
+  });
+  it('can prune 16 profiles down to 3 in one pure operation without changing their settings', () => {
+    const profiles = Array.from({ length: 16 }, (_, index) => ({
+      ...profile, id: 'saved-' + index, name: 'Profil ' + index,
+      configuration: { ...profile.configuration, analysisModel: 'model-' + index },
+    }));
+    const selectedForRemoval = profiles.slice(3).map((item) => item.id);
+    const next = removeAiModelProfiles(profiles, [...selectedForRemoval, selectedForRemoval[0]!, 'unknown']);
+    expect(next).toEqual(profiles.slice(0, 3));
+    expect(next.map((item) => item.configuration.analysisModel))
+      .toEqual(['model-0', 'model-1', 'model-2']);
+    expect(profiles).toHaveLength(16);
+    expect(removeAiModelProfiles(profiles, [])).toEqual(profiles);
+    expect(removeAiModelProfile(profiles, 'saved-3')).toHaveLength(15);
   });
   it('adds a profile and replaces a saved profile with the same id', () => {
     const updated = { ...profile, name: 'Biologie arbitre', mode: 'arbitrate' as const, configuration: { ...profile.configuration, diagnosticStrategy: 'arbitrate' as const } };
