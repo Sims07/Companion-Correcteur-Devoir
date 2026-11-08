@@ -74,7 +74,7 @@ test('the teacher corrects a scientific diagram directly, reviews criterion evid
   await workspace.getByRole('button', { name: 'Agrandir', exact: true }).click();
   const viewer = page.getByRole('dialog', { name: 'Visualiseur de la page 1' });
   await expect(viewer).toBeVisible();
-  await expect(viewer.getByRole('button', { name: 'Zoomer' })).toBeVisible();
+  await expect(viewer.getByRole('button', { name: 'Zoomer', exact: true })).toBeVisible();
   await viewer.getByRole('button', { name: 'Tourner l’image à droite de 90 degrés' }).click();
   await expect(workspace.getByText('Orientation 90°')).toBeVisible();
   await viewer.getByRole('button', { name: 'Fermer le visualiseur' }).click();
