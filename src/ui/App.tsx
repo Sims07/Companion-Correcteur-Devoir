@@ -3214,7 +3214,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         currentCopy={images.length > 0 && !isFinalized && !currentBackgroundJobId ? { assignmentId: activeAssignmentId, status: isAnalyzing ? 'processing' : proposal ? 'to-review' : 'to-do' } : null}
         onCreate={(details) => { createNewAssignment(details); setShowAssignmentsHome(false); }}
         onDuplicate={duplicateAssignment}
-        onOpen={(profile) => { if (profile.id === activeAssignmentId) { setCopyOverviewFilter('all'); setTeacherStep('overview'); } else switchAssignment(profile); setShowAssignmentsHome(false); }}
+        onOpen={(profile) => { if (profile.id === activeAssignmentId) { setCopyOverviewFilterTouched(false); setTeacherStep('overview'); } else switchAssignment(profile); setShowAssignmentsHome(false); }}
         onDelete={requestDeleteAssignment}
         onReturn={() => setShowAssignmentsHome(false)}
         disabled={isAnalyzing}
