@@ -57,6 +57,7 @@ import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TIT
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
 import { initialAssignmentRubric, type AssignmentKind } from '../domain/assignmentKind.ts';
+import { buildDiagramReview } from '../domain/diagramTeacherReview.ts';
 import { directDiagramAssignmentIssue, isLoopbackDiagramEndpoint } from '../application/directScientificDiagramCorrection.ts';
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
@@ -3256,8 +3257,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <p>Les copies de ce devoir suivent les mêmes états et la même vérification que vos autres devoirs.</p>
         </div>
         <details><summary>Voir le barème graphique · {validation.maximumPoints} points</summary>
-          <ol>{rubric.criteria.map((item) => <li key={item.id}><strong>{item.title} · {item.maxPoints} pt</strong>
-            <ul>{getRubricSubcriteria(item).map((sub) => <li key={sub.id}>{sub.title} · {sub.maxPoints} pt</li>)}</ul>
+          <ol>{buildDiagramReview(rubric, null).items.map((item) => <li key={item.id}><strong>{item.title} · {item.maxPoints} pt</strong>
+            <small className="diagram-assignment-cumulative">Barème cumulé : {item.cumulativeMaximum} / {validation.maximumPoints} pts</small>
+            <ul>{item.subcriteria.map((sub) => <li key={sub.id}>{sub.title} · {sub.maxPoints} pt</li>)}</ul>
           </li>)}</ol>
         </details>
         {!isLoopbackDiagramEndpoint(endpoint) ? <div className="diagram-assignment-consent">
@@ -4354,6 +4356,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 return <figure id={`review-copy-page-${pageNumber}`} className={focusedEvidencePage === pageNumber ? 'live-copy-page evidence-page-focused' : 'live-copy-page'} key={image.fileName + '-review-' + index}>
                   <div className="evidence-image-stage">
                     <img src={`data:${image.mimeType};base64,${image.base64}`} alt={`Page de travail ${pageNumber} de la copie`} />
+                    {isScientificDiagramAssignment && <Button variant="secondary" className="diagram-review-enlarge" aria-label={`Agrandir la page ${pageNumber} du schéma`} onClick={() => setCopyViewerPage(index)}>Agrandir · Zoom</Button>}
                     <div className="copy-image-rotation-controls review-image-rotation-controls"><button type="button" className="text-button" aria-label={`Réorienter la page ${pageNumber} à gauche de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 270); }}>↶ 90°</button><button type="button" className="text-button" aria-label={`Réorienter la page ${pageNumber} à droite de 90 degrés`} disabled={isAnalyzing} onClick={() => { void rotateCopyPage(index, 90); }}>↷ 90°</button></div>
                     {originalImages[pageNumber - 1] && originalImages[pageNumber - 1].base64 !== image.base64 && <details className="original-image-details"><summary>Voir l’image originale non tournée</summary><img src={`data:${originalImages[pageNumber - 1].mimeType};base64,${originalImages[pageNumber - 1].base64}`} alt={`Image originale non modifiée de la page ${pageNumber}`} /></details>}
                   </div>
