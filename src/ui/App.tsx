@@ -54,7 +54,7 @@ import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluatio
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
-import { ScientificDiagramProtocolPanel, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
+import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramProtocolProfileIssue, usesDirectDiagramVision, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
@@ -416,6 +416,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [pilotCurrentCase, setPilotCurrentCase] = useState<string | null>(null);
   const [pilotMessage, setPilotMessage] = useState('');
   const [diagramProtocolProgress, setDiagramProtocolProgress] = useState('');
+  // Keep reports outside the conditionally mounted configuration workspace.
+  // Switching to the network inspector must not discard a completed or partial benchmark.
+  const [diagramProtocolReport, setDiagramProtocolReport] = useState<ReturnType<typeof buildScientificDiagramProtocolReport> | null>(null);
+  const [diagramFixtureReport, setDiagramFixtureReport] = useState<ReturnType<typeof buildScientificDiagramFixtureReport> | null>(null);
   const pilotStopRef = useRef(false);
   const pilotMemoryErrorRef = useRef<string | null>(null);
   const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
@@ -2082,6 +2086,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
    * score, benchmark decisions or case label. */
   async function executeScientificDiagramCases(
     rubric: Rubric, context: string, cases: readonly DiagramCaseInput[], repetitions: DiagramProtocolCount,
+    onCompleted?: (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }[]) => void,
   ): Promise<Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }>> {
     if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
     const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
@@ -2120,7 +2125,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                   directVisualDecision: usesDirectDiagramVision(profile),
                 },
               });
-              if (record) runs.push({ caseId: testCase.id, repetition, record });
+              if (record) {
+                runs.push({ caseId: testCase.id, repetition, record });
+                onCompleted?.(runs);
+              }
               if (pilotStopRef.current || evaluationCancelledRef.current) break;
             }
             if (pilotStopRef.current || evaluationCancelledRef.current) break;
@@ -2158,26 +2166,40 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function runScientificDiagramProtocol(request: DiagramProtocolRequest) {
+    const createdAt = new Date().toISOString();
+    setDiagramProtocolReport(null);
+    const build = (runs: readonly { repetition: number; record: ModelEvaluationRecord }[]) =>
+      buildScientificDiagramProtocolReport(
+        runs.map(({ repetition, record }) => ({ repetition, record })),
+        request.rubric, request.gold, request.repetitions, createdAt, request.images.length,
+      );
     const runs = await executeScientificDiagramCases(
       request.rubric, request.context, [{ id: 'manual', images: request.images }], request.repetitions,
+      (completed) => setDiagramProtocolReport(build(completed)),
     );
-    return buildScientificDiagramProtocolReport(
-      runs.map(({ repetition, record }) => ({ repetition, record })),
-      request.rubric, request.gold, request.repetitions, new Date().toISOString(), request.images.length,
-    );
+    const report = build(runs);
+    setDiagramProtocolReport(report);
+    return report;
   }
 
   async function runScientificDiagramFixtures(
     request: { cases: Array<{ id: ScientificDiagramFixtureId; images: ImageInput[] }>; repetitions: DiagramProtocolCount },
   ) {
+    const createdAt = new Date().toISOString();
+    setDiagramFixtureReport(null);
+    const build = (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }[]) =>
+      buildScientificDiagramFixtureReport(
+        runs.filter((run): run is ScientificDiagramFixtureRun => run.caseId !== 'manual'),
+        request.repetitions, createdAt,
+      );
     const runs = await executeScientificDiagramCases(
       SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT,
       request.cases, request.repetitions,
+      (completed) => setDiagramFixtureReport(build(completed)),
     );
-    return buildScientificDiagramFixtureReport(
-      runs.filter((run): run is ScientificDiagramFixtureRun => run.caseId !== 'manual'),
-      request.repetitions, new Date().toISOString(),
-    );
+    const report = build(runs);
+    setDiagramFixtureReport(report);
+    return report;
   }
 
   function stopPilotProtocol() {
@@ -3145,6 +3167,20 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </header>
 
       {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
+      {interfaceMode !== 'teacher' && (diagramFixtureReport || diagramProtocolReport) && <section className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
+        <div>
+          <strong>Rapports de schémas disponibles</strong>
+          <p>Résultats conservés pendant la navigation · les passages terminés restent exportables même si la série est interrompue.</p>
+        </div>
+        <div className="diagram-protocol-export-actions">
+          {diagramFixtureReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramFixtureReport, 'companion-trois-schemas-scientifiques.json')}>
+            Exporter les trois schémas ({diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage{diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0) === 1 ? '' : 's'})
+          </Button>}
+          {diagramProtocolReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramProtocolReport, 'companion-protocole-schema-scientifique.json')}>
+            Exporter le schéma personnel ({diagramProtocolReport.experiments.length} passage{diagramProtocolReport.experiments.length === 1 ? '' : 's'})
+          </Button>}
+        </div>
+      </section>}
       {interfaceMode === 'debug' && <NetworkInspector initialFilter={networkInitialFilter} />}
 
       {interfaceMode === 'teacher' && showAssignmentsHome && <AssignmentsHome
@@ -3289,6 +3325,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           onRun={runScientificDiagramProtocol}
           onRunFixtures={runScientificDiagramFixtures}
           onStop={stopPilotProtocol}
+          report={diagramProtocolReport}
+          fixtureReport={diagramFixtureReport}
+          onClearReport={() => setDiagramProtocolReport(null)}
+          onClearFixtureReport={() => setDiagramFixtureReport(null)}
         />
         <PilotEvaluationPanel
           enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}

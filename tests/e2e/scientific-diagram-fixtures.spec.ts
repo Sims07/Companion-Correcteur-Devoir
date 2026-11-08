@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 
 test('three bundled mitosis diagrams are visible and one click evaluates A/B/C without supplying expected scores to the model', async ({ page }) => {
   const configuration = {
@@ -14,6 +15,9 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify(profiles));
   }, [{ id: 'd1-demo', name: 'D1 test image', mode: 'single', updatedAt: '2026-11-07T20:00:00Z', configuration }]);
   const systemOneRequests: Array<{ state: string; imageCount: number; questions: string[] }> = [];
+  // Hold the second model response to exercise export after only A has completed.
+  let releaseSecondRequest: () => void = () => undefined;
+  const secondResponseGate = new Promise<void>((resolve) => { releaseSecondRequest = resolve; });
   await page.route('http://localhost:11434/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -44,6 +48,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
       systemOneRequests.push({
         state: body.state, imageCount: body.images?.length ?? 0, questions: Object.keys(body.questions ?? {}),
       });
+      if (systemOneRequests.length === 2) await secondResponseGate;
       const answers = Object.fromEntries(Object.keys(body.questions).map((key) => [
         key, key === 'alignment'
           ? { type: 'choice', choice: 'aligned', confidence: 0.99, probabilities: { aligned: 1 } }
@@ -74,6 +79,26 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     .locator('label.evaluation-profile-option').first().click();
   await fixtures.getByRole('button', { name: 'Tester les 3 schémas en un clic' }).click();
 
+  await expect.poll(() => systemOneRequests.length).toBe(2);
+  const exportStrip = page.getByRole('region', { name: 'Rapports des schémas scientifiques' });
+  await expect(exportStrip.getByRole('button', { name: /Exporter les trois schémas \(1 passage\)/ })).toBeVisible();
+
+  // The user inspects live requests while the benchmark is still running.
+  const navigation = page.getByRole('navigation', { name: 'Navigation des outils IA' });
+  await navigation.getByRole('button', { name: /Inspecteur réseau/ }).click();
+  await expect(exportStrip.getByRole('button', { name: /Exporter les trois schémas \(1 passage\)/ })).toBeVisible();
+  const [partialDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    exportStrip.getByRole('button', { name: /Exporter les trois schémas \(1 passage\)/ }).click(),
+  ]);
+  const partial = JSON.parse(await readFile(await partialDownload.path(), 'utf8')) as {
+    cases: { experiments: unknown[] }[]; format: string;
+  };
+  expect(partial.format).toBe('companion-scientific-diagram-fixture-report');
+  expect(partial.cases.flatMap((entry) => entry.experiments)).toHaveLength(1);
+  await navigation.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  releaseSecondRequest();
+
   const results = fixtures.getByRole('region', { name: 'Résultats des schémas A B C' });
   await expect(results).toBeVisible({ timeout: 30_000 });
   await expect(results.locator('tbody tr')).toHaveCount(3);
@@ -84,6 +109,20 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await expect(results.getByText('5/10', { exact: true }).first()).toBeVisible();
   await expect(results.getByText('0/10', { exact: true }).first()).toBeVisible();
   expect(systemOneRequests).toHaveLength(3);
+  // A complete report is still downloadable after the panel was unmounted.
+  const [completeDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    results.getByRole('button', { name: 'Exporter le rapport JSON' }).click(),
+  ]);
+  expect(completeDownload.suggestedFilename()).toBe('companion-trois-schemas-scientifiques.json');
+  const complete = JSON.parse(await readFile(await completeDownload.path(), 'utf8')) as {
+    cases: { experiments: unknown[] }[];
+  };
+  expect(complete.cases.flatMap((entry) => entry.experiments)).toHaveLength(3);
+  await page.getByRole('button', { name: /3.*Résultats/ }).click();
+  await expect(exportStrip).toBeVisible();
+  await page.getByRole('button', { name: /1.*Configuration/ }).click();
+  await expect(results.locator('tbody tr')).toHaveCount(3);
   for (const req of systemOneRequests) {
     expect(req.imageCount).toBe(1);
     expect(req.questions.length).toBeGreaterThanOrEqual(19);

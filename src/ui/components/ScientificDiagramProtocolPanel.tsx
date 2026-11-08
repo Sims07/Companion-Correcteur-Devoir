@@ -28,6 +28,19 @@ export interface DiagramProtocolRequest {
 type DiagramReport = ReturnType<typeof buildScientificDiagramProtocolReport>;
 type FixtureReport = ReturnType<typeof buildScientificDiagramFixtureReport>;
 
+/** Export remains available from the AI tools even when this panel is unmounted. */
+export function downloadScientificDiagramJson(report: DiagramReport | FixtureReport, filename: string) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json;charset=utf-8' }));
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  // Safari may need the object URL to survive the current click task.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 const fixtureImageUrls: Record<ScientificDiagramFixtureId, string> = {
   A: cleanDiagramUrl, B: intermediateDiagramUrl, C: poorDiagramUrl,
 };
@@ -43,10 +56,15 @@ export interface ScientificDiagramProtocolPanelProps {
     repetitions: DiagramProtocolCount;
   }) => Promise<FixtureReport>;
   onStop: () => void;
+  report: DiagramReport | null;
+  fixtureReport: FixtureReport | null;
+  onClearReport: () => void;
+  onClearFixtureReport: () => void;
 }
 
 export function ScientificDiagramProtocolPanel({
   selectedProfiles, busy, progress, onPrepareImages, onRun, onRunFixtures, onStop,
+  report, fixtureReport, onClearReport, onClearFixtureReport,
 }: ScientificDiagramProtocolPanelProps) {
   const [rubric, setRubric] = useState<Rubric>(() => structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC));
   const [context, setContext] = useState('');
@@ -54,11 +72,9 @@ export function ScientificDiagramProtocolPanel({
   const [uploading, setUploading] = useState(false);
   const [repetitions, setRepetitions] = useState<DiagramProtocolCount>(3);
   const [gold, setGold] = useState<DiagramGold>({});
-  const [report, setReport] = useState<DiagramReport | null>(null);
   const [message, setMessage] = useState('');
   const [fixtureCount, setFixtureCount] = useState<DiagramProtocolCount>(1);
   const [fixtureLoading, setFixtureLoading] = useState(false);
-  const [fixtureReport, setFixtureReport] = useState<FixtureReport | null>(null);
   const [fixtureMessage, setFixtureMessage] = useState('');
   const targets = rubric.criteria.flatMap((criterion) =>
     getRubricSubcriteria(criterion).map((item) => ({ criterion, item, key: diagramTargetKey(criterion.id, item.id) })));
@@ -74,7 +90,7 @@ export function ScientificDiagramProtocolPanel({
   async function runPreparedFixtures(ids: readonly ScientificDiagramFixtureId[]) {
     if (!canRunFixtures) return;
     setFixtureLoading(true);
-    setFixtureReport(null);
+    onClearFixtureReport();
     setFixtureMessage('Chargement des schémas intégrés…');
     try {
       const cases: Array<{ id: ScientificDiagramFixtureId; images: ImageInput[] }> = [];
@@ -90,7 +106,6 @@ export function ScientificDiagramProtocolPanel({
       }
       setFixtureMessage('');
       const result = await onRunFixtures({ cases, repetitions: fixtureCount });
-      setFixtureReport(result);
       const completed = result.cases.reduce((sum, item) => sum + item.experiments.length, 0);
       setFixtureMessage(completed + ' passage(s) terminés. Comparez les notes et les verdicts, puis exportez le rapport.');
     } catch (cause) {
@@ -101,13 +116,7 @@ export function ScientificDiagramProtocolPanel({
   }
 
   function downloadFixtureReport() {
-    if (!fixtureReport) return;
-    const url = URL.createObjectURL(new Blob([JSON.stringify(fixtureReport, null, 2)], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'companion-trois-schemas-scientifiques.json';
-    link.click();
-    URL.revokeObjectURL(url);
+    if (fixtureReport) downloadScientificDiagramJson(fixtureReport, 'companion-trois-schemas-scientifiques.json');
   }
 
   async function copyFixtureReport() {
@@ -126,7 +135,7 @@ export function ScientificDiagramProtocolPanel({
       const imported = parseScientificDiagramProtocolRubric(JSON.parse(await files[0]!.text()) as unknown);
       setRubric(imported);
       setGold({});
-      setReport(null);
+      onClearReport();
       setMessage('Barème importé localement : ' + imported.criteria.length + ' critères. Les critères de compréhension sans sous-critères ont été exclus.');
     } catch (cause) {
       setMessage('Import refusé : ' + (cause instanceof Error ? cause.message : String(cause)));
@@ -137,7 +146,7 @@ export function ScientificDiagramProtocolPanel({
     if (!files?.length || busy || uploading) return;
     setUploading(true);
     setImages([]);
-    setReport(null);
+    onClearReport();
     try {
       const prepared = await onPrepareImages(Array.from(files));
       setImages(prepared);
@@ -149,14 +158,13 @@ export function ScientificDiagramProtocolPanel({
 
   async function start() {
     if (!canRun) return;
-    setReport(null);
+    onClearReport();
     setMessage('');
     try {
       const completed = await onRun({
         rubric: structuredClone(rubric), context: context.trim(),
         images, gold: { ...gold }, repetitions,
       });
-      setReport(completed);
       setMessage(completed.experiments.length ? 'Mesures disponibles : le rapport ne contient aucune photographie.' : 'Aucun essai terminé.');
     } catch (cause) {
       setMessage('Erreur du protocole : ' + (cause instanceof Error ? cause.message : String(cause)));
@@ -164,13 +172,7 @@ export function ScientificDiagramProtocolPanel({
   }
 
   function exportReport() {
-    if (!report) return;
-    const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'companion-protocole-schema-scientifique.json';
-    link.click();
-    URL.revokeObjectURL(url);
+    if (report) downloadScientificDiagramJson(report, 'companion-protocole-schema-scientifique.json');
   }
 
   async function copyReport() {
@@ -235,7 +237,7 @@ export function ScientificDiagramProtocolPanel({
       </div>
       {fixtureReport && <section className="pilot-evaluation-report" aria-label="Résultats des schémas A B C">
         <div className="pilot-evaluation-report-head">
-          <div><h4>Comparaison aux trois notes attendues</h4><p>La note reste « Non noté » lorsque le modèle demande une revue. Les décisions System One sont mesurées séparément, même si la note finale reste indisponible.</p></div>
+          <div><h4>Comparaison aux trois notes attendues</h4><p>{busy || fixtureLoading ? 'Rapport partiel : les passages terminés sont déjà exportables. ' : ''}La note reste « Non noté » lorsque le modèle demande une revue. Les décisions System One sont mesurées séparément, même si la note finale reste indisponible.</p></div>
           <div className="pilot-evaluation-report-actions">
             <Button variant="secondary" onClick={() => { void copyFixtureReport(); }}>Copier le rapport pour ChatGPT</Button>
             <Button variant="secondary" onClick={downloadFixtureReport}>Exporter le rapport JSON</Button>
@@ -297,7 +299,7 @@ export function ScientificDiagramProtocolPanel({
         <p className="pilot-evaluation-hint">Barème actif : <strong>{rubric.title}</strong> — {validation.maximumPoints} points, {targets.length} attendu{targets.length > 1 ? 's' : ''}. Les 2 points « Compréhension » de l’exemple sont exclus par défaut : ils nécessitent des structures attendues propres au schéma.</p>
         <label htmlFor="diagram-protocol-context">Contexte biologique du dessin (facultatif pour les seuls critères de présentation)</label>
         <TextArea id="diagram-protocol-context" rows={2} disabled={busy} value={context}
-          onChange={(event) => { setContext(event.currentTarget.value); setReport(null); }}
+          onChange={(event) => { setContext(event.currentTarget.value); onClearReport(); }}
           placeholder="Ex. coupe longitudinale de racine ; structures attendues, espèce, préparation…" />
       </div>
       <div className="diagram-protocol-reference">
@@ -319,7 +321,7 @@ export function ScientificDiagramProtocolPanel({
                       else delete next[key];
                       return next;
                     });
-                    setReport(null);
+                    onClearReport();
                   }}>
                   <option value="">Non renseigné</option>
                   <option value="present">Présent</option>
