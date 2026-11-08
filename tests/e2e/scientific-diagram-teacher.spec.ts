@@ -124,6 +124,9 @@ test('a diagram devoir has the normal library, several copies, review rail and l
 
   await page.getByRole('button', { name: 'Valider et passer à la suivante' }).click();
   await page.getByRole('button', { name: 'Mes devoirs' }).click();
+  // Real teacher behavior: an assignment, its type and validated copies survive reload.
+  await page.reload();
+  await expect(card).toContainText('Schéma scientifique');
   await card.getByRole('button', { name: /Reprendre le devoir|Ouvrir le devoir/ }).click();
   await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
   await page.locator('.copy-overview-filters').getByRole('button', { name: /Corrigées/ }).click();
