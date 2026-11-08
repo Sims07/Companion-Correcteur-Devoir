@@ -9,7 +9,7 @@ import { FilePicker } from './FilePicker.tsx';
 import cleanDiagramUrl from '../../assets/pilot/scientific-mitosis-10.webp';
 import intermediateDiagramUrl from '../../assets/pilot/scientific-mitosis-5.webp';
 import poorDiagramUrl from '../../assets/pilot/scientific-mitosis-0.webp';
-import { SCIENTIFIC_DIAGRAM_FIXTURES, type ScientificDiagramFixtureId, type buildScientificDiagramFixtureReport } from '../../domain/scientificDiagramFixtures.ts';
+import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES, type ScientificDiagramFixtureId, type buildScientificDiagramFixtureReport } from '../../domain/scientificDiagramFixtures.ts';
 import {
   SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods,
   diagramTargetKey, parseScientificDiagramProtocolRubric, type DiagramMethodSelection,
@@ -214,7 +214,7 @@ export function ScientificDiagramProtocolPanel({
     <section className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
       <div className="diagram-protocol-fixtures-heading">
         <div>
-          <h4>Trois schémas prêts à tester — 10, 5 et 0 sur 10</h4>
+          <h4>Trois schémas prêts à tester — références provisoires</h4>
           <p>Les images et leur barème sur 10 points sont déjà intégrés. Notes et décisions proposées pour un <strong>jeu synthétique</strong>, à valider par un enseignant avant d’en tirer des conclusions scientifiques. Les notes attendues ne sont jamais envoyées au modèle.</p>
         </div>
       </div>
@@ -227,6 +227,13 @@ export function ScientificDiagramProtocolPanel({
               <span>{fixture.referenceScore}/10 attendu</span>
             </div>
             <p>{fixture.description}</p>
+            {fixture.referenceReview && <details>
+              <summary>Voir le détail de la référence provisoire</summary>
+              <p>Revue visuelle du {fixture.referenceReview.reviewedOn} — à valider par un enseignant. Les points partiels restent des appréciations.</p>
+              <ul>{SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap(criterion => (criterion.subcriteria ?? []).map(sub =>
+                <li key={sub.id}><strong>{sub.title} : {fixture.referencePoints[criterion.id + '::' + sub.id]}/{sub.maxPoints}</strong> — {fixture.referenceReview?.notes[sub.id]}</li>
+              ))}</ul>
+            </details>}
             <Button variant="secondary" disabled={!canRunFixtures}
               onClick={() => { void runPreparedFixtures([fixture.id]); }}>
               Tester ce schéma
