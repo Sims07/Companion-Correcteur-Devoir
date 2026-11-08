@@ -59,7 +59,7 @@ export type DiagramMethodSelection = DiagramMethod | 'compare';
 export const diagramMethodLabels: Record<DiagramMethod, string> = {
   'vision-then-analysis': 'Vision puis analyse',
   'direct-image-generative': 'Image → génératif direct',
-  'direct-image-systemone': 'Image → System One direct',
+  'direct-image-systemone': 'System One image directe',
 };
 
 /** The scientific laboratory selects routes independently of the teacher workflow.
