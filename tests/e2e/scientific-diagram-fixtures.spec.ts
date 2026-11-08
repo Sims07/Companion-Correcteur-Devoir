@@ -67,7 +67,9 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   const fixtures = panel.getByRole('region', { name: 'Schémas de référence intégrés' });
   await expect(fixtures.locator('.diagram-fixture-card')).toHaveCount(3);
   await expect(fixtures.getByText('10/10 attendu', { exact: true })).toBeVisible();
-  await expect(fixtures.getByText('5/10 attendu', { exact: true })).toBeVisible();
+  await expect(fixtures.getByText('7.36/10 attendu', { exact: true })).toBeVisible();
+  await fixtures.getByText('Voir le détail de la référence provisoire', { exact: true }).click();
+  await expect(fixtures.getByText(/Des prolongements de paroi sont visibles/)).toBeVisible();
   await expect(fixtures.getByText('0/10 attendu', { exact: true })).toBeVisible();
   await expect(fixtures.getByRole('combobox', { name: 'Passages par schéma' })).toHaveValue('1');
   await expect.poll(async () => fixtures.locator('img').evaluateAll((images) =>
@@ -106,7 +108,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   // provisional grade needs teacher review.
   await expect(results.getByText('19/19', { exact: true })).toHaveCount(3);
   await expect(results.getByText('10/10', { exact: true }).first()).toBeVisible();
-  await expect(results.getByText('5/10', { exact: true }).first()).toBeVisible();
+  await expect(results.getByText('7.36/10', { exact: true }).first()).toBeVisible();
   await expect(results.getByText('0/10', { exact: true }).first()).toBeVisible();
   expect(systemOneRequests).toHaveLength(3);
   // A complete report is still downloadable after the panel was unmounted.
@@ -134,11 +136,11 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     expect(req.imageCount).toBe(1);
     expect(req.questions.length).toBeGreaterThanOrEqual(19);
     expect(req.state).not.toContain('10/10');
-    expect(req.state).not.toContain('5/10');
+    expect(req.state).not.toContain('7.36/10');
     expect(req.state).not.toContain('0/10');
   }
 
-  // The 5-point picture can also be tested independently with the same one-click flow.
+  // The intermediate picture can also be tested independently with the same one-click flow.
   await fixtures.getByRole('button', { name: 'Tester ce schéma' }).nth(1).click();
   await expect(results.locator('tbody tr')).toHaveCount(1);
   expect(systemOneRequests).toHaveLength(4);
