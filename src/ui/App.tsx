@@ -56,7 +56,7 @@ import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
-import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramProtocolProfileIssue, usesDirectDiagramVision, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
+import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../domain/questionContractRepeatability.ts';
@@ -93,7 +93,7 @@ interface PilotRunOptions {
   profiles: AiModelProfile[];
   caseImages: ImageInput[];
   contractVariant?: QuestionContractVariant;
-  diagram?: { rubric: Rubric; question: string; directVisualDecision: boolean };
+  diagram?: { rubric: Rubric; question: string; method: DiagramMethod };
   retainModelAfterRun?: boolean;
 }
 
@@ -1566,7 +1566,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const runCorrectionMode = options ? 'integrated' as const : correctionMode;
     const runSubjectImages = options ? [] : subjectImages;
     const runSubjectTranscription = options ? null : subjectTranscription;
-    const runVisualDirect = options?.diagram?.directVisualDecision ?? (options ? false : evaluationVisualDirect);
+    const diagramMethod = options?.diagram?.method;
+    const runVisualDirect = diagramMethod ? diagramMethod === 'direct-image-systemone' : (options ? false : evaluationVisualDirect);
     const runAssignmentId = options?.diagram ? 'pilot-' + SCIENTIFIC_DIAGRAM_PROTOCOL_ID : options?.contractVariant ? 'pilot-' + QUESTION_CONTRACT_PROTOCOL_ID : options ? 'pilot-' + PILOT_PROTOCOL_ID : activeAssignmentId;
     const selectedProfiles = options?.profiles ?? aiModelProfiles.filter((profile) => selectedEvaluationProfileIds.includes(profile.id)).slice(0, 3);
     if (selectedProfiles.length < 1) { setError('Sélectionnez au moins une configuration enregistrée pour la tester.'); return; }
@@ -1584,11 +1585,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setPendingEvaluationArchive(null);
     const measuredStages = runStage === 'vision' ? ['reading'] as const : runStage === 'analysis' ? ['analysis'] as const : ['reading', 'analysis'] as const;
     const directProfiles = (profile: AiModelProfile) => runStage === 'integrated' && (
-      profile.configuration.correctionMethod === 'visual-decision'
-      || (runVisualDirect && profile.configuration.correctionMethod === 'decision'
-        && isVisualDecisionModel(profile.configuration.analysisModel))
+      diagramMethod ? diagramMethod === 'direct-image-systemone'
+        : profile.configuration.correctionMethod === 'visual-decision'
+          || (runVisualDirect && profile.configuration.correctionMethod === 'decision'
+            && isVisualDecisionModel(profile.configuration.analysisModel))
     );
-    const totalEvaluationSteps = selectedProfiles.reduce((sum, profile) => sum + (directProfiles(profile) ? 1 : measuredStages.length), 0);
+    const directGenerativeProfiles = (_profile: AiModelProfile) => runStage === 'integrated' && diagramMethod === 'direct-image-generative';
+    // Only the diagram lab can override a saved visual-decision profile to test
+    // its two-step System One text baseline. The teacher route is unchanged.
+    const effectiveMethod = (profile: AiModelProfile) =>
+      diagramMethod === 'vision-then-analysis' && profile.configuration.correctionMethod === 'visual-decision'
+        ? 'decision' as const : profile.configuration.correctionMethod;
+    const totalEvaluationSteps = selectedProfiles.reduce((sum, profile) =>
+      sum + (directProfiles(profile) || directGenerativeProfiles(profile) ? 1 : measuredStages.length), 0);
     setEvaluationProgress({ completed: 0, total: selectedProfiles.length, currentConfiguration: null, status: 'running', completedSteps: 0, totalSteps: totalEvaluationSteps, currentStage: null });
     setEvaluationStage('preparing');
     setError('');
@@ -1596,7 +1605,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setIsAnalyzing(true);
     const outputs = await runModelEvaluation({
       stages: [...measuredStages],
-      stagesForConfiguration: (configuration) => configuration.directVisualDecision ? ['analysis'] : [...measuredStages],
+      stagesForConfiguration: (configuration) => configuration.directVisualDecision || configuration.directGenerativeVision ? ['analysis'] : [...measuredStages],
       configurations: selectedProfiles.map((profile) => ({
         id: profile.id,
         name: profile.name,
@@ -1607,8 +1616,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         analysisModel: profile.configuration.analysisModel,
         thinking: profile.configuration.analysisThinking,
         criterionByCriterion: profile.configuration.criterionByCriterion,
-        correctionMethod: profile.configuration.correctionMethod,
+        correctionMethod: effectiveMethod(profile),
         directVisualDecision: directProfiles(profile),
+        directGenerativeVision: directGenerativeProfiles(profile),
       })),
       isCancelled: () => evaluationCancelledRef.current,
       onProgress: setEvaluationProgress,
@@ -1638,9 +1648,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             ? 'TEV1 ne supporte pas les images dans System One : sélectionnez une méthode Vision puis Analyse, ou Clef-Flash.'
             : 'Le modèle choisi ne prend pas en charge les décisions directes sur images dans System One.');
         }
-        if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un modèle de vision pour cette expérience.');
+        if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.directGenerativeVision && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un modèle de vision pour cette expérience.');
         if (runStage !== 'vision' && !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle d’analyse pour cette expérience.');
-        if (runStage !== 'analysis' && !configuration.directVisualDecision) await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.visionModel });
+        if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.directGenerativeVision) await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.visionModel });
         if (runStage !== 'vision') await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.analysisModel });
         let extractedTranscription = '';
         let raw = '';
@@ -1668,11 +1678,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             ...(runStage === 'analysis' ? { transcription: runTranscription ?? '' } : {}),
             ...(runStage === 'vision' ? { visionOnly: true } : {}),
             ...(configuration.directVisualDecision ? { directVisualDecision: true } : {}),
+            ...(configuration.directGenerativeVision ? { directGenerativeVision: true } : {}),
             images: runStage === 'analysis' ? [] : structuredClone(runImages),
             ...(runStage !== 'vision' && runCorrectionMode === 'separate' ? { subjectImages: structuredClone(runSubjectImages), ...(runSubjectTranscription ? { subjectTranscription: runSubjectTranscription } : {}) } : {}),
           }, (chunk) => { streamedOutput += chunk; setStreamedOutput((current) => current + chunk); }, (stage) => {
             const now = Date.now();
-            if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = configuration.directVisualDecision ? 0 : Math.max(0, now - startedAt); analysisStartedAt = configuration.directVisualDecision ? startedAt : now; } onStage('analysis'); setEvaluationStage('grading'); setAnalysisStage('grading'); setStreamedOutput(''); }
+            if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = configuration.directVisualDecision || configuration.directGenerativeVision ? 0 : Math.max(0, now - startedAt); analysisStartedAt = configuration.directVisualDecision || configuration.directGenerativeVision ? startedAt : now; } onStage('analysis'); setEvaluationStage('grading'); setAnalysisStage('grading'); setStreamedOutput(''); }
             else { onStage('reading'); setEvaluationStage('reading'); setAnalysisStage('reading'); }
           }, (text, kind) => {
             if (kind !== 'subject') extractedTranscription = text;
@@ -1772,8 +1783,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         thinking: profile.configuration.analysisThinking,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         apiCompatible: profile.configuration.apiCompatible,
-        correctionMethod: profile.configuration.correctionMethod,
+        correctionMethod: effectiveMethod(profile),
         directVisualDecision: directProfiles(profile),
+        directGenerativeVision: directGenerativeProfiles(profile),
       })),
       results,
       stage: runStage,
@@ -2070,12 +2082,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
    * score, benchmark decisions or case label. */
   async function executeScientificDiagramCases(
     rubric: Rubric, context: string, cases: readonly DiagramCaseInput[], repetitions: DiagramProtocolCount,
+    methodSelection: DiagramMethodSelection,
     onCompleted?: (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }[]) => void,
   ): Promise<Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }>> {
     if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
     const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     if (!profiles.length) throw new Error('Sélectionnez une configuration dans l’évaluateur.');
-    const issue = profiles.map(diagramProtocolProfileIssue).find(Boolean);
+    const issue = profiles.map((profile) => diagramMethodIssue(profile, methodSelection)).find(Boolean);
     if (issue) throw new Error(issue);
     if (profiles.some(isLocalPilotProfile) && !releasePilotModels) {
       throw new Error('Gestionnaire de mémoire Ollama indisponible : impossible de sécuriser les passages successifs.');
@@ -2094,24 +2107,27 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       // before unloading. Each case is one independent image group.
       for (const profile of profiles) {
         try {
-          for (const testCase of cases) {
-            for (let repetition = 1; repetition <= repetitions; repetition++) {
-              if (pilotStopRef.current || evaluationCancelledRef.current) break;
-              setDiagramProtocolProgress('Schéma ' + testCase.id + ' · ' + profile.name + ' · passage '
-                + repetition + '/' + repetitions + ' · '
-                + (usesDirectDiagramVision(profile) ? 'System One image (appel unique)' : 'Vision puis analyse'));
-              const record = await startModelEvaluation({
-                pilotCase: PILOT_CASES[0]!, stage: 'integrated', profiles: [profile],
-                caseImages: testCase.images, retainModelAfterRun: true,
-                diagram: {
-                  rubric,
-                  question: context || 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni. N’invente pas de structures biologiques absentes du sujet.',
-                  directVisualDecision: usesDirectDiagramVision(profile),
-                },
-              });
-              if (record) {
-                runs.push({ caseId: testCase.id, repetition, record });
-                onCompleted?.(runs);
+          for (const method of selectDiagramMethods(profile, methodSelection)) {
+            for (const testCase of cases) {
+              for (let repetition = 1; repetition <= repetitions; repetition++) {
+                if (pilotStopRef.current || evaluationCancelledRef.current) break;
+                setDiagramProtocolProgress('Schéma ' + testCase.id + ' · ' + profile.name + ' · passage '
+                  + repetition + '/' + repetitions + ' · ' + method);
+                const record = await startModelEvaluation({
+                  pilotCase: PILOT_CASES[0]!, stage: 'integrated', profiles: [profile],
+                  caseImages: testCase.images, retainModelAfterRun: true,
+                  diagram: {
+                    rubric,
+                    question: (context || 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni.')
+                      + ' Vérifie chaque attendu sur le dessin original. N’invente pas de structures absentes ; signale les éléments incertains.',
+                    method,
+                  },
+                });
+                if (record) {
+                  runs.push({ caseId: testCase.id, repetition, record });
+                  onCompleted?.(runs);
+                }
+                if (pilotStopRef.current || evaluationCancelledRef.current) break;
               }
               if (pilotStopRef.current || evaluationCancelledRef.current) break;
             }
@@ -2159,7 +2175,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       );
     const runs = await executeScientificDiagramCases(
       request.rubric, request.context, [{ id: 'manual', images: request.images }], request.repetitions,
-      (completed) => setDiagramProtocolReport(build(completed)),
+      request.methodSelection, (completed) => setDiagramProtocolReport(build(completed)),
     );
     const report = build(runs);
     setDiagramProtocolReport(report);
@@ -2167,7 +2183,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function runScientificDiagramFixtures(
-    request: { cases: Array<{ id: ScientificDiagramFixtureId; images: ImageInput[] }>; repetitions: DiagramProtocolCount },
+    request: { cases: Array<{ id: ScientificDiagramFixtureId; images: ImageInput[] }>; repetitions: DiagramProtocolCount; methodSelection: DiagramMethodSelection },
   ) {
     const createdAt = new Date().toISOString();
     setDiagramFixtureReport(null);
@@ -2178,7 +2194,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       );
     const runs = await executeScientificDiagramCases(
       SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT,
-      request.cases, request.repetitions,
+      request.cases, request.repetitions, request.methodSelection,
       (completed) => setDiagramFixtureReport(build(completed)),
     );
     const report = build(runs);
