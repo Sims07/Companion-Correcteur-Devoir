@@ -1,6 +1,5 @@
 import { parseGradingProposal } from '../domain/grading.ts';
-import { defaultAiModelConfiguration } from '../domain/aiModelProfiles.ts';
-import { correctScientificDiagramDirect, directDiagramAssignmentIssue } from './directScientificDiagramCorrection.ts';
+import { directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
 import { sumGradeScores } from '../domain/scorePrecision.ts';
 
 import { toBackgroundJobOverview, toBackgroundJobSummary, type BackgroundCorrectionJob, type BackgroundJobSummary } from '../domain/backgroundCorrection.ts';
@@ -291,25 +290,35 @@ export function createBackgroundCorrectionService(
             // The direct handler checks consent before any remote request.
             current = { ...current, phase: 'grading', activeCriterionId: null, updatedAt: new Date().toISOString() };
             await persist(current);
-            const diagramConfiguration = {
-              ...defaultAiModelConfiguration,
+            // Use the exact direct-image provider contract. There is no OCR
+            // pass and no separate scientific diagram analysis request.
+            const method = jobSettings.correctionMethod ?? current.correctionMethod ?? 'generative';
+            const issue = directDiagramAssignmentIssue(current.rubric, {
               endpoint: jobSettings.endpoint,
-              apiCompatible: jobSettings.apiCompatible ?? false,
-              apiKey: jobSettings.apiKey ?? '',
+              analysisModel: jobSettings.analysisModel ?? current.analysisModel,
+              correctionMethod: method,
+            }, current.diagramConsentedEndpoint ?? null);
+            if (issue) throw new Error(issue);
+            const model = jobSettings.analysisModel ?? current.analysisModel;
+            await withModelInactivityTimeout(requestAbortController, () =>
+              workspace.checkReady({ ...jobSettings, model }));
+            if (requestAbortController.signal.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
+            const provider = workspace.createProvider({
+              ...jobSettings,
               visionModel: current.visionModel,
-              analysisModel: current.analysisModel,
-              analysisThinking: current.thinking,
-              correctionMethod: jobSettings.correctionMethod ?? current.correctionMethod ?? 'generative',
-            };
-            const proposal = await withModelInactivityTimeout(requestAbortController, () =>
-              correctScientificDiagramDirect(workspace, {
-                images: current.images,
-                rubric: current.rubric,
-                question: current.question,
-                configuration: diagramConfiguration,
-                remoteConsent: current.diagramConsentedEndpoint === jobSettings.endpoint,
-                signal: requestAbortController.signal,
-              }));
+              analysisModel: model,
+              thinking: current.thinking,
+              criterionByCriterion: false,
+              correctionMethod: 'generative',
+              diagnosticStrategy: 'single',
+            });
+            const raw = await withModelInactivityTimeout(requestAbortController, (markActivity) => provider.generate({
+              question: current.question.trim() || 'Évalue uniquement les caractéristiques observables du dessin selon le barème fourni.',
+              rubric: JSON.stringify(current.rubric),
+              images: current.images,
+              directGenerativeVision: true,
+            }, () => markActivity(), undefined, undefined, undefined, undefined, undefined, undefined, requestAbortController.signal));
+            const proposal = parseGradingProposal(raw, current.rubric);
             if (requestAbortController.signal.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
             const complete = !proposal.scoreIncomplete;
             await persist({
