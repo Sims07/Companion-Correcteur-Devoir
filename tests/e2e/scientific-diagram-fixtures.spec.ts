@@ -84,15 +84,15 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
 
   await expect.poll(() => systemOneRequests.length).toBe(2);
   const exportStrip = page.getByRole('region', { name: 'Rapports des schémas scientifiques' });
-  await expect(exportStrip.getByRole('button', { name: /Exporter les trois schémas \(1 passage\)/ })).toBeVisible();
+  await expect(exportStrip.getByRole('button', { name: /Exporter les schémas testés \(1 passage\)/ })).toBeVisible();
 
   // The user inspects live requests while the benchmark is still running.
   const navigation = page.getByRole('navigation', { name: 'Navigation des outils IA' });
   await navigation.getByRole('button', { name: /Inspecteur réseau/ }).click();
-  await expect(exportStrip.getByRole('button', { name: /Exporter les trois schémas \(1 passage\)/ })).toBeVisible();
+  await expect(exportStrip.getByRole('button', { name: /Exporter les schémas testés \(1 passage\)/ })).toBeVisible();
   const [partialDownload] = await Promise.all([
     page.waitForEvent('download'),
-    exportStrip.getByRole('button', { name: /Exporter les trois schémas \(1 passage\)/ }).click(),
+    exportStrip.getByRole('button', { name: /Exporter les schémas testés \(1 passage\)/ }).click(),
   ]);
   const partial = JSON.parse(await readFile(await partialDownload.path(), 'utf8')) as {
     cases: { experiments: unknown[] }[]; format: string;
