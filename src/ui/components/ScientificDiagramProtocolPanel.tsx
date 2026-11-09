@@ -1,8 +1,8 @@
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
-import { isLocalPilotProfile } from '../../domain/pilotEvaluationProtocol.ts';
-import { buildBlindVisualObservationReport } from '../../domain/scientificDiagramBlindGraph.ts';
+import { isLoopbackPilotEndpoint } from '../../domain/pilotEvaluationProtocol.ts';
+import { buildBlindVisualObservationReport, canObserveBlindGraph } from '../../domain/scientificDiagramBlindGraph.ts';
 import type { Rubric } from '../../domain/rubric.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import { getRubricSubcriteria, validateRubric } from '../../domain/rubric.ts';
@@ -180,15 +180,15 @@ export function ScientificDiagramProtocolPanel({
   const canRun = !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading && images.length > 0 && validation.valid && selectedProfiles.length > 0 && profileIssues.length === 0;
   const canRunFixtures = !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading && selectedProfiles.length > 0 && profileIssues.length === 0;
   const canRunBlindGraph = !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading &&
-    selectedProfiles.length > 0 && selectedProfiles.every((profile) =>
-      isLocalPilotProfile(profile) && Boolean(profile.configuration.visionModel.trim() ||
-        (profile.configuration.correctionMethod === 'generative' && profile.configuration.analysisModel.trim())));
+    selectedProfiles.length > 0 && selectedProfiles.every(canObserveBlindGraph);
+  const blindGraphUsesRemote = selectedProfiles.some((profile) => !isLoopbackPilotEndpoint(profile.configuration.endpoint));
 
   async function runBlindObservation() {
     if (!canRunBlindGraph) return;
     setBlindGraphLoading(true);
     onClearBlindGraphReport();
-    setBlindGraphMessage('Préparation locale des six schémas, sans envoi au cloud…');
+    setBlindGraphMessage('Préparation des six schémas…' +
+      (blindGraphUsesRemote ? ' Les images seront envoyées au serveur distant sélectionné.' : ' Traitement local.'));
     try {
       const cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }> = [];
       for (const id of DIAGRAM_SENSITIVITY_CASE_IDS) {
@@ -263,7 +263,7 @@ export function ScientificDiagramProtocolPanel({
   }
 
   function downloadBlindGraphReport() {
-    if (blindGraphReport) downloadScientificDiagramJson(blindGraphReport, 'companion-graphe-visuel-local.json');
+    if (blindGraphReport) downloadScientificDiagramJson(blindGraphReport, 'companion-graphe-visuel.json');
   }
 
   function downloadSensitivityReport() {
@@ -565,7 +565,7 @@ export function ScientificDiagramProtocolPanel({
       </section>}
     </details>
     <details className="diagram-protocol-fixtures diagram-sensitivity-section">
-      <summary><strong>Observer un graphe de relations avant le barème (Ollama local)</strong></summary>
+      <summary><strong>Observer un graphe de relations avant le barème (Ollama ou OpenAI-compatible)</strong></summary>
       <p className="pilot-evaluation-hint">Le modèle Vision voit uniquement les PNG et une consigne générique de description : noms dessinés, extrémités/pointe des flèches, inclusion des structures. Il ne reçoit ni la consigne de biologie, ni le barème, ni les trois attendus. Le logiciel compare ensuite le graphe extrait aux références S0–S5. Aucune correction de copie n’est modifiée.</p>
       <div className="pilot-evaluation-actions">
         <Button disabled={!canRunBlindGraph} onClick={() => { void runBlindObservation(); }}>
@@ -574,9 +574,9 @@ export function ScientificDiagramProtocolPanel({
         {(busy || blindGraphLoading) && <Button variant="secondary" disabled={!busy} onClick={onStop}>Arrêter après l’appel en cours</Button>}
         {blindGraphReport && <Button variant="secondary" onClick={downloadBlindGraphReport}>Exporter l’analyse du graphe JSON</Button>}
       </div>
-      <p className="pilot-evaluation-hint">Nécessite une configuration Ollama locale avec modèle Vision. La lecture est séquentielle, et chaque modèle est libéré après l’appel pour limiter l’usage mémoire. Pas d’API compatible OpenAI distante ni de proxy. La conclusion peut rester indécidable si les flèches sont mal lues.</p>
+      <p className="pilot-evaluation-hint">Utilisez un profil Vision Ollama local ou OpenAI-compatible (y compris votre lien distant). Les six schémas sont traités séquentiellement. Un profil distant reçoit les images : utilisez-le seulement si cela est autorisé. Aucun basculement implicite vers le cloud. La conclusion peut rester indécidable si les flèches sont mal lues.</p>
       {!canRunBlindGraph && !busy && selectedProfiles.length > 0 &&
-        <p className="pilot-evaluation-hint" role="status">Pour cette méthode, sélectionnez uniquement un profil Ollama local disposant d’un modèle Vision.</p>}
+        <p className="pilot-evaluation-hint" role="status">Pour cette méthode, sélectionnez un profil Vision Ollama local ou OpenAI-compatible configuré (HTTPS pour un serveur distant).</p>}
       {(blindGraphMessage || (busy && progress)) &&
         <p role="status" className="pilot-evaluation-message">{blindGraphMessage || progress}</p>}
       {blindGraphReport && <section className="pilot-evaluation-report" aria-label="Résultats du graphe visuel indépendant">
@@ -657,7 +657,7 @@ export function ScientificDiagramProtocolPanel({
       <p className="pilot-evaluation-hint">Configurations : {selectedProfiles.length ? selectedProfiles.map((profile) =>
         profile.name + ' (' + selectDiagramMethods(profile, methodSelection).map((method) => diagramMethodLabels[method]).join(' / ') + ')').join(' · ') :
         'Sélectionnez les profils dans « Configurations à exécuter » plus bas.'}</p>
-      {hasRemote && <p className="pilot-evaluation-hint" role="status">Attention : une configuration distante est sélectionnée. Les images seront envoyées à son serveur ; choisissez uniquement Ollama local pour un traitement sur cet appareil.</p>}
+      {hasRemote && <p className="pilot-evaluation-hint" role="status">Attention : une configuration distante est sélectionnée. Les images seront envoyées à son serveur. Sélectionnez Ollama local pour ne pas envoyer de copies à l’extérieur.</p>}
       {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={issue}>{issue}</p>)}
       <div className="pilot-evaluation-actions">
         <label htmlFor="diagram-protocol-repeat-count">Répétitions</label>
