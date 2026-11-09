@@ -1800,7 +1800,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       configurations: selectedProfiles.map((profile) => ({
         id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
         visionModel: profile.configuration.visionModel, analysisModel: profile.configuration.analysisModel,
-        thinking: profile.configuration.analysisThinking,
+        // Keep the effective benchmark flag, not the saved profile default.
+        // Otherwise OFF and ON calls are mislabelled as the same method in
+        // the research report even though the wire requests differed.
+        thinking: outputs.find((output) => output.configuration.id === profile.id)?.configuration.thinking
+          ?? profile.configuration.analysisThinking,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         apiCompatible: profile.configuration.apiCompatible,
         correctionMethod: effectiveMethod(profile),
