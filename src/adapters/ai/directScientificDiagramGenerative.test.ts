@@ -32,6 +32,60 @@ describe('vision + analyse générative directe (laboratoire scientifique)', () 
     expect(onStage).not.toHaveBeenCalledWith('reading');
   });
 
+  it('envoie explicitement think=true sur Qwen 4B et ne confond pas la trace avec la réponse finale', async () => {
+    const scientificRequest = { ...request, rubric: JSON.stringify({
+      title: 'Dessin scientifique', criteria: [{
+        id: 'legends', title: 'Légendes', maxPoints: 0.68,
+        subcriteria: [{ id: 'arrows', title: 'Flèches correctes', maxPoints: 0.68 }],
+      }],
+    }) };
+    const answer = JSON.stringify({ criteria: { legends: {
+      evidence: 'Mauvaise correspondance', confidence: 'high', questionForTeacher: '',
+      subcriteria: { arrows: { points: 0, evidence: 'Flèche erronée' } },
+    } } });
+    const calls: Array<{ think: boolean; options: { num_predict: number } }> = [];
+    const diagnostics: import('../../ports/aiProvider.ts').DiagnosticModelResult[] = [];
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      calls.push(body);
+      const chunks = [
+        { message: { thinking: 'PRIVATE_INTERNAL_REASONING' } },
+        { message: { content: answer } },
+        { done: true, done_reason: 'stop', eval_count: 120, eval_duration: 1200000000 },
+      ];
+      return new Response(chunks.map((event) => JSON.stringify(event)).join('\n') + '\n',
+        { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
+    });
+    const raw = await createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: '', analysisModel: 'qwen3.5:4b',
+      correctionMethod: 'generative', thinking: true,
+    }, fetchMock as unknown as typeof fetch).generate(scientificRequest,
+      undefined, undefined, undefined, (diagnostic) => diagnostics.push(diagnostic));
+    expect(JSON.parse(raw).criteria[0].subcriteria[0]).toMatchObject({ points: 0 });
+    expect(raw).not.toContain('PRIVATE_INTERNAL_REASONING');
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ think: true, options: { num_predict: 4096 } });
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]).toMatchObject({
+      thinkingPresent: true, generatedTokens: 120,
+      requestMetadata: { think: true, options: { generationTokenLimit: 4096 } },
+    });
+    expect(diagnostics[0]?.raw).not.toContain('PRIVATE_INTERNAL_REASONING');
+  });
+
+  it('garde 2048 tokens et think=false pour la référence directe sans raisonnement', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(
+      JSON.stringify({ message: { content: grade } }) + '\n' + JSON.stringify({ done: true, done_reason: 'stop' }) + '\n',
+      { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } },
+    ));
+    await createOllamaProvider({
+      endpoint: 'http://localhost:11434', visionModel: '', analysisModel: 'qwen3.5:4b',
+      correctionMethod: 'generative', thinking: false,
+    }, fetchMock as unknown as typeof fetch).generate(request);
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({ think: false, options: { num_predict: 2048 } });
+  });
+
   it('transmet directement le schéma au serveur OpenAI compatible configuré', async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(
       'data: ' + JSON.stringify({ choices: [{ delta: { content: grade }, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n',
