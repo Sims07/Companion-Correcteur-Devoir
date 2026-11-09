@@ -14,6 +14,10 @@ describe('Découverte Ollama Think sans noms de modèles codés en dur', () => {
       capabilities: ['vision'], thinking: { values: ['low', 'medium', 'high'], default: 'high' },
     })).toBe('high');
     expect(selectOllamaThinkSetting({ thinking: { values: ['low', 'medium', 'high'] } })).toBe('medium');
+    expect(() => selectOllamaThinkSetting({ thinking: { values: ['low', 'medium', 'high'] } }, true))
+      .toThrow(/désactiver Think/);
+    expect(selectOllamaThinkSetting({ thinking: { values: [false, 'low', 'medium', 'high'] } }, true))
+      .toBe('medium');
     expect(selectOllamaThinkSetting({ thinking: { values: ['low', 'high'] } })).toBe('low');
   });
 
