@@ -84,7 +84,7 @@ export function supportsDiagramThinking(profile: AiModelProfile): boolean {
   return !config.apiCompatible
     && isLoopbackPilotEndpoint(config.endpoint)
     && config.correctionMethod === 'generative'
-    && /^qwen3\\.5:4b(?:-|$)/i.test(config.analysisModel.trim());
+    && /^qwen3\.5:4b(?:-|$)/i.test(config.analysisModel.trim());
 }
 
 export function selectDiagramMethods(profile: AiModelProfile, selection: DiagramMethodSelection): DiagramMethod[] {
