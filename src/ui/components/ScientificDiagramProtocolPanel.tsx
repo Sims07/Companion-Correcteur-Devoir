@@ -12,6 +12,7 @@ import poorDiagramUrl from '../../assets/pilot/scientific-mitosis-0.webp';
 import correctPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labels-control.svg';
 import swappedPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labels-swapped.svg';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS, type ScientificDiagramFixtureId, type buildScientificDiagramFixtureReport } from '../../domain/scientificDiagramFixtures.ts';
+import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_CASE_IDS, scientificDiagramSensitivitySvg, scientificDiagramSensitivityPreviewUrl, type DiagramSensitivityCaseId, type buildScientificDiagramSensitivityReport } from '../../domain/scientificDiagramSensitivity.ts';
 import {
   SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods,
   diagramTargetKey, parseScientificDiagramProtocolRubric, type DiagramMethodSelection,
@@ -30,9 +31,10 @@ export interface DiagramProtocolRequest {
 }
 type DiagramReport = ReturnType<typeof buildScientificDiagramProtocolReport>;
 type FixtureReport = ReturnType<typeof buildScientificDiagramFixtureReport>;
+type SensitivityReport = ReturnType<typeof buildScientificDiagramSensitivityReport>;
 
 /** Export remains available from the AI tools even when this panel is unmounted. */
-export function downloadScientificDiagramJson(report: DiagramReport | FixtureReport, filename: string) {
+export function downloadScientificDiagramJson(report: DiagramReport | FixtureReport | SensitivityReport, filename: string) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json;charset=utf-8' }));
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -81,6 +83,33 @@ async function prepareBundledDiagramFile(id: ScientificDiagramFixtureId): Promis
   }
 }
 
+/** Always rasterize synthetic SVGs in the browser before sending pixels to the
+ * ordinary evaluator. Never send an SVG as a prompt or to a model endpoint. */
+async function prepareSensitivityImage(id: DiagramSensitivityCaseId): Promise<File> {
+  const svg = new Blob([scientificDiagramSensitivitySvg(id)], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(svg);
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    if (!image.naturalWidth || !image.naturalHeight) throw new Error('Schéma vectoriel non lisible.');
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Conversion locale impossible.');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0);
+    const png = await new Promise<Blob>((resolve, reject) => canvas.toBlob(
+      (blob) => blob ? resolve(blob) : reject(new Error('Création du PNG impossible.')), 'image/png',
+    ));
+    return new File([png], 'relations-' + id + '.png', { type: 'image/png' });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export interface ScientificDiagramProtocolPanelProps {
   selectedProfiles: readonly AiModelProfile[];
   busy: boolean;
@@ -92,16 +121,23 @@ export interface ScientificDiagramProtocolPanelProps {
     repetitions: DiagramProtocolCount;
     methodSelection: DiagramMethodSelection;
   }) => Promise<FixtureReport>;
+  onRunSensitivity: (request: {
+    cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>;
+    repetitions: DiagramProtocolCount;
+    methodSelection: DiagramMethodSelection;
+  }) => Promise<SensitivityReport>;
   onStop: () => void;
   report: DiagramReport | null;
   fixtureReport: FixtureReport | null;
+  sensitivityReport: SensitivityReport | null;
   onClearReport: () => void;
   onClearFixtureReport: () => void;
+  onClearSensitivityReport: () => void;
 }
 
 export function ScientificDiagramProtocolPanel({
   selectedProfiles, busy, progress, onPrepareImages, onRun, onRunFixtures, onStop,
-  report, fixtureReport, onClearReport, onClearFixtureReport,
+  report, fixtureReport, sensitivityReport, onClearReport, onClearFixtureReport, onClearSensitivityReport, onRunSensitivity,
 }: ScientificDiagramProtocolPanelProps) {
   const [rubric, setRubric] = useState<Rubric>(() => structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC));
   const [context, setContext] = useState('');
@@ -113,6 +149,8 @@ export function ScientificDiagramProtocolPanel({
   const [fixtureCount, setFixtureCount] = useState<DiagramProtocolCount>(1);
   const [fixtureLoading, setFixtureLoading] = useState(false);
   const [fixtureMessage, setFixtureMessage] = useState('');
+  const [sensitivityLoading, setSensitivityLoading] = useState(false);
+  const [sensitivityMessage, setSensitivityMessage] = useState('');
   const [methodSelection, setMethodSelection] = useState<DiagramMethodSelection>('compare');
   const targets = rubric.criteria.flatMap((criterion) =>
     getRubricSubcriteria(criterion).map((item) => ({ criterion, item, key: diagramTargetKey(criterion.id, item.id) })));
@@ -122,8 +160,31 @@ export function ScientificDiagramProtocolPanel({
     try { return !['localhost', '127.0.0.1', '[::1]'].includes(new URL(profile.configuration.endpoint).hostname); }
     catch { return true; }
   });
-  const canRun = !busy && !uploading && !fixtureLoading && images.length > 0 && validation.valid && selectedProfiles.length > 0 && profileIssues.length === 0;
-  const canRunFixtures = !busy && !uploading && !fixtureLoading && selectedProfiles.length > 0 && profileIssues.length === 0;
+  const canRun = !busy && !uploading && !fixtureLoading && !sensitivityLoading && images.length > 0 && validation.valid && selectedProfiles.length > 0 && profileIssues.length === 0;
+  const canRunFixtures = !busy && !uploading && !fixtureLoading && !sensitivityLoading && selectedProfiles.length > 0 && profileIssues.length === 0;
+
+  async function runSensitivity() {
+    if (!canRunFixtures) return;
+    setSensitivityLoading(true);
+    onClearSensitivityReport();
+    setSensitivityMessage('Préparation locale des six variantes…');
+    try {
+      const cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }> = [];
+      for (const id of DIAGRAM_SENSITIVITY_CASE_IDS) {
+        const prepared = await onPrepareImages([await prepareSensitivityImage(id)]);
+        if (!prepared.length) throw new Error('Préparation impossible pour ' + id);
+        cases.push({ id, images: prepared });
+      }
+      setSensitivityMessage('');
+      const completed = await onRunSensitivity({ cases, repetitions: fixtureCount, methodSelection });
+      const count = completed.cases.reduce((sum, item) => sum + item.experiments.length, 0);
+      setSensitivityMessage(count + ' essai(s) terminés. Vérifiez les écarts, les abstentions et les faux positifs.');
+    } catch (cause) {
+      setSensitivityMessage('Série interrompue : ' + (cause instanceof Error ? cause.message : String(cause)));
+    } finally {
+      setSensitivityLoading(false);
+    }
+  }
 
   async function runPreparedFixtures(ids: readonly ScientificDiagramFixtureId[]) {
     if (!canRunFixtures) return;
@@ -149,6 +210,10 @@ export function ScientificDiagramProtocolPanel({
     } finally {
       setFixtureLoading(false);
     }
+  }
+
+  function downloadSensitivityReport() {
+    if (sensitivityReport) downloadScientificDiagramJson(sensitivityReport, 'companion-sensibilite-semantique.json');
   }
 
   function downloadFixtureReport() {
@@ -393,6 +458,47 @@ export function ScientificDiagramProtocolPanel({
         <p className="pilot-evaluation-hint">{fixtureReport.limitations}</p>
       </section>}
     </section>
+    <details className="diagram-protocol-fixtures diagram-sensitivity-section">
+      <summary><strong>Tester la compréhension sémantique : 6 variantes contrôlées</strong> — flèche inversée, mauvaise connexion, structure mal placée</summary>
+      <p className="pilot-evaluation-hint">Protocole indépendant de D/E. Même texte sur les six images : le modèle doit réellement examiner les extrémités et le sens des flèches, ainsi que le contour du noyau. Trois attendus biologiques / 3 points. Les références restent provisoires et ne sont pas communiquées au modèle. Aucun changement à la correction des devoirs.</p>
+      <div className="diagram-fixture-grid diagram-sensitivity-grid">
+        {DIAGRAM_SENSITIVITY_CASES.map((testCase) => <article className="diagram-fixture-card" key={testCase.id}>
+          <img src={scientificDiagramSensitivityPreviewUrl(testCase.id)} alt={'Relations biologiques — ' + testCase.label} loading="lazy" />
+          <div className="diagram-fixture-card-body">
+            <div className="diagram-fixture-card-title"><strong>{testCase.id} — {testCase.label}</strong><span>{testCase.referenceScore === null ? 'À arbitrer' : testCase.referenceScore + '/3'}</span></div>
+            <p>{testCase.description}</p>
+          </div>
+        </article>)}
+      </div>
+      <div className="pilot-evaluation-actions">
+        <Button disabled={!canRunFixtures} onClick={() => { void runSensitivity(); }}>Tester les 6 variantes sémantiques</Button>
+        {(busy || sensitivityLoading) && <Button variant="secondary" disabled={!busy} onClick={onStop}>Arrêter après l’appel en cours</Button>}
+        {sensitivityReport && <Button variant="secondary" onClick={downloadSensitivityReport}>Exporter les mesures JSON</Button>}
+      </div>
+      <p className="pilot-evaluation-hint">La méthode et les modèles se choisissent au-dessus ; le nombre de répétitions est celui des schémas intégrés. Exécution séquentielle. La variante S5 est indécidable : aucune réponse attendue n’est inventée pour sa première flèche.</p>
+      {(sensitivityMessage || (busy && progress)) && <p role="status" className="pilot-evaluation-message">{sensitivityMessage || progress}</p>}
+      {sensitivityReport && <section className="pilot-evaluation-report" aria-label="Résultats de sensibilité sémantique">
+        <div className="pilot-evaluation-report-head">
+          <div><h4>Mesures de sensibilité</h4><p>Une erreur n’est détectée que si le témoin est reconnu et la variante fautive rejetée. Les résultats indécidables restent hors du dénominateur.</p></div>
+        </div>
+        <div className="pilot-evaluation-table-scroll">
+          <table className="pilot-evaluation-table">
+            <thead><tr><th>Configuration</th><th>Parcours</th><th>Mutations détectées</th><th>Non mesurables</th><th>Réponses correctes sur témoins</th><th>Faux positifs témoins</th><th>Disposition préservée</th><th>Abstentions</th></tr></thead>
+            <tbody>{sensitivityReport.statistics.map((item) => <tr key={item.profileId + '-' + item.method}>
+              <th scope="row">{item.profileId}</th>
+              <td>{item.method in diagramMethodLabels ? diagramMethodLabels[item.method as keyof typeof diagramMethodLabels] : item.method}</td>
+              <td>{item.sensitivityHits}/{item.sensitivityTrials}</td>
+              <td>{item.sensitivityUnknown}</td>
+              <td>{item.correctControls}/{item.controlObservations}</td>
+              <td>{item.falsePositiveCount}</td>
+              <td>{item.layoutPreserved}/{item.layoutChecks}</td>
+              <td>{item.abstentions}/{item.readingsCount}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+        <p className="pilot-evaluation-hint">{sensitivityReport.limitations}</p>
+      </section>}
+    </details>
     <div className="diagram-protocol-inputs">
       <div className="diagram-protocol-import">
         <h4>1. Schéma et barème</h4>

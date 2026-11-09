@@ -100,3 +100,12 @@
   font-size: .76rem;
   line-height: 1.45;
 }
+
+/* Optional semantic laboratory: collapsed by default to keep the main workflow compact. */
+.diagram-sensitivity-section { display: block; margin-top: var(--ds-space-3); }
+.diagram-sensitivity-section > summary { cursor: pointer; padding: var(--ds-space-2) 0; font-size: .9rem; }
+.diagram-sensitivity-section > p { margin: var(--ds-space-3) 0; }
+.diagram-sensitivity-section > .pilot-evaluation-actions { margin-top: var(--ds-space-3); flex-wrap: wrap; }
+.diagram-sensitivity-grid .diagram-fixture-card img { height: 155px; }
+.diagram-sensitivity-grid .diagram-fixture-card-body { gap: var(--ds-space-1); }
+.diagram-sensitivity-grid .diagram-fixture-card-body p { margin: 0; }
