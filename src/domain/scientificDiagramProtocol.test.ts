@@ -121,8 +121,14 @@ describe('protocole de schémas scientifiques', () => {
       'direct-image-generative', 'direct-image-generative-thinking',
     ]);
     expect(selectDiagramMethods(qwen4b, 'direct-image-generative-thinking')).toEqual(['direct-image-generative-thinking']);
-    expect(selectDiagramMethods(generative, 'compare-thinking')).toEqual([]);
-    expect(diagramMethodIssue(generative, 'compare-thinking')).toContain('Qwen 3.5 4B');
+    expect(selectDiagramMethods(generative, 'compare-thinking')).toEqual([
+      'direct-image-generative', 'direct-image-generative-thinking',
+    ]);
+    expect(selectDiagramMethods(generative, 'direct-image-generative-thinking')).toEqual(['direct-image-generative-thinking']);
+    // Name is never a gate: eligibility is about provider/method, actual
+    // capabilities are checked by Ollama metadata before inference starts.
+    expect(selectDiagramMethods(profile('custom-vision-reasoner:latest', 'generative'), 'compare-thinking'))
+      .toEqual(['direct-image-generative', 'direct-image-generative-thinking']);
     expect(selectDiagramMethods({ ...qwen4b, configuration: {
       ...qwen4b.configuration, endpoint: 'https://ollama.example', apiCompatible: false,
     } }, 'compare-thinking')).toEqual([]);
