@@ -34,10 +34,14 @@ export interface ImportedRubric {
   warnings: string[];
 }
 
+export type DiagramThinkSetting = true | string;
+
 /** Outbound ports required by the correction workspace. */
 export interface OllamaGateway {
   prepareQuestionContracts?(rubric: Rubric, sources: ContractSources, settings: OllamaSettings, onProgress?: (message: string) => void, signal?: AbortSignal): Promise<ContractPreparation>;
   checkReady(settings: OllamaSettings): Promise<void>;
+  /** Optional local Ollama model-metadata probe for scientific diagram experiments. */
+  detectDiagramThinking?(endpoint: string, model: string, requireThinkOff?: boolean): Promise<DiagramThinkSetting>;
   prewarmModel?(settings: OllamaSettings, model: string, signal?: AbortSignal): Promise<void>;
   unloadModel?(settings: OllamaSettings, model: string): Promise<void>;
   listModels(endpoint: string): Promise<OllamaModel[]>;
