@@ -246,7 +246,7 @@ test('paired D/E diagrams test the pointed structure, not just the written label
 const thinkingModelCases = [
   { model: 'qwen3.5:4b', values: [false, true], default: false, wire: true },
   { model: 'qwen3.5:9b', values: [false, true], default: false, wire: true },
-  { model: 'custom-vision-thinker:latest', values: ['low', 'medium', 'high'], default: 'medium', wire: 'medium' },
+  { model: 'custom-vision-thinker:latest', values: [false, 'low', 'medium', 'high'], default: 'medium', wire: 'medium' },
 ] as const;
 
 for (const scenario of thinkingModelCases) {
