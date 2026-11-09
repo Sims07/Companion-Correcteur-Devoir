@@ -448,7 +448,7 @@ export function createOllamaProvider(
         images?: string[],
         streamChunk?: (chunk: string) => void,
         json: boolean | Record<string, unknown> = false,
-        think = false,
+        think: boolean | string = false,
         tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void; pageIndex?: number; promptId?: PromptId },
       ): Promise<string> {
         const startedAt = Date.now();
