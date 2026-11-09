@@ -71,7 +71,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await fixtures.getByText('Voir le détail de la référence provisoire', { exact: true }).click();
   await expect(fixtures.getByText(/Des prolongements de paroi sont visibles/)).toBeVisible();
   await expect(fixtures.getByText('0/10 attendu', { exact: true })).toBeVisible();
-  await expect(fixtures.getByText('9.32/10 attendu', { exact: true })).toBeVisible();
+  await expect(fixtures.getByText('8.66/10 attendu', { exact: true })).toBeVisible();
   await expect(fixtures.getByRole('combobox', { name: 'Passages par schéma' })).toHaveValue('1');
   await expect.poll(async () => fixtures.locator('img').evaluateAll((images) =>
     images.filter((image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0).length),
@@ -198,6 +198,10 @@ test('paired D/E diagrams test the pointed structure, not just the written label
   await expect(cards).toHaveCount(5);
   await expect(cards.nth(3).getByText('D — témoin, flèches justes')).toBeVisible();
   await expect(cards.nth(4).getByText('E — piège, flèches inversées')).toBeVisible();
+  await expect(cards.nth(3).getByText('9.34/10 attendu')).toBeVisible();
+  await expect(cards.nth(4).getByText('8.66/10 attendu')).toBeVisible();
+  await expect(cards.nth(3).getByText(/Alignement en colonne : 0\\/0\\.66 pt/)).toBeVisible();
+  await expect(cards.nth(4).getByText(/Alignement en colonne : 0\\/0\\.66 pt/)).toBeVisible();
   await page.getByRole('group', { name: 'Configurations à exécuter' })
     .locator('label.evaluation-profile-option').first().click();
   await fixtures.getByRole('button', { name: 'Tester les flèches D/E en un clic' }).click();
@@ -219,10 +223,19 @@ test('paired D/E diagrams test the pointed structure, not just the written label
     results.getByRole('button', { name: 'Exporter le rapport JSON' }).click(),
   ]);
   const exported = JSON.parse(await readFile(await download.path(), 'utf8')) as {
-    cases: Array<{ caseId: string; labelPointerChallenge?: { expected: string }; experiments: unknown[] }>;
+    cases: Array<{ caseId: string; referenceScore: number; layoutObservation?: {
+      criterionKey: string; points: number; maximumPoints: number;
+    }; labelPointerChallenge?: { expected: string }; experiments: unknown[] }>;
   };
   expect(exported.cases.filter((entry) => entry.experiments.length).map((entry) => entry.caseId)).toEqual(['D', 'E']);
   expect(exported.cases.find((entry) => entry.caseId === 'D')?.labelPointerChallenge?.expected).toBe('correct');
   expect(exported.cases.find((entry) => entry.caseId === 'E')?.labelPointerChallenge?.expected).toBe('incorrect');
+  expect(exported.cases.filter((entry) => entry.caseId === 'D' || entry.caseId === 'E')
+    .map((entry) => entry.referenceScore)).toEqual([9.34, 8.66]);
+  for (const fixture of exported.cases.filter((entry) => entry.caseId === 'D' || entry.caseId === 'E')) {
+    expect(fixture.layoutObservation).toMatchObject({
+      criterionKey: 'legends::legends-aligned', points: 0, maximumPoints: 0.66,
+    });
+  }
   expect(JSON.stringify(exported)).not.toContain('iVBORw0KGgo');
 });
