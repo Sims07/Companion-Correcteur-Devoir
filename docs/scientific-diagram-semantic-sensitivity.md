@@ -47,6 +47,25 @@ Dans la suite de sensibilité, choisir **Stratégie de vérification visuelle** 
 
 Le guidage est un **test de prompt**, pas une extraction indépendante : le modèle reçoit encore le barème et peut continuer à halluciner une relation. Il faut donc comparer les taux de mutations détectées et de faux positifs **par mode**, mais aussi le temps total et les abstentions. Aucune amélioration n'est présumée avant les tests réels.
 
+
+## Lot 3 : extraction indépendante sans barème (expérimental)
+
+Dans le même parcours, ouvrir **Observer un graphe de relations avant le barème (Ollama local)**.
+
+Contrairement aux deux stratégies de notation directe, le modèle Vision reçoit **seulement** une image et une instruction générale : copier les étiquettes présentes, observer les extrémités et pointes des flèches, et relever les inclusions de contours. Le prompt ne contient **ni ADN, ni ARN, ni relations attendues, ni consigne de correction, ni barème**.
+
+Le résultat JSON est strictement contrôlé et converti en trois décisions par un **comparateur déterministe** indépendant du modèle :
+
+- ADN → ARN : la pointe doit aboutir réellement à ARN, sinon `absent` si une inversion est observée, `uncertain` si la pointe n'est pas discernable ;
+- ARN → Protéine : même principe ;
+- Noyau dans Cellule : un contour observé `inside` vaut présent, `outside` vaut absent, le manque d'observation reste incertain.
+
+Quand aucune flèche n'unit les deux éléments demandés, on ne considère la relation absente que si l'extraction indique avoir relevé toutes les flèches ; **ce booléen est une affirmation du modèle, pas une garantie**. Les autres observations restent indécidables.
+
+Cette approche nécessite un profil Ollama **strictement local** (HTTP loopback, sans proxy ou clé API), configuré avec un modèle Vision. Aucun appel vers une API compatible distante n'est possible depuis ce parcours ; l'IA est déchargée de la RAM après chaque appel. Les six cas S0–S5 sont évalués séquentiellement, avec 1, 3 ou 5 répétitions. Le rapport exporte les décisions et métriques mais **ni image, ni prompts, ni graphe brut, ni URL serveur, ni clé**. Il reste accessible après navigation vers l'inspecteur réseau.
+
+**Limites importantes :** l'absence de barème au premier appel réduit le risque de reconstruction d'un schéma attendu, mais n'empêche pas un modèle d'halluciner une relation. La comparaison est validée avec des réponses mockées en CI ; elle n'établit pas encore un gain réel sur Qwen ou d'autres modèles. Il n'y a pas de second appel de recadrage dans cette première version : tester ensuite, sur les seuls détails incertains, un agrandissement qui inclut **la flèche complète** (départ, trajet, pointe, arrivée), en mesurant son coût et ses faux positifs.
+
 ## Prochaines expériences
 
 1. Extraction **sans barème** d'un graphe de relations (départs, pointes, inclusions, nombres), comparaison ensuite avec le corrigé validé par l'enseignant.
