@@ -108,6 +108,9 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
     for (const fixture of [control, trap]) {
       expect(fixture.gold[alignment]).toBe('absent');
       expect(fixture.referencePoints[alignment]).toBe(0);
+      // Horizontal writing stays valid; only COLUMN alignment is missing.
+      expect(fixture.gold[diagramTargetKey('legends', 'legends-horizontal')]).toBe('present');
+      expect(fixture.referencePoints[diagramTargetKey('legends', 'legends-horizontal')]).toBe(0.66);
       expect(fixture.layoutObservation).toMatchObject({
         criterionKey: alignment, points: 0, maximumPoints: 0.66,
         reason: expect.stringContaining('non alignées en colonne'),
