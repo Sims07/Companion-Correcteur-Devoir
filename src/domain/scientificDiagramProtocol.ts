@@ -58,7 +58,7 @@ export type DiagramMethodSelection = DiagramMethod | 'compare' | 'compare-thinki
 
 export const diagramMethodLabels: Record<DiagramMethod, string> = {
   'vision-then-analysis': 'Vision puis analyse',
-  'direct-image-generative': 'Image → génératif direct (Think OFF)',
+  'direct-image-generative': 'Image → génératif direct',
   'direct-image-generative-thinking': 'Image → génératif direct (Think ON)',
   'direct-image-systemone': 'System One image directe',
 };
