@@ -67,7 +67,6 @@ import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, 
 import { DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_CONTEXT, DIAGRAM_SENSITIVITY_RUBRIC, buildScientificDiagramSensitivityReport, type DiagramSensitivityCaseId, type DiagramSensitivityRun, type DiagramSensitivityPromptMode } from '../domain/scientificDiagramSensitivity.ts';
 import { buildBlindVisualObservationReport, compareBlindVisualGraph,
   type BlindVisualObservationRun } from '../domain/scientificDiagramBlindGraph.ts';
-import { extractBlindVisualGraph } from '../adapters/ai/blindDiagramGraphClient.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../domain/questionContractRepeatability.ts';
 import { runPilotCriterionConcurrency, type PilotConcurrencyRun } from '../application/pilotCriterionConcurrency.ts';
@@ -2300,6 +2299,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     request: { cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>; repetitions: DiagramProtocolCount },
   ) {
     if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
+    if (!service.extractBlindDiagramGraph) throw new Error('Lecteur de graphe local indisponible.');
     const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     if (!profiles.length) throw new Error('Sélectionnez une configuration Vision locale.');
     if (profiles.some((profile) => !isLocalPilotProfile(profile))) {
@@ -2338,10 +2338,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               ' · ' + profile.name + ' · ' + repetition + '/' + request.repetitions);
             const started = performance.now();
             try {
-              const graph = await extractBlindVisualGraph({
-                endpoint: profile.configuration.endpoint, model,
-                image: entry.images[0]!, signal: controller.signal,
-              });
+              const graph = await service.extractBlindDiagramGraph(
+                profile.configuration.endpoint, model, entry.images[0]!, controller.signal,
+              );
               runs.push({
                 caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
                 model, status: 'success', durationMs: Math.round(performance.now() - started),
