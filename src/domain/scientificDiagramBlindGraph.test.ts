@@ -29,6 +29,16 @@ describe('lecture graphe visuel sans barème', () => {
     expect(() => parseObservedVisualGraph(JSON.stringify({ ...graph(), containment: [{ inner: 'A', outer: 'B', relation: 'guessed' }] }))).toThrow('Inclusion');
     expect(() => parseObservedVisualGraph(JSON.stringify({ ...graph(), labels: Array(33).fill('A') }))).toThrow('Structure');
   });
+  it('accepts optional blind image bounds, discards invalid localization without changing conclusions', () => {
+    const bounded = graph();
+    bounded.arrows[0] = { ...bounded.arrows[0]!, bounds: { left: 300, top: 380, right: 600, bottom: 620 } };
+    expect(parseObservedVisualGraph(JSON.stringify(bounded)).arrows[0]?.bounds).toEqual(bounded.arrows[0]?.bounds);
+    const invalid = JSON.parse(JSON.stringify(bounded)) as { arrows: Array<{ bounds: { left: number } }> };
+    invalid.arrows[0]!.bounds.left = -5;
+    const cleaned = parseObservedVisualGraph(JSON.stringify(invalid));
+    expect(cleaned.arrows[0]?.bounds).toBeUndefined();
+    expect(cleaned.arrows[0]?.tip).toBe('second');
+  });
   it('compares actually observed directed ends to rubric only after extraction', () => {
     expect(compareBlindVisualGraph(graph())).toMatchObject({
       [T.transcription]: 'present', [T.translation]: 'present', [T.nucleus]: 'present',

@@ -63,6 +63,59 @@ describe('client graphe visuel indépendant', () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe('http://localhost:11434/api/chat');
   });
 
+  it('uses a bounded local zoom only when an uncertain arrow has a usable image region', async () => {
+    const graph = {
+      labels: ['A', 'B', 'C'], arrows: [
+        { first: 'A', second: 'B', tip: 'none', bounds: { left: 200, top: 300, right: 600, bottom: 500 } },
+        { first: 'B', second: 'C', tip: 'unclear' },
+      ], containment: [], arrowsComplete: true,
+    };
+    const transport = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { messages: Array<{ content: string; images?: string[] }>; keep_alive: number; format: unknown };
+      expect(body.keep_alive).toBe(0);
+      if (body.messages[0]?.content.includes('agrandie')) {
+        expect(body.messages[1]?.images).toEqual(['ZOOM_PIXELS']);
+        expect(body.messages[1]?.content).not.toContain('ADN → ARN');
+        return new Response(JSON.stringify({ message: { content: JSON.stringify({ tip: 'second' }) } }));
+      }
+      expect(body.messages[1]?.images).toEqual(['PRIVATE_ORIGINAL']);
+      expect(JSON.stringify(body.format)).toContain('bounds');
+      return new Response(JSON.stringify({ message: { content: JSON.stringify(graph) } }));
+    });
+    const onDiagnostic = vi.fn();
+    const crop = vi.fn(async () => ({ base64: 'ZOOM_PIXELS', mimeType: 'image/png' }));
+    const result = await extractBlindVisualGraph({
+      endpoint: 'http://localhost:11434', model: 'qwen',
+      image: { base64: 'PRIVATE_ORIGINAL', mimeType: 'image/png' },
+      zoomUncertainArrows: true, prepareZoom: crop, onDiagnostic,
+    }, transport);
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(crop).toHaveBeenCalledTimes(1);
+    expect(result.arrows.map((arrow) => arrow.tip)).toEqual(['second', 'unclear']);
+    expect(onDiagnostic).toHaveBeenLastCalledWith(expect.objectContaining({
+      zoom: { candidates: 2, attempted: 1, resolved: 1, unavailable: 1, failures: 0 },
+    }));
+    expect(JSON.stringify(onDiagnostic.mock.calls)).not.toMatch(/ZOOM_PIXELS|PRIVATE_ORIGINAL/);
+  });
+  it('preserves uncertainty when the zoom output is invalid and never guesses missing tips', async () => {
+    const graph = { labels: ['A', 'B'], arrows: [{ first: 'A', second: 'B', tip: 'none',
+      bounds: { left: 100, top: 100, right: 600, bottom: 600 } }], containment: [], arrowsComplete: true };
+    const transport = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { messages: Array<{ content: string }> };
+      return new Response(JSON.stringify({ message: { content: body.messages[0]?.content.includes('agrandie')
+        ? '{' : JSON.stringify(graph) } }));
+    });
+    const onDiagnostic = vi.fn();
+    const result = await extractBlindVisualGraph({ endpoint: 'http://localhost:11434', model: 'qwen',
+      image: { base64: 'PRIVATE', mimeType: 'image/png' }, zoomUncertainArrows: true,
+      prepareZoom: async () => ({ mimeType: 'image/png', base64: 'ZOOM_PIXELS' }), onDiagnostic,
+    }, transport);
+    expect(result.arrows[0]?.tip).toBe('none');
+    expect(onDiagnostic).toHaveBeenLastCalledWith(expect.objectContaining({
+      zoom: { candidates: 1, attempted: 1, resolved: 0, unavailable: 0, failures: 1 },
+    }));
+    expect(transport).toHaveBeenCalledTimes(2);
+  });
   it('captures exact model text and generation metadata on success and invalid output', async () => {
     const request = { endpoint: 'http://localhost:11434', model: 'qwen',
       image: { base64: 'PRIVATE_PIXELS', mimeType: 'image/png' }, onDiagnostic: vi.fn() };
