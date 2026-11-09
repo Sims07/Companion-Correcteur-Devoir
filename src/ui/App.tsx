@@ -64,7 +64,7 @@ import { buildDiagramReview } from '../domain/diagramTeacherReview.ts';
 import { directDiagramAssignmentIssue, isLoopbackDiagramEndpoint } from '../application/directScientificDiagramCorrection.ts';
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
-import { DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_CONTEXT, DIAGRAM_SENSITIVITY_RUBRIC, buildScientificDiagramSensitivityReport, type DiagramSensitivityCaseId, type DiagramSensitivityRun } from '../domain/scientificDiagramSensitivity.ts';
+import { DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_CONTEXT, DIAGRAM_SENSITIVITY_RUBRIC, buildScientificDiagramSensitivityReport, type DiagramSensitivityCaseId, type DiagramSensitivityRun, type DiagramSensitivityPromptMode } from '../domain/scientificDiagramSensitivity.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../domain/questionContractRepeatability.ts';
 import { runPilotCriterionConcurrency, type PilotConcurrencyRun } from '../application/pilotCriterionConcurrency.ts';
@@ -2119,7 +2119,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  type DiagramCaseInput = { id: 'manual' | ScientificDiagramFixtureId | DiagramSensitivityCaseId; images: ImageInput[] };
+  type DiagramCaseInput = {
+    id: 'manual' | ScientificDiagramFixtureId | DiagramSensitivityCaseId;
+    images: ImageInput[];
+    context?: string;
+    promptMode?: DiagramSensitivityPromptMode;
+  };
 
   /** Reuse the same evaluator/provider for the manual case and the three
    * bundled teacher-reference cases. The model never receives the expected
@@ -2127,7 +2132,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   async function executeScientificDiagramCases(
     rubric: Rubric, context: string, cases: readonly DiagramCaseInput[], repetitions: DiagramProtocolCount,
     methodSelection: DiagramMethodSelection,
-    onCompleted?: (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }[]) => void,
+    onCompleted?: (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; promptMode?: DiagramSensitivityPromptMode }[]) => void,
   ): Promise<Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }>> {
     if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
     const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
@@ -2140,7 +2145,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (!cases.length || cases.some((testCase) => !testCase.images.length)) {
       throw new Error('Chaque schéma doit contenir au moins une image.');
     }
-    const runs: Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }> = [];
+    const runs: Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; promptMode?: DiagramSensitivityPromptMode }> = [];
     pilotStopRef.current = false;
     evaluationCancelledRef.current = false;
     pilotMemoryErrorRef.current = null;
@@ -2174,14 +2179,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                   caseImages: testCase.images, retainModelAfterRun: true,
                   diagram: {
                     rubric,
-                    question: (context || 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni.')
+                    question: (testCase.context ?? context ?? 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni.')
                       + ' Vérifie chaque attendu sur le dessin original. N’invente pas de structures absentes ; signale les éléments incertains.',
                     method,
                     ...(method === 'direct-image-generative-thinking' ? { thinkSetting } : {}),
                   },
                 });
                 if (record) {
-                  runs.push({ caseId: testCase.id, repetition, record });
+                  runs.push({ caseId: testCase.id, repetition, record, ...(testCase.promptMode ? { promptMode: testCase.promptMode } : {}) });
                   onCompleted?.(runs);
                 }
                 if (pilotStopRef.current || evaluationCancelledRef.current) break;
@@ -2260,15 +2265,21 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function runScientificDiagramSensitivity(
-    request: { cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>; repetitions: DiagramProtocolCount; methodSelection: DiagramMethodSelection },
+    request: {
+      cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[]; promptMode: DiagramSensitivityPromptMode; context: string }>;
+      promptModes: DiagramSensitivityPromptMode[];
+      repetitions: DiagramProtocolCount;
+      methodSelection: DiagramMethodSelection;
+    },
   ) {
     const createdAt = new Date().toISOString();
     setDiagramSensitivityReport(null);
-    const build = (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }[]) =>
+    const build = (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; promptMode?: DiagramSensitivityPromptMode }[]) =>
       buildScientificDiagramSensitivityReport(
         runs.filter((run) => DIAGRAM_SENSITIVITY_CASE_IDS.some((id) => id === run.caseId))
-          .map((run): DiagramSensitivityRun => ({ caseId: run.caseId as DiagramSensitivityCaseId, repetition: run.repetition, record: run.record })),
-        request.repetitions, createdAt,
+          .map((run): DiagramSensitivityRun => ({ caseId: run.caseId as DiagramSensitivityCaseId,
+            repetition: run.repetition, record: run.record, promptMode: run.promptMode })),
+        request.repetitions, createdAt, request.promptModes,
       );
     const runs = await executeScientificDiagramCases(
       DIAGRAM_SENSITIVITY_RUBRIC, DIAGRAM_SENSITIVITY_CONTEXT,
