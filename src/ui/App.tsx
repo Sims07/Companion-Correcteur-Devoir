@@ -55,7 +55,7 @@ import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision 
 import { buildLocalDecisionBenchmark } from '../domain/localDecisionBenchmark.ts';
 import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluationScores, visualChoiceLabels } from '../domain/visualDecisionEvaluation.ts';
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
-import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
+import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, isLoopbackPilotEndpoint, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import type { DiagramThinkSetting } from '../ports/correctionWorkspace.ts';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
@@ -65,7 +65,7 @@ import { directDiagramAssignmentIssue, isLoopbackDiagramEndpoint } from '../appl
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_CONTEXT, DIAGRAM_SENSITIVITY_RUBRIC, buildScientificDiagramSensitivityReport, type DiagramSensitivityCaseId, type DiagramSensitivityRun, type DiagramSensitivityPromptMode } from '../domain/scientificDiagramSensitivity.ts';
-import { buildBlindVisualObservationReport, compareBlindVisualGraph, explainBlindVisualGraph, type BlindGraphDiagnostic,
+import { buildBlindVisualObservationReport, compareBlindVisualGraph, explainBlindVisualGraph, canObserveBlindGraph, type BlindGraphDiagnostic,
   type BlindVisualObservationRun } from '../domain/scientificDiagramBlindGraph.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../domain/questionContractRepeatability.ts';
@@ -2299,11 +2299,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     request: { cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>; repetitions: DiagramProtocolCount },
   ) {
     if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
-    if (!service.extractBlindDiagramGraph) throw new Error('Lecteur de graphe local indisponible.');
+    if (!service.extractBlindDiagramGraph) throw new Error('Lecteur de graphe indisponible.');
     const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
-    if (!profiles.length) throw new Error('Sélectionnez une configuration Vision locale.');
-    if (profiles.some((profile) => !isLocalPilotProfile(profile))) {
-      throw new Error('Lecture indépendante uniquement avec Ollama local, sans API distante.');
+    if (!profiles.length) throw new Error('Sélectionnez une configuration Vision.');
+    if (profiles.some((profile) => !canObserveBlindGraph(profile))) {
+      throw new Error('Sélectionnez un profil Vision Ollama local ou OpenAI-compatible valide (HTTPS pour un serveur distant).');
     }
     const choices = profiles.map((profile) => ({
       profile,
@@ -2311,7 +2311,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         (profile.configuration.correctionMethod === 'generative' ? profile.configuration.analysisModel.trim() : ''),
     }));
     if (choices.some(({ model }) => !model)) {
-      throw new Error('Modèle Vision local manquant pour une configuration sélectionnée.');
+      throw new Error('Modèle Vision manquant pour une configuration sélectionnée.');
     }
     if (request.cases.length !== DIAGRAM_SENSITIVITY_CASE_IDS.length ||
       request.cases.some((item) => !item.images.length)) {
@@ -2342,10 +2342,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               const graph = await service.extractBlindDiagramGraph(
                 profile.configuration.endpoint, model, entry.images[0]!, controller.signal,
                 (value) => { diagnostic = value; },
+                { apiCompatible: profile.configuration.apiCompatible, apiKey: profile.configuration.apiKey },
               );
               runs.push({
                 caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
-                model, status: 'success', durationMs: Math.round(performance.now() - started),
+                model, provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
+                remote: !isLoopbackPilotEndpoint(profile.configuration.endpoint),
+                status: 'success', durationMs: Math.round(performance.now() - started),
                 observations: compareBlindVisualGraph(graph), graph, diagnostic,
                 relationDetails: explainBlindVisualGraph(graph),
                 arrowCount: graph.arrows.length, containmentCount: graph.containment.length,
@@ -2355,7 +2358,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 (cause instanceof Error && cause.name === 'AbortError');
               runs.push({
                 caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
-                model, status: interrupted ? 'aborted' : 'failed',
+                model, provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
+                remote: !isLoopbackPilotEndpoint(profile.configuration.endpoint),
+                status: interrupted ? 'aborted' : 'failed',
                 durationMs: Math.round(performance.now() - started),
                 observations: {}, arrowCount: 0, containmentCount: 0, diagnostic,
                 errorCategory: interrupted ? 'cancelled'
@@ -3366,7 +3371,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           {diagramFixtureReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramFixtureReport, 'companion-schemas-scientifiques.json')}>
             Exporter les schémas testés ({diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage{diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0) === 1 ? '' : 's'})
           </Button>}
-          {diagramBlindGraphReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramBlindGraphReport, 'companion-graphe-visuel-local.json')}>
+          {diagramBlindGraphReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramBlindGraphReport, 'companion-graphe-visuel.json')}>
             Exporter l’observation indépendante ({diagramBlindGraphReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage(s))
           </Button>}
           {diagramSensitivityReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramSensitivityReport, 'companion-sensibilite-semantique.json')}>
