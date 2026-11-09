@@ -49,6 +49,9 @@ describe('lecture graphe visuel sans barème', () => {
     const noTip = graph();
     noTip.arrows[0] = { first: 'ADN', second: 'ARN', tip: 'none' };
     expect(compareBlindVisualGraph(noTip)[T.transcription]).toBe('uncertain');
+    const conflicting = graph();
+    conflicting.arrows.push({ first: 'ADN', second: 'ARN', tip: 'first' });
+    expect(compareBlindVisualGraph(conflicting)[T.transcription]).toBe('uncertain');
   });
   it('does not mark missing labels, contradictions or ambiguous contours as scientifically wrong', () => {
     const missing = graph();
