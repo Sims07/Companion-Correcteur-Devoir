@@ -63,6 +63,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await page.goto('/');
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   const fixtures = panel.getByRole('region', { name: 'Schémas de référence intégrés' });
   await expect(fixtures.locator('.diagram-fixture-card')).toHaveCount(5);
@@ -129,7 +130,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     .flatMap((summary) => summary.decisions)
     .every((decision) => !decision.stable
       && decision.stableAndResolved === null && decision.correctEveryTime === null)).toBe(true);
-  await page.getByRole('button', { name: /3.*Résultats/ }).click();
+  await page.getByRole('button', { name: /Analyse & historique/ }).click();
   await expect(exportStrip).toBeVisible();
   await page.getByRole('button', { name: /1.*Configuration/ }).click();
   await expect(results.locator('tbody tr')).toHaveCount(3);
@@ -192,6 +193,7 @@ test('paired D/E diagrams test the pointed structure, not just the written label
   await page.goto('/');
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   const fixtures = panel.getByRole('region', { name: 'Schémas de référence intégrés' });
   const cards = fixtures.locator('.diagram-fixture-card');

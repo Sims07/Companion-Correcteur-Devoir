@@ -47,6 +47,7 @@ test('third method persists and sends diagram + all typed questions to Clef thro
 
   await page.getByRole('group', { name: 'Configurations à exécuter' })
     .getByText('Clef Vision + Décision').click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const fixtures = page.getByRole('region', { name: 'Schémas de référence intégrés' });
   await fixtures.getByRole('button', { name: 'Tester ce schéma' }).first().click();
   const results = fixtures.getByRole('region', { name: 'Résultats des schémas scientifiques' });
@@ -63,6 +64,7 @@ test('third method persists and sends diagram + all typed questions to Clef thro
   await page.reload();
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByText('Créer ou modifier une configuration IA', { exact: true }).click();
   await page.locator('#evaluation-profile-select').selectOption(saved!.id);
   await expect(page.locator('#evaluation-correction-method')).toHaveValue('visual-decision');
 });
@@ -77,6 +79,7 @@ test('TEV1 configured as direct image decision is blocked visibly before running
   await page.getByRole('button', { name: 'Enregistrer la configuration' }).click();
   await page.getByRole('group', { name: 'Configurations à exécuter' })
     .getByText('TEV1 visual incompatible').click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const fixtures = page.getByRole('region', { name: 'Schémas de référence intégrés' });
   await expect(fixtures.getByText(/TEV1 ne prend pas en charge les images via System One/).first()).toBeVisible();
   await expect(fixtures.getByRole('button', { name: 'Tester les 3 schémas en un clic' })).toBeDisabled();

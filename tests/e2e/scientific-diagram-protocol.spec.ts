@@ -36,6 +36,7 @@ test('Qwen direct diagram repairs missing evidence and exports all 19 decisions 
   await page.goto('/');
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   await page.getByRole('group', { name: 'Configurations à exécuter' }).locator('label.evaluation-profile-option').first().click();
   await panel.getByRole('combobox', { name: 'Méthode de correction scientifique à tester' }).selectOption('direct-image-generative');
@@ -68,6 +69,7 @@ test('a scientific diagram protocol accepts a photo, rubric, teacher decisions a
   await page.goto('/');
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
 
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   await expect(panel.getByText('15 attendus', { exact: false }).first()).toBeVisible();
@@ -126,6 +128,7 @@ test('the scientific-diagram lab exposes an explicit multimodal comparison indep
   await page.goto('/');
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
 
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   const method = panel.getByRole('combobox', { name: 'Méthode de correction scientifique à tester' });

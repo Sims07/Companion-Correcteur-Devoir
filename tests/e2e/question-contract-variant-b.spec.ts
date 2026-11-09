@@ -22,6 +22,7 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
   await page.goto('/');
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Protocoles de biologie/ }).click();
 
   const panel = page.getByRole('region', { name: 'Protocole de test guidé' });
   const contract = panel.getByRole('region', { name: 'Protocole variante B par question' });
@@ -35,6 +36,7 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
 
   await expect(action).toBeVisible();
   await expect(action).toBeDisabled();
+  await panel.getByRole('button', { name: 'Vérifier la répétabilité', exact: true }).click();
   await expect(repeatAction).toBeVisible();
   await expect(repeatAction).toBeDisabled();
   await expect(suite).toHaveValue('baseline');
@@ -44,6 +46,7 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
   await expect(count).toHaveValue('3');
   await count.selectOption('5');
   await expect(count).toHaveValue('5');
+  await panel.getByRole('button', { name: 'Comparer les méthodes', exact: true }).click();
   await expect(contract.getByText('A = 10/10', { exact: false })).toBeVisible();
   await contract.getByText('Voir les trois réponses et le barème de référence').click();
   await expect(contract.getByText('B — réponses inversées', { exact: false })).toBeVisible();
@@ -52,24 +55,31 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
   await choices.locator('label.evaluation-profile-option').nth(0).click();
   await choices.locator('label.evaluation-profile-option').nth(1).click();
   await expect(action).toBeEnabled();
+  await panel.getByRole('button', { name: 'Vérifier la répétabilité', exact: true }).click();
   await expect(repeatAction).toBeEnabled();
+  await panel.getByRole('button', { name: 'Comparer les méthodes', exact: true }).click();
   // Do not need the Vision model for this analysis-only protocol.
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toHaveCount(0);
 
   await choices.locator('label.evaluation-profile-option').nth(2).click();
   await expect(action).toBeEnabled();
+  await panel.getByRole('button', { name: 'Vérifier la répétabilité', exact: true }).click();
   await expect(repeatAction).toBeEnabled();
+  await panel.getByRole('button', { name: 'Comparer les méthodes', exact: true }).click();
   await expect(contract.getByText(/Profil distant/)).toHaveCount(0);
   // No extra consent control: choosing the saved provider is enough.
   await expect(panel.getByText(/Autoriser l’API externe/)).toHaveCount(0);
   await choices.locator('label.evaluation-profile-option').nth(0).click();
   await choices.locator('label.evaluation-profile-option').nth(1).click();
   await expect(action).toBeEnabled();
+  await panel.getByRole('button', { name: 'Vérifier la répétabilité', exact: true }).click();
   await expect(repeatAction).toBeEnabled();
+  await panel.getByRole('button', { name: 'Comparer les méthodes', exact: true }).click();
 
   // A private OpenAI-compatible profile must also be usable by the Vision and
   // integrated pilot; none of these test images are transmitted until a run is clicked.
   await expect(choices.locator('label.evaluation-profile-option').nth(2)).toBeVisible();
+  await panel.getByRole('button', { name: 'Vision et parallélisme', exact: true }).click();
   await panel.getByRole('button', { name: 'Préparer le protocole en un clic' }).click();
   await expect(panel.getByRole('button', { name: 'Comparer 1, 2 et 4 appels parallèles' })).toBeDisabled();
   const sample = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZckAAAAASUVORK5CYII=', 'base64');

@@ -1,3 +1,4 @@
+import { EvaluationJourneyPicker } from './components/EvaluationJourneyPicker.tsx';
 import { ContractPreparationPanel } from './components/ContractPreparationPanel.tsx';
 import { QuestionContractEditor, QuestionScopePreview } from './components/QuestionContractEditor.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -405,6 +406,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [selectedEvaluationProfileIds, setSelectedEvaluationProfileIds] = useState<string[]>([]);
   const [selectedEvaluationHistoryIds, setSelectedEvaluationHistoryIds] = useState<string[]>([]);
   const [evaluationHistoryStageFilter, setEvaluationHistoryStageFilter] = useState<EvaluationStageMode | 'all'>('all');
+  const [evaluationEditorOpen, setEvaluationEditorOpen] = useState(aiModelProfiles.length === 0);
+  const [evaluationBiologyScenario, setEvaluationBiologyScenario] = useState<'contracts' | 'repeatability' | 'copies'>('contracts');
+  const [evaluationJourney, setEvaluationJourney] = useState<'custom' | 'diagrams' | 'biology'>('custom');
   const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history'>('configuration');
   const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
   const [evaluationVisualDirect, setEvaluationVisualDirect] = useState(false);
@@ -3344,52 +3348,22 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </section>}
       {interfaceMode === 'observability' && <ObservabilityDashboard records={observabilityRecords} storageDiagnosticsService={storageDiagnosticsService} onManageEvaluations={() => { setInterfaceMode('diagnostic'); setEvaluationWorkspaceStep('history'); }} onInspectNetworkErrors={() => { setNetworkInitialFilter('error'); setInterfaceMode('debug'); }} benchmarkRows={buildLocalDecisionBenchmark(timingHistory)} />}
       {interfaceMode === 'diagnostic' && <section className="evaluation-page-header" aria-labelledby="evaluation-page-title">
-        <div><p className="eyebrow">LABORATOIRE IA · OUTILS AVANCÉS</p><h1 id="evaluation-page-title">Évaluation des modèles</h1><p>Testez de une à trois configurations sur la même copie et le même barème. Les résultats sont enregistrés localement ; les requêtes sont envoyées au serveur de chaque profil choisi.</p><div className="evaluation-page-badges"><span>Résultats locaux</span><span>1 à 3 configurations</span><span>Validation humaine</span></div></div>
+        <div><p className="eyebrow">LABORATOIRE IA · OUTILS AVANCÉS</p><h1 id="evaluation-page-title">Évaluation des modèles</h1><p>Choisissez un parcours, sélectionnez vos modèles, puis lancez le test. Les tests automatiques fournissent leurs propres cas et barèmes. Les résultats sont enregistrés localement ; les requêtes sont envoyées au serveur de chaque profil choisi.</p><div className="evaluation-page-badges"><span>Résultats locaux</span><span>1 à 3 configurations</span><span>Validation humaine</span></div></div>
       </section>}
-      {interfaceMode === 'diagnostic' && <nav className="evaluation-step-nav" aria-label="Espaces de l’évaluation">
-        <button type="button" className={evaluationWorkspaceStep === 'configuration' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'configuration' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('configuration')}><span>1</span><strong>Configuration</strong><small>Modèles, barème et copie</small></button>
-        <button type="button" className={evaluationWorkspaceStep === 'execution' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'execution' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('execution')}><span>2</span><strong>Exécution</strong><small>Progression en direct</small></button>
-        <button type="button" className={evaluationWorkspaceStep === 'results' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'results' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('results')}><span>3</span><strong>Résultats</strong><small>Notes, temps et tokens</small></button>
-        <button type="button" className={evaluationWorkspaceStep === 'history' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'history' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('history')}><span>4</span><strong>Analyse & historique</strong><small>Comparer les essais passés</small></button>
+      {interfaceMode === 'diagnostic' && <nav className="evaluation-step-nav" data-journey={evaluationJourney} aria-label="Espaces de l’évaluation">
+        <button type="button" className={evaluationWorkspaceStep === 'configuration' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'configuration' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('configuration')}><span>1</span><strong>Configuration</strong><small>Choisir et préparer un test</small></button>
+        <button type="button" hidden={evaluationJourney !== 'custom'} className={evaluationWorkspaceStep === 'execution' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'execution' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('execution')}><span>2</span><strong>Exécution</strong><small>Progression en direct</small></button>
+        <button type="button" hidden={evaluationJourney !== 'custom'} className={evaluationWorkspaceStep === 'results' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'results' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('results')}><span>3</span><strong>Résultats</strong><small>Notes, temps et tokens</small></button>
+        <button type="button" className={evaluationWorkspaceStep === 'history' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'history' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('history')}><span>{evaluationJourney === 'custom' ? '4' : '2'}</span><strong>Analyse & historique</strong><small>Comparer les essais passés</small></button>
       </nav>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && <section id="evaluation-configurations" className="panel evaluation-config-workspace" aria-labelledby="evaluation-config-title">
+        {evaluationJourney !== 'custom' && <p className="evaluation-stage-guidance">Tests automatiques : la progression, l’arrêt, les résultats et l’export sont disponibles dans le protocole choisi ci-dessous.</p>}
+        <EvaluationJourneyPicker value={evaluationJourney} disabled={busy || pilotBusy} onChange={setEvaluationJourney} />
         <div className="evaluation-section-heading"><div><p className="eyebrow">ÉTAPE 1 · CONFIGURATIONS</p><h2 id="evaluation-config-title">Choisir les configurations à évaluer</h2><p>Créez ou modifiez vos profils ici, sans passer par les réglages du parcours de correction. Les profils sont enregistrés localement sur cet appareil.</p></div><div className="ai-profile-management-entry"><span className="evaluation-step-chip">{aiModelProfiles.length} profil(s)</span><Button variant="secondary" disabled={busy || pilotBusy || aiModelProfiles.length === 0} onClick={() => setManagingAiProfiles(true)}>Gérer les configurations ({aiModelProfiles.length})</Button></div></div>
-        <ScientificDiagramProtocolPanel
-          selectedProfiles={selectedEvaluationProfiles} busy={busy || pilotBusy}
-          progress={diagramProtocolProgress}
-          onPrepareImages={(files) => service.prepareFiles(files)}
-          onRun={runScientificDiagramProtocol}
-          onRunFixtures={runScientificDiagramFixtures}
-          onStop={stopPilotProtocol}
-          report={diagramProtocolReport}
-          fixtureReport={diagramFixtureReport}
-          onClearReport={() => setDiagramProtocolReport(null)}
-          onClearFixtureReport={() => setDiagramFixtureReport(null)}
-        />
-        <PilotEvaluationPanel
-          enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}
-          message={pilotMessage} runs={pilotRuns} contractRuns={pilotContractRuns}
-          repeatabilityRuns={pilotRepeatabilityRuns} repeatabilityPlanned={pilotRepeatabilityPlanned} repeatabilitySuite={pilotRepeatabilitySuite}
-          repeatabilityProgress={pilotRepeatabilityProgress} concurrencyRuns={pilotConcurrencyRuns}
-          imageCounts={Object.fromEntries(Object.entries(pilotImages).map(([caseId, pages]) => [caseId, pages.length]))}
-          selectedProfiles={selectedEvaluationProfiles}
-          onPrepare={preparePilotProtocol}
-          onUpload={(caseId, files) => { void uploadPilotImages(caseId, files); }}
-          onRun={(mode) => { void runPilotProtocol(mode); }}
-          onRunConcurrency={(caseId) => { void runPilotConcurrencyBenchmark(caseId); }}
-          onRunContracts={() => { void runPilotQuestionContractBenchmark(); }}
-          onRunRepeatability={(count, suite) => { void runPilotRepeatabilityBenchmark(count, suite); }}
-          onStop={stopPilotProtocol} onExport={exportPilotReport}
-          onCopy={() => { void copyPilotReport(); }}
-        />
-        <div className="evaluation-stage-picker" role="group" aria-label="Type d’évaluation">
-          <button type="button" className={evaluationStageMode === 'vision' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'vision'} onClick={() => setEvaluationStageMode('vision')}><span className="evaluation-stage-number">01</span><strong>Vision seule</strong><small>Comparer la transcription des images, sans lancer la notation.</small></button>
-          <button type="button" className={evaluationStageMode === 'analysis' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'analysis'} onClick={() => setEvaluationStageMode('analysis')}><span className="evaluation-stage-number">02</span><strong>Analyse seule</strong><small>Comparer la notation sur une transcription déjà relue et validée.</small></button>
-          <button type="button" className={evaluationStageMode === 'integrated' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'integrated'} onClick={() => setEvaluationStageMode('integrated')}><span className="evaluation-stage-number">03</span><strong>Parcours complet</strong><small>Mesurer le pipeline Vision puis Analyse de bout en bout.</small></button>
+        <div className="evaluation-selection-block"><div className="evaluation-section-heading compact"><div><h3>Sélection pour cette expérience</h3><p>Choisissez une à trois configurations. Une seule suffit pour mesurer ses performances ; plusieurs permettent de comparer leurs résultats sur les mêmes pages et le même barème.</p></div><span aria-live="polite" className={selectedEvaluationProfileIds.length >= 1 ? 'evaluation-step-chip ready' : 'evaluation-step-chip'}>{selectedEvaluationProfileIds.length} / 3 sélectionnée(s)</span></div>
+          {aiModelProfiles.length < 1 ? <div className="evaluation-empty-inline"><strong>Aucune configuration enregistrée.</strong><p>Ouvrez « Créer ou modifier une configuration IA » ci-dessous pour pouvoir lancer une première évaluation.</p></div> : <fieldset className="evaluation-profile-list" aria-describedby="evaluation-profile-selection-help"><legend>Configurations à exécuter</legend><p id="evaluation-profile-selection-help" className="evaluation-selection-help">La même copie sera relue et notée par chaque configuration. L’ordre reste séquentiel pour limiter la mémoire utilisée par Ollama.</p><div className="evaluation-profile-options">{aiModelProfiles.map((profile) => { const selected = selectedEvaluationProfileIds.includes(profile.id); const disabled = busy || pilotBusy || (!selected && selectedEvaluationProfileIds.length >= 3); return <label key={profile.id} className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}><input className="evaluation-profile-checkbox" type="checkbox" checked={selected} disabled={disabled} onChange={(event) => setSelectedEvaluationProfileIds((current) => event.target.checked ? [...current, profile.id].slice(-3) : current.filter((id) => id !== profile.id))} /><span className="evaluation-profile-card-content"><strong>{profile.name}</strong><span className="evaluation-profile-models"><span><small>LECTURE</small><b>{profile.configuration.visionModel || 'Modèle non défini'}</b></span><span><small>ANALYSE</small><b>{profile.configuration.analysisModel || 'Modèle non défini'}</b></span></span>{profile.configuration.analysisThinking && <span className="evaluation-profile-thinking">Thinking activé</span>}</span><span className="evaluation-profile-selection-mark" aria-hidden="true">{selected ? '✓' : '+'}</span></label>; })}</div></fieldset>}
         </div>
-        <p className="evaluation-stage-guidance" role="status">{evaluationStageMode === 'vision' ? 'Seul le modèle Vision est sollicité. Les transcriptions obtenues sont comparables entre profils et restent disponibles pour une validation humaine.' : evaluationStageMode === 'analysis' ? 'La transcription courante est réutilisée à l’identique pour chaque profil : aucune image n’est renvoyée au modèle Vision.' : evaluationVisualDirect ? 'D1/D3 : décisions directement depuis les photos, sans OCR. Les autres profils suivent Vision puis Analyse et servent de référence.' : 'Chaque profil exécute les deux étapes successivement. Ce mode mesure aussi le temps total du parcours.'}</p>
-        {evaluationStageMode === 'integrated' && <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-visual-proof"><input id="evaluation-visual-proof" type="checkbox" checked={evaluationVisualDirect} disabled={busy} onChange={(event) => setEvaluationVisualDirect(event.target.checked)} /><span><strong>Tester la décision directement sur les images (D1 / D3)</strong><small>Expérimental : les profils Ollama décisionnels D1 et D3 reçoivent les photos sans OCR via System One. Les autres profils restent inchangés et servent de comparaison. Les notes doivent être vérifiées par le professeur. Utiliser uniquement un serveur Ollama local.</small></span></label>}
-        <div className="evaluation-config-editor">
+        <details className="evaluation-config-editor" open={evaluationEditorOpen} onToggle={(event) => setEvaluationEditorOpen(event.currentTarget.open)}><summary>Créer ou modifier une configuration IA</summary>
           <div className="evaluation-config-editor-heading"><div><h3>Configuration IA locale</h3><p>Un profil = un modèle de lecture, un modèle d’analyse et ses options.</p></div><button type="button" className="secondary-button" disabled={busy} onClick={() => { setSelectedAiModelProfileId(''); setAiModelProfileName(''); setAiModelProfileTone('info'); setAiModelProfileMessage('Nouvelle configuration : renseignez les modèles puis enregistrez.'); setEndpoint(defaultAiModelConfiguration.endpoint); setVisionModel(''); setAnalysisModel(''); setSecondAnalysisModel(''); setArbitratorModel(''); setDiagnosticStrategy('single'); setCorrectionMethod(defaultAiModelConfiguration.correctionMethod); setAnalysisThinking(false); setCriterionByCriterion(true); setAvailableModels([]); setConnectionMessage(''); }}>＋ Nouvelle configuration</button></div>
           <div className="evaluation-config-fields">
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.configuration.correctionMethod === 'visual-decision' ? 'vision + décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}</DesignSystemSelect></div>
@@ -3406,15 +3380,52 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-analysis-thinking"><input id="evaluation-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} /><span><strong>Activer le mode thinking</strong><small>Désactivé par défaut. Peut améliorer le raisonnement mais allonger fortement les essais.</small></span></label>
           <div className="evaluation-config-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button><Button variant="primary" disabled={busy || pilotBusy} onClick={saveAiModelProfile}>Enregistrer la configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button></div>
           {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}{aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
+        </details>
+        <div hidden={evaluationJourney !== 'diagrams'}><ScientificDiagramProtocolPanel
+          selectedProfiles={selectedEvaluationProfiles} busy={busy || pilotBusy}
+          progress={diagramProtocolProgress}
+          onPrepareImages={(files) => service.prepareFiles(files)}
+          onRun={runScientificDiagramProtocol}
+          onRunFixtures={runScientificDiagramFixtures}
+          onStop={stopPilotProtocol}
+          report={diagramProtocolReport}
+          fixtureReport={diagramFixtureReport}
+          onClearReport={() => setDiagramProtocolReport(null)}
+          onClearFixtureReport={() => setDiagramFixtureReport(null)}
+        />
         </div>
+        <div hidden={evaluationJourney !== 'biology'}><PilotEvaluationPanel
+          selectedScenario={evaluationBiologyScenario} onSelectScenario={setEvaluationBiologyScenario}
+          enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}
+          message={pilotMessage} runs={pilotRuns} contractRuns={pilotContractRuns}
+          repeatabilityRuns={pilotRepeatabilityRuns} repeatabilityPlanned={pilotRepeatabilityPlanned} repeatabilitySuite={pilotRepeatabilitySuite}
+          repeatabilityProgress={pilotRepeatabilityProgress} concurrencyRuns={pilotConcurrencyRuns}
+          imageCounts={Object.fromEntries(Object.entries(pilotImages).map(([caseId, pages]) => [caseId, pages.length]))}
+          selectedProfiles={selectedEvaluationProfiles}
+          onPrepare={preparePilotProtocol}
+          onUpload={(caseId, files) => { void uploadPilotImages(caseId, files); }}
+          onRun={(mode) => { void runPilotProtocol(mode); }}
+          onRunConcurrency={(caseId) => { void runPilotConcurrencyBenchmark(caseId); }}
+          onRunContracts={() => { void runPilotQuestionContractBenchmark(); }}
+          onRunRepeatability={(count, suite) => { void runPilotRepeatabilityBenchmark(count, suite); }}
+          onStop={stopPilotProtocol} onExport={exportPilotReport}
+          onCopy={() => { void copyPilotReport(); }}
+        />
+        </div>
+        <div hidden={evaluationJourney !== 'custom'}>
+        <div className="evaluation-stage-picker" role="group" aria-label="Type d’évaluation">
+          <button type="button" className={evaluationStageMode === 'vision' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'vision'} onClick={() => setEvaluationStageMode('vision')}><span className="evaluation-stage-number">01</span><strong>Vision seule</strong><small>Comparer la transcription des images, sans lancer la notation.</small></button>
+          <button type="button" className={evaluationStageMode === 'analysis' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'analysis'} onClick={() => setEvaluationStageMode('analysis')}><span className="evaluation-stage-number">02</span><strong>Analyse seule</strong><small>Comparer la notation sur une transcription déjà relue et validée.</small></button>
+          <button type="button" className={evaluationStageMode === 'integrated' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'integrated'} onClick={() => setEvaluationStageMode('integrated')}><span className="evaluation-stage-number">03</span><strong>Parcours complet</strong><small>Mesurer le pipeline Vision puis Analyse de bout en bout.</small></button>
+        </div>
+        <p className="evaluation-stage-guidance" role="status">{evaluationStageMode === 'vision' ? 'Seul le modèle Vision est sollicité. Les transcriptions obtenues sont comparables entre profils et restent disponibles pour une validation humaine.' : evaluationStageMode === 'analysis' ? 'La transcription courante est réutilisée à l’identique pour chaque profil : aucune image n’est renvoyée au modèle Vision.' : evaluationVisualDirect ? 'D1/D3 : décisions directement depuis les photos, sans OCR. Les autres profils suivent Vision puis Analyse et servent de référence.' : 'Chaque profil exécute les deux étapes successivement. Ce mode mesure aussi le temps total du parcours.'}</p>
+        {evaluationStageMode === 'integrated' && <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-visual-proof"><input id="evaluation-visual-proof" type="checkbox" checked={evaluationVisualDirect} disabled={busy} onChange={(event) => setEvaluationVisualDirect(event.target.checked)} /><span><strong>Tester la décision directement sur les images (D1 / D3)</strong><small>Expérimental : les profils Ollama décisionnels D1 et D3 reçoivent les photos sans OCR via System One. Les autres profils restent inchangés et servent de comparaison. Les notes doivent être vérifiées par le professeur. Utiliser uniquement un serveur Ollama local.</small></span></label>}
         {evaluationStageMode === 'analysis' && <section className="evaluation-analysis-reference" aria-labelledby="evaluation-analysis-reference-title">
           <div><p className="eyebrow">SOURCE DE RÉFÉRENCE</p><h3 id="evaluation-analysis-reference-title">Transcription à noter</h3><p>Vérifiez et corrigez le texte une fois pour toutes : chaque modèle d’analyse recevra exactement cette même transcription, sans nouvelle lecture d’image.</p></div>
           <textarea aria-label="Transcription de référence pour l’évaluation de l’analyse" rows={8} value={transcription ?? ''} onChange={(event) => setTranscription(event.target.value)} placeholder="Lancez d’abord une évaluation Vision, ou collez ici une transcription déjà vérifiée…" />
           <QuestionScopePreview criteria={rubric.criteria} transcription={transcription ?? ''} />
           <p className="evaluation-reference-meta">{transcription?.trim() ? `${transcription.trim().split(/\s+/).filter(Boolean).length} mots dans la transcription de référence` : 'Aucune transcription de référence pour le moment'}</p>
         </section>}
-        <div className="evaluation-selection-block"><div className="evaluation-section-heading compact"><div><h3>Sélection pour cette expérience</h3><p>Choisissez une à trois configurations. Une seule suffit pour mesurer ses performances ; plusieurs permettent de comparer leurs résultats sur les mêmes pages et le même barème.</p></div><span aria-live="polite" className={selectedEvaluationProfileIds.length >= 1 ? 'evaluation-step-chip ready' : 'evaluation-step-chip'}>{selectedEvaluationProfileIds.length} / 3 sélectionnée(s)</span></div>
-          {aiModelProfiles.length < 1 ? <div className="evaluation-empty-inline"><strong>Aucune configuration enregistrée.</strong><p>Créez un profil ci-dessus pour pouvoir lancer une première évaluation.</p></div> : <fieldset className="evaluation-profile-list" aria-describedby="evaluation-profile-selection-help"><legend>Configurations à exécuter</legend><p id="evaluation-profile-selection-help" className="evaluation-selection-help">La même copie sera relue et notée par chaque configuration. L’ordre reste séquentiel pour limiter la mémoire utilisée par Ollama.</p><div className="evaluation-profile-options">{aiModelProfiles.map((profile) => { const selected = selectedEvaluationProfileIds.includes(profile.id); const disabled = busy || pilotBusy || (!selected && selectedEvaluationProfileIds.length >= 3); return <label key={profile.id} className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}><input className="evaluation-profile-checkbox" type="checkbox" checked={selected} disabled={disabled} onChange={(event) => setSelectedEvaluationProfileIds((current) => event.target.checked ? [...current, profile.id].slice(-3) : current.filter((id) => id !== profile.id))} /><span className="evaluation-profile-card-content"><strong>{profile.name}</strong><span className="evaluation-profile-models"><span><small>LECTURE</small><b>{profile.configuration.visionModel || 'Modèle non défini'}</b></span><span><small>ANALYSE</small><b>{profile.configuration.analysisModel || 'Modèle non défini'}</b></span></span>{profile.configuration.analysisThinking && <span className="evaluation-profile-thinking">Thinking activé</span>}</span><span className="evaluation-profile-selection-mark" aria-hidden="true">{selected ? '✓' : '+'}</span></label>; })}</div></fieldset>}
         </div>
       </section>}
       {(interfaceMode as string) === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
@@ -3825,7 +3836,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </details>
       </>}
 
-      {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration') || (interfaceMode === 'teacher' && teacherStep === 'rubric')) && <>
+      {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && evaluationJourney === 'custom') || (interfaceMode === 'teacher' && teacherStep === 'rubric')) && <>
       <div id={interfaceMode === 'diagnostic' ? 'evaluation-rubric' : undefined} className="workspace-heading diagnostic-setup-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 1 · DEVOIR' : 'JEU D’ESSAI · BARÈME'}</p><h2>{interfaceMode === 'teacher' ? 'Devoir et barème' : 'Préparer le barème de correction'}</h2><p className="workspace-description">Le devoir identifie votre sujet ; le barème décrit comment noter les réponses.</p></div><span className="step-count">{validation.maximumPoints} POINTS AU TOTAL</span></div>
       <div className={interfaceMode === "teacher" ? "atelier-rubric-grid" : "atelier-rubric-grid is-diagnostic"}>
       <section className={interfaceMode === "teacher" ? "panel rubric-editor atelier-rubric-editor" : "panel rubric-editor"}>
@@ -3952,7 +3963,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       {interfaceMode === 'teacher' && <div className="teacher-step-footer"><span>Le devoir est prêt ? Ajoutez les copies à corriger.</span><button type="button" className="primary-button" disabled={!validation.valid} onClick={() => setTeacherStep('overview')}>Continuer vers les copies <span aria-hidden="true">→</span></button></div>}
       </>}
 
-      {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && evaluationStageMode !== 'analysis') || (interfaceMode === 'teacher' && teacherStep === 'copy')) && <>
+      {((interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && evaluationStageMode !== 'analysis' && evaluationJourney === 'custom') || (interfaceMode === 'teacher' && teacherStep === 'copy')) && <>
       <div id={interfaceMode === 'diagnostic' ? 'evaluation-copy' : undefined} className="workspace-heading"><div><p className="eyebrow">{interfaceMode === 'teacher' ? 'ÉTAPE 2 SUR 3' : 'JEU D’ESSAI · COPIE'}</p><h2>{interfaceMode === 'teacher' && correctionSessionMode === 'series' ? 'Copies du devoir' : 'Ajouter une copie'}</h2></div><span className="step-count">{interfaceMode === 'teacher' && correctionSessionMode === 'series' ? `${backgroundJobs.filter((job) => job.assignmentId === activeAssignmentId && job.status !== 'completed').length} COPIE(S) À TRAITER` : `${images.length} PAGE(S) · ${transcription ? 'LECTURE DISPONIBLE' : 'À LIRE'}`}</span></div>
       {interfaceMode === 'teacher' && <section className="correction-session-mode" aria-label="Choisir le mode de correction">
         <div className="correction-session-mode-heading"><p className="eyebrow">VOTRE ORGANISATION</p><h3>Comment souhaitez-vous corriger ?</h3><p>Vous pourrez changer de mode à tout moment. Le barème et les réglages du devoir restent les mêmes.</p></div>
@@ -4070,7 +4081,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
       </>}
       </>}
-      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && <section className="evaluation-launch-panel" aria-label="Lancer l’expérience">
+      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && evaluationJourney === 'custom' && <section className="evaluation-launch-panel" aria-label="Lancer l’expérience">
         <div className="evaluation-launch-intro"><p className="eyebrow">PRÊT POUR L’EXPÉRIENCE ?</p><h2>Lancer l’évaluation</h2><p>{!validation.valid ? 'Vérifiez le barème pour continuer.' : !selectedEvaluationProfileIds.length ? 'Sélectionnez au moins une configuration.' : evaluationStageMode !== 'analysis' && !images.length ? 'Ajoutez les pages de la copie à évaluer.' : evaluationStageMode === 'analysis' && !transcription?.trim() ? 'Renseignez la transcription de référence.' : 'Votre jeu d’essai est prêt. Les configurations seront évaluées l’une après l’autre.'}</p></div>
         <div className="evaluation-run-actions evaluation-config-launch"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>Le lancement passera à l’espace Exécution pour afficher la progression en direct.</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => { setEvaluationWorkspaceStep('execution'); void startModelEvaluation(); }}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button></div>
       </section>}

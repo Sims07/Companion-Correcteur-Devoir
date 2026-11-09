@@ -39,6 +39,7 @@ test('the evaluator creates, reloads and resets decision-model configurations', 
   await expect(method).toHaveValue('generative');
   await expect(byCriterion).toBeEnabled();
 
+  await page.locator('.evaluation-config-editor').evaluate((element) => { (element as HTMLDetailsElement).open = true; });
   await page.locator('#evaluation-profile-select').selectOption(savedProfile!.id);
   await expect(method).toHaveValue('decision');
   await expect(byCriterion).toBeDisabled();
@@ -47,6 +48,7 @@ test('the evaluator creates, reloads and resets decision-model configurations', 
   await page.reload();
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.locator('.evaluation-config-editor').evaluate((element) => { (element as HTMLDetailsElement).open = true; });
   await page.locator('#evaluation-profile-select').selectOption(savedProfile!.id);
   await expect(page.locator('#evaluation-correction-method')).toHaveValue('decision');
   await expect(page.locator('#evaluation-criterion-by-criterion')).toBeDisabled();
