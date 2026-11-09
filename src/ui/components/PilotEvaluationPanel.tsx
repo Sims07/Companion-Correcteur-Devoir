@@ -59,6 +59,7 @@ export function PilotEvaluationPanel({
         <h3>Tests de référence en biologie</h3>
         <p>Sélectionnez vos configurations au-dessus, puis choisissez un objectif ci-dessous. Les contrats et la répétabilité fonctionnent sans document à importer. Le barème du devoir et les réglages enregistrés restent inchangés.</p>
       </div>
+      {busy && scenario !== 'copies' && <Button variant="secondary" onClick={onStop}>Arrêter après l’appel en cours</Button>}
       {scenario === 'copies' && <button type="button" className="secondary-button" disabled={busy} onClick={onPrepare}>{enabled ? 'Réinitialiser le protocole' : 'Préparer le protocole en un clic'}</button>}
     </div>
     <div className="evaluation-scenario-picker" role="group" aria-label="Objectif du protocole de biologie">
@@ -82,7 +83,6 @@ export function PilotEvaluationPanel({
       <div className="pilot-evaluation-actions">
         <Button disabled={busy || uploadingCase !== null || Boolean(analysisIssue)}
           onClick={onRunContracts}>Comparer standard et variante B en un clic</Button>
-        {busy && !enabled && <Button variant="secondary" onClick={onStop}>Arrêter après l’appel en cours</Button>}
         {contractRuns.length > 0 && <>
           <Button variant="secondary" disabled={busy} onClick={onCopy}>Copier le rapport pour ChatGPT</Button>
           <Button variant="secondary" disabled={busy} onClick={onExport}>Exporter JSON complet</Button>
