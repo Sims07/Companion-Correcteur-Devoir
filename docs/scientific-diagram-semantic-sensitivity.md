@@ -37,10 +37,19 @@ La série fonctionne avec les profils et méthodes déjà proposés dans ce labo
 
 La note seule ne démontre pas que le sens d'une flèche a été vu. **Aucun test automatisé ne prétend valider la qualité d'un vrai modèle** : les tests navigateur simulent le fournisseur IA. Les images, clés, URLs d'API, prompts et sorties brutes ne figurent pas dans le JSON exporté.
 
-## Prochaines expériences (hors de cette PR)
+## Lot 2 : comparer deux stratégies de lecture
 
-1. Comparaison directe / questions visuelles ciblées, à images et profils identiques.
-2. Extraction **sans barème** d'un graphe de relations (départs, pointes, inclusions, nombres), comparaison ensuite avec le corrigé validé par l'enseignant.
-3. Agrandissement conditionnel du détail **complet** (départ, trajet et pointe), uniquement quand une relation est ambiguë.
+Dans la suite de sensibilité, choisir **Stratégie de vérification visuelle** :
+
+- **Standard** : correction en un appel avec les attendus du barème.
+- **Questions ciblées** : même appel et même barème ; la consigne demande explicitement de suivre chaque trait, localiser la pointe, vérifier la connexion et l'appartenance à un contour *avant de noter*.
+- **Comparer standard / questions ciblées** : les six PNG sont préparés une seule fois, puis réutilisés pour les deux séries. Le rapport version 2 conserve `promptMode` par cas et par statistique.
+
+Le guidage est un **test de prompt**, pas une extraction indépendante : le modèle reçoit encore le barème et peut continuer à halluciner une relation. Il faut donc comparer les taux de mutations détectées et de faux positifs **par mode**, mais aussi le temps total et les abstentions. Aucune amélioration n'est présumée avant les tests réels.
+
+## Prochaines expériences
+
+1. Extraction **sans barème** d'un graphe de relations (départs, pointes, inclusions, nombres), comparaison ensuite avec le corrigé validé par l'enseignant.
+2. Agrandissement conditionnel du détail **complet** (départ, trajet et pointe), uniquement quand une relation est ambiguë.
 
 La suite S0–S5 fournit un point de référence commun pour mesurer les gains réels de ces méthodes. Les références restent à valider avec un enseignant de biologie, notamment le cas S5.

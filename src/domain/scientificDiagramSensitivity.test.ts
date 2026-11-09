@@ -3,7 +3,7 @@ import { validateRubric } from './rubric.ts';
 import {
   DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_RUBRIC,
   DIAGRAM_SENSITIVITY_TARGETS, scientificDiagramSensitivitySvg, scientificDiagramSensitivityPreviewUrl,
-  summarizeDiagramSensitivity, type DiagramSensitivityReading,
+  summarizeDiagramSensitivity, diagramSensitivityContext, type DiagramSensitivityReading,
 } from './scientificDiagramSensitivity.ts';
 
 const keys = DIAGRAM_SENSITIVITY_TARGETS;
@@ -80,6 +80,22 @@ describe('sensibilité sémantique des schémas', () => {
       sensitivityHits: 0, sensitivityTrials: 0, sensitivityUnknown: 1,
       falsePositiveCount: 1, controlObservations: 3,
     });
+  });
+
+
+  it('compares guided observation questions independently from direct grading', () => {
+    expect(diagramSensitivityContext('guided')).toContain('POINTE');
+    expect(diagramSensitivityContext('standard')).not.toContain('CONTRÔLE VISUEL CIBLÉ');
+    const direct = reading('S1', { [keys.transcription]: 'absent' });
+    const baseline = reading('S0');
+    const guidedBaseline = { ...reading('S0'), promptMode: 'guided' as const };
+    const guidedMiss = { ...reading('S1'), promptMode: 'guided' as const };
+    const stats = summarizeDiagramSensitivity([direct, baseline, guidedMiss, guidedBaseline]);
+    expect(stats).toHaveLength(2);
+    expect(stats.find((item) => item.promptMode === 'standard'))
+      .toMatchObject({ sensitivityHits: 1, sensitivityTrials: 1 });
+    expect(stats.find((item) => item.promptMode === 'guided'))
+      .toMatchObject({ sensitivityHits: 0, sensitivityTrials: 1 });
   });
 
   it('pairs repeated runs by repetition and profile/method, not by list position', () => {

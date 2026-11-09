@@ -21,6 +21,17 @@ export const DIAGRAM_SENSITIVITY_RUBRIC: Rubric = {
 export const DIAGRAM_SENSITIVITY_CONTEXT =
   'Schéma biologique simplifié de la circulation de l’information génétique dans une cellule eucaryote. Les trois critères concernent exclusivement les relations visibles (départ et pointe des flèches) et la position réelle du noyau. Ne déduis pas une flèche de la connaissance de ADN → ARN → Protéine. Si la pointe est illisible, demande un arbitrage au lieu d’inventer une direction.';
 
+export const DIAGRAM_SENSITIVITY_PROMPT_MODES = ['standard', 'guided'] as const;
+export type DiagramSensitivityPromptMode = typeof DIAGRAM_SENSITIVITY_PROMPT_MODES[number];
+
+/** This second arm guides a single grading call. It is NOT a blind separate
+ * observation model and never pretends to be one. */
+export function diagramSensitivityContext(mode: DiagramSensitivityPromptMode): string {
+  if (mode === 'standard') return DIAGRAM_SENSITIVITY_CONTEXT;
+  return DIAGRAM_SENSITIVITY_CONTEXT +
+    ' CONTRÔLE VISUEL CIBLÉ : pour chaque trait, commence par identifier le point de départ dessiné, suis le trajet sans le déduire des étiquettes, puis localise la POINTE visible et l’élément réellement touché. Pour les structures, compare la totalité des contours et vérifie inclusion/exclusion. Réponds au barème seulement après cet examen. Une pointe non discernable doit être signalée comme incertaine ; ne suppose pas le sens scientifique attendu.';
+}
+
 export const DIAGRAM_SENSITIVITY_TARGETS = {
   transcription: diagramTargetKey('relations', 'transcription'),
   translation: diagramTargetKey('relations', 'translation'),
@@ -122,12 +133,16 @@ export function scientificDiagramSensitivityPreviewUrl(id: DiagramSensitivityCas
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(scientificDiagramSensitivitySvg(id));
 }
 
-export type DiagramSensitivityRun = DiagramProtocolRun & { caseId: DiagramSensitivityCaseId };
+export type DiagramSensitivityRun = DiagramProtocolRun & {
+  caseId: DiagramSensitivityCaseId;
+  promptMode?: DiagramSensitivityPromptMode;
+};
 export type DiagramSensitivityChoice = 'present' | 'absent' | 'partial' | 'uncertain';
 export interface DiagramSensitivityReading {
   caseId: DiagramSensitivityCaseId;
   profileId: string;
   method: string;
+  promptMode?: DiagramSensitivityPromptMode;
   repetition: number;
   observations: Record<string, DiagramSensitivityChoice>;
 }
@@ -135,10 +150,12 @@ export interface DiagramSensitivityReading {
 /** A mutation is caught only if the paired control is observed as present and
  * the mutated target is observed as absent. Missing/uncertain is not a miss. */
 export function summarizeDiagramSensitivity(readings: readonly DiagramSensitivityReading[]) {
-  const identities = [...new Set(readings.map((item) => item.profileId + '\u0000' + item.method))];
+  const identities = [...new Set(readings.map((item) => item.profileId + '\u0000' + item.method +
+    '\u0000' + (item.promptMode ?? 'standard')))];
   return identities.map((identity) => {
-    const [profileId, method] = identity.split('\u0000');
-    const subset = readings.filter((item) => item.profileId === profileId && item.method === method);
+    const [profileId, method, promptMode] = identity.split('\u0000');
+    const subset = readings.filter((item) =>
+      item.profileId === profileId && item.method === method && (item.promptMode ?? 'standard') === promptMode);
     const lookup = new Map(subset.map((item) => [item.caseId + '#' + item.repetition, item]));
     const controls = subset.filter((item) => item.caseId === 'S0' || item.caseId === 'S4');
     const targets = Object.values(T);
@@ -171,6 +188,7 @@ export function summarizeDiagramSensitivity(readings: readonly DiagramSensitivit
       })));
     return {
       profileId: profileId ?? '', method: method ?? '',
+      promptMode: (promptMode ?? 'standard') as DiagramSensitivityPromptMode,
       runs: subset.length, sensitivityHits, sensitivityTrials, sensitivityUnknown,
       falsePositiveCount, correctControls, controlObservations: controls.length * targets.length,
       abstentions, readingsCount,
@@ -182,31 +200,32 @@ export function summarizeDiagramSensitivity(readings: readonly DiagramSensitivit
 
 export function buildScientificDiagramSensitivityReport(
   runs: readonly DiagramSensitivityRun[], plannedRepetitions: DiagramProtocolCount, createdAt: string,
+  promptModes: readonly DiagramSensitivityPromptMode[] = ['standard'],
 ) {
-  const cases = DIAGRAM_SENSITIVITY_CASES.map((testCase) => {
+  const cases = promptModes.flatMap((promptMode) => DIAGRAM_SENSITIVITY_CASES.map((testCase) => {
     const benchmark = buildScientificDiagramProtocolReport(
-      runs.filter((run) => run.caseId === testCase.id), DIAGRAM_SENSITIVITY_RUBRIC,
+      runs.filter((run) => run.caseId === testCase.id && (run.promptMode ?? 'standard') === promptMode), DIAGRAM_SENSITIVITY_RUBRIC,
       testCase.gold, plannedRepetitions, createdAt, 1,
     );
     return {
-      caseId: testCase.id, label: testCase.label, mutation: testCase.mutation,
+      caseId: testCase.id, promptMode, label: testCase.label, mutation: testCase.mutation,
       changedTarget: testCase.changedTarget, referenceScore: testCase.referenceScore,
       expectedPoints: { ...testCase.expectedPoints }, gold: { ...testCase.gold },
       summaries: benchmark.summaries, experiments: benchmark.experiments,
     };
-  });
+  }));
   const readings: DiagramSensitivityReading[] = cases.flatMap((testCase) =>
     testCase.experiments.map((experiment) => ({
       caseId: testCase.caseId, profileId: experiment.profileId, method: experiment.method,
+      promptMode: testCase.promptMode,
       repetition: experiment.repetition,
       observations: Object.fromEntries(experiment.observations.map((observation) =>
         [observation.key, observation.choice])) as Record<string, DiagramSensitivityChoice>,
     })));
   return {
     format: 'companion-scientific-diagram-sensitivity-report',
-    version: 1, protocolId: DIAGRAM_SENSITIVITY_PROTOCOL_ID,
+    version: 2, protocolId: DIAGRAM_SENSITIVITY_PROTOCOL_ID, promptModes: [...promptModes],
     createdAt, plannedRepetitions, rubric: structuredClone(DIAGRAM_SENSITIVITY_RUBRIC),
-    context: DIAGRAM_SENSITIVITY_CONTEXT,
     localOnly: cases.every((testCase) => testCase.experiments.length === 0 ||
       runs.filter((run) => run.caseId === testCase.caseId).every(({ record }) =>
         record.configurations.every((config) => {
@@ -215,6 +234,6 @@ export function buildScientificDiagramSensitivityReport(
         }))),
     statistics: summarizeDiagramSensitivity(readings),
     cases,
-    limitations: 'Six images synthétiques, références provisoires à faire valider par un professeur. Sensibilité calculée uniquement sur les paires témoin/erreur réellement jugées ; indécidable ou absent = non mesurable, jamais un faux résultat. S5 teste la capacité à demander une vérification : sa flèche incertaine n’a ni note ni vérité de référence. Seuls les résultats de l’IA sont évalués, pas la validité scientifique des références. Aucun fichier image, prompt, réponse brute, endpoint ou clé API exporté.',
+    limitations: 'Deux consignes expérimentales : standard et examen ciblé des connexions dans un seul appel (pas de lecture à l’aveugle, pas d’extraction indépendante). Six images synthétiques, références provisoires à faire valider par un professeur. Sensibilité calculée uniquement sur les paires témoin/erreur réellement jugées ; indécidable ou absent = non mesurable, jamais un faux résultat. S5 teste la capacité à demander une vérification : sa flèche incertaine n’a ni note ni vérité de référence. Seuls les résultats de l’IA sont évalués, pas la validité scientifique des références. Aucun fichier image, prompt, réponse brute, endpoint ou clé API exporté.',
   };
 }
