@@ -135,6 +135,7 @@ export interface ScientificDiagramProtocolPanelProps {
   onRunBlindGraph: (request: {
     cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>;
     repetitions: DiagramProtocolCount;
+    zoomUncertainArrows?: boolean;
   }) => Promise<BlindGraphReport>;
   onStop: () => void;
   report: DiagramReport | null;
@@ -183,7 +184,7 @@ export function ScientificDiagramProtocolPanel({
     selectedProfiles.length > 0 && selectedProfiles.every(canObserveBlindGraph);
   const blindGraphUsesRemote = selectedProfiles.some((profile) => !isLoopbackPilotEndpoint(profile.configuration.endpoint));
 
-  async function runBlindObservation() {
+  async function runBlindObservation(zoomUncertainArrows = false) {
     if (!canRunBlindGraph) return;
     setBlindGraphLoading(true);
     onClearBlindGraphReport();
@@ -196,7 +197,7 @@ export function ScientificDiagramProtocolPanel({
         if (!prepared.length) throw new Error('Préparation impossible pour ' + id);
         cases.push({ id, images: prepared });
       }
-      const result = await onRunBlindGraph({ cases, repetitions: fixtureCount });
+      const result = await onRunBlindGraph({ cases, repetitions: fixtureCount, zoomUncertainArrows });
       setBlindGraphMessage(result.cases.reduce((sum, item) => sum + item.experiments.length, 0) +
         ' observation(s) effectuée(s). Vérifiez les inconnues avant de comparer les méthodes.');
     } catch (cause) {
@@ -571,9 +572,13 @@ export function ScientificDiagramProtocolPanel({
         <Button disabled={!canRunBlindGraph} onClick={() => { void runBlindObservation(); }}>
           Extraire les relations des 6 schémas
         </Button>
+        <Button variant="secondary" disabled={!canRunBlindGraph} onClick={() => { void runBlindObservation(true); }}>
+          Tester avec agrandissement ciblé
+        </Button>
         {(busy || blindGraphLoading) && <Button variant="secondary" disabled={!busy} onClick={onStop}>Arrêter après l’appel en cours</Button>}
         {blindGraphReport && <Button variant="secondary" onClick={downloadBlindGraphReport}>Exporter l’analyse du graphe JSON</Button>}
       </div>
+      <p className="pilot-evaluation-hint">Le mode d’agrandissement peut ajouter jusqu’à deux appels sur le fournisseur sélectionné, y compris distant si vous avez choisi une API OpenAI-compatible. Le recadrage est traité sur l’appareil mais aussi transmis au fournisseur distant sélectionné ; aucune transmission automatique au cloud n’est effectuée avec un profil Ollama local. Si une zone n’est pas localisable, elle reste indécidable.</p>
       <p className="pilot-evaluation-hint">Utilisez un profil Vision Ollama local ou OpenAI-compatible (y compris votre lien distant). Les six schémas sont traités séquentiellement. Un profil distant reçoit les images : utilisez-le seulement si cela est autorisé. Aucun basculement implicite vers le cloud. La conclusion peut rester indécidable si les flèches sont mal lues.</p>
       {!canRunBlindGraph && !busy && selectedProfiles.length > 0 &&
         <p className="pilot-evaluation-hint" role="status">Pour cette méthode, sélectionnez un profil Vision Ollama local ou OpenAI-compatible configuré (HTTPS pour un serveur distant).</p>}

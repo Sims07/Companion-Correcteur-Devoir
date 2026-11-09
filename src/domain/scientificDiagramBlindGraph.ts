@@ -10,11 +10,13 @@ export const DIAGRAM_BLIND_OBSERVATION_PROTOCOL = 'scientific-diagram-blind-grap
 
 export type ObservedArrowTip = 'first' | 'second' | 'none' | 'unclear';
 export type ObservedSpatialRelation = 'inside' | 'outside' | 'unclear';
+/** Optional coordinates proposed by Vision, relative to the full image (0-1000). */
+export interface ObservedArrowBounds { left: number; top: number; right: number; bottom: number }
 
 export interface ObservedVisualGraph {
   /** Literal texts copied from the drawing, not inferred biological structures. */
   labels: string[];
-  arrows: Array<{ first: string; second: string; tip: ObservedArrowTip }>;
+  arrows: Array<{ first: string; second: string; tip: ObservedArrowTip; bounds?: ObservedArrowBounds }>;
   containment: Array<{ inner: string; outer: string; relation: ObservedSpatialRelation }>;
   /** Whether all visible strokes could be traced; a model assertion, not proof. */
   arrowsComplete: boolean;
@@ -44,13 +46,22 @@ export function parseObservedVisualGraph(raw: string): ObservedVisualGraph {
     throw new Error('Structure du graphe visuel invalide : arrowsComplete doit être un booléen.');
   }
   const labels = (parsed.labels as unknown[]).map((value, i) => short(value, `labels[${i}]`));
+  const coordinate = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 1000;
   const arrows = (parsed.arrows as unknown[]).map((value, i) => {
     if (!plain(value) || !['first', 'second', 'none', 'unclear'].includes(String(value.tip))) {
       throw new Error(`Flèche visuelle invalide : arrows[${i}].tip doit valoir first, second, none ou unclear.`);
     }
     const first = short(value.first, `arrows[${i}].first`);
     const second = short(value.second, `arrows[${i}].second`);
-    return { first, second, tip: value.tip as ObservedArrowTip };
+    // Invalid localization never invalidates an otherwise useful observation.
+    const b = value.bounds;
+    const validBox = plain(b) && coordinate(b.left) && coordinate(b.top) &&
+      coordinate(b.right) && coordinate(b.bottom) && b.right > b.left && b.bottom > b.top &&
+      b.right - b.left >= 20 && b.bottom - b.top >= 20;
+    return { first, second, tip: value.tip as ObservedArrowTip,
+      ...(validBox ? { bounds: { left: b.left as number, top: b.top as number,
+        right: b.right as number, bottom: b.bottom as number } } : {}),
+    };
   });
   const containment = (parsed.containment as unknown[]).map((value, i) => {
     if (!plain(value) || !['inside', 'outside', 'unclear'].includes(String(value.relation))) {
@@ -93,6 +104,41 @@ export const BLIND_VISUAL_OBSERVATION_SCHEMA = {
   },
   required: ['labels', 'arrows', 'containment', 'arrowsComplete'],
   additionalProperties: false,
+} as const;
+
+/** Additional localization is requested ONLY by the optional zoom experiment. */
+export const BLIND_VISUAL_OBSERVATION_ZOOM_SCHEMA = {
+  ...BLIND_VISUAL_OBSERVATION_SCHEMA,
+  properties: {
+    ...BLIND_VISUAL_OBSERVATION_SCHEMA.properties,
+    arrows: {
+      ...BLIND_VISUAL_OBSERVATION_SCHEMA.properties.arrows,
+      items: {
+        ...BLIND_VISUAL_OBSERVATION_SCHEMA.properties.arrows.items,
+        properties: {
+          ...BLIND_VISUAL_OBSERVATION_SCHEMA.properties.arrows.items.properties,
+          bounds: {
+            type: 'object',
+            properties: {
+              left: { type: 'integer', minimum: 0, maximum: 1000 },
+              top: { type: 'integer', minimum: 0, maximum: 1000 },
+              right: { type: 'integer', minimum: 0, maximum: 1000 },
+              bottom: { type: 'integer', minimum: 0, maximum: 1000 },
+            },
+            required: ['left', 'top', 'right', 'bottom'], additionalProperties: false,
+          },
+        },
+      },
+    },
+  },
+} as const;
+
+export const BLIND_VISUAL_ZOOM_LOCALIZATION_HINT =
+  'Si tu localises précisément une flèche, ajoute bounds avec left, top, right, bottom en coordonnées 0..1000 relativement à toute l’image. Le rectangle doit contenir le trait complet, ses deux extrémités et leurs étiquettes. Omettre bounds en cas de doute. Ce sont des positions de pixels, pas des réponses scientifiques.';
+
+export const BLIND_VISUAL_ZOOM_TIP_SCHEMA = {
+  type: 'object', properties: { tip: { type: 'string', enum: ['first', 'second', 'none', 'unclear'] } },
+  required: ['tip'], additionalProperties: false,
 } as const;
 
 export const BLIND_VISUAL_OBSERVATION_PROMPT = [
@@ -189,6 +235,8 @@ export function compareBlindVisualGraph(graph: ObservedVisualGraph): Record<stri
 export interface BlindGraphDiagnostic {
   /** The exact raster sent to Ollama, metadata only (no pixels). */
   imageAudit?: { mimeType: string; byteCount: number; width: number | null; height: number | null; pngSignatureValid: boolean };
+  /** Diagnostic counters only; no crop pixels or endpoint are exported. */
+  zoom?: { candidates: number; attempted: number; resolved: number; unavailable: number; failures: number };
   rawResponse: string;
   rawResponseTruncated: boolean;
   doneReason?: string;
@@ -229,6 +277,7 @@ export interface BlindVisualObservationRun {
   remote?: boolean;
   durationMs: number;
   status: 'success' | 'failed' | 'aborted';
+  zoom?: boolean;
   observations: Record<string, DiagramSensitivityChoice>;
   arrowCount: number;
   containmentCount: number;
@@ -243,7 +292,7 @@ export function buildBlindVisualObservationReport(
 ) {
   const readings: DiagramSensitivityReading[] = runs.map((run) => ({
     caseId: run.caseId, repetition: run.repetition,
-    profileId: run.profileId, method: 'blind-graph',
+    profileId: run.profileId, method: run.zoom ? 'blind-graph-zoom' : 'blind-graph',
     observations: run.observations,
   }));
   return {

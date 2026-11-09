@@ -30,6 +30,12 @@ export function BlindGraphRunDetails({ run, gold }: {
       </table>
     </div>}
     {(run.diagnostic?.attempts ?? 1) > 1 && <p>Format relancé une fois : {run.status === 'success' ? 'réponse récupérée' : 'réponse encore invalide'}. Motif initial : {run.diagnostic?.previousValidationError ?? 'non renseigné'}.</p>}
+    {run.diagnostic?.zoom && <p>
+      Agrandissement ciblé : {run.diagnostic.zoom.attempted} tentative(s),
+      {' '}{run.diagnostic.zoom.resolved} direction(s) clarifiée(s),
+      {' '}{run.diagnostic.zoom.unavailable} zone(s) non localisée(s),
+      {' '}{run.diagnostic.zoom.failures} échec(s).
+    </p>}
     {run.diagnostic?.validationError && <p>Sortie rejetée : {run.diagnostic.validationError}</p>}
     {run.status !== 'success' && !run.diagnostic?.validationError && <p>
       {run.errorCategory === 'cancelled' ? 'Appel interrompu.' : 'Erreur de communication ou réponse serveur inexploitable.'}

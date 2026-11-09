@@ -2296,7 +2296,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function runScientificDiagramBlindGraph(
-    request: { cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>; repetitions: DiagramProtocolCount },
+    request: { cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>; repetitions: DiagramProtocolCount; zoomUncertainArrows?: boolean },
   ) {
     if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
     if (!service.extractBlindDiagramGraph) throw new Error('Lecteur de graphe indisponible.');
@@ -2343,10 +2343,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 profile.configuration.endpoint, model, entry.images[0]!, controller.signal,
                 (value) => { diagnostic = value; },
                 { apiCompatible: profile.configuration.apiCompatible, apiKey: profile.configuration.apiKey },
+                request.zoomUncertainArrows,
               );
               runs.push({
                 caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
-                model, provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
+                model, zoom: Boolean(request.zoomUncertainArrows), provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
                 remote: !isLoopbackPilotEndpoint(profile.configuration.endpoint),
                 status: 'success', durationMs: Math.round(performance.now() - started),
                 observations: compareBlindVisualGraph(graph), graph, diagnostic,
@@ -2358,7 +2359,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 (cause instanceof Error && cause.name === 'AbortError');
               runs.push({
                 caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
-                model, provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
+                model, zoom: Boolean(request.zoomUncertainArrows), provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
                 remote: !isLoopbackPilotEndpoint(profile.configuration.endpoint),
                 status: interrupted ? 'aborted' : 'failed',
                 durationMs: Math.round(performance.now() - started),
