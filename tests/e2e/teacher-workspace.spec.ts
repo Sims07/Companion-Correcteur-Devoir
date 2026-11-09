@@ -88,6 +88,10 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await expect(page.getByRole('tablist', { name: 'Sections du devoir' })).toHaveCount(0);
   await expect(page.getByLabel('Nom de la configuration')).toBeVisible();
+  await expect(page.getByLabel('Modèle génératif', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Modèle décisionnel (facultatif)')).toBeVisible();
+  await expect(page.getByLabel('Modèle de lecture des images')).toBeHidden();
+  await page.getByText('Options avancées du test', { exact: true }).click();
   await expect(page.getByLabel('Modèle de lecture des images')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Évaluer cette configuration' })).toBeDisabled();
 });
