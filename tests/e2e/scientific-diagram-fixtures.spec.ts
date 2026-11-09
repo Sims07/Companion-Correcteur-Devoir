@@ -247,8 +247,12 @@ test('Qwen 4B compares direct Think OFF/ON on E and exports only observed reason
   const configuration = {
     endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '',
     visionModel: '', analysisModel: 'qwen3.5:4b',
+    transcriptionTokenLimit: 2048, transcriptionPromptMode: 'auto',
+    transcriptionRepeatPenalty: 1.05, transcriptionPenaltyParameter: 'none',
+    transcriptionFrequencyPenalty: 0,
     analysisThinking: true, // Saved ON must not contaminate the OFF control.
     correctionMethod: 'generative', criterionByCriterion: false,
+    secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single',
   };
   await page.addInitScript((profiles) => localStorage.setItem(
     'companion-correcteur:ollama-profiles:v1', JSON.stringify(profiles),
