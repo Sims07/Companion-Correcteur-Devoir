@@ -1,8 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
-import { blindGraphLocalUrl, extractBlindVisualGraph } from './blindDiagramGraphClient.ts';
-import { BLIND_VISUAL_OBSERVATION_PROMPT } from '../../domain/scientificDiagramBlindGraph.ts';
+import { auditBlindGraphImage, blindGraphLocalUrl, extractBlindVisualGraph } from './blindDiagramGraphClient.ts';
+import { BLIND_VISUAL_OBSERVATION_PROMPT, BLIND_VISUAL_OBSERVATION_SCHEMA } from '../../domain/scientificDiagramBlindGraph.ts';
 
 describe('client graphe visuel indépendant', () => {
+  it('audits the actual encoded raster bytes without exporting pixels', () => {
+    const header = Uint8Array.from([
+      137,80,78,71,13,10,26,10, 0,0,0,13, 73,72,68,82,
+      0,0,4,76, 0,0,2,98, 8,2,0,0,0,
+    ]);
+    const base64 = btoa(String.fromCharCode(...header));
+    expect(auditBlindGraphImage({ base64, mimeType: 'image/png' })).toEqual({
+      mimeType: 'image/png', byteCount: header.length, width: 1100, height: 610, pngSignatureValid: true,
+    });
+    expect(auditBlindGraphImage({ base64: 'invalid', mimeType: 'image/png' }).pngSignatureValid).toBe(false);
+    expect(JSON.stringify(auditBlindGraphImage({ base64, mimeType: 'image/png' }))).not.toContain(base64);
+  });
   it('rejects remote, credentialled and proxied URLs before sending image bytes', async () => {
     const forbidden = [
       'https://localhost:11434', 'http://ollama.example:11434',
@@ -28,7 +40,7 @@ describe('client graphe visuel indépendant', () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const payload = JSON.parse(String(init?.body)) as {
         model: string; messages: Array<{ role: string; content: string; images?: string[] }>;
-        stream: boolean; think: boolean; keep_alive: number;
+        stream: boolean; think: boolean; keep_alive: number; format: unknown;
       };
       expect(payload.model).toBe('qwen3.5:4b');
       expect(payload.messages[0]?.content).toBe(BLIND_VISUAL_OBSERVATION_PROMPT);
@@ -38,6 +50,8 @@ describe('client graphe visuel indépendant', () => {
       expect(payload.stream).toBe(false);
       expect(payload.think).toBe(false);
       expect(payload.keep_alive).toBe(0);
+      expect(payload.format).toEqual(BLIND_VISUAL_OBSERVATION_SCHEMA);
+      expect(JSON.stringify(payload.format)).not.toMatch(/ADN|ARN|Protéine/);
       return new Response(JSON.stringify({ message: { content: JSON.stringify(graph) } }),
         { status: 200, headers: { 'content-type': 'application/json' } });
     });
@@ -58,10 +72,10 @@ describe('client graphe visuel indépendant', () => {
       message: { content }, done_reason, eval_count: 768, endpoint: 'PRIVATE_SERVER', apiKey: 'PRIVATE_KEY',
     })));
     await expect(extractBlindVisualGraph(request, transport(raw))).resolves.toEqual(graph);
-    expect(request.onDiagnostic).toHaveBeenLastCalledWith({ rawResponse: raw, rawResponseTruncated: false, doneReason: 'stop', outputTokens: 768 });
+    expect(request.onDiagnostic).toHaveBeenLastCalledWith(expect.objectContaining({ rawResponse: raw, rawResponseTruncated: false, doneReason: 'stop', outputTokens: 768 }));
     await expect(extractBlindVisualGraph(request, transport('{', 'length'))).rejects.toThrow('JSON');
-    expect(request.onDiagnostic).toHaveBeenLastCalledWith({ rawResponse: '{', rawResponseTruncated: false,
-      doneReason: 'length', outputTokens: 768, validationError: 'JSON visuel illisible.' });
+    expect(request.onDiagnostic).toHaveBeenLastCalledWith(expect.objectContaining({ rawResponse: '{', rawResponseTruncated: false,
+      doneReason: 'length', outputTokens: 768, validationError: 'JSON visuel illisible.' }));
     expect(JSON.stringify(request.onDiagnostic.mock.calls)).not.toMatch(/PRIVATE_PIXELS|PRIVATE_KEY|PRIVATE_SERVER/);
     await expect(extractBlindVisualGraph(request, transport(''))).rejects.toThrow('aucune observation');
     expect(request.onDiagnostic.mock.calls.at(-1)?.[0].rawResponse).toBe('');
