@@ -15,6 +15,7 @@ export function createCorrectionWorkspaceService(
   return {
     ...(ollama.prepareQuestionContracts ? { prepareQuestionContracts: ollama.prepareQuestionContracts.bind(ollama) } : {}),
     checkReady: (settings: OllamaSettings) => ollama.checkReady(settings),
+    ...(ollama.detectDiagramThinking ? { detectDiagramThinking: (endpoint: string, model: string, requireThinkOff?: boolean) => ollama.detectDiagramThinking!(endpoint, model, requireThinkOff) } : {}),
     listModels: (endpoint) => ollama.listModels(endpoint),
     createProvider: (settings) => ollama.createProvider(settings),
     importRubricImage: (images, settings, onProgress?: (progress: RubricImportProgress) => void, signal?: AbortSignal) => ollama.importRubricImage(images, settings, onProgress, signal),
