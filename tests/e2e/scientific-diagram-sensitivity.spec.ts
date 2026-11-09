@@ -51,8 +51,9 @@ test('semantic sensitivity suite sends the same independent rubric with six pixe
       const answerKeys = Object.keys(body.questions ?? {});
       requests.push({ imageCount: body.images?.length ?? 0, state: body.state, answerKeys });
       const answers = Object.fromEntries(answerKeys.map((key) => [
-        key, { type: 'choice', choice: 'present', confidence: 0.99,
-          probabilities: { present: 1 } },
+        key, key === 'alignment'
+          ? { type: 'choice', choice: 'aligned', confidence: 0.99, probabilities: { aligned: 1 } }
+          : { type: 'choice', choice: 'present', confidence: 0.99, probabilities: { present: 1 } },
       ]));
       await route.fulfill({ status: 200, headers,
         body: JSON.stringify({ answers, usage: { input_tokens: 20, output_tokens: 0 } }) });
@@ -78,7 +79,7 @@ test('semantic sensitivity suite sends the same independent rubric with six pixe
   await suite.getByRole('button', { name: 'Tester les 6 variantes sémantiques' }).click();
   await expect.poll(() => requests.length, { timeout: 90_000 }).toBe(6);
   expect(requests.every((item) => item.imageCount === 1)).toBe(true);
-  expect(requests.every((item) => item.answerKeys.length === 3)).toBe(true);
+  expect(requests.every((item) => item.answerKeys.filter((key) => key.includes('expected_')).length === 3)).toBe(true);
   expect(requests.every((item) => !/S1 —|S2 —|S3 —|Flèche inversée|Mauvaise connexion/.test(item.state))).toBe(true);
 
   const results = suite.getByRole('region', { name: 'Résultats de sensibilité sémantique' });
