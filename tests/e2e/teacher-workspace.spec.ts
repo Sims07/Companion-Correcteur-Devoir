@@ -62,8 +62,9 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await page.getByRole('button', { name: 'IA locale à configurer' }).click();
   await expect(page.getByRole('heading', { name: 'Paramètres de l’IA locale' })).toBeVisible();
   await expect(page.getByLabel('Adresse du serveur Ollama')).toBeVisible();
-  await expect(page.getByLabel('Modèle de lecture des copies')).toBeVisible();
-  await expect(page.getByLabel('Modèle d’analyse et de notation')).toBeVisible();
+  await expect(page.getByLabel('Modèle génératif', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Modèle décisionnel (facultatif)')).toBeVisible();
+  await expect(page.getByLabel('Modèle de lecture des copies')).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Terminé, revenir au devoir' }).click();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
@@ -87,6 +88,10 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await expect(page.getByRole('tablist', { name: 'Sections du devoir' })).toHaveCount(0);
   await expect(page.getByLabel('Nom de la configuration')).toBeVisible();
+  await expect(page.getByLabel('Modèle génératif', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Modèle décisionnel (facultatif)')).toBeVisible();
+  await expect(page.getByLabel('Modèle de lecture des images')).toBeHidden();
+  await page.getByText('Options avancées du test', { exact: true }).click();
   await expect(page.getByLabel('Modèle de lecture des images')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Évaluer cette configuration' })).toBeDisabled();
 });

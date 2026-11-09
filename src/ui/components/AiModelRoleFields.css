@@ -1,0 +1,14 @@
+.ai-model-advanced {
+  margin-block: var(--ds-space-4, 1rem);
+  padding: var(--ds-space-4, 1rem);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md, 12px);
+  background: var(--ds-color-surface);
+}
+.ai-model-advanced > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ds-color-text);
+}
+.ai-model-advanced[open] > summary { margin-bottom: 1rem; }
+.ai-model-advanced .evaluation-config-field { min-width: 0; }

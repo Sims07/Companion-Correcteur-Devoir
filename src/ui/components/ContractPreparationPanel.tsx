@@ -19,7 +19,8 @@ export function ContractPreparationPanel({ rubric, service, settings, assignment
     try { const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null'); if (saved && typeof saved.subject === 'string' && typeof saved.correction === 'string') return saved; } catch { /* empty local draft */ }
     return { subject: '', correction: '' };
   });
-  const [model, setModel] = useState(settings.correctionMethod === 'decision' ? settings.visionModel ?? '' : settings.analysisModel ?? settings.visionModel ?? '');
+  const [modelOverride, setModelOverride] = useState<string | null>(null);
+  const model = modelOverride ?? (settings.correctionMethod === 'decision' || settings.correctionMethod === 'visual-decision' ? '' : settings.analysisModel ?? '');
   const [preparation, setPreparation] = useState<ContractPreparation | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
@@ -80,7 +81,8 @@ export function ContractPreparationPanel({ rubric, service, settings, assignment
     <FilePicker id="contract-correction-file" title="Correction type (facultative)" description="Laissez vide si vous ne disposez pas de corrigé. Un corrigé inclus dans le sujet convient aussi." accept=".pdf,.txt,.md,image/jpeg,image/png,image/webp" multiple disabled={locked} onFilesSelected={files => void importDocument(files, 'correction')} compact />
     {existingDocument?.trim() && <Button variant="secondary" disabled={locked} onClick={() => changeSources({ ...sources, subject: existingDocument })}>Réutiliser le document déjà lu</Button>}
     <details><summary>Vérifier ou coller le texte des documents</summary><label><span className="field-label">Texte de la feuille d’examen</span><textarea rows={6} value={sources.subject} disabled={locked} onChange={event => changeSources({ ...sources, subject: event.target.value })} /></label><label><span className="field-label">Texte du corrigé facultatif</span><textarea rows={4} value={sources.correction} disabled={locked} onChange={event => changeSources({ ...sources, correction: event.target.value })} /></label></details>
-    <label><span className="field-label">Modèle de préparation (génératif)</span><input value={model} disabled={locked} onChange={event => setModel(event.target.value)} /></label><p className="hint">Utilise la connexion IA configurée. Si la correction utilise un modèle décisionnel, choisissez ici un modèle génératif capable de rédiger les propositions. Les critères sont préparés séquentiellement.</p>
+    <p className="hint">Modèle génératif de préparation : {model || 'à choisir dans les paramètres IA'}. Les critères sont préparés séquentiellement.</p>
+    <details><summary>Utiliser un autre modèle pour cette préparation</summary><label><span className="field-label">Modèle de préparation (génératif)</span><input value={model} disabled={locked} onChange={event => setModelOverride(event.target.value)} /></label></details>
     <div className="rubric-actions"><Button disabled={locked || !service.prepareQuestionContracts || !sources.subject.trim() || !model.trim() || !rubric.criteria.length} onClick={() => void prepare()}>Préparer les contrats</Button>{running && <Button variant="secondary" onClick={() => abortRef.current?.abort()}>Arrêter la préparation</Button>}</div>
     {message && <StatusNotice tone="info">{message}</StatusNotice>}{error && <StatusNotice tone="warning">{error}</StatusNotice>}
     {preparation && <section aria-label="Propositions de contrats">{preparation.suggestions.map(suggestion => {

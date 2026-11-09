@@ -33,8 +33,10 @@ test('third method persists and sends diagram + all typed questions to Clef thro
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await page.locator('#evaluation-profile-name').fill('Clef Vision + Décision');
-  await page.locator('#evaluation-analysis-model').fill('clef-flash');
-  await page.locator('#evaluation-correction-method').selectOption('visual-decision');
+  await page.locator('#evaluation-decision-model').fill('clef-flash');
+  await page.locator('#evaluation-correction-method').selectOption('decision');
+  await page.getByText('Options de décision sur image', { exact: true }).click();
+  await page.getByLabel('Envoyer directement les images au décisionnel').check();
   await expect(page.locator('#evaluation-criterion-by-criterion')).toBeDisabled();
   await page.getByRole('button', { name: 'Enregistrer la configuration' }).click();
   const saved = await page.evaluate((key) => {
@@ -66,7 +68,9 @@ test('third method persists and sends diagram + all typed questions to Clef thro
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await page.getByText('Créer ou modifier une configuration IA', { exact: true }).click();
   await page.locator('#evaluation-profile-select').selectOption(saved!.id);
-  await expect(page.locator('#evaluation-correction-method')).toHaveValue('visual-decision');
+  await expect(page.locator('#evaluation-correction-method')).toHaveValue('decision');
+  await page.getByText('Options de décision sur image', { exact: true }).click();
+  await expect(page.getByLabel('Envoyer directement les images au décisionnel')).toBeChecked();
 });
 
 test('TEV1 configured as direct image decision is blocked visibly before running the scientific diagram benchmark', async ({ page }) => {
@@ -74,8 +78,10 @@ test('TEV1 configured as direct image decision is blocked visibly before running
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await page.locator('#evaluation-profile-name').fill('TEV1 visual incompatible');
-  await page.locator('#evaluation-analysis-model').fill('tev1:4b');
-  await page.locator('#evaluation-correction-method').selectOption('visual-decision');
+  await page.locator('#evaluation-decision-model').fill('tev1:4b');
+  await page.locator('#evaluation-correction-method').selectOption('decision');
+  await page.getByText('Options de décision sur image', { exact: true }).click();
+  await page.getByLabel('Envoyer directement les images au décisionnel').check();
   await page.getByRole('button', { name: 'Enregistrer la configuration' }).click();
   await page.getByRole('group', { name: 'Configurations à exécuter' })
     .getByText('TEV1 visual incompatible').click();

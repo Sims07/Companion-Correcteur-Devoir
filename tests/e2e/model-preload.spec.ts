@@ -30,7 +30,7 @@ test('an OpenAI-compatible configuration preloads a typed model without changing
   await expect(name).toHaveValue('saluki-27b');
   await name.fill('qwen3.5:27b');
   await panel.getByRole('button', { name: 'Précharger ce modèle' }).click();
-  await expect(panel.getByRole('status')).toContainText('Le serveur a confirmé le chargement de « qwen3.5:27b ».');
+  await expect(panel.getByRole('status').filter({ hasText: 'Le serveur a confirmé' })).toContainText('Le serveur a confirmé le chargement de « qwen3.5:27b ».');
   expect(preloadRequests).toEqual([{ url: 'https://ai.example/v1/models/qwen3.5%3A27b/load', authorization: 'Bearer models-token' }]);
   await expect(panel.locator('#ollama-vision-model')).toHaveValue('vision-stable');
   await expect(panel.locator('#ollama-analysis-model')).toHaveValue('analysis-stable');
