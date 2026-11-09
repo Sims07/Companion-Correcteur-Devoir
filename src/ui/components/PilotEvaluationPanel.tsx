@@ -9,7 +9,11 @@ import { QUESTION_CONTRACT_CASES, buildQuestionContractReport, type QuestionCont
 import { buildQuestionContractRepeatabilityReport, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../../domain/questionContractRepeatability.ts';
 import './PilotEvaluationPanel.css';
 
+export type BiologyScenario = 'contracts' | 'repeatability' | 'copies';
+
 interface PilotEvaluationPanelProps {
+  selectedScenario?: BiologyScenario;
+  onSelectScenario?: (scenario: BiologyScenario) => void;
   enabled: boolean;
   busy: boolean;
   uploadingCase: string | null;
@@ -36,10 +40,12 @@ interface PilotEvaluationPanelProps {
 }
 
 export function PilotEvaluationPanel({
-  enabled, busy, uploadingCase, currentCase, message, imageCounts, runs, contractRuns, repeatabilityRuns, repeatabilityPlanned, repeatabilitySuite, repeatabilityProgress, concurrencyRuns, selectedProfiles,
+  selectedScenario, onSelectScenario, enabled, busy, uploadingCase, currentCase, message, imageCounts, runs, contractRuns, repeatabilityRuns, repeatabilityPlanned, repeatabilitySuite, repeatabilityProgress, concurrencyRuns, selectedProfiles,
   onPrepare, onUpload, onRun, onRunConcurrency, onRunContracts, onRunRepeatability, onStop, onExport, onCopy,
 }: PilotEvaluationPanelProps) {
-  const [scenario, setScenario] = useState<'contracts' | 'repeatability' | 'copies'>('contracts');
+  const [localScenario, setLocalScenario] = useState<BiologyScenario>('contracts');
+  const scenario = selectedScenario ?? localScenario;
+  const setScenario = (next: BiologyScenario) => { setLocalScenario(next); onSelectScenario?.(next); };
   const [benchmarkCase, setBenchmarkCase] = useState<PilotCase['id']>('C');
   const [repeatabilityCount, setRepeatabilityCount] = useState<RepeatabilityCount>(3);
   const [repeatabilityMode, setRepeatabilityMode] = useState<RepeatabilitySuite>('baseline');

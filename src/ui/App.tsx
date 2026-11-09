@@ -407,6 +407,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [selectedEvaluationHistoryIds, setSelectedEvaluationHistoryIds] = useState<string[]>([]);
   const [evaluationHistoryStageFilter, setEvaluationHistoryStageFilter] = useState<EvaluationStageMode | 'all'>('all');
   const [evaluationEditorOpen, setEvaluationEditorOpen] = useState(aiModelProfiles.length === 0);
+  const [evaluationBiologyScenario, setEvaluationBiologyScenario] = useState<'contracts' | 'repeatability' | 'copies'>('contracts');
   const [evaluationJourney, setEvaluationJourney] = useState<'custom' | 'diagrams' | 'biology'>('custom');
   const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history'>('configuration');
   const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
@@ -3394,6 +3395,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         />
         </div>
         <div hidden={evaluationJourney !== 'biology'}><PilotEvaluationPanel
+          selectedScenario={evaluationBiologyScenario} onSelectScenario={setEvaluationBiologyScenario}
           enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}
           message={pilotMessage} runs={pilotRuns} contractRuns={pilotContractRuns}
           repeatabilityRuns={pilotRepeatabilityRuns} repeatabilityPlanned={pilotRepeatabilityPlanned} repeatabilitySuite={pilotRepeatabilitySuite}
