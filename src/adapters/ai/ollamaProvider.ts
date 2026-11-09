@@ -678,7 +678,10 @@ export function createOllamaProvider(
             // Transport errors/abort are not JSON failures: never retry those here.
             const raw = await sendStream(analysisModel, buildDirectDiagramPrompt(request, repairReason),
               (request.images ?? []).map(providerImage), onChunk, schema, settings.thinking ?? false,
-              { kind: 'model', stage: 'analysis', temperature: 0, generationTokenLimit: 2048,
+              { kind: 'model', stage: 'analysis', temperature: 0,
+                // The extra budget is opt-in: reasoning tokens share the same
+                // num_predict cap with the final answer, even with JSON output.
+                generationTokenLimit: settings.thinking ? 4096 : 2048,
                 promptId: attempt === 0 ? 'diagram.direct-grading' : 'diagram.direct-repair',
                 allowTruncated: true, onDoneReason: reason => { doneReason = reason; },
                 intent: attempt === 0 ? 'Évaluer les attendus du schéma' : 'Réparer les attendus du schéma' });
