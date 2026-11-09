@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { auditBlindGraphImage, blindGraphLocalUrl, extractBlindVisualGraph } from './blindDiagramGraphClient.ts';
+import { auditBlindGraphImage, blindGraphLocalUrl, blindGraphCompatibleUrl, extractBlindVisualGraph } from './blindDiagramGraphClient.ts';
 import { BLIND_VISUAL_OBSERVATION_PROMPT, BLIND_VISUAL_OBSERVATION_SCHEMA } from '../../domain/scientificDiagramBlindGraph.ts';
 
 describe('client graphe visuel indépendant', () => {
@@ -61,6 +61,58 @@ describe('client graphe visuel indépendant', () => {
     }, fetchMock)).resolves.toEqual(graph);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe('http://localhost:11434/api/chat');
+  });
+
+  it('sends PNG pixels to the explicitly selected OpenAI-compatible Vision endpoint with bearer auth', async () => {
+    const graph = { labels: ['ADN', 'ARN'], arrows: [{ first: 'ADN', second: 'ARN', tip: 'second' }],
+      containment: [], arrowsComplete: true };
+    const onDiagnostic = vi.fn();
+    const transport = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe('https://ai.zaup.org/v1/chat/completions');
+      expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer test-secret');
+      const body = JSON.parse(String(init?.body)) as {
+        model: string; stream: boolean; response_format: { type: string };
+        messages: Array<{ role: string; content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> }>;
+      };
+      expect(body.model).toBe('vision-27b');
+      expect(body.stream).toBe(false);
+      expect(body.response_format).toEqual({ type: 'json_object' });
+      const user = body.messages.find((message) => message.role === 'user');
+      expect(user?.content).toEqual([
+        { type: 'text', text: 'Décris seulement les éléments et leurs relations géométriques visibles.' },
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,PRIVATE_PNG', detail: 'high' } },
+      ]);
+      expect(JSON.stringify(body)).not.toContain('maxPoints');
+      expect(JSON.stringify(body)).not.toContain('ADN → ARN');
+      expect(JSON.stringify(body)).not.toContain('test-secret');
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(graph) }, finish_reason: 'stop' }],
+        usage: { completion_tokens: 135 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    });
+    await expect(extractBlindVisualGraph({
+      endpoint: 'https://ai.zaup.org/v1/chat/completions', apiCompatible: true,
+      apiKey: 'test-secret', model: 'vision-27b', image: { base64: 'PRIVATE_PNG', mimeType: 'image/png' },
+      onDiagnostic,
+    }, transport)).resolves.toEqual(graph);
+    expect(onDiagnostic).toHaveBeenCalledWith(expect.objectContaining({
+      rawResponse: JSON.stringify(graph), rawResponseTruncated: false, doneReason: 'stop', outputTokens: 135,
+    }));
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the Ollama-only boundary and rejects non-HTTPS remote OpenAI-compatible providers', async () => {
+    const transport = vi.fn();
+    expect(blindGraphCompatibleUrl('https://ai.zaup.org/v1/chat/completions')).toBe('https://ai.zaup.org/api/chat');
+    for (const endpoint of ['http://remote.example/v1/chat/completions', 'https://me:secret@remote.example/v1/chat/completions']) {
+      await expect(extractBlindVisualGraph({
+        endpoint, apiCompatible: true, model: 'vision-27b',
+        image: { base64: 'PRIVATE_PNG', mimeType: 'image/png' },
+      }, transport)).rejects.toThrow(/HTTPS|adresse/);
+    }
+    await expect(extractBlindVisualGraph({
+      endpoint: 'https://ai.zaup.org/v1/chat/completions', model: 'vision-27b',
+      image: { base64: 'PRIVATE_PNG', mimeType: 'image/png' },
+    }, transport)).rejects.toThrow(/local/);
+    expect(transport).not.toHaveBeenCalled();
   });
 
   it('uses a bounded local zoom only when an uncertain arrow has a usable image region', async () => {

@@ -55,7 +55,7 @@ test('optional blind-graph zoom crops actual local pixels, resolves only observe
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   const observer = panel.locator('details.diagram-sensitivity-section')
-    .filter({ has: page.getByText('Observer un graphe de relations avant le barème (Ollama local)') });
+    .filter({ has: page.getByText('Observer un graphe de relations avant le barème (Ollama ou OpenAI-compatible)') });
   await observer.locator('summary').click();
   await page.getByRole('group', { name: 'Configurations à exécuter' })
     .locator('label.evaluation-profile-option').first().click();

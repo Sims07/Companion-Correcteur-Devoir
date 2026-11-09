@@ -6,9 +6,13 @@ import {
   type ObservedVisualGraph, type ObservedArrowBounds, type BlindGraphDiagnostic,
 } from '../../domain/scientificDiagramBlindGraph.ts';
 import { currentFetch } from './currentFetch.ts';
+import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
 
 export interface BlindGraphLocalRequest {
   endpoint: string;
+  /** Explicit OpenAI-compatible profile; never inferred from endpoint alone. */
+  apiCompatible?: boolean;
+  apiKey?: string;
   model: string;
   image: ImageInput;
   signal?: AbortSignal;
@@ -18,8 +22,7 @@ export interface BlindGraphLocalRequest {
   prepareZoom?: (image: ImageInput, bounds: ObservedArrowBounds) => Promise<ImageInput | null>;
 }
 
-/** No remote, proxy or API-compatible fallback is permitted for blind
- * extraction: image data must remain on this machine by construction. */
+/** Direct Ollama mode never falls back to a remote server or API proxy. */
 export function blindGraphLocalUrl(endpoint: string): string {
   let url: URL;
   try { url = new URL(endpoint); }
@@ -27,6 +30,19 @@ export function blindGraphLocalUrl(endpoint: string): string {
   if (url.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
     || url.username || url.password || url.search || url.hash || (url.pathname !== '/' && url.pathname !== '')) {
     throw new Error('L’extraction du graphe n’accepte qu’un Ollama local direct, sans proxy distant.');
+  }
+  return new URL('/api/chat', url.origin).toString();
+}
+
+/** Validate the explicitly selected OpenAI-compatible endpoint before sending image bytes. */
+export function blindGraphCompatibleUrl(endpoint: string): string {
+  let url: URL;
+  try { url = new URL(endpoint); }
+  catch { throw new Error('Adresse OpenAI-compatible invalide.'); }
+  const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.hash ||
+      (!loopback && url.protocol !== 'https:')) {
+    throw new Error('Une API OpenAI-compatible distante doit utiliser HTTPS sans identifiants dans l’adresse.');
   }
   return new URL('/api/chat', url.origin).toString();
 }
@@ -92,13 +108,17 @@ export async function cropObservedArrow(image: ImageInput, bounds: ObservedArrow
 export async function extractBlindVisualGraph(
   request: BlindGraphLocalRequest, transport: typeof fetch = currentFetch,
 ): Promise<ObservedVisualGraph> {
-  const url = blindGraphLocalUrl(request.endpoint);
-  if (!request.model.trim() || request.model.length > 150) throw new Error('Modèle Vision local manquant.');
+  const compatible = request.apiCompatible === true;
+  const url = compatible ? blindGraphCompatibleUrl(request.endpoint) : blindGraphLocalUrl(request.endpoint);
+  const send = compatible
+    ? createOpenAiCompatibleFetch({ endpoint: request.endpoint, apiKey: request.apiKey ?? '' }, transport)
+    : transport;
+  if (!request.model.trim() || request.model.length > 150) throw new Error('Modèle Vision manquant.');
   if (!request.image.base64 || !/^image\/(png|jpeg|webp)$/.test(request.image.mimeType)) {
     throw new Error('Image du schéma non valide.');
   }
   if (request.signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
-  const response = await transport(url, {
+  const response = await send(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     signal: request.signal,
@@ -107,28 +127,29 @@ export async function extractBlindVisualGraph(
       messages: [
         { role: 'system', content: BLIND_VISUAL_OBSERVATION_PROMPT +
           (request.zoomUncertainArrows ? '\n' + BLIND_VISUAL_ZOOM_LOCALIZATION_HINT : '') },
-        { role: 'user', content: 'Décris seulement les éléments et leurs relations géométriques visibles.', images: [request.image.base64] },
+        { role: 'user', content: 'Décris seulement les éléments et leurs relations géométriques visibles.', images: [compatible ? `data:${request.image.mimeType};base64,${request.image.base64}` : request.image.base64] },
       ],
-      stream: false, format: request.zoomUncertainArrows ? BLIND_VISUAL_OBSERVATION_ZOOM_SCHEMA : BLIND_VISUAL_OBSERVATION_SCHEMA, think: false, keep_alive: 0,
+      stream: false, format: compatible ? 'json' : (request.zoomUncertainArrows ? BLIND_VISUAL_OBSERVATION_ZOOM_SCHEMA : BLIND_VISUAL_OBSERVATION_SCHEMA), think: false, keep_alive: 0,
       options: { temperature: 0, num_predict: 768, num_ctx: 2048 },
     }),
   });
-  if (!response.ok) throw new Error('Le modèle Vision local n’a pas répondu.');
+  if (!response.ok) throw new Error(compatible ? 'Le modèle Vision OpenAI-compatible n’a pas répondu.' : 'Le modèle Vision local n’a pas répondu.');
   let payload: unknown;
   try { payload = await response.json(); }
   catch { throw new Error('Réponse du serveur Vision illisible.'); }
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new Error('Réponse du serveur Vision invalide.');
   }
-  const result = payload as { message?: { content?: unknown }; done_reason?: unknown; eval_count?: unknown };
+  const result = payload as { message?: { content?: unknown }; done_reason?: unknown; eval_count?: unknown; usage?: { completion_tokens?: unknown } };
+  const generated = result.eval_count ?? result.usage?.completion_tokens;
   const raw = typeof result.message?.content === 'string' ? result.message.content : '';
   const diagnostic: BlindGraphDiagnostic = {
     imageAudit: auditBlindGraphImage(request.image),
     rawResponse: raw.slice(0, 24_000), rawResponseTruncated: raw.length > 24_000,
     ...(typeof result.done_reason === 'string' && ['stop', 'length', 'load', 'unload'].includes(result.done_reason)
       ? { doneReason: result.done_reason } : {}),
-    ...(typeof result.eval_count === 'number' && Number.isSafeInteger(result.eval_count) && result.eval_count >= 0
-      ? { outputTokens: result.eval_count } : {}),
+    ...(typeof generated === 'number' && Number.isSafeInteger(generated) && generated >= 0
+      ? { outputTokens: generated } : {}),
   };
   let graph: ObservedVisualGraph;
   try {
@@ -151,15 +172,15 @@ export async function extractBlindVisualGraph(
         const crop = await (request.prepareZoom ?? cropObservedArrow)(request.image, arrow.bounds);
         if (!crop) { zoom.unavailable++; continue; }
         zoom.attempted++;
-        const followup = await transport(url, {
+        const followup = await send(url, {
           method: 'POST', headers: { 'content-type': 'application/json' }, signal: request.signal,
           body: JSON.stringify({
             model: request.model,
             messages: [
               { role: 'system', content: 'Observe uniquement cette image agrandie, sans barème, sujet ni réponses attendues. Il faut localiser une pointe réellement visible, jamais deviner un sens scientifique. first et second désignent les étiquettes aux deux extrémités. Si tu ne peux pas voir la pointe, réponds unclear ; si aucune pointe n’est dessinée, none.' },
-              { role: 'user', content: 'Sur cette image : first = ' + arrow.first + ' ; second = ' + arrow.second + '. Quelle extrémité porte la pointe visible ?', images: [crop.base64] },
+              { role: 'user', content: 'Sur cette image : first = ' + arrow.first + ' ; second = ' + arrow.second + '. Quelle extrémité porte la pointe visible ?', images: [compatible ? `data:${crop.mimeType};base64,${crop.base64}` : crop.base64] },
             ],
-            stream: false, format: BLIND_VISUAL_ZOOM_TIP_SCHEMA, think: false, keep_alive: 0,
+            stream: false, format: compatible ? 'json' : BLIND_VISUAL_ZOOM_TIP_SCHEMA, think: false, keep_alive: 0,
             options: { temperature: 0, num_predict: 64, num_ctx: 2048 },
           }),
         });

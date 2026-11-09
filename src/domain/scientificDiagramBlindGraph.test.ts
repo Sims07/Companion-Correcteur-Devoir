@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   BLIND_VISUAL_OBSERVATION_PROMPT, buildBlindVisualObservationReport, compareBlindVisualGraph,
-  parseObservedVisualGraph, explainBlindVisualGraph, type ObservedVisualGraph,
+  parseObservedVisualGraph, explainBlindVisualGraph, canObserveBlindGraph, type ObservedVisualGraph,
 } from './scientificDiagramBlindGraph.ts';
 import { DIAGRAM_SENSITIVITY_TARGETS as T } from './scientificDiagramSensitivity.ts';
+import { defaultAiModelConfiguration, type AiModelProfile } from './aiModelProfiles.ts';
 
 const graph = (): ObservedVisualGraph => ({
   labels: ['Cellule', 'Noyau', 'ADN', 'ARN', 'Protéine'],
@@ -97,6 +98,31 @@ describe('lecture graphe visuel sans barème', () => {
     expect(() => parseObservedVisualGraph(JSON.stringify({ ...graph(), arrows: [{ first: '', second: 'B', tip: 'first' }] }))).toThrow('arrows[0].first');
     expect(() => parseObservedVisualGraph(JSON.stringify({ ...graph(), labels: [''] }))).toThrow('labels[0]');
   });
+  it('accepts explicit OpenAI-compatible Vision profiles, not remote Ollama or missing Vision models', () => {
+    const profile: AiModelProfile = {
+      id: 'cloud', name: 'OpenAI Vision', mode: 'single', updatedAt: '2026-11-09',
+      configuration: { ...defaultAiModelConfiguration, endpoint: 'https://ai.zaup.org/v1/chat/completions',
+        apiCompatible: true, apiKey: 'SECRET', visionModel: 'vision-27b' },
+    };
+    expect(canObserveBlindGraph(profile)).toBe(true);
+    expect(canObserveBlindGraph({ ...profile, configuration: { ...profile.configuration, apiCompatible: false } })).toBe(false);
+    expect(canObserveBlindGraph({ ...profile, configuration: { ...profile.configuration, endpoint: 'http://remote.example/v1/chat/completions' } })).toBe(false);
+    expect(canObserveBlindGraph({ ...profile, configuration: { ...profile.configuration, visionModel: '', analysisModel: '' } })).toBe(false);
+    expect(canObserveBlindGraph({ ...profile, configuration: { ...profile.configuration, endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '' } })).toBe(true);
+  });
+
+  it('reports cloud transfer accurately without exposing the server address or key', () => {
+    const report = buildBlindVisualObservationReport([{
+      caseId: 'S0', repetition: 1, profileId: 'cloud', profileName: 'Vision distante', model: 'vision-27b',
+      provider: 'openai-compatible', remote: true, status: 'success', durationMs: 18,
+      observations: {}, arrowCount: 0, containmentCount: 0,
+    }], 1, '2026-11-09');
+    expect(report.localOnly).toBe(false);
+    expect(report.cases[0]?.experiments[0]?.provider).toBe('openai-compatible');
+    expect(JSON.stringify(report)).not.toContain('https://ai.zaup.org');
+    expect(JSON.stringify(report)).not.toContain('SECRET');
+  });
+
   it('keeps failed output diagnostics in the exported report without inventing decisions', () => {
     const report = buildBlindVisualObservationReport([{
       caseId: 'S1', repetition: 1, profileId: 'local', profileName: 'Vision', model: 'qwen',

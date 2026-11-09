@@ -67,9 +67,11 @@ describe('hexagonal architecture boundaries', () => {
     const entrypoint = source('../src/main.tsx');
     expect(port).toContain('extractBlindDiagramGraph?(');
     expect(service).toContain('ollama.extractBlindDiagramGraph!');
+    expect(service).toContain('ollama.extractBlindDiagramGraph!(endpoint, model, image, signal, onDiagnostic, provider)');
     expect(app).toContain('service.extractBlindDiagramGraph(');
     expect(imports(app).some((path) => path.includes('/adapters/'))).toBe(false);
-    expect(entrypoint).toContain('extractBlindDiagramGraph: (endpoint, model, image, signal, onDiagnostic, zoomUncertainArrows)');
+    expect(entrypoint).toContain('extractBlindDiagramGraph: (endpoint, model, image, signal, onDiagnostic, provider, zoomUncertainArrows)');
+    expect(entrypoint).toContain('extractBlindVisualGraph({ endpoint, model, image, signal, onDiagnostic, ...provider, zoomUncertainArrows })');
   });
 
   it('keeps the scientific diagram analysis port independent from adapters', () => {

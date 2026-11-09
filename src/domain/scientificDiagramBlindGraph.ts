@@ -1,3 +1,5 @@
+import type { AiModelProfile } from './aiModelProfiles.ts';
+import { isLocalPilotProfile } from './pilotEvaluationProtocol.ts';
 import {
   DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS,
   summarizeDiagramSensitivity, type DiagramSensitivityCaseId,
@@ -241,12 +243,33 @@ export interface BlindGraphDiagnostic {
   validationError?: string;
 }
 
+/** Only a selected local Ollama profile or an explicit OpenAI-compatible Vision profile is eligible. */
+export function canObserveBlindGraph(profile: AiModelProfile): boolean {
+  const config = profile.configuration;
+  const model = config.visionModel.trim() ||
+    (config.correctionMethod === 'generative' ? config.analysisModel.trim() : '');
+  if (!model) return false;
+  try {
+    const url = new URL(config.endpoint);
+    if (url.username || url.password || url.hash) return false;
+    if (isLocalPilotProfile(profile)) {
+      return !url.search && (url.pathname === '/' || url.pathname === '');
+    }
+    if (!config.apiCompatible) return false;
+    const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    return url.protocol === 'https:' || (loopback && url.protocol === 'http:');
+  } catch { return false; }
+}
+
 export interface BlindVisualObservationRun {
   caseId: DiagramSensitivityCaseId;
   repetition: number;
   profileId: string;
   profileName: string;
   model: string;
+  /** Safe provenance, excluding the URL and credentials. */
+  provider?: 'ollama-local' | 'openai-compatible';
+  remote?: boolean;
   durationMs: number;
   status: 'success' | 'failed' | 'aborted';
   zoom?: boolean;
@@ -270,12 +293,12 @@ export function buildBlindVisualObservationReport(
   return {
     format: 'companion-scientific-diagram-blind-graph-report',
     version: 2, protocolId: DIAGRAM_BLIND_OBSERVATION_PROTOCOL,
-    createdAt, plannedRepetitions: repetitions, localOnly: true,
+    createdAt, plannedRepetitions: repetitions, localOnly: !runs.some((run) => run.remote),
     cases: DIAGRAM_SENSITIVITY_CASES.map(({ id, label, referenceScore, mutation, gold }) => ({
       caseId: id, label, mutation, referenceScore, gold: { ...gold },
       experiments: runs.filter((run) => run.caseId === id).map(({ caseId: _caseId, ...rest }) => rest),
     })),
     statistics: summarizeDiagramSensitivity(readings),
-    limitations: 'Extraction visuelle locale et séparée : aucun barème ni réponse attendue envoyés au modèle. Le comparateur de graphe vérifie trois relations de référence après extraction. Une flèche manquante est considérée absente seulement si le modèle affirme avoir parcouru toutes les flèches ; cette affirmation peut être fausse. Une absence de preuve n’est pas un zéro. S5 est indécidable sur la première flèche. Références synthétiques provisoires, à valider par un professeur. Diagnostic des six dessins synthétiques : graphe extrait et réponse du modèle (24 000 caractères maximum) inclus. Aucun pixel, prompt, endpoint ni clé de configuration exportés. Les textes du modèle restent des données non fiables.',
+    limitations: 'Extraction visuelle indépendante (locale pour Ollama ; vers le fournisseur pour un profil OpenAI-compatible distant) : aucun barème ni réponse attendue envoyés au modèle. Le comparateur de graphe vérifie trois relations de référence après extraction. Une flèche manquante est considérée absente seulement si le modèle affirme avoir parcouru toutes les flèches ; cette affirmation peut être fausse. Une absence de preuve n’est pas un zéro. S5 est indécidable sur la première flèche. Références synthétiques provisoires, à valider par un professeur. Diagnostic des six dessins synthétiques : graphe extrait et réponse du modèle (24 000 caractères maximum) inclus. Aucun pixel, prompt, endpoint ni clé de configuration exportés. Les textes du modèle restent des données non fiables.',
   };
 }
