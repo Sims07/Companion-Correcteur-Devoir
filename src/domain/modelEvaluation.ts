@@ -12,6 +12,8 @@ export interface ModelEvaluationConfiguration {
   visionModel: string;
   analysisModel: string;
   thinking: boolean;
+  /** Native Ollama named thinking level discovered for this diagram run, if required. */
+  thinkingLevel?: string;
   criterionByCriterion?: boolean;
   correctionMethod?: CorrectionMethod;
   /** Direct image decisions are an experimental evaluation option, not a teacher default. */
@@ -160,7 +162,7 @@ export interface ModelEvaluationCallTrace {
   promptId?: string;
   promptVersion?: number;
   requestPrompt?: string;
-  requestMetadata?: { provider?: 'ollama' | 'openai-compatible'; endpoint?: string; stream: boolean; think: boolean; format?: 'json' | 'json-schema'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number; stop?: string[]; repeatPenalty?: number; frequencyPenalty?: number } };
+  requestMetadata?: { provider?: 'ollama' | 'openai-compatible'; endpoint?: string; stream: boolean; think: boolean | string; format?: 'json' | 'json-schema'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number; stop?: string[]; repeatPenalty?: number; frequencyPenalty?: number } };
   requestPayload?: string;
   raw: string;
   /** Network/provider failure for this exact call, when the stream did not complete. */
