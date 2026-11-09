@@ -77,7 +77,7 @@ describe('sensibilité sémantique des schémas', () => {
       reading('S0', { [keys.nucleus]: 'absent' }),
       reading('S3', { [keys.nucleus]: 'absent' }),
     ])[0]).toMatchObject({
-      sensitivityHits: 0, sensitivityTrials: 1, sensitivityUnknown: 0,
+      sensitivityHits: 0, sensitivityTrials: 0, sensitivityUnknown: 1,
       falsePositiveCount: 1, controlObservations: 3,
     });
   });
