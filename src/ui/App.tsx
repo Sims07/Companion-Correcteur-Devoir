@@ -64,6 +64,7 @@ import { buildDiagramReview } from '../domain/diagramTeacherReview.ts';
 import { directDiagramAssignmentIssue, isLoopbackDiagramEndpoint } from '../application/directScientificDiagramCorrection.ts';
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
+import { DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_CONTEXT, DIAGRAM_SENSITIVITY_RUBRIC, buildScientificDiagramSensitivityReport, type DiagramSensitivityCaseId, type DiagramSensitivityRun } from '../domain/scientificDiagramSensitivity.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../domain/questionContractRepeatability.ts';
 import { runPilotCriterionConcurrency, type PilotConcurrencyRun } from '../application/pilotCriterionConcurrency.ts';
@@ -442,6 +443,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   // Switching to the network inspector must not discard a completed or partial benchmark.
   const [diagramProtocolReport, setDiagramProtocolReport] = useState<ReturnType<typeof buildScientificDiagramProtocolReport> | null>(null);
   const [diagramFixtureReport, setDiagramFixtureReport] = useState<ReturnType<typeof buildScientificDiagramFixtureReport> | null>(null);
+  const [diagramSensitivityReport, setDiagramSensitivityReport] = useState<ReturnType<typeof buildScientificDiagramSensitivityReport> | null>(null);
   const pilotStopRef = useRef(false);
   const pilotMemoryErrorRef = useRef<string | null>(null);
   const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
@@ -2117,7 +2119,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  type DiagramCaseInput = { id: 'manual' | ScientificDiagramFixtureId; images: ImageInput[] };
+  type DiagramCaseInput = { id: 'manual' | ScientificDiagramFixtureId | DiagramSensitivityCaseId; images: ImageInput[] };
 
   /** Reuse the same evaluator/provider for the manual case and the three
    * bundled teacher-reference cases. The model never receives the expected
@@ -2254,6 +2256,27 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     );
     const report = build(runs);
     setDiagramFixtureReport(report);
+    return report;
+  }
+
+  async function runScientificDiagramSensitivity(
+    request: { cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>; repetitions: DiagramProtocolCount; methodSelection: DiagramMethodSelection },
+  ) {
+    const createdAt = new Date().toISOString();
+    setDiagramSensitivityReport(null);
+    const build = (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }[]) =>
+      buildScientificDiagramSensitivityReport(
+        runs.filter((run) => DIAGRAM_SENSITIVITY_CASE_IDS.some((id) => id === run.caseId))
+          .map((run): DiagramSensitivityRun => ({ caseId: run.caseId as DiagramSensitivityCaseId, repetition: run.repetition, record: run.record })),
+        request.repetitions, createdAt,
+      );
+    const runs = await executeScientificDiagramCases(
+      DIAGRAM_SENSITIVITY_RUBRIC, DIAGRAM_SENSITIVITY_CONTEXT,
+      request.cases, request.repetitions, request.methodSelection,
+      (completed) => setDiagramSensitivityReport(build(completed)),
+    );
+    const report = build(runs);
+    setDiagramSensitivityReport(report);
     return report;
   }
 
@@ -3235,7 +3258,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </header>
 
       {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
-      {interfaceMode !== 'teacher' && (diagramFixtureReport || diagramProtocolReport) && <section className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
+      {interfaceMode !== 'teacher' && (diagramFixtureReport || diagramProtocolReport || diagramSensitivityReport) && <section className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
         <div>
           <strong>Rapports de schémas disponibles</strong>
           <p>Résultats conservés pendant la navigation · les passages terminés restent exportables même si la série est interrompue.</p>
@@ -3243,6 +3266,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="diagram-protocol-export-actions">
           {diagramFixtureReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramFixtureReport, 'companion-schemas-scientifiques.json')}>
             Exporter les schémas testés ({diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage{diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0) === 1 ? '' : 's'})
+          </Button>}
+          {diagramSensitivityReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramSensitivityReport, 'companion-sensibilite-semantique.json')}>
+            Exporter la sensibilité sémantique ({diagramSensitivityReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage(s))
           </Button>}
           {diagramProtocolReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramProtocolReport, 'companion-protocole-schema-scientifique.json')}>
             Exporter le schéma personnel ({diagramProtocolReport.experiments.length} passage{diagramProtocolReport.experiments.length === 1 ? '' : 's'})
@@ -3422,11 +3448,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           onPrepareImages={(files) => service.prepareFiles(files)}
           onRun={runScientificDiagramProtocol}
           onRunFixtures={runScientificDiagramFixtures}
+          onRunSensitivity={runScientificDiagramSensitivity}
           onStop={stopPilotProtocol}
           report={diagramProtocolReport}
           fixtureReport={diagramFixtureReport}
+          sensitivityReport={diagramSensitivityReport}
           onClearReport={() => setDiagramProtocolReport(null)}
           onClearFixtureReport={() => setDiagramFixtureReport(null)}
+          onClearSensitivityReport={() => setDiagramSensitivityReport(null)}
         />
         </div>
         <div hidden={evaluationJourney !== 'biology'}><PilotEvaluationPanel
