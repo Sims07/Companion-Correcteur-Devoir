@@ -2155,7 +2155,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           let thinkSetting: OllamaThinkSetting = true;
           if (methods.includes('direct-image-generative-thinking')) {
             setDiagramProtocolProgress('Vérification Think · ' + profile.name + '…');
-            thinkSetting = await detectOllamaDiagramThinkSetting(profile.configuration.endpoint, profile.configuration.analysisModel);
+            thinkSetting = await detectOllamaDiagramThinkSetting(
+              profile.configuration.endpoint, profile.configuration.analysisModel, undefined,
+              methodSelection === 'compare-thinking',
+            );
           }
           for (const method of methods) {
             for (const testCase of cases) {
