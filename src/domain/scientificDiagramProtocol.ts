@@ -77,14 +77,15 @@ export function availableDiagramMethods(profile: AiModelProfile): DiagramMethod[
   return methods;
 }
 
-/** An opt-in research mode: do not silently enable slow reasoning in the
- * regular "compare" workflow or send Qwen thinking controls to remote APIs. */
+/** Selection is based on provider and route, never on a model-name list.
+ * Per-model thinking and vision capabilities are checked against Ollama
+ * /api/show when the test starts, before grading any image. */
 export function supportsDiagramThinking(profile: AiModelProfile): boolean {
   const config = profile.configuration;
   return !config.apiCompatible
     && isLoopbackPilotEndpoint(config.endpoint)
     && config.correctionMethod === 'generative'
-    && /^qwen3\.5:4b(?:-|$)/i.test(config.analysisModel.trim());
+    && Boolean(config.analysisModel.trim());
 }
 
 export function selectDiagramMethods(profile: AiModelProfile, selection: DiagramMethodSelection): DiagramMethod[] {
@@ -110,7 +111,7 @@ export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMe
       : 'Ce modèle ne peut pas recevoir directement le schéma via System One : ' + profile.name;
   }
   if (selection === 'compare-thinking' || selection === 'direct-image-generative-thinking') {
-    return 'Le test Think nécessite Qwen 3.5 4B en modèle d’analyse, une configuration générative et Ollama local (pas une API distante) : ' + profile.name;
+    return 'Le test Think nécessite un modèle d’analyse génératif sur Ollama local (pas une API distante). Les capacités Think sont vérifiées auprès d’Ollama au lancement : ' + profile.name;
   }
   return selection === 'direct-image-generative'
     ? 'Le parcours génératif direct exige une configuration générative et un modèle acceptant les images : ' + profile.name
@@ -298,6 +299,10 @@ export function buildScientificDiagramProtocolReport(
           ? 'direct-image-generative-thinking' as const : 'direct-image-generative' as const)
         : 'vision-then-analysis' as const,
     thinkingRequested: record.configurations.find((entry) => entry.id === result.profileId)?.thinking ?? null,
+    thinkingSetting: (() => {
+      const configuration = record.configurations.find((entry) => entry.id === result.profileId);
+      return configuration?.thinkingLevel ?? configuration?.thinking ?? null;
+    })(),
     // Only observable separate Ollama thinking chunks count as evidence that
     // the provider actually emitted reasoning; do not export the text itself.
     thinkingObserved: (() => {

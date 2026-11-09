@@ -57,6 +57,7 @@ import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluatio
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
+import type { DiagramThinkSetting } from '../ports/correctionWorkspace.ts';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
 import { initialAssignmentRubric, type AssignmentKind } from '../domain/assignmentKind.ts';
 import { buildDiagramReview } from '../domain/diagramTeacherReview.ts';
@@ -98,7 +99,7 @@ interface PilotRunOptions {
   profiles: AiModelProfile[];
   caseImages: ImageInput[];
   contractVariant?: QuestionContractVariant;
-  diagram?: { rubric: Rubric; question: string; method: DiagramMethod };
+  diagram?: { rubric: Rubric; question: string; method: DiagramMethod; thinkSetting?: DiagramThinkSetting };
   retainModelAfterRun?: boolean;
 }
 
@@ -1647,6 +1648,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         // still use the saved profile preference unchanged.
         thinking: diagramMethod ? diagramMethod === 'direct-image-generative-thinking'
           : profile.configuration.analysisThinking,
+        ...(diagramMethod === 'direct-image-generative-thinking' && typeof options?.diagram?.thinkSetting === 'string'
+          ? { thinkingLevel: options.diagram.thinkSetting } : {}),
         criterionByCriterion: profile.configuration.criterionByCriterion,
         correctionMethod: effectiveMethod(profile),
         directVisualDecision: directProfiles(profile),
@@ -1698,6 +1701,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           visionModel: configuration.visionModel,
           analysisModel: configuration.analysisModel,
           thinking: configuration.thinking,
+          ...(configuration.thinkingLevel ? { thinkingLevel: configuration.thinkingLevel } : {}),
           criterionByCriterion: configuration.criterionByCriterion,
           correctionMethod: configuration.correctionMethod,
           diagnosticStrategy: 'single',
@@ -1817,6 +1821,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         // the research report even though the wire requests differed.
         thinking: outputs.find((output) => output.configuration.id === profile.id)?.configuration.thinking
           ?? profile.configuration.analysisThinking,
+        ...(outputs.find((output) => output.configuration.id === profile.id)?.configuration.thinkingLevel
+          ? { thinkingLevel: outputs.find((output) => output.configuration.id === profile.id)!.configuration.thinkingLevel } : {}),
         criterionByCriterion: profile.configuration.criterionByCriterion,
         apiCompatible: profile.configuration.apiCompatible,
         correctionMethod: effectiveMethod(profile),
@@ -2143,7 +2149,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       // before unloading. Each case is one independent image group.
       for (const profile of profiles) {
         try {
-          for (const method of selectDiagramMethods(profile, methodSelection)) {
+          const methods = selectDiagramMethods(profile, methodSelection);
+          // Ask Ollama which Think control this exact model supports. Probe once
+          // before any image call (even the OFF control), not once per case.
+          let thinkSetting: DiagramThinkSetting = true;
+          if (methods.includes('direct-image-generative-thinking')) {
+            setDiagramProtocolProgress('Vérification Think · ' + profile.name + '…');
+            if (!service.detectDiagramThinking) throw new Error('Vérification Think indisponible dans le service Ollama local.');
+            thinkSetting = await service.detectDiagramThinking(
+              profile.configuration.endpoint, profile.configuration.analysisModel,
+              methodSelection === 'compare-thinking',
+            );
+          }
+          for (const method of methods) {
             for (const testCase of cases) {
               for (let repetition = 1; repetition <= repetitions; repetition++) {
                 if (pilotStopRef.current || evaluationCancelledRef.current) break;
@@ -2157,6 +2175,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                     question: (context || 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni.')
                       + ' Vérifie chaque attendu sur le dessin original. N’invente pas de structures absentes ; signale les éléments incertains.',
                     method,
+                    ...(method === 'direct-image-generative-thinking' ? { thinkSetting } : {}),
                   },
                 });
                 if (record) {

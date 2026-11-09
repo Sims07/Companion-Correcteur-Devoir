@@ -18,6 +18,7 @@ import { createCorrectionWorkspaceService } from './application/correctionWorksp
 import { createScientificDiagramAnalysisService } from './application/scientificDiagramAnalysisService.ts';
 import { createOpenAiScientificDiagramAnalyzer } from './adapters/ai/openAiScientificDiagramAnalyzer.ts';
 import { checkOllamaReady, createOllamaProvider, importRubricImageWithOllama, listOllamaModels, prewarmOllamaModel, unloadOllamaModel } from './adapters/ai/ollamaProvider.ts';
+import { detectOllamaDiagramThinkSetting } from './adapters/ai/ollamaThinkingCapabilities.ts';
 import { eraseTeacherAnnotationColor, prepareLocalFiles, rotateLocalImage } from './adapters/files/localFiles.ts';
 import { importRubricFile } from './adapters/files/rubricImport.ts';
 import './ui/styles.css';
@@ -45,7 +46,7 @@ const scientificDiagramAnalysisService = createScientificDiagramAnalysisService(
 const backgroundCorrectionService = createBackgroundCorrectionService(new IndexedDbBackgroundCorrectionRepository(), { checkReady: checkOllamaReady, prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), unloadModel: unloadOllamaModel, listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) }, scientificDiagramAnalysisService);
 installLocalMemoryFetchBridge(localCorrectionRepository);
 const correctionWorkspaceService = createCorrectionWorkspaceService(
-  { prepareQuestionContracts, checkReady: checkOllamaReady, prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) },
+  { prepareQuestionContracts, checkReady: checkOllamaReady, detectDiagramThinking: (endpoint, model, requireOff) => detectOllamaDiagramThinkSetting(endpoint, model, currentFetch, requireOff), prewarmModel: (settings, model, signal) => prewarmOllamaModel(settings, model, currentFetch, signal), listModels: listOllamaModels, createProvider: createOllamaProvider, importRubricImage: (images, settings, onProgress, signal) => importRubricImageWithOllama(images, settings, currentFetch, onProgress, signal) },
   { prepareFiles: prepareLocalFiles, rotateImage: rotateLocalImage, eraseTeacherAnnotationColor, importRubric: importRubricFile },
 );
 

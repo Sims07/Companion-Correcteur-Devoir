@@ -448,7 +448,7 @@ export function createOllamaProvider(
         images?: string[],
         streamChunk?: (chunk: string) => void,
         json: boolean | Record<string, unknown> = false,
-        think = false,
+        think: boolean | string = false,
         tracking?: Pick<DiagnosticModelResult, 'kind' | 'stage' | 'purpose'> & { deferResult?: boolean; temperature?: number; contextTokenLimit?: number; generationTokenLimit?: number; stop?: string[]; repeatPenalty?: number; allowTruncated?: boolean; intent?: string; context?: string; onDoneReason?: (reason: string) => void; onSuspiciousStop?: () => void; pageIndex?: number; promptId?: PromptId },
       ): Promise<string> {
         const startedAt = Date.now();
@@ -483,7 +483,8 @@ export function createOllamaProvider(
               provider: settings.apiCompatible ? 'openai-compatible' : 'ollama',
               endpoint: diagnosticEndpoint(settings.endpoint),
               stream: true,
-              think,
+              think: Boolean(think),
+              ...(typeof think === 'string' ? { thinkLevel: think } : {}),
               ...(json ? { format: json === true ? 'json' as const : 'json-schema' as const } : {}),
               imageCount: images?.length ?? 0,
               keepAlive: '5m (Ollama default)',
@@ -599,7 +600,8 @@ export function createOllamaProvider(
                 provider: settings.apiCompatible ? 'openai-compatible' : 'ollama',
                 endpoint: diagnosticEndpoint(settings.endpoint),
                 stream: true,
-                think,
+                think: Boolean(think),
+                ...(typeof think === 'string' ? { thinkLevel: think } : {}),
                 ...(json ? { format: json === true ? 'json' as const : 'json-schema' as const } : {}),
                 imageCount: images?.length ?? 0,
                 keepAlive: '5m (Ollama default)',
@@ -677,7 +679,7 @@ export function createOllamaProvider(
             let doneReason: string | undefined;
             // Transport errors/abort are not JSON failures: never retry those here.
             const raw = await sendStream(analysisModel, buildDirectDiagramPrompt(request, repairReason),
-              (request.images ?? []).map(providerImage), onChunk, schema, settings.thinking ?? false,
+              (request.images ?? []).map(providerImage), onChunk, schema, settings.thinkingLevel ?? settings.thinking ?? false,
               { kind: 'model', stage: 'analysis', temperature: 0,
                 // The extra budget is opt-in: reasoning tokens share the same
                 // num_predict cap with the final answer, even with JSON output.
