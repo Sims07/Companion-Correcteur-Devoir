@@ -68,7 +68,7 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   const observer = panel.locator('details.diagram-sensitivity-section')
-    .filter({ has: page.getByText('Observer un graphe de relations avant le barème (Ollama local)') });
+    .filter({ has: page.getByText('Observer un graphe de relations avant le barème (Ollama ou OpenAI-compatible)') });
   await observer.locator('summary').click();
   const start = observer.getByRole('button', { name: 'Extraire les relations des 6 schémas' });
   await expect(start).toBeDisabled();
@@ -125,4 +125,81 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
     .getByRole('button', { name: /Inspecteur réseau/ }).click();
   await expect(page.getByRole('region', { name: 'Rapports des schémas scientifiques' })
     .getByRole('button', { name: /Exporter l’observation indépendante/ })).toBeVisible();
+});
+
+
+test('blind graph observer supports an explicitly selected OpenAI-compatible Vision endpoint, exporting remote provenance', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
+      id: 'remote-blind', name: 'Vision OpenAI-compatible', mode: 'single',
+      updatedAt: '2026-11-09T12:00:00Z',
+      configuration: {
+        endpoint: 'https://vision.example.test/v1/chat/completions', apiCompatible: true, apiKey: 'PRIVATE_API_KEY',
+        visionModel: 'vision-27b', analysisModel: 'vision-27b',
+        transcriptionTokenLimit: 2048, transcriptionPromptMode: 'auto',
+        transcriptionRepeatPenalty: 1.05, transcriptionPenaltyParameter: 'none',
+        transcriptionFrequencyPenalty: 0, analysisThinking: false,
+        criterionByCriterion: true, correctionMethod: 'generative',
+        secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single',
+      },
+    }]));
+  });
+  const requests: Array<Record<string, unknown>> = [];
+  await page.route('https://vision.example.test/**', async (route) => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*',
+        'access-control-allow-methods': 'POST,OPTIONS', 'access-control-allow-headers': '*' } });
+      return;
+    }
+    expect(request.url()).toBe('https://vision.example.test/v1/chat/completions');
+    expect(request.headers().authorization).toBe('Bearer PRIVATE_API_KEY');
+    const data = request.postDataJSON() as Record<string, unknown>;
+    requests.push(data);
+    const graph = { labels: ['ADN', 'ARN'], arrows: [{ first: 'ADN', second: 'ARN', tip: 'second' }],
+      containment: [], arrowsComplete: true };
+    await route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' },
+      body: JSON.stringify({ choices: [{ message: { content: JSON.stringify(graph) }, finish_reason: 'stop' }],
+        usage: { completion_tokens: 42 } }) });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' })
+    .getByRole('button', { name: /Schémas scientifiques/ }).click();
+  const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
+  const observer = panel.locator('details.diagram-sensitivity-section')
+    .filter({ has: page.getByText('Observer un graphe de relations avant le barème (Ollama ou OpenAI-compatible)') });
+  await observer.locator('summary').click();
+  const start = observer.getByRole('button', { name: 'Extraire les relations des 6 schémas' });
+  await expect(start).toBeDisabled();
+  await page.getByRole('group', { name: 'Configurations à exécuter' })
+    .locator('label.evaluation-profile-option').first().click();
+  await expect(start).toBeEnabled();
+  await start.click();
+  await expect.poll(() => requests.length, { timeout: 90_000 }).toBe(6);
+  for (const body of requests) {
+    expect(body.model).toBe('vision-27b');
+    expect(JSON.stringify(body)).toContain('data:image/png;base64,');
+    expect(JSON.stringify(body)).not.toContain('ADN → ARN');
+    expect(JSON.stringify(body)).not.toContain('maxPoints');
+    expect(JSON.stringify(body)).not.toContain('PRIVATE_API_KEY');
+  }
+  const results = observer.getByRole('region', { name: 'Résultats du graphe visuel indépendant' });
+  await expect(results).toBeVisible({ timeout: 30_000 });
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    observer.getByRole('button', { name: 'Exporter l’analyse du graphe JSON' }).click(),
+  ]);
+  const report = JSON.parse(await readFile(await download.path(), 'utf8')) as {
+    localOnly: boolean; cases: Array<{ experiments: Array<{ provider: string; remote: boolean; diagnostic?: { outputTokens?: number } }> }>;
+  };
+  expect(report.localOnly).toBe(false);
+  expect(report.cases).toHaveLength(6);
+  expect(report.cases[0]?.experiments[0]?.provider).toBe('openai-compatible');
+  expect(report.cases[0]?.experiments[0]?.remote).toBe(true);
+  expect(report.cases[0]?.experiments[0]?.diagnostic?.outputTokens).toBe(42);
+  expect(JSON.stringify(report)).not.toContain('PRIVATE_API_KEY');
+  expect(JSON.stringify(report)).not.toContain('vision.example.test');
+  expect(JSON.stringify(report)).not.toContain('data:image');
 });
