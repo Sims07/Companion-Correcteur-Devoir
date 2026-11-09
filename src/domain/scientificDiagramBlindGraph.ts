@@ -80,11 +80,17 @@ function checkArrow(graph: ObservedVisualGraph, from: string, to: string): Diagr
   const matches = graph.arrows.filter((item) =>
     (sameLabel(item.first, from) && sameLabel(item.second, to)) ||
     (sameLabel(item.first, to) && sameLabel(item.second, from)));
-  if (matches.some((item) =>
+  const correctlyDirected = matches.some((item) =>
     (sameLabel(item.first, from) && item.tip === 'second') ||
-    (sameLabel(item.second, from) && item.tip === 'first'))) return 'present';
-  if (matches.some((item) => item.tip === 'unclear' || item.tip === 'none')) return 'uncertain';
-  if (matches.length && matches.every((item) => item.tip === 'first' || item.tip === 'second')) return 'absent';
+    (sameLabel(item.second, from) && item.tip === 'first'));
+  const reversed = matches.some((item) =>
+    (sameLabel(item.first, from) && item.tip === 'first') ||
+    (sameLabel(item.second, from) && item.tip === 'second'));
+  // Contradictory, untipped or indistinct arrows are not proof of correctness.
+  if (matches.some((item) => item.tip === 'unclear' || item.tip === 'none')
+    || (correctlyDirected && reversed)) return 'uncertain';
+  if (correctlyDirected) return 'present';
+  if (reversed) return 'absent';
   // An unrelated edge is only evidence of a missing connection when the
   // observer claims every arrow has been traced; this claim may be wrong.
   return graph.arrowsComplete ? 'absent' : 'uncertain';
