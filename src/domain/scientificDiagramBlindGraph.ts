@@ -62,6 +62,39 @@ export function parseObservedVisualGraph(raw: string): ObservedVisualGraph {
   return { labels, arrows, containment, arrowsComplete: parsed.arrowsComplete };
 }
 
+/** Ollama JSON-schema mode: the model cannot silently omit relation or tip fields. */
+export const BLIND_VISUAL_OBSERVATION_SCHEMA = {
+  type: 'object',
+  properties: {
+    labels: { type: 'array', maxItems: 32, items: { type: 'string' } },
+    arrows: {
+      type: 'array', maxItems: 48,
+      items: {
+        type: 'object',
+        properties: {
+          first: { type: 'string' }, second: { type: 'string' },
+          tip: { type: 'string', enum: ['first', 'second', 'none', 'unclear'] },
+        },
+        required: ['first', 'second', 'tip'], additionalProperties: false,
+      },
+    },
+    containment: {
+      type: 'array', maxItems: 48,
+      items: {
+        type: 'object',
+        properties: {
+          inner: { type: 'string' }, outer: { type: 'string' },
+          relation: { type: 'string', enum: ['inside', 'outside', 'unclear'] },
+        },
+        required: ['inner', 'outer', 'relation'], additionalProperties: false,
+      },
+    },
+    arrowsComplete: { type: 'boolean' },
+  },
+  required: ['labels', 'arrows', 'containment', 'arrowsComplete'],
+  additionalProperties: false,
+} as const;
+
 export const BLIND_VISUAL_OBSERVATION_PROMPT = [
   'Observe uniquement les pixels du dessin scientifique joint.',
   'Cette étape ne connaît pas le barème, le sujet, les réponses attendues ni la discipline : ne note rien.',
@@ -153,6 +186,8 @@ export function compareBlindVisualGraph(graph: ObservedVisualGraph): Record<stri
 
 /** Only model output and fixed validation messages, never the request or server payload. */
 export interface BlindGraphDiagnostic {
+  /** The exact raster sent to Ollama, metadata only (no pixels). */
+  imageAudit?: { mimeType: string; byteCount: number; width: number | null; height: number | null; pngSignatureValid: boolean };
   rawResponse: string;
   rawResponseTruncated: boolean;
   doneReason?: string;
@@ -184,7 +219,7 @@ export interface BlindVisualObservationRun {
   profileId: string;
   profileName: string;
   model: string;
-  /** Safe provenance without storing the API URL or credentials. */
+  /** Safe provenance, excluding the URL and credentials. */
   provider?: 'ollama-local' | 'openai-compatible';
   remote?: boolean;
   durationMs: number;
