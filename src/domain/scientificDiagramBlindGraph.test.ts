@@ -20,6 +20,9 @@ describe('lecture graphe visuel sans barème', () => {
   it('does not disclose biology expected edges, scores or rubric in the image prompt', () => {
     expect(BLIND_VISUAL_OBSERVATION_PROMPT).not.toMatch(/ADN|ARN|Protéine|Noyau|barème d.e correction|transcription|note finale/);
     expect(BLIND_VISUAL_OBSERVATION_PROMPT).toContain('pointe');
+    expect(BLIND_VISUAL_OBSERVATION_PROMPT).toContain('partiellement masquée');
+    expect(BLIND_VISUAL_OBSERVATION_PROMPT).toContain('utilise unclear');
+    expect(BLIND_VISUAL_OBSERVATION_PROMPT).toContain('scientifiquement surprenante');
     expect(BLIND_VISUAL_OBSERVATION_PROMPT).toContain('ne note rien');
   });
   it('validates a complete finite and bounded observational graph', () => {

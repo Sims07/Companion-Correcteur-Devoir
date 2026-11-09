@@ -100,8 +100,9 @@ export const BLIND_VISUAL_OBSERVATION_PROMPT = [
   'Cette étape ne connaît pas le barème, le sujet, les réponses attendues ni la discipline : ne note rien.',
   'Transcris les étiquettes réellement visibles dans labels, sans inventer de mots.',
   'Pour chaque trait avec ou sans pointe, suis le tracé réellement dessiné : first et second sont les deux étiquettes ou objets aux extrémités, tip vaut first si la pointe touche first, second si elle touche second, none si aucune pointe, unclear si elle est indiscernable.',
+  'Inspecte séparément les deux extrémités de chaque trait : une direction n’est certaine que si une pointe visible touche clairement une extrémité. Si le trait ne possède pas de pointe, utilise none ; si la pointe est partiellement masquée ou ambiguë, utilise unclear, jamais first ou second par défaut.',
   'Ne déduis jamais le sens des flèches de tes connaissances scientifiques, de la lecture gauche-droite ou de l’ordre des mots.',
-  'Dans containment, rapporte uniquement les paires de contours observables : inner, outer, relation inside/outside/unclear. Ne transforme pas un mot écrit en une structure dessinée.',
+  'Dans containment, rapporte uniquement les paires de contours observables : inner, outer, relation inside/outside/unclear. Vérifie la position des contours dessinés, même si elle est scientifiquement surprenante. Si le contour se superpose à la bordure ou si tu ne peux pas trancher, utilise unclear. Ne transforme pas un mot écrit en une structure dessinée.',
   'arrowsComplete vaut true uniquement si toutes les flèches visibles ont été examinées ; sinon false. Si tu hésites, utilise unclear.',
   'Réponds exclusivement en JSON avec labels, arrows, containment, arrowsComplete. Aucun texte supplémentaire.',
 ].join('\n');
@@ -193,6 +194,10 @@ export interface BlindGraphDiagnostic {
   doneReason?: string;
   outputTokens?: number;
   validationError?: string;
+  /** Total Vision requests for this graph (one or two). */
+  attempts?: number;
+  /** Fixed-format parser message only; never includes the prior raw response. */
+  previousValidationError?: string;
 }
 
 /** Only a selected local Ollama profile or an explicit OpenAI-compatible Vision profile is eligible. */
@@ -250,6 +255,6 @@ export function buildBlindVisualObservationReport(
       experiments: runs.filter((run) => run.caseId === id).map(({ caseId: _caseId, ...rest }) => rest),
     })),
     statistics: summarizeDiagramSensitivity(readings),
-    limitations: 'Extraction visuelle indépendante (locale pour Ollama ; vers le fournisseur pour un profil OpenAI-compatible distant) : aucun barème ni réponse attendue envoyés au modèle. Le comparateur de graphe vérifie trois relations de référence après extraction. Une flèche manquante est considérée absente seulement si le modèle affirme avoir parcouru toutes les flèches ; cette affirmation peut être fausse. Une absence de preuve n’est pas un zéro. S5 est indécidable sur la première flèche. Références synthétiques provisoires, à valider par un professeur. Diagnostic des six dessins synthétiques : graphe extrait et réponse du modèle (24 000 caractères maximum) inclus. Aucun pixel, prompt, endpoint ni clé de configuration exportés. Les textes du modèle restent des données non fiables.',
+    limitations: 'Extraction visuelle indépendante (locale pour Ollama ; vers le fournisseur pour un profil OpenAI-compatible distant) : aucun barème ni réponse attendue envoyés au modèle. Le comparateur de graphe vérifie trois relations de référence après extraction. Une flèche manquante est considérée absente seulement si le modèle affirme avoir parcouru toutes les flèches ; cette affirmation peut être fausse. Une absence de preuve n’est pas un zéro. Une seule relance de format est autorisée si la réponse JSON est invalide ; les décisions visuelles fausses mais valides ne sont pas automatiquement corrigées. S5 est indécidable sur la première flèche. Références synthétiques provisoires, à valider par un professeur. Diagnostic des six dessins synthétiques : graphe extrait et réponse du modèle (24 000 caractères maximum) inclus. Aucun pixel, prompt, endpoint ni clé de configuration exportés. Les textes du modèle restent des données non fiables.',
   };
 }
