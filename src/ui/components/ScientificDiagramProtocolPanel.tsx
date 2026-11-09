@@ -160,7 +160,7 @@ export function ScientificDiagramProtocolPanel({
     try { return !['localhost', '127.0.0.1', '[::1]'].includes(new URL(profile.configuration.endpoint).hostname); }
     catch { return true; }
   });
-  const canRun = !busy && !uploading && !fixtureLoading && images.length > 0 && validation.valid && selectedProfiles.length > 0 && profileIssues.length === 0;
+  const canRun = !busy && !uploading && !fixtureLoading && !sensitivityLoading && images.length > 0 && validation.valid && selectedProfiles.length > 0 && profileIssues.length === 0;
   const canRunFixtures = !busy && !uploading && !fixtureLoading && !sensitivityLoading && selectedProfiles.length > 0 && profileIssues.length === 0;
 
   async function runSensitivity() {
