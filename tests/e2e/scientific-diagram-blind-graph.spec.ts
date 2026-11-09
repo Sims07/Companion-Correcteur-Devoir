@@ -84,7 +84,7 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
     expect(plainPrompts).not.toContain('Protéine');
     expect(plainPrompts).not.toContain('legends-visible');
     expect(plainPrompts).not.toContain('maxPoints');
-    expect(plainPrompts).toContain('aucun');
+    expect(plainPrompts).toMatch(/aucun/i);
   }
   const results = observer.getByRole('region', { name: 'Résultats du graphe visuel indépendant' });
   await expect(results).toBeVisible({ timeout: 30_000 });
