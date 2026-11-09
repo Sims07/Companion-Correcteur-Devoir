@@ -2179,7 +2179,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                   caseImages: testCase.images, retainModelAfterRun: true,
                   diagram: {
                     rubric,
-                    question: (testCase.context ?? context ?? 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni.')
+                    question: ((testCase.context ?? context) || 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni.')
                       + ' Vérifie chaque attendu sur le dessin original. N’invente pas de structures absentes ; signale les éléments incertains.',
                     method,
                     ...(method === 'direct-image-generative-thinking' ? { thinkSetting } : {}),
