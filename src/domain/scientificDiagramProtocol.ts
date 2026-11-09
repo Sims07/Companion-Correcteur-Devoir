@@ -53,12 +53,13 @@ export type DiagramTeacherDecision = 'present' | 'absent' | 'partial';
 export type DiagramGold = Record<string, DiagramTeacherDecision>;
 export type DiagramProtocolRun = { repetition: number; record: ModelEvaluationRecord };
 export type DiagramProtocolCount = 1 | 3 | 5;
-export type DiagramMethod = 'vision-then-analysis' | 'direct-image-generative' | 'direct-image-systemone';
-export type DiagramMethodSelection = DiagramMethod | 'compare';
+export type DiagramMethod = 'vision-then-analysis' | 'direct-image-generative' | 'direct-image-generative-thinking' | 'direct-image-systemone';
+export type DiagramMethodSelection = DiagramMethod | 'compare' | 'compare-thinking';
 
 export const diagramMethodLabels: Record<DiagramMethod, string> = {
   'vision-then-analysis': 'Vision puis analyse',
-  'direct-image-generative': 'Image → génératif direct',
+  'direct-image-generative': 'Image → génératif direct (Think OFF)',
+  'direct-image-generative-thinking': 'Image → génératif direct (Think ON)',
   'direct-image-systemone': 'System One image directe',
 };
 
@@ -76,9 +77,24 @@ export function availableDiagramMethods(profile: AiModelProfile): DiagramMethod[
   return methods;
 }
 
+/** An opt-in research mode: do not silently enable slow reasoning in the
+ * regular "compare" workflow or send Qwen thinking controls to remote APIs. */
+export function supportsDiagramThinking(profile: AiModelProfile): boolean {
+  const config = profile.configuration;
+  return !config.apiCompatible
+    && isLoopbackPilotEndpoint(config.endpoint)
+    && config.correctionMethod === 'generative'
+    && /^qwen3\\.5:4b(?:-|$)/i.test(config.analysisModel.trim());
+}
+
 export function selectDiagramMethods(profile: AiModelProfile, selection: DiagramMethodSelection): DiagramMethod[] {
   const methods = availableDiagramMethods(profile);
-  return selection === 'compare' ? methods : methods.filter((method) => method === selection);
+  if (selection === 'compare') return methods;
+  if (selection === 'compare-thinking') return methods.includes('direct-image-generative') && supportsDiagramThinking(profile)
+    ? ['direct-image-generative', 'direct-image-generative-thinking'] : [];
+  if (selection === 'direct-image-generative-thinking') return supportsDiagramThinking(profile)
+    && methods.includes('direct-image-generative') ? [selection] : [];
+  return methods.filter((method) => method === selection);
 }
 
 export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMethodSelection): string | null {
@@ -92,6 +108,9 @@ export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMe
     return /^tev1(?::|$)/i.test(profile.configuration.analysisModel)
       ? 'TEV1 ne prend pas en charge les images via System One. Choisissez Vision puis TEV1 texte ou un modèle visuel compatible.'
       : 'Ce modèle ne peut pas recevoir directement le schéma via System One : ' + profile.name;
+  }
+  if (selection === 'compare-thinking' || selection === 'direct-image-generative-thinking') {
+    return 'Le test Think nécessite Qwen 3.5 4B en modèle d’analyse, une configuration générative et Ollama local (pas une API distante) : ' + profile.name;
   }
   return selection === 'direct-image-generative'
     ? 'Le parcours génératif direct exige une configuration générative et un modèle acceptant les images : ' + profile.name
@@ -275,7 +294,17 @@ export function buildScientificDiagramProtocolReport(
     model: record.configurations.find((entry) => entry.id === result.profileId)?.analysisModel ?? '',
     method: result.directVisualDecision ? 'direct-image-systemone' as const
       : record.configurations.find((entry) => entry.id === result.profileId)?.directGenerativeVision
-        ? 'direct-image-generative' as const : 'vision-then-analysis' as const,
+        ? (record.configurations.find((entry) => entry.id === result.profileId)?.thinking
+          ? 'direct-image-generative-thinking' as const : 'direct-image-generative' as const)
+        : 'vision-then-analysis' as const,
+    thinkingRequested: record.configurations.find((entry) => entry.id === result.profileId)?.thinking ?? null,
+    // Only observable separate Ollama thinking chunks count as evidence that
+    // the provider actually emitted reasoning; do not export the text itself.
+    thinkingObserved: (() => {
+      const calls = result.diagnosticRuns?.filter((call) => call.kind === 'model' && call.stage === 'analysis') ?? [];
+      return !calls.some((call) => call.thinkingPresent !== undefined) ? null
+        : calls.some((call) => call.thinkingPresent === true);
+    })(),
     status: result.status,
     failureCategory: result.status !== 'success' ? diagramFailureCategory(result.error) : null,
     error: result.error
