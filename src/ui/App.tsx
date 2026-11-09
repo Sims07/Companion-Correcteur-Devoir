@@ -65,6 +65,8 @@ import { directDiagramAssignmentIssue, isLoopbackDiagramEndpoint } from '../appl
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_CONTEXT, DIAGRAM_SENSITIVITY_RUBRIC, buildScientificDiagramSensitivityReport, type DiagramSensitivityCaseId, type DiagramSensitivityRun, type DiagramSensitivityPromptMode } from '../domain/scientificDiagramSensitivity.ts';
+import { buildBlindVisualObservationReport, compareBlindVisualGraph,
+  type BlindVisualObservationRun } from '../domain/scientificDiagramBlindGraph.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../domain/questionContractRepeatability.ts';
 import { runPilotCriterionConcurrency, type PilotConcurrencyRun } from '../application/pilotCriterionConcurrency.ts';
@@ -444,6 +446,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [diagramProtocolReport, setDiagramProtocolReport] = useState<ReturnType<typeof buildScientificDiagramProtocolReport> | null>(null);
   const [diagramFixtureReport, setDiagramFixtureReport] = useState<ReturnType<typeof buildScientificDiagramFixtureReport> | null>(null);
   const [diagramSensitivityReport, setDiagramSensitivityReport] = useState<ReturnType<typeof buildScientificDiagramSensitivityReport> | null>(null);
+  const [diagramBlindGraphReport, setDiagramBlindGraphReport] = useState<ReturnType<typeof buildBlindVisualObservationReport> | null>(null);
+  const blindGraphAbortRef = useRef<AbortController | null>(null);
   const pilotStopRef = useRef(false);
   const pilotMemoryErrorRef = useRef<string | null>(null);
   const [modelEvaluationResults, setModelEvaluationResults] = useState<ModelEvaluationResultSnapshot[]>([]);
@@ -2291,7 +2295,88 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     return report;
   }
 
+  async function runScientificDiagramBlindGraph(
+    request: { cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>; repetitions: DiagramProtocolCount },
+  ) {
+    if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
+    if (!service.extractBlindDiagramGraph) throw new Error('Lecteur de graphe local indisponible.');
+    const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+    if (!profiles.length) throw new Error('Sélectionnez une configuration Vision locale.');
+    if (profiles.some((profile) => !isLocalPilotProfile(profile))) {
+      throw new Error('Lecture indépendante uniquement avec Ollama local, sans API distante.');
+    }
+    const choices = profiles.map((profile) => ({
+      profile,
+      model: profile.configuration.visionModel.trim() ||
+        (profile.configuration.correctionMethod === 'generative' ? profile.configuration.analysisModel.trim() : ''),
+    }));
+    if (choices.some(({ model }) => !model)) {
+      throw new Error('Modèle Vision local manquant pour une configuration sélectionnée.');
+    }
+    if (request.cases.length !== DIAGRAM_SENSITIVITY_CASE_IDS.length ||
+      request.cases.some((item) => !item.images.length)) {
+      throw new Error('Les six dessins doivent avoir une image préparée.');
+    }
+    setDiagramBlindGraphReport(null);
+    const createdAt = new Date().toISOString();
+    const runs: BlindVisualObservationRun[] = [];
+    const emit = () => {
+      const report = buildBlindVisualObservationReport(runs, request.repetitions, createdAt);
+      setDiagramBlindGraphReport(report);
+      return report;
+    };
+    const controller = new AbortController();
+    blindGraphAbortRef.current = controller;
+    pilotStopRef.current = false;
+    setPilotBusy(true);
+    try {
+      for (const { profile, model } of choices) {
+        for (const entry of request.cases) {
+          for (let repetition = 1; repetition <= request.repetitions; repetition++) {
+            if (controller.signal.aborted || pilotStopRef.current) break;
+            setDiagramProtocolProgress('Observation indépendante ' + entry.id +
+              ' · ' + profile.name + ' · ' + repetition + '/' + request.repetitions);
+            const started = performance.now();
+            try {
+              const graph = await service.extractBlindDiagramGraph(
+                profile.configuration.endpoint, model, entry.images[0]!, controller.signal,
+              );
+              runs.push({
+                caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
+                model, status: 'success', durationMs: Math.round(performance.now() - started),
+                observations: compareBlindVisualGraph(graph),
+                arrowCount: graph.arrows.length, containmentCount: graph.containment.length,
+              });
+            } catch (cause) {
+              const interrupted = controller.signal.aborted ||
+                (cause instanceof Error && cause.name === 'AbortError');
+              runs.push({
+                caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
+                model, status: interrupted ? 'aborted' : 'failed',
+                durationMs: Math.round(performance.now() - started),
+                observations: {}, arrowCount: 0, containmentCount: 0,
+                errorCategory: interrupted ? 'cancelled'
+                  : cause instanceof Error && /JSON|graphe|visuel|Sortie|observation/i.test(cause.message)
+                    ? 'invalid-output' : 'network',
+              });
+              if (interrupted) { emit(); break; }
+            }
+            emit();
+          }
+          if (controller.signal.aborted || pilotStopRef.current) break;
+        }
+        if (controller.signal.aborted || pilotStopRef.current) break;
+      }
+      return emit();
+    } finally {
+      if (blindGraphAbortRef.current === controller) blindGraphAbortRef.current = null;
+      setDiagramProtocolProgress(controller.signal.aborted ? 'Observation interrompue.' : 'Observation terminée.');
+      setPilotBusy(false);
+    }
+  }
+
   function stopPilotProtocol() {
+    blindGraphAbortRef.current?.abort();
     pilotStopRef.current = true;
     cancelModelEvaluation();
   }
@@ -3269,7 +3354,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </header>
 
       {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
-      {interfaceMode !== 'teacher' && (diagramFixtureReport || diagramProtocolReport || diagramSensitivityReport) && <section className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
+      {interfaceMode !== 'teacher' && (diagramFixtureReport || diagramProtocolReport || diagramSensitivityReport || diagramBlindGraphReport) && <section className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
         <div>
           <strong>Rapports de schémas disponibles</strong>
           <p>Résultats conservés pendant la navigation · les passages terminés restent exportables même si la série est interrompue.</p>
@@ -3277,6 +3362,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="diagram-protocol-export-actions">
           {diagramFixtureReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramFixtureReport, 'companion-schemas-scientifiques.json')}>
             Exporter les schémas testés ({diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage{diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0) === 1 ? '' : 's'})
+          </Button>}
+          {diagramBlindGraphReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramBlindGraphReport, 'companion-graphe-visuel-local.json')}>
+            Exporter l’observation indépendante ({diagramBlindGraphReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage(s))
           </Button>}
           {diagramSensitivityReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramSensitivityReport, 'companion-sensibilite-semantique.json')}>
             Exporter la sensibilité sémantique ({diagramSensitivityReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage(s))
@@ -3460,13 +3548,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           onRun={runScientificDiagramProtocol}
           onRunFixtures={runScientificDiagramFixtures}
           onRunSensitivity={runScientificDiagramSensitivity}
+          onRunBlindGraph={runScientificDiagramBlindGraph}
           onStop={stopPilotProtocol}
           report={diagramProtocolReport}
           fixtureReport={diagramFixtureReport}
           sensitivityReport={diagramSensitivityReport}
+          blindGraphReport={diagramBlindGraphReport}
           onClearReport={() => setDiagramProtocolReport(null)}
           onClearFixtureReport={() => setDiagramFixtureReport(null)}
           onClearSensitivityReport={() => setDiagramSensitivityReport(null)}
+          onClearBlindGraphReport={() => setDiagramBlindGraphReport(null)}
         />
         </div>
         <div hidden={evaluationJourney !== 'biology'}><PilotEvaluationPanel

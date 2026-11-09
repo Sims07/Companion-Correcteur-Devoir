@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
+import { isLocalPilotProfile } from '../../domain/pilotEvaluationProtocol.ts';
+import { buildBlindVisualObservationReport } from '../../domain/scientificDiagramBlindGraph.ts';
 import type { Rubric } from '../../domain/rubric.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import { getRubricSubcriteria, validateRubric } from '../../domain/rubric.ts';
@@ -33,9 +35,10 @@ export interface DiagramProtocolRequest {
 type DiagramReport = ReturnType<typeof buildScientificDiagramProtocolReport>;
 type FixtureReport = ReturnType<typeof buildScientificDiagramFixtureReport>;
 type SensitivityReport = ReturnType<typeof buildScientificDiagramSensitivityReport>;
+type BlindGraphReport = ReturnType<typeof buildBlindVisualObservationReport>;
 
 /** Export remains available from the AI tools even when this panel is unmounted. */
-export function downloadScientificDiagramJson(report: DiagramReport | FixtureReport | SensitivityReport, filename: string) {
+export function downloadScientificDiagramJson(report: DiagramReport | FixtureReport | SensitivityReport | BlindGraphReport, filename: string) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json;charset=utf-8' }));
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -128,18 +131,26 @@ export interface ScientificDiagramProtocolPanelProps {
     repetitions: DiagramProtocolCount;
     methodSelection: DiagramMethodSelection;
   }) => Promise<SensitivityReport>;
+  onRunBlindGraph: (request: {
+    cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>;
+    repetitions: DiagramProtocolCount;
+  }) => Promise<BlindGraphReport>;
   onStop: () => void;
   report: DiagramReport | null;
   fixtureReport: FixtureReport | null;
   sensitivityReport: SensitivityReport | null;
+  blindGraphReport: BlindGraphReport | null;
   onClearReport: () => void;
   onClearFixtureReport: () => void;
   onClearSensitivityReport: () => void;
+  onClearBlindGraphReport: () => void;
 }
 
 export function ScientificDiagramProtocolPanel({
   selectedProfiles, busy, progress, onPrepareImages, onRun, onRunFixtures, onStop,
-  report, fixtureReport, sensitivityReport, onClearReport, onClearFixtureReport, onClearSensitivityReport, onRunSensitivity,
+  report, fixtureReport, sensitivityReport, blindGraphReport,
+  onClearReport, onClearFixtureReport, onClearSensitivityReport, onClearBlindGraphReport,
+  onRunSensitivity, onRunBlindGraph,
 }: ScientificDiagramProtocolPanelProps) {
   const [rubric, setRubric] = useState<Rubric>(() => structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC));
   const [context, setContext] = useState('');
@@ -152,6 +163,8 @@ export function ScientificDiagramProtocolPanel({
   const [fixtureLoading, setFixtureLoading] = useState(false);
   const [fixtureMessage, setFixtureMessage] = useState('');
   const [sensitivityLoading, setSensitivityLoading] = useState(false);
+  const [blindGraphLoading, setBlindGraphLoading] = useState(false);
+  const [blindGraphMessage, setBlindGraphMessage] = useState('');
   const [sensitivityMessage, setSensitivityMessage] = useState('');
   const [sensitivityPromptSelection, setSensitivityPromptSelection] = useState<'standard' | 'guided' | 'compare'>('standard');
   const [methodSelection, setMethodSelection] = useState<DiagramMethodSelection>('compare');
@@ -163,8 +176,35 @@ export function ScientificDiagramProtocolPanel({
     try { return !['localhost', '127.0.0.1', '[::1]'].includes(new URL(profile.configuration.endpoint).hostname); }
     catch { return true; }
   });
-  const canRun = !busy && !uploading && !fixtureLoading && !sensitivityLoading && images.length > 0 && validation.valid && selectedProfiles.length > 0 && profileIssues.length === 0;
-  const canRunFixtures = !busy && !uploading && !fixtureLoading && !sensitivityLoading && selectedProfiles.length > 0 && profileIssues.length === 0;
+  const canRun = !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading && images.length > 0 && validation.valid && selectedProfiles.length > 0 && profileIssues.length === 0;
+  const canRunFixtures = !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading && selectedProfiles.length > 0 && profileIssues.length === 0;
+  const canRunBlindGraph = !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading &&
+    selectedProfiles.length > 0 && selectedProfiles.every((profile) =>
+      isLocalPilotProfile(profile) && Boolean(profile.configuration.visionModel.trim() ||
+        (profile.configuration.correctionMethod === 'generative' && profile.configuration.analysisModel.trim())));
+
+  async function runBlindObservation() {
+    if (!canRunBlindGraph) return;
+    setBlindGraphLoading(true);
+    onClearBlindGraphReport();
+    setBlindGraphMessage('Préparation locale des six schémas, sans envoi au cloud…');
+    try {
+      const cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }> = [];
+      for (const id of DIAGRAM_SENSITIVITY_CASE_IDS) {
+        const prepared = await onPrepareImages([await prepareSensitivityImage(id)]);
+        if (!prepared.length) throw new Error('Préparation impossible pour ' + id);
+        cases.push({ id, images: prepared });
+      }
+      const result = await onRunBlindGraph({ cases, repetitions: fixtureCount });
+      setBlindGraphMessage(result.cases.reduce((sum, item) => sum + item.experiments.length, 0) +
+        ' observation(s) effectuée(s). Vérifiez les inconnues avant de comparer les méthodes.');
+    } catch (cause) {
+      setBlindGraphMessage('Observation interrompue : ' +
+        (cause instanceof Error ? cause.message : String(cause)));
+    } finally {
+      setBlindGraphLoading(false);
+    }
+  }
 
   async function runSensitivity() {
     if (!canRunFixtures) return;
@@ -219,6 +259,10 @@ export function ScientificDiagramProtocolPanel({
     } finally {
       setFixtureLoading(false);
     }
+  }
+
+  function downloadBlindGraphReport() {
+    if (blindGraphReport) downloadScientificDiagramJson(blindGraphReport, 'companion-graphe-visuel-local.json');
   }
 
   function downloadSensitivityReport() {
@@ -517,6 +561,50 @@ export function ScientificDiagramProtocolPanel({
           </table>
         </div>
         <p className="pilot-evaluation-hint">{sensitivityReport.limitations}</p>
+      </section>}
+    </details>
+    <details className="diagram-protocol-fixtures diagram-sensitivity-section">
+      <summary><strong>Observer un graphe de relations avant le barème (Ollama local)</strong></summary>
+      <p className="pilot-evaluation-hint">Le modèle Vision voit uniquement les PNG et une consigne générique de description : noms dessinés, extrémités/pointe des flèches, inclusion des structures. Il ne reçoit ni la consigne de biologie, ni le barème, ni les trois attendus. Le logiciel compare ensuite le graphe extrait aux références S0–S5. Aucune correction de copie n’est modifiée.</p>
+      <div className="pilot-evaluation-actions">
+        <Button disabled={!canRunBlindGraph} onClick={() => { void runBlindObservation(); }}>
+          Extraire les relations des 6 schémas
+        </Button>
+        {(busy || blindGraphLoading) && <Button variant="secondary" disabled={!busy} onClick={onStop}>Arrêter après l’appel en cours</Button>}
+        {blindGraphReport && <Button variant="secondary" onClick={downloadBlindGraphReport}>Exporter l’analyse du graphe JSON</Button>}
+      </div>
+      <p className="pilot-evaluation-hint">Nécessite une configuration Ollama locale avec modèle Vision. La lecture est séquentielle, et chaque modèle est libéré après l’appel pour limiter l’usage mémoire. Pas d’API compatible OpenAI distante ni de proxy. La conclusion peut rester indécidable si les flèches sont mal lues.</p>
+      {!canRunBlindGraph && !busy && selectedProfiles.length > 0 &&
+        <p className="pilot-evaluation-hint" role="status">Pour cette méthode, sélectionnez uniquement un profil Ollama local disposant d’un modèle Vision.</p>}
+      {(blindGraphMessage || (busy && progress)) &&
+        <p role="status" className="pilot-evaluation-message">{blindGraphMessage || progress}</p>}
+      {blindGraphReport && <section className="pilot-evaluation-report" aria-label="Résultats du graphe visuel indépendant">
+        <h4>Lecture indépendante — relations effectivement observées</h4>
+        <div className="pilot-evaluation-table-scroll">
+          <table className="pilot-evaluation-table">
+            <thead><tr><th>Profil</th><th>Mutations détectées</th><th>Non mesurables</th><th>Faux positifs témoins</th><th>Abstentions</th></tr></thead>
+            <tbody>{blindGraphReport.statistics.map((item) =>
+              <tr key={item.profileId}>
+                <th scope="row">{item.profileId}</th>
+                <td>{item.sensitivityHits}/{item.sensitivityTrials}</td>
+                <td>{item.sensitivityUnknown}</td>
+                <td>{item.falsePositiveCount}/{item.controlObservations}</td>
+                <td>{item.abstentions}/{item.readingsCount}</td>
+              </tr>)}</tbody>
+          </table>
+        </div>
+        <details>
+          <summary>Décisions observées par schéma</summary>
+          {blindGraphReport.cases.map((item) => <div key={item.caseId}>
+            <strong>{item.label}</strong>
+            {item.experiments.map((run, index) => <p key={run.profileId + '-' + index}>
+              {run.profileName} · passage {run.repetition} · {run.status === 'success' ? 'Lu' : 'Échec/arrêt'}
+              {' · '}{Object.entries(run.observations).map(([key, value]) =>
+                key.split('::').at(-1) + ': ' + value).join(' · ') || 'Aucun verdict'}
+            </p>)}
+          </div>)}
+        </details>
+        <p className="pilot-evaluation-hint">{blindGraphReport.limitations}</p>
       </section>}
     </details>
     <div className="diagram-protocol-inputs">
