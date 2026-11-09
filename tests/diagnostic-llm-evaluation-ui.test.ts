@@ -117,7 +117,7 @@ describe('Évaluation des modèles — navigation par espace', () => {
 
   it('keeps configuration and rubric preparation out of execution and history views', () => {
     expect(appSource).toContain("evaluationWorkspaceStep === 'configuration' && <section id=\"evaluation-configurations\"");
-    expect(appSource).toContain("(interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration')");
+    expect(appSource).toContain("(interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && evaluationJourney === 'custom')");
     expect(appSource).toContain("evaluationWorkspaceStep !== 'configuration' && <section id=\"evaluation-results\"");
   });
 

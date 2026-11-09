@@ -305,7 +305,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Évaluation des modèles');
     expect(text).toContain('LABORATOIRE IA · OUTILS AVANCÉS');
     expect(text).toContain('className="evaluation-step-nav"');
-    expect(text).toContain('Modèles, barème et copie');
+    expect(text).toContain('Choisir et préparer un test');
     expect(text).toContain('Notes, temps et tokens');
     expect(text).not.toContain('Un devoir, un espace de travail');
   });

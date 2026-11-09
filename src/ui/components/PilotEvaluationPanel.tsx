@@ -39,6 +39,7 @@ export function PilotEvaluationPanel({
   enabled, busy, uploadingCase, currentCase, message, imageCounts, runs, contractRuns, repeatabilityRuns, repeatabilityPlanned, repeatabilitySuite, repeatabilityProgress, concurrencyRuns, selectedProfiles,
   onPrepare, onUpload, onRun, onRunConcurrency, onRunContracts, onRunRepeatability, onStop, onExport, onCopy,
 }: PilotEvaluationPanelProps) {
+  const [scenario, setScenario] = useState<'contracts' | 'repeatability' | 'copies'>('contracts');
   const [benchmarkCase, setBenchmarkCase] = useState<PilotCase['id']>('C');
   const [repeatabilityCount, setRepeatabilityCount] = useState<RepeatabilityCount>(3);
   const [repeatabilityMode, setRepeatabilityMode] = useState<RepeatabilitySuite>('baseline');
@@ -55,16 +56,20 @@ export function PilotEvaluationPanel({
     <div className="pilot-evaluation-head">
       <div>
         <p className="eyebrow">LABORATOIRE · EXPÉRIENCE GUIDÉE</p>
-        <h3>Protocole de test — 3 copies de biologie</h3>
-        <p>Préparez les réponses A (10/10), B (0/10, inversions) et C (5/10, partielle), puis choisissez une à trois configurations dans « Configurations à exécuter » ci-dessous. Le barème du devoir et les réglages enregistrés restent inchangés.</p>
+        <h3>Tests de référence en biologie</h3>
+        <p>Sélectionnez vos configurations au-dessus, puis choisissez un objectif ci-dessous. Les contrats et la répétabilité fonctionnent sans document à importer. Le barème du devoir et les réglages enregistrés restent inchangés.</p>
       </div>
-      <button type="button" className="secondary-button" disabled={busy} onClick={onPrepare}>{enabled ? 'Réinitialiser le protocole' : 'Préparer le protocole en un clic'}</button>
+      {scenario === 'copies' && <button type="button" className="secondary-button" disabled={busy} onClick={onPrepare}>{enabled ? 'Réinitialiser le protocole' : 'Préparer le protocole en un clic'}</button>}
     </div>
-    <section className="pilot-evaluation-parallel" aria-label="Protocole variante B par question">
+    <div className="evaluation-scenario-picker" role="group" aria-label="Objectif du protocole de biologie">
+      {([['contracts', 'Comparer les méthodes'], ['repeatability', 'Vérifier la répétabilité'], ['copies', 'Vision et parallélisme']] as const).map(([id, label]) =>
+        <button type="button" key={id} disabled={busy || uploadingCase !== null} aria-pressed={scenario === id} onClick={() => setScenario(id)}>{label}</button>)}
+    </div>
+    <section hidden={scenario !== 'contracts'} className="pilot-evaluation-parallel" aria-label="Protocole variante B par question">
       <div>
         <h4>Variante B · réponses rattachées aux questions</h4>
         <p>Comparez sur les mêmes réponses le barème standard et un contrat explicite par question (consigne, relation scientifique attendue, équivalences et contradictions). Trois cas intégrés : A = 10/10, B = 0/10 (réponses 1 et 2 échangées), C = 5/10. Aucun document à importer, aucune photo requise.</p>
-        <p>Choisissez 1 à 3 profils dans « Configurations à exécuter » ci-dessous. Le test lance 6 évaluations par profil, séquentiellement. Les modèles Ollama locaux sont libérés entre les profils. Les API compatibles OpenAI sont utilisables sans photo sur ce scénario fictif. Les contrats fournis sont des exemples préremplis, pas des résultats d’une génération automatique : ce protocole mesure uniquement l’effet des contrats sur la correction.</p>
+        <p>Choisissez 1 à 3 profils dans « Configurations à exécuter » au-dessus. Le test lance 6 évaluations par profil, séquentiellement. Les modèles Ollama locaux sont libérés entre les profils. Les API compatibles OpenAI sont utilisables sans photo sur ce scénario fictif. Les contrats fournis sont des exemples préremplis, pas des résultats d’une génération automatique : ce protocole mesure uniquement l’effet des contrats sur la correction.</p>
       </div>
       <details className="pilot-evaluation-reference">
         <summary>Voir les trois réponses et le barème de référence</summary>
@@ -103,7 +108,7 @@ export function PilotEvaluationPanel({
         <p className="pilot-evaluation-hint">Les erreurs de modèles et les sous-critères non évalués restent distincts des zéros. Le JSON inclut chaque décision, la preuve, les traces et les durées, sans images, secrets ni URL de serveur. Les résultats sont exploratoires.</p>
       </div>}
     </section>
-    <section className="pilot-evaluation-parallel" aria-label="Test de répétabilité variante B">
+    <section hidden={scenario !== 'repeatability'} className="pilot-evaluation-parallel" aria-label="Test de répétabilité variante B">
       <div>
         <h4>Répétabilité · Variante B</h4>
         <p>Choisissez le protocole initial A/B/C ou quatre cas de robustesse D/E/F/G (négations, équivalences, contradictions et énoncé imprimé). La même copie et le même contrat sont rejoués pour mesurer justesse, stabilité et demandes de vérification, sans confondre décision stable et décision correcte.</p>
@@ -163,6 +168,7 @@ export function PilotEvaluationPanel({
       </div>}
     </section>
     {(message || currentCase) && <p className="pilot-evaluation-message" role="status">{currentCase ? `Copie ${currentCase} en cours · ` : ''}{message}</p>}
+    <div hidden={scenario !== 'copies'}>
     {enabled && <>
       <div className="pilot-evaluation-cases">
         {PILOT_CASES.map((testCase) => <article className="pilot-evaluation-case" key={testCase.id}>
@@ -286,5 +292,6 @@ export function PilotEvaluationPanel({
         <p className="pilot-evaluation-hint">La fidélité texte compare les mots après normalisation typographique : elle ne mesure pas la justesse scientifique. Utilisez la photo correspondant à la référence A, B ou C. Le rapport inclut transcriptions, durées et traces textuelles ; photos, secrets, URL des serveurs et corps des requêtes réseau en sont exclus.</p>
       </div>}
     </>}
+    </div>
   </section>;
 }
