@@ -3890,7 +3890,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                     {extractionStarted && !extractionDone && rubricImportProgress && <p className="rubric-import-step-status" role="status">{rubricImportProgress.message}</p>}
                     {rubricImportAnalysisResponse ? <details className="rubric-import-raw-response">
                       <summary>Voir le JSON brut extrait</summary>
-                      <p>Réponse de « {analysisModel} » avant validation, y compris si le JSON ou certains critères sont invalides.</p>
+                      <p>Réponse de « {generativeModel} » avant validation, y compris si le JSON ou certains critères sont invalides.</p>
                       <pre>{rubricImportAnalysisResponse}</pre>
                       <button type="button" className="button-secondary" onClick={() => { void navigator.clipboard?.writeText(rubricImportAnalysisResponse); }}>Copier le JSON</button>
                     </details> : <p className="rubric-import-step-hint">Le JSON extrait apparaîtra ici après l’analyse.</p>}

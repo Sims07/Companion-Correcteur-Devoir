@@ -85,6 +85,9 @@ test('barème preparation uses the generator even when correction is decision ba
   await page.getByText('Importer un barème depuis un document', { exact: true }).click();
   await page.locator('#rubric-image-file').setInputFiles({ name: 'bareme.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+afoUAAAAASUVORK5CYII=', 'base64') });
   await expect.poll(() => models).toEqual(['reader', 'generator']);
-  await expect(page.getByText(/Barème extrait : 1 critère/).first()).toBeVisible();
+  await expect(page.locator('.criterion-editor')).toHaveCount(1);
+  await expect(page.locator('#rubric-title')).toHaveValue('Biologie');
+  await page.getByText('Voir le JSON brut extrait', { exact: true }).click();
+  await expect(page.getByText('Réponse de « generator » avant validation', { exact: false })).toBeVisible();
   expect(models).not.toContain('tev1:4b');
 });
