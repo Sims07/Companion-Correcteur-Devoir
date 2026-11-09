@@ -50,6 +50,12 @@ export interface ScientificDiagramFixtureCase {
     criterionKey: string;
     descriptions: readonly string[];
   };
+  layoutObservation?: {
+    criterionKey: string;
+    points: number;
+    maximumPoints: number;
+    reason: string;
+  };
   referenceReview?: { status: 'provisional-visual-review'; reviewedOn: string; notes: Record<string, string> };
 }
 
@@ -118,10 +124,21 @@ function makeCase(id: ScientificDiagramFixtureId, label: string, description: st
   return { id, label, description, referenceScore, referencePoints, gold };
 }
 
-const wrongPointerPoints = Object.fromEntries(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap((criterion) =>
+/** Both D and E use horizontal rows of legends, not the single column
+ * required by the teacher rubric. Calibrate that defect identically in the
+ * control and the trap; only the arrow-endpoint criterion should differ. */
+const POINTER_LAYOUT_TARGET = diagramTargetKey('legends', 'legends-aligned');
+const pointerControlPoints = Object.fromEntries(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap((criterion) =>
   getRubricSubcriteria(criterion).map((sub) => [
-    sub.id, diagramTargetKey(criterion.id, sub.id) === SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET ? 0 : sub.maxPoints,
+    sub.id, diagramTargetKey(criterion.id, sub.id) === POINTER_LAYOUT_TARGET ? 0 : sub.maxPoints,
   ])));
+const wrongPointerPoints = { ...pointerControlPoints, 'legends-visible': 0 };
+const POINTER_LAYOUT_OBSERVATION = {
+  criterionKey: POINTER_LAYOUT_TARGET,
+  points: 0,
+  maximumPoints: 0.66,
+  reason: 'Les légendes sont disposées en lignes sous les cellules, et non alignées en colonne comme l’exige le barème.',
+} as const;
 const POINTER_LABELS = [
   'En métaphase : « Chromosomes » pointe le fuseau et « Fuseau mitotique » pointe les chromosomes.',
   'En télophase : « Noyau fils » pointe la plaque cellulaire et « Plaque cellulaire » pointe le noyau fils.',
@@ -133,13 +150,15 @@ export const SCIENTIFIC_DIAGRAM_FIXTURES: readonly ScientificDiagramFixtureCase[
   { ...makeCase('B', 'B — intermédiaire', 'Quatre étapes reconnaissables, composition lisible ; traits irréguliers, titre incomplet et légendes imparfaitement alignées.', middlePointsBySubcriterion),
     referenceReview: { status: 'provisional-visual-review', reviewedOn: '2026-11-08', notes: middleReviewNotes } },
   makeCase('C', 'C — insuffisant', 'Une seule cellule confuse, sans déroulé de la mitose, titre et organisation inadaptés.', 0),
-  { ...makeCase('D', 'D — témoin, flèches justes', 'Mêmes quatre phases, mêmes mots et même barème que E ; toutes les flèches désignent leur structure.', 10),
+  { ...makeCase('D', 'D — témoin, flèches justes', 'Mêmes quatre phases, mêmes mots et même barème que E ; flèches correctes, mais légendes non alignées en colonne.', pointerControlPoints),
+    layoutObservation: POINTER_LAYOUT_OBSERVATION,
     labelPointerChallenge: {
       kind: 'label-pointer-correspondence', expected: 'correct',
       criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET,
       descriptions: ['Les flèches correspondent aux noms écrits, y compris fuseau, chromosomes, noyau fils et plaque cellulaire.'],
     } },
-  { ...makeCase('E', 'E — piège, flèches inversées', 'Même dessin et mêmes mots que D ; quatre flèches pointent volontairement vers une autre structure.', wrongPointerPoints),
+  { ...makeCase('E', 'E — piège, flèches inversées', 'Même dessin et mêmes mots que D ; quatre flèches erronées et légendes non alignées en colonne.', wrongPointerPoints),
+    layoutObservation: POINTER_LAYOUT_OBSERVATION,
     labelPointerChallenge: {
       kind: 'label-pointer-correspondence', expected: 'incorrect',
       criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET, descriptions: POINTER_LABELS,
@@ -168,6 +187,7 @@ export function buildScientificDiagramFixtureReport(
       expectedPoints: structuredClone(fixture.referencePoints),
       gold: structuredClone(fixture.gold),
       ...(fixture.labelPointerChallenge ? { labelPointerChallenge: structuredClone(fixture.labelPointerChallenge) } : {}),
+      ...(fixture.layoutObservation ? { layoutObservation: structuredClone(fixture.layoutObservation) } : {}),
       ...(fixture.referenceReview ? { referenceReview: structuredClone(fixture.referenceReview) } : {}),
       summaries: benchmark.summaries,
       experiments: benchmark.experiments,
@@ -175,8 +195,8 @@ export function buildScientificDiagramFixtureReport(
   });
   return {
     format: 'companion-scientific-diagram-fixture-report',
-    version: 3,
-    protocolId: 'scientific-diagram-generated-a-b-c-plus-label-pointers-v3',
+    version: 4,
+    protocolId: 'scientific-diagram-generated-a-b-c-plus-label-pointers-v4',
     createdAt,
     plannedRepetitions,
     rubric: structuredClone(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC),
@@ -184,7 +204,7 @@ export function buildScientificDiagramFixtureReport(
     localOnly: runs.every(({ record }) => record.configurations.every((config) => {
       try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(config.endpoint).hostname); } catch { return false; }
     })),
-    limitations: 'Cinq dessins synthétiques (A/B/C et paire contrôlée D/E), références PROVISOIRES non validées par un enseignant. A=10/10, B=7,36/10, C=0/10, D=10/10, E=9,32/10 : D/E diffèrent uniquement par les destinations de quatre flèches. Le critère « Légendes : structures visibles et flèches correctes » (0,68 point) est le seul attendu modifié entre D et E. La pénalité est une convention de test, pas une validation scientifique du barème. Les images, clés, endpoints et réponses brutes ne sont jamais exportés.',
+    limitations: 'Cinq dessins synthétiques (A/B/C et paire contrôlée D/E), références PROVISOIRES non validées par un enseignant. A=10/10, B=7,36/10, C=0/10, D=9,34/10, E=8,66/10. D et E perdent chacun 0,66 point au critère « Légendes alignées en colonne », car leurs légendes sont en lignes. Les deux images ne diffèrent que par quatre destinations de flèches : seul le critère « Légendes : structures visibles et flèches correctes » (0,68 point) change entre D et E. Ces pénalités suivent le barème du pilote, mais les autres critères et les notes totales restent des références provisoires à confirmer par un enseignant. Les exports antérieurs de version 3 ne sont pas recalibrés automatiquement. Les images, clés, endpoints et réponses brutes ne sont jamais exportés.',
     cases,
   };
 }

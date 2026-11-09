@@ -260,6 +260,10 @@ export function ScientificDiagramProtocolPanel({
               <span>{fixture.referenceScore}/10 attendu</span>
             </div>
             <p>{fixture.description}</p>
+            {fixture.layoutObservation && <p>
+              <strong>Alignement en colonne : {fixture.layoutObservation.points}/{fixture.layoutObservation.maximumPoints} pt.</strong>{' '}
+              {fixture.layoutObservation.reason}
+            </p>}
             {fixture.labelPointerChallenge && <details>
               <summary>Voir les correspondances à vérifier</summary>
               <p>{fixture.labelPointerChallenge.expected === 'incorrect' ? 'Flèches erronées attendues :' : 'Témoin sans erreur de flèche :'}</p>

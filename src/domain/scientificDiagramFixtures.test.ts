@@ -52,7 +52,7 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
     const keys = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap((criterion) =>
       getRubricSubcriteria(criterion).map((sub) => diagramTargetKey(criterion.id, sub.id)));
     expect(keys).toHaveLength(19);
-    expect(SCIENTIFIC_DIAGRAM_FIXTURES.map((fixture) => fixture.referenceScore)).toEqual([10, 7.36, 0, 10, 9.32]);
+    expect(SCIENTIFIC_DIAGRAM_FIXTURES.map((fixture) => fixture.referenceScore)).toEqual([10, 7.36, 0, 9.34, 8.66]);
     expect(SCIENTIFIC_DIAGRAM_BASE_CASE_IDS).toEqual(['A', 'B', 'C']);
     expect(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS).toEqual(['D', 'E']);
     for (const fixture of SCIENTIFIC_DIAGRAM_FIXTURES) {
@@ -80,7 +80,7 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
       { caseId: 'B', repetition: 1, record: record('failed') },
     ], 3, '2026-11-07T20:10:00Z');
     expect(report.cases.map((item) => [item.caseId, item.referenceScore]))
-      .toEqual([['A', 10], ['B', 7.36], ['C', 0], ['D', 10], ['E', 9.32]]);
+      .toEqual([['A', 10], ['B', 7.36], ['C', 0], ['D', 9.34], ['E', 8.66]]);
     expect(report.cases[0]?.summaries[0]).toMatchObject({ runsCompleted: 1, complete: false });
     expect(report.cases[1]?.summaries[0]).toMatchObject({ runsCompleted: 1, successfulRuns: 0, accuracyPercent: 0 });
     expect(report.cases[2]?.summaries).toEqual([]);
@@ -100,6 +100,22 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
       expected: 'correct', criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET });
     expect(trap.labelPointerChallenge).toMatchObject({ kind: 'label-pointer-correspondence',
       expected: 'incorrect', criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET });
+    const alignment = diagramTargetKey('legends', 'legends-aligned');
+    expect(control.referenceScore).toBe(9.34);
+    expect(trap.referenceScore).toBe(8.66);
+    // The user-visible teacher rubric explicitly requires a COLUMN of legends.
+    // Both drawings place labels on horizontal rows beneath the cells.
+    for (const fixture of [control, trap]) {
+      expect(fixture.gold[alignment]).toBe('absent');
+      expect(fixture.referencePoints[alignment]).toBe(0);
+      // Horizontal writing stays valid; only COLUMN alignment is missing.
+      expect(fixture.gold[diagramTargetKey('legends', 'legends-horizontal')]).toBe('present');
+      expect(fixture.referencePoints[diagramTargetKey('legends', 'legends-horizontal')]).toBe(0.66);
+      expect(fixture.layoutObservation).toMatchObject({
+        criterionKey: alignment, points: 0, maximumPoints: 0.66,
+        reason: expect.stringContaining('non alignées en colonne'),
+      });
+    }
     expect(control.gold[SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET]).toBe('present');
     expect(trap.gold[SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET]).toBe('absent');
     expect(control.referencePoints[SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET]).toBe(0.68);
@@ -112,8 +128,12 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
     }
     const report = buildScientificDiagramFixtureReport(
       [{ caseId: 'E', repetition: 1, record: record() }], 1, '2026-11-08T23:00:00Z');
+    expect(report.version).toBe(4);
+    expect(report.protocolId).toBe('scientific-diagram-generated-a-b-c-plus-label-pointers-v4');
     expect(report.cases.find((item) => item.caseId === 'E')?.labelPointerChallenge)
       .toMatchObject({ expected: 'incorrect', criterionKey: SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET });
+    expect(report.cases.filter((item) => item.caseId === 'D' || item.caseId === 'E')
+      .map((item) => item.layoutObservation)).toEqual([control.layoutObservation, trap.layoutObservation]);
   });
   it('utilise des dessins D/E visuellement identiques hors extrémités de quatre traits de rappel', async () => {
     const [control, trap] = await Promise.all([
