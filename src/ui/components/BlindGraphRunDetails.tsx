@@ -29,6 +29,7 @@ export function BlindGraphRunDetails({ run, gold }: {
         </tr>)}</tbody>
       </table>
     </div>}
+    {(run.diagnostic?.attempts ?? 1) > 1 && <p>Format relancé une fois : {run.status === 'success' ? 'réponse récupérée' : 'réponse encore invalide'}. Motif initial : {run.diagnostic?.previousValidationError ?? 'non renseigné'}.</p>}
     {run.diagnostic?.validationError && <p>Sortie rejetée : {run.diagnostic.validationError}</p>}
     {run.status !== 'success' && !run.diagnostic?.validationError && <p>
       {run.errorCategory === 'cancelled' ? 'Appel interrompu.' : 'Erreur de communication ou réponse serveur inexploitable.'}

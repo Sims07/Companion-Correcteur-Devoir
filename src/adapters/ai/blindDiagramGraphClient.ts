@@ -81,46 +81,67 @@ export async function extractBlindVisualGraph(
     throw new Error('Image du schéma non valide.');
   }
   if (request.signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
-  const response = await send(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    signal: request.signal,
-    body: JSON.stringify({
-      model: request.model,
-      messages: [
-        { role: 'system', content: BLIND_VISUAL_OBSERVATION_PROMPT },
-        { role: 'user', content: 'Décris seulement les éléments et leurs relations géométriques visibles.', images: [compatible ? `data:${request.image.mimeType};base64,${request.image.base64}` : request.image.base64] },
-      ],
-      stream: false, format: BLIND_VISUAL_OBSERVATION_SCHEMA, think: false, keep_alive: 0,
-      options: { temperature: 0, num_predict: 768, num_ctx: 2048 },
-    }),
-  });
-  if (!response.ok) throw new Error(compatible ? 'Le modèle Vision OpenAI-compatible n’a pas répondu.' : 'Le modèle Vision local n’a pas répondu.');
-  let payload: unknown;
-  try { payload = await response.json(); }
-  catch { throw new Error('Réponse du serveur Vision illisible.'); }
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new Error('Réponse du serveur Vision invalide.');
+  // A malformed graph is not a judgment: retry once with a targeted format reminder.
+  // Transport failures and cancellations are never retried here.
+  const imageAudit = auditBlindGraphImage(request.image);
+  let previousValidationError: string | undefined;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    if (request.signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
+    const instruction = attempt === 1
+      ? 'Décris seulement les éléments et leurs relations géométriques visibles.'
+      : 'La réponse précédente ne respectait pas le format JSON : ' + previousValidationError +
+        ' Réexamine les pixels du même dessin, sans barème. Réponds exclusivement en JSON valide avec labels, arrows, containment et arrowsComplete. ' +
+        'Pour tip utilise uniquement first, second, none ou unclear ; pour relation uniquement inside, outside ou unclear. ' +
+        'N’invente ni pointe visible ni inclusion si tu ne peux pas les distinguer.';
+    const response = await send(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      signal: request.signal,
+      body: JSON.stringify({
+        model: request.model,
+        messages: [
+          { role: 'system', content: BLIND_VISUAL_OBSERVATION_PROMPT },
+          { role: 'user', content: instruction, images: [compatible ? `data:${request.image.mimeType};base64,${request.image.base64}` : request.image.base64] },
+        ],
+        stream: false, format: BLIND_VISUAL_OBSERVATION_SCHEMA, think: false, keep_alive: 0,
+        options: { temperature: 0, num_predict: 768, num_ctx: 2048 },
+      }),
+    });
+    if (!response.ok) throw new Error(compatible ? 'Le modèle Vision OpenAI-compatible n’a pas répondu.' : 'Le modèle Vision local n’a pas répondu.');
+    let payload: unknown;
+    try { payload = await response.json(); }
+    catch { throw new Error('Réponse du serveur Vision illisible.'); }
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      throw new Error('Réponse du serveur Vision invalide.');
+    }
+    const result = payload as { message?: { content?: unknown }; done_reason?: unknown; eval_count?: unknown; usage?: { completion_tokens?: unknown } };
+    const generated = result.eval_count ?? result.usage?.completion_tokens;
+    const raw = typeof result.message?.content === 'string' ? result.message.content : '';
+    const diagnostic: BlindGraphDiagnostic = {
+      imageAudit, attempts: attempt,
+      ...(previousValidationError ? { previousValidationError } : {}),
+      rawResponse: raw.slice(0, 24_000), rawResponseTruncated: raw.length > 24_000,
+      ...(typeof result.done_reason === 'string' && ['stop', 'length', 'load', 'unload'].includes(result.done_reason)
+        ? { doneReason: result.done_reason } : {}),
+      ...(typeof generated === 'number' && Number.isSafeInteger(generated) && generated >= 0
+        ? { outputTokens: generated } : {}),
+    };
+    let graph: ObservedVisualGraph;
+    try {
+      if (!raw.trim()) throw new Error('Le modèle n’a fourni aucune observation visuelle.');
+      graph = parseObservedVisualGraph(raw);
+    } catch (cause) {
+      if (request.signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
+      const validationError = cause instanceof Error ? cause.message : 'Sortie visuelle invalide.';
+      if (attempt === 1 && !request.signal?.aborted) {
+        previousValidationError = validationError;
+        continue;
+      }
+      request.onDiagnostic?.({ ...diagnostic, validationError });
+      throw cause;
+    }
+    request.onDiagnostic?.(diagnostic);
+    return graph;
   }
-  const result = payload as { message?: { content?: unknown }; done_reason?: unknown; eval_count?: unknown; usage?: { completion_tokens?: unknown } };
-  const generated = result.eval_count ?? result.usage?.completion_tokens;
-  const raw = typeof result.message?.content === 'string' ? result.message.content : '';
-  const diagnostic: BlindGraphDiagnostic = {
-    imageAudit: auditBlindGraphImage(request.image),
-    rawResponse: raw.slice(0, 24_000), rawResponseTruncated: raw.length > 24_000,
-    ...(typeof result.done_reason === 'string' && ['stop', 'length', 'load', 'unload'].includes(result.done_reason)
-      ? { doneReason: result.done_reason } : {}),
-    ...(typeof generated === 'number' && Number.isSafeInteger(generated) && generated >= 0
-      ? { outputTokens: generated } : {}),
-  };
-  let graph: ObservedVisualGraph;
-  try {
-    if (!raw.trim()) throw new Error('Le modèle n’a fourni aucune observation visuelle.');
-    graph = parseObservedVisualGraph(raw);
-  } catch (cause) {
-    request.onDiagnostic?.({ ...diagnostic, validationError: cause instanceof Error ? cause.message : 'Sortie visuelle invalide.' });
-    throw cause;
-  }
-  request.onDiagnostic?.(diagnostic);
-  return graph;
+  throw new Error('Extraction visuelle invalide après deux lectures.');
 }

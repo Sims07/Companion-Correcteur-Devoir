@@ -194,6 +194,10 @@ export interface BlindGraphDiagnostic {
   doneReason?: string;
   outputTokens?: number;
   validationError?: string;
+  /** Total Vision requests for this graph (one or two). */
+  attempts?: number;
+  /** Fixed-format parser message only; never includes the prior raw response. */
+  previousValidationError?: string;
 }
 
 /** Only a selected local Ollama profile or an explicit OpenAI-compatible Vision profile is eligible. */
@@ -251,6 +255,6 @@ export function buildBlindVisualObservationReport(
       experiments: runs.filter((run) => run.caseId === id).map(({ caseId: _caseId, ...rest }) => rest),
     })),
     statistics: summarizeDiagramSensitivity(readings),
-    limitations: 'Extraction visuelle indépendante (locale pour Ollama ; vers le fournisseur pour un profil OpenAI-compatible distant) : aucun barème ni réponse attendue envoyés au modèle. Le comparateur de graphe vérifie trois relations de référence après extraction. Une flèche manquante est considérée absente seulement si le modèle affirme avoir parcouru toutes les flèches ; cette affirmation peut être fausse. Une absence de preuve n’est pas un zéro. S5 est indécidable sur la première flèche. Références synthétiques provisoires, à valider par un professeur. Diagnostic des six dessins synthétiques : graphe extrait et réponse du modèle (24 000 caractères maximum) inclus. Aucun pixel, prompt, endpoint ni clé de configuration exportés. Les textes du modèle restent des données non fiables.',
+    limitations: 'Extraction visuelle indépendante (locale pour Ollama ; vers le fournisseur pour un profil OpenAI-compatible distant) : aucun barème ni réponse attendue envoyés au modèle. Le comparateur de graphe vérifie trois relations de référence après extraction. Une flèche manquante est considérée absente seulement si le modèle affirme avoir parcouru toutes les flèches ; cette affirmation peut être fausse. Une absence de preuve n’est pas un zéro. Une seule relance de format est autorisée si la réponse JSON est invalide ; les décisions visuelles fausses mais valides ne sont pas automatiquement corrigées. S5 est indécidable sur la première flèche. Références synthétiques provisoires, à valider par un professeur. Diagnostic des six dessins synthétiques : graphe extrait et réponse du modèle (24 000 caractères maximum) inclus. Aucun pixel, prompt, endpoint ni clé de configuration exportés. Les textes du modèle restent des données non fiables.',
   };
 }

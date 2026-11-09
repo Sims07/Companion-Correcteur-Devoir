@@ -99,6 +99,63 @@ describe('client graphe visuel indépendant', () => {
     expect(transport).toHaveBeenCalledTimes(1);
   });
 
+  it('retries invalid arrow JSON exactly once for both Ollama and OpenAI-compatible profiles, without changing pixels', async () => {
+    const graph = { labels: ['Cellule', 'Noyau'], arrows: [{ first: 'Cellule', second: 'Noyau', tip: 'unclear' }],
+      containment: [{ inner: 'Noyau', outer: 'Cellule', relation: 'unclear' }], arrowsComplete: false };
+    const invalid = JSON.stringify({ ...graph, arrows: [{ first: 'Cellule', second: 'Noyau', tip: 'tip' }] });
+    for (const apiCompatible of [false, true]) {
+      const onDiagnostic = vi.fn();
+      const payloads: Array<Record<string, unknown>> = [];
+      const transport = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        payloads.push(body);
+        const raw = payloads.length === 1 ? invalid : JSON.stringify(graph);
+        return new Response(JSON.stringify(apiCompatible
+          ? { choices: [{ message: { content: raw }, finish_reason: 'stop' }] }
+          : { message: { content: raw }, done_reason: 'stop' }), { status: 200 });
+      });
+      await expect(extractBlindVisualGraph({
+        endpoint: apiCompatible ? 'https://vision.example/v1/chat/completions' : 'http://localhost:11434',
+        apiCompatible, model: 'vision', image: { base64: 'SAME_PIXELS', mimeType: 'image/png' }, onDiagnostic,
+      }, transport)).resolves.toEqual(graph);
+      expect(transport).toHaveBeenCalledTimes(2);
+      expect(onDiagnostic).toHaveBeenCalledTimes(1);
+      expect(onDiagnostic).toHaveBeenCalledWith(expect.objectContaining({
+        attempts: 2, previousValidationError: expect.stringContaining('arrows[0].tip'),
+        rawResponse: JSON.stringify(graph),
+      }));
+      expect(onDiagnostic.mock.calls[0]?.[0].validationError).toBeUndefined();
+      const first = payloads[0]!;
+      const second = payloads[1]!;
+      expect(first.response_format ?? first.format).toEqual(second.response_format ?? second.format);
+      expect(JSON.stringify(first)).toContain('SAME_PIXELS');
+      expect(JSON.stringify(second)).toContain('SAME_PIXELS');
+      expect(JSON.stringify(second)).toContain('unclear');
+      expect(JSON.stringify(second)).not.toContain('maxPoints');
+    }
+  });
+
+  it('does not retry network failures and reports only the final malformed response after two attempts', async () => {
+    const diagnostic = vi.fn();
+    const invalid = vi.fn(async () => new Response(JSON.stringify({ message: { content:
+      '{"labels":[],"arrows":[{"first":"A","second":"B","tip":"tip"}],"containment":[],"arrowsComplete":true}' } })));
+    await expect(extractBlindVisualGraph({
+      endpoint: 'http://localhost:11434', model: 'vision', image: { base64: 'PIXELS', mimeType: 'image/png' },
+      onDiagnostic: diagnostic,
+    }, invalid)).rejects.toThrow('arrows[0].tip');
+    expect(invalid).toHaveBeenCalledTimes(2);
+    expect(diagnostic).toHaveBeenCalledTimes(1);
+    expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({
+      attempts: 2, previousValidationError: expect.stringContaining('arrows[0].tip'),
+      validationError: expect.stringContaining('arrows[0].tip'),
+    }));
+    const failure = vi.fn(async () => new Response('{}', { status: 503 }));
+    await expect(extractBlindVisualGraph({
+      endpoint: 'http://localhost:11434', model: 'vision', image: { base64: 'PIXELS', mimeType: 'image/png' },
+    }, failure)).rejects.toThrow('local');
+    expect(failure).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the Ollama-only boundary and rejects non-HTTPS remote OpenAI-compatible providers', async () => {
     const transport = vi.fn();
     expect(blindGraphCompatibleUrl('https://ai.zaup.org/v1/chat/completions')).toBe('https://ai.zaup.org/api/chat');

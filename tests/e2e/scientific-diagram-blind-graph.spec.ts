@@ -55,8 +55,8 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
         arrowsComplete: true,
       };
       await route.fulfill({ status: 200, headers,
-        body: JSON.stringify({ message: { content: requests.length === 2 ? '{' : JSON.stringify(graph) }, done: true,
-          done_reason: requests.length === 2 ? 'length' : 'stop', eval_count: 768 }) });
+        body: JSON.stringify({ message: { content: [2, 3].includes(requests.length) ? '{' : JSON.stringify(graph) }, done: true,
+          done_reason: [2, 3].includes(requests.length) ? 'length' : 'stop', eval_count: 768 }) });
       return;
     }
     await route.fulfill({ status: 404, headers, body: '{}' });
@@ -76,7 +76,7 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
     .locator('label.evaluation-profile-option').first().click();
   await expect(start).toBeEnabled();
   await start.click();
-  await expect.poll(() => requests.length, { timeout: 90_000 }).toBe(6);
+  await expect.poll(() => requests.length, { timeout: 90_000 }).toBe(7);
   for (const item of requests) {
     const typed = item as typeof item & { format?: { properties?: { arrows?: { items?: { required?: string[] } }; containment?: { items?: { required?: string[] } } } } };
     expect(typed.format?.properties?.arrows?.items?.required).toContain('tip');
@@ -91,7 +91,7 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
     expect(plainPrompts).toMatch(/aucun/i);
   }
   // Decode the exact base64 attached to the Ollama requests, not a rendered preview.
-  const actualPngs = [requests[0], requests[5]].map((item) => item?.messages.find((message) => message.role === 'user')?.images?.[0]);
+  const actualPngs = [requests[0], requests[6]].map((item) => item?.messages.find((message) => message.role === 'user')?.images?.[0]);
   expect(actualPngs.every(Boolean)).toBe(true);
   const pixels = await page.evaluate(async (encoded) => {
     const decode = async (base64: string) => {
@@ -140,7 +140,7 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
   expect(json.cases[0]?.experiments[0]?.diagnostic?.rawResponse).toContain('arrowsComplete');
   expect(json.cases[0]?.experiments[0]?.diagnostic?.imageAudit).toMatchObject({ width: 1100, height: 610, pngSignatureValid: true });
   expect(json.cases[1]?.experiments[0]?.graph).toBeUndefined();
-  expect(json.cases[1]?.experiments[0]?.diagnostic).toMatchObject({ rawResponse: '{', validationError: 'JSON visuel illisible.', doneReason: 'length' });
+  expect(json.cases[1]?.experiments[0]?.diagnostic).toMatchObject({ rawResponse: '{', validationError: 'JSON visuel illisible.', doneReason: 'length', attempts: 2, previousValidationError: 'JSON visuel illisible.' });
   expect(json.cases).toHaveLength(6);
   expect(json.cases.map((item) => item.experiments.length)).toEqual([1, 1, 1, 1, 1, 1]);
   expect(json.statistics).toHaveLength(1);
@@ -206,6 +206,7 @@ test('blind graph observer supports an explicitly selected OpenAI-compatible Vis
   await start.click();
   await expect.poll(() => requests.length, { timeout: 90_000 }).toBe(6);
   for (const body of requests) {
+    expect((body.response_format as { type?: string })?.type).toBe('json_schema');
     expect(body.model).toBe('vision-27b');
     expect(JSON.stringify(body)).toContain('data:image/png;base64,');
     expect(JSON.stringify(body)).not.toContain('ADN → ARN');

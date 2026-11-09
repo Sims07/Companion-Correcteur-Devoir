@@ -87,3 +87,8 @@ Exporter **l’analyse du graphe JSON** pour transmettre l'ensemble du diagnosti
 ## Vérification du contrat et des pixels (lot fiabilisation)
 
 L'appel Ollama de l'observation indépendante utilise un **schéma JSON contraignant**, avec champs `tip` et `containment[].relation` obligatoires ; le validateur métier continue de rejeter les réponses contradictoires ou incomplètes. Aucun champ omis n'est rempli artificiellement. Le diagnostic exporté conserve les métadonnées du **PNG réellement envoyé** (dimensions, type, longueur et signature), jamais ses pixels ni la connexion. Un test Playwright décode les octets effectivement capturés dans les requêtes Ollama et vérifie que la pointe du témoin reste visible, contrairement au cas délibérément sans pointe. Le rapport n'établit pas à lui seul la fiabilité visuelle du modèle ; la seconde lecture par recadrage reste une expérience distincte.
+
+
+### Fiabilisation de l’observateur de graphe
+
+La lecture à l’aveugle envoie maintenant le même JSON Schema strict à Ollama et aux API OpenAI-compatibles (l’adaptateur conserve sa stratégie de repli si le fournisseur refuse ce paramètre). Les consignes distinguent une pointe absente (`none`) d’une pointe réellement illisible (`unclear`) et demandent de vérifier les contours même s’ils sont scientifiquement surprenants. Une seule relance avec rappel de format est autorisée si la réponse est invalide ; les échecs réseau ne sont pas relancés, aucune réponse n’est corrigée silencieusement, et un graphe valide mais visuellement faux n’est pas considéré fiable. L’export conserve `attempts` et le premier message de validation (`previousValidationError`) sans inclure de pixels, d’adresse ou de clé.
