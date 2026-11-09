@@ -57,7 +57,7 @@ import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluatio
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
-import { detectOllamaDiagramThinkSetting, type OllamaThinkSetting } from '../adapters/ai/ollamaThinkingCapabilities.ts';
+import type { DiagramThinkSetting } from '../ports/correctionWorkspace.ts';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
 import { initialAssignmentRubric, type AssignmentKind } from '../domain/assignmentKind.ts';
 import { buildDiagramReview } from '../domain/diagramTeacherReview.ts';
@@ -99,7 +99,7 @@ interface PilotRunOptions {
   profiles: AiModelProfile[];
   caseImages: ImageInput[];
   contractVariant?: QuestionContractVariant;
-  diagram?: { rubric: Rubric; question: string; method: DiagramMethod; thinkSetting?: OllamaThinkSetting };
+  diagram?: { rubric: Rubric; question: string; method: DiagramMethod; thinkSetting?: DiagramThinkSetting };
   retainModelAfterRun?: boolean;
 }
 
@@ -2152,11 +2152,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           const methods = selectDiagramMethods(profile, methodSelection);
           // Ask Ollama which Think control this exact model supports. Probe once
           // before any image call (even the OFF control), not once per case.
-          let thinkSetting: OllamaThinkSetting = true;
+          let thinkSetting: DiagramThinkSetting = true;
           if (methods.includes('direct-image-generative-thinking')) {
             setDiagramProtocolProgress('Vérification Think · ' + profile.name + '…');
-            thinkSetting = await detectOllamaDiagramThinkSetting(
-              profile.configuration.endpoint, profile.configuration.analysisModel, undefined,
+            if (!service.detectDiagramThinking) throw new Error('Vérification Think indisponible dans le service Ollama local.');
+            thinkSetting = await service.detectDiagramThinking(
+              profile.configuration.endpoint, profile.configuration.analysisModel,
               methodSelection === 'compare-thinking',
             );
           }
