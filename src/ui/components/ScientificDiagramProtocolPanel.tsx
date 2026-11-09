@@ -12,7 +12,8 @@ import poorDiagramUrl from '../../assets/pilot/scientific-mitosis-0.webp';
 import correctPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labels-control.svg';
 import swappedPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labels-swapped.svg';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS, type ScientificDiagramFixtureId, type buildScientificDiagramFixtureReport } from '../../domain/scientificDiagramFixtures.ts';
-import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_CASE_IDS, scientificDiagramSensitivitySvg, scientificDiagramSensitivityPreviewUrl, type DiagramSensitivityCaseId, type buildScientificDiagramSensitivityReport } from '../../domain/scientificDiagramSensitivity.ts';
+import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_CASE_IDS, scientificDiagramSensitivitySvg, scientificDiagramSensitivityPreviewUrl, diagramSensitivityContext,
+  type DiagramSensitivityCaseId, type DiagramSensitivityPromptMode, type buildScientificDiagramSensitivityReport } from '../../domain/scientificDiagramSensitivity.ts';
 import {
   SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods,
   diagramTargetKey, parseScientificDiagramProtocolRubric, type DiagramMethodSelection,
@@ -122,7 +123,8 @@ export interface ScientificDiagramProtocolPanelProps {
     methodSelection: DiagramMethodSelection;
   }) => Promise<FixtureReport>;
   onRunSensitivity: (request: {
-    cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>;
+    cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[]; promptMode: DiagramSensitivityPromptMode; context: string }>;
+    promptModes: DiagramSensitivityPromptMode[];
     repetitions: DiagramProtocolCount;
     methodSelection: DiagramMethodSelection;
   }) => Promise<SensitivityReport>;
@@ -151,6 +153,7 @@ export function ScientificDiagramProtocolPanel({
   const [fixtureMessage, setFixtureMessage] = useState('');
   const [sensitivityLoading, setSensitivityLoading] = useState(false);
   const [sensitivityMessage, setSensitivityMessage] = useState('');
+  const [sensitivityPromptSelection, setSensitivityPromptSelection] = useState<'standard' | 'guided' | 'compare'>('standard');
   const [methodSelection, setMethodSelection] = useState<DiagramMethodSelection>('compare');
   const targets = rubric.criteria.flatMap((criterion) =>
     getRubricSubcriteria(criterion).map((item) => ({ criterion, item, key: diagramTargetKey(criterion.id, item.id) })));
@@ -169,14 +172,20 @@ export function ScientificDiagramProtocolPanel({
     onClearSensitivityReport();
     setSensitivityMessage('Préparation locale des six variantes…');
     try {
-      const cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }> = [];
+      const images = new Map<DiagramSensitivityCaseId, ImageInput[]>();
       for (const id of DIAGRAM_SENSITIVITY_CASE_IDS) {
         const prepared = await onPrepareImages([await prepareSensitivityImage(id)]);
         if (!prepared.length) throw new Error('Préparation impossible pour ' + id);
-        cases.push({ id, images: prepared });
+        images.set(id, prepared);
       }
+      const promptModes: DiagramSensitivityPromptMode[] = sensitivityPromptSelection === 'compare'
+        ? ['standard', 'guided'] : [sensitivityPromptSelection];
+      const cases = promptModes.flatMap((promptMode) =>
+        DIAGRAM_SENSITIVITY_CASE_IDS.map((id) => ({
+          id, promptMode, context: diagramSensitivityContext(promptMode), images: images.get(id)!,
+        })));
       setSensitivityMessage('');
-      const completed = await onRunSensitivity({ cases, repetitions: fixtureCount, methodSelection });
+      const completed = await onRunSensitivity({ cases, promptModes, repetitions: fixtureCount, methodSelection });
       const count = completed.cases.reduce((sum, item) => sum + item.experiments.length, 0);
       setSensitivityMessage(count + ' essai(s) terminés. Vérifiez les écarts, les abstentions et les faux positifs.');
     } catch (cause) {
@@ -470,12 +479,22 @@ export function ScientificDiagramProtocolPanel({
           </div>
         </article>)}
       </div>
+      <div className="diagram-fixture-run-controls">
+        <label htmlFor="diagram-sensitivity-prompt-mode">Stratégie de vérification visuelle</label>
+        <DesignSystemSelect id="diagram-sensitivity-prompt-mode"
+          value={sensitivityPromptSelection} disabled={busy || sensitivityLoading || fixtureLoading}
+          onChange={(event) => setSensitivityPromptSelection(event.currentTarget.value as typeof sensitivityPromptSelection)}>
+          <option value="standard">Standard — note directement</option>
+          <option value="guided">Questions ciblées — examine les relations avant la note</option>
+          <option value="compare">Comparer standard / questions ciblées (mêmes images)</option>
+        </DesignSystemSelect>
+      </div>
       <div className="pilot-evaluation-actions">
         <Button disabled={!canRunFixtures} onClick={() => { void runSensitivity(); }}>Tester les 6 variantes sémantiques</Button>
         {(busy || sensitivityLoading) && <Button variant="secondary" disabled={!busy} onClick={onStop}>Arrêter après l’appel en cours</Button>}
         {sensitivityReport && <Button variant="secondary" onClick={downloadSensitivityReport}>Exporter les mesures JSON</Button>}
       </div>
-      <p className="pilot-evaluation-hint">La méthode et les modèles se choisissent au-dessus ; le nombre de répétitions est celui des schémas intégrés. Exécution séquentielle. La variante S5 est indécidable : aucune réponse attendue n’est inventée pour sa première flèche.</p>
+      <p className="pilot-evaluation-hint">La méthode et les modèles se choisissent au-dessus ; le nombre de répétitions est celui des schémas intégrés. La comparaison standard / questions ciblées est réalisée par deux séries avec les mêmes PNG préparés une seule fois : ce n’est pas encore une lecture indépendante à l’aveugle. Exécution séquentielle. La variante S5 est indécidable : aucune réponse attendue n’est inventée pour sa première flèche.</p>
       {(sensitivityMessage || (busy && progress)) && <p role="status" className="pilot-evaluation-message">{sensitivityMessage || progress}</p>}
       {sensitivityReport && <section className="pilot-evaluation-report" aria-label="Résultats de sensibilité sémantique">
         <div className="pilot-evaluation-report-head">
@@ -483,10 +502,11 @@ export function ScientificDiagramProtocolPanel({
         </div>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
-            <thead><tr><th>Configuration</th><th>Parcours</th><th>Mutations détectées</th><th>Non mesurables</th><th>Réponses correctes sur témoins</th><th>Faux positifs témoins</th><th>Disposition préservée</th><th>Abstentions</th></tr></thead>
-            <tbody>{sensitivityReport.statistics.map((item) => <tr key={item.profileId + '-' + item.method}>
+            <thead><tr><th>Configuration</th><th>Parcours</th><th>Consigne</th><th>Mutations détectées</th><th>Non mesurables</th><th>Réponses correctes sur témoins</th><th>Faux positifs témoins</th><th>Disposition préservée</th><th>Abstentions</th></tr></thead>
+            <tbody>{sensitivityReport.statistics.map((item) => <tr key={item.profileId + '-' + item.method + '-' + item.promptMode}>
               <th scope="row">{item.profileId}</th>
               <td>{item.method in diagramMethodLabels ? diagramMethodLabels[item.method as keyof typeof diagramMethodLabels] : item.method}</td>
+              <td>{item.promptMode === 'guided' ? 'Questions ciblées' : 'Standard'}</td>
               <td>{item.sensitivityHits}/{item.sensitivityTrials}</td>
               <td>{item.sensitivityUnknown}</td>
               <td>{item.correctControls}/{item.controlObservations}</td>
