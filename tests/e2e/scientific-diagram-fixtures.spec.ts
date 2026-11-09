@@ -130,7 +130,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     .flatMap((summary) => summary.decisions)
     .every((decision) => !decision.stable
       && decision.stableAndResolved === null && decision.correctEveryTime === null)).toBe(true);
-  await page.getByRole('button', { name: /3.*Résultats/ }).click();
+  await page.getByRole('button', { name: /Analyse & historique/ }).click();
   await expect(exportStrip).toBeVisible();
   await page.getByRole('button', { name: /1.*Configuration/ }).click();
   await expect(results.locator('tbody tr')).toHaveCount(3);
