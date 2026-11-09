@@ -157,7 +157,7 @@ export function summarizeDiagramSensitivity(readings: readonly DiagramSensitivit
       const control = lookup.get('S0#' + mutant.repetition);
       const observed = target && mutant.observations[target];
       const baseline = target && control?.observations[target];
-      if (!target || !control || !observed || !baseline || observed === 'uncertain' || baseline === 'uncertain') {
+      if (!target || !control || !observed || baseline !== 'present' || observed === 'uncertain') {
         sensitivityUnknown += 1;
       } else {
         sensitivityTrials += 1;
