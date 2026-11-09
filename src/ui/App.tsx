@@ -2296,7 +2296,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function runScientificDiagramBlindGraph(
-    request: { cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>; repetitions: DiagramProtocolCount },
+    request: { cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>; repetitions: DiagramProtocolCount; zoomUncertainArrows?: boolean },
   ) {
     if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
     if (!service.extractBlindDiagramGraph) throw new Error('Lecteur de graphe local indisponible.');
@@ -2341,11 +2341,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             try {
               const graph = await service.extractBlindDiagramGraph(
                 profile.configuration.endpoint, model, entry.images[0]!, controller.signal,
-                (value) => { diagnostic = value; },
+                (value) => { diagnostic = value; }, request.zoomUncertainArrows,
               );
               runs.push({
                 caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
-                model, status: 'success', durationMs: Math.round(performance.now() - started),
+                model, zoom: Boolean(request.zoomUncertainArrows), status: 'success', durationMs: Math.round(performance.now() - started),
                 observations: compareBlindVisualGraph(graph), graph, diagnostic,
                 relationDetails: explainBlindVisualGraph(graph),
                 arrowCount: graph.arrows.length, containmentCount: graph.containment.length,
@@ -2355,7 +2355,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 (cause instanceof Error && cause.name === 'AbortError');
               runs.push({
                 caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
-                model, status: interrupted ? 'aborted' : 'failed',
+                model, zoom: Boolean(request.zoomUncertainArrows), status: interrupted ? 'aborted' : 'failed',
                 durationMs: Math.round(performance.now() - started),
                 observations: {}, arrowCount: 0, containmentCount: 0, diagnostic,
                 errorCategory: interrupted ? 'cancelled'

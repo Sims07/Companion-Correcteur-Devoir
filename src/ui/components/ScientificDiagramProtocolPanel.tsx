@@ -135,6 +135,7 @@ export interface ScientificDiagramProtocolPanelProps {
   onRunBlindGraph: (request: {
     cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>;
     repetitions: DiagramProtocolCount;
+    zoomUncertainArrows?: boolean;
   }) => Promise<BlindGraphReport>;
   onStop: () => void;
   report: DiagramReport | null;
@@ -184,7 +185,7 @@ export function ScientificDiagramProtocolPanel({
       isLocalPilotProfile(profile) && Boolean(profile.configuration.visionModel.trim() ||
         (profile.configuration.correctionMethod === 'generative' && profile.configuration.analysisModel.trim())));
 
-  async function runBlindObservation() {
+  async function runBlindObservation(zoomUncertainArrows = false) {
     if (!canRunBlindGraph) return;
     setBlindGraphLoading(true);
     onClearBlindGraphReport();
@@ -196,7 +197,7 @@ export function ScientificDiagramProtocolPanel({
         if (!prepared.length) throw new Error('Préparation impossible pour ' + id);
         cases.push({ id, images: prepared });
       }
-      const result = await onRunBlindGraph({ cases, repetitions: fixtureCount });
+      const result = await onRunBlindGraph({ cases, repetitions: fixtureCount, zoomUncertainArrows });
       setBlindGraphMessage(result.cases.reduce((sum, item) => sum + item.experiments.length, 0) +
         ' observation(s) effectuée(s). Vérifiez les inconnues avant de comparer les méthodes.');
     } catch (cause) {
@@ -571,9 +572,13 @@ export function ScientificDiagramProtocolPanel({
         <Button disabled={!canRunBlindGraph} onClick={() => { void runBlindObservation(); }}>
           Extraire les relations des 6 schémas
         </Button>
+        <Button variant="secondary" disabled={!canRunBlindGraph} onClick={() => { void runBlindObservation(true); }}>
+          Tester avec agrandissement ciblé
+        </Button>
         {(busy || blindGraphLoading) && <Button variant="secondary" disabled={!busy} onClick={onStop}>Arrêter après l’appel en cours</Button>}
         {blindGraphReport && <Button variant="secondary" onClick={downloadBlindGraphReport}>Exporter l’analyse du graphe JSON</Button>}
       </div>
+      <p className="pilot-evaluation-hint">L’agrandissement expérimental ajoute jusqu’à deux lectures locales uniquement pour les flèches ambiguës que Vision a pu localiser. Une zone manquante ou une réponse non concluante reste indécidable ; aucune copie n’est notée automatiquement. Le temps de traitement peut augmenter.</p>
       <p className="pilot-evaluation-hint">Nécessite une configuration Ollama locale avec modèle Vision. La lecture est séquentielle, et chaque modèle est libéré après l’appel pour limiter l’usage mémoire. Pas d’API compatible OpenAI distante ni de proxy. La conclusion peut rester indécidable si les flèches sont mal lues.</p>
       {!canRunBlindGraph && !busy && selectedProfiles.length > 0 &&
         <p className="pilot-evaluation-hint" role="status">Pour cette méthode, sélectionnez uniquement un profil Ollama local disposant d’un modèle Vision.</p>}
