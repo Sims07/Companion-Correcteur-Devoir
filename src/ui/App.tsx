@@ -1605,7 +1605,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           || (runVisualDirect && profile.configuration.correctionMethod === 'decision'
             && isVisualDecisionModel(profile.configuration.analysisModel))
     );
-    const directGenerativeProfiles = (_profile: AiModelProfile) => runStage === 'integrated' && diagramMethod === 'direct-image-generative';
+    const directGenerativeProfiles = (_profile: AiModelProfile) => runStage === 'integrated'
+      && (diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking');
     // Only the diagram lab can override a saved visual-decision profile to test
     // its two-step System One text baseline. The teacher route is unchanged.
     const effectiveMethod = (profile: AiModelProfile) =>
@@ -1629,7 +1630,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         apiKey: profile.configuration.apiKey,
         visionModel: profile.configuration.visionModel,
         analysisModel: profile.configuration.analysisModel,
-        thinking: profile.configuration.analysisThinking,
+        // A genuine A/B test must override any thinking setting saved in the
+        // profile. The normal teacher workflow and other labs are unaffected.
+        thinking: diagramMethod === 'direct-image-generative-thinking' ? true
+          : diagramMethod === 'direct-image-generative' ? false : profile.configuration.analysisThinking,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         correctionMethod: effectiveMethod(profile),
         directVisualDecision: directProfiles(profile),
