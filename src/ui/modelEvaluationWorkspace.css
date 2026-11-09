@@ -595,3 +595,27 @@
 .evaluation-scenario-picker button { border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-pill); background: var(--ds-color-surface); color: var(--ds-color-text); padding: var(--ds-space-3) var(--ds-space-4); }
 .evaluation-scenario-picker button[aria-pressed="true"] { background: var(--ds-color-brand-100); border-color: var(--ds-color-brand-700); }
 .evaluation-workspace-shell .evaluation-step-nav:not([data-journey="custom"]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* Compact orientation keeps the test choice ahead of repeated explanations. */
+.evaluation-workspace-shell .developer-tools-heading { padding: var(--ds-space-3) var(--ds-space-4); align-items: center; }
+.evaluation-workspace-shell .developer-tools-intro > p { display: none; }
+.evaluation-workspace-shell .developer-tools-heading h2 { font-size: 1.15rem; margin: 0; }
+.evaluation-workspace-shell .developer-tools-signal { padding: var(--ds-space-2) var(--ds-space-3); min-width: 0; }
+.evaluation-workspace-shell .developer-tools-signal strong { font-size: 1rem; }
+.evaluation-workspace-shell .evaluation-page-header { padding: var(--ds-space-4) var(--ds-space-5); margin-top: 0; }
+.evaluation-workspace-shell .evaluation-page-header h1 { font-size: clamp(1.5rem, 3vw, 2rem); }
+.evaluation-workspace-shell .evaluation-page-header p:not(.eyebrow) { font-size: .87rem; margin-block: var(--ds-space-2); max-width: 100ch; }
+.evaluation-workspace-shell .evaluation-page-badges { margin-top: var(--ds-space-2); }
+.evaluation-workspace-shell .evaluation-step-nav button { min-height: 70px; padding: var(--ds-space-3); }
+@media (max-width: 760px) {
+  .evaluation-workspace-shell .developer-tools-heading { flex-direction: row; flex-wrap: wrap; gap: var(--ds-space-2); }
+  .evaluation-workspace-shell .developer-tools-signals { width: auto; gap: var(--ds-space-2); }
+  .evaluation-workspace-shell .developer-tools-signal { flex: 1 1 100px; }
+  .evaluation-workspace-shell .developer-tools-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .evaluation-workspace-shell .developer-tools-link { padding: var(--ds-space-2); gap: var(--ds-space-1); flex-direction: column; }
+  .evaluation-workspace-shell .developer-tools-link small { display: none; }
+  .evaluation-workspace-shell .developer-tools-link strong { font-size: .76rem; overflow-wrap: anywhere; }
+  .evaluation-workspace-shell .evaluation-step-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .evaluation-workspace-shell .evaluation-step-nav button { grid-template-columns: 26px minmax(0, 1fr); gap: var(--ds-space-2); }
+  .evaluation-workspace-shell .evaluation-step-nav button > span { width: 26px; height: 26px; }
+  .evaluation-workspace-shell .evaluation-step-nav button small { display: none; }
+}
