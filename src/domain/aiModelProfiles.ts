@@ -12,7 +12,11 @@ export interface AiModelConfiguration {
   transcriptionRepeatPenalty: number;
   transcriptionPenaltyParameter: 'none' | 'frequency_penalty' | 'repeat_penalty';
   transcriptionFrequencyPenalty: number;
+  /** Resolved correction model, retained for existing pipelines and exports. */
   analysisModel: string;
+  /** Models are remembered independently when switching correction families. */
+  generativeModel?: string;
+  decisionModel?: string;
   secondAnalysisModel: string;
   arbitratorModel: string;
   diagnosticStrategy: AiModelStrategy;
@@ -55,6 +59,8 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
       transcriptionPenaltyParameter: migrateLegacyPenaltyDefault ? 'none' : candidate.transcriptionPenaltyParameter === 'repeat_penalty' || candidate.transcriptionPenaltyParameter === 'frequency_penalty' ? candidate.transcriptionPenaltyParameter : 'none',
       transcriptionFrequencyPenalty: migrateLegacyPenaltyDefault ? 0 : typeof candidate.transcriptionFrequencyPenalty === 'number' && Number.isFinite(candidate.transcriptionFrequencyPenalty) ? Math.min(2, Math.max(0, candidate.transcriptionFrequencyPenalty)) : defaultAiModelConfiguration.transcriptionFrequencyPenalty,
       analysisModel: typeof candidate.analysisModel === 'string' ? candidate.analysisModel : '',
+      ...(typeof candidate.generativeModel === 'string' ? { generativeModel: candidate.generativeModel } : {}),
+      ...(typeof candidate.decisionModel === 'string' ? { decisionModel: candidate.decisionModel } : {}),
       secondAnalysisModel: typeof candidate.secondAnalysisModel === 'string' ? candidate.secondAnalysisModel : '',
       arbitratorModel: typeof candidate.arbitratorModel === 'string' ? candidate.arbitratorModel : '',
       diagnosticStrategy: isStrategy(candidate.diagnosticStrategy) ? candidate.diagnosticStrategy : 'single',
@@ -68,6 +74,8 @@ export function parseAiModelConfiguration(raw: string | null): AiModelConfigurat
 function isConfiguration(value: unknown): value is AiModelConfiguration {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<AiModelConfiguration>;
+  if (candidate.generativeModel !== undefined && typeof candidate.generativeModel !== 'string') return false;
+  if (candidate.decisionModel !== undefined && typeof candidate.decisionModel !== 'string') return false;
   return typeof candidate.endpoint === 'string' && (candidate.apiCompatible === undefined || typeof candidate.apiCompatible === 'boolean') && (candidate.apiKey === undefined || typeof candidate.apiKey === 'string') && typeof candidate.visionModel === 'string' && (candidate.transcriptionTokenLimit === undefined || typeof candidate.transcriptionTokenLimit === 'number') && (candidate.transcriptionPromptMode === undefined || candidate.transcriptionPromptMode === 'auto' || candidate.transcriptionPromptMode === 'ocr' || candidate.transcriptionPromptMode === 'general') && (candidate.transcriptionRepeatPenalty === undefined || typeof candidate.transcriptionRepeatPenalty === 'number') && (candidate.transcriptionPenaltyParameter === undefined || candidate.transcriptionPenaltyParameter === 'none' || candidate.transcriptionPenaltyParameter === 'frequency_penalty' || candidate.transcriptionPenaltyParameter === 'repeat_penalty') && (candidate.transcriptionFrequencyPenalty === undefined || typeof candidate.transcriptionFrequencyPenalty === 'number') && typeof candidate.analysisModel === 'string' &&
     typeof candidate.secondAnalysisModel === 'string' && typeof candidate.arbitratorModel === 'string' && isStrategy(candidate.diagnosticStrategy) && typeof candidate.analysisThinking === 'boolean' && (candidate.criterionByCriterion === undefined || typeof candidate.criterionByCriterion === 'boolean') && (candidate.correctionMethod === undefined || candidate.correctionMethod === 'generative' || candidate.correctionMethod === 'decision' || candidate.correctionMethod === 'visual-decision');
 }
@@ -112,4 +120,16 @@ export function removeAiModelProfiles(
 /** Backwards-compatible single profile deletion. */
 export function removeAiModelProfile(profiles: AiModelProfile[], profileId: string): AiModelProfile[] {
   return removeAiModelProfiles(profiles, [profileId]);
+}
+
+/** Legacy analysis models keep their declared family; OCR is never guessed to be a generator. */
+export function aiModelRoles(configuration: Pick<AiModelConfiguration, 'analysisModel' | 'correctionMethod' | 'generativeModel' | 'decisionModel'>) {
+  return {
+    generativeModel: configuration.generativeModel ?? (configuration.correctionMethod === 'generative' ? configuration.analysisModel : ''),
+    decisionModel: configuration.decisionModel ?? (configuration.correctionMethod !== 'generative' ? configuration.analysisModel : ''),
+  };
+}
+
+export function correctionModelFor(method: CorrectionMethod, roles: { generativeModel: string; decisionModel: string }): string {
+  return method === 'generative' ? roles.generativeModel : roles.decisionModel;
 }

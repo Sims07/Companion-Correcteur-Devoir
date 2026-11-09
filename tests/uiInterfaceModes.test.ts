@@ -222,7 +222,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('id="evaluation-configurations"');
     expect(text).toContain('id="evaluation-profile-name"');
     expect(text).toContain('id="evaluation-vision-model"');
-    expect(text).toContain('id="evaluation-analysis-model"');
+    expect(text).toContain('<AiModelRoleFields prefix="evaluation"');
     expect(text).toContain('id="evaluation-provider"');
     expect(text).toContain('API compatible OpenAI');
     expect(text).toContain('id="evaluation-api-key"');
@@ -384,7 +384,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Enregistrer la configuration');
     expect(text).toContain('id="evaluation-profile-name"');
     expect(text).toContain('id="evaluation-vision-model"');
-    expect(text).toContain('id="evaluation-analysis-model"');
+    expect(text).toContain('<AiModelRoleFields prefix="evaluation"');
     expect(text).toContain('id="evaluation-results"');
     expect(text).toContain('Comparer les modèles Vision');
     expect(text).toContain('Comparer les modèles d’analyse');

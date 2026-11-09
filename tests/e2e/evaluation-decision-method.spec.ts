@@ -12,9 +12,11 @@ test('the evaluator creates, reloads and resets decision-model configurations', 
   await expect(method).toHaveValue('generative');
   await expect(byCriterion).toBeEnabled();
 
+  await page.getByText('Options avancées du test', { exact: true }).click();
   await page.locator('#evaluation-profile-name').fill('Laboratoire décisionnel');
   await page.locator('#evaluation-vision-model').fill('gemma3:4b');
-  await page.locator('#evaluation-analysis-model').fill('tev1:4b');
+  await page.locator('#evaluation-analysis-model').fill('qwen3.5:4b');
+  await page.locator('#evaluation-decision-model').fill('tev1:4b');
   await method.selectOption('decision');
   await expect(byCriterion).toBeDisabled();
   await page.getByRole('button', { name: 'Enregistrer la configuration' }).click();
@@ -43,7 +45,8 @@ test('the evaluator creates, reloads and resets decision-model configurations', 
   await page.locator('#evaluation-profile-select').selectOption(savedProfile!.id);
   await expect(method).toHaveValue('decision');
   await expect(byCriterion).toBeDisabled();
-  await expect(page.locator('#evaluation-analysis-model')).toHaveValue('tev1:4b');
+  await expect(page.locator('#evaluation-analysis-model')).toHaveValue('qwen3.5:4b');
+  await expect(page.locator('#evaluation-decision-model')).toHaveValue('tev1:4b');
 
   await page.reload();
   await page.getByRole('button', { name: 'Outils IA' }).click();
