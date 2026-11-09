@@ -67,6 +67,7 @@ describe('hexagonal architecture boundaries', () => {
     const entrypoint = source('../src/main.tsx');
     expect(port).toContain('extractBlindDiagramGraph?(');
     expect(service).toContain('ollama.extractBlindDiagramGraph!');
+    expect(service).toContain('ollama.extractBlindDiagramGraph!(endpoint, model, image, signal, onDiagnostic, provider)');
     expect(app).toContain('service.extractBlindDiagramGraph(');
     expect(imports(app).some((path) => path.includes('/adapters/'))).toBe(false);
     expect(entrypoint).toContain('extractBlindDiagramGraph: (endpoint, model, image, signal, onDiagnostic, provider)');
