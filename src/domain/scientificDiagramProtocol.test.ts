@@ -115,6 +115,21 @@ describe('protocole de schémas scientifiques', () => {
     expect(selectDiagramMethods(remote, 'compare')).toEqual(['vision-then-analysis', 'direct-image-generative']);
     expect(diagramMethodIssue(remote, 'compare')).toBeNull();
 
+    const qwen4b = profile('qwen3.5:4b', 'generative');
+    expect(selectDiagramMethods(qwen4b, 'compare')).toEqual(['vision-then-analysis', 'direct-image-generative']);
+    expect(selectDiagramMethods(qwen4b, 'compare-thinking')).toEqual([
+      'direct-image-generative', 'direct-image-generative-thinking',
+    ]);
+    expect(selectDiagramMethods(qwen4b, 'direct-image-generative-thinking')).toEqual(['direct-image-generative-thinking']);
+    expect(selectDiagramMethods(generative, 'compare-thinking')).toEqual([]);
+    expect(diagramMethodIssue(generative, 'compare-thinking')).toContain('Qwen 3.5 4B');
+    expect(selectDiagramMethods({ ...qwen4b, configuration: {
+      ...qwen4b.configuration, endpoint: 'https://ollama.example', apiCompatible: false,
+    } }, 'compare-thinking')).toEqual([]);
+    expect(selectDiagramMethods({ ...qwen4b, configuration: {
+      ...qwen4b.configuration, endpoint: 'https://api.example/v1/chat/completions', apiCompatible: true,
+    } }, 'direct-image-generative-thinking')).toEqual([]);
+
     const d1 = profile('d1:3b');
     expect(selectDiagramMethods(d1, 'compare')).toEqual(['vision-then-analysis', 'direct-image-systemone']);
     expect(selectDiagramMethods(profile('tev1:4b'), 'compare')).toEqual(['vision-then-analysis']);
@@ -140,6 +155,38 @@ describe('protocole de schémas scientifiques', () => {
     expect(report.summaries.every((summary) => summary.runsCompleted === 1)).toBe(true);
     expect(JSON.stringify(report)).not.toContain('PRIVATE_BASE64_IMAGE');
     expect(JSON.stringify(report)).not.toContain('PRIVATE_API_KEY');
+  });
+
+  it('sépare Think OFF et Think ON dans le rapport et conserve seulement un booléen observé', () => {
+    const base = record({ ...result(), directVisualDecision: false, diagnosticRuns: [{
+      kind: 'model', stage: 'analysis', model: 'qwen3.5:4b', raw: 'PRIVATE_REASONING_NEVER_EXPORT',
+      elapsedMs: 100, thinkingPresent: false, generatedTokens: 60,
+    }] });
+    const off = { ...base, configurations: [{
+      ...base.configurations[0]!, correctionMethod: 'generative' as const,
+      directVisualDecision: false, directGenerativeVision: true, thinking: false,
+    }] };
+    const on = { ...base, configurations: [{
+      ...base.configurations[0]!, correctionMethod: 'generative' as const,
+      directVisualDecision: false, directGenerativeVision: true, thinking: true,
+    }], results: [{
+      ...base.results[0]!, diagnosticRuns: [{
+        kind: 'model' as const, stage: 'analysis' as const, model: 'qwen3.5:4b',
+        raw: 'PRIVATE_REASONING_NEVER_EXPORT', elapsedMs: 500, thinkingPresent: true, generatedTokens: 150,
+      }],
+    }] };
+    const report = buildScientificDiagramProtocolReport([
+      { repetition: 1, record: off }, { repetition: 1, record: on },
+    ], SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, {}, 1, 'test', 1);
+    expect(report.summaries.map((summary) => summary.method)).toEqual([
+      'direct-image-generative', 'direct-image-generative-thinking',
+    ]);
+    expect(report.experiments.map((entry) => [entry.method, entry.thinkingRequested, entry.thinkingObserved,
+      entry.diagnostics.generatedTokens])).toEqual([
+      ['direct-image-generative', false, false, 60],
+      ['direct-image-generative-thinking', true, true, 150],
+    ]);
+    expect(JSON.stringify(report)).not.toMatch(/PRIVATE_REASONING_NEVER_EXPORT|PRIVATE_API_KEY|PRIVATE_BASE64_IMAGE/);
   });
 
   it('lit les décisions visuelles sans déduire absent lorsque le modèle ne répond pas', () => {

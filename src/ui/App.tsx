@@ -1617,7 +1617,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           || (runVisualDirect && profile.configuration.correctionMethod === 'decision'
             && isVisualDecisionModel(profile.configuration.analysisModel))
     );
-    const directGenerativeProfiles = (_profile: AiModelProfile) => runStage === 'integrated' && diagramMethod === 'direct-image-generative';
+    const directGenerativeProfiles = (_profile: AiModelProfile) => runStage === 'integrated'
+      && (diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking');
     // Only the diagram lab can override a saved visual-decision profile to test
     // its two-step System One text baseline. The teacher route is unchanged.
     const effectiveMethod = (profile: AiModelProfile) =>
@@ -1641,7 +1642,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         apiKey: profile.configuration.apiKey,
         visionModel: profile.configuration.visionModel,
         analysisModel: profile.configuration.analysisModel,
-        thinking: profile.configuration.analysisThinking,
+        // Every scientific diagram route explicitly controls thinking: only
+        // the opt-in Think route enables it. Other labs and teacher settings
+        // still use the saved profile preference unchanged.
+        thinking: diagramMethod ? diagramMethod === 'direct-image-generative-thinking'
+          : profile.configuration.analysisThinking,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         correctionMethod: effectiveMethod(profile),
         directVisualDecision: directProfiles(profile),
@@ -1807,7 +1812,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       configurations: selectedProfiles.map((profile) => ({
         id: profile.id, name: profile.name, endpoint: profile.configuration.endpoint,
         visionModel: profile.configuration.visionModel, analysisModel: profile.configuration.analysisModel,
-        thinking: profile.configuration.analysisThinking,
+        // Keep the effective benchmark flag, not the saved profile default.
+        // Otherwise OFF and ON calls are mislabelled as the same method in
+        // the research report even though the wire requests differed.
+        thinking: outputs.find((output) => output.configuration.id === profile.id)?.configuration.thinking
+          ?? profile.configuration.analysisThinking,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         apiCompatible: profile.configuration.apiCompatible,
         correctionMethod: effectiveMethod(profile),

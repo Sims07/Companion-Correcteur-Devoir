@@ -53,6 +53,18 @@ Deux enseignants consignent indépendamment les verdicts, résolvent les désacc
 
 Cette PR ajoute un **protocole d’évaluation**, pas un nouveau mode de correction en production. Les décisions et temps passent par les moteurs déjà disponibles et l’évaluateur existant. Les annotations de référence et les résultats restent en mémoire pendant la session ; les répétitions expérimentales ne dupliquent pas les photographies dans IndexedDB. Exporter le rapport JSON avant de recharger la page. Le rapport mesure un seul groupe d’images par série ; une future évolution pourra importer un jeu multi-schémas et calculer une agrégation statistique hors répétitions. La segmentation de structures, le calcul géométrique déterministe (alignement / centrage) et la calibration des probabilités ne font pas encore partie de ce protocole.
 
+## Essai facultatif Qwen 3.5 4B avec Think
+
+Dans **Outils IA → Évaluation des modèles → Schémas scientifiques**, choisir le profil **Ollama local, génératif, modèle d’analyse `qwen3.5:4b`**. Le sélecteur « Méthode de correction scientifique à tester » propose :
+
+- **Image → génératif direct — Think ON** : un seul parcours sur image, avec `think: true`.
+- **Comparer génératif direct : Think OFF / ON** : exécute les deux variantes l’une après l’autre sur le(s) même(s) schéma(s), même barème et même modèle. Le contrôle OFF force `think: false`, même lorsque la configuration enregistrée a Think activé.
+- **Comparer toutes les méthodes compatibles** (choix par défaut) **n’active jamais cette variante Think expérimentale**.
+
+Commencer avec **un seul passage sur E** (flèches volontairement fausses), puis tester D et faire 3 passages seulement si les premiers résultats sont exploitables. Le test Think autorise au maximum **4 096 tokens de génération par appel**, contre **2 048 en OFF**, car Ollama décompte la réflexion et la réponse dans le même budget. Ce plafond **n’est pas une limite de durée** ; sur une machine CPU le test peut rester lent, et le bouton d'arrêt permet de ne pas enchaîner les passages suivants. Une limite atteinte ou une réponse composée uniquement de `message.thinking` est un échec de génération, **jamais une correction considérée comme valide**.
+
+Ollama renvoie le raisonnement dans `message.thinking` et la réponse exploitable dans `message.content`. Le tableau et le JSON exportent les booléens **`thinkingRequested`** (valeur effectivement demandée) et **`thinkingObserved`** (une trace distincte a-t-elle été reçue ?) ainsi que le budget, le nombre total de tokens générés et les durées. **Le texte du raisonnement n’est jamais exporté**. Une absence de trace n'est pas une preuve certaine que le modèle n'a effectué aucun raisonnement interne. **Le protocole Think est réservé au profil Qwen 3.5 4B sur Ollama en boucle locale** ; pas d'envoi à une API distante. Les réglages et parcours normaux de correction restent inchangés.
+
 ## Jeux A/B/C et D/E intégrés — protocole « en un clic »
 
 Trois **images originales générées pour ce laboratoire** sont incluses dans le bundle (WebP), plus deux diagrammes vectoriels conçus pour tester la cohérence des légendes :

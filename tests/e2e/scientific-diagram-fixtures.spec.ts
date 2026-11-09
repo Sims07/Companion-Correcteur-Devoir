@@ -241,3 +241,114 @@ test('paired D/E diagrams test the pointed structure, not just the written label
   }
   expect(JSON.stringify(exported)).not.toContain('iVBORw0KGgo');
 });
+
+
+test('Qwen 4B compares direct Think OFF/ON on E and exports only observed reasoning metadata', async ({ page }) => {
+  const configuration = {
+    endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '',
+    visionModel: '', analysisModel: 'qwen3.5:4b',
+    transcriptionTokenLimit: 2048, transcriptionPromptMode: 'auto',
+    transcriptionRepeatPenalty: 1.05, transcriptionPenaltyParameter: 'none',
+    transcriptionFrequencyPenalty: 0,
+    analysisThinking: true, // Saved ON must not contaminate the OFF control.
+    correctionMethod: 'generative', criterionByCriterion: false,
+    secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single',
+  };
+  await page.addInitScript((profiles) => localStorage.setItem(
+    'companion-correcteur:ollama-profiles:v1', JSON.stringify(profiles),
+  ), [{ id: 'qwen4b', name: 'Qwen 4B', mode: 'single',
+    updatedAt: '2026-11-09T10:00:00Z', configuration }]);
+
+  const requests: Array<{ think: boolean; numPredict: number; image: string }> = [];
+  await page.route('http://localhost:11434/**', async (route) => {
+    const req = route.request();
+    const path = new URL(req.url()).pathname;
+    const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*',
+      'access-control-allow-methods': 'GET,POST,OPTIONS', 'content-type': 'application/x-ndjson' };
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
+    if (path === '/api/tags') return route.fulfill({ status: 200, headers, body: JSON.stringify({
+      models: [{ name: 'qwen3.5:4b', model: 'qwen3.5:4b' }],
+    }) });
+    if (path === '/api/show') return route.fulfill({ status: 200, headers, body: JSON.stringify({
+      model_info: {}, thinking: { values: [false, true], default: true },
+    }) });
+    if (path === '/api/ps') return route.fulfill({ status: 200, headers, body: JSON.stringify({ models: [] }) });
+    if (path === '/api/generate') return route.fulfill({ status: 200, headers, body: '{}' });
+    if (path === '/api/chat') {
+      const body = req.postDataJSON() as {
+        think: boolean; options: { num_predict: number };
+        messages: Array<{ images?: string[]; content?: string }>;
+        format: { properties: { criteria: { properties: Record<string, {
+          properties: { subcriteria?: { properties: Record<string, { properties: { points: { maximum: number } } }> } };
+        }> } } };
+      };
+      requests.push({
+        think: body.think, numPredict: body.options.num_predict,
+        image: body.messages[0]?.images?.[0] ?? '',
+      });
+      expect(body.messages[0]?.content).not.toMatch(/piège|référence 8[.,]66|flèches inversées/i);
+      const criteria = Object.fromEntries(Object.entries(body.format.properties.criteria.properties).map(([id, criterion]) => [
+        id, {
+          evidence: 'Structure examinée', confidence: 'high', questionForTeacher: '',
+          subcriteria: Object.fromEntries(Object.entries(criterion.properties.subcriteria?.properties ?? {}).map(([sid, sub]) => [
+            sid, { points: sid === 'legends-aligned' || (sid === 'legends-visible' && body.think)
+              ? 0 : sub.properties.points.maximum, evidence: 'Visuellement contrôlé' },
+          ])),
+        },
+      ]));
+      const events = [
+        ...(body.think ? [{ message: { thinking: 'PRIVATE_REASONING_NOT_EXPORTED' } }] : []),
+        { message: { content: JSON.stringify({ criteria }) } },
+        { done: true, done_reason: 'stop', prompt_eval_count: 60,
+          eval_count: body.think ? 850 : 200, eval_duration: 1200000000 },
+      ];
+      return route.fulfill({ status: 200, headers,
+        body: events.map((event) => JSON.stringify(event)).join('\n') + '\n' });
+    }
+    return route.fulfill({ status: 404, headers, body: '{}' });
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
+  const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
+  await page.getByRole('group', { name: 'Configurations à exécuter' })
+    .locator('label.evaluation-profile-option').first().click();
+  await panel.getByRole('combobox', { name: 'Méthode de correction scientifique à tester' })
+    .selectOption('compare-thinking');
+  const fixtures = panel.getByRole('region', { name: 'Schémas de référence intégrés' });
+  await fixtures.locator('.diagram-fixture-card').nth(4)
+    .getByRole('button', { name: 'Tester ce schéma' }).click();
+
+  const results = fixtures.getByRole('region', { name: 'Résultats des schémas scientifiques' });
+  await expect(results.locator('tbody tr')).toHaveCount(2, { timeout: 30_000 });
+  expect(requests).toHaveLength(2);
+  expect(requests.map((req) => [req.think, req.numPredict])).toEqual([[false, 2048], [true, 4096]]);
+  expect(requests[0]?.image).toMatch(/^iVBORw0KGgo/);
+  expect(requests[0]?.image).toBe(requests[1]?.image);
+  await expect(results.getByText(/OFF \/ non détectée/)).toBeVisible();
+  await expect(results.getByText(/ON \/ émise/)).toBeVisible();
+  await expect(results.getByText('0/1 détection(s)', { exact: true })).toBeVisible();
+  await expect(results.getByText('1/1 détection(s)', { exact: true })).toBeVisible();
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    results.getByRole('button', { name: 'Exporter le rapport JSON' }).click(),
+  ]);
+  const report = JSON.parse(await readFile(await download.path(), 'utf8')) as {
+    cases: Array<{ caseId: string; experiments: Array<{
+      method: string; thinkingRequested: boolean; thinkingObserved: boolean;
+      diagnostics: { generationBudgetTokens: number; generatedTokens: number };
+    }> }>;
+  };
+  const experiments = report.cases.find((item) => item.caseId === 'E')?.experiments ?? [];
+  expect(experiments.map((item) => [
+    item.method, item.thinkingRequested, item.thinkingObserved,
+    item.diagnostics.generationBudgetTokens, item.diagnostics.generatedTokens,
+  ])).toEqual([
+    ['direct-image-generative', false, false, 2048, 200],
+    ['direct-image-generative-thinking', true, true, 4096, 850],
+  ]);
+  expect(JSON.stringify(report)).not.toMatch(/PRIVATE_REASONING_NOT_EXPORTED|iVBORw0KGgo|api\/chat|127\.0\.0\.1/);
+});

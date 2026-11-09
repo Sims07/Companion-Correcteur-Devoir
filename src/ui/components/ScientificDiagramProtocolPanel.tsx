@@ -239,10 +239,12 @@ export function ScientificDiagramProtocolPanel({
         }}>
         <option value="compare">Comparer toutes les méthodes compatibles (recommandé)</option>
         <option value="vision-then-analysis">Vision puis analyse — 2 étapes</option>
-        <option value="direct-image-generative">Image → modèle génératif — sans OCR</option>
+        <option value="direct-image-generative">Image → modèle génératif — sans OCR, Think OFF</option>
+        <option value="direct-image-generative-thinking">Image → modèle génératif — Think ON (Qwen 3.5 4B local)</option>
+        <option value="compare-thinking">Comparer génératif direct : Think OFF / ON (Qwen 3.5 4B)</option>
         <option value="direct-image-systemone">Image → décisionnel System One — sans OCR</option>
       </DesignSystemSelect>
-      <p className="pilot-evaluation-hint">Les méthodes sont choisies dans ce laboratoire uniquement. Un profil génératif peut comparer deux étapes et image directe ; D1/D3 compatibles peuvent comparer deux étapes et System One image. TEV1 n’utilise l’image que via la transcription préalable. Le modèle et la méthode figurent séparément dans l’export.</p>
+      <p className="pilot-evaluation-hint">Les méthodes sont choisies dans ce laboratoire uniquement. Le choix habituel « Comparer toutes les méthodes » n’active jamais Think. L’option OFF / ON est réservée à Qwen 3.5 4B génératif sur Ollama local, avec 4 096 tokens maximum par appel Think et 1 passage par défaut. Pensez à « Arrêter » si l’essai est trop long. Le rapport distingue Thinking demandé et trace réellement émise, sans enregistrer le raisonnement. D1/D3 compatibles peuvent comparer deux étapes et System One image ; TEV1 n’utilise l’image que via la transcription préalable.</p>
     </div>
     <section className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
       <div className="diagram-protocol-fixtures-heading">
@@ -316,7 +318,7 @@ export function ScientificDiagramProtocolPanel({
         </div>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
-            <thead><tr><th>Schéma</th><th>Configuration</th><th>Parcours</th><th>Attendu</th><th>Notes obtenues</th><th>Exécution</th><th>Décisions récupérées</th><th>Justesse stricte</th><th>Légendes et flèches</th><th>Stabilité</th><th>Temps moyen</th></tr></thead>
+            <thead><tr><th>Schéma</th><th>Configuration</th><th>Parcours</th><th>Attendu</th><th>Notes obtenues</th><th>Exécution</th><th>Décisions récupérées</th><th>Justesse stricte</th><th>Légendes et flèches</th><th>Think (demande / trace)</th><th>Stabilité</th><th>Temps moyen</th></tr></thead>
             <tbody>{fixtureReport.cases.flatMap((caseResult) => caseResult.summaries.map((summary) => {
               const experiments = caseResult.experiments.filter((experiment) => experiment.profileId === summary.profileId && experiment.method === summary.method);
               return <tr key={caseResult.caseId + '-' + summary.profileId + '-' + summary.method}>
@@ -362,6 +364,11 @@ export function ScientificDiagramProtocolPanel({
                     const correct = target.choices.filter((choice) => choice === expected).length;
                     return correct + '/' + target.choices.length + ' détection(s)';
                   })() : '—'}</td>
+                <td>{experiments.map((experiment) => (
+                  (experiment.thinkingRequested ? 'ON' : experiment.thinkingRequested === false ? 'OFF' : 'Inconnu')
+                  + ' / ' + (experiment.thinkingObserved === true ? 'émise' : experiment.thinkingObserved === false ? 'non détectée' : 'non mesurée')
+                  + (experiment.diagnostics.generatedTokens !== null ? ' · ' + experiment.diagnostics.generatedTokens + ' tokens' : '')
+                )).join(' · ')}</td>
                 <td>{summary.stableResolvedTargets === null ? 'Non mesurée' : summary.stableResolvedTargets + '/' + summary.totalTargets}</td>
                 <td>{summary.meanDurationMs === null ? '—' : (summary.meanDurationMs / 1000).toFixed(1) + ' s'}</td>
               </tr>;
