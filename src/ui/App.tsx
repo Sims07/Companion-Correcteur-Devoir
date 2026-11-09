@@ -1630,10 +1630,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         apiKey: profile.configuration.apiKey,
         visionModel: profile.configuration.visionModel,
         analysisModel: profile.configuration.analysisModel,
-        // A genuine A/B test must override any thinking setting saved in the
-        // profile. The normal teacher workflow and other labs are unaffected.
-        thinking: diagramMethod === 'direct-image-generative-thinking' ? true
-          : diagramMethod === 'direct-image-generative' ? false : profile.configuration.analysisThinking,
+        // Every scientific diagram route explicitly controls thinking: only
+        // the opt-in Think route enables it. Other labs and teacher settings
+        // still use the saved profile preference unchanged.
+        thinking: diagramMethod ? diagramMethod === 'direct-image-generative-thinking'
+          : profile.configuration.analysisThinking,
         criterionByCriterion: profile.configuration.criterionByCriterion,
         correctionMethod: effectiveMethod(profile),
         directVisualDecision: directProfiles(profile),
