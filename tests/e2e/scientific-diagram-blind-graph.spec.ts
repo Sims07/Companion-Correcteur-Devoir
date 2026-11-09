@@ -78,6 +78,9 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
   await start.click();
   await expect.poll(() => requests.length, { timeout: 90_000 }).toBe(6);
   for (const item of requests) {
+    const typed = item as typeof item & { format?: { properties?: { arrows?: { items?: { required?: string[] } }; containment?: { items?: { required?: string[] } } } } };
+    expect(typed.format?.properties?.arrows?.items?.required).toContain('tip');
+    expect(typed.format?.properties?.containment?.items?.required).toContain('relation');
     expect(item.model).toBe('qwen3.5:4b');
     expect(item.messages.find((entry) => entry.role === 'user')?.images).toHaveLength(1);
     const plainPrompts = item.messages.map((entry) => entry.content).join('\n');
@@ -87,6 +90,30 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
     expect(plainPrompts).not.toContain('maxPoints');
     expect(plainPrompts).toMatch(/aucun/i);
   }
+  // Decode the exact base64 attached to the Ollama requests, not a rendered preview.
+  const actualPngs = [requests[0], requests[5]].map((item) => item?.messages.find((message) => message.role === 'user')?.images?.[0]);
+  expect(actualPngs.every(Boolean)).toBe(true);
+  const pixels = await page.evaluate(async (encoded) => {
+    const decode = async (base64: string) => {
+      const img = new Image();
+      img.src = 'data:image/png;base64,' + base64;
+      await img.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      const { data } = ctx.getImageData(538, 293, 48, 35);
+      let darkBeyondStroke = 0;
+      for (let y = 0; y < 35; y++) for (let x = 0; x < 48; x++) {
+        const n = (y * 48 + x) * 4;
+        if (Math.abs(y + 293 - 310) > 5 && data[n]! < 130 && data[n + 1]! < 130 && data[n + 2]! < 130) darkBeyondStroke++;
+      }
+      return { width: img.naturalWidth, height: img.naturalHeight, darkBeyondStroke };
+    };
+    return Promise.all(encoded.map(decode));
+  }, actualPngs as string[]);
+  expect(pixels.map((item) => [item.width, item.height])).toEqual([[1100, 610], [1100, 610]]);
+  expect(pixels[0]!.darkBeyondStroke).toBeGreaterThan(pixels[1]!.darkBeyondStroke);
   const results = observer.getByRole('region', { name: 'Résultats du graphe visuel indépendant' });
   await expect(results).toBeVisible({ timeout: 30_000 });
   await expect(results.locator('table').first().locator('tbody tr')).toHaveCount(1);
@@ -103,7 +130,7 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
   ]);
   const json = JSON.parse(await readFile(await download.path(), 'utf8')) as {
     format: string; version: number; localOnly: boolean; statistics: unknown[];
-    cases: Array<{ experiments: Array<{ observations: Record<string, string>; graph?: unknown; diagnostic?: { rawResponse: string; validationError?: string; doneReason?: string }; relationDetails?: unknown }> }>;
+    cases: Array<{ experiments: Array<{ observations: Record<string, string>; graph?: unknown; diagnostic?: { rawResponse: string; validationError?: string; doneReason?: string; imageAudit?: { width: number; height: number; pngSignatureValid: boolean } }; relationDetails?: unknown }> }>;
   };
   expect(json.format).toBe('companion-scientific-diagram-blind-graph-report');
   expect(json.localOnly).toBe(true);
@@ -111,6 +138,7 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
   expect(json.cases[0]?.experiments[0]?.graph).toBeTruthy();
   expect(json.cases[0]?.experiments[0]?.relationDetails).toBeTruthy();
   expect(json.cases[0]?.experiments[0]?.diagnostic?.rawResponse).toContain('arrowsComplete');
+  expect(json.cases[0]?.experiments[0]?.diagnostic?.imageAudit).toMatchObject({ width: 1100, height: 610, pngSignatureValid: true });
   expect(json.cases[1]?.experiments[0]?.graph).toBeUndefined();
   expect(json.cases[1]?.experiments[0]?.diagnostic).toMatchObject({ rawResponse: '{', validationError: 'JSON visuel illisible.', doneReason: 'length' });
   expect(json.cases).toHaveLength(6);
