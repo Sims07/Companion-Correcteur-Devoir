@@ -13,7 +13,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /** No model-name list. Ollama itself advertises supported controls.
  * Older Ollama versions may omit the metadata: allow a guarded experiment
  * with true, and let thinkingObserved report whether a trace really arrived. */
-export function selectOllamaThinkSetting(show: unknown): OllamaThinkSetting {
+export function selectOllamaThinkSetting(show: unknown, requireThinkOff = false): OllamaThinkSetting {
   if (!isRecord(show)) throw new Error('Métadonnées Ollama invalides : impossible de vérifier le mode Think.');
   if (Array.isArray(show.capabilities) && show.capabilities.every((item) => typeof item === 'string')
     && show.capabilities.length && !show.capabilities.includes('vision')) {
@@ -21,6 +21,9 @@ export function selectOllamaThinkSetting(show: unknown): OllamaThinkSetting {
   }
   if (!isRecord(show.thinking) || !Array.isArray(show.thinking.values)) return true;
   const values = show.thinking.values;
+  if (requireThinkOff && !values.includes(false)) {
+    throw new Error('Ce modèle ne propose pas de désactiver Think. Testez « Think ON » seul : la comparaison OFF / ON serait trompeuse.');
+  }
   if (values.includes(true)) return true;
   const levels = values.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
   if (levels.length) {
@@ -33,7 +36,7 @@ export function selectOllamaThinkSetting(show: unknown): OllamaThinkSetting {
 
 /** Local metadata request only: no prompt, image, student data or remote API. */
 export async function detectOllamaDiagramThinkSetting(
-  endpoint: string, model: string, fetchImpl: typeof fetch = currentFetch,
+  endpoint: string, model: string, fetchImpl: typeof fetch = currentFetch, requireThinkOff = false,
 ): Promise<OllamaThinkSetting> {
   const url = new URL(endpoint.trim());
   if ((url.protocol !== 'http:' && url.protocol !== 'https:') || !isLoopbackPilotEndpoint(endpoint)
@@ -55,5 +58,5 @@ export async function detectOllamaDiagramThinkSetting(
   let show: unknown;
   try { show = await response.json(); }
   catch { throw new Error('Réponse /api/show illisible : capacités Think inconnues.'); }
-  return selectOllamaThinkSetting(show);
+  return selectOllamaThinkSetting(show, requireThinkOff);
 }
