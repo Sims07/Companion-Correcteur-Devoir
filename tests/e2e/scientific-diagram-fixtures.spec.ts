@@ -243,10 +243,17 @@ test('paired D/E diagrams test the pointed structure, not just the written label
 });
 
 
-test('Qwen 4B compares direct Think OFF/ON on E and exports only observed reasoning metadata', async ({ page }) => {
+const thinkingModelCases = [
+  { model: 'qwen3.5:4b', values: [false, true], default: false, wire: true },
+  { model: 'qwen3.5:9b', values: [false, true], default: false, wire: true },
+  { model: 'custom-vision-thinker:latest', values: ['low', 'medium', 'high'], default: 'medium', wire: 'medium' },
+] as const;
+
+for (const scenario of thinkingModelCases) {
+test(scenario.model + ' compares Think OFF/ON on E with runtime Ollama capabilities', async ({ page }) => {
   const configuration = {
     endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '',
-    visionModel: '', analysisModel: 'qwen3.5:4b',
+    visionModel: '', analysisModel: scenario.model,
     transcriptionTokenLimit: 2048, transcriptionPromptMode: 'auto',
     transcriptionRepeatPenalty: 1.05, transcriptionPenaltyParameter: 'none',
     transcriptionFrequencyPenalty: 0,
@@ -256,10 +263,10 @@ test('Qwen 4B compares direct Think OFF/ON on E and exports only observed reason
   };
   await page.addInitScript((profiles) => localStorage.setItem(
     'companion-correcteur:ollama-profiles:v1', JSON.stringify(profiles),
-  ), [{ id: 'qwen4b', name: 'Qwen 4B', mode: 'single',
+  ), [{ id: 'vision-thinking', name: 'Modèle Vision Think', mode: 'single',
     updatedAt: '2026-11-09T10:00:00Z', configuration }]);
 
-  const requests: Array<{ think: boolean; numPredict: number; image: string }> = [];
+  const requests: Array<{ think: boolean | string; numPredict: number; image: string; model: string }> = [];
   await page.route('http://localhost:11434/**', async (route) => {
     const req = route.request();
     const path = new URL(req.url()).pathname;
@@ -267,23 +274,24 @@ test('Qwen 4B compares direct Think OFF/ON on E and exports only observed reason
       'access-control-allow-methods': 'GET,POST,OPTIONS', 'content-type': 'application/x-ndjson' };
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
     if (path === '/api/tags') return route.fulfill({ status: 200, headers, body: JSON.stringify({
-      models: [{ name: 'qwen3.5:4b', model: 'qwen3.5:4b' }],
+      models: [{ name: scenario.model, model: scenario.model }],
     }) });
     if (path === '/api/show') return route.fulfill({ status: 200, headers, body: JSON.stringify({
-      model_info: {}, thinking: { values: [false, true], default: true },
+      model_info: {}, capabilities: ['completion', 'vision'],
+      thinking: { values: scenario.values, default: scenario.default },
     }) });
     if (path === '/api/ps') return route.fulfill({ status: 200, headers, body: JSON.stringify({ models: [] }) });
     if (path === '/api/generate') return route.fulfill({ status: 200, headers, body: '{}' });
     if (path === '/api/chat') {
       const body = req.postDataJSON() as {
-        think: boolean; options: { num_predict: number };
+        model: string; think: boolean | string; options: { num_predict: number };
         messages: Array<{ images?: string[]; content?: string }>;
         format: { properties: { criteria: { properties: Record<string, {
           properties: { subcriteria?: { properties: Record<string, { properties: { points: { maximum: number } } }> } };
         }> } } };
       };
       requests.push({
-        think: body.think, numPredict: body.options.num_predict,
+        model: body.model, think: body.think, numPredict: body.options.num_predict,
         image: body.messages[0]?.images?.[0] ?? '',
       });
       expect(body.messages[0]?.content).not.toMatch(/piège|référence 8[.,]66|flèches inversées/i);
@@ -324,11 +332,12 @@ test('Qwen 4B compares direct Think OFF/ON on E and exports only observed reason
   const results = fixtures.getByRole('region', { name: 'Résultats des schémas scientifiques' });
   await expect(results.locator('tbody tr')).toHaveCount(2, { timeout: 30_000 });
   expect(requests).toHaveLength(2);
-  expect(requests.map((req) => [req.think, req.numPredict])).toEqual([[false, 2048], [true, 4096]]);
+  expect(requests.map((req) => [req.think, req.numPredict])).toEqual([[false, 2048], [scenario.wire, 4096]]);
+  expect(requests.every((req) => req.model === scenario.model)).toBe(true);
   expect(requests[0]?.image).toMatch(/^iVBORw0KGgo/);
   expect(requests[0]?.image).toBe(requests[1]?.image);
   await expect(results.getByText(/OFF \/ non détectée/)).toBeVisible();
-  await expect(results.getByText(/ON \/ émise/)).toBeVisible();
+  await expect(results.getByText(scenario.wire === true ? /ON \/ émise/ : /ON \(medium\) \/ émise/)).toBeVisible();
   await expect(results.getByText('0/1 détection(s)', { exact: true })).toBeVisible();
   await expect(results.getByText('1/1 détection(s)', { exact: true })).toBeVisible();
 
@@ -338,17 +347,18 @@ test('Qwen 4B compares direct Think OFF/ON on E and exports only observed reason
   ]);
   const report = JSON.parse(await readFile(await download.path(), 'utf8')) as {
     cases: Array<{ caseId: string; experiments: Array<{
-      method: string; thinkingRequested: boolean; thinkingObserved: boolean;
+      method: string; thinkingRequested: boolean; thinkingObserved: boolean; thinkingSetting: boolean | string;
       diagnostics: { generationBudgetTokens: number; generatedTokens: number };
     }> }>;
   };
   const experiments = report.cases.find((item) => item.caseId === 'E')?.experiments ?? [];
   expect(experiments.map((item) => [
-    item.method, item.thinkingRequested, item.thinkingObserved,
+    item.method, item.thinkingRequested, item.thinkingObserved, item.thinkingSetting,
     item.diagnostics.generationBudgetTokens, item.diagnostics.generatedTokens,
   ])).toEqual([
-    ['direct-image-generative', false, false, 2048, 200],
-    ['direct-image-generative-thinking', true, true, 4096, 850],
+    ['direct-image-generative', false, false, false, 2048, 200],
+    ['direct-image-generative-thinking', true, true, scenario.wire, 4096, 850],
   ]);
   expect(JSON.stringify(report)).not.toMatch(/PRIVATE_REASONING_NOT_EXPORTED|iVBORw0KGgo|api\/chat|127\.0\.0\.1/);
 });
+}
