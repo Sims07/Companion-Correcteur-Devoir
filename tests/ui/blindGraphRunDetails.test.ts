@@ -29,6 +29,14 @@ describe('diagnostic lisible du graphe', () => {
     expect(container.querySelectorAll('pre')[1]?.textContent).toBe('<script>alert(1)</script>');
     expect(container.querySelector('script')).toBeNull();
   });
+  it('shows zoom outcome counts without exposing the crop pixels', () => {
+    const container = render({ ...run, zoom: true, diagnostic: { ...run.diagnostic!,
+      zoom: { candidates: 2, attempted: 1, resolved: 1, unavailable: 1, failures: 0 },
+    } });
+    expect(container.textContent).toContain('Agrandissement ciblé : 1 tentative(s)');
+    expect(container.textContent).toContain('1 direction(s) clarifiée(s)');
+    expect(container.textContent).toContain('1 zone(s) non localisée(s)');
+  });
   it('distinguishes missing reference from a negative and displays rejection diagnostics', () => {
     expect(render(run, {}).textContent).toContain('Non définie');
     const failed = render({ ...run, status: 'failed', graph: undefined, observations: {}, relationDetails: undefined,
