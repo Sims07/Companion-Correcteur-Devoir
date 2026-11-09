@@ -19,6 +19,7 @@ test('prepare from exam without correction, review provenance and apply contract
   const panel = page.getByRole('region', { name: 'Préparation automatique des contrats' });
   await panel.locator('#contract-subject-file').setInputFiles({ name: 'examen.txt', mimeType: 'text/plain', buffer: Buffer.from('Question 1\nExpliquer le mécanisme.') });
   await expect(panel.getByText('Document lu. Son texte sera réutilisé pour préparer les contrats.')).toBeVisible();
+  await panel.getByText('Utiliser un autre modèle pour cette préparation', { exact: true }).click();
   await panel.getByLabel('Modèle de préparation (génératif)').fill('local-generative');
   await panel.getByRole('button', { name: 'Préparer les contrats', exact: true }).click();
   const proposals = panel.getByRole('region', { name: 'Propositions de contrats' });

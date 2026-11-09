@@ -11,7 +11,7 @@ async function openEvaluator(page: Page) {
   return editor;
 }
 
-test('models stay independent across method switches, saved profiles, reload and teacher settings', async ({ page }) => {
+test('models stay independent across method switches, saved profiles, reload and teacher settings', async ({ page }, testInfo) => {
   await page.goto('/');
   const editor = await openEvaluator(page);
   await expect(editor.getByLabel('Modèle génératif', { exact: true })).toBeVisible();
@@ -40,6 +40,11 @@ test('models stay independent across method switches, saved profiles, reload and
   await expect(panel.getByLabel('Modèle décisionnel (facultatif)')).toHaveValue('tev1:4b');
   await panel.getByLabel('Méthode de correction', { exact: true }).selectOption('generative');
   await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '{}').analysisModel, settingsKey)).toBe('qwen3.5:4b');
+  await page.screenshot({ path: testInfo.outputPath('ai-model-roles-desktop.png'), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(panel.getByLabel('Modèle génératif', { exact: true })).toBeVisible();
+  await expect(panel.getByLabel('Méthode de correction', { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('ai-model-roles-mobile.png'), fullPage: true });
 });
 
 test('a legacy decision profile keeps its reader and cannot accidentally use it for generative preparation', async ({ page }) => {
@@ -77,6 +82,7 @@ test('barème preparation uses the generator even when correction is decision ba
   await page.goto('/');
   await openActiveAssignment(page);
   await page.getByRole('tab', { name: 'Barème' }).click();
+  await page.getByText('Importer un barème depuis un document', { exact: true }).click();
   await page.locator('#rubric-image-file').setInputFiles({ name: 'bareme.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+afoUAAAAASUVORK5CYII=', 'base64') });
   await expect.poll(() => models).toEqual(['reader', 'generator']);
   await expect(page.getByText(/Barème extrait : 1 critère/).first()).toBeVisible();
