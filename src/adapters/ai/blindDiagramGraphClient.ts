@@ -1,7 +1,7 @@
 import type { ImageInput } from '../../domain/imageInput.ts';
 import {
   BLIND_VISUAL_OBSERVATION_PROMPT, parseObservedVisualGraph,
-  type ObservedVisualGraph,
+  type ObservedVisualGraph, type BlindGraphDiagnostic,
 } from '../../domain/scientificDiagramBlindGraph.ts';
 import { currentFetch } from './currentFetch.ts';
 
@@ -10,6 +10,7 @@ export interface BlindGraphLocalRequest {
   model: string;
   image: ImageInput;
   signal?: AbortSignal;
+  onDiagnostic?: (diagnostic: BlindGraphDiagnostic) => void;
 }
 
 /** No remote, proxy or API-compatible fallback is permitted for blind
@@ -55,9 +56,23 @@ export async function extractBlindVisualGraph(
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new Error('Réponse du serveur Vision invalide.');
   }
-  const message = (payload as { message?: { content?: unknown } }).message;
-  if (typeof message?.content !== 'string' || !message.content.trim()) {
-    throw new Error('Le modèle n’a fourni aucune observation visuelle.');
+  const result = payload as { message?: { content?: unknown }; done_reason?: unknown; eval_count?: unknown };
+  const raw = typeof result.message?.content === 'string' ? result.message.content : '';
+  const diagnostic: BlindGraphDiagnostic = {
+    rawResponse: raw.slice(0, 24_000), rawResponseTruncated: raw.length > 24_000,
+    ...(typeof result.done_reason === 'string' && ['stop', 'length', 'load', 'unload'].includes(result.done_reason)
+      ? { doneReason: result.done_reason } : {}),
+    ...(typeof result.eval_count === 'number' && Number.isSafeInteger(result.eval_count) && result.eval_count >= 0
+      ? { outputTokens: result.eval_count } : {}),
+  };
+  let graph: ObservedVisualGraph;
+  try {
+    if (!raw.trim()) throw new Error('Le modèle n’a fourni aucune observation visuelle.');
+    graph = parseObservedVisualGraph(raw);
+  } catch (cause) {
+    request.onDiagnostic?.({ ...diagnostic, validationError: cause instanceof Error ? cause.message : 'Sortie visuelle invalide.' });
+    throw cause;
   }
-  return parseObservedVisualGraph(message.content);
+  request.onDiagnostic?.(diagnostic);
+  return graph;
 }

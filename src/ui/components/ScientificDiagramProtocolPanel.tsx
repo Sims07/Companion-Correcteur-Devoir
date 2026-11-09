@@ -1,3 +1,4 @@
+import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import { isLocalPilotProfile } from '../../domain/pilotEvaluationProtocol.ts';
@@ -580,6 +581,9 @@ export function ScientificDiagramProtocolPanel({
         <p role="status" className="pilot-evaluation-message">{blindGraphMessage || progress}</p>}
       {blindGraphReport && <section className="pilot-evaluation-report" aria-label="Résultats du graphe visuel indépendant">
         <h4>Lecture indépendante — relations effectivement observées</h4>
+        <p>Sorties valides : {blindGraphReport.cases.flatMap((item) => item.experiments).filter((run) => run.status === 'success').length}
+          /{blindGraphReport.cases.flatMap((item) => item.experiments).length}.
+          Les rejets et les relations indécidables ne prouvent pas une erreur scientifique.</p>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
             <thead><tr><th>Profil</th><th>Mutations détectées</th><th>Non mesurables</th><th>Faux positifs témoins</th><th>Abstentions</th></tr></thead>
@@ -597,11 +601,8 @@ export function ScientificDiagramProtocolPanel({
           <summary>Décisions observées par schéma</summary>
           {blindGraphReport.cases.map((item) => <div key={item.caseId}>
             <strong>{item.label}</strong>
-            {item.experiments.map((run, index) => <p key={run.profileId + '-' + index}>
-              {run.profileName} · passage {run.repetition} · {run.status === 'success' ? 'Lu' : 'Échec/arrêt'}
-              {' · '}{Object.entries(run.observations).map(([key, value]) =>
-                key.split('::').at(-1) + ': ' + value).join(' · ') || 'Aucun verdict'}
-            </p>)}
+            {item.experiments.map((run, index) => <BlindGraphRunDetails
+              key={run.profileId + '-' + index} run={run} gold={item.gold} />)}
           </div>)}
         </details>
         <p className="pilot-evaluation-hint">{blindGraphReport.limitations}</p>

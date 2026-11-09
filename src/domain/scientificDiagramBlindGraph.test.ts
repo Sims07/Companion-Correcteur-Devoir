@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BLIND_VISUAL_OBSERVATION_PROMPT, buildBlindVisualObservationReport, compareBlindVisualGraph,
-  parseObservedVisualGraph, type ObservedVisualGraph,
+  parseObservedVisualGraph, explainBlindVisualGraph, type ObservedVisualGraph,
 } from './scientificDiagramBlindGraph.ts';
 import { DIAGRAM_SENSITIVITY_TARGETS as T } from './scientificDiagramSensitivity.ts';
 
@@ -64,15 +64,54 @@ describe('lecture graphe visuel sans barème', () => {
     contradictory.containment = [];
     expect(compareBlindVisualGraph(contradictory)[T.nucleus]).toBe('uncertain');
   });
-  it('exports only summarized decisions, never pixels or the graph text', () => {
+  it('explains uncertainty and negative decisions without changing the verdict', () => {
+    const g = graph();
+    g.labels = g.labels.filter((label) => label !== 'ARN');
+    expect(explainBlindVisualGraph(g)[T.transcription]?.reason).toBe('missing-label');
+    g.labels.push('ARN');
+    g.arrows[0]!.tip = 'none';
+    expect(explainBlindVisualGraph(g)[T.transcription]?.reason).toBe('unclear-tip');
+    g.arrows[0]!.tip = 'first';
+    expect(explainBlindVisualGraph(g)[T.transcription]).toEqual({ choice: 'absent', reason: 'reversed-arrow' });
+    g.arrows = [];
+    expect(explainBlindVisualGraph(g)[T.transcription]?.reason).toBe('missing-edge-complete');
+    g.arrowsComplete = false;
+    expect(explainBlindVisualGraph(g)[T.transcription]?.reason).toBe('incomplete-arrows');
+    g.containment.push({ inner: 'Noyau', outer: 'Cellule', relation: 'outside' });
+    expect(explainBlindVisualGraph(g)[T.nucleus]?.reason).toBe('conflicting-containment');
+    g.containment = [];
+    expect(explainBlindVisualGraph(g)[T.nucleus]?.reason).toBe('missing-containment');
+  });
+  it('identifies the invalid field without echoing arbitrary model content in the validation error', () => {
+    expect(() => parseObservedVisualGraph(JSON.stringify({ ...graph(), arrowsComplete: 'SECRET' }))).toThrow('arrowsComplete');
+    expect(() => parseObservedVisualGraph(JSON.stringify({ ...graph(), arrows: [{ first: '', second: 'B', tip: 'first' }] }))).toThrow('arrows[0].first');
+    expect(() => parseObservedVisualGraph(JSON.stringify({ ...graph(), labels: [''] }))).toThrow('labels[0]');
+  });
+  it('keeps failed output diagnostics in the exported report without inventing decisions', () => {
+    const report = buildBlindVisualObservationReport([{
+      caseId: 'S1', repetition: 1, profileId: 'local', profileName: 'Vision', model: 'qwen',
+      status: 'failed', durationMs: 30, observations: {}, arrowCount: 0, containmentCount: 0,
+      errorCategory: 'invalid-output', diagnostic: { rawResponse: '{', rawResponseTruncated: false,
+        validationError: 'JSON visuel illisible.', doneReason: 'length' },
+    }], 1, '2026-11-09');
+    expect(report.cases[1]?.experiments[0]?.diagnostic?.validationError).toBe('JSON visuel illisible.');
+    expect(report.cases[1]?.experiments[0]?.observations).toEqual({});
+    expect(report.cases[1]?.experiments[0]?.graph).toBeUndefined();
+  });
+  it('exports decisions with graph and output diagnostics, never request data', () => {
     const observations = compareBlindVisualGraph(graph());
     const record = {
       caseId: 'S0' as const, repetition: 1, profileId: 'local', profileName: 'Vision Qwen',
       model: 'qwen:4b', status: 'success' as const,
       durationMs: 1200, observations, arrowCount: 2, containmentCount: 1,
+      graph: graph(), relationDetails: explainBlindVisualGraph(graph()),
+      diagnostic: { rawResponse: JSON.stringify(graph()), rawResponseTruncated: false, doneReason: 'stop', outputTokens: 120 },
     };
     const report = buildBlindVisualObservationReport([record], 1, '2026-11-09T12:00:00Z');
     expect(report.cases[0]?.experiments).toHaveLength(1);
+    expect(report.version).toBe(2);
+    expect(report.cases[0]?.experiments[0]?.graph).toEqual(graph());
+    expect(report.cases[0]?.experiments[0]?.diagnostic?.rawResponse).toBe(JSON.stringify(graph()));
     expect(report.statistics).toHaveLength(1);
     expect(report.statistics[0]?.method).toBe('blind-graph');
     expect(JSON.stringify(report)).not.toContain('base64');

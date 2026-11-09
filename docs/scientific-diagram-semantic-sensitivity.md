@@ -62,7 +62,7 @@ Le résultat JSON est strictement contrôlé et converti en trois décisions par
 
 Quand aucune flèche n'unit les deux éléments demandés, on ne considère la relation absente que si l'extraction indique avoir relevé toutes les flèches ; **ce booléen est une affirmation du modèle, pas une garantie**. Les autres observations restent indécidables.
 
-Cette approche nécessite un profil Ollama **strictement local** (HTTP loopback, sans proxy ou clé API), configuré avec un modèle Vision. Aucun appel vers une API compatible distante n'est possible depuis ce parcours ; l'IA est déchargée de la RAM après chaque appel. Les six cas S0–S5 sont évalués séquentiellement, avec 1, 3 ou 5 répétitions. Le rapport exporte les décisions et métriques mais **ni image, ni prompts, ni graphe brut, ni URL serveur, ni clé**. Il reste accessible après navigation vers l'inspecteur réseau.
+Cette approche nécessite un profil Ollama **strictement local** (HTTP loopback, sans proxy ou clé API), configuré avec un modèle Vision. Aucun appel vers une API compatible distante n'est possible depuis ce parcours ; l'IA est déchargée de la RAM après chaque appel. Les six cas S0–S5 sont évalués séquentiellement, avec 1, 3 ou 5 répétitions. Le rapport version 2 exporte les décisions et métriques, le **graphe extrait**, les **explications du comparateur** et la **réponse brute du modèle** (limitée à 24 000 caractères, avec indicateur de troncature). Il exclut les images, prompts, URLs serveur et clés de configuration. Ce diagnostic porte uniquement sur les six dessins synthétiques intégrés. Il reste accessible après navigation vers l'inspecteur réseau.
 
 **Limites importantes :** l'absence de barème au premier appel réduit le risque de reconstruction d'un schéma attendu, mais n'empêche pas un modèle d'halluciner une relation. La comparaison est validée avec des réponses mockées en CI ; elle n'établit pas encore un gain réel sur Qwen ou d'autres modèles. Il n'y a pas de second appel de recadrage dans cette première version : tester ensuite, sur les seuls détails incertains, un agrandissement qui inclut **la flèche complète** (départ, trajet, pointe, arrivée), en mesurant son coût et ses faux positifs.
 
@@ -72,3 +72,14 @@ Cette approche nécessite un profil Ollama **strictement local** (HTTP loopback,
 2. Agrandissement conditionnel du détail **complet** (départ, trajet et pointe), uniquement quand une relation est ambiguë.
 
 La suite S0–S5 fournit un point de référence commun pour mesurer les gains réels de ces méthodes. Les références restent à valider avec un enseignant de biologie, notamment le cas S5.
+
+## Juger une extraction (rapport version 2)
+
+Après le test, ouvrir **Décisions observées par schéma**, puis le passage concerné :
+
+- Le tableau affiche la référence, le verdict observé et la raison exacte du comparateur : étiquette manquante, pointe indiscernable, flèches contradictoires, connexion absente avec lecture déclarée complète ou incomplète, inclusion manquante, etc.
+- **Graphe extrait** affiche le JSON validé, y compris les noms des extrémités, les pointes et `arrowsComplete`.
+- **Réponse brute du modèle** reste consultable même lorsque le JSON est rejeté. L'erreur indique le champ invalide, par exemple `arrows[0].tip`. La fin de génération (`doneReason`) et le nombre de tokens sont affichés si Ollama les renseigne. `length` suggère une sortie incomplète ; il ne prouve pas à lui seul la cause d'un rejet.
+- Le compteur de sorties valides distingue les rejets techniques des verdicts scientifiques. Une sortie valide peut rester indécidable. Une référence non définie (S5) n'est jamais affichée comme une relation absente.
+
+Exporter **l’analyse du graphe JSON** pour transmettre l'ensemble du diagnostic. Les données restent disponibles après navigation vers l'inspecteur réseau. Les anciens rapports ne contiennent pas rétroactivement ces informations : relancer le protocole avec les mêmes modèles et paramètres. Cette évolution ne modifie ni le prompt, ni les paramètres de génération, ni les références, ni les règles de notation. Les sorties brutes sont du texte non fiable, affiché sans interprétation HTML.
