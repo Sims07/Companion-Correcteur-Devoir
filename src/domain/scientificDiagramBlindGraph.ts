@@ -21,8 +21,8 @@ export interface ObservedVisualGraph {
 function plain(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
-function short(value: unknown): string {
-  if (typeof value !== 'string' || value.length > 90 || !value.trim()) throw new Error('Sortie visuelle invalide.');
+function short(value: unknown, path: string): string {
+  if (typeof value !== 'string' || value.length > 90 || !value.trim()) throw new Error('Sortie visuelle invalide : ' + path + ' doit être un texte non vide de 90 caractères maximum.');
   return value.trim();
 }
 
@@ -32,25 +32,29 @@ export function parseObservedVisualGraph(raw: string): ObservedVisualGraph {
   if (raw.length > 24_000) throw new Error('Sortie visuelle trop longue.');
   let parsed: unknown;
   try { parsed = JSON.parse(raw); } catch { throw new Error('JSON visuel illisible.'); }
-  if (!plain(parsed) || !Array.isArray(parsed.labels) || !Array.isArray(parsed.arrows)
-    || !Array.isArray(parsed.containment) || typeof parsed.arrowsComplete !== 'boolean'
-    || parsed.labels.length > 32 || parsed.arrows.length > 48 || parsed.containment.length > 48) {
-    throw new Error('Structure du graphe visuel invalide.');
-  }
-  const labels = parsed.labels.map(short);
-  const arrows = parsed.arrows.map((value: unknown) => {
-    if (!plain(value) || !['first', 'second', 'none', 'unclear'].includes(String(value.tip))) {
-      throw new Error('Flèche visuelle invalide.');
+  if (!plain(parsed)) throw new Error('Structure du graphe visuel invalide : objet attendu.');
+  for (const [field, limit] of [['labels', 32], ['arrows', 48], ['containment', 48]] as const) {
+    if (!Array.isArray(parsed[field]) || parsed[field].length > limit) {
+      throw new Error('Structure du graphe visuel invalide : ' + field + ' doit être un tableau de ' + limit + ' éléments maximum.');
     }
-    const first = short(value.first);
-    const second = short(value.second);
+  }
+  if (typeof parsed.arrowsComplete !== 'boolean') {
+    throw new Error('Structure du graphe visuel invalide : arrowsComplete doit être un booléen.');
+  }
+  const labels = (parsed.labels as unknown[]).map((value, i) => short(value, `labels[${i}]`));
+  const arrows = (parsed.arrows as unknown[]).map((value, i) => {
+    if (!plain(value) || !['first', 'second', 'none', 'unclear'].includes(String(value.tip))) {
+      throw new Error(`Flèche visuelle invalide : arrows[${i}].tip doit valoir first, second, none ou unclear.`);
+    }
+    const first = short(value.first, `arrows[${i}].first`);
+    const second = short(value.second, `arrows[${i}].second`);
     return { first, second, tip: value.tip as ObservedArrowTip };
   });
-  const containment = parsed.containment.map((value: unknown) => {
+  const containment = (parsed.containment as unknown[]).map((value, i) => {
     if (!plain(value) || !['inside', 'outside', 'unclear'].includes(String(value.relation))) {
-      throw new Error('Inclusion visuelle invalide.');
+      throw new Error(`Inclusion visuelle invalide : containment[${i}].relation doit valoir inside, outside ou unclear.`);
     }
-    return { inner: short(value.inner), outer: short(value.outer),
+    return { inner: short(value.inner, `containment[${i}].inner`), outer: short(value.outer, `containment[${i}].outer`),
       relation: value.relation as ObservedSpatialRelation };
   });
   return { labels, arrows, containment, arrowsComplete: parsed.arrowsComplete };
@@ -74,9 +78,31 @@ function sameLabel(a: string, b: string): boolean {
   return normalize(a) === normalize(b);
 }
 
-function checkArrow(graph: ObservedVisualGraph, from: string, to: string): DiagramSensitivityChoice {
+export const VISUAL_RELATION_REASONS = {
+  'missing-label': 'Étiquette attendue non retrouvée parmi les textes extraits.',
+  'unclear-tip': 'Trait sans pointe ou pointe indiscernable.',
+  'conflicting-arrows': 'Flèches contradictoires entre ces éléments.',
+  'matching-arrow': 'Flèche observée dans le sens attendu.',
+  'reversed-arrow': 'Flèche observée dans le sens inverse.',
+  'missing-edge-complete': 'Connexion non relevée ; le modèle déclare avoir examiné toutes les flèches.',
+  'incomplete-arrows': 'Connexion non relevée et lecture des flèches incomplète.',
+  'unclear-containment': 'Inclusion déclarée indiscernable.',
+  'conflicting-containment': 'Observations intérieur/extérieur contradictoires.',
+  'inside': 'Structure observée à l’intérieur du contour.',
+  'outside': 'Structure observée à l’extérieur du contour.',
+  'missing-containment': 'Aucune observation pour cette paire de contours.',
+} as const;
+export interface VisualRelationDecision {
+  choice: DiagramSensitivityChoice;
+  reason: keyof typeof VISUAL_RELATION_REASONS;
+}
+function decision(choice: DiagramSensitivityChoice, reason: VisualRelationDecision['reason']): VisualRelationDecision {
+  return { choice, reason };
+}
+
+function checkArrow(graph: ObservedVisualGraph, from: string, to: string): VisualRelationDecision {
   if (!graph.labels.some((label) => sameLabel(label, from))
-    || !graph.labels.some((label) => sameLabel(label, to))) return 'uncertain';
+    || !graph.labels.some((label) => sameLabel(label, to))) return decision('uncertain', 'missing-label');
   const matches = graph.arrows.filter((item) =>
     (sameLabel(item.first, from) && sameLabel(item.second, to)) ||
     (sameLabel(item.first, to) && sameLabel(item.second, from)));
@@ -87,36 +113,49 @@ function checkArrow(graph: ObservedVisualGraph, from: string, to: string): Diagr
     (sameLabel(item.first, from) && item.tip === 'first') ||
     (sameLabel(item.second, from) && item.tip === 'second'));
   // Contradictory, untipped or indistinct arrows are not proof of correctness.
-  if (matches.some((item) => item.tip === 'unclear' || item.tip === 'none')
-    || (correctlyDirected && reversed)) return 'uncertain';
-  if (correctlyDirected) return 'present';
-  if (reversed) return 'absent';
+  if (matches.some((item) => item.tip === 'unclear' || item.tip === 'none')) return decision('uncertain', 'unclear-tip');
+  if (correctlyDirected && reversed) return decision('uncertain', 'conflicting-arrows');
+  if (correctlyDirected) return decision('present', 'matching-arrow');
+  if (reversed) return decision('absent', 'reversed-arrow');
   // An unrelated edge is only evidence of a missing connection when the
   // observer claims every arrow has been traced; this claim may be wrong.
-  return graph.arrowsComplete ? 'absent' : 'uncertain';
+  return graph.arrowsComplete ? decision('absent', 'missing-edge-complete') : decision('uncertain', 'incomplete-arrows');
 }
 
-function checkContainment(graph: ObservedVisualGraph, inner: string, outer: string): DiagramSensitivityChoice {
+function checkContainment(graph: ObservedVisualGraph, inner: string, outer: string): VisualRelationDecision {
   if (!graph.labels.some((label) => sameLabel(label, inner))
-    || !graph.labels.some((label) => sameLabel(label, outer))) return 'uncertain';
+    || !graph.labels.some((label) => sameLabel(label, outer))) return decision('uncertain', 'missing-label');
   const relevant = graph.containment.filter((item) =>
     sameLabel(item.inner, inner) && sameLabel(item.outer, outer));
-  if (relevant.some((item) => item.relation === 'unclear')) return 'uncertain';
+  if (relevant.some((item) => item.relation === 'unclear')) return decision('uncertain', 'unclear-containment');
   if (relevant.some((item) => item.relation === 'inside') &&
-    relevant.some((item) => item.relation === 'outside')) return 'uncertain';
-  if (relevant.some((item) => item.relation === 'inside')) return 'present';
-  if (relevant.some((item) => item.relation === 'outside')) return 'absent';
-  return 'uncertain';
+    relevant.some((item) => item.relation === 'outside')) return decision('uncertain', 'conflicting-containment');
+  if (relevant.some((item) => item.relation === 'inside')) return decision('present', 'inside');
+  if (relevant.some((item) => item.relation === 'outside')) return decision('absent', 'outside');
+  return decision('uncertain', 'missing-containment');
 }
 
 /** The correct answer becomes available only here, after the model returned
  * its complete blind graph. This function does not call the model. */
-export function compareBlindVisualGraph(graph: ObservedVisualGraph): Record<string, DiagramSensitivityChoice> {
+export function explainBlindVisualGraph(graph: ObservedVisualGraph): Record<string, VisualRelationDecision> {
   return {
     [DIAGRAM_SENSITIVITY_TARGETS.transcription]: checkArrow(graph, 'ADN', 'ARN'),
     [DIAGRAM_SENSITIVITY_TARGETS.translation]: checkArrow(graph, 'ARN', 'Protéine'),
     [DIAGRAM_SENSITIVITY_TARGETS.nucleus]: checkContainment(graph, 'Noyau', 'Cellule'),
   };
+}
+
+export function compareBlindVisualGraph(graph: ObservedVisualGraph): Record<string, DiagramSensitivityChoice> {
+  return Object.fromEntries(Object.entries(explainBlindVisualGraph(graph)).map(([key, value]) => [key, value.choice]));
+}
+
+/** Only model output and fixed validation messages, never the request or server payload. */
+export interface BlindGraphDiagnostic {
+  rawResponse: string;
+  rawResponseTruncated: boolean;
+  doneReason?: string;
+  outputTokens?: number;
+  validationError?: string;
 }
 
 export interface BlindVisualObservationRun {
@@ -131,6 +170,9 @@ export interface BlindVisualObservationRun {
   arrowCount: number;
   containmentCount: number;
   errorCategory?: 'invalid-output' | 'network' | 'cancelled';
+  graph?: ObservedVisualGraph;
+  diagnostic?: BlindGraphDiagnostic;
+  relationDetails?: Record<string, VisualRelationDecision>;
 }
 
 export function buildBlindVisualObservationReport(
@@ -143,13 +185,13 @@ export function buildBlindVisualObservationReport(
   }));
   return {
     format: 'companion-scientific-diagram-blind-graph-report',
-    version: 1, protocolId: DIAGRAM_BLIND_OBSERVATION_PROTOCOL,
+    version: 2, protocolId: DIAGRAM_BLIND_OBSERVATION_PROTOCOL,
     createdAt, plannedRepetitions: repetitions, localOnly: true,
     cases: DIAGRAM_SENSITIVITY_CASES.map(({ id, label, referenceScore, mutation, gold }) => ({
       caseId: id, label, mutation, referenceScore, gold: { ...gold },
       experiments: runs.filter((run) => run.caseId === id).map(({ caseId: _caseId, ...rest }) => rest),
     })),
     statistics: summarizeDiagramSensitivity(readings),
-    limitations: 'Extraction visuelle locale et séparée : aucun barème ni réponse attendue envoyés au modèle. Le comparateur de graphe vérifie trois relations de référence après extraction. Une flèche manquante est considérée absente seulement si le modèle affirme avoir parcouru toutes les flèches ; cette affirmation peut être fausse. Une absence de preuve n’est pas un zéro. S5 est indécidable sur la première flèche. Références synthétiques provisoires, à valider par un professeur. Aucun pixel, graphe brut, prompt, endpoint ni clé API exportés.',
+    limitations: 'Extraction visuelle locale et séparée : aucun barème ni réponse attendue envoyés au modèle. Le comparateur de graphe vérifie trois relations de référence après extraction. Une flèche manquante est considérée absente seulement si le modèle affirme avoir parcouru toutes les flèches ; cette affirmation peut être fausse. Une absence de preuve n’est pas un zéro. S5 est indécidable sur la première flèche. Références synthétiques provisoires, à valider par un professeur. Diagnostic des six dessins synthétiques : graphe extrait et réponse du modèle (24 000 caractères maximum) inclus. Aucun pixel, prompt, endpoint ni clé de configuration exportés. Les textes du modèle restent des données non fiables.',
   };
 }

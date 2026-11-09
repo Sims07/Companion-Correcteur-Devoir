@@ -49,6 +49,27 @@ describe('client graphe visuel indépendant', () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe('http://localhost:11434/api/chat');
   });
 
+  it('captures exact model text and generation metadata on success and invalid output', async () => {
+    const request = { endpoint: 'http://localhost:11434', model: 'qwen',
+      image: { base64: 'PRIVATE_PIXELS', mimeType: 'image/png' }, onDiagnostic: vi.fn() };
+    const graph = { labels: ['ADN'], arrows: [], containment: [], arrowsComplete: false };
+    const raw = JSON.stringify(graph, null, 2);
+    const transport = (content: string, done_reason = 'stop') => vi.fn(async () => new Response(JSON.stringify({
+      message: { content }, done_reason, eval_count: 768, endpoint: 'PRIVATE_SERVER', apiKey: 'PRIVATE_KEY',
+    })));
+    await expect(extractBlindVisualGraph(request, transport(raw))).resolves.toEqual(graph);
+    expect(request.onDiagnostic).toHaveBeenLastCalledWith({ rawResponse: raw, rawResponseTruncated: false, doneReason: 'stop', outputTokens: 768 });
+    await expect(extractBlindVisualGraph(request, transport('{', 'length'))).rejects.toThrow('JSON');
+    expect(request.onDiagnostic).toHaveBeenLastCalledWith({ rawResponse: '{', rawResponseTruncated: false,
+      doneReason: 'length', outputTokens: 768, validationError: 'JSON visuel illisible.' });
+    expect(JSON.stringify(request.onDiagnostic.mock.calls)).not.toMatch(/PRIVATE_PIXELS|PRIVATE_KEY|PRIVATE_SERVER/);
+    await expect(extractBlindVisualGraph(request, transport(''))).rejects.toThrow('aucune observation');
+    expect(request.onDiagnostic.mock.calls.at(-1)?.[0].rawResponse).toBe('');
+    await expect(extractBlindVisualGraph(request, transport('x'.repeat(24_001)))).rejects.toThrow('trop longue');
+    expect(request.onDiagnostic.mock.calls.at(-1)?.[0]).toMatchObject({ rawResponseTruncated: true });
+    expect(request.onDiagnostic.mock.calls.at(-1)?.[0].rawResponse).toHaveLength(24_000);
+  });
+
   it('preserves cancellation and refuses empty or malformed output instead of inventing decisions', async () => {
     const signal = AbortSignal.abort();
     const transport = vi.fn();

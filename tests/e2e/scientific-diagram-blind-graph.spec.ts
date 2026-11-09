@@ -55,7 +55,8 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
         arrowsComplete: true,
       };
       await route.fulfill({ status: 200, headers,
-        body: JSON.stringify({ message: { content: JSON.stringify(graph) }, done: true }) });
+        body: JSON.stringify({ message: { content: requests.length === 2 ? '{' : JSON.stringify(graph) }, done: true,
+          done_reason: requests.length === 2 ? 'length' : 'stop', eval_count: 768 }) });
       return;
     }
     await route.fulfill({ status: 404, headers, body: '{}' });
@@ -88,17 +89,30 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
   }
   const results = observer.getByRole('region', { name: 'Résultats du graphe visuel indépendant' });
   await expect(results).toBeVisible({ timeout: 30_000 });
-  await expect(results.locator('tbody tr')).toHaveCount(1);
+  await expect(results.locator('table').first().locator('tbody tr')).toHaveCount(1);
+  await results.getByText('Décisions observées par schéma', { exact: true }).click();
+  const successful = results.locator('details').filter({ has: page.locator('summary', { hasText: 'Sortie valide' }) }).last();
+  await successful.locator('summary').first().click();
+  await successful.getByText('Graphe extrait', { exact: true }).click();
+  await expect(successful.locator('pre').first()).toContainText('arrowsComplete');
+  await results.getByText('Qwen Vision local · passage 1 · Échec', { exact: false }).click();
+  await expect(results.getByText('Sortie rejetée : JSON visuel illisible.', { exact: true })).toBeVisible();
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     observer.getByRole('button', { name: 'Exporter l’analyse du graphe JSON' }).click(),
   ]);
   const json = JSON.parse(await readFile(await download.path(), 'utf8')) as {
-    format: string; localOnly: boolean; statistics: unknown[];
-    cases: Array<{ experiments: Array<{ observations: Record<string, string> }> }>;
+    format: string; version: number; localOnly: boolean; statistics: unknown[];
+    cases: Array<{ experiments: Array<{ observations: Record<string, string>; graph?: unknown; diagnostic?: { rawResponse: string; validationError?: string; doneReason?: string }; relationDetails?: unknown }> }>;
   };
   expect(json.format).toBe('companion-scientific-diagram-blind-graph-report');
   expect(json.localOnly).toBe(true);
+  expect(json.version).toBe(2);
+  expect(json.cases[0]?.experiments[0]?.graph).toBeTruthy();
+  expect(json.cases[0]?.experiments[0]?.relationDetails).toBeTruthy();
+  expect(json.cases[0]?.experiments[0]?.diagnostic?.rawResponse).toContain('arrowsComplete');
+  expect(json.cases[1]?.experiments[0]?.graph).toBeUndefined();
+  expect(json.cases[1]?.experiments[0]?.diagnostic).toMatchObject({ rawResponse: '{', validationError: 'JSON visuel illisible.', doneReason: 'length' });
   expect(json.cases).toHaveLength(6);
   expect(json.cases.map((item) => item.experiments.length)).toEqual([1, 1, 1, 1, 1, 1]);
   expect(json.statistics).toHaveLength(1);

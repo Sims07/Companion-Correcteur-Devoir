@@ -65,7 +65,7 @@ import { directDiagramAssignmentIssue, isLoopbackDiagramEndpoint } from '../appl
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_CONTEXT, DIAGRAM_SENSITIVITY_RUBRIC, buildScientificDiagramSensitivityReport, type DiagramSensitivityCaseId, type DiagramSensitivityRun, type DiagramSensitivityPromptMode } from '../domain/scientificDiagramSensitivity.ts';
-import { buildBlindVisualObservationReport, compareBlindVisualGraph,
+import { buildBlindVisualObservationReport, compareBlindVisualGraph, explainBlindVisualGraph, type BlindGraphDiagnostic,
   type BlindVisualObservationRun } from '../domain/scientificDiagramBlindGraph.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../domain/questionContractRepeatability.ts';
@@ -2337,14 +2337,17 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             setDiagramProtocolProgress('Observation indépendante ' + entry.id +
               ' · ' + profile.name + ' · ' + repetition + '/' + request.repetitions);
             const started = performance.now();
+            let diagnostic: BlindGraphDiagnostic | undefined;
             try {
               const graph = await service.extractBlindDiagramGraph(
                 profile.configuration.endpoint, model, entry.images[0]!, controller.signal,
+                (value) => { diagnostic = value; },
               );
               runs.push({
                 caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
                 model, status: 'success', durationMs: Math.round(performance.now() - started),
-                observations: compareBlindVisualGraph(graph),
+                observations: compareBlindVisualGraph(graph), graph, diagnostic,
+                relationDetails: explainBlindVisualGraph(graph),
                 arrowCount: graph.arrows.length, containmentCount: graph.containment.length,
               });
             } catch (cause) {
@@ -2354,7 +2357,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
                 model, status: interrupted ? 'aborted' : 'failed',
                 durationMs: Math.round(performance.now() - started),
-                observations: {}, arrowCount: 0, containmentCount: 0,
+                observations: {}, arrowCount: 0, containmentCount: 0, diagnostic,
                 errorCategory: interrupted ? 'cancelled'
                   : cause instanceof Error && /JSON|graphe|visuel|Sortie|observation/i.test(cause.message)
                     ? 'invalid-output' : 'network',
