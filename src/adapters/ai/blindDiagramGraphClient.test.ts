@@ -76,7 +76,7 @@ describe('client graphe visuel indépendant', () => {
       };
       expect(body.model).toBe('vision-27b');
       expect(body.stream).toBe(false);
-      expect(body.response_format).toEqual({ type: 'json_object' });
+      expect(body.response_format).toMatchObject({ type: 'json_schema', json_schema: { strict: true, schema: BLIND_VISUAL_OBSERVATION_SCHEMA } });
       const user = body.messages.find((message) => message.role === 'user');
       expect(user?.content).toEqual([
         { type: 'text', text: 'Décris seulement les éléments et leurs relations géométriques visibles.' },

@@ -91,7 +91,7 @@ export async function extractBlindVisualGraph(
         { role: 'system', content: BLIND_VISUAL_OBSERVATION_PROMPT },
         { role: 'user', content: 'Décris seulement les éléments et leurs relations géométriques visibles.', images: [compatible ? `data:${request.image.mimeType};base64,${request.image.base64}` : request.image.base64] },
       ],
-      stream: false, format: compatible ? 'json' : BLIND_VISUAL_OBSERVATION_SCHEMA, think: false, keep_alive: 0,
+      stream: false, format: BLIND_VISUAL_OBSERVATION_SCHEMA, think: false, keep_alive: 0,
       options: { temperature: 0, num_predict: 768, num_ctx: 2048 },
     }),
   });

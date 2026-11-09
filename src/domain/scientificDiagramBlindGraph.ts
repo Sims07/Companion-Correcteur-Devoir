@@ -100,8 +100,9 @@ export const BLIND_VISUAL_OBSERVATION_PROMPT = [
   'Cette étape ne connaît pas le barème, le sujet, les réponses attendues ni la discipline : ne note rien.',
   'Transcris les étiquettes réellement visibles dans labels, sans inventer de mots.',
   'Pour chaque trait avec ou sans pointe, suis le tracé réellement dessiné : first et second sont les deux étiquettes ou objets aux extrémités, tip vaut first si la pointe touche first, second si elle touche second, none si aucune pointe, unclear si elle est indiscernable.',
+  'Inspecte séparément les deux extrémités de chaque trait : une direction n’est certaine que si une pointe visible touche clairement une extrémité. Si le trait ne possède pas de pointe, utilise none ; si la pointe est partiellement masquée ou ambiguë, utilise unclear, jamais first ou second par défaut.',
   'Ne déduis jamais le sens des flèches de tes connaissances scientifiques, de la lecture gauche-droite ou de l’ordre des mots.',
-  'Dans containment, rapporte uniquement les paires de contours observables : inner, outer, relation inside/outside/unclear. Ne transforme pas un mot écrit en une structure dessinée.',
+  'Dans containment, rapporte uniquement les paires de contours observables : inner, outer, relation inside/outside/unclear. Vérifie la position des contours dessinés, même si elle est scientifiquement surprenante. Si le contour se superpose à la bordure ou si tu ne peux pas trancher, utilise unclear. Ne transforme pas un mot écrit en une structure dessinée.',
   'arrowsComplete vaut true uniquement si toutes les flèches visibles ont été examinées ; sinon false. Si tu hésites, utilise unclear.',
   'Réponds exclusivement en JSON avec labels, arrows, containment, arrowsComplete. Aucun texte supplémentaire.',
 ].join('\n');
