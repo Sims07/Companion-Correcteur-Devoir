@@ -12,7 +12,7 @@ const allPresent = (): Record<string, 'present'> => ({
 });
 function reading(
   caseId: DiagramSensitivityReading['caseId'],
-  changes: Partial<DiagramSensitivityReading['observations']> = {},
+  changes: Record<string, DiagramSensitivityReading['observations'][string]> = {},
   repetition = 1,
 ): DiagramSensitivityReading {
   return { caseId, profileId: 'qwen', method: 'direct-image-generative', repetition,
