@@ -60,6 +60,18 @@ describe('hexagonal architecture boundaries', () => {
     expect(service).toContain('ollama.importRubricImage(images, settings, onProgress, signal)');
   });
 
+  it('wires blind diagram extraction through the gateway port and composition root', () => {
+    const port = source('../src/ports/correctionWorkspace.ts');
+    const service = source('../src/application/correctionWorkspaceService.ts');
+    const app = source('../src/ui/App.tsx');
+    const entrypoint = source('../src/main.tsx');
+    expect(port).toContain('extractBlindDiagramGraph?(');
+    expect(service).toContain('ollama.extractBlindDiagramGraph!');
+    expect(app).toContain('service.extractBlindDiagramGraph(');
+    expect(imports(app).some((path) => path.includes('/adapters/'))).toBe(false);
+    expect(entrypoint).toContain('extractBlindDiagramGraph: (endpoint, model, image, signal)');
+  });
+
   it('keeps the scientific diagram analysis port independent from adapters', () => {
     const port = source('../src/ports/scientificDiagramAnalysis.ts');
     expect(imports(port).some((path) => path.includes('/adapters/'))).toBe(false);
