@@ -52,7 +52,7 @@ export interface DiagnosticModelResult {
   /** Legacy standalone prompt preview. New traces keep the full sanitized request in requestPayload. */
   requestPrompt?: string;
   /** Effective non-sensitive provider settings; never contains image bytes or endpoint credentials. */
-  requestMetadata?: { provider?: 'ollama' | 'openai-compatible'; endpoint?: string; stream: boolean; think: boolean; format?: 'json' | 'json-schema'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number; stop?: string[]; repeatPenalty?: number; frequencyPenalty?: number } };
+  requestMetadata?: { provider?: 'ollama' | 'openai-compatible'; endpoint?: string; stream: boolean; think: boolean | string; format?: 'json' | 'json-schema'; imageCount: number; keepAlive: string | number; options: { contextTokens: number; generationTokenLimit: number; temperature?: number; stop?: string[]; repeatPenalty?: number; frequencyPenalty?: number } };
   /** Sanitized JSON preview of the exact provider request; image bytes and credentials are always redacted. */
   requestPayload?: string;
   /** Raw response content returned by the model, including partial output when available. */
@@ -126,8 +126,8 @@ export interface OllamaSettings {
   transcriptionTokenLimit?: number;
   /** Text model used to grade the transcription against the rubric. */
   analysisModel?: string;
-  /** Enable Ollama's thinking mode for analysis only; disabled by default for model compatibility. */
-  thinking?: boolean;
+  /** Ollama thinking control: boolean or supported named level from /api/show. */
+  thinking?: boolean | string;
   /** Evaluate one rubric criterion per sequential analysis request instead of sending the whole rubric at once. */
   criterionByCriterion?: boolean;
   /** Assessment policy: absent means the historic generative algorithm. */
