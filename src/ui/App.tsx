@@ -2344,7 +2344,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 (value) => { diagnostic = value; },
                 { apiCompatible: profile.configuration.apiCompatible, apiKey: profile.configuration.apiKey },
                 request.zoomUncertainArrows,
-                { apiCompatible: profile.configuration.apiCompatible, apiKey: profile.configuration.apiKey },
               );
               runs.push({
                 caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
