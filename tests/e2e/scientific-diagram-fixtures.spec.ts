@@ -200,8 +200,8 @@ test('paired D/E diagrams test the pointed structure, not just the written label
   await expect(cards.nth(4).getByText('E — piège, flèches inversées')).toBeVisible();
   await expect(cards.nth(3).getByText('9.34/10 attendu')).toBeVisible();
   await expect(cards.nth(4).getByText('8.66/10 attendu')).toBeVisible();
-  await expect(cards.nth(3).getByText(/Alignement en colonne : 0\\/0\\.66 pt/)).toBeVisible();
-  await expect(cards.nth(4).getByText(/Alignement en colonne : 0\\/0\\.66 pt/)).toBeVisible();
+  await expect(cards.nth(3).getByText(/Alignement en colonne : 0\/0\.66 pt/)).toBeVisible();
+  await expect(cards.nth(4).getByText(/Alignement en colonne : 0\/0\.66 pt/)).toBeVisible();
   await page.getByRole('group', { name: 'Configurations à exécuter' })
     .locator('label.evaluation-profile-option').first().click();
   await fixtures.getByRole('button', { name: 'Tester les flèches D/E en un clic' }).click();
