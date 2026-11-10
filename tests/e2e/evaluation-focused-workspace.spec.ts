@@ -11,7 +11,8 @@ test('evaluation starts with one compact workspace rather than stacked cards', a
   await expect(page.locator('.evaluation-provider-indicator')).toContainText(/Ollama local|API compatible OpenAI/);
 
   const views = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
-  await expect(views.getByRole('button')).toHaveCount(2);
+  await expect(views.getByRole('button')).toHaveCount(3);
+  await expect(views.getByRole('button', { name: 'Radar des candidats' })).toBeVisible();
   const families = page.getByRole('group', { name: 'Parcours de test' });
   await expect(families.getByRole('button')).toHaveCount(3);
   await expect(page.locator('.evaluation-journey-options button span, .evaluation-journey-options button small')).toHaveCount(0);

@@ -45,10 +45,6 @@
 .diagram-lab-history-heading-actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
 .diagram-lab-history-import-feedback { font-size: .85rem; }
 
-.diagram-lab-history-sections { display:flex; flex-wrap:wrap; gap:var(--ds-space-2); border-bottom:1px solid var(--ds-color-border); padding-bottom:var(--ds-space-3); }
-.diagram-lab-history-sections button { border:1px solid var(--ds-color-border); border-radius:var(--ds-radius-sm); padding:var(--ds-space-3) var(--ds-space-4); background:var(--ds-color-surface); color:var(--ds-color-text); font:inherit; font-weight:600; cursor:pointer; }
-.diagram-lab-history-sections button[aria-selected="true"] { background:var(--ds-color-brand-100); color:var(--ds-color-brand-700); border-color:var(--ds-color-brand-700); }
-.diagram-lab-history-sections button:focus-visible { outline:2px solid var(--ds-color-brand-700); outline-offset:2px; }
 
 /* Results-first journal: show coverage and the comparison entry before detailed archives. */
 .diagram-lab-history-heading {
@@ -84,21 +80,6 @@
   font-size: .8rem;
   line-height: 1.45;
   color: var(--ds-color-text-muted);
-}
-.diagram-lab-history-sections { gap: var(--ds-space-4); padding: 0; }
-.diagram-lab-history-sections button {
-  padding: var(--ds-space-2) var(--ds-space-1);
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  font-size: .8rem;
-  color: var(--ds-color-text-muted);
-}
-.diagram-lab-history-sections button[aria-selected="true"] {
-  background: transparent;
-  color: var(--ds-color-text);
-  border-color: var(--ds-color-brand-700);
 }
 .diagram-lab-history-item { gap: var(--ds-space-1); }
 @media (max-width: 960px) {

@@ -133,9 +133,11 @@ function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
   </div>;
 }
 
-export function ScientificDiagramLabHistory({ revision, archiveError, repository }: { revision: number; archiveError?: string; repository: DiagramLabArchiveRepository }) {
+export function ScientificDiagramLabHistory({ revision, archiveError, repository, view, onViewChange }: {
+  revision: number; archiveError?: string; repository: DiagramLabArchiveRepository;
+  view: 'campaigns' | 'radar'; onViewChange: (view: 'campaigns' | 'radar') => void;
+}) {
   const [entries, setEntries] = useState<DiagramLabArchiveEntry[]>([]);
-  const [workspaceView, setWorkspaceView] = useState<'campaigns' | 'radar'>('campaigns');
   const [loadingError, setLoadingError] = useState('');
   const [protocolFilter, setProtocolFilter] = useState<DiagramLabProtocol | 'all'>('all');
   const [search, setSearch] = useState('');
@@ -206,7 +208,7 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
     {(archiveError || loadingError) && <p role="alert" className="diagram-lab-history-warning">
       Sauvegarde locale indisponible : {archiveError || loadingError}. Exportez vos JSON pour conserver les résultats.
     </p>}
-    {workspaceView === 'campaigns' && entries.length > 0 && <section className="diagram-lab-readiness" aria-label="Bilan des batteries scientifiques">
+    {view === 'campaigns' && entries.length > 0 && <section className="diagram-lab-readiness" aria-label="Bilan des batteries scientifiques">
       <div className="diagram-lab-readiness-stat"><strong>{readiness.campaigns}</strong><span>Campagnes conservées</span></div>
       <div className="diagram-lab-readiness-stat"><strong>{readiness.candidates}</strong><span>Candidats évalués</span></div>
       <div className="diagram-lab-readiness-stat"><strong>{readiness.bestMeasuredAxes}/{readiness.totalAxes}</strong><span>Axes du profil le mieux couvert</span></div>
@@ -216,22 +218,17 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
           : readiness.fullyMeasured === 1
             ? 'Un candidat complet. Évaluez un second candidat pour les comparer.'
             : 'Aucun candidat complet : les axes non testés restent non mesurés.'}</p>
-        <Button variant="secondary" onClick={() => setWorkspaceView('radar')}>Voir le radar à huit axes</Button>
+        <Button variant="secondary" onClick={() => onViewChange('radar')}>Voir le radar à huit axes</Button>
       </div>
     </section>}
-    <div className="diagram-lab-history-sections" role="tablist" aria-label="Vues du carnet">
-      <button type="button" role="tab" aria-selected={workspaceView === 'campaigns'}
-        onClick={() => setWorkspaceView('campaigns')}>Campagnes et rapports</button>
-      <button type="button" role="tab" aria-selected={workspaceView === 'radar'}
-        onClick={() => setWorkspaceView('radar')}>Radar des candidats · 8 axes</button>
-    </div>
-    {workspaceView === 'radar' && <ScientificDiagramRadar entries={entries} onOpenReport={(id) => {
+
+    {view === 'radar' && <ScientificDiagramRadar entries={entries} onOpenReport={(id) => {
       setSelectedId(id);
       setProtocolFilter('all');
       setSearch('');
-      setWorkspaceView('campaigns');
+      onViewChange('campaigns');
     }} />}
-    {workspaceView === 'campaigns' && <>
+    {view === 'campaigns' && <>
     <div className="diagram-lab-history-filters">
       <label>Protocole
         <DesignSystemSelect value={protocolFilter} onChange={(event) => { setProtocolFilter(event.currentTarget.value as DiagramLabProtocol | 'all'); setSelectedId(null); }}>
