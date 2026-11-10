@@ -12,6 +12,11 @@ describe('EvaluationJourneyPicker', () => {
     await act(async () => root.render(createElement(EvaluationJourneyPicker, { value: 'custom', disabled: false, onChange })));
     const buttons = [...container.querySelectorAll('button')];
     expect(buttons).toHaveLength(3);
+    expect(container.querySelector('.evaluation-journey-label')?.textContent).toBe('Tests');
+    expect(container.querySelector('h2')).toBeNull();
+    expect(buttons.map((button) => button.textContent)).toEqual(['Schémas scientifiques', 'Biologie', 'Ma copie']);
+    expect(buttons.every((button) => Boolean(button.title))).toBe(true);
+    expect(buttons.every((button) => button.querySelector('span, small') === null)).toBe(true);
     expect(buttons.map((button) => button.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'true']);
     await act(async () => buttons[0].click());
     expect(onChange).toHaveBeenCalledWith('diagrams');
