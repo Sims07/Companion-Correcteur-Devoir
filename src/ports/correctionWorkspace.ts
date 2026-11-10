@@ -1,7 +1,7 @@
 import type { ContractPreparation, ContractSources } from '../domain/contractPreparation.ts';
 import type { ImageInput, GradingProvider, OllamaModel, OllamaSettings } from './aiProvider.ts';
 import type { Rubric } from '../domain/rubric.ts';
-import type { ObservedVisualGraph, BlindGraphDiagnostic } from '../domain/scientificDiagramBlindGraph.ts';
+import type { ObservedVisualGraph, BlindGraphDiagnostic, BlindGraphPromptVariant } from '../domain/scientificDiagramBlindGraph.ts';
 import type { TeacherAnnotationInkColor } from '../domain/teacherAnnotationColor.ts';
 
 export type RubricImportProgress = {
@@ -44,7 +44,7 @@ export interface OllamaGateway {
   /** Optional local Ollama model-metadata probe for scientific diagram experiments. */
   detectDiagramThinking?(endpoint: string, model: string, requireThinkOff?: boolean): Promise<DiagramThinkSetting>;
   /** Laboratory-only: blind pixel observation via selected provider; no grading rubric in this request. */
-  extractBlindDiagramGraph?(endpoint: string, model: string, image: ImageInput, signal?: AbortSignal, onDiagnostic?: (diagnostic: BlindGraphDiagnostic) => void, provider?: { apiCompatible: boolean; apiKey: string }, zoomUncertainArrows?: boolean): Promise<ObservedVisualGraph>;
+  extractBlindDiagramGraph?(endpoint: string, model: string, image: ImageInput, signal?: AbortSignal, onDiagnostic?: (diagnostic: BlindGraphDiagnostic) => void, provider?: { apiCompatible: boolean; apiKey: string; promptVariant?: BlindGraphPromptVariant }, zoomUncertainArrows?: boolean): Promise<ObservedVisualGraph>;
   prewarmModel?(settings: OllamaSettings, model: string, signal?: AbortSignal): Promise<void>;
   unloadModel?(settings: OllamaSettings, model: string): Promise<void>;
   listModels(endpoint: string): Promise<OllamaModel[]>;
