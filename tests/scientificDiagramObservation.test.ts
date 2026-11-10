@@ -3,3 +3,4 @@ import '../src/adapters/ai/prompts/scientificDiagramObservation.test.ts';
 import '../src/adapters/ai/prompts/promptRegistry.test.ts';
 import '../src/adapters/ai/systemOneVisualTransport.test.ts';
 import '../src/adapters/ai/systemOneTransport.test.ts';
+import '../src/domain/scientificDiagramSensitivity.test.ts';

@@ -85,6 +85,12 @@ describe('sensibilité sémantique des schémas', () => {
 
   it('compares guided observation questions independently from direct grading', () => {
     expect(diagramSensitivityContext('guided')).toContain('POINTE');
+    expect(diagramSensitivityContext('guided')).toContain('ses deux extrémités sans leur attribuer de sens');
+    expect(diagramSensitivityContext('guided')).toContain('seulement après avoir localisé cette pointe');
+    for (const mode of ['standard', 'guided'] as const) {
+      expect(diagramSensitivityContext(mode)).not.toContain('ADN → ARN');
+      expect(diagramSensitivityContext(mode)).not.toContain('point de départ dessiné');
+    }
     expect(diagramSensitivityContext('standard')).not.toContain('CONTRÔLE VISUEL CIBLÉ');
     const direct = reading('S1', { [keys.transcription]: 'absent' });
     const baseline = reading('S0');
