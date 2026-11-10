@@ -4,6 +4,7 @@ import { compareDiagramLabEntries, diagramLabProtocolLabels, parseDiagramLabRepo
 import { diagramMethodLabels } from '../../domain/scientificDiagramProtocol.ts';
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { buildDiagramLabComparison } from '../../domain/diagramLabComparison.ts';
+import { ScientificDiagramRadar } from './ScientificDiagramRadar.tsx';
 import { scientificDiagramSensitivityPreviewUrl } from '../../domain/scientificDiagramSensitivity.ts';
 import cleanDiagramUrl from '../../assets/pilot/scientific-mitosis-10.webp';
 import intermediateDiagramUrl from '../../assets/pilot/scientific-mitosis-5.webp';
@@ -32,7 +33,7 @@ function percent(value: number, total: number) {
 function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
   const report = entry.report;
   const [activeCase, setActiveCase] = useState('');
-  if ('statistics' in report) return <div className="diagram-lab-reading">
+  if (report.format === 'companion-scientific-diagram-sensitivity-report' || report.format === 'companion-scientific-diagram-blind-graph-report') return <div className="diagram-lab-reading">
     <h3>Résultats par configuration</h3>
     <div className="pilot-evaluation-table-scroll"><table className="pilot-evaluation-table">
       <thead><tr><th>Configuration</th><th>Méthode</th><th>Erreurs détectées</th><th>Mesures impossibles</th><th>Bonnes relations rejetées</th><th>Bonnes relations incertaines</th><th>Faux positifs témoins</th><th>Abstentions</th></tr></thead>
@@ -132,6 +133,7 @@ function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
 
 export function ScientificDiagramLabHistory({ revision, archiveError, repository }: { revision: number; archiveError?: string; repository: DiagramLabArchiveRepository }) {
   const [entries, setEntries] = useState<DiagramLabArchiveEntry[]>([]);
+  const [workspaceView, setWorkspaceView] = useState<'campaigns' | 'radar'>('campaigns');
   const [loadingError, setLoadingError] = useState('');
   const [protocolFilter, setProtocolFilter] = useState<DiagramLabProtocol | 'all'>('all');
   const [search, setSearch] = useState('');
@@ -200,6 +202,19 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
     {(archiveError || loadingError) && <p role="alert" className="diagram-lab-history-warning">
       Sauvegarde locale indisponible : {archiveError || loadingError}. Exportez vos JSON pour conserver les résultats.
     </p>}
+    <div className="diagram-lab-history-sections" role="tablist" aria-label="Vues du carnet">
+      <button type="button" role="tab" aria-selected={workspaceView === 'campaigns'}
+        onClick={() => setWorkspaceView('campaigns')}>Campagnes et rapports</button>
+      <button type="button" role="tab" aria-selected={workspaceView === 'radar'}
+        onClick={() => setWorkspaceView('radar')}>Radar des candidats · 8 axes</button>
+    </div>
+    {workspaceView === 'radar' && <ScientificDiagramRadar entries={entries} onOpenReport={(id) => {
+      setSelectedId(id);
+      setProtocolFilter('all');
+      setSearch('');
+      setWorkspaceView('campaigns');
+    }} />}
+    {workspaceView === 'campaigns' && <>
     <div className="diagram-lab-history-filters">
       <label>Protocole
         <DesignSystemSelect value={protocolFilter} onChange={(event) => { setProtocolFilter(event.currentTarget.value as DiagramLabProtocol | 'all'); setSelectedId(null); }}>
@@ -266,5 +281,6 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
           <ReportDetails key={selected.id + ':' + selected.report.format} entry={selected} />
         </article>}
       </div>}
+    </>}
   </section>;
 }
