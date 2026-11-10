@@ -63,6 +63,27 @@ describe('client graphe visuel indépendant', () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe('http://localhost:11434/api/chat');
   });
 
+  it('sends the experimental geometric prompt with the same image and no expected relations', async () => {
+    const bodies: Array<{ messages: Array<{ role: string; content: string; images?: string[] }> }> = [];
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      return new Response(JSON.stringify({ message: { content: JSON.stringify({
+        labels: ['X', 'Y'], arrows: [{ first: 'X', second: 'Y', tip: 'first' }],
+        containment: [{ inner: 'Y', outer: 'X', relation: 'outside' }], arrowsComplete: true,
+      }) } }), { status: 200 });
+    });
+    await extractBlindVisualGraph({
+      endpoint: 'http://localhost:11434', model: 'vision-test',
+      image: { base64: 'PRIVATE_PIXEL_BYTES', mimeType: 'image/png' },
+      promptVariant: 'isolated-arrows-outside',
+    }, fetchMock);
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]?.messages[0]?.content).toContain('EXAMEN INDÉPENDANT');
+    expect(bodies[0]?.messages[0]?.content).toContain('INVENTAIRE SPATIAL');
+    expect(bodies[0]?.messages[1]?.images).toEqual(['PRIVATE_PIXEL_BYTES']);
+    expect(JSON.stringify(bodies)).not.toContain('ADN → ARN');
+  });
+
   it('sends PNG pixels to the explicitly selected OpenAI-compatible Vision endpoint with bearer auth', async () => {
     const graph = { labels: ['ADN', 'ARN'], arrows: [{ first: 'ADN', second: 'ARN', tip: 'second' }],
       containment: [], arrowsComplete: true };
