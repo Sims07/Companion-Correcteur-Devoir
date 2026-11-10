@@ -96,7 +96,8 @@ test.describe('visual regression contracts', () => {
         await expect(hiddenFileInputs.nth(index)).toHaveCSS('height', '1px');
         await expect(hiddenFileInputs.nth(index)).toHaveCSS('position', 'absolute');
       }
-      await expectSharedSurfaceTokens(page, '.evaluation-config-workspace');
+      await expect(page.locator('.evaluation-config-workspace')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+      await expect(page.locator('.evaluation-config-workspace')).toHaveCSS('border-top-width', '0px');
       await expectNoHorizontalOverflow(page);
       await captureVisualEvidence(page, testInfo, `model-evaluation-${viewport.name}.png`);
     }
