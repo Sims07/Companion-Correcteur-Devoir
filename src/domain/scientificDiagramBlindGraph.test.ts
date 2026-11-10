@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BLIND_VISUAL_OBSERVATION_PROMPT, buildBlindVisualObservationReport, compareBlindVisualGraph,
+  BLIND_VISUAL_OBSERVATION_PROMPT, BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT, blindVisualObservationPrompt,
+  buildBlindVisualObservationReport, compareBlindVisualGraph,
   parseObservedVisualGraph, explainBlindVisualGraph, canObserveBlindGraph, type ObservedVisualGraph,
 } from './scientificDiagramBlindGraph.ts';
 import { DIAGRAM_SENSITIVITY_TARGETS as T } from './scientificDiagramSensitivity.ts';
@@ -25,6 +26,16 @@ describe('lecture graphe visuel sans barème', () => {
     expect(BLIND_VISUAL_OBSERVATION_PROMPT).toContain('scientifiquement surprenante');
     expect(BLIND_VISUAL_OBSERVATION_PROMPT).toContain('ne note rien');
   });
+  it('preserves the original blind prompt while adding an isolated-arrow/outside-contour A/B arm', () => {
+    expect(blindVisualObservationPrompt('baseline')).toBe(BLIND_VISUAL_OBSERVATION_PROMPT);
+    expect(blindVisualObservationPrompt('isolated-arrows-outside')).toBe(BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT);
+    expect(BLIND_VISUAL_OBSERVATION_PROMPT).not.toContain('EXAMEN INDÉPENDANT');
+    expect(BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT).toContain('Une flèche inversée');
+    expect(BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT).toContain('entièrement à l’extérieur');
+    expect(BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT).toContain('une pointe illisible'.replace('une pointe', 'Une pointe').slice(0, 0) || 'N’aligne');
+    expect(BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT).not.toMatch(/ADN|ARN|Protéine|Noyau|transcription|note finale/);
+  });
+
   it('validates a complete finite and bounded observational graph', () => {
     expect(parseObservedVisualGraph(JSON.stringify(graph()))).toEqual(graph());
     expect(() => parseObservedVisualGraph('pas du JSON')).toThrow('JSON');
@@ -149,6 +160,9 @@ describe('lecture graphe visuel sans barème', () => {
     const report = buildBlindVisualObservationReport([record], 1, '2026-11-09T12:00:00Z');
     expect(report.cases[0]?.experiments).toHaveLength(1);
     expect(report.version).toBe(2);
+    expect(report.promptVariant).toBe('baseline');
+    const experimental = buildBlindVisualObservationReport([record], 1, '2026-11-09T12:00:00Z', 'isolated-arrows-outside');
+    expect(experimental.promptVariant).toBe('isolated-arrows-outside');
     expect(report.cases[0]?.experiments[0]?.graph).toEqual(graph());
     expect(report.cases[0]?.experiments[0]?.diagnostic?.rawResponse).toBe(JSON.stringify(graph()));
     expect(report.statistics).toHaveLength(1);
