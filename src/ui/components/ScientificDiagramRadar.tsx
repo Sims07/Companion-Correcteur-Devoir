@@ -94,8 +94,12 @@ export function ScientificDiagramRadar({ entries, onOpenReport }: {
 }) {
   const [grouping, setGrouping] = useState<RadarGrouping>('profile');
   const [family, setFamily] = useState<'grading' | 'graph'>('grading');
-  const [preset, setPreset] = useState<'scientific' | 'balanced' | 'throughput' | 'custom'>('scientific');
   const [weights, setWeights] = useState<RadarWeights>(restoredWeights);
+  const [preset, setPreset] = useState<'scientific' | 'balanced' | 'throughput' | 'custom'>(() => {
+    const key = Object.entries(RADAR_PRESETS).find(([, presetWeights]) =>
+      RADAR_AXES.every((axis) => presetWeights[axis.id] === weights[axis.id]))?.[0];
+    return (key as 'scientific' | 'balanced' | 'throughput' | undefined) ?? 'custom';
+  });
   const [picked, setPicked] = useState<string[] | null>(null);
   const [axis, setAxis] = useState<RadarAxisId>('arrows');
   const [focus, setFocus] = useState('');

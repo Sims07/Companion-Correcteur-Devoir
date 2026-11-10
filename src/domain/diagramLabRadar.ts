@@ -111,7 +111,9 @@ function flatten(entry: DiagramLabArchiveEntry): Reading[] {
       profileId: run.profileId, profileName: run.profileName, model: run.model,
       method: run.zoom ? 'blind-graph-zoom' : 'blind-graph',
       variant: report.promptVariant, caseId: testCase.caseId, repetition: run.repetition,
-      status: run.status, durationMs: run.durationMs, observations: { ...run.observations },
+      status: run.status, durationMs: run.durationMs,
+      observations: run.observations && typeof run.observations === 'object' && !Array.isArray(run.observations)
+        ? { ...run.observations } : {},
     })));
   }
   if (report.format === 'companion-scientific-diagram-sensitivity-report') {
@@ -119,14 +121,16 @@ function flatten(entry: DiagramLabArchiveEntry): Reading[] {
       profileId: run.profileId, profileName: run.profileName, model: run.model,
       method: run.method, variant: testCase.promptMode, caseId: testCase.caseId,
       repetition: run.repetition, status: run.status, durationMs: run.durationMs,
-      observations: Object.fromEntries(run.observations.map((item) => [item.key, item.choice])),
+      observations: Object.fromEntries((Array.isArray(run.observations) ? run.observations : [])
+        .map((item) => [item.key, item.choice])),
     })));
   }
   return report.cases.flatMap((testCase) => testCase.experiments.map((run) => ({
     profileId: run.profileId, profileName: run.profileName, model: run.model,
     method: run.method, variant: 'standard', caseId: testCase.caseId,
     repetition: run.repetition, status: run.status, durationMs: run.durationMs,
-    observations: Object.fromEntries(run.observations.map((item) => [item.key, item.choice])),
+    observations: Object.fromEntries((Array.isArray(run.observations) ? run.observations : [])
+        .map((item) => [item.key, item.choice])),
   })));
 }
 
