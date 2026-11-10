@@ -576,19 +576,22 @@ export function ScientificDiagramProtocolPanel({
           value={blindGraphPromptVariant} disabled={busy || blindGraphLoading}
           onChange={(event) => setBlindGraphPromptVariant(event.currentTarget.value as BlindGraphPromptVariant)}>
           <option value="baseline">Référence actuelle — lecture standard</option>
-          <option value="isolated-arrows-outside">Expérimentale — flèches indépendantes et structures extérieures</option>
+          <option value="isolated-arrows-outside">Ancienne expérimentation — consigne renforcée (sans gain observé)</option>
+          <option value="recheck-arrows">Nouvel essai A — relire chaque flèche séparément</option>
+          <option value="recheck-contours">Nouvel essai B — relire uniquement les contours</option>
         </DesignSystemSelect>
       </div>
       <div className="pilot-evaluation-actions">
         <Button disabled={!canRunBlindGraph} onClick={() => { void runBlindObservation(); }}>
           Extraire les relations des 6 schémas
         </Button>
-        <Button variant="secondary" disabled={!canRunBlindGraph} onClick={() => { void runBlindObservation(true); }}>
+        <Button variant="secondary" disabled={!canRunBlindGraph || blindGraphPromptVariant === 'recheck-arrows' || blindGraphPromptVariant === 'recheck-contours'} onClick={() => { void runBlindObservation(true); }}>
           Tester avec agrandissement ciblé
         </Button>
         {(busy || blindGraphLoading) && <Button variant="secondary" disabled={!busy} onClick={onStop}>Arrêter après l’appel en cours</Button>}
         {blindGraphReport && <Button variant="secondary" onClick={downloadBlindGraphReport}>Exporter l’analyse du graphe JSON</Button>}
       </div>
+      <p className="pilot-evaluation-hint">Pour comparer avec Qwen 3.5 4B : lancez d'abord « Référence actuelle » (sans agrandissement), puis « Nouvel essai A » et « Nouvel essai B » séparément, avec le même profil et une seule répétition. Chaque méthode exporte son propre JSON. A relit jusqu’à deux flèches, même déclarées certaines ; le recadrage est tenté si Vision fournit une zone, sinon l’image entière est relue et ce repli est compté. B effectue un appel distinct d’inventaire des contours. La correction des devoirs n’est pas affectée.</p>
       <p className="pilot-evaluation-hint">Le mode d’agrandissement peut ajouter jusqu’à deux appels sur le fournisseur sélectionné, y compris distant si vous avez choisi une API OpenAI-compatible. Le recadrage est traité sur l’appareil mais aussi transmis au fournisseur distant sélectionné ; aucune transmission automatique au cloud n’est effectuée avec un profil Ollama local. Si une zone n’est pas localisable, elle reste indécidable.</p>
       <p className="pilot-evaluation-hint">Utilisez un profil Vision Ollama local ou OpenAI-compatible (y compris votre lien distant). Les six schémas sont traités séquentiellement. Un profil distant reçoit les images : utilisez-le seulement si cela est autorisé. Aucun basculement implicite vers le cloud. La conclusion peut rester indécidable si les flèches sont mal lues.</p>
       {!canRunBlindGraph && !busy && selectedProfiles.length > 0 &&
@@ -597,7 +600,12 @@ export function ScientificDiagramProtocolPanel({
         <p role="status" className="pilot-evaluation-message">{blindGraphMessage || progress}</p>}
       {blindGraphReport && <section className="pilot-evaluation-report" aria-label="Résultats du graphe visuel indépendant">
         <h4>Lecture indépendante — relations effectivement observées</h4>
-        <p>Consigne utilisée : <strong>{blindGraphReport.promptVariant === 'isolated-arrows-outside' ? 'Expérimentale — flèches indépendantes et structures extérieures' : 'Référence actuelle'}</strong>.</p>
+        <p>Consigne utilisée : <strong>{({
+          baseline: 'Référence actuelle',
+          'isolated-arrows-outside': 'Ancienne consigne renforcée',
+          'recheck-arrows': 'Nouvel essai A — seconde lecture des flèches',
+          'recheck-contours': 'Nouvel essai B — seconde lecture des contours',
+        } as Record<BlindGraphPromptVariant, string>)[blindGraphReport.promptVariant]}</strong>.</p>
         <p>Sorties valides : {blindGraphReport.cases.flatMap((item) => item.experiments).filter((run) => run.status === 'success').length}
           /{blindGraphReport.cases.flatMap((item) => item.experiments).length}.
           Les rejets et les relations indécidables ne prouvent pas une erreur scientifique. Le total des bonnes relations inclut les liens inchangés des schémas modifiés.</p>
