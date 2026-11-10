@@ -38,7 +38,7 @@ test('biology protocol puts the one-click method comparison above reference deta
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Biologie' }).click();
   const panel = page.getByRole('region', { name: 'Protocole de test guidé' });
   await expect(panel.getByRole('group', { name: 'Objectif du protocole de biologie' }).getByRole('button')).toHaveCount(3);
-  await expect(panel.locator('.pilot-evaluation-protocol-notes')).not.toHaveAttribute('open', '');
+  await expect(panel.locator('[aria-label="Protocole variante B par question"] .pilot-evaluation-protocol-notes')).not.toHaveAttribute('open', '');
   const positions = await panel.evaluate((root) => {
     const launch = root.querySelector('[aria-label="Protocole variante B par question"] .pilot-evaluation-actions');
     const reference = root.querySelector('[aria-label="Protocole variante B par question"] .pilot-evaluation-reference');
