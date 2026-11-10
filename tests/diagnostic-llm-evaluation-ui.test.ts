@@ -112,11 +112,13 @@ describe('Évaluation des modèles — navigation par espace', () => {
     expect(appSource).toContain("useState<'configuration' | 'execution' | 'results' | 'history'>('configuration')");
     expect(appSource).toContain('Espaces de l’évaluation');
     expect(appSource).toContain('Analyse & historique');
-    expect(appSource).toContain("aria-current={evaluationWorkspaceStep === 'history' ? 'step' : undefined}");
+    expect(appSource).toContain("evaluationJourney === 'diagrams' ? 'Carnet de résultats' : 'Analyse & historique'");
+    expect(appSource).toContain("diagramLabView === 'history' ? 'step' : undefined");
   });
 
   it('keeps configuration and rubric preparation out of execution and history views', () => {
-    expect(appSource).toContain("evaluationWorkspaceStep === 'configuration' && <section id=\"evaluation-configurations\"");
+    expect(appSource).toContain("evaluationJourney !== 'diagrams' || diagramLabView === 'protocols'");
+    expect(appSource).toContain("<ScientificDiagramLabHistory repository={diagramArchive}");
     expect(appSource).toContain("(interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && evaluationJourney === 'custom')");
     expect(appSource).toContain("evaluationWorkspaceStep !== 'configuration' && <section id=\"evaluation-results\"");
   });
@@ -184,7 +186,7 @@ describe('Évaluation des modèles — cohérence des étapes et historique', ()
     expect(appSource).toContain("evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION'");
     expect(appSource).toContain("evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS'");
     expect(appSource).toContain("'ÉTAPE 4 · ANALYSE & HISTORIQUE'");
-    expect(appSource).toContain("evaluationWorkspaceStep === 'history' && <section className=\"evaluation-result-list evaluation-history-workspace\"");
+    expect(appSource).toContain("evaluationWorkspaceStep === 'history' && evaluationJourney !== 'diagrams' && <section className=\"evaluation-result-list evaluation-history-workspace\"");
     expect(appSource).toContain("evaluationWorkspaceStep === 'results' && modelEvaluationResults.length > 0");
     expect(appSource).toContain("evaluationWorkspaceStep === 'results' && evaluationStageMode !== 'vision' && modelEvaluationResults.some");
   });

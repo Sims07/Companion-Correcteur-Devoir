@@ -32,6 +32,7 @@ describe('read-only IndexedDB storage telemetry', () => {
     });
     const stores = await inspectIndexedDbStores();
     expect(stores.map((store) => store.store)).toContain('model-evaluations');
+    expect(stores.map((store) => store.store)).toContain('diagram-lab-archive');
     const evaluations = stores.find((store) => store.store === 'model-evaluations');
     const diagnostics = stores.find((store) => store.store === 'diagnostic-history');
     expect(evaluations?.records).toBeGreaterThanOrEqual(1);
@@ -59,7 +60,7 @@ describe('read-only IndexedDB storage telemetry', () => {
     expect(snapshot.originUsageBytes).toBe(3145728);
     expect(snapshot.originQuotaBytes).toBe(10485760);
     expect(snapshot.persistent).toBe(false);
-    expect(snapshot.stores).toHaveLength(6);
+    expect(snapshot.stores).toHaveLength(7);
     expect(snapshot.warnings).toEqual([]);
     expect(JSON.stringify(snapshot)).not.toContain('SECRET_STUDENT_COPY');
   });

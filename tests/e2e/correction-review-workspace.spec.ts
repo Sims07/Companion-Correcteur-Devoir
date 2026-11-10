@@ -7,7 +7,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await openActiveAssignment(page);
 
   await page.evaluate(async () => {
-    const request = indexedDB.open('companion-correcteur-devoir', 5);
+    const request = indexedDB.open('companion-correcteur-devoir', 6);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -236,7 +236,7 @@ test('review workspace keeps original evidence beside grading criteria on deskto
   await expect(page.getByRole('heading', { name: 'Rôle de la membrane' })).toBeVisible();
 
   await page.evaluate(async () => {
-    const request = indexedDB.open('companion-correcteur-devoir', 5);
+    const request = indexedDB.open('companion-correcteur-devoir', 6);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);

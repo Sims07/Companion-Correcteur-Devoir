@@ -5,7 +5,7 @@ test('shows origin quota and IndexedDB categories without exposing student copie
   await page.getByRole('button', { name: 'Outils IA' }).waitFor();
 
   await page.evaluate(async () => {
-    const request = indexedDB.open('companion-correcteur-devoir', 5);
+    const request = indexedDB.open('companion-correcteur-devoir', 6);
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -36,7 +36,7 @@ test('shows origin quota and IndexedDB categories without exposing student copie
   await expect(panel.getByText('Quota annoncé par le navigateur')).toBeVisible();
   await expect(panel.getByText('Évaluations de modèles')).toBeVisible();
   await expect(panel.getByText('Traces techniques')).toBeVisible();
-  await expect(panel.locator('.storage-breakdown-item')).toHaveCount(6);
+  await expect(panel.locator('.storage-breakdown-item')).toHaveCount(7);
   await expect(panel.getByText(/ordres? de grandeur/i)).toBeVisible();
   await expect(page.getByText('E2E_STUDENT_PRIVATE_IMAGE')).toHaveCount(0);
   await expect(page.getByText('SECRET_MODEL_RESPONSE')).toHaveCount(0);

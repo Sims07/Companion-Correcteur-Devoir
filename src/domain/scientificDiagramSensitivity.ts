@@ -238,7 +238,7 @@ export function buildScientificDiagramSensitivityReport(
         [observation.key, observation.choice])) as Record<string, DiagramSensitivityChoice>,
     })));
   return {
-    format: 'companion-scientific-diagram-sensitivity-report',
+    format: 'companion-scientific-diagram-sensitivity-report' as const,
     version: 2, protocolId: DIAGRAM_SENSITIVITY_PROTOCOL_ID, promptModes: [...promptModes],
     createdAt, plannedRepetitions, rubric: structuredClone(DIAGRAM_SENSITIVITY_RUBRIC),
     localOnly: cases.every((testCase) => testCase.experiments.length === 0 ||

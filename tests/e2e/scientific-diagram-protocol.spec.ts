@@ -72,6 +72,7 @@ test('a scientific diagram protocol accepts a photo, rubric, teacher decisions a
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
 
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
+  await panel.locator('details.diagram-lab-legacy > summary').click();
   await expect(panel.getByText('15 attendus', { exact: false }).first()).toBeVisible();
   await expect(panel.getByText('8 points', { exact: false }).first()).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Tester le schéma en un clic' })).toBeDisabled();
@@ -135,6 +136,9 @@ test('the scientific-diagram lab exposes an explicit multimodal comparison indep
   await expect(method).toHaveValue('compare');
   const choices = page.getByRole('group', { name: 'Configurations à exécuter' });
   await choices.locator('label.evaluation-profile-option').first().click();
+  await expect(panel.getByRole('tab', { name: /Qualité graphique/ })).toHaveAttribute('aria-selected', 'true');
+  // The advanced personal-copy workflow remains intact but is intentionally collapsed.
+  await panel.locator('details.diagram-lab-legacy > summary').click();
   await expect(panel.getByText('Vision puis analyse / Image → génératif direct', { exact: false })).toBeVisible();
 
   await method.selectOption('direct-image-generative');

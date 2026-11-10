@@ -172,6 +172,7 @@ export function ScientificDiagramProtocolPanel({
   const [sensitivityMessage, setSensitivityMessage] = useState('');
   const [sensitivityPromptSelection, setSensitivityPromptSelection] = useState<'standard' | 'guided' | 'compare'>('standard');
   const [methodSelection, setMethodSelection] = useState<DiagramMethodSelection>('compare');
+  const [activeProtocol, setActiveProtocol] = useState<'reference' | 'arrows' | 'semantic' | 'graph'>('reference');
   const targets = rubric.criteria.flatMap((criterion) =>
     getRubricSubcriteria(criterion).map((item) => ({ criterion, item, key: diagramTargetKey(criterion.id, item.id) })));
   const validation = validateRubric(rubric);
@@ -349,12 +350,29 @@ export function ScientificDiagramProtocolPanel({
   return <section className="pilot-evaluation-panel diagram-protocol-panel" aria-label="Protocole schémas scientifiques">
     <div className="pilot-evaluation-head">
       <div>
-        <p className="eyebrow">LABORATOIRE · SCHÉMA SCIENTIFIQUE</p>
-        <h3>Mode expérimental — schéma scientifique</h3>
-        <p>Comparez les méthodes de correction sur les mêmes dessins et les mêmes critères : lecture puis analyse, analyse générative directe sur image, et décision System One directe lorsque compatible. Aucun changement au parcours de correction des copies.</p>
+        <p className="eyebrow">LABORATOIRE · PROTOCOLES AUTOMATIQUES</p>
+        <h3>Quel comportement du modèle voulez-vous mesurer ?</h3>
+        <p>Choisissez un protocole : ses images, références et comparaisons sont déjà intégrées. Aucun import nécessaire. Les rapports sont conservés dans le carnet des résultats, même après fermeture du navigateur.</p>
       </div>
     </div>
-    <div className="diagram-fixture-run-controls">
+    <div className="diagram-lab-catalog" role="tablist" aria-label="Protocoles automatiques des schémas scientifiques">
+      {([
+        ['reference', 'FORME', 'Qualité graphique', 'A/B/C · Présentation et justesse', '3 dessins'],
+        ['arrows', 'FLÈCHES', 'Sens des flèches', 'D/E · Témoin et inversion', '2 dessins'],
+        ['semantic', 'BIOLOGIE', 'Compréhension biologique', 'S0–S5 · Relations fausses et témoins', '6 dessins'],
+        ['graph', 'GRAPHE', 'Graphe des relations', 'S0–S5 · Lecture sans barème', '6 dessins'],
+      ] as const).map(([id, number, title, subtitle, count]) =>
+        <button key={id} role="tab" type="button" aria-selected={activeProtocol === id}
+          disabled={busy || uploading || fixtureLoading || sensitivityLoading || blindGraphLoading}
+          onClick={() => setActiveProtocol(id)}>
+          <small>{number} · {count}</small><strong>{title}</strong><span>{subtitle}</span>
+        </button>)}
+    </div>
+    {busy && <div className="diagram-lab-live" role="status">
+      <strong>Protocole en cours</strong><span>{progress || 'Préparation du modèle…'}</span>
+      <Button variant="secondary" onClick={onStop}>Arrêter après l’appel en cours</Button>
+    </div>}
+    {activeProtocol !== 'graph' && <div className="diagram-fixture-run-controls diagram-lab-method">
       <label htmlFor="diagram-method-selection">Méthode de correction scientifique à tester</label>
       <DesignSystemSelect id="diagram-method-selection" value={methodSelection} disabled={busy || fixtureLoading || uploading}
         onChange={(event) => {
@@ -370,16 +388,18 @@ export function ScientificDiagramProtocolPanel({
         <option value="direct-image-systemone">Image → décisionnel System One — sans OCR</option>
       </DesignSystemSelect>
       <p className="pilot-evaluation-hint">Les méthodes sont choisies dans ce laboratoire uniquement. Le choix habituel « Comparer toutes les méthodes » n’active jamais Think. L’option OFF / ON fonctionne avec tout modèle génératif Vision sur Ollama local qui prend en charge Think : le serveur est interrogé sur les capacités du modèle avant l’essai. Les niveaux nommés sont respectés quand Ollama en indique un. 4 096 tokens maximum par appel Think et 1 passage par défaut. Pensez à « Arrêter » si l’essai est trop long. Le rapport distingue Thinking demandé et trace réellement émise, sans enregistrer le raisonnement. D1/D3 compatibles peuvent comparer deux étapes et System One image ; TEV1 n’utilise l’image que via la transcription préalable.</p>
-    </div>
-    <section className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
+    </div>}
+    {(activeProtocol === 'reference' || activeProtocol === 'arrows') && <section className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
       <div className="diagram-protocol-fixtures-heading">
         <div>
-          <h4>Cinq schémas prêts à tester — dont une paire témoin / piège</h4>
+          <h4>{activeProtocol === 'arrows' ? 'Flèches : témoin D et dessin E aux pointes inversées' : 'Qualité graphique : trois niveaux de référence A/B/C'}</h4>
           <p>A/B/C : difficulté progressive. D/E : <strong>mêmes mots et mêmes structures</strong>, mais quatre flèches volontairement inversées en E. Barème sur 10 points et références provisoires à valider par un enseignant. La différence attendue ne sera jamais envoyée au modèle.</p>
         </div>
       </div>
       <div className="diagram-fixture-grid">
-        {SCIENTIFIC_DIAGRAM_FIXTURES.map((fixture) => <article key={fixture.id} className="diagram-fixture-card">
+        {SCIENTIFIC_DIAGRAM_FIXTURES.filter((fixture) => activeProtocol === 'reference'
+          ? fixture.id === 'A' || fixture.id === 'B' || fixture.id === 'C'
+          : fixture.id === 'D' || fixture.id === 'E').map((fixture) => <article key={fixture.id} className="diagram-fixture-card">
           <img src={fixtureImageUrls[fixture.id]} alt={'Schéma de mitose végétale — ' + fixture.label} loading="lazy" />
           <div className="diagram-fixture-card-body">
             <div className="diagram-fixture-card-title">
@@ -419,16 +439,16 @@ export function ScientificDiagramProtocolPanel({
             <option value={3}>3 répétitions</option>
             <option value={5}>5 répétitions</option>
           </DesignSystemSelect>
-          <Button disabled={!canRunFixtures} onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_BASE_CASE_IDS); }}>
+          {activeProtocol === 'reference' && <Button disabled={!canRunFixtures} onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_BASE_CASE_IDS); }}>
             Tester les 3 schémas en un clic
-          </Button>
-          <Button variant="secondary" disabled={!canRunFixtures}
+          </Button>}
+          {activeProtocol === 'arrows' && <Button variant="secondary" disabled={!canRunFixtures}
             onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS); }}>
             Tester les flèches D/E en un clic
-          </Button>
+          </Button>}
           {(busy || fixtureLoading) && <Button variant="secondary" onClick={onStop} disabled={!busy}>Arrêter après l’appel en cours</Button>}
         </div>
-        <p className="pilot-evaluation-hint">Choisissez 1 à 3 configurations ci-dessous. Pour une comparaison équitable, le même barème et les mêmes images sont utilisés à chaque passage, par méthode et par profil. Exécution séquentielle. Un seul passage ne mesure pas la répétabilité.</p>
+        <p className="pilot-evaluation-hint">Choisissez 1 à 3 configurations dans la sélection au-dessus. Pour une comparaison équitable, le même barème et les mêmes images sont utilisés à chaque passage, par méthode et par profil. Exécution séquentielle. Un seul passage ne mesure pas la répétabilité.</p>
         {hasRemote && <p className="pilot-evaluation-hint" role="status">Une configuration distante est sélectionnée : les photos seront envoyées uniquement à son serveur configuré.</p>}
         {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={'fixture-' + issue}>{issue}</p>)}
         {(fixtureMessage || (busy && progress)) && <p role="status" className="pilot-evaluation-message">{fixtureMessage || progress}</p>}
@@ -517,9 +537,10 @@ export function ScientificDiagramProtocolPanel({
         <p className="pilot-evaluation-hint">Une exécution « Réussie » sans note peut contenir des choix utilisables ; inspectez « Décisions récupérées ». Une configuration échouée avant lecture peut être indisponible ou mal paramétrée : l’erreur précise figure dans Observabilité, pas dans cet export sans informations de connexion.</p>
         <p className="pilot-evaluation-hint">{fixtureReport.limitations}</p>
       </section>}
-    </section>
-    <details className="diagram-protocol-fixtures diagram-sensitivity-section">
-      <summary><strong>Tester la compréhension sémantique : 6 variantes contrôlées</strong> — flèche inversée, mauvaise connexion, structure mal placée</summary>
+    </section>}
+    {activeProtocol === 'semantic' && <section className="diagram-protocol-fixtures diagram-sensitivity-section" aria-label="Sensibilité sémantique">
+      <h4>Compréhension biologique · 6 variantes contrôlées</h4>
+      <p>Flèche inversée, mauvaise connexion ou structure mal placée : ce protocole mesure la détection des erreurs et les faux rejets de relations correctes.</p>
       <p className="pilot-evaluation-hint">Protocole indépendant de D/E. Même texte sur les six images : le modèle doit réellement examiner les extrémités et le sens des flèches, ainsi que le contour du noyau. Trois attendus biologiques / 3 points. Les références restent provisoires et ne sont pas communiquées au modèle. Aucun changement à la correction des devoirs.</p>
       <div className="diagram-fixture-grid diagram-sensitivity-grid">
         {DIAGRAM_SENSITIVITY_CASES.map((testCase) => <article className="diagram-fixture-card" key={testCase.id}>
@@ -538,6 +559,13 @@ export function ScientificDiagramProtocolPanel({
           <option value="standard">Standard — note directement</option>
           <option value="guided">Questions ciblées — examine les relations avant la note</option>
           <option value="compare">Comparer standard / questions ciblées (mêmes images)</option>
+        </DesignSystemSelect>
+      </div>
+      <div className="diagram-fixture-run-controls">
+        <label htmlFor="diagram-semantic-repeat-count">Passages par variante</label>
+        <DesignSystemSelect id="diagram-semantic-repeat-count" value={fixtureCount} disabled={busy}
+          onChange={(event) => setFixtureCount(event.currentTarget.value === '5' ? 5 : event.currentTarget.value === '3' ? 3 : 1)}>
+          <option value={1}>1 passage rapide</option><option value={3}>3 répétitions</option><option value={5}>5 répétitions</option>
         </DesignSystemSelect>
       </div>
       <div className="pilot-evaluation-actions">
@@ -569,9 +597,10 @@ export function ScientificDiagramProtocolPanel({
         </div>
         <p className="pilot-evaluation-hint">{sensitivityReport.limitations}</p>
       </section>}
-    </details>
-    <details className="diagram-protocol-fixtures diagram-sensitivity-section">
-      <summary><strong>Observer un graphe de relations avant le barème (Ollama ou OpenAI-compatible)</strong></summary>
+    </section>}
+    {activeProtocol === 'graph' && <section className="diagram-protocol-fixtures diagram-sensitivity-section" aria-label="Extraction du graphe de relations">
+      <h4>Observer un graphe de relations avant le barème</h4>
+      <p>Ollama local ou API compatible OpenAI. Ce protocole évite d’injecter la réponse scientifique attendue dans la consigne de lecture.</p>
       <p className="pilot-evaluation-hint">Le modèle Vision voit uniquement les PNG et une consigne générique de description : noms dessinés, extrémités/pointe des flèches, inclusion des structures. Il ne reçoit ni la consigne de biologie, ni le barème, ni les trois attendus. Le logiciel compare ensuite le graphe extrait aux références S0–S5. Aucune correction de copie n’est modifiée.</p>
       <div className="diagram-fixture-run-controls">
         <label htmlFor="diagram-blind-prompt-variant">Consigne de lecture du graphe</label>
@@ -582,6 +611,13 @@ export function ScientificDiagramProtocolPanel({
           <option value="isolated-arrows-outside">Ancienne expérimentation — consigne renforcée (sans gain observé)</option>
           <option value="recheck-arrows">Nouvel essai A — relire chaque flèche séparément</option>
           <option value="recheck-contours">Nouvel essai B — relire uniquement les contours</option>
+        </DesignSystemSelect>
+      </div>
+      <div className="diagram-fixture-run-controls">
+        <label htmlFor="diagram-graph-repeat-count">Passages par schéma</label>
+        <DesignSystemSelect id="diagram-graph-repeat-count" value={fixtureCount} disabled={busy}
+          onChange={(event) => setFixtureCount(event.currentTarget.value === '5' ? 5 : event.currentTarget.value === '3' ? 3 : 1)}>
+          <option value={1}>1 passage rapide</option><option value={3}>3 répétitions</option><option value={5}>5 répétitions</option>
         </DesignSystemSelect>
       </div>
       <div className="pilot-evaluation-actions">
@@ -642,7 +678,10 @@ export function ScientificDiagramProtocolPanel({
         </details>
         <p className="pilot-evaluation-hint">{blindGraphReport.limitations}</p>
       </section>}
-    </details>
+    </section>}
+    <details className="diagram-lab-legacy">
+      <summary>Essai libre avec un schéma personnel (fonction avancée)</summary>
+      <p>Fonction historique conservée, distincte des protocoles automatiques. Elle permet un essai avec votre propre image et un barème personnalisé.</p>
     <div className="diagram-protocol-inputs">
       <div className="diagram-protocol-import">
         <h4>1. Schéma et barème</h4>
@@ -742,5 +781,6 @@ export function ScientificDiagramProtocolPanel({
         </div>)}
       </details>
     </div>}
+    </details>
   </section>;
 }

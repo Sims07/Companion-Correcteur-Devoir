@@ -1,0 +1,46 @@
+.diagram-lab-history { display: grid; gap: var(--ds-space-4); margin: var(--ds-space-4) 0; min-width: 0; }
+.diagram-lab-history-heading { display: flex; justify-content: space-between; align-items: start; gap: var(--ds-space-4); padding: var(--ds-space-4) var(--ds-space-5); background: var(--ds-color-surface); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); }
+.diagram-lab-history-heading h2 { margin: 0; }
+.diagram-lab-history-heading p { margin: var(--ds-space-2) 0 0; color: var(--ds-color-text-muted); }
+.diagram-lab-history-filters { display: flex; align-items: end; flex-wrap: wrap; gap: var(--ds-space-3); }
+.diagram-lab-history-filters label, .diagram-lab-compare label { display: grid; gap: var(--ds-space-2); font-size: .85rem; font-weight: 600; min-width: min(260px,100%); }
+.diagram-lab-history-filters input { padding: var(--ds-space-3); border: 1px solid var(--ds-color-border); background: var(--ds-color-surface); color: var(--ds-color-text); border-radius: var(--ds-radius-sm); }
+.diagram-lab-history-filters > span { color: var(--ds-color-text-muted); font-size: .84rem; padding-bottom: var(--ds-space-2); }
+.diagram-lab-history-grid { display: grid; grid-template-columns: minmax(210px, 0.85fr) minmax(0, 2.15fr); gap: var(--ds-space-4); align-items: start; }
+.diagram-lab-history-list { display: grid; gap: var(--ds-space-2); max-height: 75vh; overflow: auto; }
+.diagram-lab-history-item { display: grid; gap: var(--ds-space-2); text-align: left; padding: var(--ds-space-3); min-width: 0; border: 1px solid var(--ds-color-border); background: var(--ds-color-surface); color: var(--ds-color-text); border-radius: var(--ds-radius-md); cursor: pointer; }
+.diagram-lab-history-item[aria-pressed="true"] { border-color: var(--ds-color-brand-700); background: var(--ds-color-brand-100); }
+.diagram-lab-history-item small { color: var(--ds-color-text-muted); }
+.diagram-lab-history-item span { font-size: .85rem; overflow-wrap: anywhere; }
+.diagram-lab-history-detail { min-width: 0; display: grid; gap: var(--ds-space-4); background: var(--ds-color-surface); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); padding: var(--ds-space-4); }
+.diagram-lab-history-detail-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: var(--ds-space-3); }
+.diagram-lab-history-detail-head h3, .diagram-lab-history-detail-head p { margin: var(--ds-space-2) 0 0; }
+.diagram-lab-history-detail-head p { color: var(--ds-color-text-muted); font-size: .82rem; }
+.diagram-lab-kpis { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: var(--ds-space-2); }
+.diagram-lab-kpis > div { display: grid; gap: var(--ds-space-1); text-align: center; padding: var(--ds-space-3); background: var(--ds-color-surface-subtle); border-radius: var(--ds-radius-sm); }
+.diagram-lab-kpis strong { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.diagram-lab-kpis span { font-size: .77rem; color: var(--ds-color-text-muted); }
+.diagram-lab-reading { display: grid; gap: var(--ds-space-3); min-width: 0; }
+.diagram-lab-reading h3 { margin: var(--ds-space-3) 0 0; font-size: 1rem; }
+.diagram-lab-reading h4, .diagram-lab-reading h5 { margin: 0; }
+.diagram-lab-case-chooser { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+.diagram-lab-case-chooser button { padding: var(--ds-space-2) var(--ds-space-3); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-pill); background: var(--ds-color-surface); color: var(--ds-color-text); cursor: pointer; }
+.diagram-lab-case-chooser button[aria-pressed="true"] { background: var(--ds-color-brand-100); border-color: var(--ds-color-brand-700); }
+.diagram-lab-case-detail { display: grid; gap: var(--ds-space-3); padding: var(--ds-space-3); background: var(--ds-color-surface-subtle); border-radius: var(--ds-radius-sm); min-width: 0; }
+.diagram-lab-case-detail details { min-width: 0; }
+.diagram-lab-case-detail summary { cursor: pointer; }
+.diagram-lab-interpretation { color: var(--ds-color-text-muted); font-size: .83rem; line-height: 1.5; overflow-wrap: anywhere; }
+.diagram-lab-history-warning { color: var(--ds-color-danger); }
+.diagram-lab-history-empty { padding: var(--ds-space-5); border: 1px dashed var(--ds-color-border); border-radius: var(--ds-radius-md); }
+.diagram-lab-compare { display: grid; gap: var(--ds-space-2); padding: var(--ds-space-3); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-sm); }
+.diagram-lab-comparison { display: grid; gap: var(--ds-space-2); }
+.diagram-lab-comparison p { font-size: .82rem; color: var(--ds-color-text-muted); }
+@media(max-width: 980px) { .diagram-lab-history-grid { grid-template-columns: minmax(0,1fr); } .diagram-lab-history-list { display: flex; overflow-x: auto; overflow-y: hidden; max-height: initial; } .diagram-lab-history-item { min-width: min(260px, 80vw); } }
+@media(max-width: 540px) { .diagram-lab-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); } .diagram-lab-history-heading { flex-direction: column; padding: var(--ds-space-3); } }
+
+.diagram-lab-case-image { display: flex; flex-wrap: wrap; align-items: start; gap: var(--ds-space-4); }
+.diagram-lab-case-image img { width: min(220px, 100%); height: 126px; object-fit: contain; border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-sm); background: #fff; }
+.diagram-lab-case-image h4 { flex: 1; min-width: 180px; }
+
+.diagram-lab-history-heading-actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+.diagram-lab-history-import-feedback { font-size: .85rem; }

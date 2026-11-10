@@ -6,7 +6,7 @@ test('two compact local evaluations remain comparable after a page reload withou
 
   await page.evaluate(async () => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('companion-correcteur-devoir', 5);
+      const request = indexedDB.open('companion-correcteur-devoir', 6);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });

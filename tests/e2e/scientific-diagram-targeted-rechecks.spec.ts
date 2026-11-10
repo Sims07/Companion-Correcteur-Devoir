@@ -56,10 +56,9 @@ test('arrow and contour recheck arms issue distinct calls and export the indepen
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
-  const observer = page.getByRole('region', { name: 'Protocole schémas scientifiques' })
-    .locator('details.diagram-sensitivity-section')
-    .filter({ has: page.getByText('Observer un graphe de relations avant le barème (Ollama ou OpenAI-compatible)') });
-  await observer.locator('summary').click();
+  const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
+  await panel.getByRole('tab', { name: /Graphe des relations/ }).click();
+  const observer = panel.getByRole('region', { name: 'Extraction du graphe de relations' });
   await page.getByRole('group', { name: 'Configurations à exécuter' })
     .locator('label.evaluation-profile-option').first().click();
   const start = observer.getByRole('button', { name: 'Extraire les relations des 6 schémas' });
