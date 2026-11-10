@@ -43,8 +43,8 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
           : protocol === 'semantic' ? 'companion-scientific-diagram-sensitivity-report'
             : 'companion-scientific-diagram-blind-graph-report',
         createdAt, plannedRepetitions: 3, cases, localOnly: true,
-        promptVariant: 'baseline', promptModes: ['standard'],
-        statistics: [], summaries: [], experiments: [],
+        ...(protocol === 'graph' ? { promptVariant: 'baseline', statistics: [] } : {}),
+        ...(protocol === 'semantic' ? { promptModes: ['standard'], statistics: [] } : {}),
       },
     };
   });
