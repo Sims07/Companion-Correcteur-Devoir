@@ -66,17 +66,16 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   const fixtures = panel.getByRole('region', { name: 'Schémas de référence intégrés' });
-  await expect(fixtures.locator('.diagram-fixture-card')).toHaveCount(5);
+  await expect(fixtures.locator('.diagram-fixture-card')).toHaveCount(3);
   await expect(fixtures.getByText('10/10 attendu', { exact: true }).first()).toBeVisible();
   await expect(fixtures.getByText('7.36/10 attendu', { exact: true })).toBeVisible();
   await fixtures.getByText('Voir le détail de la référence provisoire', { exact: true }).click();
   await expect(fixtures.getByText(/Des prolongements de paroi sont visibles/)).toBeVisible();
   await expect(fixtures.getByText('0/10 attendu', { exact: true })).toBeVisible();
-  await expect(fixtures.getByText('8.66/10 attendu', { exact: true })).toBeVisible();
   await expect(fixtures.getByRole('combobox', { name: 'Passages par schéma' })).toHaveValue('1');
   await expect.poll(async () => fixtures.locator('img').evaluateAll((images) =>
     images.filter((image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0).length),
-  ).toBe(5);
+  ).toBe(3);
   await expect(fixtures.getByRole('button', { name: 'Tester les 3 schémas en un clic' })).toBeDisabled();
 
   await page.getByRole('group', { name: 'Configurations à exécuter' })
@@ -214,15 +213,16 @@ test('paired D/E diagrams test the pointed structure, not just the written label
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
+  await panel.getByRole('tab', { name: /Sens des flèches/ }).click();
   const fixtures = panel.getByRole('region', { name: 'Schémas de référence intégrés' });
   const cards = fixtures.locator('.diagram-fixture-card');
-  await expect(cards).toHaveCount(5);
-  await expect(cards.nth(3).getByText('D — témoin, flèches justes')).toBeVisible();
-  await expect(cards.nth(4).getByText('E — piège, flèches inversées')).toBeVisible();
-  await expect(cards.nth(3).getByText('9.34/10 attendu')).toBeVisible();
-  await expect(cards.nth(4).getByText('8.66/10 attendu')).toBeVisible();
-  await expect(cards.nth(3).getByText(/Alignement en colonne : 0\/0\.66 pt/)).toBeVisible();
-  await expect(cards.nth(4).getByText(/Alignement en colonne : 0\/0\.66 pt/)).toBeVisible();
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0).getByText('D — témoin, flèches justes')).toBeVisible();
+  await expect(cards.nth(1).getByText('E — piège, flèches inversées')).toBeVisible();
+  await expect(cards.nth(0).getByText('9.34/10 attendu')).toBeVisible();
+  await expect(cards.nth(1).getByText('8.66/10 attendu')).toBeVisible();
+  await expect(cards.nth(0).getByText(/Alignement en colonne : 0\/0\.66 pt/)).toBeVisible();
+  await expect(cards.nth(1).getByText(/Alignement en colonne : 0\/0\.66 pt/)).toBeVisible();
   await page.getByRole('group', { name: 'Configurations à exécuter' })
     .locator('label.evaluation-profile-option').first().click();
   await fixtures.getByRole('button', { name: 'Tester les flèches D/E en un clic' }).click();
@@ -344,8 +344,9 @@ test(scenario.model + ' compares Think OFF/ON on E with runtime Ollama capabilit
     .locator('label.evaluation-profile-option').first().click();
   await panel.getByRole('combobox', { name: 'Méthode de correction scientifique à tester' })
     .selectOption('compare-thinking');
+  await panel.getByRole('tab', { name: /Sens des flèches/ }).click();
   const fixtures = panel.getByRole('region', { name: 'Schémas de référence intégrés' });
-  await fixtures.locator('.diagram-fixture-card').nth(4)
+  await fixtures.locator('.diagram-fixture-card').nth(1)
     .getByRole('button', { name: 'Tester ce schéma' }).click();
 
   const results = fixtures.getByRole('region', { name: 'Résultats des schémas scientifiques' });

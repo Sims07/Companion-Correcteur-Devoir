@@ -357,10 +357,10 @@ export function ScientificDiagramProtocolPanel({
     </div>
     <div className="diagram-lab-catalog" role="tablist" aria-label="Protocoles automatiques des schémas scientifiques">
       {([
-        ['reference', '01', 'Qualité graphique', 'A/B/C · Présentation et justesse', '3 dessins'],
-        ['arrows', '02', 'Sens des flèches', 'D/E · Témoin et inversion', '2 dessins'],
-        ['semantic', '03', 'Compréhension biologique', 'S0–S5 · Relations fausses et témoins', '6 dessins'],
-        ['graph', '04', 'Graphe des relations', 'S0–S5 · Lecture sans barème', '6 dessins'],
+        ['reference', 'FORME', 'Qualité graphique', 'A/B/C · Présentation et justesse', '3 dessins'],
+        ['arrows', 'FLÈCHES', 'Sens des flèches', 'D/E · Témoin et inversion', '2 dessins'],
+        ['semantic', 'BIOLOGIE', 'Compréhension biologique', 'S0–S5 · Relations fausses et témoins', '6 dessins'],
+        ['graph', 'GRAPHE', 'Graphe des relations', 'S0–S5 · Lecture sans barème', '6 dessins'],
       ] as const).map(([id, number, title, subtitle, count]) =>
         <button key={id} role="tab" type="button" aria-selected={activeProtocol === id}
           disabled={busy || uploading || fixtureLoading || sensitivityLoading || blindGraphLoading}
@@ -392,12 +392,14 @@ export function ScientificDiagramProtocolPanel({
     {(activeProtocol === 'reference' || activeProtocol === 'arrows') && <section className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
       <div className="diagram-protocol-fixtures-heading">
         <div>
-          <h4>{activeProtocol === 'arrows' ? 'Flèches : témoin D et dessin E aux pointes inversées' : 'Qualité graphique : trois niveaux et paire de contrôle D/E'}</h4>
+          <h4>{activeProtocol === 'arrows' ? 'Flèches : témoin D et dessin E aux pointes inversées' : 'Qualité graphique : trois niveaux de référence A/B/C'}</h4>
           <p>A/B/C : difficulté progressive. D/E : <strong>mêmes mots et mêmes structures</strong>, mais quatre flèches volontairement inversées en E. Barème sur 10 points et références provisoires à valider par un enseignant. La différence attendue ne sera jamais envoyée au modèle.</p>
         </div>
       </div>
       <div className="diagram-fixture-grid">
-        {SCIENTIFIC_DIAGRAM_FIXTURES.filter((fixture) => activeProtocol === 'reference' || fixture.id === 'D' || fixture.id === 'E').map((fixture) => <article key={fixture.id} className="diagram-fixture-card">
+        {SCIENTIFIC_DIAGRAM_FIXTURES.filter((fixture) => activeProtocol === 'reference'
+          ? fixture.id === 'A' || fixture.id === 'B' || fixture.id === 'C'
+          : fixture.id === 'D' || fixture.id === 'E').map((fixture) => <article key={fixture.id} className="diagram-fixture-card">
           <img src={fixtureImageUrls[fixture.id]} alt={'Schéma de mitose végétale — ' + fixture.label} loading="lazy" />
           <div className="diagram-fixture-card-body">
             <div className="diagram-fixture-card-title">
@@ -440,13 +442,13 @@ export function ScientificDiagramProtocolPanel({
           {activeProtocol === 'reference' && <Button disabled={!canRunFixtures} onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_BASE_CASE_IDS); }}>
             Tester les 3 schémas en un clic
           </Button>}
-          <Button variant="secondary" disabled={!canRunFixtures}
+          {activeProtocol === 'arrows' && <Button variant="secondary" disabled={!canRunFixtures}
             onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS); }}>
             Tester les flèches D/E en un clic
-          </Button>
+          </Button>}
           {(busy || fixtureLoading) && <Button variant="secondary" onClick={onStop} disabled={!busy}>Arrêter après l’appel en cours</Button>}
         </div>
-        <p className="pilot-evaluation-hint">Choisissez 1 à 3 configurations ci-dessous. Pour une comparaison équitable, le même barème et les mêmes images sont utilisés à chaque passage, par méthode et par profil. Exécution séquentielle. Un seul passage ne mesure pas la répétabilité.</p>
+        <p className="pilot-evaluation-hint">Choisissez 1 à 3 configurations dans la sélection au-dessus. Pour une comparaison équitable, le même barème et les mêmes images sont utilisés à chaque passage, par méthode et par profil. Exécution séquentielle. Un seul passage ne mesure pas la répétabilité.</p>
         {hasRemote && <p className="pilot-evaluation-hint" role="status">Une configuration distante est sélectionnée : les photos seront envoyées uniquement à son serveur configuré.</p>}
         {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={'fixture-' + issue}>{issue}</p>)}
         {(fixtureMessage || (busy && progress)) && <p role="status" className="pilot-evaluation-message">{fixtureMessage || progress}</p>}
