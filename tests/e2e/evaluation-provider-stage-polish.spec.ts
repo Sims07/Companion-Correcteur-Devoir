@@ -22,13 +22,13 @@ test('provider disclosure follows actual saved selections instead of current Oll
   await expect(notice).not.toContainText('copies conservées');
 
   const configurations = page.getByRole('group', { name: 'Configurations à exécuter' });
-  await configurations.getByRole('checkbox', { name: /Profil serveur distant/ }).check();
+  await configurations.locator('label.evaluation-profile-option').filter({ hasText: 'Profil serveur distant' }).click();
   await expect(notice).toContainText('Serveur réseau ou distant');
   await expect(notice).toContainText('fichiers transmis');
   await expect(notice).toHaveClass(/is-remote/);
-  await configurations.getByRole('checkbox', { name: /Local témoin/ }).check();
+  await configurations.locator('label.evaluation-profile-option').filter({ hasText: 'Local témoin' }).click();
   await expect(notice).toContainText('Profils locaux et réseau/distant');
-  await configurations.getByRole('checkbox', { name: /Profil serveur distant/ }).uncheck();
+  await configurations.locator('label.evaluation-profile-option').filter({ hasText: 'Profil serveur distant' }).click();
   await expect(notice).toContainText('Ollama local');
   await expect(notice).not.toHaveClass(/is-remote/);
 });
