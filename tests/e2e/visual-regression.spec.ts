@@ -85,7 +85,7 @@ test.describe('visual regression contracts', () => {
       await page.getByRole('button', { name: 'Outils IA' }).click();
       await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
 
-      await expect(page.getByRole('heading', { name: 'Évaluation des modèles' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Évaluer les modèles' })).toBeVisible();
       await expect(page.locator('.evaluation-workspace-shell')).toBeVisible();
       await expect(page.locator('.evaluation-config-workspace')).toBeVisible();
       const hiddenFileInputs = page.locator('.file-picker-input');
