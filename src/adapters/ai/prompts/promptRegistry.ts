@@ -25,8 +25,8 @@ export const PROMPT_REVISIONS = {
   'decision.system-one-visual': 4,
   'diagram.page-classification': 1,
   'diagram.scientific-analysis': 5,
-  'diagram.direct-grading': 2,
-  'diagram.direct-repair': 2,
+  'diagram.direct-grading': 3,
+  'diagram.direct-repair': 3,
 } as const;
 
 export type PromptId = keyof typeof PROMPT_REVISIONS;

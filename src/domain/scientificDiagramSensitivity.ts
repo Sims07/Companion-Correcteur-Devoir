@@ -19,7 +19,7 @@ export const DIAGRAM_SENSITIVITY_RUBRIC: Rubric = {
 };
 
 export const DIAGRAM_SENSITIVITY_CONTEXT =
-  'Schéma biologique simplifié de la circulation de l’information génétique dans une cellule eucaryote. Les trois critères concernent exclusivement les relations visibles (départ et pointe des flèches) et la position réelle du noyau. Ne déduis pas une flèche de la connaissance de ADN → ARN → Protéine. Si la pointe est illisible, demande un arbitrage au lieu d’inventer une direction.';
+  'Schéma biologique simplifié de la circulation de l’information génétique dans une cellule eucaryote. Les trois critères concernent exclusivement les relations visibles (départ et pointe des flèches) et la position réelle du noyau. Ne déduis pas une flèche de tes connaissances biologiques : seule sa géométrie visible permet de déterminer son sens. Si la pointe est illisible, demande un arbitrage au lieu d’inventer une direction.';
 
 export const DIAGRAM_SENSITIVITY_PROMPT_MODES = ['standard', 'guided'] as const;
 export type DiagramSensitivityPromptMode = typeof DIAGRAM_SENSITIVITY_PROMPT_MODES[number];
@@ -29,7 +29,7 @@ export type DiagramSensitivityPromptMode = typeof DIAGRAM_SENSITIVITY_PROMPT_MOD
 export function diagramSensitivityContext(mode: DiagramSensitivityPromptMode): string {
   if (mode === 'standard') return DIAGRAM_SENSITIVITY_CONTEXT;
   return DIAGRAM_SENSITIVITY_CONTEXT +
-    ' CONTRÔLE VISUEL CIBLÉ : pour chaque trait, commence par identifier le point de départ dessiné, suis le trajet sans le déduire des étiquettes, puis localise la POINTE visible et l’élément réellement touché. Pour les structures, compare la totalité des contours et vérifie inclusion/exclusion. Réponds au barème seulement après cet examen. Une pointe non discernable doit être signalée comme incertaine ; ne suppose pas le sens scientifique attendu.';
+    ' CONTRÔLE VISUEL CIBLÉ : pour chaque trait, repère d’abord ses deux extrémités sans leur attribuer de sens, suis le trajet continu, puis localise la POINTE visible et l’élément réellement touché. Détermine le départ et l’arrivée seulement après avoir localisé cette pointe. Un croisement de traits ne suffit pas à établir une connexion. Pour les structures, compare la totalité des contours et vérifie inclusion/exclusion. Réponds au barème seulement après cet examen. Une pointe non discernable doit être signalée comme incertaine ; ne suppose pas le sens scientifique attendu.';
 }
 
 export const DIAGRAM_SENSITIVITY_TARGETS = {

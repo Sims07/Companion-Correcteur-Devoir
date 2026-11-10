@@ -26,6 +26,13 @@ describe('scientific observation contract across grading routes', () => {
       expect(prompt).toContain('Direction témoin');
       expect(prompt).toContain('Consigne témoin');
       expect(prompt).toContain('JSON');
+      if (route === 'direct' || route === 'direct-repair') {
+        expect(prompt).toContain('évalue chaque attendu une seule fois');
+        expect(prompt).toContain('dessins distincts');
+        expect(prompt).toContain('confidence=low');
+        expect(prompt).toContain('questionForTeacher précise');
+        expect(prompt).toContain('beauté subjective');
+      }
       if (route === 'page' || route === 'page-repair') {
         expect(prompt).toContain('Les points partiels exigent une partie correcte démontrée');
         expect(prompt).toContain('visiblement absents ou incorrects, attribue zéro');
