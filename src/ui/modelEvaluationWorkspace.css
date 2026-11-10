@@ -700,7 +700,8 @@
   #evaluation-diagram-graph-results, #evaluation-diagram-personal-results,
   #evaluation-biology-contract-results, #evaluation-biology-repeatability-results,
   #evaluation-biology-cpu-results, #evaluation-biology-copy-results,
-  #evaluation-diagram-workspace, #evaluation-biology-workspace, #evaluation-results
+  #evaluation-diagram-workspace, #evaluation-biology-workspace, #evaluation-results,
+  [id$="-launch"]
 ) {
   scroll-margin-top: 200px;
 }
