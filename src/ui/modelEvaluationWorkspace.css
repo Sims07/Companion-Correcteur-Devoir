@@ -621,7 +621,7 @@
 }
 
 /* UX 2026-11: one working surface instead of stacked navigation cards and setup panels. */
-.evaluation-workspace-shell .developer-tools {
+.ai-tools-view .developer-tools {
   margin: var(--ds-space-2) 0 0;
   padding: 0;
   border: 0;
@@ -630,14 +630,14 @@
   box-shadow: none;
   overflow: visible;
 }
-.evaluation-workspace-shell .developer-tools-nav {
+.ai-tools-view .developer-tools-nav {
   display: flex;
   flex-wrap: wrap;
   gap: var(--ds-space-5);
   padding: 0;
   border-bottom: 1px solid var(--ds-color-border);
 }
-.evaluation-workspace-shell .developer-tools-link {
+.ai-tools-view .developer-tools-link {
   width: auto;
   min-height: 40px;
   padding: var(--ds-space-2) 0;
@@ -648,16 +648,16 @@
   box-shadow: none;
   color: var(--ds-color-text-muted);
 }
-.evaluation-workspace-shell .developer-tools-link strong { font-size: .84rem; font-weight: 650; }
-.evaluation-workspace-shell .developer-tools-link:is(.is-active, :hover:not(.is-active)) {
+.ai-tools-view .developer-tools-link strong { font-size: .84rem; font-weight: 650; }
+.ai-tools-view .developer-tools-link:is(.is-active, :hover:not(.is-active)) {
   background: transparent;
   box-shadow: none;
 }
-.evaluation-workspace-shell .developer-tools-link.is-active {
+.ai-tools-view .developer-tools-link.is-active {
   color: var(--ds-color-text);
   border-bottom-color: var(--ds-color-brand-700);
 }
-.evaluation-workspace-shell .developer-tools-link:focus-visible { box-shadow: var(--ds-focus-ring); }
+.ai-tools-view .developer-tools-link:focus-visible { box-shadow: var(--ds-focus-ring); }
 .evaluation-workspace-shell .evaluation-page-header {
   display: flex;
   align-items: center;
@@ -893,7 +893,7 @@
 .evaluation-workspace-shell .evaluation-model-selector > button { min-height: 42px; }
 .evaluation-workspace-shell details.evaluation-config-editor { margin-block: 0 var(--ds-space-4); }
 @media (max-width: 760px) {
-  .evaluation-workspace-shell .developer-tools-nav { gap: var(--ds-space-4); }
+  .ai-tools-view .developer-tools-nav { gap: var(--ds-space-4); }
   .evaluation-workspace-shell .evaluation-step-nav,
   .evaluation-workspace-shell .evaluation-step-nav:not([data-journey="custom"]) { display: flex; gap: var(--ds-space-3); }
   .evaluation-workspace-shell .evaluation-step-nav button { min-height: 38px; padding: var(--ds-space-2) var(--ds-space-1); }
