@@ -74,7 +74,7 @@ export function PilotEvaluationPanel({
     </div>
     <p className="pilot-evaluation-scope" role="status">{({ contracts: 'Contrats par question · 3 cas de référence', repeatability: 'Répétabilité · mêmes cas rejoués', copies: 'Vision et parallélisme · 3 copies' } as const)[scenario]} · {selectedProfiles.length} configuration(s)</p>
     {busy && <p className="pilot-evaluation-running" role="status">Test en cours · {({ contracts: 'comparaison des méthodes', repeatability: 'répétabilité', copies: 'vision et analyse' } as const)[scenario]}{currentCase ? ' · copie ' + currentCase : ''}</p>}
-    <section hidden={scenario !== 'contracts'} className="pilot-evaluation-parallel" aria-label="Protocole variante B par question">
+    <section id="evaluation-biology-contract-launch" hidden={scenario !== 'contracts'} className="pilot-evaluation-parallel" aria-label="Protocole variante B par question">
       <div>
         <h4>Variante B · réponses rattachées aux questions</h4>
         <p>Comparez sur les mêmes réponses le barème standard et un contrat explicite par question (consigne, relation scientifique attendue, équivalences et contradictions). Trois cas intégrés : A = 10/10, B = 0/10 (réponses 1 et 2 échangées), C = 5/10. Aucun document à importer, aucune photo requise.</p>
@@ -97,7 +97,7 @@ export function PilotEvaluationPanel({
         </div>)}
       </details>
       {analysisIssue && !enabled && <p className="pilot-evaluation-hint" role="status">{analysisIssue}</p>}
-      {questionContractReport && <div className="pilot-evaluation-report" aria-label="Résultats variante B">
+      {questionContractReport && <div id="evaluation-biology-contract-results" className="pilot-evaluation-report" aria-label="Résultats variante B">
         <h4>Comparaison par configuration et par copie</h4>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
@@ -116,7 +116,7 @@ export function PilotEvaluationPanel({
         <p className="pilot-evaluation-hint">Les erreurs de modèles et les sous-critères non évalués restent distincts des zéros. Le JSON inclut chaque décision, la preuve, les traces et les durées, sans images, secrets ni URL de serveur. Les résultats sont exploratoires.</p>
       </div>}
     </section>
-    <section hidden={scenario !== 'repeatability'} className="pilot-evaluation-parallel" aria-label="Test de répétabilité variante B">
+    <section id="evaluation-biology-repeatability-launch" hidden={scenario !== 'repeatability'} className="pilot-evaluation-parallel" aria-label="Test de répétabilité variante B">
       <div>
         <h4>Répétabilité · Variante B</h4>
         <p>Choisissez le protocole initial A/B/C ou quatre cas de robustesse D/E/F/G (négations, équivalences, contradictions et énoncé imprimé). La même copie et le même contrat sont rejoués pour mesurer justesse, stabilité et demandes de vérification, sans confondre décision stable et décision correcte.</p>
@@ -143,7 +143,7 @@ export function PilotEvaluationPanel({
         </>}
       </div>
       {repeatabilityProgress && <p role="status">Répétabilité : {repeatabilityProgress.completed}/{repeatabilityProgress.total} séries copie × passage terminées.</p>}
-      {repeatabilityReport && <div className="pilot-evaluation-report" aria-label="Résultats de répétabilité">
+      {repeatabilityReport && <div id="evaluation-biology-repeatability-results" className="pilot-evaluation-report" aria-label="Résultats de répétabilité">
         <h4>Stabilité et justesse par modèle et par copie · {repeatabilityReport.suite === 'stress' ? 'robustesse D/E/F/G' : 'référence A/B/C'}</h4>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
@@ -176,7 +176,7 @@ export function PilotEvaluationPanel({
       </div>}
     </section>
     {(message || currentCase) && <p className="pilot-evaluation-message" role="status">{currentCase ? `Copie ${currentCase} en cours · ` : ''}{message}</p>}
-    <div hidden={scenario !== 'copies'}>
+    <div id="evaluation-biology-copy-launch" hidden={scenario !== 'copies'}>
     {enabled && <>
       <div className="pilot-evaluation-cases">
         {PILOT_CASES.map((testCase) => <article className="pilot-evaluation-case" key={testCase.id}>
@@ -198,7 +198,7 @@ export function PilotEvaluationPanel({
         <button type="button" className="secondary-button" disabled={busy || uploadingCase !== null || Boolean(integratedIssue) || !readyForImages} onClick={() => onRun('integrated')}>Tester les 3 photos (Vision + analyse)</button>
         {busy && <button type="button" className="secondary-button" onClick={onStop}>Arrêter après l’appel en cours</button>}
       </div>
-      <section className="pilot-evaluation-parallel" aria-label="Benchmark de parallélisme">
+      <section id="evaluation-biology-cpu-launch" className="pilot-evaluation-parallel" aria-label="Benchmark de parallélisme">
         <div>
           <h4>Expérience CPU · 1, 2 ou 4 critères simultanés</h4>
           <p>Test expérimental en analyse seule, sans photo et sans modifier la correction réelle.
@@ -220,7 +220,7 @@ export function PilotEvaluationPanel({
           Un appel de préchauffage non chronométré est effectué avant les séries pour limiter le biais du chargement à froid.</small>
       </section>
       {!readyForImages && <p className="pilot-evaluation-hint">Pour Vision seule ou le parcours complet, associez une photo correspondant au texte de référence de chaque copie. Pour démarrer sans images, choisissez « Lancer les 3 analyses » : les transcriptions de référence sont déjà intégrées.</p>}
-      {concurrencyRuns.length > 0 && <section className="pilot-evaluation-report" aria-label="Résultats du parallélisme">
+      {concurrencyRuns.length > 0 && <section id="evaluation-biology-cpu-results" className="pilot-evaluation-report" aria-label="Résultats du parallélisme">
         <div className="pilot-evaluation-report-head">
           <div><h4>Parallélisme · analyse seule</h4><p>Durée totale de 5 critères, résultats de référence, sorties du modèle et débit effectif (tokens / durée totale).</p></div>
           <div className="pilot-evaluation-report-actions">
@@ -254,7 +254,7 @@ export function PilotEvaluationPanel({
         </div>
         <p className="pilot-evaluation-hint">Comparer à la fois la durée et la fiabilité (faux positifs, faux négatifs et non-évalués). Les chiffres incluent les éventuelles reprises du modèle ; l’ordre 1 → 2 → 4 et le chargement à froid peuvent biaiser une mesure unique. Aucun accès au cloud n’est autorisé dans ce protocole.</p>
       </section>}
-      {runs.length > 0 && <div className="pilot-evaluation-report">
+      {runs.length > 0 && <div id="evaluation-biology-copy-results" className="pilot-evaluation-report">
         <div className="pilot-evaluation-report-head">
           <div><h4>Résultats consolidés</h4><p>{runs.length} copie(s) évaluée(s) · les parcours de lecture et de notation sont distingués. La fidélité texte ne constitue pas une note de biologie.</p></div>
           <div className="pilot-evaluation-report-actions">
