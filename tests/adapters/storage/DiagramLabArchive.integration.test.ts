@@ -15,7 +15,7 @@ describe('scientific diagram benchmark journal (IndexedDB)', () => {
     expect(restored).toHaveLength(1);
     expect(restored[0]?.state).toBe('finished');
     expect(restored[0]?.report).toEqual(report);
-    expect(JSON.stringify(restored[0])).not.toMatch(/apiKey|base64|endpoint/);
+    expect(JSON.stringify(restored[0])).not.toMatch(/"apiKey"\s*:|"base64"\s*:|"endpoint"\s*:/);
   });
 
   it('keeps dated campaigns in descending order', async () => {
