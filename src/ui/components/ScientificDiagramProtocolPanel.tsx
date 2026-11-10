@@ -580,7 +580,7 @@ export function ScientificDiagramProtocolPanel({
         </DesignSystemSelect>
       </div>
       <div className="pilot-evaluation-actions">
-        <Button disabled={!canRunBlindGraph' onClick={() => { void runBlindObservation(); }}>
+        <Button disabled={!canRunBlindGraph} onClick={() => { void runBlindObservation(); }}>
           Extraire les relations des 6 schémas
         </Button>
         <Button variant="secondary" disabled={!canRunBlindGraph} onClick={() => { void runBlindObservation(true); }}>
