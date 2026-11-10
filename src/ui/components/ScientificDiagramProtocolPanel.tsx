@@ -433,7 +433,7 @@ export function ScientificDiagramProtocolPanel({
         {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={'fixture-' + issue}>{issue}</p>)}
         {(fixtureMessage || (busy && progress)) && <p role="status" className="pilot-evaluation-message">{fixtureMessage || progress}</p>}
       </div>
-      {fixtureReport && <section className="pilot-evaluation-report" aria-label="Résultats des schémas scientifiques">
+      {fixtureReport && <section id="evaluation-diagram-fixture-results" className="pilot-evaluation-report" aria-label="Résultats des schémas scientifiques">
         <div className="pilot-evaluation-report-head">
           <div><h4>Comparaison aux notes de référence</h4><p>{busy || fixtureLoading ? 'Rapport partiel : les passages terminés sont déjà exportables. ' : ''}La note reste « Non noté » lorsque le modèle demande une revue. Les décisions System One sont mesurées séparément, même si la note finale reste indisponible.</p></div>
           <div className="pilot-evaluation-report-actions">
@@ -547,7 +547,7 @@ export function ScientificDiagramProtocolPanel({
       </div>
       <p className="pilot-evaluation-hint">La méthode et les modèles se choisissent au-dessus ; le nombre de répétitions est celui des schémas intégrés. La comparaison standard / questions ciblées est réalisée par deux séries avec les mêmes PNG préparés une seule fois : ce n’est pas encore une lecture indépendante à l’aveugle. Exécution séquentielle. La variante S5 est indécidable : aucune réponse attendue n’est inventée pour sa première flèche.</p>
       {(sensitivityMessage || (busy && progress)) && <p role="status" className="pilot-evaluation-message">{sensitivityMessage || progress}</p>}
-      {sensitivityReport && <section className="pilot-evaluation-report" aria-label="Résultats de sensibilité sémantique">
+      {sensitivityReport && <section id="evaluation-diagram-sensitivity-results" className="pilot-evaluation-report" aria-label="Résultats de sensibilité sémantique">
         <div className="pilot-evaluation-report-head">
           <div><h4>Mesures de sensibilité</h4><p>Une erreur n’est détectée que si le témoin est reconnu et la variante fautive rejetée. Les résultats indécidables restent hors du dénominateur.</p></div>
         </div>
@@ -603,7 +603,7 @@ export function ScientificDiagramProtocolPanel({
         <p className="pilot-evaluation-hint" role="status">{blindGraphIssue}</p>}
       {(blindGraphMessage || (busy && progress)) &&
         <p role="status" className="pilot-evaluation-message">{blindGraphMessage || progress}</p>}
-      {blindGraphReport && <section className="pilot-evaluation-report" aria-label="Résultats du graphe visuel indépendant">
+      {blindGraphReport && <section id="evaluation-diagram-graph-results" className="pilot-evaluation-report" aria-label="Résultats du graphe visuel indépendant">
         <h4>Lecture indépendante — relations effectivement observées</h4>
         <p>Consigne utilisée : <strong>{blindGraphReport.promptVariant === 'isolated-arrows-outside' ? 'Expérimentale — flèches indépendantes et structures extérieures' : 'Référence actuelle'}</strong>.</p>
         <p>Sorties valides : {blindGraphReport.cases.flatMap((item) => item.experiments).filter((run) => run.status === 'success').length}
@@ -697,7 +697,7 @@ export function ScientificDiagramProtocolPanel({
       </div>
       {(progress || message) && <p role="status" className="pilot-evaluation-message">{message || progress}</p>}
     </div>
-    {report && <div className="pilot-evaluation-report" aria-label="Résultats du protocole schéma">
+    {report && <div id="evaluation-diagram-personal-results" className="pilot-evaluation-report" aria-label="Résultats du protocole schéma">
       <div className="pilot-evaluation-report-head">
         <div><h4>Résultats du schéma</h4><p>{report.experiments.length} essai(s) exécuté(s), {report.imageCount} page(s) par essai. Le taux de justesse exige des références renseignées par le professeur.</p></div>
         <div className="pilot-evaluation-report-actions">
