@@ -101,9 +101,9 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('offers a sequential independent evaluation for saved model configurations', () => {
     const text = app();
-    expect(text).toContain('Choisir les configurations à évaluer');
+    expect(text).toContain('Configurations à évaluer');
     expect(text).toContain('Configurations à exécuter');
-    expect(text).toContain('Une seule suffit pour mesurer ses performances');
+    expect(text).toContain('Sélectionner 1 à 3 modèles');
     expect(text).toContain('selectedProfiles.length < 1');
     expect(text).toContain('selectedEvaluationProfileIds.length < 1');
     expect(text).toContain('Comparer les modèles Vision');
@@ -140,7 +140,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('className="evaluation-profile-options"');
     expect(text).toContain("className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}");
     expect(text).toContain('className="evaluation-profile-models"');
-    expect(text).toContain('aria-live="polite" className={selectedEvaluationProfileIds.length >= 1 ?');
+    expect(text).toContain('aria-live="polite">{selectedEvaluationProfileIds.length} / 3');
     expect(text).toContain('aria-describedby="evaluation-profile-selection-help"');
     expect(text).toContain('className="evaluation-profile-selection-mark" aria-hidden="true"');
     expect(styles).toContain('.evaluation-profile-option.is-selected');
@@ -304,10 +304,10 @@ describe('teacher and AI diagnostic interface modes', () => {
     const text = app();
     expect(text).toContain('className="evaluation-page-header"');
     expect(text).toContain('Évaluation des modèles');
-    expect(text).toContain('Choisissez un test, sélectionnez vos modèles');
+    expect(text).toContain('evaluation-provider-indicator');
     expect(text).toContain('className="evaluation-step-nav"');
-    expect(text).toContain('Choisir et préparer un test');
-    expect(text).toContain('Notes, temps et tokens');
+    expect(text).toContain('Carnet de résultats');
+    expect(text).toContain('aria-current={evaluationWorkspaceStep ===');
     expect(text).not.toContain('Un devoir, un espace de travail');
   });
 
@@ -391,7 +391,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Comparer les modèles d’analyse');
     expect(text).toContain('Évaluer cette configuration');
     expect(text).toContain('Debug des appels IA locaux');
-    expect(evaluation).toContain('Sélection pour cette expérience');
+    expect(evaluation).toContain('className="evaluation-model-selector"');
     expect(evaluation).not.toContain('Lancer la correction');
     expect(text).not.toContain('diagnostic-experiment-setup');
   });
