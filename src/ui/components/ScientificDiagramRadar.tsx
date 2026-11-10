@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
-import { buildDiagramLabRadar, rankDiagramLabRadar, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
+import { buildDiagramLabRadar, compareRadarCommonAxes, rankDiagramLabRadar, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
   type RadarAxisId, type RadarGrouping, type RadarRankedCandidate, type RadarWeights } from '../../domain/diagramLabRadar.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import { Button } from '../design-system/index.ts';
@@ -93,17 +93,28 @@ export function ScientificDiagramRadar({ entries, onOpenReport }: {
   onOpenReport: (id: string) => void;
 }) {
   const [grouping, setGrouping] = useState<RadarGrouping>('profile');
+  const [family, setFamily] = useState<'grading' | 'graph'>('grading');
   const [preset, setPreset] = useState<'scientific' | 'balanced' | 'throughput' | 'custom'>('scientific');
   const [weights, setWeights] = useState<RadarWeights>(restoredWeights);
   const [picked, setPicked] = useState<string[] | null>(null);
   const [axis, setAxis] = useState<RadarAxisId>('arrows');
   const [focus, setFocus] = useState('');
   const candidates = useMemo(() => buildDiagramLabRadar(entries, grouping), [entries, grouping]);
-  const ranked = useMemo(() => rankDiagramLabRadar(candidates, weights), [candidates, weights]);
+  const filtered = useMemo(() => grouping === 'profile' ? candidates : candidates.filter((candidate) =>
+    candidate.methods.some((method) => method.startsWith('blind-graph')) === (family === 'graph')), [candidates, grouping, family]);
+  const partial = useMemo(() => grouping === 'method'
+    ? compareRadarCommonAxes(filtered, weights) : null, [filtered, grouping, weights]);
+  const ranked = useMemo(() => {
+    const rows = rankDiagramLabRadar(filtered, weights);
+    if (!partial) return rows;
+    const indexed = new Map(partial.rows.map((item) => [item.id, item.score]));
+    return [...rows].sort((a, b) => (indexed.get(b.id) ?? -1) - (indexed.get(a.id) ?? -1));
+  }, [filtered, weights, partial]);
   const selected = picked === null ? ranked.slice(0, 3) : ranked.filter((c) => picked.includes(c.id));
   const examined = ranked.find((c) => c.id === focus) ?? selected[0] ?? ranked[0] ?? null;
   const evidence = examined?.axes[axis] ?? null;
-  const eligible = ranked.filter((c) => c.weightedScore !== null);
+  const eligible = ranked.filter((c) => grouping === 'profile' ? c.weightedScore !== null
+    : partial?.rows.some((row) => row.id === c.id && row.score !== null));
 
   useEffect(() => {
     try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(weights)); }
@@ -129,6 +140,14 @@ export function ScientificDiagramRadar({ entries, onOpenReport }: {
           <option value="method">Par profil + méthode + consigne · diagnostic</option>
         </DesignSystemSelect>
       </label>
+      {grouping === 'method' && <label>Famille de méthodes
+        <DesignSystemSelect value={family} onChange={(event) => {
+          setFamily(event.currentTarget.value as typeof family); setPicked(null); setFocus('');
+        }}>
+          <option value="grading">Notation des schémas</option>
+          <option value="graph">Extraction du graphe</option>
+        </DesignSystemSelect>
+      </label>}
       <label>Priorité du classement
         <DesignSystemSelect value={preset} onChange={(event) => {
           const value = event.currentTarget.value as typeof preset;
@@ -192,21 +211,26 @@ export function ScientificDiagramRadar({ entries, onOpenReport }: {
     </div>
     <section className="diagram-radar-ranking" aria-label="Classement des candidats">
       <div className="diagram-radar-ranking-heading"><div><h4>Classement et couverture des tests</h4>
-        <p>Un score global n’est calculé que lorsque les huit axes sont mesurés. Les méthodes partielles sont visibles sans classement artificiel.</p></div>
-        <strong>{eligible.length} candidat(s) classable(s)</strong></div>
+        <p>{grouping === 'profile'
+          ? 'Le classement global exige huit axes mesurés : aucun score inventé sur une batterie manquante.'
+          : 'Classement exploratoire uniquement sur les mêmes axes disponibles pour toutes les méthodes sélectionnées, jamais un score global sur huit.'}</p></div>
+        <strong>{eligible.length} candidat(s) classable(s){partial ? ' · ' + partial.weightedAxes.length + ' axes communs' : ''}</strong></div>
       <div className="pilot-evaluation-table-scroll"><table className="pilot-evaluation-table">
         <thead><tr><th>Rang</th><th>Profil ou méthode</th><th>Score pondéré</th><th>Axes disponibles</th><th>Dernière campagne</th></tr></thead>
         <tbody>{ranked.map((candidate) => <tr key={candidate.id}>
-          <td>{candidate.weightedScore === null ? '—' : eligible.findIndex((c) => c.id === candidate.id) + 1}</td>
+          <td>{!eligible.some((c) => c.id === candidate.id) ? '—' : eligible.findIndex((c) => c.id === candidate.id) + 1}</td>
           <th scope="row">{candidate.name}<small className="diagram-radar-model-list">{candidate.models.join(' · ') || 'Modèle non précisé'}</small></th>
-          <td><strong>{candidate.weightedScore === null ? 'Non classé' : candidate.weightedScore.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + '/100'}</strong></td>
+          <td><strong>{(() => {
+            const score = grouping === 'method' ? partial?.rows.find((row) => row.id === candidate.id)?.score ?? null : candidate.weightedScore;
+            return score === null ? 'Non classé' : score.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + '/100' + (grouping === 'method' ? ' · partiel' : '');
+          })()}</strong></td>
           <td>{candidate.measured} / 8</td><td>{dateLabel(candidate.updatedAt)}</td>
         </tr>)}</tbody>
       </table></div>
       {grouping === 'profile' && ranked.some((item) => item.methods.length > 1) &&
         <p className="diagram-radar-footnote">Certains profils utilisent plusieurs méthodes ou variantes de consigne. Leurs observations sont agrégées par attendu, sans moyenner les pourcentages. Passez en vue « profil + méthode » pour isoler les stratégies ; les axes absents ne sont pas reconstitués à partir d’un autre parcours.</p>}
       {grouping === 'method' &&
-        <p className="diagram-radar-footnote">Le protocole de graphe indépendant utilise une méthode distincte. Il reste séparé des méthodes de notation : aucune mesure de graphe n’est attribuée artificiellement à une méthode qui ne l’a pas exécuté.</p>}
+        <p className="diagram-radar-footnote">Le protocole de graphe indépendant utilise une méthode distincte. Il reste séparé des méthodes de notation : aucune mesure de graphe n’est attribuée artificiellement à une méthode qui ne l’a pas exécuté. Un classement partiel exige au moins quatre axes communs et deux candidats.</p>}
     </section>
     <details className="diagram-radar-weights">
       <summary>Pondérations et méthode de calcul</summary>
