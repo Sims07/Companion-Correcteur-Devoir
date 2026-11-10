@@ -196,7 +196,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport }: {
         <strong>{eligible.length} candidat(s) classable(s)</strong></div>
       <div className="pilot-evaluation-table-scroll"><table className="pilot-evaluation-table">
         <thead><tr><th>Rang</th><th>Profil ou méthode</th><th>Score pondéré</th><th>Axes disponibles</th><th>Dernière campagne</th></tr></thead>
-        <tbody>{ranked.map((candidate, index) => <tr key={candidate.id}>
+        <tbody>{ranked.map((candidate) => <tr key={candidate.id}>
           <td>{candidate.weightedScore === null ? '—' : eligible.findIndex((c) => c.id === candidate.id) + 1}</td>
           <th scope="row">{candidate.name}<small className="diagram-radar-model-list">{candidate.models.join(' · ') || 'Modèle non précisé'}</small></th>
           <td><strong>{candidate.weightedScore === null ? 'Non classé' : candidate.weightedScore.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + '/100'}</strong></td>

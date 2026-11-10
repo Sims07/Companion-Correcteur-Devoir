@@ -106,20 +106,28 @@ function fromFraction(battery: Battery | null, label: string, fraction: Fraction
 function flatten(entry: DiagramLabArchiveEntry): Reading[] {
   const report = entry.report;
   if (report.format === 'companion-scientific-diagram-protocol') return [];
-  return report.cases.flatMap((testCase) => testCase.experiments.map((run) => {
-    const observations: Record<string, string> = report.format === 'companion-scientific-diagram-blind-graph-report'
-      ? { ...run.observations }
-      : Object.fromEntries(run.observations.map((item) => [item.key, item.choice]));
-    const isGraph = report.format === 'companion-scientific-diagram-blind-graph-report';
-    return {
+  if (report.format === 'companion-scientific-diagram-blind-graph-report') {
+    return report.cases.flatMap((testCase) => testCase.experiments.map((run) => ({
       profileId: run.profileId, profileName: run.profileName, model: run.model,
-      method: isGraph ? (run.zoom ? 'blind-graph-zoom' : 'blind-graph') : run.method,
-      variant: report.format === 'companion-scientific-diagram-sensitivity-report' ? testCase.promptMode
-        : isGraph ? report.promptVariant : 'standard',
-      caseId: testCase.caseId, repetition: run.repetition, status: run.status,
-      durationMs: run.durationMs, observations,
-    };
-  }));
+      method: run.zoom ? 'blind-graph-zoom' : 'blind-graph',
+      variant: report.promptVariant, caseId: testCase.caseId, repetition: run.repetition,
+      status: run.status, durationMs: run.durationMs, observations: { ...run.observations },
+    })));
+  }
+  if (report.format === 'companion-scientific-diagram-sensitivity-report') {
+    return report.cases.flatMap((testCase) => testCase.experiments.map((run) => ({
+      profileId: run.profileId, profileName: run.profileName, model: run.model,
+      method: run.method, variant: testCase.promptMode, caseId: testCase.caseId,
+      repetition: run.repetition, status: run.status, durationMs: run.durationMs,
+      observations: Object.fromEntries(run.observations.map((item) => [item.key, item.choice])),
+    })));
+  }
+  return report.cases.flatMap((testCase) => testCase.experiments.map((run) => ({
+    profileId: run.profileId, profileName: run.profileName, model: run.model,
+    method: run.method, variant: 'standard', caseId: testCase.caseId,
+    repetition: run.repetition, status: run.status, durationMs: run.durationMs,
+    observations: Object.fromEntries(run.observations.map((item) => [item.key, item.choice])),
+  })));
 }
 
 const requiredCases: Record<Exclude<DiagramLabProtocol, 'personal'>, readonly string[]> = {
