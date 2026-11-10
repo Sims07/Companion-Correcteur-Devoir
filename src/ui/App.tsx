@@ -1922,7 +1922,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       const pilotError = activity.journey === 'biology'
         && /^(Erreur|Échec|Gestionnaire|Le benchmark|Ajoutez|Sélectionnez|Essai «.+ interrompu)/i.test(pilotMessageRef.current)
           ? pilotMessageRef.current : '';
-      const failed = Boolean(pilotMemoryErrorRef.current || pilotError);
+      const failed = Boolean((activity.journey !== 'custom' && pilotMemoryErrorRef.current) || pilotError);
       setEvaluationActivity((current) => current?.title === activity.title
         ? { ...current, status: interrupted ? 'cancelled' : failed || (activity.journey === 'custom' && outcome === undefined) ? 'failed' : 'completed',
           ...(failed ? { error: pilotMemoryErrorRef.current ?? pilotError } : {}) } : current);
@@ -3620,7 +3620,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             ? evaluationActivity.error || (evaluationActivity.journey === 'diagrams'
               ? diagramProtocolProgress || 'Préparation du protocole…'
               : evaluationActivity.journey === 'biology'
-                ? pilotMessage || 'Préparation du protocole…'
+                ? (pilotMessage || 'Préparation du protocole…') + (evaluationProgress?.currentConfiguration ? ' · Modèle : ' + evaluationProgress.currentConfiguration.name : '')
                 : evaluationProgress?.currentConfiguration
                   ? `${evaluationProgress.currentConfiguration.name} · ${evaluationProgress.currentStage === 'analysis' ? 'Analyse' : evaluationProgress.currentStage === 'reading' ? 'Lecture Vision' : 'Préparation'} · ${evaluationProgress.completedSteps}/${evaluationProgress.totalSteps} étapes`
                   : 'Préparation du modèle et des données…')
