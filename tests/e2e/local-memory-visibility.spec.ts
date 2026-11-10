@@ -26,7 +26,7 @@ test('teacher correction rules never overlay model evaluation or network diagnos
   expect(await page.evaluate(() =>
     document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
-  await page.getByRole('button', { name: 'Correction' }).click();
+  await page.getByRole('button', { name: 'Correction', exact: true }).click();
   await expect(floatingRules).toBeVisible();
   await floatingRules.click();
   await expect(page.locator('.memory-panel')).toBeHidden();
