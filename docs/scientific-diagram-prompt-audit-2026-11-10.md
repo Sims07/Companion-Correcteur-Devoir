@@ -30,6 +30,8 @@ Audit des parcours de correction directe, analyse par page, décisions visuelles
 6. **Décision visuelle sans protocole précis de lecture géométrique.** Le bloc partagé est ajouté uniquement lorsque l’appel est visuel et contient des critères scientifiques. Pas de changement du parcours décisionnel textuel.
 7. **Versions d’observabilité.** Révisions incrémentées pour les prompts modifiés : direct 2, réparation directe 2, analyse scientifique 5, System One visuel 4. Deux attentes de tests System One textuel étaient déjà désynchronisées du registre (7) ; elles sont alignées sans modifier ce prompt.
 
+8. **Points partiels suggérés dès qu’un attendu manque.** L’ancienne phrase pouvait encourager une note partielle même lorsque rien n’est correct. Le prompt exige désormais une partie correcte démontrée et distingue le zéro confirmé de l’illisibilité.
+
 ### Lot 2 — Graphe et recadrage
 
 1. **Ambiguïté de type dans le graphe.** « Si tu hésites, utilise unclear » suivait la définition du booléen `arrowsComplete`. Distinction explicite : complétude true/false ; tip/relation peuvent être unclear.
