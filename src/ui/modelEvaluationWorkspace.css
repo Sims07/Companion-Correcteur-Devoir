@@ -971,3 +971,88 @@
   .evaluation-workspace-shell .evaluation-stage-picker button { padding: 8px 4px; }
   .evaluation-workspace-shell .evaluation-stage-picker button strong { font-size: .72rem; }
 }
+
+/* Persistent but compact locator: the actual test stays findable while scrolling. */
+.evaluation-workspace-shell .evaluation-activity-banner {
+  display: flex;
+  position: sticky;
+  top: 6px;
+  z-index: 20;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2) var(--ds-space-4);
+  min-width: 0;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  margin: 0;
+  background: var(--ds-color-surface);
+  border: 1px solid var(--ds-color-progress-border);
+  border-radius: var(--ds-radius-md);
+  box-shadow: var(--ds-shadow-control);
+}
+.evaluation-workspace-shell .evaluation-activity-banner:not(.is-running) {
+  border-color: var(--ds-color-border);
+  box-shadow: none;
+}
+.evaluation-workspace-shell .evaluation-activity-main {
+  display: flex;
+  flex: 1 1 300px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px var(--ds-space-3);
+  min-width: 0;
+}
+.evaluation-workspace-shell .evaluation-activity-state {
+  color: var(--ds-color-progress);
+  font-size: .67rem;
+  font-weight: 750;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.evaluation-workspace-shell .evaluation-activity-banner:not(.is-running) .evaluation-activity-state {
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .evaluation-activity-main > strong {
+  color: var(--ds-color-text);
+  font-size: .83rem;
+  line-height: 1.45;
+}
+.evaluation-workspace-shell .evaluation-activity-main > p {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: .76rem;
+  color: var(--ds-color-text-muted);
+  overflow-wrap: anywhere;
+}
+.evaluation-workspace-shell .evaluation-activity-main > small {
+  color: var(--ds-color-text-muted);
+  font-size: .72rem;
+  overflow-wrap: anywhere;
+}
+.evaluation-workspace-shell .evaluation-activity-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--ds-space-2);
+}
+.evaluation-workspace-shell .evaluation-activity-actions .primary-button {
+  min-height: 34px;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  white-space: nowrap;
+  font-size: .76rem;
+}
+.evaluation-workspace-shell .evaluation-activity-hint {
+  display: none; /* Repeated disabled states already indicate this in the test area. */
+}
+.evaluation-workspace-shell :is(
+  #evaluation-diagram-fixture-results, #evaluation-diagram-sensitivity-results,
+  #evaluation-diagram-graph-results, #evaluation-diagram-personal-results,
+  #evaluation-biology-contract-results, #evaluation-biology-repeatability-results,
+  #evaluation-biology-cpu-results, #evaluation-biology-copy-results,
+  #evaluation-diagram-workspace, #evaluation-biology-workspace, #evaluation-results,
+  [id$="-launch"]
+) { scroll-margin-top: 125px; }
+@media (max-width: 540px) {
+  .evaluation-workspace-shell .evaluation-activity-banner { top: 3px; gap: var(--ds-space-1) var(--ds-space-2); }
+  .evaluation-workspace-shell .evaluation-activity-main { flex-basis: 100%; }
+  .evaluation-workspace-shell .evaluation-activity-actions { justify-content: flex-end; width: 100%; }
+}
