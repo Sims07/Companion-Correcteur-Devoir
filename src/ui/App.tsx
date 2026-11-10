@@ -1,5 +1,6 @@
 import { EvaluationJourneyPicker } from './components/EvaluationJourneyPicker.tsx';
 import { evaluationProviderNotice } from '../domain/evaluationProviderNotice.ts';
+import { resolveEvaluationActivityOutcome } from '../domain/evaluationActivityStatus.ts';
 import { ContractPreparationPanel } from './components/ContractPreparationPanel.tsx';
 import { QuestionContractEditor, QuestionScopePreview } from './components/QuestionContractEditor.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -1964,14 +1965,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (activity.journey === 'biology') setPilotMessage('Préparation du protocole…');
     try {
       const outcome = await execute();
-      const interrupted = evaluationCancelledRef.current || pilotStopRef.current;
-      const pilotError = activity.journey === 'biology'
-        && /^(Erreur|Échec|Gestionnaire|Le benchmark|Ajoutez|Sélectionnez|Essai «.+ interrompu)/i.test(pilotMessageRef.current)
-          ? pilotMessageRef.current : '';
-      const failed = Boolean((activity.journey !== 'custom' && pilotMemoryErrorRef.current) || pilotError || (typeof outcome === 'number' && outcome === 0));
+      const result = resolveEvaluationActivityOutcome({
+        journey: activity.journey, interrupted: evaluationCancelledRef.current || pilotStopRef.current,
+        pilotMemoryError: pilotMemoryErrorRef.current, pilotMessage: pilotMessageRef.current, outcome,
+      });
       setEvaluationActivity((current) => current?.title === activity.title
-        ? { ...current, status: interrupted ? 'cancelled' : failed || (activity.journey === 'custom' && outcome === undefined) ? 'failed' : 'completed',
-          ...(failed ? { error: (pilotMemoryErrorRef.current ?? pilotError) || 'Aucun résultat exploitable pour cette tentative.' } : {}) } : current);
+        ? { ...current, ...result } : current);
       return outcome;
     } catch (cause) {
       const error = cause instanceof Error ? cause.message : String(cause);
