@@ -74,6 +74,8 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
     .getByRole('button', { name: /Carnet de résultats/ }).click();
 
   const journal = page.getByRole('region', { name: 'Carnet des résultats scientifiques' });
+  const recordedCampaigns = journal.getByRole('group', { name: 'Campagnes enregistrées' }).getByRole('button');
+  await expect(recordedCampaigns.first()).toContainText('Graphe des relations');
   const overview = journal.getByRole('region', { name: 'Bilan des batteries scientifiques' });
   await expect(overview.locator('.diagram-lab-readiness-stat').nth(0)).toContainText('4');
   await expect(overview.locator('.diagram-lab-readiness-stat').nth(1)).toContainText('2');
