@@ -365,7 +365,7 @@ export function ScientificDiagramProtocolPanel({
         <button key={id} role="tab" type="button" aria-selected={activeProtocol === id}
           disabled={busy || uploading || fixtureLoading || sensitivityLoading || blindGraphLoading}
           onClick={() => setActiveProtocol(id)}>
-          <strong>{title}</strong><small>{count}</small><span className="diagram-lab-catalog-description">{subtitle}</span>
+          <strong>{title}</strong><small>{number} · {count}</small><span className="diagram-lab-catalog-description">{subtitle}</span>
         </button>)}
     </div>
     {busy && <div className="diagram-lab-live" role="status">
