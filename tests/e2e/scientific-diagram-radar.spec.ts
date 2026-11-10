@@ -68,6 +68,8 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
 
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' })
+    .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
     .getByRole('button', { name: 'Carnet de résultats' }).click();
 
