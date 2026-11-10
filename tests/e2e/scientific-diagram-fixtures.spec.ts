@@ -82,6 +82,16 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     .locator('label.evaluation-profile-option').first().click();
   await fixtures.getByRole('button', { name: 'Tester les 3 schémas en un clic' }).click();
 
+  const activity = page.getByRole('status', { name: 'Dernière expérience lancée' });
+  await expect(activity).toContainText('Schémas scientifiques · références intégrées');
+  await expect(activity).toContainText('TEST EN COURS');
+  await expect(activity.getByRole('button', { name: 'Suivre ce test' })).toBeVisible();
+  const testViews = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
+  await testViews.getByRole('button', { name: 'Carnet de résultats' }).click();
+  await expect(activity).toBeVisible();
+  await activity.getByRole('button', { name: 'Suivre ce test' }).click();
+  await expect(fixtures).toBeVisible();
+
   await expect.poll(() => systemOneRequests.length).toBe(2);
   const exportStrip = page.getByRole('region', { name: 'Rapports des schémas scientifiques' });
   await exportStrip.locator('summary').click();
@@ -107,6 +117,9 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   const results = fixtures.getByRole('region', { name: 'Résultats des schémas scientifiques' });
   await expect(results).toBeVisible({ timeout: 30_000 });
   await expect(results.locator('tbody tr')).toHaveCount(3);
+  await expect(activity).toContainText('TEST TERMINÉ');
+  await activity.getByRole('button', { name: 'Voir les résultats' }).click();
+  await expect(results).toBeVisible();
   // All 19 native image decisions remain measurable even if a resulting
   // provisional grade needs teacher review.
   await expect(results.getByText('19/19', { exact: true })).toHaveCount(3);
