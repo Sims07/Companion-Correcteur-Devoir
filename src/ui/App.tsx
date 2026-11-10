@@ -520,7 +520,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       const fallbackId = evaluationJourney === 'diagrams'
         ? 'evaluation-diagram-workspace' : evaluationJourney === 'biology'
           ? 'evaluation-biology-workspace' : 'evaluation-results';
-      const target = document.getElementById(evaluationJumpTarget) ?? document.getElementById(fallbackId);
+      const target = document.getElementById(evaluationJumpTarget)
+        ?? document.getElementById(evaluationJumpTarget.replace(/-results$/, '-launch'))
+        ?? document.getElementById(fallbackId);
       if (target) {
         let ancestor: HTMLElement | null = target;
         while (ancestor) {
