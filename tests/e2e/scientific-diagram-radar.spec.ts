@@ -26,7 +26,10 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
               { observations: Object.entries(observed).map(([key, choice]) => ({ key, choice })) }),
           };
         }));
-      return { caseId, label: caseId, gold, experiments, ...(protocol === 'semantic' ? { promptMode: 'standard' } : {}) };
+      return { caseId, label: caseId, gold, experiments, summaries: [],
+        referenceScore: protocol === 'reference' ? 10 : protocol === 'arrows' ? (caseId === 'D' ? 9.34 : 8.66) : 3,
+        mutation: DIAGRAM_SENSITIVITY_CASES.find((c) => c.id === caseId)?.mutation ?? 'control',
+        ...(protocol === 'semantic' ? { promptMode: 'standard' } : {}) };
     });
     const createdAt = '2026-11-10T' + (12 + index) + ':00:00Z';
     return {
