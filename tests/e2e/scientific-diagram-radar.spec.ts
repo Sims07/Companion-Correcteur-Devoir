@@ -76,6 +76,9 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   await expect(radar.getByRole('img', { name: /Comparaison radar/ })).toBeVisible();
   await expect(radar.getByRole('region', { name: 'Classement des candidats' }).getByText('2 candidat(s) classable(s)')).toBeVisible();
   await expect(radar.getByText('Vision témoin').first()).toBeVisible();
+  await radar.getByLabel('Priorité du classement').selectOption('balanced');
+  await radar.getByText('Pondérations et méthode de calcul').click();
+  await expect(radar.getByRole('slider', { name: 'Poids : Sens des flèches' })).toHaveValue('1');
   await radar.getByRole('group', { name: 'Axe à examiner' }).getByRole('button', { name: 'Sens des flèches' }).click();
   await expect(radar.getByText('Correspondance sur D/E').first()).toBeVisible();
   await radar.getByRole('button', { name: 'Consulter la campagne' }).first().click();
@@ -92,6 +95,7 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
     .getByRole('tab', { name: /Radar des candidats/ }).click();
   const reopened = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await expect(reopened.getByRole('region', { name: 'Classement des candidats' }).getByText('2 candidat(s) classable(s)')).toBeVisible();
+  await expect(reopened.getByLabel('Priorité du classement')).toHaveValue('balanced');
   await reopened.getByLabel('Regrouper les candidats').selectOption('method');
   await expect(reopened.getByText(/aucune mesure de graphe n’est attribuée artificiellement/)).toBeVisible();
 });
