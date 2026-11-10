@@ -4,6 +4,8 @@ import { compareDiagramLabEntries, diagramLabProtocolLabels, parseDiagramLabRepo
 import { diagramMethodLabels } from '../../domain/scientificDiagramProtocol.ts';
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { buildDiagramLabComparison } from '../../domain/diagramLabComparison.ts';
+import { buildDiagramLabRadar } from '../../domain/diagramLabRadar.ts';
+import { summarizeDiagramLabReadiness } from '../../domain/diagramLabReadiness.ts';
 import { ScientificDiagramRadar } from './ScientificDiagramRadar.tsx';
 import { scientificDiagramSensitivityPreviewUrl } from '../../domain/scientificDiagramSensitivity.ts';
 import cleanDiagramUrl from '../../assets/pilot/scientific-mitosis-10.webp';
@@ -167,7 +169,7 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
     let active = true;
     void repository.list().then((items) => {
       if (!active) return;
-      setEntries(items);
+      setEntries([...items].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id)));
       setLoadingError('');
     }).catch((cause) => {
       if (active) setLoadingError(cause instanceof Error ? cause.message : String(cause));
@@ -177,6 +179,8 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
   const visible = useMemo(() => entries.filter((entry) =>
     (protocolFilter === 'all' || entry.protocol === protocolFilter) &&
     (entry.title + ' ' + entry.profiles.join(' ')).toLocaleLowerCase('fr-FR').includes(search.toLocaleLowerCase('fr-FR'))), [entries, protocolFilter, search]);
+  const radarCandidates = useMemo(() => buildDiagramLabRadar(entries, 'profile'), [entries]);
+  const readiness = useMemo(() => summarizeDiagramLabReadiness(entries.length, radarCandidates), [entries, radarCandidates]);
   const selected = entries.find((item) => item.id === selectedId) ?? visible[0] ?? null;
   const comparison = entries.find((item) => item.id === comparisonId) ?? null;
   const comparisonIssue = selected && comparison ? compareDiagramLabEntries(selected, comparison) : null;
@@ -184,8 +188,8 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
 
   return <section className="diagram-lab-history" aria-label="Carnet des résultats scientifiques">
     <div className="diagram-lab-history-heading">
-      <div><p className="eyebrow">LABORATOIRE · ARCHIVES LOCALES</p><h2>Carnet des résultats</h2>
-        <p>Retrouvez les mesures par date, modèle et protocole, même après fermeture de l’application. Les essais en cours sont également conservés au fil de l’exécution.</p></div>
+      <div><p className="eyebrow">RÉSULTATS · LABORATOIRE SCIENTIFIQUE</p><h2>Carnet des résultats</h2>
+        <p>Comparez les performances sur huit caractéristiques ou examinez les preuves de chaque campagne, conservées localement.</p></div>
       <div className="diagram-lab-history-heading-actions">
         <input ref={fileInput} type="file" accept=".json,application/json" hidden
           aria-label="Choisir un ancien rapport JSON"
@@ -202,6 +206,19 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
     {(archiveError || loadingError) && <p role="alert" className="diagram-lab-history-warning">
       Sauvegarde locale indisponible : {archiveError || loadingError}. Exportez vos JSON pour conserver les résultats.
     </p>}
+    {workspaceView === 'campaigns' && entries.length > 0 && <section className="diagram-lab-readiness" aria-label="Bilan des batteries scientifiques">
+      <div className="diagram-lab-readiness-stat"><strong>{readiness.campaigns}</strong><span>Campagnes conservées</span></div>
+      <div className="diagram-lab-readiness-stat"><strong>{readiness.candidates}</strong><span>Candidats évalués</span></div>
+      <div className="diagram-lab-readiness-stat"><strong>{readiness.bestMeasuredAxes}/{readiness.totalAxes}</strong><span>Axes du profil le mieux couvert</span></div>
+      <div className="diagram-lab-readiness-action">
+        <p role="status">{readiness.fullyMeasured >= 2
+          ? readiness.fullyMeasured + ' candidats avec huit axes : comparaison globale possible.'
+          : readiness.fullyMeasured === 1
+            ? 'Un candidat complet. Évaluez un second candidat pour les comparer.'
+            : 'Aucun candidat complet : les axes non testés restent non mesurés.'}</p>
+        <Button variant="secondary" onClick={() => setWorkspaceView('radar')}>Voir le radar à huit axes</Button>
+      </div>
+    </section>}
     <div className="diagram-lab-history-sections" role="tablist" aria-label="Vues du carnet">
       <button type="button" role="tab" aria-selected={workspaceView === 'campaigns'}
         onClick={() => setWorkspaceView('campaigns')}>Campagnes et rapports</button>
