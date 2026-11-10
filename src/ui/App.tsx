@@ -1,5 +1,6 @@
 import { EvaluationJourneyPicker } from './components/EvaluationJourneyPicker.tsx';
 import { evaluationProviderNotice } from '../domain/evaluationProviderNotice.ts';
+import { resolveEvaluationActivityOutcome } from '../domain/evaluationActivityStatus.ts';
 import { ContractPreparationPanel } from './components/ContractPreparationPanel.tsx';
 import { QuestionContractEditor, QuestionScopePreview } from './components/QuestionContractEditor.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -101,6 +102,16 @@ import { estimateRemainingCorrectionSeconds } from '../domain/correctionTimeEsti
 import { createReviewTraceMetrics, markGroupConfirmedCriterionModified, type ReviewTraceMetrics } from '../domain/reviewMetrics.ts';
 
 type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
+type EvaluationActivity = {
+  title: string;
+  journey: 'custom' | 'diagrams' | 'biology';
+  targetId: string;
+  profiles: string;
+  scenario?: 'contracts' | 'repeatability' | 'copies';
+  status: 'running' | 'completed' | 'cancelled' | 'failed';
+  error?: string;
+};
+
 interface PilotRunOptions {
   pilotCase: PilotCase | QuestionContractCase;
   stage: 'vision' | 'analysis' | 'integrated';
@@ -456,6 +467,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const radarAutoSequence = useRef(0);
   const [radarAutoBusy, setRadarAutoBusy] = useState(false);
   const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history'>('configuration');
+  const [evaluationActivity, setEvaluationActivity] = useState<EvaluationActivity | null>(null);
+  const [evaluationJumpTarget, setEvaluationJumpTarget] = useState<string | null>(null);
   const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
   const [evaluationVisualDirect, setEvaluationVisualDirect] = useState(false);
   const [pilotEnabled, setPilotEnabled] = useState(false);
@@ -470,7 +483,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [pilotBusy, setPilotBusy] = useState(false);
   const [pilotUploadingCase, setPilotUploadingCase] = useState<string | null>(null);
   const [pilotCurrentCase, setPilotCurrentCase] = useState<string | null>(null);
-  const [pilotMessage, setPilotMessage] = useState('');
+  const [pilotMessage, setPilotMessageState] = useState('');
+  const pilotMessageRef = useRef('');
+  function setPilotMessage(message: string) {
+    pilotMessageRef.current = message;
+    setPilotMessageState(message);
+  }
   const [diagramProtocolProgress, setDiagramProtocolProgress] = useState('');
   // Keep reports outside the conditionally mounted configuration workspace.
   // Switching to the network inspector must not discard a completed or partial benchmark.
@@ -538,6 +556,28 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [selectedSeriesPreviewJob, setSelectedSeriesPreviewJob] = useState<BackgroundCorrectionJob | null>(null);
   const [queuedViewerFullJob, setQueuedViewerFullJob] = useState<BackgroundCorrectionJob | null>(null);
   const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher');
+  useEffect(() => {
+    if (interfaceMode !== 'diagnostic' || !evaluationJumpTarget) return;
+    const frame = window.requestAnimationFrame(() => {
+      const fallbackId = evaluationJourney === 'diagrams'
+        ? 'evaluation-diagram-workspace' : evaluationJourney === 'biology'
+          ? 'evaluation-biology-workspace' : 'evaluation-results';
+      const target = document.getElementById(evaluationJumpTarget)
+        ?? document.getElementById(evaluationJumpTarget.replace(/-results$/, '-launch'))
+        ?? document.getElementById(fallbackId);
+      if (target) {
+        let ancestor: HTMLElement | null = target;
+        while (ancestor) {
+          if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+          ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      setEvaluationJumpTarget(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [interfaceMode, evaluationJumpTarget, evaluationWorkspaceStep, evaluationJourney, evaluationBiologyScenario]);
+
   const [detailsThumbnailsOpen, setDetailsThumbnailsOpen] = useState(false);
   const [detailThumbnails, setDetailThumbnails] = useState<Record<string, Array<ImageInput | null>>>({});
   const previewLoadSequence = useRef(0);
@@ -1912,7 +1952,44 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   function cancelModelEvaluation() {
     evaluationCancelledRef.current = true;
-    setError('Annulation demandée : l’appel Ollama en cours sera laissé se terminer avant l’arrêt de la séquence.');
+    setError('Annulation demandée : l’appel en cours sera laissé se terminer avant l’arrêt de la séquence.');
+    setEvaluationActivity((current) => current?.status === 'running'
+      ? { ...current, error: 'Arrêt demandé · fin de l’appel en cours' } : current);
+  }
+
+  async function followEvaluation<T>(activity: Omit<EvaluationActivity, 'status'>, execute: () => Promise<T>): Promise<T> {
+    pilotStopRef.current = false;
+    evaluationCancelledRef.current = false;
+    setEvaluationActivity({ ...activity, status: 'running' });
+    if (activity.journey === 'diagrams') setDiagramProtocolProgress('Préparation des schémas et des modèles…');
+    if (activity.journey === 'biology') setPilotMessage('Préparation du protocole…');
+    try {
+      const outcome = await execute();
+      const result = resolveEvaluationActivityOutcome({
+        journey: activity.journey, interrupted: evaluationCancelledRef.current || pilotStopRef.current,
+        pilotMemoryError: pilotMemoryErrorRef.current, pilotMessage: pilotMessageRef.current, outcome,
+      });
+      setEvaluationActivity((current) => current?.title === activity.title
+        ? { ...current, ...result } : current);
+      return outcome;
+    } catch (cause) {
+      const error = cause instanceof Error ? cause.message : String(cause);
+      setEvaluationActivity((current) => current?.title === activity.title
+        ? { ...current, status: 'failed', error } : current);
+      throw cause;
+    }
+  }
+
+  function showEvaluationActivity() {
+    if (!evaluationActivity) return;
+    setEvaluationJourney(evaluationActivity.journey);
+    if (evaluationActivity.scenario) setEvaluationBiologyScenario(evaluationActivity.scenario);
+    if (evaluationActivity.journey === 'diagrams') setDiagramLabView('protocols');
+    setEvaluationWorkspaceStep(evaluationActivity.journey === 'custom'
+      ? evaluationActivity.status === 'running' ? 'execution' : 'results'
+      : 'configuration');
+    setEvaluationJumpTarget(evaluationActivity.journey === 'custom' && evaluationActivity.status === 'running'
+      ? 'evaluation-results' : evaluationActivity.targetId);
   }
 
 
@@ -3581,6 +3658,36 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <button type="button" className={evaluationJourney === 'diagrams' ? (diagramLabView === 'history' ? 'is-active' : '') : (evaluationWorkspaceStep === 'history' ? 'is-active' : '')} aria-current={evaluationJourney === 'diagrams' ? (diagramLabView === 'history' ? 'page' : undefined) : (evaluationWorkspaceStep === 'history' ? 'page' : undefined)} onClick={() => { if (evaluationJourney === 'diagrams') { setEvaluationWorkspaceStep('configuration'); setDiagramLabView('history'); } else setEvaluationWorkspaceStep('history'); }}><strong>Carnet de résultats</strong></button>
         <button type="button" className={evaluationJourney === 'diagrams' && diagramLabView === 'radar' && evaluationWorkspaceStep === 'configuration' ? 'is-active' : ''} aria-current={evaluationJourney === 'diagrams' && diagramLabView === 'radar' && evaluationWorkspaceStep === 'configuration' ? 'page' : undefined} onClick={() => { setEvaluationJourney('diagrams'); setEvaluationWorkspaceStep('configuration'); setDiagramLabView('radar'); }}><strong>Radar des candidats</strong></button>
       </nav>}
+      {interfaceMode === 'diagnostic' && evaluationActivity && <section className={`evaluation-activity-banner is-${evaluationActivity.status}`}
+        role="status" aria-live="polite" aria-label="Dernière expérience lancée">
+        <div className="evaluation-activity-main">
+          <span className="evaluation-activity-state">
+            {evaluationActivity.status === 'running' ? 'TEST EN COURS'
+              : evaluationActivity.status === 'completed' ? 'TEST TERMINÉ'
+              : evaluationActivity.status === 'cancelled' ? 'TEST INTERROMPU' : 'TEST EN ÉCHEC'}
+          </span>
+          <strong>{evaluationActivity.title}</strong>
+          <p>{evaluationActivity.status === 'running'
+            ? evaluationActivity.error || (evaluationActivity.journey === 'diagrams'
+              ? diagramProtocolProgress || 'Préparation du protocole…'
+              : evaluationActivity.journey === 'biology'
+                ? (pilotMessage || 'Préparation du protocole…') + (evaluationProgress?.currentConfiguration ? ' · Modèle : ' + evaluationProgress.currentConfiguration.name : '')
+                : evaluationProgress?.currentConfiguration
+                  ? `${evaluationProgress.currentConfiguration.name} · ${evaluationProgress.currentStage === 'analysis' ? 'Analyse' : evaluationProgress.currentStage === 'reading' ? 'Lecture Vision' : 'Préparation'} · ${evaluationProgress.completedSteps}/${evaluationProgress.totalSteps} étapes`
+                  : 'Préparation du modèle et des données…')
+            : evaluationActivity.error || (evaluationActivity.status === 'completed'
+              ? 'Les résultats de cette expérience sont prêts à consulter.'
+              : 'Les passages déjà terminés peuvent rester disponibles dans le protocole.')}</p>
+          <small>{evaluationActivity.profiles}</small>
+        </div>
+        <div className="evaluation-activity-actions">
+          <button type="button" className="primary-button" onClick={showEvaluationActivity}>
+            {evaluationActivity.status === 'running' ? 'Suivre ce test'
+              : evaluationActivity.status === 'completed' ? 'Voir les résultats' : 'Consulter ce test'}
+          </button>
+          {evaluationActivity.status === 'running' && <span className="evaluation-activity-hint">Les autres lancements sont temporairement désactivés</span>}
+        </div>
+      </section>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && <section id="evaluation-configurations" className="panel evaluation-config-workspace" data-journey={evaluationJourney} aria-labelledby="evaluation-config-title">
         <EvaluationJourneyPicker value={evaluationJourney} disabled={busy || pilotBusy} onChange={(journey) => { setEvaluationJourney(journey); if (journey === 'diagrams') setDiagramLabView('protocols'); }} />
         <div className="evaluation-model-selector">
@@ -3615,14 +3722,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <div className="evaluation-config-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button><Button variant="primary" disabled={busy || pilotBusy} onClick={saveAiModelProfile}>Enregistrer la configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button></div>
           {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}{aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
         </details>
-        <div hidden={evaluationJourney !== 'diagrams'}><ScientificDiagramProtocolPanel
+        <div id="evaluation-diagram-workspace" hidden={evaluationJourney !== 'diagrams'}><ScientificDiagramProtocolPanel
           selectedProfiles={selectedEvaluationProfiles} busy={busy || pilotBusy}
           progress={diagramProtocolProgress}
           onPrepareImages={(files) => service.prepareFiles(files)}
-          onRun={runScientificDiagramProtocol}
-          onRunFixtures={runScientificDiagramFixtures}
-          onRunSensitivity={runScientificDiagramSensitivity}
-          onRunBlindGraph={runScientificDiagramBlindGraph}
+          onRun={(request) => followEvaluation({ title: 'Schéma scientifique · essai personnalisé', journey: 'diagrams', targetId: 'evaluation-diagram-personal-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramProtocol(request))}
+          onRunFixtures={(request) => followEvaluation({ title: 'Schémas scientifiques · références intégrées', journey: 'diagrams', targetId: 'evaluation-diagram-fixture-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramFixtures(request))}
+          onRunSensitivity={(request) => followEvaluation({ title: 'Schémas scientifiques · sensibilité sémantique', journey: 'diagrams', targetId: 'evaluation-diagram-sensitivity-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramSensitivity(request))}
+          onRunBlindGraph={(request) => followEvaluation({ title: 'Schémas scientifiques · graphe de relations', journey: 'diagrams', targetId: 'evaluation-diagram-graph-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramBlindGraph(request))}
           onStop={stopPilotProtocol}
           report={diagramProtocolReport}
           fixtureReport={diagramFixtureReport}
@@ -3638,7 +3745,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           onOpenRadar={() => setDiagramLabView('radar')}
         />
         </div>
-        <div hidden={evaluationJourney !== 'biology'}><PilotEvaluationPanel
+        <div id="evaluation-biology-workspace" hidden={evaluationJourney !== 'biology'}><PilotEvaluationPanel
           selectedScenario={evaluationBiologyScenario} onSelectScenario={setEvaluationBiologyScenario}
           enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}
           message={pilotMessage} runs={pilotRuns} contractRuns={pilotContractRuns}
@@ -3648,10 +3755,22 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           selectedProfiles={selectedEvaluationProfiles}
           onPrepare={preparePilotProtocol}
           onUpload={(caseId, files) => { void uploadPilotImages(caseId, files); }}
-          onRun={(mode) => { void runPilotProtocol(mode); }}
-          onRunConcurrency={(caseId) => { void runPilotConcurrencyBenchmark(caseId); }}
-          onRunContracts={() => { void runPilotQuestionContractBenchmark(); }}
-          onRunRepeatability={(count, suite) => { void runPilotRepeatabilityBenchmark(count, suite); }}
+          onRun={(mode) => { void followEvaluation({
+            title: 'Biologie · ' + (mode === 'vision' ? '3 lectures Vision' : mode === 'analysis' ? '3 analyses' : '3 parcours complets'),
+            journey: 'biology', scenario: 'copies', targetId: 'evaluation-biology-copy-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · '),
+          }, () => runPilotProtocol(mode)); }}
+          onRunConcurrency={(caseId) => { void followEvaluation({
+            title: 'Biologie · benchmark CPU · copie ' + caseId,
+            journey: 'biology', scenario: 'copies', targetId: 'evaluation-biology-cpu-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · '),
+          }, () => runPilotConcurrencyBenchmark(caseId)); }}
+          onRunContracts={() => { void followEvaluation({
+            title: 'Biologie · comparaison standard / variante B',
+            journey: 'biology', scenario: 'contracts', targetId: 'evaluation-biology-contract-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · '),
+          }, runPilotQuestionContractBenchmark); }}
+          onRunRepeatability={(count, suite) => { void followEvaluation({
+            title: 'Biologie · répétabilité ' + count + ' passages · ' + (suite === 'stress' ? 'robustesse' : 'référence'),
+            journey: 'biology', scenario: 'repeatability', targetId: 'evaluation-biology-repeatability-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · '),
+          }, () => runPilotRepeatabilityBenchmark(count, suite)); }}
           onStop={stopPilotProtocol} onExport={exportPilotReport}
           onCopy={() => { void copyPilotReport(); }}
         />
@@ -4350,7 +4469,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </div>}
         {evaluationWorkspaceStep === 'results' && suggestedEvaluationComparisonIds && <div className="evaluation-archive-feedback" role="status"><div><strong>Comparer avec l’essai précédent</strong><p>Deux essais réalisés sur la même copie et le même barème sont disponibles. Consultez leurs notes par critère et leurs durées.</p></div><button type="button" className="secondary-button" onClick={() => { setEvaluationHistoryStageFilter(evaluationStageMode); setSelectedEvaluationHistoryIds(suggestedEvaluationComparisonIds); setEvaluationWorkspaceStep('history'); }}>Comparer D1, TEV ou les autres modèles</button></div>}
         {evaluationWorkspaceStep === 'execution' && modelEvaluationResults.length > 0 && !busy && <div className="evaluation-run-actions"><div><strong>Expérience terminée</strong><p>Consultez les notes et performances de chaque configuration.</p></div><button type="button" className="primary-button" onClick={() => setEvaluationWorkspaceStep('results')}>Voir les résultats</button></div>}
-        {evaluationWorkspaceStep === 'execution' && (busy || modelEvaluationResults.length === 0) && <div className="evaluation-run-actions"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>{!validation.valid ? 'Vérifiez le barème avant de lancer l’expérience.' : evaluationStageMode !== 'analysis' && !images.length ? 'Importez les pages de la copie dans l’étape précédente.' : evaluationStageMode === 'analysis' && !transcription?.trim() ? 'Ajoutez ou vérifiez la transcription de référence dans la configuration.' : selectedEvaluationProfileIds.length < 1 ? 'Sélectionnez au moins une configuration.' : 'Le jeu d’essai est prêt à être lancé.'}</p></div><button type="button" className={busy ? 'primary-button is-running' : 'primary-button'} disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => void startModelEvaluation()}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>}
+        {evaluationWorkspaceStep === 'execution' && (busy || modelEvaluationResults.length === 0) && <div className="evaluation-run-actions"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>{!validation.valid ? 'Vérifiez le barème avant de lancer l’expérience.' : evaluationStageMode !== 'analysis' && !images.length ? 'Importez les pages de la copie dans l’étape précédente.' : evaluationStageMode === 'analysis' && !transcription?.trim() ? 'Ajoutez ou vérifiez la transcription de référence dans la configuration.' : selectedEvaluationProfileIds.length < 1 ? 'Sélectionnez au moins une configuration.' : 'Le jeu d’essai est prêt à être lancé.'}</p></div><button type="button" className={busy ? 'primary-button is-running' : 'primary-button'} disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => { void followEvaluation({
+            title: 'Évaluation libre · ' + (evaluationStageMode === 'vision' ? 'Vision seule' : evaluationStageMode === 'analysis' ? 'Analyse seule' : 'Parcours complet'),
+            journey: 'custom', targetId: 'evaluation-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · '),
+          }, () => startModelEvaluation()); }}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>}
                 {evaluationWorkspaceStep === 'execution' && evaluationProgress && <section className="evaluation-progress" aria-labelledby="evaluation-progress-title" aria-live="polite">
           <div className="evaluation-progress-heading"><div><p className="eyebrow">SUIVI DE L’EXPÉRIENCE</p><h3 id="evaluation-progress-title">{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation interrompue' : 'Évaluation en cours'}</h3><p>{evaluationProgress.status === 'completed' ? 'Toutes les configurations ont été traitées.' : evaluationProgress.status === 'cancelled' ? 'La séquence a été arrêtée après l’appel en cours.' : evaluationProgress.currentConfiguration ? 'La configuration active est indiquée ci-dessous.' : 'Préparation de la prochaine configuration…'}</p></div><strong className="evaluation-progress-counter">{evaluationProgress.completedSteps} / {evaluationProgress.totalSteps} étapes terminées</strong></div>
           <div className="evaluation-progress-track" role="progressbar" aria-label="Étapes de traitement terminées" aria-valuemin={0} aria-valuemax={evaluationProgress.totalSteps} aria-valuenow={evaluationProgress.completedSteps}><span style={{ width: (evaluationProgress.completedSteps / Math.max(1, evaluationProgress.totalSteps) * 100) + '%' }} /></div>
