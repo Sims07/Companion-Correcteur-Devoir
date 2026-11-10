@@ -14,9 +14,10 @@ test('AI tools offers two understandable goals, with network debugging on demand
   await expect(tools.getByRole('button', { name: /Évaluation des modèles/ })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('navigation', { name: 'Détails du suivi' })).toHaveCount(0);
   await expect(page.locator('.developer-tools-support')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Évaluation des modèles' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Évaluer les modèles' })).toBeVisible();
   await expect(page.getByRole('group', { name: 'Type d’évaluation' })).toBeVisible();
-  await expect(page.locator('.developer-tools')).toHaveCSS('background-color', 'rgb(255, 253, 249)');
+  await expect(page.locator('.developer-tools')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('.developer-tools-heading')).toHaveCount(0);
 
   await tools.getByRole('button', { name: /Suivre et diagnostiquer/ }).click();
   const details = page.getByRole('navigation', { name: 'Détails du suivi' });
