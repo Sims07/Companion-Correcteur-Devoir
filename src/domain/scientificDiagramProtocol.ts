@@ -383,7 +383,7 @@ export function buildScientificDiagramProtocolReport(
     };
   });
   return {
-    format: 'companion-scientific-diagram-protocol', version: 1,
+    format: 'companion-scientific-diagram-protocol' as const, version: 1,
     protocolId: SCIENTIFIC_DIAGRAM_PROTOCOL_ID, createdAt, plannedRepetitions,
     localOnly: runs.every(({ record }) => record.configurations.every((configuration) => isLoopbackPilotEndpoint(configuration.endpoint))),
     rubric: structuredClone(rubric), imageCount, gold: structuredClone(gold),

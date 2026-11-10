@@ -194,7 +194,7 @@ export function buildScientificDiagramFixtureReport(
     };
   });
   return {
-    format: 'companion-scientific-diagram-fixture-report',
+    format: 'companion-scientific-diagram-fixture-report' as const,
     version: 4,
     protocolId: 'scientific-diagram-generated-a-b-c-plus-label-pointers-v4',
     createdAt,

@@ -41,9 +41,12 @@ export function summarizeDiagramLabReport(report: DiagramLabReport, state: Diagr
     ? report.cases.some((item) => (item.caseId === 'D' || item.caseId === 'E') && item.experiments.length > 0) ? 'arrows' : 'reference'
     : report.format === 'companion-scientific-diagram-sensitivity-report' ? 'semantic'
     : report.format === 'companion-scientific-diagram-blind-graph-report' ? 'graph' : 'personal';
-  const experiments = 'cases' in report ? report.cases.flatMap((item) => item.experiments) : report.experiments;
-  const names = [...new Set(experiments.map((item) => item.profileName).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  const successfulCount = experiments.filter((item) => item.status === 'success').length;
+  const experimentMetadata = 'cases' in report
+    ? (report.cases as readonly { experiments: readonly { profileName: string; status: string }[] }[])
+      .flatMap((item) => item.experiments.map((run) => ({ profileName: run.profileName, status: run.status })))
+    : report.experiments.map((run) => ({ profileName: run.profileName, status: run.status }));
+  const names = [...new Set(experimentMetadata.map((item) => item.profileName).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const successfulCount = experimentMetadata.filter((item) => item.status === 'success').length;
   const suffix = report.format === 'companion-scientific-diagram-blind-graph-report'
     ? ' · ' + report.promptVariant
     : report.format === 'companion-scientific-diagram-sensitivity-report'
@@ -57,7 +60,7 @@ export function summarizeDiagramLabReport(report: DiagramLabReport, state: Diagr
     title: diagramLabProtocolLabels[protocol] + suffix,
     profiles: names,
     plannedRepetitions: report.plannedRepetitions,
-    experimentCount: experiments.length,
+    experimentCount: experimentMetadata.length,
     successfulCount,
     localOnly: report.localOnly,
     report,

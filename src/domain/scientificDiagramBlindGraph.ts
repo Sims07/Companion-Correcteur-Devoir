@@ -350,7 +350,7 @@ export function buildBlindVisualObservationReport(
     observations: run.observations,
   }));
   return {
-    format: 'companion-scientific-diagram-blind-graph-report',
+    format: 'companion-scientific-diagram-blind-graph-report' as const,
     version: 2, protocolId: DIAGRAM_BLIND_OBSERVATION_PROTOCOL, promptVariant,
     createdAt, plannedRepetitions: repetitions, localOnly: !runs.some((run) => run.remote),
     cases: DIAGRAM_SENSITIVITY_CASES.map(({ id, label, referenceScore, mutation, gold }) => ({
