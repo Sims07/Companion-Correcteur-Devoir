@@ -65,7 +65,7 @@ import { directDiagramAssignmentIssue, isLoopbackDiagramEndpoint } from '../appl
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_CONTEXT, DIAGRAM_SENSITIVITY_RUBRIC, buildScientificDiagramSensitivityReport, type DiagramSensitivityCaseId, type DiagramSensitivityRun, type DiagramSensitivityPromptMode } from '../domain/scientificDiagramSensitivity.ts';
-import { buildBlindVisualObservationReport, compareBlindVisualGraph, explainBlindVisualGraph, canObserveBlindGraph, type BlindGraphDiagnostic,
+import { buildBlindVisualObservationReport, compareBlindVisualGraph, explainBlindVisualGraph, blindGraphProfileIssue, blindGraphVisionModel, type BlindGraphDiagnostic,
   type BlindVisualObservationRun, type BlindGraphPromptVariant } from '../domain/scientificDiagramBlindGraph.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../domain/questionContractRepeatability.ts';
@@ -157,6 +157,7 @@ type AssignmentDraft = {
 
 const aiModelConfigurationKey = 'companion-correcteur:ollama-configuration:v1';
 const aiModelProfilesKey = 'companion-correcteur:ollama-profiles:v1';
+const evaluationSelectionKey = 'companion-correcteur:evaluation-selected-profiles:v1';
 
 function readAiModelConfiguration(): AiModelConfiguration {
   try { return parseAiModelConfiguration(window.localStorage.getItem(aiModelConfigurationKey)); }
@@ -166,6 +167,16 @@ function readAiModelConfiguration(): AiModelConfiguration {
 function readAiModelProfiles(): AiModelProfile[] {
   try { return parseAiModelProfiles(window.localStorage.getItem(aiModelProfilesKey)); }
   catch { return []; }
+}
+
+/** Restore only IDs that still exist; never persist a second copy of credentials. */
+function readSelectedEvaluationProfileIds(): string[] {
+  try {
+    const stored: unknown = JSON.parse(window.localStorage.getItem(evaluationSelectionKey) || '[]');
+    if (!Array.isArray(stored)) return [];
+    const available = new Set(readAiModelProfiles().map((profile) => profile.id));
+    return stored.filter((id): id is string => typeof id === 'string' && available.has(id)).slice(0, 3);
+  } catch { return []; }
 }
 
 const assignmentProfilesKey = 'companion-correcteur:assignments:v1';
@@ -418,7 +429,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [pendingAiProfileRemoval, setPendingAiProfileRemoval] = useState<AiModelProfile | null>(null);
   const [managingAiProfiles, setManagingAiProfiles] = useState(false);
   const [diagnosticRuns, setDiagnosticRuns] = useState<DiagnosticModelResult[]>([]);
-  const [selectedEvaluationProfileIds, setSelectedEvaluationProfileIds] = useState<string[]>([]);
+  const [selectedEvaluationProfileIds, setSelectedEvaluationProfileIds] = useState<string[]>(readSelectedEvaluationProfileIds);
+  useEffect(() => {
+    try { window.localStorage.setItem(evaluationSelectionKey, JSON.stringify(selectedEvaluationProfileIds)); }
+    catch { /* The selection remains usable in this browser session. */ }
+  }, [selectedEvaluationProfileIds]);
   const [selectedEvaluationHistoryIds, setSelectedEvaluationHistoryIds] = useState<string[]>([]);
   const [evaluationHistoryStageFilter, setEvaluationHistoryStageFilter] = useState<EvaluationStageMode | 'all'>('all');
   const [evaluationEditorOpen, setEvaluationEditorOpen] = useState(aiModelProfiles.length === 0);
@@ -818,8 +833,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setAiModelProfileName(profile.name);
     setAiModelProfileMessage('Profil « ' + profile.name + ' » enregistré sur cet appareil.');
     setAiModelProfileTone('success');
-    try { window.localStorage.setItem(aiModelProfilesKey, JSON.stringify(next)); }
-    catch { setAiModelProfileTone('error'); setAiModelProfileMessage('Le navigateur n’a pas pu enregistrer ce profil. Vérifiez son espace de stockage.'); }
+    try {
+      window.localStorage.setItem(aiModelProfilesKey, JSON.stringify(next));
+      // Creating the first profile should make its experiment runnable directly.
+      setSelectedEvaluationProfileIds((current) => current.length ? current : [profile.id]);
+    } catch { setAiModelProfileTone('error'); setAiModelProfileMessage('Le navigateur n’a pas pu enregistrer ce profil. Vérifiez son espace de stockage.'); }
   }
 
   function deleteAiModelProfiles(profileIds: readonly string[]): boolean {
@@ -2302,13 +2320,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (!service.extractBlindDiagramGraph) throw new Error('Lecteur de graphe indisponible.');
     const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     if (!profiles.length) throw new Error('Sélectionnez une configuration Vision.');
-    if (profiles.some((profile) => !canObserveBlindGraph(profile))) {
-      throw new Error('Sélectionnez un profil Vision Ollama local ou OpenAI-compatible valide (HTTPS pour un serveur distant).');
-    }
+    const graphIssue = profiles.map(blindGraphProfileIssue).find((issue): issue is string => Boolean(issue));
+    if (graphIssue) throw new Error(graphIssue);
     const choices = profiles.map((profile) => ({
-      profile,
-      model: profile.configuration.visionModel.trim() ||
-        (profile.configuration.correctionMethod === 'generative' ? profile.configuration.analysisModel.trim() : ''),
+      profile, model: blindGraphVisionModel(profile),
     }));
     if (choices.some(({ model }) => !model)) {
       throw new Error('Modèle Vision manquant pour une configuration sélectionnée.');
