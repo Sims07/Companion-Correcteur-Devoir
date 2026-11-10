@@ -16,7 +16,7 @@ export function createCorrectionWorkspaceService(
     ...(ollama.prepareQuestionContracts ? { prepareQuestionContracts: ollama.prepareQuestionContracts.bind(ollama) } : {}),
     checkReady: (settings: OllamaSettings) => ollama.checkReady(settings),
     ...(ollama.detectDiagramThinking ? { detectDiagramThinking: (endpoint: string, model: string, requireThinkOff?: boolean) => ollama.detectDiagramThinking!(endpoint, model, requireThinkOff) } : {}),
-    ...(ollama.extractBlindDiagramGraph ? { extractBlindDiagramGraph: (endpoint: string, model: string, image: import('../domain/imageInput.ts').ImageInput, signal?: AbortSignal, onDiagnostic?: (diagnostic: import('../domain/scientificDiagramBlindGraph.ts').BlindGraphDiagnostic) => void, provider?: { apiCompatible: boolean; apiKey: string }, zoomUncertainArrows?: boolean) => zoomUncertainArrows === undefined
+    ...(ollama.extractBlindDiagramGraph ? { extractBlindDiagramGraph: (endpoint: string, model: string, image: import('../domain/imageInput.ts').ImageInput, signal?: AbortSignal, onDiagnostic?: (diagnostic: import('../domain/scientificDiagramBlindGraph.ts').BlindGraphDiagnostic) => void, provider?: { apiCompatible: boolean; apiKey: string; promptVariant?: import('../domain/scientificDiagramBlindGraph.ts').BlindGraphPromptVariant }, zoomUncertainArrows?: boolean) => zoomUncertainArrows === undefined
       ? ollama.extractBlindDiagramGraph!(endpoint, model, image, signal, onDiagnostic, provider)
       : ollama.extractBlindDiagramGraph!(endpoint, model, image, signal, onDiagnostic, provider, zoomUncertainArrows) } : {}),
     listModels: (endpoint) => ollama.listModels(endpoint),
