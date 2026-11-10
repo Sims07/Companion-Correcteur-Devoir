@@ -68,6 +68,31 @@ describe('sensibilité sémantique des schémas', () => {
     });
   });
 
+  it('counts false rejection of a still-correct arrow in mutated diagrams, not only in controls', () => {
+    const stats = summarizeDiagramSensitivity([
+      reading('S0'),
+      reading('S1', { [keys.transcription]: 'absent', [keys.translation]: 'absent' }),
+      reading('S3', { [keys.transcription]: 'uncertain', [keys.nucleus]: 'absent' }),
+      reading('S4'),
+    ])[0]!;
+    expect(stats).toMatchObject({
+      sensitivityHits: 2, falsePositiveCount: 0, controlObservations: 6,
+      correctRelationCount: 10, correctRelationsAccepted: 8,
+      correctRelationRejections: 1, correctRelationAbstentions: 1,
+    });
+  });
+
+  it('excludes S5 ambiguous target and scientific mistakes from gold-correct denominator', () => {
+    const stats = summarizeDiagramSensitivity([
+      reading('S1', { [keys.transcription]: 'absent' }),
+      reading('S2', { [keys.transcription]: 'absent' }),
+      reading('S5', { [keys.transcription]: 'absent' }),
+    ])[0]!;
+    expect(stats.correctRelationCount).toBe(6);
+    expect(stats.correctRelationRejections).toBe(0);
+    expect(stats.correctRelationsAccepted).toBe(6);
+  });
+
   it('never calls a missing or uncertain pairing a negative result', () => {
     expect(summarizeDiagramSensitivity([
       reading('S1', { [keys.transcription]: 'absent' }),
