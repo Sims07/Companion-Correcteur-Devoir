@@ -136,6 +136,9 @@ test('the scientific-diagram lab exposes an explicit multimodal comparison indep
   await expect(method).toHaveValue('compare');
   const choices = page.getByRole('group', { name: 'Configurations à exécuter' });
   await choices.locator('label.evaluation-profile-option').first().click();
+  await expect(panel.getByRole('tab', { name: /Qualité graphique/ })).toHaveAttribute('aria-selected', 'true');
+  // The advanced personal-copy workflow remains intact but is intentionally collapsed.
+  await panel.locator('details.diagram-lab-legacy > summary').click();
   await expect(panel.getByText('Vision puis analyse / Image → génératif direct', { exact: false })).toBeVisible();
 
   await method.selectOption('direct-image-generative');

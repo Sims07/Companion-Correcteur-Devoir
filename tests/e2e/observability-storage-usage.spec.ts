@@ -5,7 +5,7 @@ test('shows origin quota and IndexedDB categories without exposing student copie
   await page.getByRole('button', { name: 'Outils IA' }).waitFor();
 
   await page.evaluate(async () => {
-    const request = indexedDB.open('companion-correcteur-devoir', 5);
+    const request = indexedDB.open('companion-correcteur-devoir', 6);
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);

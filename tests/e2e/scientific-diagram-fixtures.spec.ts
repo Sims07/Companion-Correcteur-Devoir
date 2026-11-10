@@ -134,7 +134,8 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
       && decision.stableAndResolved === null && decision.correctEveryTime === null)).toBe(true);
   await page.getByRole('button', { name: /Carnet de résultats/ }).click();
   const journal = page.getByRole('region', { name: 'Carnet des résultats scientifiques' });
-  await expect(journal.getByText('Qualité graphique · A/B/C').first()).toBeVisible();
+  await expect(journal.getByRole('group', { name: 'Campagnes enregistrées' })
+    .getByRole('button', { name: /Qualité graphique · A\/B\/C/ }).first()).toBeVisible();
   await expect(journal.getByText('D1 test image').first()).toBeVisible();
   await expect(exportStrip).toBeVisible();
   await page.getByRole('button', { name: /1.*Protocoles/ }).click();

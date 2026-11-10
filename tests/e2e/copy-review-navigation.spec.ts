@@ -7,7 +7,7 @@ test('navigue entre huit copies de statuts variés en gardant compteur et rail s
 
   await page.evaluate(async () => {
     localStorage.setItem('companion-correcteur:auto-background-correction:v1', 'false');
-    const request = indexedDB.open('companion-correcteur-devoir', 5);
+    const request = indexedDB.open('companion-correcteur-devoir', 6);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);

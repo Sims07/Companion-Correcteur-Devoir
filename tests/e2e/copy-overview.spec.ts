@@ -44,7 +44,7 @@ async function prepareLocalWorkspace(page: Page) {
 
 async function seedJobs(page: Page, jobs: Array<{ id: string; label: string; status: 'ready' | 'failed' | 'pending' | 'processing'; updatedAt: string; error?: string }>, readyProposal = proposal) {
   await page.evaluate(async ({ input, rubric: jobRubric, pageImage: image, proposal: readyProposal }) => {
-    const request = indexedDB.open('companion-correcteur-devoir', 5);
+    const request = indexedDB.open('companion-correcteur-devoir', 6);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
