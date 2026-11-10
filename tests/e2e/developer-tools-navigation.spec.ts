@@ -11,7 +11,7 @@ test('AI tools offers two understandable goals, with network debugging on demand
   await primaryNavigation.getByRole('button', { name: 'Outils IA' }).click();
   const tools = page.getByRole('navigation', { name: 'Navigation des outils IA' });
   await expect(tools.getByRole('button')).toHaveCount(2);
-  await expect(tools.getByRole('button', { name: /Évaluer les modèles/ })).toHaveAttribute('aria-current', 'page');
+  await expect(tools.getByRole('button', { name: /Évaluation des modèles/ })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('navigation', { name: 'Détails du suivi' })).toHaveCount(0);
   await expect(page.locator('.developer-tools-support')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Évaluation des modèles' })).toBeVisible();
@@ -29,7 +29,7 @@ test('AI tools offers two understandable goals, with network debugging on demand
   await expect(details.getByRole('button', { name: 'Inspecteur réseau' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
 
-  await tools.getByRole('button', { name: /Évaluer les modèles/ }).click();
+  await tools.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await expect(page.getByRole('navigation', { name: 'Détails du suivi' })).toHaveCount(0);
   await primaryNavigation.getByRole('button', { name: 'Correction' }).click();
   await expect(page.getByRole('navigation', { name: 'Navigation des outils IA' })).toHaveCount(0);

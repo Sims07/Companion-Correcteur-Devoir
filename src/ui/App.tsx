@@ -3363,7 +3363,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </header>
 
       {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
-      {interfaceMode === 'diagnostic' && (diagramFixtureReport || diagramProtocolReport || diagramSensitivityReport || diagramBlindGraphReport) && <details className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
+      {interfaceMode !== 'teacher' && (diagramFixtureReport || diagramProtocolReport || diagramSensitivityReport || diagramBlindGraphReport) && <details className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
         <summary>Rapports de schémas disponibles · afficher les exports</summary>
         <div className="diagram-protocol-export-actions">
           {diagramFixtureReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramFixtureReport, 'companion-schemas-scientifiques.json')}>
