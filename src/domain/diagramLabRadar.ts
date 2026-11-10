@@ -391,3 +391,22 @@ export function rankDiagramLabRadar(candidates: readonly RadarCandidate[], weigh
   })).sort((a, b) => (b.weightedScore ?? -1) - (a.weightedScore ?? -1) ||
     b.measured - a.measured || a.name.localeCompare(b.name, 'fr'));
 }
+
+
+/** Method-only ranking: compare exactly the same measured axes across all
+ * participating algorithms, never fill unavailable axes with zero. It is not
+ * an eight-axis global leaderboard. */
+export function compareRadarCommonAxes(candidates: readonly RadarCandidate[], weights: RadarWeights) {
+  const commonAxes = RADAR_AXES.filter((axis) => candidates.length >= 2 &&
+    candidates.every((candidate) => candidate.axes[axis.id].value !== null));
+  const weighted = commonAxes.filter((axis) => weights[axis.id] > 0);
+  const total = weighted.reduce((sum, axis) => sum + weights[axis.id], 0);
+  const comparable = validRadarWeights(weights) && weighted.length >= 4 && total > 0;
+  const rows = candidates.map((candidate) => ({
+    id: candidate.id,
+    score: comparable
+      ? limited(weighted.reduce((sum, axis) => sum + candidate.axes[axis.id].value! * weights[axis.id], 0) / total)
+      : null,
+  })).sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  return { commonAxes: commonAxes.map((axis) => axis.id), weightedAxes: weighted.map((axis) => axis.id), rows };
+}

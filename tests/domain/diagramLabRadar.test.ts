@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../src/domain/diagramLabHistory.ts';
 import { DIAGRAM_SENSITIVITY_CASES } from '../../src/domain/scientificDiagramSensitivity.ts';
 import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../src/domain/scientificDiagramFixtures.ts';
-import { buildDiagramLabRadar, RADAR_PRESETS, rankDiagramLabRadar, validRadarWeights } from '../../src/domain/diagramLabRadar.ts';
+import { buildDiagramLabRadar, compareRadarCommonAxes, RADAR_PRESETS, rankDiagramLabRadar, validRadarWeights } from '../../src/domain/diagramLabRadar.ts';
 
 function sample(protocol: Exclude<DiagramLabProtocol, 'personal'>, createdAt: string, repetitions = 1): DiagramLabArchiveEntry {
   const fixture = protocol === 'reference' || protocol === 'arrows';
@@ -80,6 +80,17 @@ describe('scientific benchmark 8-axis radar', () => {
     expect(result.axes.graphics.value).toBe(100);
     expect(result.axes.graphics.evidence[0]?.reportId).toBe(data[0]!.id);
   });
+  it('compares methods only on common observed axes, refusing a weak three-axis ranking', () => {
+    const candidates = buildDiagramLabRadar(complete(3), 'method');
+    const methods = candidates.filter((candidate) => !candidate.methods.some((method) => method.startsWith('blind-graph')));
+    const graph = candidates.filter((candidate) => candidate.methods.some((method) => method.startsWith('blind-graph')));
+    expect(methods).toHaveLength(1);
+    const full = buildDiagramLabRadar(complete(3))[0]!;
+    expect(compareRadarCommonAxes([full, { ...full, id: 'another' }], RADAR_PRESETS.scientific).commonAxes).toHaveLength(8);
+    expect(compareRadarCommonAxes([methods[0]!, graph[0]!], RADAR_PRESETS.scientific).rows.every((row) => row.score === null)).toBe(true);
+    expect(compareRadarCommonAxes([full], RADAR_PRESETS.scientific).rows[0]?.score).toBeNull();
+  });
+
   it('keeps explicit profile/method groupings distinct, and validates weight configuration', () => {
     expect(buildDiagramLabRadar(complete(), 'method')).toHaveLength(2);
     expect(validRadarWeights({ ...RADAR_PRESETS.balanced, speed: -1 })).toBe(false);
