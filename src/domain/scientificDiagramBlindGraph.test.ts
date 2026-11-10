@@ -36,6 +36,14 @@ describe('lecture graphe visuel sans barème', () => {
     expect(BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT).not.toMatch(/ADN|ARN|Protéine|Noyau|transcription|note finale/);
   });
 
+  it('preserves the baseline prompt for independent follow-up arms', () => {
+    expect(blindVisualObservationPrompt('recheck-arrows')).toBe(BLIND_VISUAL_OBSERVATION_PROMPT);
+    expect(blindVisualObservationPrompt('recheck-contours')).toBe(BLIND_VISUAL_OBSERVATION_PROMPT);
+    const report = buildBlindVisualObservationReport([], 1, '2026-11-10T10:00:00Z', 'recheck-contours');
+    expect(report.promptVariant).toBe('recheck-contours');
+    expect(report.limitations).toContain('deux appels');
+    expect(report.limitations).toContain('contours');
+  });
   it('validates a complete finite and bounded observational graph', () => {
     expect(parseObservedVisualGraph(JSON.stringify(graph()))).toEqual(graph());
     expect(() => parseObservedVisualGraph('pas du JSON')).toThrow('JSON');
