@@ -135,7 +135,7 @@ test('manage 16 saved configurations at once: select all, retain 3, confirm, and
   await confirmation.getByRole('button', { name: 'Confirmer la suppression de 13 configuration(s)' }).click();
 
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Gérer les configurations (3)' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Gérer (3)' })).toBeVisible();
   await expect(options.getByRole('checkbox')).toHaveCount(3);
   await expect(options.getByText('Ancien 16')).toHaveCount(0);
   await expect(page.locator('#evaluation-profile-select')).toHaveValue('');
@@ -150,7 +150,7 @@ test('manage 16 saved configurations at once: select all, retain 3, confirm, and
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await page.getByText('Créer ou modifier une configuration IA', { exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Gérer les configurations (3)' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Gérer (3)' })).toBeVisible();
   await expect(page.locator('#evaluation-profile-select option')).toHaveCount(4);
   await expect(page.locator('#evaluation-profile-select')).toContainText('Garder 1');
   await expect(page.locator('#evaluation-profile-select')).not.toContainText('Ancien');
