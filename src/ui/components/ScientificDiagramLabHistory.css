@@ -44,3 +44,8 @@
 
 .diagram-lab-history-heading-actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
 .diagram-lab-history-import-feedback { font-size: .85rem; }
+
+.diagram-lab-history-sections { display:flex; flex-wrap:wrap; gap:var(--ds-space-2); border-bottom:1px solid var(--ds-color-border); padding-bottom:var(--ds-space-3); }
+.diagram-lab-history-sections button { border:1px solid var(--ds-color-border); border-radius:var(--ds-radius-sm); padding:var(--ds-space-3) var(--ds-space-4); background:var(--ds-color-surface); color:var(--ds-color-text); font:inherit; font-weight:600; cursor:pointer; }
+.diagram-lab-history-sections button[aria-selected="true"] { background:var(--ds-color-brand-100); color:var(--ds-color-brand-700); border-color:var(--ds-color-brand-700); }
+.diagram-lab-history-sections button:focus-visible { outline:2px solid var(--ds-color-brand-700); outline-offset:2px; }
