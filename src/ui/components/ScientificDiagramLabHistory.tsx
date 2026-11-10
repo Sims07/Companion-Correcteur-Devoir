@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DiagramLabArchiveRepository } from '../../ports/diagramLabArchiveRepository.ts';
-import { compareDiagramLabEntries, diagramLabProtocolLabels, type DiagramLabArchiveEntry, type DiagramLabProtocol } from '../../domain/diagramLabHistory.ts';
+import { compareDiagramLabEntries, diagramLabProtocolLabels, parseDiagramLabReportJson, summarizeDiagramLabReport, type DiagramLabArchiveEntry, type DiagramLabProtocol } from '../../domain/diagramLabHistory.ts';
 import { diagramMethodLabels } from '../../domain/scientificDiagramProtocol.ts';
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { buildDiagramLabComparison } from '../../domain/diagramLabComparison.ts';
@@ -138,6 +138,29 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [comparisonId, setComparisonId] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [importNotice, setImportNotice] = useState('');
+  const [importBusy, setImportBusy] = useState(false);
+  async function importReport(file?: File) {
+    if (!file) return;
+    setImportBusy(true);
+    setImportNotice('');
+    try {
+      if (file.size > 20_000_000) throw new Error('Rapport trop volumineux (20 Mo maximum).');
+      const report = parseDiagramLabReportJson(await file.text());
+      const entry = summarizeDiagramLabReport(report, 'finished');
+      await repository.save(entry);
+      setProtocolFilter('all');
+      setSearch('');
+      setSelectedId(entry.id);
+      setReload((value) => value + 1);
+      setImportNotice('Ancien rapport importé dans le carnet local.');
+    } catch (cause) {
+      setImportNotice('Import impossible : ' + (cause instanceof Error ? cause.message : String(cause)));
+    } finally {
+      setImportBusy(false);
+    }
+  }
   useEffect(() => {
     let active = true;
     void repository.list().then((items) => {
@@ -161,8 +184,19 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
     <div className="diagram-lab-history-heading">
       <div><p className="eyebrow">LABORATOIRE · ARCHIVES LOCALES</p><h2>Carnet des résultats</h2>
         <p>Retrouvez les mesures par date, modèle et protocole, même après fermeture de l’application. Les essais en cours sont également conservés au fil de l’exécution.</p></div>
-      <Button variant="secondary" onClick={() => setReload((value) => value + 1)}>Actualiser</Button>
+      <div className="diagram-lab-history-heading-actions">
+        <input ref={fileInput} type="file" accept=".json,application/json" hidden
+          aria-label="Choisir un ancien rapport JSON"
+          onChange={(event) => {
+            const chosen = event.currentTarget.files?.[0];
+            event.currentTarget.value = '';
+            void importReport(chosen);
+          }} />
+        <Button variant="secondary" disabled={importBusy} onClick={() => fileInput.current?.click()}>Importer un ancien JSON</Button>
+        <Button variant="secondary" onClick={() => setReload((value) => value + 1)}>Actualiser</Button>
+      </div>
     </div>
+    {importNotice && <p role="status" className="diagram-lab-history-import-feedback">{importNotice}</p>}
     {(archiveError || loadingError) && <p role="alert" className="diagram-lab-history-warning">
       Sauvegarde locale indisponible : {archiveError || loadingError}. Exportez vos JSON pour conserver les résultats.
     </p>}

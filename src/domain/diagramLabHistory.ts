@@ -72,3 +72,58 @@ export function compareDiagramLabEntries(a: DiagramLabArchiveEntry, b: DiagramLa
   if (a.report.format !== b.report.format) return 'Les rapports sont de formats différents.';
   return null;
 }
+
+
+/** Accept only reports exported by the scientific diagram laboratory. Older JSON
+ * exports can be imported; copies, images and arbitrary documents are rejected. */
+export function parseDiagramLabReportJson(json: string): DiagramLabReport {
+  if (json.length > 20_000_000) throw new Error('Rapport trop volumineux (20 Mo maximum).');
+  let value: unknown;
+  try { value = JSON.parse(json); }
+  catch { throw new Error('Ce fichier ne contient pas un JSON lisible.'); }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Le rapport attendu doit être un objet JSON.');
+  }
+  const report = value as Record<string, unknown>;
+  const formats = [
+    'companion-scientific-diagram-protocol',
+    'companion-scientific-diagram-fixture-report',
+    'companion-scientific-diagram-sensitivity-report',
+    'companion-scientific-diagram-blind-graph-report',
+  ];
+  if (!formats.includes(String(report.format ?? ''))) {
+    throw new Error('Format de rapport non reconnu. Utilisez un export de schémas scientifiques du Compagnon.');
+  }
+  if (typeof report.createdAt !== 'string' || !Number.isFinite(Date.parse(report.createdAt)) ||
+    typeof report.plannedRepetitions !== 'number' || ![1, 3, 5].includes(report.plannedRepetitions) ||
+    typeof report.localOnly !== 'boolean') {
+    throw new Error('Date, répétitions ou provenance manquantes dans le rapport.');
+  }
+  if (report.format === 'companion-scientific-diagram-protocol') {
+    if (!Array.isArray(report.experiments) || !Array.isArray(report.summaries)) {
+      throw new Error('Essais ou synthèses manquants dans le rapport.');
+    }
+    if (!report.experiments.every((item: unknown) => item && typeof item === 'object' &&
+      typeof (item as Record<string, unknown>).profileName === 'string' &&
+      typeof (item as Record<string, unknown>).status === 'string')) {
+      throw new Error('Essais du rapport incomplets.');
+    }
+  } else {
+    if (!Array.isArray(report.cases) || !report.cases.every((item: unknown) => item && typeof item === 'object' &&
+      Array.isArray((item as Record<string, unknown>).experiments) &&
+      ((item as Record<string, unknown>).experiments as unknown[]).every((run) =>
+        run && typeof run === 'object' &&
+        typeof (run as Record<string, unknown>).profileName === 'string' &&
+        typeof (run as Record<string, unknown>).status === 'string'))) {
+      throw new Error('Dessins ou passages manquants dans le rapport.');
+    }
+    if (report.format === 'companion-scientific-diagram-fixture-report') {
+      if (!report.cases.every((item: Record<string, unknown>) => Array.isArray(item.summaries))) {
+        throw new Error('Synthèses des dessins manquantes dans le rapport.');
+      }
+    } else if (!Array.isArray(report.statistics)) {
+      throw new Error('Mesures scientifiques manquantes dans le rapport.');
+    }
+  }
+  return report as DiagramLabReport;
+}

@@ -41,3 +41,6 @@
 .diagram-lab-case-image { display: flex; flex-wrap: wrap; align-items: start; gap: var(--ds-space-4); }
 .diagram-lab-case-image img { width: min(220px, 100%); height: 126px; object-fit: contain; border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-sm); background: #fff; }
 .diagram-lab-case-image h4 { flex: 1; min-width: 180px; }
+
+.diagram-lab-history-heading-actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+.diagram-lab-history-import-feedback { font-size: .85rem; }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareDiagramLabEntries, summarizeDiagramLabReport } from '../../src/domain/diagramLabHistory.ts';
+import { compareDiagramLabEntries, parseDiagramLabReportJson, summarizeDiagramLabReport } from '../../src/domain/diagramLabHistory.ts';
 import { buildBlindVisualObservationReport } from '../../src/domain/scientificDiagramBlindGraph.ts';
 import { buildScientificDiagramFixtureReport } from '../../src/domain/scientificDiagramFixtures.ts';
 
@@ -16,6 +16,14 @@ describe('diagram laboratory archive metadata', () => {
     expect(archive.profiles).toEqual(['Vision A']);
     expect(archive.successfulCount).toBe(1);
     expect(archive.id).toBe(initial.id);
+  });
+
+  it('imports prior exported reports but rejects arbitrary or malformed JSON', () => {
+    const report = buildBlindVisualObservationReport([], 1, '2026-11-10T17:00:00.000Z');
+    expect(parseDiagramLabReportJson(JSON.stringify(report))).toEqual(report);
+    expect(() => parseDiagramLabReportJson('{')).toThrow('JSON lisible');
+    expect(() => parseDiagramLabReportJson(JSON.stringify({ ...report, format: 'personal-copies' }))).toThrow('Format');
+    expect(() => parseDiagramLabReportJson(JSON.stringify({ ...report, cases: null }))).toThrow('Dessins');
   });
 
   it('preserves complete graph reports and separates protocol versions', () => {
