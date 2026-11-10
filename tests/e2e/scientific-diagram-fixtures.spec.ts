@@ -137,7 +137,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     .getByRole('button', { name: /Qualité graphique · A\/B\/C/ }).first()).toBeVisible();
   await expect(journal.getByText('D1 test image').first()).toBeVisible();
   await expect(exportStrip).toBeVisible();
-  await page.getByRole('button', { name: /1.*Protocoles/ }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
   await expect(results.locator('tbody tr')).toHaveCount(3);
   for (const req of systemOneRequests) {
     expect(req.imageCount).toBe(1);
