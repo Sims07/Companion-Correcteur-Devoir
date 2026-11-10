@@ -59,6 +59,9 @@ import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TIT
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import type { DiagramThinkSetting } from '../ports/correctionWorkspace.ts';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
+import { ScientificDiagramLabHistory } from './components/ScientificDiagramLabHistory.tsx';
+import { summarizeDiagramLabReport, type DiagramLabReport } from '../domain/diagramLabHistory.ts';
+import { saveDiagramLabEntry } from '../adapters/storage/diagramLabArchive.ts';
 import { initialAssignmentRubric, type AssignmentKind } from '../domain/assignmentKind.ts';
 import { buildDiagramReview } from '../domain/diagramTeacherReview.ts';
 import { directDiagramAssignmentIssue, isLoopbackDiagramEndpoint } from '../application/directScientificDiagramCorrection.ts';
@@ -439,6 +442,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationEditorOpen, setEvaluationEditorOpen] = useState(aiModelProfiles.length === 0);
   const [evaluationBiologyScenario, setEvaluationBiologyScenario] = useState<'contracts' | 'repeatability' | 'copies'>('contracts');
   const [evaluationJourney, setEvaluationJourney] = useState<'custom' | 'diagrams' | 'biology'>('custom');
+  const [diagramLabView, setDiagramLabView] = useState<'protocols' | 'history'>('protocols');
   const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history'>('configuration');
   const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
   const [evaluationVisualDirect, setEvaluationVisualDirect] = useState(false);
@@ -462,6 +466,29 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [diagramFixtureReport, setDiagramFixtureReport] = useState<ReturnType<typeof buildScientificDiagramFixtureReport> | null>(null);
   const [diagramSensitivityReport, setDiagramSensitivityReport] = useState<ReturnType<typeof buildScientificDiagramSensitivityReport> | null>(null);
   const [diagramBlindGraphReport, setDiagramBlindGraphReport] = useState<ReturnType<typeof buildBlindVisualObservationReport> | null>(null);
+  const [diagramHistoryRevision, setDiagramHistoryRevision] = useState(0);
+  const [diagramHistoryError, setDiagramHistoryError] = useState('');
+  const diagramArchiveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const activeDiagramReportRef = useRef<'fixture' | 'sensitivity' | 'graph' | 'personal' | null>(null);
+  // Persist intermediate runs as well as the final report. Each report's createdAt
+  // identifies one experiment; subsequent updates overwrite that same IndexedDB row.
+  // Writes are serialized so an older partial result cannot replace a newer one.
+  useEffect(() => {
+    const pending: Array<{ kind: 'fixture' | 'sensitivity' | 'graph' | 'personal'; report: DiagramLabReport }> = [];
+    if (diagramFixtureReport) pending.push({ kind: 'fixture', report: diagramFixtureReport });
+    if (diagramSensitivityReport) pending.push({ kind: 'sensitivity', report: diagramSensitivityReport });
+    if (diagramBlindGraphReport) pending.push({ kind: 'graph', report: diagramBlindGraphReport });
+    if (diagramProtocolReport) pending.push({ kind: 'personal', report: diagramProtocolReport });
+    if (pending.length === 0) return;
+    const entries = pending.map(({ kind, report }) =>
+      summarizeDiagramLabReport(report, pilotBusy && activeDiagramReportRef.current === kind ? 'running' : 'finished'));
+    diagramArchiveQueueRef.current = diagramArchiveQueueRef.current.catch(() => {}).then(async () => {
+      for (const entry of entries) await saveDiagramLabEntry(entry);
+    }).then(() => {
+      setDiagramHistoryError('');
+      setDiagramHistoryRevision((value) => value + 1);
+    }).catch((cause) => setDiagramHistoryError(cause instanceof Error ? cause.message : String(cause)));
+  }, [diagramFixtureReport, diagramSensitivityReport, diagramBlindGraphReport, diagramProtocolReport, pilotBusy]);
   const blindGraphAbortRef = useRef<AbortController | null>(null);
   const pilotStopRef = useRef(false);
   const pilotMemoryErrorRef = useRef<string | null>(null);
@@ -2251,6 +2278,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   async function runScientificDiagramProtocol(request: DiagramProtocolRequest) {
     const createdAt = new Date().toISOString();
+    activeDiagramReportRef.current = 'personal';
     setDiagramProtocolReport(null);
     const build = (runs: readonly { repetition: number; record: ModelEvaluationRecord }[]) =>
       buildScientificDiagramProtocolReport(
@@ -2270,6 +2298,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     request: { cases: Array<{ id: ScientificDiagramFixtureId; images: ImageInput[] }>; repetitions: DiagramProtocolCount; methodSelection: DiagramMethodSelection },
   ) {
     const createdAt = new Date().toISOString();
+    activeDiagramReportRef.current = 'fixture';
     setDiagramFixtureReport(null);
     const build = (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }[]) =>
       buildScientificDiagramFixtureReport(
@@ -2295,6 +2324,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     },
   ) {
     const createdAt = new Date().toISOString();
+    activeDiagramReportRef.current = 'sensitivity';
     setDiagramSensitivityReport(null);
     const build = (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; promptMode?: DiagramSensitivityPromptMode }[]) =>
       buildScientificDiagramSensitivityReport(
@@ -2332,6 +2362,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       request.cases.some((item) => !item.images.length)) {
       throw new Error('Les six dessins doivent avoir une image préparée.');
     }
+    activeDiagramReportRef.current = 'graph';
     setDiagramBlindGraphReport(null);
     const createdAt = new Date().toISOString();
     const runs: BlindVisualObservationRun[] = [];
@@ -3531,14 +3562,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div><h1 id="evaluation-page-title">Évaluation des modèles</h1><p>Choisissez un test, sélectionnez vos modèles et lancez l'expérience. Les résultats sont enregistrés localement.</p></div>
       </section>}
       {interfaceMode === 'diagnostic' && <nav className="evaluation-step-nav" data-journey={evaluationJourney} aria-label="Espaces de l’évaluation">
-        <button type="button" className={evaluationWorkspaceStep === 'configuration' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'configuration' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('configuration')}><span>1</span><strong>Configuration</strong><small>Choisir et préparer un test</small></button>
+        <button type="button" className={evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') ? 'step' : undefined} onClick={() => { setEvaluationWorkspaceStep('configuration'); setDiagramLabView('protocols'); }}><span>1</span><strong>{evaluationJourney === 'diagrams' ? 'Protocoles' : 'Configuration'}</strong><small>Choisir et préparer un test</small></button>
         <button type="button" hidden={evaluationJourney !== 'custom'} className={evaluationWorkspaceStep === 'execution' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'execution' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('execution')}><span>2</span><strong>Exécution</strong><small>Progression en direct</small></button>
         <button type="button" hidden={evaluationJourney !== 'custom'} className={evaluationWorkspaceStep === 'results' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'results' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('results')}><span>3</span><strong>Résultats</strong><small>Notes, temps et tokens</small></button>
-        <button type="button" className={evaluationWorkspaceStep === 'history' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'history' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('history')}><span>{evaluationJourney === 'custom' ? '4' : '2'}</span><strong>Analyse & historique</strong><small>Comparer les essais passés</small></button>
+        <button type="button" className={evaluationJourney === 'diagrams' ? (diagramLabView === 'history' ? 'is-active' : '') : (evaluationWorkspaceStep === 'history' ? 'is-active' : '')} aria-current={evaluationJourney === 'diagrams' ? (diagramLabView === 'history' ? 'step' : undefined) : (evaluationWorkspaceStep === 'history' ? 'step' : undefined)} onClick={() => { if (evaluationJourney === 'diagrams') { setEvaluationWorkspaceStep('configuration'); setDiagramLabView('history'); } else setEvaluationWorkspaceStep('history'); }}><span>{evaluationJourney === 'custom' ? '4' : '2'}</span><strong>{evaluationJourney === 'diagrams' ? 'Carnet de résultats' : 'Analyse & historique'}</strong><small>Comparer les essais passés</small></button>
       </nav>}
-      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && <section id="evaluation-configurations" className="panel evaluation-config-workspace" aria-labelledby="evaluation-config-title">
-        {evaluationJourney !== 'custom' && <p className="evaluation-stage-guidance">Tests automatiques : la progression, l’arrêt, les résultats et l’export sont disponibles dans le protocole choisi ci-dessous.</p>}
-        <EvaluationJourneyPicker value={evaluationJourney} disabled={busy || pilotBusy} onChange={setEvaluationJourney} />
+      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && <section id="evaluation-configurations" className="panel evaluation-config-workspace" aria-labelledby="evaluation-config-title">
+        {evaluationJourney !== 'custom' && <p className="evaluation-stage-guidance">Tests automatiques en un clic. Les résultats sont consultables à tout moment dans le carnet local, sans export JSON.</p>}
+        <EvaluationJourneyPicker value={evaluationJourney} disabled={busy || pilotBusy} onChange={(journey) => { setEvaluationJourney(journey); if (journey === 'diagrams') setDiagramLabView('protocols'); }} />
         <div className="evaluation-section-heading"><div><p className="eyebrow">ÉTAPE 1 · CONFIGURATIONS</p><h2 id="evaluation-config-title">Choisir les configurations à évaluer</h2><p>Créez ou modifiez vos profils ici, sans passer par les réglages du parcours de correction. Les profils sont enregistrés localement sur cet appareil.</p></div><div className="ai-profile-management-entry"><span className="evaluation-step-chip">{aiModelProfiles.length} profil(s)</span><Button variant="secondary" disabled={busy || pilotBusy || aiModelProfiles.length === 0} onClick={() => setManagingAiProfiles(true)}>Gérer les configurations ({aiModelProfiles.length})</Button></div></div>
         <div className="evaluation-selection-block"><div className="evaluation-section-heading compact"><div><h3>Sélection pour cette expérience</h3><p>Choisissez une à trois configurations. Une seule suffit pour mesurer ses performances ; plusieurs permettent de comparer leurs résultats sur les mêmes pages et le même barème.</p></div><span aria-live="polite" className={selectedEvaluationProfileIds.length >= 1 ? 'evaluation-step-chip ready' : 'evaluation-step-chip'}>{selectedEvaluationProfileIds.length} / 3 sélectionnée(s)</span></div>
           {aiModelProfiles.length < 1 ? <div className="evaluation-empty-inline"><strong>Aucune configuration enregistrée.</strong><p>Ouvrez « Créer ou modifier une configuration IA » ci-dessous pour pouvoir lancer une première évaluation.</p></div> : <fieldset className="evaluation-profile-list" aria-describedby="evaluation-profile-selection-help"><legend>Configurations à exécuter</legend><p id="evaluation-profile-selection-help" className="evaluation-selection-help">La même copie sera relue et notée par chaque configuration. L’ordre reste séquentiel pour limiter la mémoire utilisée par Ollama.</p><div className="evaluation-profile-options">{aiModelProfiles.map((profile) => { const selected = selectedEvaluationProfileIds.includes(profile.id); const disabled = busy || pilotBusy || (!selected && selectedEvaluationProfileIds.length >= 3); return <label key={profile.id} className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}><input className="evaluation-profile-checkbox" type="checkbox" checked={selected} disabled={disabled} onChange={(event) => setSelectedEvaluationProfileIds((current) => event.target.checked ? [...current, profile.id].slice(-3) : current.filter((id) => id !== profile.id))} /><span className="evaluation-profile-card-content"><strong>{profile.name}</strong><span className="evaluation-profile-models"><span><small>LECTURE</small><b>{profile.configuration.visionModel || 'Modèle non défini'}</b></span><span><small>{profile.configuration.correctionMethod === 'generative' ? 'GÉNÉRATIF' : 'DÉCISIONNEL'}</small><b>{profile.configuration.analysisModel || 'Modèle non défini'}</b></span></span>{profile.configuration.analysisThinking && <span className="evaluation-profile-thinking">Thinking activé</span>}</span><span className="evaluation-profile-selection-mark" aria-hidden="true">{selected ? '✓' : '+'}</span></label>; })}</div></fieldset>}
@@ -4291,7 +4322,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           {evaluationProgress.status === 'running' && <div className="evaluation-phase-panel"><strong>{evaluationStage === 'preparing' ? '1. Préparation des modèles' : evaluationStage === 'reading' ? '2. Lecture des images et extraction du texte' : evaluationStage === 'grading' ? (evaluationProgress.currentConfiguration?.directVisualDecision ? 'Décision sur la preuve visuelle (sans OCR)' : '3. Analyse de la copie et attribution des notes') : evaluationStage === 'parsing' ? '4. Structuration et vérification du résultat' : evaluationStage === 'saving' ? '5. Enregistrement de l’expérience locale' : 'Initialisation'}</strong><p>{evaluationStage === 'preparing' ? 'Vérification de la disponibilité des modèles Ollama avant de commencer cette configuration.' : evaluationStage === 'reading' ? 'Le modèle Vision traite les images originales de la copie.' : evaluationStage === 'grading' ? (evaluationProgress.currentConfiguration?.directVisualDecision ? 'D1/D3 évalue directement les images selon les attendus du barème. Les décisions restent provisoires.' : 'Le modèle d’analyse confronte la transcription au barème et prépare les notes.') : evaluationStage === 'parsing' ? 'La réponse est convertie en critères, notes et justifications exploitables.' : evaluationStage === 'saving' ? 'Les résultats, les images et le barème sont enregistrés dans l’historique local.' : 'Mise en place de la séquence de test.'}</p></div>}
         </section>}
         {evaluationWorkspaceStep === 'execution' && busy && streamedOutput && <section className="transcription-review" aria-live="polite"><h3>Réponse du modèle en streaming</h3><pre>{streamedOutput}</pre></section>}
-        {evaluationWorkspaceStep === 'history' && <section className="evaluation-result-list evaluation-history-workspace" aria-labelledby="model-evaluation-history-title">
+        {evaluationJourney === 'diagrams' && diagramLabView === 'history' && evaluationWorkspaceStep === 'configuration' &&
+          <ScientificDiagramLabHistory revision={diagramHistoryRevision} archiveError={diagramHistoryError} />}
+        {evaluationWorkspaceStep === 'history' && evaluationJourney !== 'diagrams' && <section className="evaluation-result-list evaluation-history-workspace" aria-labelledby="model-evaluation-history-title">
           <div className="evaluation-section-heading"><div><p className="eyebrow">MESURES CONSERVÉES LOCALEMENT</p><h3 id="model-evaluation-history-title">Historique & comparaison graphique</h3><p>Choisissez Vision, Analyse ou le parcours complet. Vous pouvez comparer les configurations d’un seul essai dès qu’il contient plusieurs modèles, ou comparer deux essais du même type. Les résultats restent sur cet appareil. Un essai non sauvegardé est marqué « session uniquement » et disparaît à la fermeture ou au rechargement de la page.</p></div><span className="evaluation-step-chip">{savedModelEvaluations.length} essai(s)</span></div>
           <div className="evaluation-history-stage-filter" role="group" aria-label="Filtrer les expériences par type">
             {([
