@@ -72,6 +72,7 @@ test('a scientific diagram protocol accepts a photo, rubric, teacher decisions a
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
 
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
+  await panel.locator('details.diagram-lab-legacy > summary').click();
   await expect(panel.getByText('15 attendus', { exact: false }).first()).toBeVisible();
   await expect(panel.getByText('8 points', { exact: false }).first()).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Tester le schéma en un clic' })).toBeDisabled();

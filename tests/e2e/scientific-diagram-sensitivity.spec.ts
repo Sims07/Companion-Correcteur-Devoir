@@ -69,9 +69,8 @@ test('semantic sensitivity suite sends the same independent rubric with six pixe
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
 
   const section = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
-  const suite = section.locator('details.diagram-sensitivity-section')
-    .filter({ has: page.getByText('Tester la compréhension sémantique : 6 variantes contrôlées') });
-  await suite.locator('summary').click();
+  await section.getByRole('tab', { name: /Compréhension biologique/ }).click();
+  const suite = section.getByRole('region', { name: 'Sensibilité sémantique' });
   await expect(suite.locator('.diagram-fixture-card')).toHaveCount(6);
   await expect(suite.getByText('À arbitrer', { exact: true })).toBeVisible();
   await expect(suite.getByRole('button', { name: 'Tester les 6 variantes sémantiques' })).toBeDisabled();

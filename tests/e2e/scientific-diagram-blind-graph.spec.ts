@@ -67,9 +67,8 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
-  const observer = panel.locator('details.diagram-sensitivity-section')
-    .filter({ has: page.getByText('Observer un graphe de relations avant le barème (Ollama ou OpenAI-compatible)') });
-  await observer.locator('summary').click();
+  await panel.getByRole('tab', { name: /Graphe des relations/ }).click();
+  const observer = panel.getByRole('region', { name: 'Extraction du graphe de relations' });
   const start = observer.getByRole('button', { name: 'Extraire les relations des 6 schémas' });
   await expect(start).toBeDisabled();
   await expect(observer.getByRole('status')).toContainText('Sélectionnez au moins une configuration');
@@ -205,9 +204,8 @@ test('blind graph observer supports an explicitly selected OpenAI-compatible Vis
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
-  const observer = panel.locator('details.diagram-sensitivity-section')
-    .filter({ has: page.getByText('Observer un graphe de relations avant le barème (Ollama ou OpenAI-compatible)') });
-  await observer.locator('summary').click();
+  await panel.getByRole('tab', { name: /Graphe des relations/ }).click();
+  const observer = panel.getByRole('region', { name: 'Extraction du graphe de relations' });
   const start = observer.getByRole('button', { name: 'Extraire les relations des 6 schémas' });
   await expect(start).toBeDisabled();
   await page.getByRole('group', { name: 'Configurations à exécuter' })
@@ -290,10 +288,9 @@ test('blind graph uses saved Bonsai generative Vision model even with decision c
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
-  const observer = page.getByRole('region', { name: 'Protocole schémas scientifiques' })
-    .locator('details.diagram-sensitivity-section')
-    .filter({ has: page.getByText('Observer un graphe de relations avant le barème (Ollama ou OpenAI-compatible)') });
-  await observer.locator('summary').click();
+  const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
+  await panel.getByRole('tab', { name: /Graphe des relations/ }).click();
+  const observer = panel.getByRole('region', { name: 'Extraction du graphe de relations' });
   const start = observer.getByRole('button', { name: 'Extraire les relations des 6 schémas' });
   await expect(start).toBeEnabled();
   await expect(observer.getByText(/Modèle réellement envoyé aux six schémas/)).toContainText('bonsai-2:4b');
@@ -306,9 +303,8 @@ test('blind graph uses saved Bonsai generative Vision model even with decision c
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
-  const afterReload = page.getByRole('region', { name: 'Protocole schémas scientifiques' })
-    .locator('details.diagram-sensitivity-section')
-    .filter({ has: page.getByText('Observer un graphe de relations avant le barème (Ollama ou OpenAI-compatible)') });
-  await afterReload.locator('summary').click();
+  const afterReloadPanel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
+  await afterReloadPanel.getByRole('tab', { name: /Graphe des relations/ }).click();
+  const afterReload = afterReloadPanel.getByRole('region', { name: 'Extraction du graphe de relations' });
   await expect(afterReload.getByRole('button', { name: 'Extraire les relations des 6 schémas' })).toBeEnabled();
 });

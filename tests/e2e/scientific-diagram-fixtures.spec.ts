@@ -132,9 +132,12 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     .flatMap((summary) => summary.decisions)
     .every((decision) => !decision.stable
       && decision.stableAndResolved === null && decision.correctEveryTime === null)).toBe(true);
-  await page.getByRole('button', { name: /Analyse & historique/ }).click();
+  await page.getByRole('button', { name: /Carnet de résultats/ }).click();
+  const journal = page.getByRole('region', { name: 'Carnet des résultats scientifiques' });
+  await expect(journal.getByText('Qualité graphique · A/B/C').first()).toBeVisible();
+  await expect(journal.getByText('D1 test image').first()).toBeVisible();
   await expect(exportStrip).toBeVisible();
-  await page.getByRole('button', { name: /1.*Configuration/ }).click();
+  await page.getByRole('button', { name: /1.*Protocoles/ }).click();
   await expect(results.locator('tbody tr')).toHaveCount(3);
   for (const req of systemOneRequests) {
     expect(req.imageCount).toBe(1);
