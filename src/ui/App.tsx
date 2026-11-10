@@ -66,7 +66,7 @@ import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, d
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_CONTEXT, DIAGRAM_SENSITIVITY_RUBRIC, buildScientificDiagramSensitivityReport, type DiagramSensitivityCaseId, type DiagramSensitivityRun, type DiagramSensitivityPromptMode } from '../domain/scientificDiagramSensitivity.ts';
 import { buildBlindVisualObservationReport, compareBlindVisualGraph, explainBlindVisualGraph, canObserveBlindGraph, type BlindGraphDiagnostic,
-  type BlindVisualObservationRun } from '../domain/scientificDiagramBlindGraph.ts';
+  type BlindVisualObservationRun, type BlindGraphPromptVariant } from '../domain/scientificDiagramBlindGraph.ts';
 import { ALL_QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_CASES, QUESTION_CONTRACT_PROTOCOL_ID, QUESTION_CONTRACT_QUESTION, QUESTION_CONTRACT_TITLE, buildQuestionContractReport, questionContractRubric, type QuestionContractRun, type QuestionContractVariant, type QuestionContractCase } from '../domain/questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, questionContractRepeatabilitySteps, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../domain/questionContractRepeatability.ts';
 import { runPilotCriterionConcurrency, type PilotConcurrencyRun } from '../application/pilotCriterionConcurrency.ts';
@@ -2296,7 +2296,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function runScientificDiagramBlindGraph(
-    request: { cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>; repetitions: DiagramProtocolCount; zoomUncertainArrows?: boolean },
+    request: { cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>; repetitions: DiagramProtocolCount; zoomUncertainArrows?: boolean; promptVariant?: BlindGraphPromptVariant },
   ) {
     if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
     if (!service.extractBlindDiagramGraph) throw new Error('Lecteur de graphe indisponible.');
@@ -2321,7 +2321,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const createdAt = new Date().toISOString();
     const runs: BlindVisualObservationRun[] = [];
     const emit = () => {
-      const report = buildBlindVisualObservationReport(runs, request.repetitions, createdAt);
+      const report = buildBlindVisualObservationReport(runs, request.repetitions, createdAt, request.promptVariant ?? 'baseline');
       setDiagramBlindGraphReport(report);
       return report;
     };
@@ -2342,12 +2342,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               const graph = await service.extractBlindDiagramGraph(
                 profile.configuration.endpoint, model, entry.images[0]!, controller.signal,
                 (value) => { diagnostic = value; },
-                { apiCompatible: profile.configuration.apiCompatible, apiKey: profile.configuration.apiKey },
+                { apiCompatible: profile.configuration.apiCompatible, apiKey: profile.configuration.apiKey, promptVariant: request.promptVariant ?? 'baseline' },
                 request.zoomUncertainArrows,
               );
               runs.push({
                 caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
-                model, zoom: Boolean(request.zoomUncertainArrows), provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
+                model, zoom: Boolean(request.zoomUncertainArrows), promptVariant: request.promptVariant ?? 'baseline', provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
                 remote: !isLoopbackPilotEndpoint(profile.configuration.endpoint),
                 status: 'success', durationMs: Math.round(performance.now() - started),
                 observations: compareBlindVisualGraph(graph), graph, diagnostic,
@@ -2359,7 +2359,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 (cause instanceof Error && cause.name === 'AbortError');
               runs.push({
                 caseId: entry.id, repetition, profileId: profile.id, profileName: profile.name,
-                model, zoom: Boolean(request.zoomUncertainArrows), provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
+                model, zoom: Boolean(request.zoomUncertainArrows), promptVariant: request.promptVariant ?? 'baseline', provider: profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama-local',
                 remote: !isLoopbackPilotEndpoint(profile.configuration.endpoint),
                 status: interrupted ? 'aborted' : 'failed',
                 durationMs: Math.round(performance.now() - started),
