@@ -110,13 +110,49 @@
 .diagram-sensitivity-grid .diagram-fixture-card-body { gap: var(--ds-space-1); }
 .diagram-sensitivity-grid .diagram-fixture-card-body p { margin: 0; }
 
-/* One protocol at a time: no vertical pile of collapsed experimental suites. */
-.diagram-lab-catalog { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ds-space-3); margin: var(--ds-space-3) 0; }
-.diagram-lab-catalog button { min-width: 0; display: flex; flex-direction: column; align-items: start; gap: var(--ds-space-2); text-align: left; padding: var(--ds-space-4); background: var(--ds-color-surface); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); color: var(--ds-color-text); cursor: pointer; }
-.diagram-lab-catalog button[aria-selected="true"] { background: var(--ds-color-brand-100); border-color: var(--ds-color-brand-700); box-shadow: inset 0 0 0 1px var(--ds-color-brand-700); }
-.diagram-lab-catalog button:focus-visible { outline: 2px solid var(--ds-color-brand-700); outline-offset: 2px; }
-.diagram-lab-catalog button strong { font-size: 1rem; line-height: 1.3; }
-.diagram-lab-catalog button small, .diagram-lab-catalog button span { font-size: .82rem; color: var(--ds-color-text-muted); line-height: 1.4; }
+/* Four compact protocol choices; the selected test content is the only full workspace. */
+.diagram-lab-catalog {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  padding: 3px;
+  margin: var(--ds-space-1) 0;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface-subtle);
+}
+.diagram-lab-catalog button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-2);
+  min-width: 0;
+  min-height: 42px;
+  padding: var(--ds-space-2);
+  color: var(--ds-color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  cursor: pointer;
+  text-align: center;
+}
+.diagram-lab-catalog button[aria-selected="true"] {
+  color: var(--ds-color-text);
+  background: var(--ds-color-surface);
+  box-shadow: var(--ds-shadow-control);
+}
+.diagram-lab-catalog button:focus-visible { outline: 2px solid var(--ds-color-brand-700); outline-offset: 0; }
+.diagram-lab-catalog button strong { font-size: .82rem; line-height: 1.3; }
+.diagram-lab-catalog button small { font-size: .71rem; white-space: nowrap; color: var(--ds-color-text-muted); }
+.diagram-lab-catalog-description { display: none; }
+.diagram-lab-protocol-summary { margin: 0; color: var(--ds-color-text-muted); font-size: .8rem; }
+.diagram-lab-explanation { color: var(--ds-color-text-muted); min-width: 0; font-size: .8rem; }
+.diagram-lab-explanation > summary { cursor: pointer; width: fit-content; padding: var(--ds-space-1); font-weight: 600; color: var(--ds-color-text-muted); }
+.diagram-lab-explanation > p { margin-top: var(--ds-space-2); }
+.diagram-protocol-panel .diagram-protocol-fixtures { padding: var(--ds-space-3); }
+.diagram-protocol-panel .diagram-fixture-run-controls { gap: var(--ds-space-2); }
+.diagram-protocol-panel .diagram-fixture-run-controls > .pilot-evaluation-actions { margin-top: 0; }
+.diagram-protocol-panel .pilot-evaluation-head > div { gap: var(--ds-space-1); }
 .diagram-lab-live { display: flex; gap: var(--ds-space-3); align-items: center; flex-wrap: wrap; position: sticky; top: var(--ds-space-2); z-index: 2; padding: var(--ds-space-3); background: var(--ds-color-surface); border: 1px solid var(--ds-color-brand-700); border-radius: var(--ds-radius-md); }
 .diagram-lab-live span { flex: 1 1 280px; }
 .diagram-lab-method { padding: var(--ds-space-3); margin-bottom: var(--ds-space-3); border: 1px solid var(--ds-color-border); background: var(--ds-color-surface); border-radius: var(--ds-radius-md); }
@@ -131,4 +167,4 @@
 .diagram-fixture-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .diagram-protocol-fixtures > .pilot-evaluation-report { margin-top: var(--ds-space-3); }
 @media (max-width: 920px) { .diagram-lab-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .diagram-lab-catalog { grid-template-columns: minmax(0, 1fr); } .diagram-fixture-grid { grid-template-columns: minmax(0,1fr); } .diagram-lab-live { position: static; } }
+@media (max-width: 560px) { .diagram-lab-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); } .diagram-lab-catalog button { min-height: 46px; } .diagram-lab-catalog button strong { font-size: .75rem; } .diagram-lab-catalog button small { font-size: .65rem; } .diagram-fixture-grid { grid-template-columns: minmax(0,1fr); } .diagram-lab-live { position: static; } }
