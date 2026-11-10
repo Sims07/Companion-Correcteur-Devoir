@@ -266,22 +266,45 @@ export interface BlindGraphDiagnostic {
   previousValidationError?: string;
 }
 
-/** Only a selected local Ollama profile or an explicit OpenAI-compatible Vision profile is eligible. */
-export function canObserveBlindGraph(profile: AiModelProfile): boolean {
+/** Use the explicitly configured reader first. A generative Vision model can
+ * also be reused independently of the profile's grading method (e.g. a saved
+ * decision profile that still has a generative model). Never infer vision from
+ * a decision-only model. */
+export function blindGraphVisionModel(profile: AiModelProfile): string {
   const config = profile.configuration;
-  const model = config.visionModel.trim() ||
+  return config.visionModel.trim() || config.generativeModel?.trim() ||
     (config.correctionMethod === 'generative' ? config.analysisModel.trim() : '');
-  if (!model) return false;
+}
+
+/** A disabled experiment must explain precisely what the teacher can fix. */
+export function blindGraphProfileIssue(profile: AiModelProfile): string | null {
+  const config = profile.configuration;
+  if (!blindGraphVisionModel(profile)) {
+    return 'Profil « ' + profile.name + ' » : aucun modèle Vision. Définissez un modèle génératif avec vision ou un modèle de lecture des images.';
+  }
   try {
     const url = new URL(config.endpoint);
-    if (url.username || url.password || url.hash) return false;
-    if (isLocalPilotProfile(profile)) {
-      return !url.search && (url.pathname === '/' || url.pathname === '');
+    if (url.username || url.password || url.hash) {
+      return 'Profil « ' + profile.name + ' » : retirez les identifiants et fragments de l’adresse du serveur.';
     }
-    if (!config.apiCompatible) return false;
+    if (isLocalPilotProfile(profile)) {
+      return !url.search && (url.pathname === '/' || url.pathname === '')
+        ? null : 'Profil « ' + profile.name + ' » : utilisez l’adresse racine de votre Ollama local.';
+    }
+    if (!config.apiCompatible) {
+      return 'Profil « ' + profile.name + ' » : choisissez un Ollama local direct ou le fournisseur API compatible OpenAI.';
+    }
     const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-    return url.protocol === 'https:' || (loopback && url.protocol === 'http:');
-  } catch { return false; }
+    return url.protocol === 'https:' || (loopback && url.protocol === 'http:')
+      ? null : 'Profil « ' + profile.name + ' » : une API distante doit utiliser HTTPS.';
+  } catch {
+    return 'Profil « ' + profile.name + ' » : adresse du serveur invalide.';
+  }
+}
+
+/** Only an explicit local Ollama or OpenAI-compatible Vision profile is eligible. */
+export function canObserveBlindGraph(profile: AiModelProfile): boolean {
+  return blindGraphProfileIssue(profile) === null;
 }
 
 export interface BlindVisualObservationRun {
