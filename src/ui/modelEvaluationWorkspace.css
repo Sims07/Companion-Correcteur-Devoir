@@ -619,3 +619,294 @@
   .evaluation-workspace-shell .evaluation-step-nav button > span { width: 26px; height: 26px; }
   .evaluation-workspace-shell .evaluation-step-nav button small { display: none; }
 }
+
+/* UX 2026-11: one working surface instead of stacked navigation cards and setup panels. */
+.ai-tools-view .developer-tools {
+  margin: var(--ds-space-2) 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+.ai-tools-view .developer-tools-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-5);
+  padding: 0;
+  border-bottom: 1px solid var(--ds-color-border);
+}
+.ai-tools-view .developer-tools-link {
+  width: auto;
+  min-height: 40px;
+  padding: var(--ds-space-2) 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ds-color-text-muted);
+}
+.ai-tools-view .developer-tools-link strong { font-size: .84rem; font-weight: 650; }
+.ai-tools-view .developer-tools-link:is(.is-active, :hover:not(.is-active)) {
+  background: transparent;
+  box-shadow: none;
+}
+.ai-tools-view .developer-tools-link.is-active {
+  color: var(--ds-color-text);
+  border-bottom-color: var(--ds-color-brand-700);
+}
+.ai-tools-view .developer-tools-link:focus-visible { box-shadow: var(--ds-focus-ring); }
+.evaluation-workspace-shell .evaluation-page-header {
+  display: flex;
+  align-items: center;
+  min-height: auto;
+  margin: var(--ds-space-2) 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.evaluation-workspace-shell .evaluation-page-identity {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2) var(--ds-space-4);
+  min-width: 0;
+}
+.evaluation-workspace-shell .evaluation-page-header h1 {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.3vw, 1.85rem);
+}
+.evaluation-workspace-shell .evaluation-page-header p.evaluation-provider-indicator {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--ds-space-2);
+  margin: 0;
+  font-size: .75rem;
+  line-height: 1.45;
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .evaluation-provider-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  align-self: center;
+  border-radius: 50%;
+  background: var(--ds-color-success);
+}
+.evaluation-workspace-shell .evaluation-provider-indicator.is-remote .evaluation-provider-dot {
+  background: var(--ds-color-warning);
+}
+.evaluation-workspace-shell .evaluation-step-nav,
+.evaluation-workspace-shell .evaluation-step-nav:not([data-journey="custom"]) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-4);
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--ds-color-border);
+  background: transparent;
+}
+.evaluation-workspace-shell .evaluation-step-nav button {
+  display: inline-flex;
+  width: auto;
+  min-width: 0;
+  min-height: 38px;
+  gap: 0;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ds-space-2) var(--ds-space-1);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .evaluation-step-nav button strong {
+  color: inherit;
+  font: 650 .8rem/1.35 var(--ds-font-body);
+}
+.evaluation-workspace-shell .evaluation-step-nav button:is(.is-active, [aria-current="page"]),
+.evaluation-workspace-shell .evaluation-step-nav button:is(.is-active, [aria-current="page"]):hover:not(:disabled) {
+  background: transparent;
+  color: var(--ds-color-text);
+  border-color: var(--ds-color-brand-700);
+  box-shadow: none;
+}
+.evaluation-workspace-shell .evaluation-step-nav button:hover:not(.is-active) {
+  background: transparent;
+  color: var(--ds-color-text);
+  border-bottom-color: var(--ds-color-border-strong);
+}
+.evaluation-workspace-shell .evaluation-step-nav button[hidden] { display: none; }
+.evaluation-workspace-shell .evaluation-config-workspace {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.evaluation-workspace-shell .evaluation-journey-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-3);
+  margin: 0 0 var(--ds-space-4);
+}
+.evaluation-workspace-shell .evaluation-journey-label {
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .evaluation-journey-options {
+  display: inline-flex;
+  width: auto;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 3px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface-subtle);
+}
+.evaluation-workspace-shell .evaluation-journey-options button {
+  display: inline-flex;
+  min-height: 34px;
+  width: auto;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--ds-color-text-muted);
+  text-align: center;
+  cursor: pointer;
+}
+.evaluation-workspace-shell .evaluation-journey-options button strong { font-size: .8rem; font-weight: 650; }
+.evaluation-workspace-shell .evaluation-journey-options button[aria-pressed="true"] {
+  border: 0;
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text);
+  box-shadow: var(--ds-shadow-control);
+}
+.evaluation-workspace-shell .evaluation-journey-options button:focus-visible {
+  outline: none;
+  box-shadow: var(--ds-focus-ring);
+}
+.evaluation-workspace-shell .evaluation-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.evaluation-workspace-shell .evaluation-model-selector {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: var(--ds-space-2);
+  margin: 0 0 var(--ds-space-4);
+}
+.evaluation-workspace-shell .evaluation-model-selector > .evaluation-selection-block {
+  flex: 1 1 300px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+}
+.evaluation-workspace-shell .evaluation-model-selector > .evaluation-selection-block > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  min-height: 42px;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  cursor: pointer;
+  list-style: none;
+}
+.evaluation-workspace-shell .evaluation-model-selector > .evaluation-selection-block > summary::-webkit-details-marker { display: none; }
+.evaluation-workspace-shell .evaluation-selection-summary {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: baseline;
+  min-width: 0;
+  gap: var(--ds-space-2);
+}
+.evaluation-workspace-shell .evaluation-selection-summary strong { font-size: .83rem; }
+.evaluation-workspace-shell .evaluation-selection-summary small {
+  font-size: .75rem;
+  color: var(--ds-color-text-muted);
+  overflow-wrap: anywhere;
+}
+.evaluation-workspace-shell .evaluation-model-selector .evaluation-step-chip {
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+.evaluation-workspace-shell .evaluation-selection-block .evaluation-profile-list,
+.evaluation-workspace-shell .evaluation-selection-block .evaluation-empty-inline {
+  margin: 0;
+  padding: var(--ds-space-3);
+  border-top: 1px solid var(--ds-color-border);
+}
+.evaluation-workspace-shell .evaluation-selection-block .evaluation-selection-help { margin: 0 0 var(--ds-space-2); font-size: .73rem; }
+.evaluation-workspace-shell .evaluation-selection-block .evaluation-profile-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-height: 250px;
+  overflow-y: auto;
+  gap: 1px;
+  background: var(--ds-color-border);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+}
+.evaluation-workspace-shell .evaluation-selection-block .evaluation-profile-option {
+  min-height: 0;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.evaluation-workspace-shell .evaluation-selection-block .evaluation-profile-option.is-selected {
+  box-shadow: inset 3px 0 var(--ds-color-brand-700);
+}
+.evaluation-workspace-shell .evaluation-selection-block .evaluation-profile-card-content > strong { font-size: .8rem; }
+.evaluation-workspace-shell .evaluation-selection-block .evaluation-profile-models { margin-top: 4px; gap: 4px; }
+.evaluation-workspace-shell .evaluation-selection-block .evaluation-profile-models > span {
+  padding: 3px;
+  border: 0;
+  background: transparent;
+}
+.evaluation-workspace-shell .evaluation-selection-block .evaluation-profile-models small { font-size: .6rem; }
+.evaluation-workspace-shell .evaluation-selection-block .evaluation-profile-models b { font-size: .68rem; }
+.evaluation-workspace-shell .evaluation-model-selector > button { min-height: 42px; }
+.evaluation-workspace-shell details.evaluation-config-editor { margin-block: 0 var(--ds-space-4); }
+@media (max-width: 760px) {
+  .ai-tools-view .developer-tools-nav { gap: var(--ds-space-4); }
+  .evaluation-workspace-shell .evaluation-step-nav,
+  .evaluation-workspace-shell .evaluation-step-nav:not([data-journey="custom"]) { display: flex; gap: var(--ds-space-3); }
+  .evaluation-workspace-shell .evaluation-step-nav button { min-height: 38px; padding: var(--ds-space-2) var(--ds-space-1); }
+  .evaluation-workspace-shell .evaluation-journey-picker { align-items: flex-start; }
+  .evaluation-workspace-shell .evaluation-selection-block .evaluation-profile-options { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .evaluation-workspace-shell .evaluation-journey-options { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .evaluation-workspace-shell .evaluation-journey-options button { padding: 8px 5px; }
+  .evaluation-workspace-shell .evaluation-journey-options button strong { font-size: .7rem; }
+  .evaluation-workspace-shell .evaluation-model-selector > button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .evaluation-workspace-shell .evaluation-journey-options button,
+  .evaluation-workspace-shell .evaluation-step-nav button { transition: none; }
+}

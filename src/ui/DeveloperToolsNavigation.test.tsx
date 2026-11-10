@@ -34,9 +34,11 @@ describe('DeveloperToolsNavigation', () => {
     });
     const navigation = container.querySelector('nav[aria-label="Navigation des outils IA"]');
     const buttons = [...(navigation?.querySelectorAll('button') ?? [])];
-    expect(buttons.map((button) => button.querySelector('strong')?.textContent)).toEqual(['Évaluer les modèles', 'Suivre et diagnostiquer']);
+    expect(buttons.map((button) => button.querySelector('strong')?.textContent)).toEqual(['Évaluer', 'Suivi & diagnostic']);
     expect(buttons[0]?.getAttribute('aria-current')).toBe('page');
     expect(container.querySelector('.developer-tools-link-index')).toBeNull();
+    expect(container.querySelector('.developer-tools-heading')).toBeNull();
+    expect(container.querySelectorAll('.developer-tools-link small')).toHaveLength(0);
     expect(container.querySelector('.developer-tools-support')).toBeNull();
     expect(container.textContent).not.toContain('requête(s) en erreur');
     await act(async () => { buttons[1]?.click(); });

@@ -21,7 +21,7 @@ test('the guided biology protocol reuses the evaluator selection without creatin
   await page.goto('/');
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
-  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Protocoles de biologie/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Biologie/ }).click();
 
   const panel = page.getByRole('region', { name: 'Protocole de test guidé' });
   await panel.getByRole('button', { name: 'Vision et parallélisme', exact: true }).click();
@@ -75,7 +75,7 @@ test('the guided biology protocol reuses the evaluator selection without creatin
   await choices.locator('label.evaluation-profile-option').nth(1).click();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
 
-  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Ma propre copie/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Ma copie/ }).click();
   await expect(page.getByRole('group', { name: 'Type d’évaluation' })
     .getByRole('button', { name: /Analyse seule/ })).toHaveAttribute('aria-pressed', 'true');
   const assignmentsAfter = await page.evaluate(() => localStorage.getItem('companion-correcteur:assignments:v1'));

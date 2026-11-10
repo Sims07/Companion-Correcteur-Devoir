@@ -108,12 +108,12 @@ describe('Diagnostic IA — comparaison graphique des essais conservés', () => 
 
 
 describe('Évaluation des modèles — navigation par espace', () => {
-  it('provides four focused spaces and marks the selected step accessibly', () => {
+  it('provides task-centered views without misleading numbered steps', () => {
     expect(appSource).toContain("useState<'configuration' | 'execution' | 'results' | 'history'>('configuration')");
     expect(appSource).toContain('Espaces de l’évaluation');
-    expect(appSource).toContain('Analyse & historique');
-    expect(appSource).toContain("evaluationJourney === 'diagrams' ? 'Carnet de résultats' : 'Analyse & historique'");
-    expect(appSource).toContain("diagramLabView === 'history' ? 'step' : undefined");
+    expect(appSource).toContain('Carnet de résultats');
+    expect(appSource).toContain('aria-label="Espaces de l’évaluation"');
+    expect(appSource).toContain("diagramLabView === 'history' ? 'page' : undefined");
   });
 
   it('keeps configuration and rubric preparation out of execution and history views', () => {

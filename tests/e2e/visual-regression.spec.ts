@@ -85,7 +85,7 @@ test.describe('visual regression contracts', () => {
       await page.getByRole('button', { name: 'Outils IA' }).click();
       await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
 
-      await expect(page.getByRole('heading', { name: 'Évaluation des modèles' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Évaluer les modèles' })).toBeVisible();
       await expect(page.locator('.evaluation-workspace-shell')).toBeVisible();
       await expect(page.locator('.evaluation-config-workspace')).toBeVisible();
       const hiddenFileInputs = page.locator('.file-picker-input');
@@ -96,7 +96,8 @@ test.describe('visual regression contracts', () => {
         await expect(hiddenFileInputs.nth(index)).toHaveCSS('height', '1px');
         await expect(hiddenFileInputs.nth(index)).toHaveCSS('position', 'absolute');
       }
-      await expectSharedSurfaceTokens(page, '.evaluation-config-workspace');
+      await expect(page.locator('.evaluation-config-workspace')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+      await expect(page.locator('.evaluation-config-workspace')).toHaveCSS('border-top-width', '0px');
       await expectNoHorizontalOverflow(page);
       await captureVisualEvidence(page, testInfo, `model-evaluation-${viewport.name}.png`);
     }

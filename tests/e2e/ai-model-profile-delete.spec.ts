@@ -114,7 +114,7 @@ test('manage 16 saved configurations at once: select all, retain 3, confirm, and
   await page.locator('#evaluation-profile-select').selectOption('bulk-15');
   await expect(page.locator('#evaluation-analysis-model')).toHaveValue('model-15');
 
-  await page.getByRole('button', { name: 'Gérer les configurations (16)' }).click();
+  await page.getByRole('button', { name: 'Gérer (16)' }).click();
   let manager = page.getByRole('dialog', { name: 'Gérer mes configurations IA' });
   await expect(manager.getByRole('checkbox')).toHaveCount(16);
   await expect(manager.getByRole('button', { name: /Supprimer 0 configuration/ })).toBeDisabled();
@@ -135,7 +135,7 @@ test('manage 16 saved configurations at once: select all, retain 3, confirm, and
   await confirmation.getByRole('button', { name: 'Confirmer la suppression de 13 configuration(s)' }).click();
 
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Gérer les configurations (3)' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Gérer (3)' })).toBeVisible();
   await expect(options.getByRole('checkbox')).toHaveCount(3);
   await expect(options.getByText('Ancien 16')).toHaveCount(0);
   await expect(page.locator('#evaluation-profile-select')).toHaveValue('');
@@ -150,7 +150,7 @@ test('manage 16 saved configurations at once: select all, retain 3, confirm, and
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await page.getByText('Créer ou modifier une configuration IA', { exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Gérer les configurations (3)' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Gérer (3)' })).toBeVisible();
   await expect(page.locator('#evaluation-profile-select option')).toHaveCount(4);
   await expect(page.locator('#evaluation-profile-select')).toContainText('Garder 1');
   await expect(page.locator('#evaluation-profile-select')).not.toContainText('Ancien');
@@ -161,7 +161,7 @@ test('batch removal aborts safely if local storage fails, keeping all saved prof
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await page.getByText('Créer ou modifier une configuration IA', { exact: true }).click();
-  await page.getByRole('button', { name: 'Gérer les configurations (2)' }).click();
+  await page.getByRole('button', { name: 'Gérer (2)' }).click();
   const manager = page.getByRole('dialog', { name: 'Gérer mes configurations IA' });
   await manager.getByRole('checkbox', { name: /Configuration à supprimer/ }).check();
   await manager.getByRole('button', { name: /Supprimer 1 configuration/ }).click();

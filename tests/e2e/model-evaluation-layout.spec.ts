@@ -1,39 +1,30 @@
 import { expect, test, type Page } from '@playwright/test';
 
-test('active evaluation navigation is informational rather than a red error or brand accent', async ({ page }) => {
+test('evaluation uses unobtrusive view navigation without fake numbered steps', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
 
   const navigation = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
-  for (const label of [/Configuration/, /Exécution/, /Résultats/]) {
-    await navigation.getByRole('button', { name: label }).click();
-    await navigation.getByRole('button', { name: label }).hover();
-    // The navigation animates its surface for 140ms; inspect the settled state.
-    await expect.poll(async () => page.evaluate(() => {
-      const active = document.querySelector<HTMLElement>('.evaluation-step-nav [aria-current="step"]');
-      const probe = document.createElement('div');
-      probe.style.background = 'var(--ds-color-progress-surface)';
-      probe.style.border = '1px solid var(--ds-color-progress-border)';
-      probe.style.color = 'var(--ds-color-danger)';
-      document.body.append(probe);
-      const current = active ? getComputedStyle(active) : null;
-      const expected = getComputedStyle(probe);
-      const result = {
-        active: Boolean(active),
-        informationalBackground: current?.backgroundColor === expected.backgroundColor,
-        informationalBorder: current?.borderTopColor === expected.borderTopColor,
-        notAnError: current?.borderTopColor !== expected.color,
-      };
-      probe.remove();
-      return result;
-    }), { timeout: 5000 }).toEqual({
-      active: true,
-      informationalBackground: true,
-      informationalBorder: true,
-      notAnError: true,
-    });
-  }
+  await expect(navigation.getByRole('button', { name: 'Tests' })).toHaveAttribute('aria-current', 'page');
+  await expect(navigation.getByRole('button', { name: 'Exécution', exact: true })).toBeHidden();
+  await expect(navigation.getByRole('button', { name: 'Résultats', exact: true })).toBeHidden();
+  await expect(navigation.locator('button > span')).toHaveCount(0);
+
+  await expect.poll(() => navigation.getByRole('button', { name: 'Tests' }).evaluate((button) => {
+    const selected = getComputedStyle(button);
+    const reference = document.createElement('div');
+    reference.style.borderBottomColor = 'var(--ds-color-brand-700)';
+    reference.style.color = 'var(--ds-color-danger)';
+    document.body.append(reference);
+    const tokens = getComputedStyle(reference);
+    const isSelection = selected.borderBottomColor === tokens.borderBottomColor;
+    const notError = selected.borderBottomColor !== tokens.color;
+    reference.remove();
+    return { isSelection, notError, light: selected.minHeight === '38px' };
+  })).toEqual({ isSelection: true, notError: true, light: true });
+
+  await navigation.getByRole('button', { name: 'Carnet de résultats' }).click();
+  await expect(navigation.getByRole('button', { name: 'Carnet de résultats' })).toHaveAttribute('aria-current', 'page');
 });
 
 async function expectUnifiedEvaluationCanvas(page: Page): Promise<void> {
@@ -82,14 +73,14 @@ test('model evaluation uses one aligned, non-floating canvas from profiles to la
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
 
   const navigation = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
-  await expect(navigation.getByRole('button')).toHaveCount(4);
+  await expect(navigation.getByRole('button')).toHaveCount(2);
 
   for (const width of [1440, 1100, 900, 768, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await expectUnifiedEvaluationCanvas(page);
   }
 
-  await navigation.getByRole('button', { name: /Analyse & historique/ }).click();
+  await navigation.getByRole('button', { name: /Carnet de résultats/ }).click();
   await expect(page.locator('.evaluation-results-workspace')).toHaveAttribute('data-evaluation-step', 'history');
   const historicalLayout = await page.evaluate(() => {
     const nav = document.querySelector('.evaluation-step-nav')!.getBoundingClientRect();
