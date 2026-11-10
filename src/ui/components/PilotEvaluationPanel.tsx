@@ -95,7 +95,7 @@ export function PilotEvaluationPanel({
         </>}
       </div>
       {analysisIssue && !enabled && <p className="pilot-evaluation-hint" role="status">{analysisIssue}</p>}
-      {questionContractReport && <div className="pilot-evaluation-report" aria-label="Résultats variante B">
+      {questionContractReport && <div id="evaluation-biology-contract-results" className="pilot-evaluation-report" aria-label="Résultats variante B">
         <h4>Comparaison par configuration et par copie</h4>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
@@ -141,7 +141,7 @@ export function PilotEvaluationPanel({
         </>}
       </div>
       {repeatabilityProgress && <p role="status">Répétabilité : {repeatabilityProgress.completed}/{repeatabilityProgress.total} séries copie × passage terminées.</p>}
-      {repeatabilityReport && <div className="pilot-evaluation-report" aria-label="Résultats de répétabilité">
+      {repeatabilityReport && <div id="evaluation-biology-repeatability-results" className="pilot-evaluation-report" aria-label="Résultats de répétabilité">
         <h4>Stabilité et justesse par modèle et par copie · {repeatabilityReport.suite === 'stress' ? 'robustesse D/E/F/G' : 'référence A/B/C'}</h4>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
@@ -218,7 +218,7 @@ export function PilotEvaluationPanel({
           Un appel de préchauffage non chronométré est effectué avant les séries pour limiter le biais du chargement à froid.</small>
       </section>
       {!readyForImages && <p className="pilot-evaluation-hint">Pour Vision seule ou le parcours complet, associez une photo correspondant au texte de référence de chaque copie. Pour démarrer sans images, choisissez « Lancer les 3 analyses » : les transcriptions de référence sont déjà intégrées.</p>}
-      {concurrencyRuns.length > 0 && <section className="pilot-evaluation-report" aria-label="Résultats du parallélisme">
+      {concurrencyRuns.length > 0 && <section id="evaluation-biology-cpu-results" className="pilot-evaluation-report" aria-label="Résultats du parallélisme">
         <div className="pilot-evaluation-report-head">
           <div><h4>Parallélisme · analyse seule</h4><p>Durée totale de 5 critères, résultats de référence, sorties du modèle et débit effectif (tokens / durée totale).</p></div>
           <div className="pilot-evaluation-report-actions">
@@ -252,7 +252,7 @@ export function PilotEvaluationPanel({
         </div>
         <p className="pilot-evaluation-hint">Comparer à la fois la durée et la fiabilité (faux positifs, faux négatifs et non-évalués). Les chiffres incluent les éventuelles reprises du modèle ; l’ordre 1 → 2 → 4 et le chargement à froid peuvent biaiser une mesure unique. Aucun accès au cloud n’est autorisé dans ce protocole.</p>
       </section>}
-      {runs.length > 0 && <div className="pilot-evaluation-report">
+      {runs.length > 0 && <div id="evaluation-biology-copy-results" className="pilot-evaluation-report">
         <div className="pilot-evaluation-report-head">
           <div><h4>Résultats consolidés</h4><p>{runs.length} copie(s) évaluée(s) · les parcours de lecture et de notation sont distingués. La fidélité texte ne constitue pas une note de biologie.</p></div>
           <div className="pilot-evaluation-report-actions">
