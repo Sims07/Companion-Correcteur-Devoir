@@ -39,20 +39,14 @@ export function DeveloperToolsNavigation({ activeTool, traces, onNavigate }: Pro
   }
 
   return <section className="developer-tools" aria-label="Outils IA">
-    <div className="developer-tools-heading">
-      <div className="developer-tools-intro">
-        <h2>Outils IA</h2>
-        <p>Que souhaitez-vous faire ?</p>
-      </div>
-    </div>
     <nav className="developer-tools-nav" aria-label="Navigation des outils IA">
       <button type="button" className={evaluating ? 'developer-tools-link is-active' : 'developer-tools-link'}
         aria-label="Évaluer les modèles — Évaluation des modèles" aria-current={evaluating ? 'page' : undefined} onClick={() => onNavigate('diagnostic')}>
-        <span className="developer-tools-link-copy"><strong>Évaluer les modèles</strong><small>Tester une configuration et comparer les résultats</small></span>
+        <span className="developer-tools-link-copy"><strong>Évaluer</strong></span>
       </button>
       <button type="button" className={!evaluating ? 'developer-tools-link is-active' : 'developer-tools-link'}
         aria-label="Suivre et diagnostiquer · Observabilité" aria-current={!evaluating ? 'page' : undefined} onClick={() => onNavigate('observability')}>
-        <span className="developer-tools-link-copy"><strong>Suivre et diagnostiquer</strong><small>Retrouver une correction ou comprendre une erreur</small></span>
+        <span className="developer-tools-link-copy"><strong>Suivi & diagnostic</strong></span>
       </button>
     </nav>
     {!evaluating && <div className="developer-tools-diagnostics">
