@@ -1,5 +1,6 @@
 import { openDatabase } from './indexedDbMemory.ts';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
+import type { DiagramLabArchiveRepository } from '../../ports/diagramLabArchiveRepository.ts';
 
 export const DIAGRAM_LAB_STORE = 'diagram-lab-archive';
 
@@ -36,4 +37,9 @@ export async function listDiagramLabEntries(): Promise<DiagramLabArchiveEntry[]>
   } finally {
     database.close();
   }
+}
+
+export class IndexedDbDiagramLabArchiveRepository implements DiagramLabArchiveRepository {
+  save(entry: DiagramLabArchiveEntry) { return saveDiagramLabEntry(entry); }
+  list() { return listDiagramLabEntries(); }
 }

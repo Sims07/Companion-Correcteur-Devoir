@@ -10,6 +10,7 @@ import { loadOnDemandModel } from './adapters/ai/modelLoadClient.ts';
 import { unloadPilotOllamaModels } from './adapters/ai/pilotOllamaMemory.ts';
 import { IndexedDbBackgroundCorrectionRepository, IndexedDbLocalCorrectionRepository, IndexedDbModelEvaluationRepository } from './adapters/storage/indexedDbMemory.ts';
 import { IndexedDbStorageDiagnosticsRepository } from './adapters/storage/indexedDbStorageDiagnostics.ts';
+import { IndexedDbDiagramLabArchiveRepository } from './adapters/storage/diagramLabArchive.ts';
 import { createStorageDiagnosticsService } from './application/storageDiagnosticsService.ts';
 import { createLocalCorrectionService } from './application/localCorrectionService.ts';
 import { createModelEvaluationService } from './application/modelEvaluationService.ts';
@@ -41,6 +42,7 @@ import './ui/atelierBProcessing.css';
 const localCorrectionRepository = new IndexedDbLocalCorrectionRepository();
 const localCorrectionService = createLocalCorrectionService(localCorrectionRepository);
 const modelEvaluationService = createModelEvaluationService(new IndexedDbModelEvaluationRepository());
+const diagramLabArchive = new IndexedDbDiagramLabArchiveRepository();
 const storageDiagnosticsService = createStorageDiagnosticsService(new IndexedDbStorageDiagnosticsRepository());
 const scientificDiagramAnalyzer = createOpenAiScientificDiagramAnalyzer();
 const scientificDiagramAnalysisService = createScientificDiagramAnalysisService(scientificDiagramAnalyzer);
@@ -53,7 +55,7 @@ const correctionWorkspaceService = createCorrectionWorkspaceService(
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App service={correctionWorkspaceService} archiveService={localCorrectionService} evaluationService={modelEvaluationService} storageDiagnosticsService={storageDiagnosticsService} backgroundCorrectionService={backgroundCorrectionService} diagramAnalysisService={scientificDiagramAnalysisService} loadOnDemandModel={loadOnDemandModel} releasePilotModels={unloadPilotOllamaModels} />
+    <App service={correctionWorkspaceService} archiveService={localCorrectionService} evaluationService={modelEvaluationService} diagramLabArchive={diagramLabArchive} storageDiagnosticsService={storageDiagnosticsService} backgroundCorrectionService={backgroundCorrectionService} diagramAnalysisService={scientificDiagramAnalysisService} loadOnDemandModel={loadOnDemandModel} releasePilotModels={unloadPilotOllamaModels} />
     <LocalMemoryCompanion service={localCorrectionService} />
   </React.StrictMode>,
 );

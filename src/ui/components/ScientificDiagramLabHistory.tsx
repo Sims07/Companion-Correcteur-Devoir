@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { listDiagramLabEntries } from '../../adapters/storage/diagramLabArchive.ts';
+import type { DiagramLabArchiveRepository } from '../../ports/diagramLabArchiveRepository.ts';
 import { compareDiagramLabEntries, diagramLabProtocolLabels, type DiagramLabArchiveEntry, type DiagramLabProtocol } from '../../domain/diagramLabHistory.ts';
 import { diagramMethodLabels } from '../../domain/scientificDiagramProtocol.ts';
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
@@ -112,7 +112,7 @@ function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
   </div>;
 }
 
-export function ScientificDiagramLabHistory({ revision, archiveError }: { revision: number; archiveError?: string }) {
+export function ScientificDiagramLabHistory({ revision, archiveError, repository }: { revision: number; archiveError?: string; repository: DiagramLabArchiveRepository }) {
   const [entries, setEntries] = useState<DiagramLabArchiveEntry[]>([]);
   const [loadingError, setLoadingError] = useState('');
   const [protocolFilter, setProtocolFilter] = useState<DiagramLabProtocol | 'all'>('all');
@@ -122,7 +122,7 @@ export function ScientificDiagramLabHistory({ revision, archiveError }: { revisi
   const [reload, setReload] = useState(0);
   useEffect(() => {
     let active = true;
-    void listDiagramLabEntries().then((items) => {
+    void repository.list().then((items) => {
       if (!active) return;
       setEntries(items);
       setLoadingError('');
@@ -130,7 +130,7 @@ export function ScientificDiagramLabHistory({ revision, archiveError }: { revisi
       if (active) setLoadingError(cause instanceof Error ? cause.message : String(cause));
     });
     return () => { active = false; };
-  }, [revision, reload]);
+  }, [revision, reload, repository]);
   const visible = useMemo(() => entries.filter((entry) =>
     (protocolFilter === 'all' || entry.protocol === protocolFilter) &&
     (entry.title + ' ' + entry.profiles.join(' ')).toLocaleLowerCase('fr-FR').includes(search.toLocaleLowerCase('fr-FR'))), [entries, protocolFilter, search]);

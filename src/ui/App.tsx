@@ -61,7 +61,7 @@ import type { DiagramThinkSetting } from '../ports/correctionWorkspace.ts';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
 import { ScientificDiagramLabHistory } from './components/ScientificDiagramLabHistory.tsx';
 import { summarizeDiagramLabReport, type DiagramLabReport } from '../domain/diagramLabHistory.ts';
-import { saveDiagramLabEntry } from '../adapters/storage/diagramLabArchive.ts';
+import type { DiagramLabArchiveRepository } from '../ports/diagramLabArchiveRepository.ts';
 import { initialAssignmentRubric, type AssignmentKind } from '../domain/assignmentKind.ts';
 import { buildDiagramReview } from '../domain/diagramTeacherReview.ts';
 import { directDiagramAssignmentIssue, isLoopbackDiagramEndpoint } from '../application/directScientificDiagramCorrection.ts';
@@ -345,7 +345,13 @@ function getLocalMemoryCorrectionId(): string | null {
   }
 }
 
-export function App({ service, archiveService, evaluationService, backgroundCorrectionService, diagramAnalysisService, loadOnDemandModel, storageDiagnosticsService, releasePilotModels }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; backgroundCorrectionService?: BackgroundCorrectionService; diagramAnalysisService: ScientificDiagramAnalysisService; storageDiagnosticsService?: StorageDiagnosticsService; loadOnDemandModel: (settings: { endpoint: string; apiKey: string; model: string }) => Promise<void>; releasePilotModels?: PilotModelMemoryRelease }) {
+const inactiveDiagramLabArchive: DiagramLabArchiveRepository = {
+  save: async () => undefined,
+  list: async () => [],
+};
+
+export function App({ service, archiveService, evaluationService, backgroundCorrectionService, diagramAnalysisService, diagramLabArchive, loadOnDemandModel, storageDiagnosticsService, releasePilotModels }: { service: CorrectionWorkspaceService; archiveService: LocalCorrectionService; evaluationService: ModelEvaluationService; backgroundCorrectionService?: BackgroundCorrectionService; diagramAnalysisService: ScientificDiagramAnalysisService; diagramLabArchive?: DiagramLabArchiveRepository; storageDiagnosticsService?: StorageDiagnosticsService; loadOnDemandModel: (settings: { endpoint: string; apiKey: string; model: string }) => Promise<void>; releasePilotModels?: PilotModelMemoryRelease }) {
+  const diagramArchive = diagramLabArchive ?? inactiveDiagramLabArchive;
   const backgroundService: BackgroundCorrectionService = backgroundCorrectionService ?? {
     enqueue: async () => undefined,
     updateImages: async () => undefined,
@@ -483,7 +489,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const entries = pending.map(({ kind, report }) =>
       summarizeDiagramLabReport(report, pilotBusy && activeDiagramReportRef.current === kind ? 'running' : 'finished'));
     diagramArchiveQueueRef.current = diagramArchiveQueueRef.current.catch(() => {}).then(async () => {
-      for (const entry of entries) await saveDiagramLabEntry(entry);
+      for (const entry of entries) await diagramArchive.save(entry);
     }).then(() => {
       setDiagramHistoryError('');
       setDiagramHistoryRevision((value) => value + 1);
@@ -4306,7 +4312,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="evaluation-run-actions evaluation-config-launch"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>Le lancement passera à l’espace Exécution pour afficher la progression en direct.</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => { setEvaluationWorkspaceStep('execution'); void startModelEvaluation(); }}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button></div>
       </section>}
       {interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView === 'history' && evaluationWorkspaceStep === 'configuration' &&
-        <ScientificDiagramLabHistory revision={diagramHistoryRevision} archiveError={diagramHistoryError} />}
+        <ScientificDiagramLabHistory repository={diagramArchive} revision={diagramHistoryRevision} archiveError={diagramHistoryError} />}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep !== 'configuration' && <section id="evaluation-results" data-evaluation-step={evaluationWorkspaceStep} className="panel evaluation-results-workspace" aria-labelledby="evaluation-results-title">
         <div className="evaluation-section-heading"><div><p className="eyebrow">{evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION' : evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS' : 'ÉTAPE 4 · ANALYSE & HISTORIQUE'}</p><h2 id="evaluation-results-title">{evaluationWorkspaceStep === 'execution' ? 'Exécution de l’expérience' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Résultats de la lecture Vision' : evaluationStageMode === 'analysis' ? 'Résultats de l’analyse' : 'Résultats du parcours complet') : 'Analyser et comparer les expériences'}</h2><p>{evaluationWorkspaceStep === 'execution' ? 'Suivez la progression des modèles locaux et le détail de chaque étape de traitement.' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Examinez les transcriptions produites et les performances des modèles de lecture.' : evaluationStageMode === 'analysis' ? 'Examinez les notes proposées, les justifications et les écarts entre modèles à partir de la même transcription.' : 'Examinez successivement la transcription, la notation et les performances des deux étapes.') : 'Retrouvez les essais précédents et comparez leurs performances grâce aux indicateurs graphiques.'}</p></div><span className="evaluation-step-chip">{evaluationWorkspaceStep === 'history' ? savedModelEvaluations.length + ' essai(s)' : modelEvaluationResults.length + ' résultat(s)'}</span></div>
         {evaluationWorkspaceStep === 'results' && evaluationArchiveStatus !== 'idle' && <div className={`evaluation-archive-feedback is-${evaluationArchiveStatus}`} role={evaluationArchiveStatus === 'failed' ? 'alert' : 'status'}>
