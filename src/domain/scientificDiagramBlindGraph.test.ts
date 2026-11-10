@@ -30,7 +30,7 @@ describe('lecture graphe visuel sans barème', () => {
     expect(blindVisualObservationPrompt('baseline')).toBe(BLIND_VISUAL_OBSERVATION_PROMPT);
     expect(blindVisualObservationPrompt('isolated-arrows-outside')).toBe(BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT);
     expect(BLIND_VISUAL_OBSERVATION_PROMPT).not.toContain('EXAMEN INDÉPENDANT');
-    expect(BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT).toContain('Une flèche inversée');
+    expect(BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT).toContain('une flèche inversée');
     expect(BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT).toContain('entièrement à l’extérieur');
     expect(BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT).toContain('Une pointe illisible');
     expect(BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT).not.toMatch(/ADN|ARN|Protéine|Noyau|transcription|note finale/);
