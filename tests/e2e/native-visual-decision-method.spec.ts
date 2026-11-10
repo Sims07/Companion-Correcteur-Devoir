@@ -48,7 +48,8 @@ test('third method persists and sends diagram + all typed questions to Clef thro
   expect(saved).toMatchObject({ configuration: { correctionMethod: 'visual-decision', visionModel: '' } });
 
   await page.getByRole('group', { name: 'Configurations à exécuter' })
-    .getByText('Clef Vision + Décision').click();
+    .locator('label.evaluation-profile-option').filter({ hasText: 'Clef Vision + Décision' })
+    .locator('input[type="checkbox"]').check();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const fixtures = page.getByRole('region', { name: 'Schémas de référence intégrés' });
   await fixtures.getByRole('button', { name: 'Tester ce schéma' }).first().click();
@@ -84,7 +85,8 @@ test('TEV1 configured as direct image decision is blocked visibly before running
   await page.getByLabel('Envoyer directement les images au décisionnel').check();
   await page.getByRole('button', { name: 'Enregistrer la configuration' }).click();
   await page.getByRole('group', { name: 'Configurations à exécuter' })
-    .getByText('TEV1 visual incompatible').click();
+    .locator('label.evaluation-profile-option').filter({ hasText: 'TEV1 visual incompatible' })
+    .locator('input[type="checkbox"]').check();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const fixtures = page.getByRole('region', { name: 'Schémas de référence intégrés' });
   await expect(fixtures.getByText(/TEV1 ne prend pas en charge les images via System One/).first()).toBeVisible();
