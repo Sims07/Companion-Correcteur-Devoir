@@ -7,7 +7,7 @@ import {
 } from './scientificDiagramSensitivity.ts';
 
 export const DIAGRAM_BLIND_OBSERVATION_PROTOCOL = 'scientific-diagram-blind-graph-v1';
-export const BLIND_GRAPH_PROMPT_VARIANTS = ['baseline', 'isolated-arrows-outside'] as const;
+export const BLIND_GRAPH_PROMPT_VARIANTS = ['baseline', 'isolated-arrows-outside', 'recheck-arrows', 'recheck-contours'] as const;
 export type BlindGraphPromptVariant = typeof BLIND_GRAPH_PROMPT_VARIANTS[number];
 
 export type ObservedArrowTip = 'first' | 'second' | 'none' | 'unclear';
@@ -255,6 +255,17 @@ export interface BlindGraphDiagnostic {
   imageAudit?: { mimeType: string; byteCount: number; width: number | null; height: number | null; pngSignatureValid: boolean };
   /** Diagnostic counters only; no crop pixels or endpoint are exported. */
   zoom?: { candidates: number; attempted: number; resolved: number; unavailable: number; failures: number };
+  /** Independent visual rechecks. Model input never includes expected biology relations. */
+  recheck?: {
+    kind: 'arrows' | 'contours';
+    attempted: number;
+    changed: number;
+    failures: number;
+    fullImageFallbacks: number;
+    /** Only model responses and generic arrow identifiers, never encoded images or prompts. */
+    evidence: Array<{ arrowIndex?: number; first?: string; second?: string; before?: ObservedArrowTip;
+      after?: ObservedArrowTip; image?: 'crop' | 'full'; raw: string }>;
+  };
   rawResponse: string;
   rawResponseTruncated: boolean;
   doneReason?: string;
@@ -347,6 +358,6 @@ export function buildBlindVisualObservationReport(
       experiments: runs.filter((run) => run.caseId === id).map(({ caseId: _caseId, ...rest }) => rest),
     })),
     statistics: summarizeDiagramSensitivity(readings),
-    limitations: 'Extraction visuelle indépendante (locale pour Ollama ; vers le fournisseur pour un profil OpenAI-compatible distant) : aucun barème ni réponse attendue envoyés au modèle. Le comparateur de graphe vérifie trois relations de référence après extraction. Une flèche manquante est considérée absente seulement si le modèle affirme avoir parcouru toutes les flèches ; cette affirmation peut être fausse. Une absence de preuve n’est pas un zéro. Une seule relance de format est autorisée si la réponse JSON est invalide ; les décisions visuelles fausses mais valides ne sont pas automatiquement corrigées. S5 est indécidable sur la première flèche. Références synthétiques provisoires, à valider par un professeur. Diagnostic des six dessins synthétiques : graphe extrait et réponse du modèle (24 000 caractères maximum) inclus. Aucun pixel, prompt, endpoint ni clé de configuration exportés. Les textes du modèle restent des données non fiables.',
+    limitations: 'Les variantes de seconde lecture ciblée ajoutent jusqu’à deux appels par image pour les flèches (recadrage si localisation disponible, sinon image entière) ou un appel pour les contours. Les observations originales et les réponses des seconds passages restent inspectables, et les contradictions spatiales sont indécidables. Extraction visuelle indépendante (locale pour Ollama ; vers le fournisseur pour un profil OpenAI-compatible distant) : aucun barème ni réponse attendue envoyés au modèle. Le comparateur de graphe vérifie trois relations de référence après extraction. Une flèche manquante est considérée absente seulement si le modèle affirme avoir parcouru toutes les flèches ; cette affirmation peut être fausse. Une absence de preuve n’est pas un zéro. Une seule relance de format est autorisée si la réponse JSON est invalide ; les décisions visuelles fausses mais valides ne sont pas automatiquement corrigées. S5 est indécidable sur la première flèche. Références synthétiques provisoires, à valider par un professeur. Diagnostic des six dessins synthétiques : graphe extrait et réponse du modèle (24 000 caractères maximum) inclus. Aucun pixel, prompt, endpoint ni clé de configuration exportés. Les textes du modèle restent des données non fiables.',
   };
 }

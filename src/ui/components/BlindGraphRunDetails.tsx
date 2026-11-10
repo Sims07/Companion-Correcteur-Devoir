@@ -36,6 +36,20 @@ export function BlindGraphRunDetails({ run, gold }: {
       {' '}{run.diagnostic.zoom.unavailable} zone(s) non localisée(s),
       {' '}{run.diagnostic.zoom.failures} échec(s).
     </p>}
+    {run.diagnostic?.recheck && <p>
+      Seconde lecture {run.diagnostic.recheck.kind === 'arrows' ? 'des flèches' : 'des contours'} :
+      {' '}{run.diagnostic.recheck.attempted} vérification(s),
+      {' '}{run.diagnostic.recheck.changed} observation(s) modifiée(s),
+      {' '}{run.diagnostic.recheck.failures} échec(s).
+      {run.diagnostic.recheck.fullImageFallbacks > 0 &&
+        <> {run.diagnostic.recheck.fullImageFallbacks} relecture(s) sur image entière faute de recadrage utilisable.</>}
+    </p>}
+    {run.diagnostic?.recheck && <details>
+      <summary>Voir les réponses des secondes lectures</summary>
+      <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+        {JSON.stringify(run.diagnostic.recheck.evidence, null, 2)}
+      </pre>
+    </details>}
     {run.diagnostic?.validationError && <p>Sortie rejetée : {run.diagnostic.validationError}</p>}
     {run.status !== 'success' && !run.diagnostic?.validationError && <p>
       {run.errorCategory === 'cancelled' ? 'Appel interrompu.' : 'Erreur de communication ou réponse serveur inexploitable.'}

@@ -292,6 +292,141 @@ describe('client graphe visuel indépendant', () => {
 });
 
 
+
+describe('independent targeted visual rechecks', () => {
+  const image = { mimeType: 'image/png', base64: 'PRIVATE_IMAGE_PIXELS' };
+  const mutated = {
+    labels: ['Cellule', 'Noyau', 'ADN', 'ARN', 'Protéine'],
+    arrows: [
+      { first: 'ARN', second: 'ADN', tip: 'second',
+        bounds: { left: 100, top: 200, right: 400, bottom: 450 } },
+      { first: 'Protéine', second: 'ARN', tip: 'second',
+        bounds: { left: 450, top: 200, right: 900, bottom: 450 } },
+    ],
+    containment: [{ inner: 'Noyau', outer: 'Cellule', relation: 'inside' }],
+    arrowsComplete: true,
+  };
+  const response = (value: unknown) =>
+    new Response(JSON.stringify({ message: { content: JSON.stringify(value) } }));
+
+  it('rereads both arrows even when confident and can recover the correct second S1 arrow', async () => {
+    const transport = vi.fn()
+      .mockResolvedValueOnce(response(mutated))
+      .mockResolvedValueOnce(response({ tip: 'second' }))
+      .mockResolvedValueOnce(response({ tip: 'first' }));
+    const crop = vi.fn(async () => ({ mimeType: 'image/png', base64: 'ONLY_CROP' }));
+    const onDiagnostic = vi.fn();
+    const result = await extractBlindVisualGraph({
+      endpoint: 'http://localhost:11434', model: 'vision', image,
+      promptVariant: 'recheck-arrows', prepareZoom: crop, onDiagnostic,
+    }, transport);
+    expect(transport).toHaveBeenCalledTimes(3);
+    expect(crop).toHaveBeenCalledTimes(2);
+    expect(result.arrows.map((item) => item.tip)).toEqual(['second', 'first']);
+    const main = JSON.parse(String(transport.mock.calls[0]?.[1]?.body));
+    expect(JSON.stringify(main.format)).toContain('bounds');
+    expect(main.messages[0].content).toContain('coordonnées 0..1000');
+    for (const call of transport.mock.calls.slice(1)) {
+      const payload = JSON.parse(String(call[1]?.body));
+      expect(payload.messages[0].content).toContain('indépendante');
+      expect(payload.messages[1].images).toEqual(['ONLY_CROP']);
+      expect(payload.messages[0].content).not.toMatch(/ADN|ARN|Protéine|Noyau/);
+    }
+    expect(onDiagnostic).toHaveBeenLastCalledWith(expect.objectContaining({
+      recheck: expect.objectContaining({ kind: 'arrows', attempted: 2, changed: 1,
+        failures: 0, fullImageFallbacks: 0 }),
+    }));
+    expect(JSON.stringify(onDiagnostic.mock.calls)).not.toContain('ONLY_CROP');
+    expect(JSON.stringify(onDiagnostic.mock.calls)).not.toContain('PRIVATE_IMAGE_PIXELS');
+  });
+
+  it('reports full-image fallback and never limits the second read to uncertain arrows', async () => {
+    const noBounds = { ...mutated, arrows: mutated.arrows.map(({ bounds: _bounds, ...rest }) => rest) };
+    const transport = vi.fn()
+      .mockResolvedValueOnce(response(noBounds))
+      .mockResolvedValueOnce(response({ tip: 'second' }))
+      .mockResolvedValueOnce(response({ tip: 'first' }));
+    const onDiagnostic = vi.fn();
+    const result = await extractBlindVisualGraph({
+      endpoint: 'http://localhost:11434', model: 'vision', image,
+      promptVariant: 'recheck-arrows', onDiagnostic,
+    }, transport);
+    expect(result.arrows[1]?.tip).toBe('first');
+    expect(onDiagnostic).toHaveBeenLastCalledWith(expect.objectContaining({
+      recheck: expect.objectContaining({ attempted: 2, changed: 1, fullImageFallbacks: 2 }),
+    }));
+    expect(JSON.parse(String(transport.mock.calls[1]?.[1]?.body)).messages[1].images)
+      .toEqual(['PRIVATE_IMAGE_PIXELS']);
+  });
+
+  it('adds the missing outside contour observation without sending a target relation to the model', async () => {
+    const initial = { ...mutated, arrows: [], containment: [
+      { inner: 'ADN', outer: 'Noyau', relation: 'inside' },
+    ] };
+    const transport = vi.fn()
+      .mockResolvedValueOnce(response(initial))
+      .mockResolvedValueOnce(response({ containment: [
+        { inner: 'Noyau', outer: 'Cellule', relation: 'outside' },
+      ] }));
+    const onDiagnostic = vi.fn();
+    const result = await extractBlindVisualGraph({
+      endpoint: 'http://localhost:11434', model: 'vision', image,
+      promptVariant: 'recheck-contours', onDiagnostic,
+    }, transport);
+    expect(result.containment).toContainEqual({ inner: 'Noyau', outer: 'Cellule', relation: 'outside' });
+    expect(transport).toHaveBeenCalledTimes(2);
+    const second = JSON.parse(String(transport.mock.calls[1]?.[1]?.body));
+    expect(second.messages[0].content).toContain('outside');
+    expect(second.messages[0].content).not.toContain('Noyau');
+    expect(second.messages[1].content).toContain('étiquettes transcrites');
+    expect(second.messages[1].content).not.toContain('outside');
+    expect(onDiagnostic).toHaveBeenLastCalledWith(expect.objectContaining({
+      recheck: expect.objectContaining({ kind: 'contours', attempted: 1, changed: 1, failures: 0 }),
+    }));
+  });
+
+  it('marks contradictory contour readings unclear rather than falsely decisive', async () => {
+    const transport = vi.fn()
+      .mockResolvedValueOnce(response(mutated))
+      .mockResolvedValueOnce(response({ containment: [
+        { inner: 'Noyau', outer: 'Cellule', relation: 'outside' },
+      ] }));
+    const result = await extractBlindVisualGraph({
+      endpoint: 'http://localhost:11434', model: 'vision', image,
+      promptVariant: 'recheck-contours',
+    }, transport);
+    expect(result.containment).toContainEqual({ inner: 'Noyau', outer: 'Cellule', relation: 'unclear' });
+  });
+
+  it('retains the first reading when a follow-up fails and propagates cancellation', async () => {
+    const transport = vi.fn()
+      .mockResolvedValueOnce(response(mutated))
+      .mockResolvedValueOnce(new Response('{}', { status: 503 }))
+      .mockResolvedValueOnce(response({ tip: 'first' }));
+    const diagnostic = vi.fn();
+    const result = await extractBlindVisualGraph({
+      endpoint: 'http://localhost:11434', model: 'vision', image,
+      promptVariant: 'recheck-arrows', onDiagnostic: diagnostic,
+      prepareZoom: async () => image,
+    }, transport);
+    expect(result.arrows[0]?.tip).toBe('second');
+    expect(result.arrows[1]?.tip).toBe('first');
+    expect(diagnostic).toHaveBeenLastCalledWith(expect.objectContaining({
+      recheck: expect.objectContaining({ attempted: 2, changed: 1, failures: 1 }),
+    }));
+    const controller = new AbortController();
+    const aborting = vi.fn().mockImplementationOnce(async () => {
+      controller.abort();
+      throw new DOMException('aborted', 'AbortError');
+    });
+    await expect(extractBlindVisualGraph({
+      endpoint: 'http://localhost:11434', model: 'vision', image,
+      signal: controller.signal, promptVariant: 'recheck-arrows',
+    }, aborting)).rejects.toMatchObject({ name: 'AbortError' });
+  });
+});
+
+
 describe('crop geometry and uncertain zoom responses', () => {
   it('rejects invalid coordinates before decoding image bytes', async () => {
     for (const bounds of [
