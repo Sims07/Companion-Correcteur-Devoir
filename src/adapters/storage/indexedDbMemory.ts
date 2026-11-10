@@ -7,11 +7,12 @@ import type { LocalMemoryEntry, LocalMemoryQuery } from '../../domain/localMemor
 import { rankLocalMemories } from '../../domain/localMemory.ts';
 
 const DATABASE_NAME = 'companion-correcteur-devoir';
-const DATABASE_VERSION = 5;
+const DATABASE_VERSION = 6;
 const STORE_NAME = 'local-memory';
 const CORRECTION_STORE_NAME = 'local-corrections';
 const MODEL_EVALUATION_STORE_NAME = 'model-evaluations';
 const DIAGNOSTIC_HISTORY_STORE_NAME = 'diagnostic-history';
+const DIAGRAM_LAB_STORE = 'diagram-lab-archive';
 const BACKGROUND_CORRECTION_STORE_NAME = 'background-corrections';
 const BACKGROUND_TRANSCRIPTION_STORE_NAME = 'background-transcriptions';
 
@@ -49,6 +50,11 @@ export function openDatabase(): Promise<IDBDatabase> {
       }
       if (!database.objectStoreNames.contains(BACKGROUND_TRANSCRIPTION_STORE_NAME)) {
         database.createObjectStore(BACKGROUND_TRANSCRIPTION_STORE_NAME, { keyPath: 'fingerprint' });
+      }
+      if (!database.objectStoreNames.contains(DIAGRAM_LAB_STORE)) {
+        const store = database.createObjectStore(DIAGRAM_LAB_STORE, { keyPath: 'id' });
+        store.createIndex('createdAt', 'createdAt', { unique: false });
+        store.createIndex('protocol', 'protocol', { unique: false });
       }
       if (!database.objectStoreNames.contains(DIAGNOSTIC_HISTORY_STORE_NAME)) {
         const store = database.createObjectStore(DIAGNOSTIC_HISTORY_STORE_NAME, { keyPath: 'id' });
