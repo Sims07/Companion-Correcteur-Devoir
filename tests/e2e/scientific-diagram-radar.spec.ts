@@ -77,7 +77,7 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   await expect(radar.getByRole('region', { name: 'Classement des candidats' }).getByText('2 candidat(s) classable(s)')).toBeVisible();
   await expect(radar.getByText('Vision témoin').first()).toBeVisible();
   await radar.getByRole('group', { name: 'Axe à examiner' }).getByRole('button', { name: 'Sens des flèches' }).click();
-  await expect(radar.getByText('Correspondance sur D/E')).toBeVisible();
+  await expect(radar.getByText('Correspondance sur D/E').first()).toBeVisible();
   await radar.getByRole('button', { name: 'Consulter la campagne' }).first().click();
   await expect(journal.getByRole('group', { name: 'Campagnes enregistrées' }).getByRole('button', { name: /Sens des flèches/ })).toBeVisible();
 
