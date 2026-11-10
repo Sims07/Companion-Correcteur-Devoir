@@ -1,6 +1,7 @@
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
+import { radarPlanDescription, RADAR_TEST_PROTOCOL_NAMES, type RadarMissingTestRequest, type RadarTestStep } from '../../domain/diagramLabRadarLaunch.ts';
 import { isLoopbackPilotEndpoint } from '../../domain/pilotEvaluationProtocol.ts';
 import { buildBlindVisualObservationReport, blindGraphProfileIssue, blindGraphVisionModel, type BlindGraphPromptVariant } from '../../domain/scientificDiagramBlindGraph.ts';
 import type { Rubric } from '../../domain/rubric.ts';
@@ -147,13 +148,17 @@ export interface ScientificDiagramProtocolPanelProps {
   onClearFixtureReport: () => void;
   onClearSensitivityReport: () => void;
   onClearBlindGraphReport: () => void;
+  autoRequest?: RadarMissingTestRequest | null;
+  onAutoRequestConsumed?: (id: number) => void;
+  onOpenRadar?: () => void;
+  onAutoBusyChange?: (busy: boolean) => void;
 }
 
 export function ScientificDiagramProtocolPanel({
   selectedProfiles, busy, progress, onPrepareImages, onRun, onRunFixtures, onStop,
   report, fixtureReport, sensitivityReport, blindGraphReport,
   onClearReport, onClearFixtureReport, onClearSensitivityReport, onClearBlindGraphReport,
-  onRunSensitivity, onRunBlindGraph,
+  onRunSensitivity, onRunBlindGraph, autoRequest, onAutoRequestConsumed, onOpenRadar, onAutoBusyChange,
 }: ScientificDiagramProtocolPanelProps) {
   const [rubric, setRubric] = useState<Rubric>(() => structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC));
   const [context, setContext] = useState('');
@@ -173,6 +178,8 @@ export function ScientificDiagramProtocolPanel({
   const [sensitivityPromptSelection, setSensitivityPromptSelection] = useState<'standard' | 'guided' | 'compare'>('standard');
   const [methodSelection, setMethodSelection] = useState<DiagramMethodSelection>('compare');
   const [activeProtocol, setActiveProtocol] = useState<'reference' | 'arrows' | 'semantic' | 'graph'>('reference');
+  const autoClaimed = useRef<number | null>(null);
+  const [radarAutoStatus, setRadarAutoStatus] = useState('');
   const targets = rubric.criteria.flatMap((criterion) =>
     getRubricSubcriteria(criterion).map((item) => ({ criterion, item, key: diagramTargetKey(criterion.id, item.id) })));
   const validation = validateRubric(rubric);
@@ -190,8 +197,8 @@ export function ScientificDiagramProtocolPanel({
     !blindGraphIssue;
   const blindGraphUsesRemote = selectedProfiles.some((profile) => !isLoopbackPilotEndpoint(profile.configuration.endpoint));
 
-  async function runBlindObservation(zoomUncertainArrows = false) {
-    if (!canRunBlindGraph) return;
+  async function runBlindObservation(zoomUncertainArrows = false, override?: RadarTestStep): Promise<boolean> {
+    if (!override && !canRunBlindGraph) return false;
     setBlindGraphLoading(true);
     onClearBlindGraphReport();
     setBlindGraphMessage('Préparation des six schémas…' +
@@ -203,19 +210,25 @@ export function ScientificDiagramProtocolPanel({
         if (!prepared.length) throw new Error('Préparation impossible pour ' + id);
         cases.push({ id, images: prepared });
       }
-      const result = await onRunBlindGraph({ cases, repetitions: fixtureCount, zoomUncertainArrows, promptVariant: blindGraphPromptVariant });
+      const result = await onRunBlindGraph({ cases, repetitions: override?.repetitions ?? fixtureCount,
+        zoomUncertainArrows, promptVariant: override?.graphVariant ?? blindGraphPromptVariant });
       setBlindGraphMessage(result.cases.reduce((sum, item) => sum + item.experiments.length, 0) +
         ' observation(s) effectuée(s). Vérifiez les inconnues avant de comparer les méthodes.');
+      return result.cases.every((item) =>
+        item.experiments.length >= (override?.repetitions ?? fixtureCount)
+        && item.experiments.length % (override?.repetitions ?? fixtureCount) === 0
+        && item.experiments.every((run) => run.status === 'success'));
     } catch (cause) {
       setBlindGraphMessage('Observation interrompue : ' +
         (cause instanceof Error ? cause.message : String(cause)));
+      return false;
     } finally {
       setBlindGraphLoading(false);
     }
   }
 
-  async function runSensitivity() {
-    if (!canRunFixtures) return;
+  async function runSensitivity(override?: RadarTestStep): Promise<boolean> {
+    if (!override && !canRunFixtures) return false;
     setSensitivityLoading(true);
     onClearSensitivityReport();
     setSensitivityMessage('Préparation locale des six variantes…');
@@ -226,25 +239,32 @@ export function ScientificDiagramProtocolPanel({
         if (!prepared.length) throw new Error('Préparation impossible pour ' + id);
         images.set(id, prepared);
       }
-      const promptModes: DiagramSensitivityPromptMode[] = sensitivityPromptSelection === 'compare'
-        ? ['standard', 'guided'] : [sensitivityPromptSelection];
+      const requestedMode = override?.promptMode ?? sensitivityPromptSelection;
+      const promptModes: DiagramSensitivityPromptMode[] = requestedMode === 'compare'
+        ? ['standard', 'guided'] : [requestedMode];
       const cases = promptModes.flatMap((promptMode) =>
         DIAGRAM_SENSITIVITY_CASE_IDS.map((id) => ({
           id, promptMode, context: diagramSensitivityContext(promptMode), images: images.get(id)!,
         })));
       setSensitivityMessage('');
-      const completed = await onRunSensitivity({ cases, promptModes, repetitions: fixtureCount, methodSelection });
+      const completed = await onRunSensitivity({ cases, promptModes,
+        repetitions: override?.repetitions ?? fixtureCount, methodSelection: override?.method ?? methodSelection });
       const count = completed.cases.reduce((sum, item) => sum + item.experiments.length, 0);
       setSensitivityMessage(count + ' essai(s) terminés. Vérifiez les écarts, les abstentions et les faux positifs.');
+      return completed.cases.every((item) => item.experiments.length >=
+        (override?.repetitions ?? fixtureCount) &&
+        item.experiments.length % (override?.repetitions ?? fixtureCount) === 0 &&
+        item.experiments.every((run) => run.status === 'success'));
     } catch (cause) {
       setSensitivityMessage('Série interrompue : ' + (cause instanceof Error ? cause.message : String(cause)));
+      return false;
     } finally {
       setSensitivityLoading(false);
     }
   }
 
-  async function runPreparedFixtures(ids: readonly ScientificDiagramFixtureId[]) {
-    if (!canRunFixtures) return;
+  async function runPreparedFixtures(ids: readonly ScientificDiagramFixtureId[], override?: RadarTestStep): Promise<boolean> {
+    if (!override && !canRunFixtures) return false;
     setFixtureLoading(true);
     onClearFixtureReport();
     setFixtureMessage('Chargement des schémas intégrés…');
@@ -259,15 +279,76 @@ export function ScientificDiagramProtocolPanel({
         cases.push({ id, images: prepared });
       }
       setFixtureMessage('');
-      const result = await onRunFixtures({ cases, repetitions: fixtureCount, methodSelection });
+      const result = await onRunFixtures({ cases, repetitions: override?.repetitions ?? fixtureCount,
+        methodSelection: override?.method ?? methodSelection });
       const completed = result.cases.reduce((sum, item) => sum + item.experiments.length, 0);
       setFixtureMessage(completed + ' passage(s) terminés. Comparez les notes et les verdicts, puis exportez le rapport.');
+      return ids.every((id) => {
+        const experiments = result.cases.find((item) => item.caseId === id)?.experiments ?? [];
+        return experiments.length >= (override?.repetitions ?? fixtureCount) &&
+          experiments.length % (override?.repetitions ?? fixtureCount) === 0 &&
+          experiments.every((run) => run.status === 'success');
+      });
     } catch (cause) {
       setFixtureMessage('Protocole interrompu : ' + (cause instanceof Error ? cause.message : String(cause)));
+      return false;
     } finally {
       setFixtureLoading(false);
     }
   }
+
+  // A radar action is consumed exactly once. It uses the same bundled images,
+  // preparers and runners as the manual test buttons. Wait until the requested
+  // saved profile has been selected by the parent before calling any endpoint.
+  useEffect(() => {
+    if (!autoRequest || autoClaimed.current === autoRequest.id || busy ||
+      fixtureLoading || sensitivityLoading || blindGraphLoading || uploading) return;
+    if (selectedProfiles.length !== 1 || selectedProfiles[0]?.id !== autoRequest.profileId) return;
+
+    autoClaimed.current = autoRequest.id;
+    onAutoRequestConsumed?.(autoRequest.id);
+    const profile = selectedProfiles[0]!;
+    const issue = autoRequest.steps.map((step) =>
+      step.protocol === 'graph' ? blindGraphProfileIssue(profile) : diagramMethodIssue(profile, step.method))
+      .find((reason): reason is string => Boolean(reason));
+    if (issue) {
+      setRadarAutoStatus('Lancement impossible pour ' + profile.name + ' : ' + issue);
+      return;
+    }
+    setRadarAutoStatus('Lancement depuis le radar : ' + radarPlanDescription(autoRequest.steps) + '.');
+    onAutoBusyChange?.(true);
+    void (async () => {
+      try {
+      for (const [index, step] of autoRequest.steps.entries()) {
+        setActiveProtocol(step.protocol);
+        setFixtureCount(step.repetitions);
+        setMethodSelection(step.method);
+        setSensitivityPromptSelection(step.promptMode);
+        setBlindGraphPromptVariant(step.graphVariant);
+        setRadarAutoStatus('Batterie ' + (index + 1) + '/' + autoRequest.steps.length
+          + ' : ' + RADAR_TEST_PROTOCOL_NAMES[step.protocol] + ' pour ' + profile.name + '.');
+        const ok = step.protocol === 'reference'
+          ? await runPreparedFixtures(SCIENTIFIC_DIAGRAM_BASE_CASE_IDS, step)
+          : step.protocol === 'arrows'
+            ? await runPreparedFixtures(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS, step)
+            : step.protocol === 'semantic'
+              ? await runSensitivity(step)
+              : await runBlindObservation(step.zoom, step);
+        if (!ok) {
+          setRadarAutoStatus('La batterie ' + RADAR_TEST_PROTOCOL_NAMES[step.protocol] +
+            ' n’a pas terminé tous ses passages. Corrigez le problème ou relancez depuis le radar.');
+          return;
+        }
+      }
+      setRadarAutoStatus('Batteries terminées. Sauvegarde automatique en cours : retournez au radar pour consulter les mesures.');
+      } finally {
+        onAutoBusyChange?.(false);
+      }
+    })();
+    // Intentional once-per-request orchestration: each caller is bound to the
+    // user-selected profile and the request ID is claimed synchronously.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRequest, busy, fixtureLoading, sensitivityLoading, blindGraphLoading, uploading, selectedProfiles]);
 
   function downloadBlindGraphReport() {
     if (blindGraphReport) downloadScientificDiagramJson(blindGraphReport, 'companion-graphe-visuel.json');
@@ -355,6 +436,10 @@ export function ScientificDiagramProtocolPanel({
         <p>Choisissez une batterie et lancez-la. Les images et références sont déjà prêtes ; les résultats sont conservés localement.</p>
       </div>
     </div>
+    {radarAutoStatus && <div className="diagram-lab-live" role="status" aria-label="Test lancé depuis le radar">
+      <strong>Compléter le radar</strong><span>{radarAutoStatus}</span>
+      {onOpenRadar && <Button variant="secondary" disabled={busy || fixtureLoading || sensitivityLoading || blindGraphLoading} onClick={onOpenRadar}>Revenir au radar</Button>}
+    </div>}
     <div className="diagram-lab-catalog" role="tablist" aria-label="Protocoles automatiques des schémas scientifiques">
       {([
         ['reference', 'FORME', 'Qualité graphique', 'A/B/C · Présentation et justesse', '3 dessins'],

@@ -37,3 +37,7 @@
 .diagram-radar-empty { padding:var(--ds-space-5); text-align:center; color:var(--ds-color-text-muted); }
 @media(max-width:990px) { .diagram-radar-layout { grid-template-columns:minmax(0,1fr); } }
 @media(max-width:590px) { .diagram-radar-legend,.diagram-radar-weight-grid { grid-template-columns:minmax(0,1fr); } .diagram-radar-svg { width:100%; } }
+
+.diagram-radar-axis-buttons button small { display:block; font-size:.69rem; font-weight:500; margin-top:3px; color:var(--ds-color-text-muted); }
+.diagram-radar-next-test { display:grid; justify-items:start; gap:var(--ds-space-2); padding:var(--ds-space-3) 0; border-top:1px solid var(--ds-color-border); }
+.diagram-radar-next-test p { margin:0; color:var(--ds-color-text-muted); font-size:.84rem; line-height:1.5; }

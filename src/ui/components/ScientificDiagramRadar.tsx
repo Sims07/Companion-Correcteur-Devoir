@@ -3,6 +3,7 @@ import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
 import { buildDiagramLabRadar, compareRadarCommonAxes, rankDiagramLabRadar, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
   type RadarAxisId, type RadarGrouping, type RadarRankedCandidate, type RadarWeights } from '../../domain/diagramLabRadar.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
+import { planMissingRadarAxis, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
 import { Button } from '../design-system/index.ts';
 import './ScientificDiagramRadar.css';
 
@@ -88,9 +89,12 @@ function RadarPlot({ candidates, onAxis }: {
   </svg>;
 }
 
-export function ScientificDiagramRadar({ entries, onOpenReport }: {
+export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, profileIds, busy }: {
   entries: DiagramLabArchiveEntry[];
   onOpenReport: (id: string) => void;
+  onRunMissing: (request: Omit<RadarMissingTestRequest, 'id'>) => void;
+  profileIds: readonly string[];
+  busy: boolean;
 }) {
   const [grouping, setGrouping] = useState<RadarGrouping>('profile');
   const [family, setFamily] = useState<'grading' | 'graph'>('grading');
@@ -117,6 +121,8 @@ export function ScientificDiagramRadar({ entries, onOpenReport }: {
   const selected = picked === null ? ranked.slice(0, 3) : ranked.filter((c) => picked.includes(c.id));
   const examined = ranked.find((c) => c.id === focus) ?? selected[0] ?? ranked[0] ?? null;
   const evidence = examined?.axes[axis] ?? null;
+  const missingPlan = examined ? planMissingRadarAxis(examined, axis, grouping) : null;
+  const profileAvailable = examined ? profileIds.includes(examined.profileId) : false;
   const eligible = ranked.filter((c) => grouping === 'profile' ? c.weightedScore !== null
     : partial?.rows.some((row) => row.id === c.id && row.score !== null));
 
@@ -188,7 +194,9 @@ export function ScientificDiagramRadar({ entries, onOpenReport }: {
         <h4>Lire les huit caractéristiques</h4>
         <div className="diagram-radar-axis-buttons" role="group" aria-label="Axe à examiner">
           {RADAR_AXES.map((item) => <button type="button" key={item.id} aria-pressed={axis === item.id}
-            onClick={() => setAxis(item.id)}>{item.label}</button>)}
+            onClick={() => setAxis(item.id)}>{item.label}
+              {examined?.axes[item.id].value === null && <small>À mesurer</small>}
+            </button>)}
         </div>
         <div className="diagram-radar-evidence">
           <h4>{RADAR_AXES.find((item) => item.id === axis)?.label}</h4>
@@ -203,6 +211,17 @@ export function ScientificDiagramRadar({ entries, onOpenReport }: {
             {evidence.value === null ? 'Non mesuré' : evidence.value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100'}
           </strong>
           <p>{evidence.reason}</p>
+          {evidence.value === null && examined && <div className="diagram-radar-next-test">
+            {missingPlan ? <>
+              <strong>Compléter cet axe</strong>
+              <p>{radarPlanDescription(missingPlan.steps)} sur le profil {examined.name}. Les schémas sont déjà intégrés.</p>
+              <Button disabled={busy || !profileAvailable} onClick={() => onRunMissing(missingPlan)}>
+                {missingPlan.steps.length > 1 ? 'Lancer les batteries manquantes' : 'Lancer le test manquant'}
+              </Button>
+              {!profileAvailable && <p role="status">Le profil d’origine n’existe plus dans les configurations IA. Recréez-le avant de relancer ce test.</p>}
+              {busy && <p role="status">Une évaluation est déjà en cours. Terminez-la ou arrêtez-la avant d’en lancer une autre.</p>}
+            </> : <p>Cette mesure ne peut pas être attribuée à cette méthode : la lecture indépendante du graphe et la notation sont deux algorithmes distincts. Passez en vue « Par profil IA » pour lancer les batteries adaptées.</p>}
+          </div>}
           {evidence.evidence.map((source, index) =>
             <div key={source.reportId + index} className="diagram-radar-source">
               <strong>{source.detail}</strong>
