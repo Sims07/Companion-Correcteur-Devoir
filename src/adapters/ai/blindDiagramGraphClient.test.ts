@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { auditBlindGraphImage, blindGraphLocalUrl, blindGraphCompatibleUrl, extractBlindVisualGraph } from './blindDiagramGraphClient.ts';
+import { cropObservedArrow, auditBlindGraphImage, blindGraphLocalUrl, blindGraphCompatibleUrl, extractBlindVisualGraph } from './blindDiagramGraphClient.ts';
 import { BLIND_VISUAL_OBSERVATION_PROMPT, BLIND_VISUAL_OBSERVATION_SCHEMA } from '../../domain/scientificDiagramBlindGraph.ts';
 
 describe('client graphe visuel indépendant', () => {
@@ -183,6 +183,9 @@ describe('client graphe visuel indépendant', () => {
       const body = JSON.parse(String(init?.body)) as { messages: Array<{ content: string; images?: string[] }>; keep_alive: number; format: unknown };
       expect(body.keep_alive).toBe(0);
       if (body.messages[0]?.content.includes('agrandie')) {
+        expect(body.messages[0]?.content).toContain('les deux extrémités et le trait complet');
+        expect(body.messages[0]?.content).toContain('objet JSON avec la clé tip');
+        expect(body.messages[1]?.content).toContain(JSON.stringify({ first: 'A', second: 'B' }));
         expect(body.messages[1]?.images).toEqual(['ZOOM_PIXELS']);
         expect(body.messages[1]?.content).not.toContain('ADN → ARN');
         return new Response(JSON.stringify({ message: { content: JSON.stringify({ tip: 'second' }) } }));
@@ -264,5 +267,31 @@ describe('client graphe visuel indépendant', () => {
       endpoint: 'http://localhost:11434', model: 'qwen',
       image: { base64: 'PRIVATE', mimeType: 'image/png' },
     }, failed)).rejects.toThrow('local');
+  });
+});
+
+
+describe('crop geometry and uncertain zoom responses', () => {
+  it('rejects invalid coordinates before decoding image bytes', async () => {
+    for (const bounds of [
+      { left: -1, top: 0, right: 500, bottom: 500 },
+      { left: 500, top: 0, right: 100, bottom: 500 },
+      { left: 0, top: NaN, right: 500, bottom: 500 },
+      { left: 0, top: 0, right: 1001, bottom: 500 },
+    ]) await expect(cropObservedArrow({ mimeType: 'image/png', base64: 'INVALID' }, bounds)).resolves.toBeNull();
+  });
+
+  it.each(['none', 'unclear'])('does not convert a %s zoom into a directed edge', async (tip) => {
+    const graph = { labels: ['A', 'B'], arrows: [{ first: 'A', second: 'B', tip: 'unclear',
+      bounds: { left: 100, top: 100, right: 600, bottom: 600 } }], containment: [], arrowsComplete: true };
+    const transport = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: JSON.stringify(graph) } })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: JSON.stringify({ tip }) } })));
+    const result = await extractBlindVisualGraph({ endpoint: 'http://localhost:11434', model: 'vision',
+      image: { mimeType: 'image/png', base64: 'ORIGINAL' }, zoomUncertainArrows: true,
+      prepareZoom: async () => ({ mimeType: 'image/png', base64: 'ZOOM' }),
+    }, transport);
+    expect(result.arrows[0]?.tip).toBe('unclear');
+    expect(transport).toHaveBeenCalledTimes(2);
   });
 });

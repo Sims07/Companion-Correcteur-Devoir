@@ -20,7 +20,7 @@ describe('scientific diagram prompt and professor marks', () => {
     const prompt = buildScientificDiagramPrompt(request);
     expect(prompt).not.toContain('bounds');
     expect(prompt).toContain('quatre phases d’une même mitose forment UN ensemble');
-    expect(prompt).toContain('8 mots maximum');
+    expect(prompt).toContain('20 mots maximum');
     expect(prompt).toContain('Membrane');
     expect(prompt).toContain('Noyau');
     expect(prompt).not.toContain('qualityBreakdown');
@@ -60,7 +60,7 @@ describe('scientific diagram prompt and professor marks', () => {
       apiKey: '',
     };
     const prompt = buildScientificDiagramPrompt(request);
-    expect(prompt).toContain('Ignore les marques de correction manuscrites préexistantes');
+    expect(prompt).toContain('Ignore uniquement les marques identifiées comme corrections professorales préexistantes');
     expect(prompt).toContain('recouvre ou touche un élément du schéma');
     expect(prompt).toContain('requiresTeacherReview à true');
     expect(prompt).not.toContain('ANNOTATIONS ENSEIGNANT À EXCLURE');

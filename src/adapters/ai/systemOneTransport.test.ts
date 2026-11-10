@@ -17,7 +17,7 @@ describe('System One diagnostic identity', () => {
     });
     expect(result.answers.expected_1.choice).toBe('present');
     expect(onDiagnosticResult).toHaveBeenCalledWith(expect.objectContaining({
-      promptId: 'decision.system-one', promptVersion: 1,
+      promptId: 'decision.system-one', promptVersion: 7,
       requestMetadata: expect.objectContaining({ stream: false }),
       promptTokens: 120, generatedTokens: 3,
     }));
