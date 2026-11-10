@@ -33,7 +33,7 @@ function percent(value: number, total: number) {
 function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
   const report = entry.report;
   const [activeCase, setActiveCase] = useState('');
-  if ('statistics' in report) return <div className="diagram-lab-reading">
+  if (report.format === 'companion-scientific-diagram-sensitivity-report' || report.format === 'companion-scientific-diagram-blind-graph-report') return <div className="diagram-lab-reading">
     <h3>Résultats par configuration</h3>
     <div className="pilot-evaluation-table-scroll"><table className="pilot-evaluation-table">
       <thead><tr><th>Configuration</th><th>Méthode</th><th>Erreurs détectées</th><th>Mesures impossibles</th><th>Bonnes relations rejetées</th><th>Bonnes relations incertaines</th><th>Faux positifs témoins</th><th>Abstentions</th></tr></thead>
