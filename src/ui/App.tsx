@@ -1957,6 +1957,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function followEvaluation<T>(activity: Omit<EvaluationActivity, 'status'>, execute: () => Promise<T>): Promise<T> {
+    pilotStopRef.current = false;
+    evaluationCancelledRef.current = false;
     setEvaluationActivity({ ...activity, status: 'running' });
     if (activity.journey === 'diagrams') setDiagramProtocolProgress('Préparation des schémas et des modèles…');
     if (activity.journey === 'biology') setPilotMessage('Préparation du protocole…');
@@ -1969,7 +1971,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       const failed = Boolean((activity.journey !== 'custom' && pilotMemoryErrorRef.current) || pilotError || (typeof outcome === 'number' && outcome === 0));
       setEvaluationActivity((current) => current?.title === activity.title
         ? { ...current, status: interrupted ? 'cancelled' : failed || (activity.journey === 'custom' && outcome === undefined) ? 'failed' : 'completed',
-          ...(failed ? { error: pilotMemoryErrorRef.current ?? pilotError } : {}) } : current);
+          ...(failed ? { error: pilotMemoryErrorRef.current ?? pilotError || 'Aucun résultat exploitable pour cette tentative.' } : {}) } : current);
       return outcome;
     } catch (cause) {
       const error = cause instanceof Error ? cause.message : String(cause);
