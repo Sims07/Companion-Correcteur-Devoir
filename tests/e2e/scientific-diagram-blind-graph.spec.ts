@@ -156,9 +156,12 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
   expect(JSON.stringify(json)).not.toContain('PRIVATE_PIXEL_BYTES');
 
   await page.getByRole('navigation', { name: 'Navigation des outils IA' })
-    .getByRole('button', { name: /Inspecteur réseau/ }).click();
-  await expect(page.getByRole('region', { name: 'Rapports des schémas scientifiques' })
-    .getByRole('button', { name: /Exporter l’observation indépendante/ })).toBeVisible();
+    .getByRole('button', { name: /Suivre et diagnostiquer/ }).click();
+  await page.getByRole('navigation', { name: 'Détails du suivi' })
+    .getByRole('button', { name: 'Inspecteur réseau' }).click();
+  const reports = page.getByRole('region', { name: 'Rapports des schémas scientifiques' });
+  await reports.locator('summary').click();
+  await expect(reports.getByRole('button', { name: /Exporter l’observation indépendante/ })).toBeVisible();
 });
 
 test('blind graph observer supports an explicitly selected OpenAI-compatible Vision endpoint, exporting remote provenance', async ({ page }) => {

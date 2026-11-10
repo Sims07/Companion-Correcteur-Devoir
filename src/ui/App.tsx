@@ -3363,8 +3363,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </header>
 
       {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
-      {interfaceMode !== 'teacher' && (diagramFixtureReport || diagramProtocolReport || diagramSensitivityReport || diagramBlindGraphReport) && <details className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
-        <summary>Rapports de schémas disponibles · afficher les exports</summary>
+      {interfaceMode !== 'teacher' && (diagramFixtureReport || diagramProtocolReport || diagramSensitivityReport || diagramBlindGraphReport) && <section className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
+        <details className="diagram-protocol-export-details">
+          <summary>Rapports de schémas disponibles · afficher les exports</summary>
         <div className="diagram-protocol-export-actions">
           {diagramFixtureReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramFixtureReport, 'companion-schemas-scientifiques.json')}>
             Exporter les schémas testés ({diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage{diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0) === 1 ? '' : 's'})
@@ -3379,7 +3380,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             Exporter le schéma personnel ({diagramProtocolReport.experiments.length} passage{diagramProtocolReport.experiments.length === 1 ? '' : 's'})
           </Button>}
         </div>
-      </details>}
+        </details>
+      </section>}
       {interfaceMode === 'debug' && <NetworkInspector initialFilter={networkInitialFilter} />}
       {interfaceMode === 'teacher' && showAssignmentsHome && <AssignmentsHome
         assignments={assignmentProfiles}

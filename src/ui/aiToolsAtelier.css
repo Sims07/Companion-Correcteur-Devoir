@@ -112,11 +112,11 @@
   background: var(--ds-color-surface);
   box-shadow: none;
 }
-.ai-tools-view .diagram-protocol-export-strip > summary {
+.ai-tools-view .diagram-protocol-export-details > summary {
   color: var(--ds-color-text-muted);
   font-size: .8rem;
   font-weight: 650;
   cursor: pointer;
 }
-.ai-tools-view .diagram-protocol-export-strip > summary:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
+.ai-tools-view .diagram-protocol-export-details > summary:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 .ai-tools-view .diagram-protocol-export-actions { margin-top: var(--ds-space-3); }

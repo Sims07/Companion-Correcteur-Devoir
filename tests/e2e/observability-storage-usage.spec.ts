@@ -29,6 +29,7 @@ test('shows origin quota and IndexedDB categories without exposing student copie
   });
 
   await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('navigation', { name: 'Navigation des outils IA' }).getByRole('button', { name: /Suivre et diagnostiquer/ }).click();
   await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
   const panel = page.getByRole('region', { name: 'Occupation du stockage local' });
   await expect(panel).toBeVisible();

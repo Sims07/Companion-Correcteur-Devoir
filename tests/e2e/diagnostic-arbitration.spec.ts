@@ -35,7 +35,8 @@ test('Debug is now a dedicated network inspector, separate from model evaluation
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
   await expect(page.getByRole('heading', { name: 'Sélection pour cette expérience' })).toBeVisible();
 
-  await page.getByRole('button', { name: /Inspecteur réseau/ }).click();
+  await page.getByRole('navigation', { name: 'Navigation des outils IA' }).getByRole('button', { name: /Suivre et diagnostiquer/ }).click();
+  await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Inspecteur réseau' }).click();
   await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Sélection pour cette expérience' })).toHaveCount(0);
 });
