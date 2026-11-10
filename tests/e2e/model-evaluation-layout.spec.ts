@@ -73,7 +73,8 @@ test('model evaluation uses one aligned, non-floating canvas from profiles to la
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
 
   const navigation = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
-  await expect(navigation.getByRole('button')).toHaveCount(2);
+  await expect(navigation.getByRole('button')).toHaveCount(3);
+  await expect(navigation.getByRole('button', { name: 'Radar des candidats' })).toBeVisible();
 
   for (const width of [1440, 1100, 900, 768, 390]) {
     await page.setViewportSize({ width, height: 900 });

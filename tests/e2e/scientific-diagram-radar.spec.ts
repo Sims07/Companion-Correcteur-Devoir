@@ -71,7 +71,7 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
-    .getByRole('button', { name: /Carnet de résultats/ }).click();
+    .getByRole('button', { name: 'Carnet de résultats' }).click();
 
   const journal = page.getByRole('region', { name: 'Carnet des résultats scientifiques' });
   const recordedCampaigns = journal.getByRole('group', { name: 'Campagnes enregistrées' }).getByRole('button');
@@ -82,6 +82,8 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   await expect(overview.locator('.diagram-lab-readiness-stat').nth(2)).toContainText('8/8');
   await expect(overview.getByText(/candidats avec huit axes/)).toBeVisible();
   await overview.getByRole('button', { name: 'Voir le radar à huit axes' }).click();
+  await expect(page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
+    .getByRole('button', { name: 'Radar des candidats' })).toHaveAttribute('aria-current', 'page');
   const radar = journal.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await expect(radar.getByRole('img', { name: /Comparaison radar/ })).toBeVisible();
   await expect(radar.getByRole('region', { name: 'Classement des candidats' }).getByText('2 candidat(s) classable(s)')).toBeVisible();
@@ -97,15 +99,32 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   await page.reload();
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
-  await page.getByRole('group', { name: 'Parcours de test' })
-    .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
-    .getByRole('button', { name: /Carnet de résultats/ }).click();
-  await page.getByRole('region', { name: 'Carnet des résultats scientifiques' })
-    .getByRole('tab', { name: /Radar des candidats/ }).click();
+    .getByRole('button', { name: 'Radar des candidats' }).click();
   const reopened = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await expect(reopened.getByRole('region', { name: 'Classement des candidats' }).getByText('2 candidat(s) classable(s)')).toBeVisible();
   await expect(reopened.getByLabel('Priorité du classement')).toHaveValue('balanced');
   await reopened.getByLabel('Regrouper les candidats').selectOption('method');
   await expect(reopened.getByText(/aucune mesure de graphe n’est attribuée artificiellement/)).toBeVisible();
+});
+
+test('radar is reachable from the general evaluation notebook without a previous science campaign', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  const nav = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
+  await nav.getByRole('button', { name: 'Carnet de résultats' }).click();
+  await expect(nav.getByRole('button', { name: 'Carnet de résultats' })).toHaveAttribute('aria-current', 'page');
+  await nav.getByRole('button', { name: 'Radar des candidats' }).click();
+  const journal = page.getByRole('region', { name: 'Carnet des résultats scientifiques' });
+  await expect(journal.getByRole('region', { name: 'Radar des candidats scientifiques' })).toBeVisible();
+  await expect(nav.getByRole('button', { name: 'Radar des candidats' })).toHaveAttribute('aria-current', 'page');
+  await expect(journal.getByRole('tab', { name: /Radar des candidats/ })).toHaveCount(0);
+  await nav.getByRole('button', { name: 'Tests' }).click();
+  await expect(page.getByRole('group', { name: 'Parcours de test' })
+    .getByRole('button', { name: /Schémas scientifiques/ })).toHaveAttribute('aria-pressed', 'true');
+  await nav.getByRole('button', { name: 'Carnet de résultats' }).click();
+  await expect(journal.getByText('Aucun résultat pour ce filtre')).toBeVisible();
+  await nav.getByRole('button', { name: 'Radar des candidats' }).click();
+  await expect(journal.getByRole('region', { name: 'Radar des candidats scientifiques' })).toBeVisible();
 });
