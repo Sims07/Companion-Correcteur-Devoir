@@ -37,3 +37,7 @@
 .diagram-lab-comparison p { font-size: .82rem; color: var(--ds-color-text-muted); }
 @media(max-width: 980px) { .diagram-lab-history-grid { grid-template-columns: minmax(0,1fr); } .diagram-lab-history-list { display: flex; overflow-x: auto; overflow-y: hidden; max-height: initial; } .diagram-lab-history-item { min-width: min(260px, 80vw); } }
 @media(max-width: 540px) { .diagram-lab-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); } .diagram-lab-history-heading { flex-direction: column; padding: var(--ds-space-3); } }
+
+.diagram-lab-case-image { display: flex; flex-wrap: wrap; align-items: start; gap: var(--ds-space-4); }
+.diagram-lab-case-image img { width: min(220px, 100%); height: 126px; object-fit: contain; border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-sm); background: #fff; }
+.diagram-lab-case-image h4 { flex: 1; min-width: 180px; }

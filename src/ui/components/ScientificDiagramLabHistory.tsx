@@ -3,6 +3,18 @@ import type { DiagramLabArchiveRepository } from '../../ports/diagramLabArchiveR
 import { compareDiagramLabEntries, diagramLabProtocolLabels, type DiagramLabArchiveEntry, type DiagramLabProtocol } from '../../domain/diagramLabHistory.ts';
 import { diagramMethodLabels } from '../../domain/scientificDiagramProtocol.ts';
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
+import { buildDiagramLabComparison } from '../../domain/diagramLabComparison.ts';
+import { scientificDiagramSensitivityPreviewUrl } from '../../domain/scientificDiagramSensitivity.ts';
+import cleanDiagramUrl from '../../assets/pilot/scientific-mitosis-10.webp';
+import intermediateDiagramUrl from '../../assets/pilot/scientific-mitosis-5.webp';
+import poorDiagramUrl from '../../assets/pilot/scientific-mitosis-0.webp';
+import correctPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labels-control.svg';
+import swappedPointerDiagramUrl from '../../assets/pilot/scientific-mitosis-labels-swapped.svg';
+
+const fixturePreviews = {
+  A: cleanDiagramUrl, B: intermediateDiagramUrl, C: poorDiagramUrl,
+  D: correctPointerDiagramUrl, E: swappedPointerDiagramUrl,
+};
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import { Button } from '../design-system/index.ts';
 import { downloadScientificDiagramJson } from './ScientificDiagramProtocolPanel.tsx';
@@ -43,8 +55,11 @@ function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
     </div>
     {report.cases.filter((item) => item.caseId === (activeCase || report.cases[0]?.caseId)).map((item, index) =>
       <section key={item.caseId + index} className="diagram-lab-case-detail">
-        <h4>{item.caseId} · {item.label}</h4>
-        <p>{item.mutation || 'Cas témoin'} · {item.experiments.length} passage(s)</p>
+        <div className="diagram-lab-case-image">
+          <img src={scientificDiagramSensitivityPreviewUrl(item.caseId)} alt={'Schéma de référence ' + item.caseId} loading="lazy" />
+          <div><h4>{item.caseId} · {item.label}</h4>
+            <p>{item.mutation || 'Cas témoin'} · {item.experiments.length} passage(s)</p></div>
+        </div>
         {report.format === 'companion-scientific-diagram-blind-graph-report' && report.cases.filter((c) => c.caseId === item.caseId).flatMap((c) => c.experiments.map((run, i) =>
           <BlindGraphRunDetails key={i} run={run} gold={c.gold} />))}
         {report.format === 'companion-scientific-diagram-sensitivity-report' && report.cases.filter((c) => c.caseId === item.caseId).flatMap((c) => c.experiments.map((run, i) =>
@@ -82,7 +97,10 @@ function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
     </div>
     {report.cases.filter((item) => item.caseId === (activeCase || report.cases.find((c) => c.experiments.length)?.caseId))
       .map((item) => <section key={item.caseId} className="diagram-lab-case-detail">
-        <h4>{item.label} · note attendue {item.referenceScore}/10</h4>
+        <div className="diagram-lab-case-image">
+          <img src={fixturePreviews[item.caseId]} alt={'Schéma de référence ' + item.caseId} loading="lazy" />
+          <h4>{item.label} · note attendue {item.referenceScore}/10</h4>
+        </div>
         {item.summaries.map((summary) => <div key={summary.profileId + summary.method}>
           <h5>{summary.profileName} · {diagramMethodLabels[summary.method]}</h5>
           <div className="pilot-evaluation-table-scroll"><table className="pilot-evaluation-table">
@@ -137,6 +155,7 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
   const selected = entries.find((item) => item.id === selectedId) ?? visible[0] ?? null;
   const comparison = entries.find((item) => item.id === comparisonId) ?? null;
   const comparisonIssue = selected && comparison ? compareDiagramLabEntries(selected, comparison) : null;
+  const comparisonRows = selected && comparison && !comparisonIssue ? buildDiagramLabComparison(selected, comparison) : [];
 
   return <section className="diagram-lab-history" aria-label="Carnet des résultats scientifiques">
     <div className="diagram-lab-history-heading">
@@ -200,7 +219,14 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
                   <tr><th scope="row">Nombre de répétitions prévues</th><td>{selected.plannedRepetitions}</td><td>{comparison.plannedRepetitions}</td></tr>
                 </tbody>
               </table></div>
-              <p>Pour interpréter les évolutions, vérifiez également les mêmes cas, modèles et variantes de consigne dans les détails de chaque rapport.</p>
+              <h4>Mesures comparées par dessin et modèle</h4>
+              {comparisonRows.length ? <div className="pilot-evaluation-table-scroll"><table className="pilot-evaluation-table">
+                <thead><tr><th>Dessin / modèle / méthode</th><th>Indicateur</th><th>Essai consulté</th><th>Essai précédent</th></tr></thead>
+                <tbody>{comparisonRows.map((row) => <tr key={row.key + row.metric}>
+                  <th scope="row">{row.label}</th><td>{row.metric}</td><td>{row.current}</td><td>{row.previous}</td>
+                </tr>)}</tbody>
+              </table></div> : <p>Pas encore de mesure commune ou exploitable dans ces deux rapports.</p>}
+              <p>Les colonnes sont rapprochées lorsque le dessin, la configuration, la méthode et la stratégie coïncident. Une case « — » signifie que l’essai ne comporte pas cette mesure. Les variantes de consignes et les répétitions différentes ne constituent pas une comparaison strictement contrôlée.</p>
             </div>}
           </section>
           <ReportDetails key={selected.id + ':' + selected.report.format} entry={selected} />
