@@ -6,8 +6,8 @@ test('evaluation uses unobtrusive view navigation without fake numbered steps', 
 
   const navigation = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   await expect(navigation.getByRole('button', { name: 'Tests' })).toHaveAttribute('aria-current', 'page');
-  await expect(navigation.getByRole('button', { name: 'Exécution' })).toBeHidden();
-  await expect(navigation.getByRole('button', { name: 'Résultats' })).toBeHidden();
+  await expect(navigation.getByRole('button', { name: 'Exécution', exact: true })).toBeHidden();
+  await expect(navigation.getByRole('button', { name: 'Résultats', exact: true })).toBeHidden();
   await expect(navigation.locator('button > span')).toHaveCount(0);
 
   await expect.poll(() => navigation.getByRole('button', { name: 'Tests' }).evaluate((button) => {
