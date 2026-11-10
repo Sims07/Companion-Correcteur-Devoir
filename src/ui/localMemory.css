@@ -55,3 +55,15 @@
   outline: none;
   box-shadow: var(--ds-focus-ring);
 }
+
+
+/*
+ * The teacher's correction-memory assistant is unrelated to AI model benchmarking.
+ * It is rendered as a sibling of the main app shell; do not let its fixed
+ * button/dialog cover laboratory controls on desktop or mobile.
+ * Correction mode does not have .ai-tools-view and keeps the assistant.
+ */
+main.ai-tools-view ~ .memory-fab,
+main.ai-tools-view ~ .memory-panel {
+  display: none;
+}
