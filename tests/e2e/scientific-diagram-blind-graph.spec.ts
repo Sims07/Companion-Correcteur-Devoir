@@ -72,6 +72,7 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
   await observer.locator('summary').click();
   const start = observer.getByRole('button', { name: 'Extraire les relations des 6 schémas' });
   await expect(start).toBeDisabled();
+  await expect(observer.getByRole('status')).toContainText('Sélectionnez au moins une configuration');
   await page.getByRole('group', { name: 'Configurations à exécuter' })
     .locator('label.evaluation-profile-option').first().click();
   await expect(start).toBeEnabled();
@@ -239,4 +240,72 @@ test('blind graph observer supports an explicitly selected OpenAI-compatible Vis
   expect(JSON.stringify(report)).not.toContain('PRIVATE_API_KEY');
   expect(JSON.stringify(report)).not.toContain('vision.example.test');
   expect(JSON.stringify(report)).not.toContain('data:image');
+});
+
+test('blind graph uses saved Bonsai generative Vision model even with decision correction, and remembers selection after reload', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
+      id: 'bonsai-vision', name: 'Bonsai graph', mode: 'single', updatedAt: '2026-11-10T10:00:00Z',
+      configuration: {
+        endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '',
+        visionModel: '', generativeModel: 'bonsai-2:4b', decisionModel: 'tev1:4b',
+        analysisModel: 'tev1:4b', correctionMethod: 'decision',
+        transcriptionTokenLimit: 2048, transcriptionPromptMode: 'auto',
+        transcriptionRepeatPenalty: 1.05, transcriptionPenaltyParameter: 'none',
+        transcriptionFrequencyPenalty: 0, analysisThinking: false,
+        criterionByCriterion: true, secondAnalysisModel: '', arbitratorModel: '', diagnosticStrategy: 'single',
+      },
+    }]));
+    localStorage.setItem('companion-correcteur:evaluation-selected-profiles:v1', JSON.stringify(['bonsai-vision']));
+  });
+  const models: string[] = [];
+  await page.route('http://localhost:11434/**', async (route) => {
+    const request = route.request();
+    const pathname = new URL(request.url()).pathname;
+    const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*',
+      'access-control-allow-methods': 'GET,POST,OPTIONS', 'content-type': 'application/json' };
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
+    if (pathname === '/api/tags') return route.fulfill({ status: 200, headers, body: JSON.stringify({
+      models: [{ name: 'bonsai-2:4b', model: 'bonsai-2:4b' }],
+    }) });
+    if (pathname === '/api/show') return route.fulfill({ status: 200, headers, body: JSON.stringify({ model_info: {} }) });
+    if (pathname === '/api/ps') return route.fulfill({ status: 200, headers, body: JSON.stringify({ models: [] }) });
+    if (pathname === '/api/chat') {
+      const body = request.postDataJSON() as { model: string };
+      models.push(body.model);
+      return route.fulfill({ status: 200, headers, body: JSON.stringify({
+        message: { content: JSON.stringify({ labels: ['ADN', 'ARN'], arrows: [
+          { first: 'ADN', second: 'ARN', tip: 'second' },
+        ], containment: [], arrowsComplete: true }) }, done: true, done_reason: 'stop',
+      }) });
+    }
+    return route.fulfill({ status: 404, headers, body: '{}' });
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' })
+    .getByRole('button', { name: /Schémas scientifiques/ }).click();
+  const observer = page.getByRole('region', { name: 'Protocole schémas scientifiques' })
+    .locator('details.diagram-sensitivity-section')
+    .filter({ has: page.getByText('Observer un graphe de relations avant le barème (Ollama ou OpenAI-compatible)') });
+  await observer.locator('summary').click();
+  const start = observer.getByRole('button', { name: 'Extraire les relations des 6 schémas' });
+  await expect(start).toBeEnabled();
+  await expect(observer.getByText(/Modèle réellement envoyé aux six schémas/)).toContainText('bonsai-2:4b');
+  await start.click();
+  await expect.poll(() => models.length, { timeout: 90_000 }).toBe(6);
+  expect(models).toEqual(Array(6).fill('bonsai-2:4b'));
+
+  await page.reload();
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' })
+    .getByRole('button', { name: /Schémas scientifiques/ }).click();
+  const afterReload = page.getByRole('region', { name: 'Protocole schémas scientifiques' })
+    .locator('details.diagram-sensitivity-section')
+    .filter({ has: page.getByText('Observer un graphe de relations avant le barème (Ollama ou OpenAI-compatible)') });
+  await afterReload.locator('summary').click();
+  await expect(afterReload.getByRole('button', { name: 'Extraire les relations des 6 schémas' })).toBeEnabled();
 });
