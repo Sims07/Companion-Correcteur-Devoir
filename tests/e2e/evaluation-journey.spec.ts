@@ -15,7 +15,7 @@ test('each test journey shows its own preparation and preserves custom input acr
   await page.screenshot({ path: 'test-results/evaluation-diagrams-desktop.png', fullPage: true });
   await expect(page.getByRole('group', { name: 'Type d’évaluation' })).toBeHidden();
   await expect(page.getByRole('region', { name: 'Lancer l’expérience' })).toHaveCount(0);
-  await journeys.getByRole('button', { name: /Protocoles de biologie/ }).click();
+  await journeys.getByRole('button', { name: /Biologie/ }).click();
   await expect(page.getByRole('region', { name: 'Protocole de test guidé' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Protocole schémas scientifiques', exact: true })).toBeHidden();
   await page.getByRole('button', { name: 'Vérifier la répétabilité', exact: true }).click();
@@ -25,10 +25,10 @@ test('each test journey shows its own preparation and preserves custom input acr
   await page.getByRole('button', { name: 'Vérifier la répétabilité', exact: true }).click();
   await expect(page.getByLabel('Nombre de passages')).toHaveValue('5');
   await page.screenshot({ path: 'test-results/evaluation-repeatability-desktop.png', fullPage: true });
-  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: /Analyse & historique/ }).click();
-  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: /Configuration/ }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: /Carnet de résultats/ }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: /Tests/ }).click();
   await expect(page.getByRole('button', { name: 'Vérifier la répétabilité', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await journeys.getByRole('button', { name: /Ma propre copie/ }).click();
+  await journeys.getByRole('button', { name: /Ma copie/ }).click();
   await expect(transcription).toHaveValue('Réponse personnelle conservée.');
   await expect(page.locator('#evaluation-rubric')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Lancer l’expérience' })).toBeVisible();
