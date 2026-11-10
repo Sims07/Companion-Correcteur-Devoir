@@ -97,12 +97,12 @@
   font-size: clamp(1.45rem, 2.1vw, 1.8rem);
 }
 .ai-tools-view .evaluation-page-header p:not(.eyebrow) { font-size: .8rem; line-height: 1.45; }
-.ai-tools-view > .privacy-strip {
+.ai-tools-view .privacy-strip {
   margin: var(--ds-space-2) 0;
   padding: var(--ds-space-3) var(--ds-space-4);
   box-shadow: none;
 }
-.ai-tools-view > .privacy-strip p { font-size: .75rem; line-height: 1.45; }
+.ai-tools-view .privacy-strip p { font-size: .75rem; line-height: 1.45; }
 .ai-tools-view .diagram-protocol-export-strip {
   display: block;
   margin: var(--ds-space-2) 0;

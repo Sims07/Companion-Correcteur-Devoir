@@ -47,7 +47,7 @@ export function DeveloperToolsNavigation({ activeTool, traces, onNavigate }: Pro
     </div>
     <nav className="developer-tools-nav" aria-label="Navigation des outils IA">
       <button type="button" className={evaluating ? 'developer-tools-link is-active' : 'developer-tools-link'}
-        aria-label="Évaluation des modèles : tester et comparer" aria-current={evaluating ? 'page' : undefined} onClick={() => onNavigate('diagnostic')}>
+        aria-label="Évaluer les modèles — Évaluation des modèles" aria-current={evaluating ? 'page' : undefined} onClick={() => onNavigate('diagnostic')}>
         <span className="developer-tools-link-copy"><strong>Évaluer les modèles</strong><small>Tester une configuration et comparer les résultats</small></span>
       </button>
       <button type="button" className={!evaluating ? 'developer-tools-link is-active' : 'developer-tools-link'}
