@@ -1,9 +1,9 @@
 import type { ImageInput } from '../../domain/imageInput.ts';
 import {
-  BLIND_VISUAL_OBSERVATION_PROMPT, BLIND_VISUAL_OBSERVATION_SCHEMA,
+  blindVisualObservationPrompt, BLIND_VISUAL_OBSERVATION_SCHEMA,
   BLIND_VISUAL_OBSERVATION_ZOOM_SCHEMA, BLIND_VISUAL_ZOOM_LOCALIZATION_HINT,
   BLIND_VISUAL_ZOOM_TIP_SCHEMA, parseObservedVisualGraph,
-  type ObservedVisualGraph, type ObservedArrowBounds, type BlindGraphDiagnostic,
+  type ObservedVisualGraph, type ObservedArrowBounds, type BlindGraphDiagnostic, type BlindGraphPromptVariant,
 } from '../../domain/scientificDiagramBlindGraph.ts';
 import { currentFetch } from './currentFetch.ts';
 import { createOpenAiCompatibleFetch } from './openAiCompatibleTransport.ts';
@@ -18,6 +18,7 @@ export interface BlindGraphLocalRequest {
   signal?: AbortSignal;
   onDiagnostic?: (diagnostic: BlindGraphDiagnostic) => void;
   zoomUncertainArrows?: boolean;
+  promptVariant?: BlindGraphPromptVariant;
   prepareZoom?: (image: ImageInput, bounds: ObservedArrowBounds) => Promise<ImageInput | null>;
 }
 
@@ -139,7 +140,7 @@ export async function extractBlindVisualGraph(
       body: JSON.stringify({
         model: request.model,
         messages: [
-          { role: 'system', content: BLIND_VISUAL_OBSERVATION_PROMPT +
+          { role: 'system', content: blindVisualObservationPrompt(request.promptVariant) +
             (request.zoomUncertainArrows ? '\n' + BLIND_VISUAL_ZOOM_LOCALIZATION_HINT : '') },
           { role: 'user', content: instruction, images: [compatible ? `data:${request.image.mimeType};base64,${request.image.base64}` : request.image.base64] },
         ],
