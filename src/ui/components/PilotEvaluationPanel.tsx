@@ -63,7 +63,7 @@ export function PilotEvaluationPanel({
       <div>
         <p className="eyebrow">LABORATOIRE · EXPÉRIENCE GUIDÉE</p>
         <h3>Tests de référence en biologie</h3>
-        <p>Sélectionnez vos configurations au-dessus, puis choisissez un objectif ci-dessous. Les contrats et la répétabilité fonctionnent sans document à importer. Le barème du devoir et les réglages enregistrés restent inchangés.</p>
+        <p>Trois batteries complémentaires, avec références intégrées. Vos paramètres de correction restent inchangés.</p>
       </div>
       {busy && scenario !== 'copies' && <Button variant="secondary" onClick={onStop}>Arrêter après l’appel en cours</Button>}
       {scenario === 'copies' && <button type="button" className="secondary-button" disabled={busy} onClick={onPrepare}>{enabled ? 'Réinitialiser le protocole' : 'Préparer le protocole en un clic'}</button>}
@@ -72,11 +72,21 @@ export function PilotEvaluationPanel({
       {([['contracts', 'Comparer les méthodes'], ['repeatability', 'Vérifier la répétabilité'], ['copies', 'Vision et parallélisme']] as const).map(([id, label]) =>
         <button type="button" key={id} disabled={busy || uploadingCase !== null} aria-pressed={scenario === id} onClick={() => setScenario(id)}>{label}</button>)}
     </div>
+    <p className="pilot-evaluation-scope" role="status">{({ contracts: 'Contrats par question · 3 cas de référence', repeatability: 'Répétabilité · mêmes cas rejoués', copies: 'Vision et parallélisme · 3 copies' } as const)[scenario]} · {selectedProfiles.length} configuration(s)</p>
+    {busy && <p className="pilot-evaluation-running" role="status">Test en cours · {({ contracts: 'comparaison des méthodes', repeatability: 'répétabilité', copies: 'vision et analyse' } as const)[scenario]}{currentCase ? ' · copie ' + currentCase : ''}</p>}
     <section hidden={scenario !== 'contracts'} className="pilot-evaluation-parallel" aria-label="Protocole variante B par question">
       <div>
         <h4>Variante B · réponses rattachées aux questions</h4>
         <p>Comparez sur les mêmes réponses le barème standard et un contrat explicite par question (consigne, relation scientifique attendue, équivalences et contradictions). Trois cas intégrés : A = 10/10, B = 0/10 (réponses 1 et 2 échangées), C = 5/10. Aucun document à importer, aucune photo requise.</p>
-        <p>Choisissez 1 à 3 profils dans « Configurations à exécuter » au-dessus. Le test lance 6 évaluations par profil, séquentiellement. Les modèles Ollama locaux sont libérés entre les profils. Les API compatibles OpenAI sont utilisables sans photo sur ce scénario fictif. Les contrats fournis sont des exemples préremplis, pas des résultats d’une génération automatique : ce protocole mesure uniquement l’effet des contrats sur la correction.</p>
+        <details className="pilot-evaluation-protocol-notes"><summary>Conditions et limites de l’expérience</summary><p>Choisissez 1 à 3 profils dans « Configurations à exécuter » au-dessus. Le test lance 6 évaluations par profil, séquentiellement. Les modèles Ollama locaux sont libérés entre les profils. Les API compatibles OpenAI sont utilisables sans photo sur ce scénario fictif. Les contrats fournis sont des exemples préremplis, pas des résultats d’une génération automatique : ce protocole mesure uniquement l’effet des contrats sur la correction.</p></details>
+      </div>
+      <div className="pilot-evaluation-actions">
+        <Button disabled={busy || uploadingCase !== null || Boolean(analysisIssue)}
+          onClick={onRunContracts}>Comparer standard et variante B en un clic</Button>
+        {contractRuns.length > 0 && <>
+          <Button variant="secondary" disabled={busy} onClick={onCopy}>Copier le rapport pour ChatGPT</Button>
+          <Button variant="secondary" disabled={busy} onClick={onExport}>Exporter JSON complet</Button>
+        </>}
       </div>
       <details className="pilot-evaluation-reference">
         <summary>Voir les trois réponses et le barème de référence</summary>
@@ -86,14 +96,6 @@ export function PilotEvaluationPanel({
           <pre className="pilot-evaluation-fixture">{testCase.transcription}</pre>
         </div>)}
       </details>
-      <div className="pilot-evaluation-actions">
-        <Button disabled={busy || uploadingCase !== null || Boolean(analysisIssue)}
-          onClick={onRunContracts}>Comparer standard et variante B en un clic</Button>
-        {contractRuns.length > 0 && <>
-          <Button variant="secondary" disabled={busy} onClick={onCopy}>Copier le rapport pour ChatGPT</Button>
-          <Button variant="secondary" disabled={busy} onClick={onExport}>Exporter JSON complet</Button>
-        </>}
-      </div>
       {analysisIssue && !enabled && <p className="pilot-evaluation-hint" role="status">{analysisIssue}</p>}
       {questionContractReport && <div className="pilot-evaluation-report" aria-label="Résultats variante B">
         <h4>Comparaison par configuration et par copie</h4>
@@ -118,7 +120,7 @@ export function PilotEvaluationPanel({
       <div>
         <h4>Répétabilité · Variante B</h4>
         <p>Choisissez le protocole initial A/B/C ou quatre cas de robustesse D/E/F/G (négations, équivalences, contradictions et énoncé imprimé). La même copie et le même contrat sont rejoués pour mesurer justesse, stabilité et demandes de vérification, sans confondre décision stable et décision correcte.</p>
-        <p>Analyse seule, sans photo ; appels strictement séquentiels et libération des modèles Ollama locaux entre profils. Des appels et frais d’API peuvent s’appliquer. Gardez l’onglet ouvert et le Mac éveillé pendant le test.</p>
+        <details className="pilot-evaluation-protocol-notes"><summary>Conditions d’exécution et confidentialité</summary><p>Analyse seule, sans photo ; appels strictement séquentiels et libération des modèles Ollama locaux entre profils. Des appels et frais d’API peuvent s’appliquer. Gardez l’onglet ouvert et le Mac éveillé pendant le test.</p></details>
       </div>
       <div className="pilot-evaluation-actions">
         <label htmlFor="pilot-repeatability-suite">Jeu de copies</label>
