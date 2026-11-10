@@ -24,7 +24,7 @@ test('the history lets teachers filter Vision, Analysis and full-pipeline experi
   await page.goto('/');
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
-  await page.getByRole('button', { name: 'Analyse & historique' }).click();
+  await page.getByRole('button', { name: 'Carnet de résultats' }).click();
 
   const filters = page.getByRole('group', { name: 'Filtrer les expériences par type' });
   await expect(filters).toBeVisible();
