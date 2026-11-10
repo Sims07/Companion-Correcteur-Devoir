@@ -1,35 +1,38 @@
 import { expect, test } from '@playwright/test';
 
-test('teacher correction stays simple while the AI tools remain available for troubleshooting', async ({ page }) => {
+test('AI tools offers two understandable goals, with network debugging on demand', async ({ page }) => {
   await page.goto('/');
 
   const primaryNavigation = page.getByRole('group', { name: 'Mode d’interface' });
   await expect(primaryNavigation.getByRole('button')).toHaveCount(2);
-  // Diagram corrections belong in Mes devoirs, not in a parallel navigation mode.
-  await expect(primaryNavigation.getByRole('button', { name: 'Schémas scientifiques' })).toHaveCount(0);
   await expect(primaryNavigation.getByRole('button', { name: 'Correction' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('navigation', { name: 'Navigation des outils IA' })).toHaveCount(0);
 
   await primaryNavigation.getByRole('button', { name: 'Outils IA' }).click();
   const tools = page.getByRole('navigation', { name: 'Navigation des outils IA' });
-  await expect(tools.getByRole('button')).toHaveCount(3);
-  await expect(tools.getByRole('button', { name: /Observabilité/ })).toHaveAttribute('aria-current', 'page');
-  await expect(page.locator('.developer-tools-support')).not.toHaveAttribute('open', '');
-  await expect(page.locator('.developer-tools')).toHaveCSS('background-color', 'rgb(255, 253, 249)');
-  await expect(tools.getByRole('button', { name: /Observabilité/ })).toHaveCSS('box-shadow', /rgb\(161, 77, 55\)/);
-  await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
-
-  await tools.getByRole('button', { name: /Inspecteur réseau/ }).click();
-  await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
-  await expect(tools.getByRole('button', { name: /Inspecteur réseau/ })).toHaveAttribute('aria-current', 'page');
-
-  await tools.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await expect(tools.getByRole('button')).toHaveCount(2);
+  await expect(tools.getByRole('button', { name: /Évaluer les modèles/ })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('navigation', { name: 'Détails du suivi' })).toHaveCount(0);
+  await expect(page.locator('.developer-tools-support')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Évaluation des modèles' })).toBeVisible();
   await expect(page.getByRole('group', { name: 'Type d’évaluation' })).toBeVisible();
+  await expect(page.locator('.developer-tools')).toHaveCSS('background-color', 'rgb(255, 253, 249)');
 
+  await tools.getByRole('button', { name: /Suivre et diagnostiquer/ }).click();
+  const details = page.getByRole('navigation', { name: 'Détails du suivi' });
+  await expect(details.getByRole('button')).toHaveCount(2);
+  await expect(details.getByRole('button', { name: 'Suivi des corrections' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.developer-tools-support')).not.toHaveAttribute('open', '');
+  await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
+
+  await details.getByRole('button', { name: 'Inspecteur réseau' }).click();
+  await expect(details.getByRole('button', { name: 'Inspecteur réseau' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
+
+  await tools.getByRole('button', { name: /Évaluer les modèles/ }).click();
+  await expect(page.getByRole('navigation', { name: 'Détails du suivi' })).toHaveCount(0);
   await primaryNavigation.getByRole('button', { name: 'Correction' }).click();
   await expect(page.getByRole('navigation', { name: 'Navigation des outils IA' })).toHaveCount(0);
-  await expect(primaryNavigation.getByRole('button', { name: 'Correction' })).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('support diagnostic can be copied without sharing copy contents or configured endpoint URLs', async ({ page }) => {
@@ -57,6 +60,7 @@ test('support diagnostic can be copied without sharing copy contents or configur
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('navigation', { name: 'Navigation des outils IA' }).getByRole('button', { name: /Suivre et diagnostiquer/ }).click();
   await page.getByText('Aide au diagnostic et partage avec le support').click();
   await page.getByRole('button', { name: 'Copier un diagnostic technique' }).click();
   await expect(page.getByRole('status').getByText(/Diagnostic technique copié/)).toBeVisible();
@@ -74,7 +78,8 @@ test('the network inspector keeps six aligned columns on desktop and prioritizes
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('navigation', { name: 'Navigation des outils IA' }).getByRole('button', { name: /Inspecteur réseau/ }).click();
+  await page.getByRole('navigation', { name: 'Navigation des outils IA' }).getByRole('button', { name: /Suivre et diagnostiquer/ }).click();
+  await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Inspecteur réseau' }).click();
   const headings = page.locator('.network-request-columns');
   await expect(headings.locator('span')).toHaveCount(6);
   const desktopColumns = await headings.evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length);

@@ -82,3 +82,41 @@
   .ai-tools-view :is(.network-request-columns,.network-request-row) { grid-template-columns:52px 42px minmax(0,1fr) 36px; }
 }
 @media(prefers-reduced-motion:reduce) { .ai-tools-view :is(.observability-chart-bar,.evaluation-profile-option,.network-request-row) { transition:none; } }
+
+/* Espace Outils IA : retirer les encarts redondants avant l'action. */
+.ai-tools-view .evaluation-page-header {
+  margin: var(--ds-space-2) 0 var(--ds-space-3);
+  padding: var(--ds-space-3) 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.ai-tools-view .evaluation-page-header h1 {
+  margin: 0 0 var(--ds-space-1);
+  font-size: clamp(1.45rem, 2.1vw, 1.8rem);
+}
+.ai-tools-view .evaluation-page-header p:not(.eyebrow) { font-size: .8rem; line-height: 1.45; }
+.ai-tools-view > .privacy-strip {
+  margin: var(--ds-space-2) 0;
+  padding: var(--ds-space-3) var(--ds-space-4);
+  box-shadow: none;
+}
+.ai-tools-view > .privacy-strip p { font-size: .75rem; line-height: 1.45; }
+.ai-tools-view .diagram-protocol-export-strip {
+  display: block;
+  margin: var(--ds-space-2) 0;
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+  box-shadow: none;
+}
+.ai-tools-view .diagram-protocol-export-strip > summary {
+  color: var(--ds-color-text-muted);
+  font-size: .8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.ai-tools-view .diagram-protocol-export-strip > summary:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
+.ai-tools-view .diagram-protocol-export-actions { margin-top: var(--ds-space-3); }
