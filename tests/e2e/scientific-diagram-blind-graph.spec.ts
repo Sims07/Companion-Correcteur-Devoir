@@ -244,6 +244,9 @@ test('blind graph observer supports an explicitly selected OpenAI-compatible Vis
 
 test('blind graph uses saved Bonsai generative Vision model even with decision correction, and remembers selection after reload', async ({ page }) => {
   await page.addInitScript(() => {
+    // Seed once: on reload the application must restore the selection itself.
+    if (sessionStorage.getItem('bonsai-graph-seeded')) return;
+    sessionStorage.setItem('bonsai-graph-seeded', 'yes');
     localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
       id: 'bonsai-vision', name: 'Bonsai graph', mode: 'single', updatedAt: '2026-11-10T10:00:00Z',
       configuration: {
