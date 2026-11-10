@@ -74,7 +74,12 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
     .getByRole('button', { name: /Carnet de résultats/ }).click();
 
   const journal = page.getByRole('region', { name: 'Carnet des résultats scientifiques' });
-  await journal.getByRole('tab', { name: /Radar des candidats/ }).click();
+  const overview = journal.getByRole('region', { name: 'Bilan des batteries scientifiques' });
+  await expect(overview.locator('.diagram-lab-readiness-stat').nth(0)).toContainText('4');
+  await expect(overview.locator('.diagram-lab-readiness-stat').nth(1)).toContainText('2');
+  await expect(overview.locator('.diagram-lab-readiness-stat').nth(2)).toContainText('8/8');
+  await expect(overview.getByText(/candidats avec huit axes/)).toBeVisible();
+  await overview.getByRole('button', { name: 'Voir le radar à huit axes' }).click();
   const radar = journal.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await expect(radar.getByRole('img', { name: /Comparaison radar/ })).toBeVisible();
   await expect(radar.getByRole('region', { name: 'Classement des candidats' }).getByText('2 candidat(s) classable(s)')).toBeVisible();
