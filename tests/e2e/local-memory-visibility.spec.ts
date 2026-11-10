@@ -18,7 +18,7 @@ test('teacher correction rules never overlay model evaluation or network diagnos
 
   // Navigating between evaluation and diagnostics must not restore an overlay.
   await page.getByRole('navigation', { name: 'Navigation des outils IA' })
-    .getByRole('button', { name: /Suivi.*diagnostic/i }).click();
+    .getByRole('button', { name: /Suivre et diagnostiquer/i }).click();
   await expect(floatingRules).toBeHidden();
 
   await page.setViewportSize({ width: 390, height: 844 });
