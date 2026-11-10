@@ -22,7 +22,9 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('scientific automatic protocol runner invoked from radar', () => {
   it('starts exactly one existing A/B/C protocol for the targeted saved profile, with no manual upload', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Blob(['fake-webp'], { type: 'image/webp' }), { status: 200 })));
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true,
+      blob: async () => new Blob(['fake-webp'], { type: 'image/webp' }),
+    })));
     const container = document.createElement('div');
     const root = createRoot(container);
     const onRunFixtures = vi.fn(async (request: { cases: { id: string }[] }) => ({
