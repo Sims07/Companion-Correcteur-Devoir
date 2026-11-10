@@ -2,7 +2,7 @@ import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import { isLoopbackPilotEndpoint } from '../../domain/pilotEvaluationProtocol.ts';
-import { buildBlindVisualObservationReport, canObserveBlindGraph } from '../../domain/scientificDiagramBlindGraph.ts';
+import { buildBlindVisualObservationReport, canObserveBlindGraph, type BlindGraphPromptVariant } from '../../domain/scientificDiagramBlindGraph.ts';
 import type { Rubric } from '../../domain/rubric.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import { getRubricSubcriteria, validateRubric } from '../../domain/rubric.ts';
@@ -136,6 +136,7 @@ export interface ScientificDiagramProtocolPanelProps {
     cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }>;
     repetitions: DiagramProtocolCount;
     zoomUncertainArrows?: boolean;
+    promptVariant?: BlindGraphPromptVariant;
   }) => Promise<BlindGraphReport>;
   onStop: () => void;
   report: DiagramReport | null;
@@ -167,6 +168,7 @@ export function ScientificDiagramProtocolPanel({
   const [sensitivityLoading, setSensitivityLoading] = useState(false);
   const [blindGraphLoading, setBlindGraphLoading] = useState(false);
   const [blindGraphMessage, setBlindGraphMessage] = useState('');
+  const [blindGraphPromptVariant, setBlindGraphPromptVariant] = useState<BlindGraphPromptVariant>('baseline');
   const [sensitivityMessage, setSensitivityMessage] = useState('');
   const [sensitivityPromptSelection, setSensitivityPromptSelection] = useState<'standard' | 'guided' | 'compare'>('standard');
   const [methodSelection, setMethodSelection] = useState<DiagramMethodSelection>('compare');
@@ -197,7 +199,7 @@ export function ScientificDiagramProtocolPanel({
         if (!prepared.length) throw new Error('Préparation impossible pour ' + id);
         cases.push({ id, images: prepared });
       }
-      const result = await onRunBlindGraph({ cases, repetitions: fixtureCount, zoomUncertainArrows });
+      const result = await onRunBlindGraph({ cases, repetitions: fixtureCount, zoomUncertainArrows, promptVariant: blindGraphPromptVariant });
       setBlindGraphMessage(result.cases.reduce((sum, item) => sum + item.experiments.length, 0) +
         ' observation(s) effectuée(s). Vérifiez les inconnues avant de comparer les méthodes.');
     } catch (cause) {
@@ -568,6 +570,15 @@ export function ScientificDiagramProtocolPanel({
     <details className="diagram-protocol-fixtures diagram-sensitivity-section">
       <summary><strong>Observer un graphe de relations avant le barème (Ollama ou OpenAI-compatible)</strong></summary>
       <p className="pilot-evaluation-hint">Le modèle Vision voit uniquement les PNG et une consigne générique de description : noms dessinés, extrémités/pointe des flèches, inclusion des structures. Il ne reçoit ni la consigne de biologie, ni le barème, ni les trois attendus. Le logiciel compare ensuite le graphe extrait aux références S0–S5. Aucune correction de copie n’est modifiée.</p>
+      <div className="diagram-fixture-run-controls">
+        <label htmlFor="diagram-blind-prompt-variant">Consigne de lecture du graphe</label>
+        <DesignSystemSelect id="diagram-blind-prompt-variant"
+          value={blindGraphPromptVariant} disabled={busy || blindGraphLoading}
+          onChange={(event) => setBlindGraphPromptVariant(event.currentTarget.value as BlindGraphPromptVariant)}>
+          <option value="baseline">Référence actuelle — lecture standard</option>
+          <option value="isolated-arrows-outside">Expérimentale — flèches indépendantes et structures extérieures</option>
+        </DesignSystemSelect>
+      </div>
       <div className="pilot-evaluation-actions">
         <Button disabled={!canRunBlindGraph} onClick={() => { void runBlindObservation(); }}>
           Extraire les relations des 6 schémas
@@ -586,17 +597,20 @@ export function ScientificDiagramProtocolPanel({
         <p role="status" className="pilot-evaluation-message">{blindGraphMessage || progress}</p>}
       {blindGraphReport && <section className="pilot-evaluation-report" aria-label="Résultats du graphe visuel indépendant">
         <h4>Lecture indépendante — relations effectivement observées</h4>
+        <p>Consigne utilisée : <strong>{blindGraphReport.promptVariant === 'isolated-arrows-outside' ? 'Expérimentale — flèches indépendantes et structures extérieures' : 'Référence actuelle'}</strong>.</p>
         <p>Sorties valides : {blindGraphReport.cases.flatMap((item) => item.experiments).filter((run) => run.status === 'success').length}
           /{blindGraphReport.cases.flatMap((item) => item.experiments).length}.
-          Les rejets et les relations indécidables ne prouvent pas une erreur scientifique.</p>
+          Les rejets et les relations indécidables ne prouvent pas une erreur scientifique. Le total des bonnes relations inclut les liens inchangés des schémas modifiés.</p>
         <div className="pilot-evaluation-table-scroll">
           <table className="pilot-evaluation-table">
-            <thead><tr><th>Profil</th><th>Mutations détectées</th><th>Non mesurables</th><th>Faux positifs témoins</th><th>Abstentions</th></tr></thead>
+            <thead><tr><th>Profil</th><th>Mutations détectées</th><th>Non mesurables</th><th>Bonnes relations rejetées</th><th>Bonnes relations indécidables</th><th>Faux positifs témoins</th><th>Abstentions</th></tr></thead>
             <tbody>{blindGraphReport.statistics.map((item) =>
               <tr key={item.profileId}>
                 <th scope="row">{item.profileId}</th>
                 <td>{item.sensitivityHits}/{item.sensitivityTrials}</td>
                 <td>{item.sensitivityUnknown}</td>
+                <td>{item.correctRelationRejections}/{item.correctRelationCount}</td>
+                <td>{item.correctRelationAbstentions}/{item.correctRelationCount}</td>
                 <td>{item.falsePositiveCount}/{item.controlObservations}</td>
                 <td>{item.abstentions}/{item.readingsCount}</td>
               </tr>)}</tbody>

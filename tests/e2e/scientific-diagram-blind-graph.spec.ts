@@ -75,6 +75,7 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
   await page.getByRole('group', { name: 'Configurations à exécuter' })
     .locator('label.evaluation-profile-option').first().click();
   await expect(start).toBeEnabled();
+  await observer.getByLabel('Consigne de lecture du graphe').selectOption('isolated-arrows-outside');
   await start.click();
   await expect.poll(() => requests.length, { timeout: 90_000 }).toBe(7);
   for (const item of requests) {
@@ -84,6 +85,8 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
     expect(item.model).toBe('qwen3.5:4b');
     expect(item.messages.find((entry) => entry.role === 'user')?.images).toHaveLength(1);
     const plainPrompts = item.messages.map((entry) => entry.content).join('\n');
+    expect(plainPrompts).toContain('EXAMEN INDÉPENDANT');
+    expect(plainPrompts).toContain('INVENTAIRE SPATIAL');
     expect(plainPrompts).not.toContain('ADN → ARN');
     expect(plainPrompts).not.toContain('Protéine');
     expect(plainPrompts).not.toContain('legends-visible');
@@ -135,6 +138,8 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
   expect(json.format).toBe('companion-scientific-diagram-blind-graph-report');
   expect(json.localOnly).toBe(true);
   expect(json.version).toBe(2);
+  expect((json as typeof json & { promptVariant: string }).promptVariant).toBe('isolated-arrows-outside');
+  expect(json.cases[0]?.experiments[0]).toMatchObject({ promptVariant: 'isolated-arrows-outside' });
   expect(json.cases[0]?.experiments[0]?.graph).toBeTruthy();
   expect(json.cases[0]?.experiments[0]?.relationDetails).toBeTruthy();
   expect(json.cases[0]?.experiments[0]?.diagnostic?.rawResponse).toContain('arrowsComplete');
@@ -144,6 +149,7 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
   expect(json.cases).toHaveLength(6);
   expect(json.cases.map((item) => item.experiments.length)).toEqual([1, 1, 1, 1, 1, 1]);
   expect(json.statistics).toHaveLength(1);
+  expect(json.statistics[0]).toMatchObject({ correctRelationCount: 14, correctRelationRejections: 0 });
   expect(json.cases[0]?.experiments[0]?.observations['relations::transcription']).toBe('present');
   expect(JSON.stringify(json)).not.toContain('http://localhost:11434');
   expect(JSON.stringify(json)).not.toContain('data:image');

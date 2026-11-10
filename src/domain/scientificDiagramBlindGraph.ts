@@ -7,6 +7,8 @@ import {
 } from './scientificDiagramSensitivity.ts';
 
 export const DIAGRAM_BLIND_OBSERVATION_PROTOCOL = 'scientific-diagram-blind-graph-v1';
+export const BLIND_GRAPH_PROMPT_VARIANTS = ['baseline', 'isolated-arrows-outside'] as const;
+export type BlindGraphPromptVariant = typeof BLIND_GRAPH_PROMPT_VARIANTS[number];
 
 export type ObservedArrowTip = 'first' | 'second' | 'none' | 'unclear';
 export type ObservedSpatialRelation = 'inside' | 'outside' | 'unclear';
@@ -155,6 +157,20 @@ export const BLIND_VISUAL_OBSERVATION_PROMPT = [
   'Réponds exclusivement en JSON avec labels, arrows, containment, arrowsComplete. Aucun texte supplémentaire.',
 ].join('\n');
 
+/** Experimental extension; baseline above is kept byte-for-byte for A/B comparison. */
+export const BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT = BLIND_VISUAL_OBSERVATION_PROMPT + '\n' + [
+  'EXAMEN INDÉPENDANT : dénombre d’abord tous les traits connecteurs visibles ; pour chaque trait, recommence l’examen de zéro sans recopier le sens, la pointe ou la connexion déduits d’un autre trait.',
+  'Pour CHAQUE trait, identifie ses deux extrémités physiques, suis son tracé jusqu’aux deux objets réellement touchés, puis vérifie séparément à quelle extrémité se trouve une pointe. Conserve la direction de ce trait même si elle contredit celle du voisin.',
+  'N’aligne pas automatiquement deux flèches successives : une flèche inversée n’autorise aucune conclusion sur la suivante. Une pointe illisible sur un trait ne rend pas les autres traits incertains.',
+  'INVENTAIRE SPATIAL : énumère chaque structure visible même si elle est entièrement à l’extérieur du plus grand contour, ou sans contour englobant. Copie son étiquette visible dans labels.',
+  'Pour chaque couple de structures et contours effectivement discernable, décris inside ou outside d’après les limites dessinées ; outside est une observation à conserver, pas une absence de relation. Si les limites sont ambiguës, utilise unclear.',
+  'Avant arrowsComplete=true, confronte le nombre d’entrées du graphe au nombre de traits visibles ; n’omets jamais un trait parce qu’il semble anormal. N’invente ni pointe, ni connexion, ni inclusion.',
+].join('\n');
+
+export function blindVisualObservationPrompt(variant: BlindGraphPromptVariant = 'baseline'): string {
+  return variant === 'isolated-arrows-outside' ? BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT : BLIND_VISUAL_OBSERVATION_PROMPT;
+}
+
 /** Normalization is used for matching labels only, never to reconstruct an arrow. */
 function sameLabel(a: string, b: string): boolean {
   const normalize = (input: string) => input.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -280,6 +296,7 @@ export interface BlindVisualObservationRun {
   durationMs: number;
   status: 'success' | 'failed' | 'aborted';
   zoom?: boolean;
+  promptVariant?: BlindGraphPromptVariant;
   observations: Record<string, DiagramSensitivityChoice>;
   arrowCount: number;
   containmentCount: number;
@@ -291,6 +308,7 @@ export interface BlindVisualObservationRun {
 
 export function buildBlindVisualObservationReport(
   runs: readonly BlindVisualObservationRun[], repetitions: 1 | 3 | 5, createdAt: string,
+  promptVariant: BlindGraphPromptVariant = 'baseline',
 ) {
   const readings: DiagramSensitivityReading[] = runs.map((run) => ({
     caseId: run.caseId, repetition: run.repetition,
@@ -299,7 +317,7 @@ export function buildBlindVisualObservationReport(
   }));
   return {
     format: 'companion-scientific-diagram-blind-graph-report',
-    version: 2, protocolId: DIAGRAM_BLIND_OBSERVATION_PROTOCOL,
+    version: 2, protocolId: DIAGRAM_BLIND_OBSERVATION_PROTOCOL, promptVariant,
     createdAt, plannedRepetitions: repetitions, localOnly: !runs.some((run) => run.remote),
     cases: DIAGRAM_SENSITIVITY_CASES.map(({ id, label, referenceScore, mutation, gold }) => ({
       caseId: id, label, mutation, referenceScore, gold: { ...gold },
