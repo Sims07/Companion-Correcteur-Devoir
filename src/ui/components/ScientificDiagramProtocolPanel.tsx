@@ -371,7 +371,7 @@ export function ScientificDiagramProtocolPanel({
       </DesignSystemSelect>
       <p className="pilot-evaluation-hint">Les méthodes sont choisies dans ce laboratoire uniquement. Le choix habituel « Comparer toutes les méthodes » n’active jamais Think. L’option OFF / ON fonctionne avec tout modèle génératif Vision sur Ollama local qui prend en charge Think : le serveur est interrogé sur les capacités du modèle avant l’essai. Les niveaux nommés sont respectés quand Ollama en indique un. 4 096 tokens maximum par appel Think et 1 passage par défaut. Pensez à « Arrêter » si l’essai est trop long. Le rapport distingue Thinking demandé et trace réellement émise, sans enregistrer le raisonnement. D1/D3 compatibles peuvent comparer deux étapes et System One image ; TEV1 n’utilise l’image que via la transcription préalable.</p>
     </div>
-    <section className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
+    <section id="evaluation-diagram-fixture-launch" className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
       <div className="diagram-protocol-fixtures-heading">
         <div>
           <h4>Cinq schémas prêts à tester — dont une paire témoin / piège</h4>
@@ -518,7 +518,7 @@ export function ScientificDiagramProtocolPanel({
         <p className="pilot-evaluation-hint">{fixtureReport.limitations}</p>
       </section>}
     </section>
-    <details className="diagram-protocol-fixtures diagram-sensitivity-section">
+    <details id="evaluation-diagram-sensitivity-launch" className="diagram-protocol-fixtures diagram-sensitivity-section">
       <summary><strong>Tester la compréhension sémantique : 6 variantes contrôlées</strong> — flèche inversée, mauvaise connexion, structure mal placée</summary>
       <p className="pilot-evaluation-hint">Protocole indépendant de D/E. Même texte sur les six images : le modèle doit réellement examiner les extrémités et le sens des flèches, ainsi que le contour du noyau. Trois attendus biologiques / 3 points. Les références restent provisoires et ne sont pas communiquées au modèle. Aucun changement à la correction des devoirs.</p>
       <div className="diagram-fixture-grid diagram-sensitivity-grid">
@@ -570,7 +570,7 @@ export function ScientificDiagramProtocolPanel({
         <p className="pilot-evaluation-hint">{sensitivityReport.limitations}</p>
       </section>}
     </details>
-    <details className="diagram-protocol-fixtures diagram-sensitivity-section">
+    <details id="evaluation-diagram-graph-launch" className="diagram-protocol-fixtures diagram-sensitivity-section">
       <summary><strong>Observer un graphe de relations avant le barème (Ollama ou OpenAI-compatible)</strong></summary>
       <p className="pilot-evaluation-hint">Le modèle Vision voit uniquement les PNG et une consigne générique de description : noms dessinés, extrémités/pointe des flèches, inclusion des structures. Il ne reçoit ni la consigne de biologie, ni le barème, ni les trois attendus. Le logiciel compare ensuite le graphe extrait aux références S0–S5. Aucune correction de copie n’est modifiée.</p>
       <div className="diagram-fixture-run-controls">
@@ -679,7 +679,7 @@ export function ScientificDiagramProtocolPanel({
         </div>
       </div>
     </div>
-    <div className="diagram-protocol-run">
+    <div id="evaluation-diagram-personal-launch" className="diagram-protocol-run">
       <h4>3. Répéter à l’identique</h4>
       <p className="pilot-evaluation-hint">Configurations : {selectedProfiles.length ? selectedProfiles.map((profile) =>
         profile.name + ' (' + selectDiagramMethods(profile, methodSelection).map((method) => diagramMethodLabels[method]).join(' / ') + ')').join(' · ') :
