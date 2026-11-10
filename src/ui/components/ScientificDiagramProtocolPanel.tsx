@@ -475,7 +475,7 @@ export function ScientificDiagramProtocolPanel({
       </DesignSystemSelect>
       <details className="diagram-lab-explanation"><summary>Compatibilité et limites des méthodes</summary><p className="pilot-evaluation-hint">Les méthodes sont choisies dans ce laboratoire uniquement. Le choix habituel « Comparer toutes les méthodes » n’active jamais Think. L’option OFF / ON fonctionne avec tout modèle génératif Vision sur Ollama local qui prend en charge Think : le serveur est interrogé sur les capacités du modèle avant l’essai. Les niveaux nommés sont respectés quand Ollama en indique un. 4 096 tokens maximum par appel Think et 1 passage par défaut. Pensez à « Arrêter » si l’essai est trop long. Le rapport distingue Thinking demandé et trace réellement émise, sans enregistrer le raisonnement. D1/D3 compatibles peuvent comparer deux étapes et System One image ; TEV1 n’utilise l’image que via la transcription préalable.</p></details>
     </div>}
-    {(activeProtocol === 'reference' || activeProtocol === 'arrows') && <section className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
+    {(activeProtocol === 'reference' || activeProtocol === 'arrows') && <section id="evaluation-diagram-fixture-launch" className="diagram-protocol-fixtures" aria-label="Schémas de référence intégrés">
       <div className="diagram-protocol-fixtures-heading">
         <div>
           <h4>{activeProtocol === 'arrows' ? 'Flèches : témoin D et dessin E aux pointes inversées' : 'Qualité graphique : trois niveaux de référence A/B/C'}</h4>
@@ -539,7 +539,7 @@ export function ScientificDiagramProtocolPanel({
           </div>
         </article>)}
       </div>
-      {fixtureReport && <section className="pilot-evaluation-report" aria-label="Résultats des schémas scientifiques">
+      {fixtureReport && <section id="evaluation-diagram-fixture-results" className="pilot-evaluation-report" aria-label="Résultats des schémas scientifiques">
         <div className="pilot-evaluation-report-head">
           <div><h4>Comparaison aux notes de référence</h4><p>{busy || fixtureLoading ? 'Rapport partiel : les passages terminés sont déjà exportables. ' : ''}La note reste « Non noté » lorsque le modèle demande une revue. Les décisions System One sont mesurées séparément, même si la note finale reste indisponible.</p></div>
           <div className="pilot-evaluation-report-actions">
@@ -624,7 +624,7 @@ export function ScientificDiagramProtocolPanel({
         <p className="pilot-evaluation-hint">{fixtureReport.limitations}</p>
       </section>}
     </section>}
-    {activeProtocol === 'semantic' && <section className="diagram-protocol-fixtures diagram-sensitivity-section" aria-label="Sensibilité sémantique">
+    {activeProtocol === 'semantic' && <section id="evaluation-diagram-sensitivity-launch" className="diagram-protocol-fixtures diagram-sensitivity-section" aria-label="Sensibilité sémantique">
       <h4>Compréhension biologique · 6 variantes contrôlées</h4>
       <p>Flèche inversée, mauvaise connexion ou structure mal placée : ce protocole mesure la détection des erreurs et les faux rejets de relations correctes.</p>
       <p className="pilot-evaluation-hint">Protocole indépendant de D/E. Même texte sur les six images : le modèle doit réellement examiner les extrémités et le sens des flèches, ainsi que le contour du noyau. Trois attendus biologiques / 3 points. Les références restent provisoires et ne sont pas communiquées au modèle. Aucun changement à la correction des devoirs.</p>
@@ -661,7 +661,7 @@ export function ScientificDiagramProtocolPanel({
       </div>
       <p className="pilot-evaluation-hint">La méthode et les modèles se choisissent au-dessus ; le nombre de répétitions est celui des schémas intégrés. La comparaison standard / questions ciblées est réalisée par deux séries avec les mêmes PNG préparés une seule fois : ce n’est pas encore une lecture indépendante à l’aveugle. Exécution séquentielle. La variante S5 est indécidable : aucune réponse attendue n’est inventée pour sa première flèche.</p>
       {(sensitivityMessage || (busy && progress)) && <p role="status" className="pilot-evaluation-message">{sensitivityMessage || progress}</p>}
-      {sensitivityReport && <section className="pilot-evaluation-report" aria-label="Résultats de sensibilité sémantique">
+      {sensitivityReport && <section id="evaluation-diagram-sensitivity-results" className="pilot-evaluation-report" aria-label="Résultats de sensibilité sémantique">
         <div className="pilot-evaluation-report-head">
           <div><h4>Mesures de sensibilité</h4><p>Une erreur n’est détectée que si le témoin est reconnu et la variante fautive rejetée. Les résultats indécidables restent hors du dénominateur.</p></div>
         </div>
@@ -684,7 +684,7 @@ export function ScientificDiagramProtocolPanel({
         <p className="pilot-evaluation-hint">{sensitivityReport.limitations}</p>
       </section>}
     </section>}
-    {activeProtocol === 'graph' && <section className="diagram-protocol-fixtures diagram-sensitivity-section" aria-label="Extraction du graphe de relations">
+    {activeProtocol === 'graph' && <section id="evaluation-diagram-graph-launch" className="diagram-protocol-fixtures diagram-sensitivity-section" aria-label="Extraction du graphe de relations">
       <h4>Observer un graphe de relations avant le barème</h4>
       <p>Ollama local ou API compatible OpenAI. Ce protocole évite d’injecter la réponse scientifique attendue dans la consigne de lecture.</p>
       <p className="pilot-evaluation-hint">Le modèle Vision voit uniquement les PNG et une consigne générique de description : noms dessinés, extrémités/pointe des flèches, inclusion des structures. Il ne reçoit ni la consigne de biologie, ni le barème, ni les trois attendus. Le logiciel compare ensuite le graphe extrait aux références S0–S5. Aucune correction de copie n’est modifiée.</p>
@@ -730,7 +730,7 @@ export function ScientificDiagramProtocolPanel({
         <p className="pilot-evaluation-hint" role="status">{blindGraphIssue}</p>}
       {(blindGraphMessage || (busy && progress)) &&
         <p role="status" className="pilot-evaluation-message">{blindGraphMessage || progress}</p>}
-      {blindGraphReport && <section className="pilot-evaluation-report" aria-label="Résultats du graphe visuel indépendant">
+      {blindGraphReport && <section id="evaluation-diagram-graph-results" className="pilot-evaluation-report" aria-label="Résultats du graphe visuel indépendant">
         <h4>Lecture indépendante — relations effectivement observées</h4>
         <p>Consigne utilisée : <strong>{({
           baseline: 'Référence actuelle',
@@ -814,7 +814,7 @@ export function ScientificDiagramProtocolPanel({
         </div>
       </div>
     </div>
-    <div className="diagram-protocol-run">
+    <div id="evaluation-diagram-personal-launch" className="diagram-protocol-run">
       <h4>3. Répéter à l’identique</h4>
       <p className="pilot-evaluation-hint">Configurations : {selectedProfiles.length ? selectedProfiles.map((profile) =>
         profile.name + ' (' + selectDiagramMethods(profile, methodSelection).map((method) => diagramMethodLabels[method]).join(' / ') + ')').join(' · ') :
@@ -832,7 +832,7 @@ export function ScientificDiagramProtocolPanel({
       </div>
       {(progress || message) && <p role="status" className="pilot-evaluation-message">{message || progress}</p>}
     </div>
-    {report && <div className="pilot-evaluation-report" aria-label="Résultats du protocole schéma">
+    {report && <div id="evaluation-diagram-personal-results" className="pilot-evaluation-report" aria-label="Résultats du protocole schéma">
       <div className="pilot-evaluation-report-head">
         <div><h4>Résultats du schéma</h4><p>{report.experiments.length} essai(s) exécuté(s), {report.imageCount} page(s) par essai. Le taux de justesse exige des références renseignées par le professeur.</p></div>
         <div className="pilot-evaluation-report-actions">
