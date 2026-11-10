@@ -22,11 +22,11 @@ export const PROMPT_REVISIONS = {
   'decision.chat': 1,
   'decision.chat-repair': 1,
   'decision.system-one': 7,
-  'decision.system-one-visual': 3,
+  'decision.system-one-visual': 4,
   'diagram.page-classification': 1,
-  'diagram.scientific-analysis': 4,
-  'diagram.direct-grading': 1,
-  'diagram.direct-repair': 1,
+  'diagram.scientific-analysis': 5,
+  'diagram.direct-grading': 2,
+  'diagram.direct-repair': 2,
 } as const;
 
 export type PromptId = keyof typeof PROMPT_REVISIONS;

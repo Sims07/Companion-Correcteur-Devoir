@@ -71,7 +71,9 @@ test('optional blind-graph zoom crops actual local pixels, resolves only observe
   expect(JSON.stringify(full[0]?.format)).toContain('bounds');
   for (const item of zoomed) {
     expect(item.messages[1]?.images).toHaveLength(1);
-    expect(item.messages[1]?.content).toContain('first = ADN');
+    expect(item.messages[1]?.content).toContain(JSON.stringify({ first: 'ADN', second: 'ARN' }));
+    expect(item.messages[0]?.content).toContain('les deux extrémités et le trait complet');
+    expect(item.messages[0]?.content).toContain('objet JSON avec la clé tip');
     expect(item.messages[1]?.content).not.toContain('ADN → ARN');
     expect(item.messages[0]?.content).not.toContain('barème de correction');
   }
