@@ -1,0 +1,39 @@
+.diagram-radar-workspace { display:grid; gap:var(--ds-space-4); min-width:0; }
+.diagram-radar-intro h3 { margin:0; font-size:1.32rem; }
+.diagram-radar-intro p { margin:var(--ds-space-2) 0 0; color:var(--ds-color-text-muted); line-height:1.5; }
+.diagram-radar-toolbar { display:flex; flex-wrap:wrap; gap:var(--ds-space-3); }
+.diagram-radar-toolbar label, .diagram-radar-evidence label { display:grid; gap:var(--ds-space-2); min-width:min(270px,100%); font-size:.85rem; font-weight:600; }
+.diagram-radar-layout { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(285px,1fr); align-items:start; gap:var(--ds-space-4); }
+.diagram-radar-visual, .diagram-radar-inspector, .diagram-radar-ranking, .diagram-radar-weights { background:var(--ds-color-surface); border:1px solid var(--ds-color-border); border-radius:var(--ds-radius-md); padding:var(--ds-space-4); min-width:0; }
+.diagram-radar-svg { width:100%; height:auto; display:block; overflow:visible; }
+.diagram-radar-axis-hit { cursor:pointer; outline:none; }
+.diagram-radar-axis-hit:focus-visible { outline:2px solid var(--ds-color-brand-700); }
+.diagram-radar-legend { display:grid; gap:var(--ds-space-2); grid-template-columns:repeat(2,minmax(0,1fr)); }
+.diagram-radar-legend-item { display:flex; align-items:flex-start; gap:var(--ds-space-2); cursor:pointer; font-size:.83rem; min-width:0; }
+.diagram-radar-legend-item > span:last-child { display:grid; gap:2px; min-width:0; }
+.diagram-radar-legend-item strong { overflow-wrap:anywhere; }
+.diagram-radar-legend-item small { font-size:.75rem; color:var(--ds-color-text-muted); }
+.diagram-radar-legend-dot { width:12px; height:12px; border-radius:4px; margin-top:4px; flex-shrink:0; }
+.diagram-radar-inspector { display:grid; gap:var(--ds-space-3); }
+.diagram-radar-inspector h4, .diagram-radar-ranking h4 { margin:0; }
+.diagram-radar-axis-buttons { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--ds-space-2); }
+.diagram-radar-axis-buttons button { padding:var(--ds-space-2); color:var(--ds-color-text); background:var(--ds-color-surface-subtle); border:1px solid var(--ds-color-border); border-radius:var(--ds-radius-sm); cursor:pointer; font-size:.79rem; text-align:left; }
+.diagram-radar-axis-buttons button[aria-pressed=true] { color:var(--ds-color-brand-700); background:var(--ds-color-brand-100); border-color:var(--ds-color-brand-700); font-weight:700; }
+.diagram-radar-evidence { display:grid; gap:var(--ds-space-3); border-top:1px solid var(--ds-color-border); padding-top:var(--ds-space-4); }
+.diagram-radar-evidence > p { color:var(--ds-color-text-muted); margin:0; font-size:.84rem; }
+.diagram-radar-axis-score { font-size:1.5rem; font-variant-numeric:tabular-nums; }
+.diagram-radar-source { border-left:2px solid var(--ds-color-border-strong); display:grid; justify-items:start; gap:var(--ds-space-1); padding:var(--ds-space-2) var(--ds-space-3); background:var(--ds-color-surface-subtle); border-radius:var(--ds-radius-sm); font-size:.83rem; }
+.diagram-radar-source small { color:var(--ds-color-text-muted); }
+.diagram-radar-ranking { display:grid; gap:var(--ds-space-3); }
+.diagram-radar-ranking-heading { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--ds-space-3); }
+.diagram-radar-ranking-heading p { margin:var(--ds-space-2) 0 0; font-size:.84rem; color:var(--ds-color-text-muted); }
+.diagram-radar-model-list { display:block; font-weight:400; color:var(--ds-color-text-muted); font-size:.75rem; margin-top:var(--ds-space-1); }
+.diagram-radar-weights summary { font-weight:600; cursor:pointer; }
+.diagram-radar-weights p { color:var(--ds-color-text-muted); font-size:.85rem; }
+.diagram-radar-weight-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--ds-space-3); margin:var(--ds-space-4) 0; }
+.diagram-radar-weight-grid label { display:grid; grid-template-columns:minmax(0,1fr) minmax(90px,1fr) 20px; gap:var(--ds-space-2); align-items:center; font-size:.82rem; }
+.diagram-radar-weight-grid input { accent-color:var(--ds-color-brand-700); }
+.diagram-radar-footnote { color:var(--ds-color-text-muted); line-height:1.5; font-size:.8rem; }
+.diagram-radar-empty { padding:var(--ds-space-5); text-align:center; color:var(--ds-color-text-muted); }
+@media(max-width:990px) { .diagram-radar-layout { grid-template-columns:minmax(0,1fr); } }
+@media(max-width:590px) { .diagram-radar-legend,.diagram-radar-weight-grid { grid-template-columns:minmax(0,1fr); } .diagram-radar-svg { width:100%; } }
