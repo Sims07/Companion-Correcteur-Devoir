@@ -13,12 +13,6 @@ type Props = {
   onNavigate: (tool: DeveloperTool) => void;
 };
 
-const tools: { id: DeveloperTool; title: string; description: string; index: string }[] = [
-  { id: 'observability', title: 'Observabilité', description: 'Suivre les corrections et les erreurs', index: '01' },
-  { id: 'debug', title: 'Inspecteur réseau', description: 'Comprendre les échanges avec les modèles', index: '02' },
-  { id: 'diagnostic', title: 'Évaluation des modèles', description: 'Tester et comparer des configurations', index: '03' },
-];
-
 export function DeveloperToolsNavigation({ activeTool, traces, onNavigate }: Props) {
   const [networkErrors, setNetworkErrors] = useState(() => loadNetworkHistory().filter((record) => record.state === 'error').length);
   const [copyStatus, setCopyStatus] = useState('');
@@ -31,6 +25,7 @@ export function DeveloperToolsNavigation({ activeTool, traces, onNavigate }: Pro
   }, []);
 
   const failedTraces = traces.filter((trace) => trace.outcome === 'error').length;
+  const evaluating = activeTool === 'diagnostic';
 
   async function copyDiagnostic() {
     try {
@@ -46,37 +41,37 @@ export function DeveloperToolsNavigation({ activeTool, traces, onNavigate }: Pro
   return <section className="developer-tools" aria-label="Outils IA">
     <div className="developer-tools-heading">
       <div className="developer-tools-intro">
-        <p className="eyebrow">ESPACE TECHNIQUE · ATELIER PÉDAGOGIQUE</p>
         <h2>Outils IA</h2>
-        <p>Comprendre les corrections, examiner les échanges ou comparer les modèles. Ces outils restent séparés du parcours du professeur.</p>
-      </div>
-      <div className="developer-tools-signals" aria-label="État des diagnostics locaux">
-        <div className="developer-tools-signal">
-          <strong>{failedTraces}</strong>
-          <span>exécution(s) en échec</span>
-        </div>
-        <div className="developer-tools-signal">
-          <strong>{networkErrors}</strong>
-          <span>requête(s) en erreur</span>
-        </div>
+        <p>Que souhaitez-vous faire ?</p>
       </div>
     </div>
     <nav className="developer-tools-nav" aria-label="Navigation des outils IA">
-      {tools.map((tool) => <button key={tool.id} type="button"
-        className={activeTool === tool.id ? 'developer-tools-link is-active' : 'developer-tools-link'}
-        aria-current={activeTool === tool.id ? 'page' : undefined}
-        onClick={() => onNavigate(tool.id)}>
-        <span className="developer-tools-link-index" aria-hidden="true">{tool.index}</span>
-        <span className="developer-tools-link-copy"><strong>{tool.title}</strong><small>{tool.description}</small></span>
-      </button>)}
+      <button type="button" className={evaluating ? 'developer-tools-link is-active' : 'developer-tools-link'}
+        aria-label="Évaluer les modèles — Évaluation des modèles" aria-current={evaluating ? 'page' : undefined} onClick={() => onNavigate('diagnostic')}>
+        <span className="developer-tools-link-copy"><strong>Évaluer les modèles</strong><small>Tester une configuration et comparer les résultats</small></span>
+      </button>
+      <button type="button" className={!evaluating ? 'developer-tools-link is-active' : 'developer-tools-link'}
+        aria-label="Suivre et diagnostiquer · Observabilité" aria-current={!evaluating ? 'page' : undefined} onClick={() => onNavigate('observability')}>
+        <span className="developer-tools-link-copy"><strong>Suivre et diagnostiquer</strong><small>Retrouver une correction ou comprendre une erreur</small></span>
+      </button>
     </nav>
-    <details className="developer-tools-support">
-      <summary>Aide au diagnostic et partage avec le support</summary>
-      <div className="developer-tools-support-content">
-        <p>Copiez un résumé technique si une correction pose problème. Il contient uniquement les dates, modèles, durées et codes HTTP — jamais les copies, barèmes, prompts, réponses ni adresses des serveurs.</p>
-        <Button variant="secondary" onClick={() => { void copyDiagnostic(); }}>Copier un diagnostic technique</Button>
-        {copyStatus && <p className="developer-tools-copy-status" role="status">{copyStatus}</p>}
-      </div>
-    </details>
+    {!evaluating && <div className="developer-tools-diagnostics">
+      <nav className="developer-tools-subnav" aria-label="Détails du suivi">
+        <button type="button" aria-pressed={activeTool === 'observability'} className={activeTool === 'observability' ? 'is-active' : ''} onClick={() => onNavigate('observability')}>Suivi des corrections</button>
+        <button type="button" aria-pressed={activeTool === 'debug'} className={activeTool === 'debug' ? 'is-active' : ''} onClick={() => onNavigate('debug')}>Inspecteur réseau</button>
+      </nav>
+      {(failedTraces > 0 || networkErrors > 0) && <div className="developer-tools-signals" aria-label="Erreurs enregistrées">
+        {failedTraces > 0 && <span className="developer-tools-signal"><strong>{failedTraces}</strong> exécution(s) en échec</span>}
+        {networkErrors > 0 && <span className="developer-tools-signal"><strong>{networkErrors}</strong> requête(s) en erreur</span>}
+      </div>}
+      <details className="developer-tools-support">
+        <summary>Aide au diagnostic et partage avec le support</summary>
+        <div className="developer-tools-support-content">
+          <p>Copiez un résumé technique si une correction pose problème. Il contient uniquement les dates, modèles, durées et codes HTTP — jamais les copies, barèmes, prompts, réponses ni adresses des serveurs.</p>
+          <Button variant="secondary" onClick={() => { void copyDiagnostic(); }}>Copier un diagnostic technique</Button>
+          {copyStatus && <p className="developer-tools-copy-status" role="status">{copyStatus}</p>}
+        </div>
+      </details>
+    </div>}
   </section>;
 }

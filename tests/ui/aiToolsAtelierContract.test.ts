@@ -18,7 +18,8 @@ describe('Atelier pédagogique — Outils IA', () => {
   });
 
   it('uses the shared visual language for navigation and keeps support actions secondary', () => {
-    expect(navigation).toContain('font: 700 clamp(');
+    expect(navigation).toContain('font: 700 1.3rem/1.25');
+    expect(navigation).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
     expect(navigation).toContain('var(--ds-font-editorial)');
     expect(navigation).toContain('.developer-tools-link.is-active');
     expect(navigation).toContain('var(--ds-color-brand-700)');
@@ -26,6 +27,7 @@ describe('Atelier pédagogique — Outils IA', () => {
     expect(navigation).toContain('prefers-reduced-motion');
     const component = read('src/ui/DeveloperToolsNavigation.tsx');
     expect(component).toContain('<details className="developer-tools-support">');
+    expect(component).toContain('{!evaluating && <div className="developer-tools-diagnostics">');
     expect(component).toContain('<Button variant="secondary"');
   });
 

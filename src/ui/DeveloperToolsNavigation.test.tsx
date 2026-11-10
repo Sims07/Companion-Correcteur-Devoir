@@ -23,40 +23,49 @@ describe('DeveloperToolsNavigation', () => {
     Reflect.deleteProperty(navigator, 'clipboard');
   });
 
-  it('groups diagnostics and model experiments in one accessible navigation', async () => {
+  it('shows two goal-based choices instead of three numbered technical steps', async () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
     const onNavigate = vi.fn<(tool: DeveloperTool) => void>();
     network.records = [{ state: 'error' }, { state: 'success' }];
     await act(async () => {
-      root?.render(<DeveloperToolsNavigation activeTool="observability" traces={[{ outcome: 'error' }, { outcome: 'success' }] as never} onNavigate={onNavigate} />);
+      root?.render(<DeveloperToolsNavigation activeTool="diagnostic" traces={[{ outcome: 'error' }] as never} onNavigate={onNavigate} />);
     });
     const navigation = container.querySelector('nav[aria-label="Navigation des outils IA"]');
     const buttons = [...(navigation?.querySelectorAll('button') ?? [])];
-    expect(buttons.map((button) => button.querySelector('strong')?.textContent)).toEqual(['Observabilité', 'Inspecteur réseau', 'Évaluation des modèles']);
+    expect(buttons.map((button) => button.querySelector('strong')?.textContent)).toEqual(['Évaluer les modèles', 'Suivre et diagnostiquer']);
     expect(buttons[0]?.getAttribute('aria-current')).toBe('page');
-    expect(buttons[0]?.querySelector('.developer-tools-link-index')?.textContent).toBe('01');
-    expect(container.querySelector('.developer-tools-support')?.hasAttribute('open')).toBe(false);
-    expect(container.textContent).toContain('1 exécution(s) en échec');
-    expect(container.textContent).toContain('1 requête(s) en erreur');
-    expect(container.querySelector('summary')?.textContent).toContain('Aide au diagnostic');
+    expect(container.querySelector('.developer-tools-link-index')).toBeNull();
+    expect(container.querySelector('.developer-tools-support')).toBeNull();
+    expect(container.textContent).not.toContain('requête(s) en erreur');
     await act(async () => { buttons[1]?.click(); });
-    expect(onNavigate).toHaveBeenCalledWith('debug');
+    expect(onNavigate).toHaveBeenCalledWith('observability');
   });
 
-  it('updates error indicators on network events without losing the current tool', async () => {
+  it('only reveals network inspection, errors and support under follow-up diagnostics', async () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    const onNavigate = vi.fn<(tool: DeveloperTool) => void>();
+    network.records = [{ state: 'error' }, { state: 'success' }];
     await act(async () => {
-      root?.render(<DeveloperToolsNavigation activeTool="diagnostic" traces={[]} onNavigate={() => undefined} />);
+      root?.render(<DeveloperToolsNavigation activeTool="observability" traces={[{ outcome: 'error' }] as never} onNavigate={onNavigate} />);
     });
+    expect(container.textContent).toContain('1 exécution(s) en échec');
+    expect(container.textContent).toContain('1 requête(s) en erreur');
+    expect(container.querySelector('.developer-tools-support')?.hasAttribute('open')).toBe(false);
+    const detailNav = container.querySelector('nav[aria-label="Détails du suivi"]');
+    const detailButtons = [...(detailNav?.querySelectorAll('button') ?? [])];
+    expect(detailButtons.map((button) => button.textContent)).toEqual(['Suivi des corrections', 'Inspecteur réseau']);
+    expect(detailButtons[0]?.getAttribute('aria-pressed')).toBe('true');
+    await act(async () => { detailButtons[1]?.click(); });
+    expect(onNavigate).toHaveBeenCalledWith('debug');
     network.records = [{ state: 'error' }, { state: 'error' }];
     await act(async () => { window.dispatchEvent(new Event('developer-tools-network-event')); });
     expect(container.textContent).toContain('2 requête(s) en erreur');
-    expect(container.querySelector('[aria-current="page"]')?.textContent).toContain('Évaluation des modèles');
   });
+
   it('copies an explicit metadata-only support report and confirms clipboard success', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
