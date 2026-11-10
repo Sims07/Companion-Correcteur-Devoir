@@ -4,6 +4,7 @@ import { compareDiagramLabEntries, diagramLabProtocolLabels, parseDiagramLabRepo
 import { diagramMethodLabels } from '../../domain/scientificDiagramProtocol.ts';
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { buildDiagramLabComparison } from '../../domain/diagramLabComparison.ts';
+import type { RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
 import { buildDiagramLabRadar } from '../../domain/diagramLabRadar.ts';
 import { summarizeDiagramLabReadiness } from '../../domain/diagramLabReadiness.ts';
 import { ScientificDiagramRadar } from './ScientificDiagramRadar.tsx';
@@ -133,9 +134,11 @@ function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
   </div>;
 }
 
-export function ScientificDiagramLabHistory({ revision, archiveError, repository, view, onViewChange }: {
+export function ScientificDiagramLabHistory({ revision, archiveError, repository, view, onViewChange, profileIds, busy, onRunMissing }: {
   revision: number; archiveError?: string; repository: DiagramLabArchiveRepository;
   view: 'campaigns' | 'radar'; onViewChange: (view: 'campaigns' | 'radar') => void;
+  profileIds: readonly string[]; busy: boolean;
+  onRunMissing: (request: Omit<RadarMissingTestRequest, 'id'>) => void;
 }) {
   const [entries, setEntries] = useState<DiagramLabArchiveEntry[]>([]);
   const [loadingError, setLoadingError] = useState('');
@@ -222,7 +225,7 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
       </div>
     </section>}
 
-    {view === 'radar' && <ScientificDiagramRadar entries={entries} onOpenReport={(id) => {
+    {view === 'radar' && <ScientificDiagramRadar entries={entries} profileIds={profileIds} busy={busy} onRunMissing={onRunMissing} onOpenReport={(id) => {
       setSelectedId(id);
       setProtocolFilter('all');
       setSearch('');

@@ -60,6 +60,7 @@ import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import type { DiagramThinkSetting } from '../ports/correctionWorkspace.ts';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
 import { ScientificDiagramLabHistory } from './components/ScientificDiagramLabHistory.tsx';
+import type { RadarMissingTestRequest } from '../domain/diagramLabRadarLaunch.ts';
 import { summarizeDiagramLabReport, type DiagramLabReport } from '../domain/diagramLabHistory.ts';
 import type { DiagramLabArchiveRepository } from '../ports/diagramLabArchiveRepository.ts';
 import { initialAssignmentRubric, type AssignmentKind } from '../domain/assignmentKind.ts';
@@ -450,6 +451,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationBiologyScenario, setEvaluationBiologyScenario] = useState<'contracts' | 'repeatability' | 'copies'>('contracts');
   const [evaluationJourney, setEvaluationJourney] = useState<'custom' | 'diagrams' | 'biology'>('custom');
   const [diagramLabView, setDiagramLabView] = useState<'protocols' | 'history' | 'radar'>('protocols');
+  const [radarAutoRequest, setRadarAutoRequest] = useState<RadarMissingTestRequest | null>(null);
+  const radarAutoSequence = useRef(0);
+  const [radarAutoBusy, setRadarAutoBusy] = useState(false);
   const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history'>('configuration');
   const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
   const [evaluationVisualDirect, setEvaluationVisualDirect] = useState(false);
@@ -3626,6 +3630,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           onClearFixtureReport={() => setDiagramFixtureReport(null)}
           onClearSensitivityReport={() => setDiagramSensitivityReport(null)}
           onClearBlindGraphReport={() => setDiagramBlindGraphReport(null)}
+          autoRequest={radarAutoRequest}
+          onAutoRequestConsumed={(id) => setRadarAutoRequest((current) => current?.id === id ? null : current)}
+          onAutoBusyChange={setRadarAutoBusy}
+          onOpenRadar={() => setDiagramLabView('radar')}
         />
         </div>
         <div hidden={evaluationJourney !== 'biology'}><PilotEvaluationPanel
@@ -4321,7 +4329,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </section>}
       {interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView !== 'protocols' && evaluationWorkspaceStep === 'configuration' &&
         <ScientificDiagramLabHistory repository={diagramArchive} revision={diagramHistoryRevision} archiveError={diagramHistoryError}
-          view={diagramLabView === 'radar' ? 'radar' : 'campaigns'} onViewChange={(view) => setDiagramLabView(view === 'radar' ? 'radar' : 'history')} />}
+          view={diagramLabView === 'radar' ? 'radar' : 'campaigns'} onViewChange={(view) => setDiagramLabView(view === 'radar' ? 'radar' : 'history')}
+          profileIds={aiModelProfiles.map((profile) => profile.id)} busy={busy || pilotBusy || radarAutoBusy}
+          onRunMissing={(planned) => {
+            if (busy || pilotBusy || radarAutoBusy || !aiModelProfiles.some((profile) => profile.id === planned.profileId)) return;
+            setSelectedEvaluationProfileIds([planned.profileId]);
+            setRadarAutoRequest({ ...planned, id: ++radarAutoSequence.current });
+            setEvaluationJourney('diagrams');
+            setEvaluationWorkspaceStep('configuration');
+            setDiagramLabView('protocols');
+          }} />}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep !== 'configuration' && <section id="evaluation-results" data-evaluation-step={evaluationWorkspaceStep} className="panel evaluation-results-workspace" aria-labelledby="evaluation-results-title">
         <div className="evaluation-section-heading"><div><p className="eyebrow">{evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION' : evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS' : 'ÉTAPE 4 · ANALYSE & HISTORIQUE'}</p><h2 id="evaluation-results-title">{evaluationWorkspaceStep === 'execution' ? 'Exécution de l’expérience' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Résultats de la lecture Vision' : evaluationStageMode === 'analysis' ? 'Résultats de l’analyse' : 'Résultats du parcours complet') : 'Analyser et comparer les expériences'}</h2><p>{evaluationWorkspaceStep === 'execution' ? 'Suivez la progression des modèles locaux et le détail de chaque étape de traitement.' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Examinez les transcriptions produites et les performances des modèles de lecture.' : evaluationStageMode === 'analysis' ? 'Examinez les notes proposées, les justifications et les écarts entre modèles à partir de la même transcription.' : 'Examinez successivement la transcription, la notation et les performances des deux étapes.') : 'Retrouvez les essais précédents et comparez leurs performances grâce aux indicateurs graphiques.'}</p></div><span className="evaluation-step-chip">{evaluationWorkspaceStep === 'history' ? savedModelEvaluations.length + ' essai(s)' : modelEvaluationResults.length + ' résultat(s)'}</span></div>
         {evaluationWorkspaceStep === 'results' && evaluationArchiveStatus !== 'idle' && <div className={`evaluation-archive-feedback is-${evaluationArchiveStatus}`} role={evaluationArchiveStatus === 'failed' ? 'alert' : 'status'}>
