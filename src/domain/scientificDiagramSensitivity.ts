@@ -163,6 +163,20 @@ export function summarizeDiagramSensitivity(readings: readonly DiagramSensitivit
       .filter((choice) => choice === 'present').length;
     const falsePositiveCount = controls.flatMap((item) => targets.map((key) => item.observations[key]))
       .filter((choice) => choice === 'absent' || choice === 'partial').length;
+    // Count every known-correct relation, including unchanged links inside mutated
+    // diagrams. Looking only at S0/S4 controls hides cascading false rejections.
+    // S5's unreadable first arrow has no gold label and is excluded.
+    const correctRelationChoices = subset.flatMap((item) => {
+      const gold = DIAGRAM_SENSITIVITY_CASES.find((entry) => entry.id === item.caseId)?.gold;
+      return targets.filter((target) => gold?.[target] === 'present')
+        .map((target) => item.observations[target]);
+    });
+    const correctRelationCount = correctRelationChoices.length;
+    const correctRelationsAccepted = correctRelationChoices.filter((choice) => choice === 'present').length;
+    const correctRelationRejections = correctRelationChoices.filter((choice) =>
+      choice === 'absent' || choice === 'partial').length;
+    const correctRelationAbstentions = correctRelationChoices.filter((choice) =>
+      choice === undefined || choice === 'uncertain').length;
     const readingsCount = subset.length * targets.length;
     const abstentions = subset.flatMap((item) => targets.map((key) => item.observations[key]))
       .filter((choice) => choice === undefined || choice === 'uncertain').length;
@@ -191,6 +205,7 @@ export function summarizeDiagramSensitivity(readings: readonly DiagramSensitivit
       promptMode: (promptMode ?? 'standard') as DiagramSensitivityPromptMode,
       runs: subset.length, sensitivityHits, sensitivityTrials, sensitivityUnknown,
       falsePositiveCount, correctControls, controlObservations: controls.length * targets.length,
+      correctRelationCount, correctRelationsAccepted, correctRelationRejections, correctRelationAbstentions,
       abstentions, readingsCount,
       layoutPreserved: layoutChecks.filter((item) => item.base === 'present' && item.reordered === 'present').length,
       layoutChecks: layoutChecks.length,
