@@ -21,7 +21,7 @@ test('the guided biology protocol reuses the evaluator selection without creatin
   await page.goto('/');
   await page.getByRole('button', { name: 'Outils IA' }).click();
   await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
-  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Protocoles de biologie/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Biologie/ }).click();
 
   const panel = page.getByRole('region', { name: 'Protocole de test guidé' });
   await panel.getByRole('button', { name: 'Vision et parallélisme', exact: true }).click();
