@@ -96,6 +96,15 @@ import { estimateRemainingCorrectionSeconds } from '../domain/correctionTimeEsti
 import { createReviewTraceMetrics, markGroupConfirmedCriterionModified, type ReviewTraceMetrics } from '../domain/reviewMetrics.ts';
 
 type EvaluationStageMode = 'vision' | 'analysis' | 'integrated';
+type EvaluationActivity = {
+  title: string;
+  journey: 'custom' | 'diagrams' | 'biology';
+  targetId: string;
+  profiles: string;
+  scenario?: 'contracts' | 'repeatability' | 'copies';
+  status: 'running' | 'completed' | 'cancelled' | 'failed';
+  error?: string;
+};
 interface PilotRunOptions {
   pilotCase: PilotCase | QuestionContractCase;
   stage: 'vision' | 'analysis' | 'integrated';
@@ -440,6 +449,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationBiologyScenario, setEvaluationBiologyScenario] = useState<'contracts' | 'repeatability' | 'copies'>('contracts');
   const [evaluationJourney, setEvaluationJourney] = useState<'custom' | 'diagrams' | 'biology'>('custom');
   const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history'>('configuration');
+  const [evaluationActivity, setEvaluationActivity] = useState<EvaluationActivity | null>(null);
+  const [evaluationJumpTarget, setEvaluationJumpTarget] = useState<string | null>(null);
   const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
   const [evaluationVisualDirect, setEvaluationVisualDirect] = useState(false);
   const [pilotEnabled, setPilotEnabled] = useState(false);
@@ -498,6 +509,25 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [selectedSeriesPreviewJob, setSelectedSeriesPreviewJob] = useState<BackgroundCorrectionJob | null>(null);
   const [queuedViewerFullJob, setQueuedViewerFullJob] = useState<BackgroundCorrectionJob | null>(null);
   const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher');
+  useEffect(() => {
+    if (interfaceMode !== 'diagnostic' || !evaluationJumpTarget) return;
+    const frame = window.requestAnimationFrame(() => {
+      const fallbackId = evaluationJourney === 'diagrams'
+        ? 'evaluation-diagram-workspace' : evaluationJourney === 'biology'
+          ? 'evaluation-biology-workspace' : 'evaluation-results';
+      const target = document.getElementById(evaluationJumpTarget) ?? document.getElementById(fallbackId);
+      if (target) {
+        let ancestor: HTMLElement | null = target;
+        while (ancestor) {
+          if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+          ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      setEvaluationJumpTarget(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [interfaceMode, evaluationJumpTarget, evaluationWorkspaceStep, evaluationJourney, evaluationBiologyScenario]);
   const [detailsThumbnailsOpen, setDetailsThumbnailsOpen] = useState(false);
   const [detailThumbnails, setDetailThumbnails] = useState<Record<string, Array<ImageInput | null>>>({});
   const previewLoadSequence = useRef(0);
@@ -1872,7 +1902,40 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   function cancelModelEvaluation() {
     evaluationCancelledRef.current = true;
-    setError('Annulation demandée : l’appel Ollama en cours sera laissé se terminer avant l’arrêt de la séquence.');
+    setError('Annulation demandée : l’appel en cours sera laissé se terminer avant l’arrêt de la séquence.');
+    setEvaluationActivity((current) => current?.status === 'running'
+      ? { ...current, error: 'Arrêt demandé · fin de l’appel en cours' } : current);
+  }
+
+  async function followEvaluation<T>(activity: Omit<EvaluationActivity, 'status'>, execute: () => Promise<T>): Promise<T> {
+    setEvaluationActivity({ ...activity, status: 'running' });
+    if (activity.journey === 'diagrams') setDiagramProtocolProgress('Préparation des schémas et des modèles…');
+    if (activity.journey === 'biology') setPilotMessage('Préparation du protocole…');
+    try {
+      const outcome = await execute();
+      const interrupted = evaluationCancelledRef.current || pilotStopRef.current;
+      const failed = Boolean(pilotMemoryErrorRef.current);
+      setEvaluationActivity((current) => current?.title === activity.title
+        ? { ...current, status: interrupted ? 'cancelled' : failed || outcome === undefined ? 'failed' : 'completed',
+          ...(failed ? { error: pilotMemoryErrorRef.current ?? undefined } : {}) } : current);
+      return outcome;
+    } catch (cause) {
+      const error = cause instanceof Error ? cause.message : String(cause);
+      setEvaluationActivity((current) => current?.title === activity.title
+        ? { ...current, status: 'failed', error } : current);
+      throw cause;
+    }
+  }
+
+  function showEvaluationActivity() {
+    if (!evaluationActivity) return;
+    setEvaluationJourney(evaluationActivity.journey);
+    if (evaluationActivity.scenario) setEvaluationBiologyScenario(evaluationActivity.scenario);
+    setEvaluationWorkspaceStep(evaluationActivity.journey === 'custom'
+      ? evaluationActivity.status === 'running' ? 'execution' : 'results'
+      : 'configuration');
+    setEvaluationJumpTarget(evaluationActivity.journey === 'custom' && evaluationActivity.status === 'running'
+      ? 'evaluation-results' : evaluationActivity.targetId);
   }
 
 
@@ -3536,6 +3599,36 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <button type="button" hidden={evaluationJourney !== 'custom'} className={evaluationWorkspaceStep === 'results' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'results' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('results')}><span>3</span><strong>Résultats</strong><small>Notes, temps et tokens</small></button>
         <button type="button" className={evaluationWorkspaceStep === 'history' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'history' ? 'step' : undefined} onClick={() => setEvaluationWorkspaceStep('history')}><span>{evaluationJourney === 'custom' ? '4' : '2'}</span><strong>Analyse & historique</strong><small>Comparer les essais passés</small></button>
       </nav>}
+      {interfaceMode === 'diagnostic' && evaluationActivity && <section className={`evaluation-activity-banner is-${evaluationActivity.status}`}
+        role="status" aria-live="polite" aria-label="Dernière expérience lancée">
+        <div className="evaluation-activity-main">
+          <span className="evaluation-activity-state">
+            {evaluationActivity.status === 'running' ? '● TEST EN COURS'
+              : evaluationActivity.status === 'completed' ? '✓ TEST TERMINÉ'
+              : evaluationActivity.status === 'cancelled' ? 'TEST INTERROMPU' : 'TEST EN ÉCHEC'}
+          </span>
+          <strong>{evaluationActivity.title}</strong>
+          <p>{evaluationActivity.status === 'running'
+            ? evaluationActivity.error || (evaluationActivity.journey === 'diagrams'
+              ? diagramProtocolProgress || 'Préparation du protocole…'
+              : evaluationActivity.journey === 'biology'
+                ? pilotMessage || 'Préparation du protocole…'
+                : evaluationProgress?.currentConfiguration
+                  ? `${evaluationProgress.currentConfiguration.name} · ${evaluationProgress.currentStage === 'analysis' ? 'Analyse' : evaluationProgress.currentStage === 'reading' ? 'Lecture Vision' : 'Préparation'} · ${evaluationProgress.completedSteps}/${evaluationProgress.totalSteps} étapes`
+                  : 'Préparation du modèle et des données…')
+            : evaluationActivity.error || (evaluationActivity.status === 'completed'
+              ? 'Les résultats de cette expérience sont prêts à consulter.'
+              : 'Les passages déjà terminés peuvent rester disponibles dans le protocole.')}</p>
+          <small>{evaluationActivity.profiles}</small>
+        </div>
+        <div className="evaluation-activity-actions">
+          <button type="button" className="primary-button" onClick={showEvaluationActivity}>
+            {evaluationActivity.status === 'running' ? 'Suivre ce test'
+              : evaluationActivity.status === 'completed' ? 'Voir les résultats' : 'Consulter ce test'}
+          </button>
+          {evaluationActivity.status === 'running' && <span className="evaluation-activity-hint">Les autres lancements sont temporairement désactivés</span>}
+        </div>
+      </section>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && <section id="evaluation-configurations" className="panel evaluation-config-workspace" aria-labelledby="evaluation-config-title">
         {evaluationJourney !== 'custom' && <p className="evaluation-stage-guidance">Tests automatiques : la progression, l’arrêt, les résultats et l’export sont disponibles dans le protocole choisi ci-dessous.</p>}
         <EvaluationJourneyPicker value={evaluationJourney} disabled={busy || pilotBusy} onChange={setEvaluationJourney} />
@@ -3564,7 +3657,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <div className="evaluation-config-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button><Button variant="primary" disabled={busy || pilotBusy} onClick={saveAiModelProfile}>Enregistrer la configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button></div>
           {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}{aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
         </details>
-        <div hidden={evaluationJourney !== 'diagrams'}><ScientificDiagramProtocolPanel
+        <div id="evaluation-diagram-workspace" hidden={evaluationJourney !== 'diagrams'}><ScientificDiagramProtocolPanel
           selectedProfiles={selectedEvaluationProfiles} busy={busy || pilotBusy}
           progress={diagramProtocolProgress}
           onPrepareImages={(files) => service.prepareFiles(files)}
@@ -3583,7 +3676,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           onClearBlindGraphReport={() => setDiagramBlindGraphReport(null)}
         />
         </div>
-        <div hidden={evaluationJourney !== 'biology'}><PilotEvaluationPanel
+        <div id="evaluation-biology-workspace" hidden={evaluationJourney !== 'biology'}><PilotEvaluationPanel
           selectedScenario={evaluationBiologyScenario} onSelectScenario={setEvaluationBiologyScenario}
           enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}
           message={pilotMessage} runs={pilotRuns} contractRuns={pilotContractRuns}
