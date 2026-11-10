@@ -5,7 +5,7 @@ import { RADAR_AXES, type RadarCandidate, type RadarAxisId } from '../../src/dom
 function candidate(values: Partial<Record<RadarAxisId, number>> = {}, method?: string): RadarCandidate {
   const axes = Object.fromEntries(RADAR_AXES.map((axis) => [axis.id, {
     value: values[axis.id] ?? null, reason: 'Non mesuré', evidence: [],
-  }])) as RadarCandidate['axes'];
+  }])) as unknown as RadarCandidate['axes'];
   return {
     id: method ? 'saved-profile\u0000' + method + '\u0000standard' : 'saved-profile',
     profileId: 'saved-profile', name: 'Qwen Vision', models: ['vision:4b'],

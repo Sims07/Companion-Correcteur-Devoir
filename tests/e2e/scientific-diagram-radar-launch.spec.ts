@@ -51,7 +51,7 @@ test('a missing radar axis leads directly to its automatic fixture battery on th
   await expect(running).toContainText('Vision à compléter');
   await expect(running).toContainText(/Batterie 1\/1|n’a pas terminé|Batteries terminées/);
   // No previously selected unrelated model is invoked by this shortcut.
-  await expect(page.getByLabel('Configurations à exécuter').getByText('Vision à compléter')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Configurations à exécuter' }).getByText('Vision à compléter')).toBeVisible();
   await nav.getByRole('button', { name: 'Radar des candidats' }).click();
   await expect(page.getByRole('region', { name: 'Radar des candidats scientifiques' })).toBeVisible();
 });

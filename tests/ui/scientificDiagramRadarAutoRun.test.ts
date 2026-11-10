@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaultAiModelConfiguration, type AiModelProfile } from '../../src/domain/aiModelProfiles.ts';
 import type { RadarMissingTestRequest } from '../../src/domain/diagramLabRadarLaunch.ts';
 import { ScientificDiagramProtocolPanel } from '../../src/ui/components/ScientificDiagramProtocolPanel.tsx';
+import type { buildScientificDiagramFixtureReport } from '../../src/domain/scientificDiagramFixtures.ts';
 
 const profile: AiModelProfile = {
   id: 'saved-profile', name: 'Qwen Vision', mode: 'single', updatedAt: '2026-11-10T10:00:00Z',
@@ -26,7 +27,7 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     const root = createRoot(container);
     const onRunFixtures = vi.fn(async (request: { cases: { id: string }[] }) => ({
       cases: request.cases.map(({ id }) => ({ caseId: id, experiments: [{ status: 'success' }] })),
-    }));
+    } as unknown as ReturnType<typeof buildScientificDiagramFixtureReport>));
     const onPrepareImages = vi.fn(async (files: File[]) => files.map((file) => ({
       fileName: file.name, base64: 'ZmFrZQ==', mimeType: file.type,
     })));
