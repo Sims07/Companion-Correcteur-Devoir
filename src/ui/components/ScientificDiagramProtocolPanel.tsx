@@ -2,7 +2,7 @@ import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import { isLoopbackPilotEndpoint } from '../../domain/pilotEvaluationProtocol.ts';
-import { buildBlindVisualObservationReport, canObserveBlindGraph, type BlindGraphPromptVariant } from '../../domain/scientificDiagramBlindGraph.ts';
+import { buildBlindVisualObservationReport, blindGraphProfileIssue, blindGraphVisionModel, type BlindGraphPromptVariant } from '../../domain/scientificDiagramBlindGraph.ts';
 import type { Rubric } from '../../domain/rubric.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
 import { getRubricSubcriteria, validateRubric } from '../../domain/rubric.ts';
@@ -182,8 +182,11 @@ export function ScientificDiagramProtocolPanel({
   });
   const canRun = !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading && images.length > 0 && validation.valid && selectedProfiles.length > 0 && profileIssues.length === 0;
   const canRunFixtures = !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading && selectedProfiles.length > 0 && profileIssues.length === 0;
+  const blindGraphIssue = selectedProfiles.length === 0
+    ? 'Sélectionnez au moins une configuration dans « Configurations à exécuter » plus haut.'
+    : selectedProfiles.map(blindGraphProfileIssue).find((issue): issue is string => Boolean(issue)) ?? null;
   const canRunBlindGraph = !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading &&
-    selectedProfiles.length > 0 && selectedProfiles.every(canObserveBlindGraph);
+    !blindGraphIssue;
   const blindGraphUsesRemote = selectedProfiles.some((profile) => !isLoopbackPilotEndpoint(profile.configuration.endpoint));
 
   async function runBlindObservation(zoomUncertainArrows = false) {
@@ -591,8 +594,13 @@ export function ScientificDiagramProtocolPanel({
       </div>
       <p className="pilot-evaluation-hint">Le mode d’agrandissement peut ajouter jusqu’à deux appels sur le fournisseur sélectionné, y compris distant si vous avez choisi une API OpenAI-compatible. Le recadrage est traité sur l’appareil mais aussi transmis au fournisseur distant sélectionné ; aucune transmission automatique au cloud n’est effectuée avec un profil Ollama local. Si une zone n’est pas localisable, elle reste indécidable.</p>
       <p className="pilot-evaluation-hint">Utilisez un profil Vision Ollama local ou OpenAI-compatible (y compris votre lien distant). Les six schémas sont traités séquentiellement. Un profil distant reçoit les images : utilisez-le seulement si cela est autorisé. Aucun basculement implicite vers le cloud. La conclusion peut rester indécidable si les flèches sont mal lues.</p>
-      {!canRunBlindGraph && !busy && selectedProfiles.length > 0 &&
-        <p className="pilot-evaluation-hint" role="status">Pour cette méthode, sélectionnez un profil Vision Ollama local ou OpenAI-compatible configuré (HTTPS pour un serveur distant).</p>}
+      {selectedProfiles.length > 0 && <p className="pilot-evaluation-hint">
+        Modèle réellement envoyé aux six schémas : <strong>{selectedProfiles.map((profile) =>
+          profile.name + ' → ' + (blindGraphVisionModel(profile) || 'aucun modèle')).join(' · ')}</strong>.
+        Pour en changer, modifiez « Modèle de lecture des images » dans les options avancées et enregistrez le profil.
+      </p>}
+      {blindGraphIssue && !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading &&
+        <p className="pilot-evaluation-hint" role="status">{blindGraphIssue}</p>}
       {(blindGraphMessage || (busy && progress)) &&
         <p role="status" className="pilot-evaluation-message">{blindGraphMessage || progress}</p>}
       {blindGraphReport && <section className="pilot-evaluation-report" aria-label="Résultats du graphe visuel indépendant">

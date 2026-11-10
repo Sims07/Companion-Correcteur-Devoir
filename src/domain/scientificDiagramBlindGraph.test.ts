@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BLIND_VISUAL_OBSERVATION_PROMPT, BLIND_VISUAL_OBSERVATION_ISOLATED_PROMPT, blindVisualObservationPrompt,
   buildBlindVisualObservationReport, compareBlindVisualGraph,
-  parseObservedVisualGraph, explainBlindVisualGraph, canObserveBlindGraph, type ObservedVisualGraph,
+  parseObservedVisualGraph, explainBlindVisualGraph, canObserveBlindGraph, blindGraphVisionModel, blindGraphProfileIssue, type ObservedVisualGraph,
 } from './scientificDiagramBlindGraph.ts';
 import { DIAGRAM_SENSITIVITY_TARGETS as T } from './scientificDiagramSensitivity.ts';
 import { defaultAiModelConfiguration, type AiModelProfile } from './aiModelProfiles.ts';
@@ -123,6 +123,34 @@ describe('lecture graphe visuel sans barème', () => {
     expect(canObserveBlindGraph({ ...profile, configuration: { ...profile.configuration, endpoint: 'http://remote.example/v1/chat/completions' } })).toBe(false);
     expect(canObserveBlindGraph({ ...profile, configuration: { ...profile.configuration, visionModel: '', analysisModel: '' } })).toBe(false);
     expect(canObserveBlindGraph({ ...profile, configuration: { ...profile.configuration, endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '' } })).toBe(true);
+  });
+
+  it('runs any saved generative Vision model even when correction mode is decision-only', () => {
+    const profile: AiModelProfile = {
+      id: 'bonsai', name: 'Bonsai test', mode: 'single', updatedAt: '2026-11-10',
+      configuration: { ...defaultAiModelConfiguration, correctionMethod: 'decision',
+        analysisModel: 'tev1:4b', decisionModel: 'tev1:4b', generativeModel: 'bonsai-2:4b',
+        visionModel: '', endpoint: 'http://localhost:11434' },
+    };
+    expect(blindGraphVisionModel(profile)).toBe('bonsai-2:4b');
+    expect(canObserveBlindGraph(profile)).toBe(true);
+    expect(blindGraphProfileIssue(profile)).toBeNull();
+
+    const explicitReader = { ...profile, configuration: { ...profile.configuration, visionModel: 'qwen3.5:4b' } };
+    expect(blindGraphVisionModel(explicitReader)).toBe('qwen3.5:4b');
+
+    const decisionOnly = { ...profile, configuration: { ...profile.configuration, generativeModel: '' } };
+    expect(blindGraphVisionModel(decisionOnly)).toBe('');
+    expect(canObserveBlindGraph(decisionOnly)).toBe(false);
+    expect(blindGraphProfileIssue(decisionOnly)).toContain('aucun modèle Vision');
+
+    const remote = { ...profile, configuration: { ...profile.configuration,
+      endpoint: 'https://vision.example.test/v1/chat/completions', apiCompatible: true } };
+    expect(blindGraphVisionModel(remote)).toBe('bonsai-2:4b');
+    expect(canObserveBlindGraph(remote)).toBe(true);
+    expect(blindGraphProfileIssue({ ...remote, configuration: { ...remote.configuration,
+      endpoint: 'http://vision.example.test/v1/chat/completions' } })).toContain('HTTPS');
+    expect(canObserveBlindGraph({ ...remote, configuration: { ...remote.configuration, apiCompatible: false } })).toBe(false);
   });
 
   it('reports cloud transfer accurately without exposing the server address or key', () => {
