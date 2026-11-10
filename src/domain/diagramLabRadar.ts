@@ -224,11 +224,10 @@ function sensitivityFractions(rows: Reading[]): {
   };
 }
 
-function stabilityFraction(batteries: Battery[]): Fraction | null {
+function stabilityFraction(battery: Battery): Fraction | null {
   let stable = 0, examined = 0;
-  for (const battery of batteries) {
-    const reps = battery.entry.plannedRepetitions;
-    if (reps < 3) continue;
+  const reps = battery.entry.plannedRepetitions;
+  if (reps < 3) return null;
     const groups = new Map<string, Reading[]>();
     for (const run of battery.readings) {
       const key = run.method + '\u0000' + run.variant + '\u0000' + run.caseId;
@@ -247,7 +246,6 @@ function stabilityFraction(batteries: Battery[]): Fraction | null {
         if (choices.every((choice) => !!choice && choice !== 'uncertain' && choice === choices[0])) stable++;
       }
     }
-  }
   return examined ? { n: stable, d: examined, label: 'Relations répétées à l’identique et déterminées' } : null;
 }
 
@@ -283,31 +281,42 @@ function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>): Record<
           evidence(graph, gr.controls.label, gr.controls.n, gr.controls.d),
         ],
       } : empty('Deux batteries complètes (biologie et graphe) sont nécessaires.');
-  const repetition = stabilityFraction(valid);
-  const stability: RadarAxisScore = repetition && valid.length
-    ? { value: percent(repetition.n, repetition.d), reason: repetition.label,
-        evidence: valid.filter((b) => b.entry.plannedRepetitions >= 3)
-          .map((b) => evidence(b, 'Passages répétés ≥ 3 (détails agrégés)', 0, b.entry.plannedRepetitions)) }
+  const repeats = valid.flatMap((battery) => {
+    const result = stabilityFraction(battery);
+    return result ? [{ battery, result }] : [];
+  });
+  const stable = repeats.reduce((sum, item) => sum + item.result.n, 0);
+  const examined = repeats.reduce((sum, item) => sum + item.result.d, 0);
+  const stability: RadarAxisScore = examined > 0
+    ? { value: percent(stable, examined), reason: 'Décisions déterminées identiques sur au moins trois passages.',
+        evidence: repeats.map(({ battery, result }) =>
+          evidence(battery, result.label, result.n, result.d)) }
     : empty('Au moins 3 passages d’une même batterie sont nécessaires.');
   let covered = 0, possible = 0;
+  const coverageEvidence: RadarEvidence[] = [];
   for (const battery of valid) {
     if (battery.entry.protocol === 'semantic' || battery.entry.protocol === 'graph') {
       const fraction = sensitivityFractions(battery.readings).coverage;
       covered += fraction.n; possible += fraction.d;
+      coverageEvidence.push(evidence(battery, fraction.label, fraction.n, fraction.d));
     } else {
+      let localCovered = 0, localPossible = 0;
       for (const run of battery.readings) {
         const ref = battery.entry.report.format === 'companion-scientific-diagram-fixture-report'
           ? battery.entry.report.cases.find((item) => item.caseId === run.caseId) : null;
         for (const key of Object.keys(ref?.gold ?? {})) {
-          possible++;
-          if (run.observations[key] && run.observations[key] !== 'uncertain') covered++;
+          possible++; localPossible++;
+          if (run.observations[key] && run.observations[key] !== 'uncertain') {
+            covered++; localCovered++;
+          }
         }
       }
+      coverageEvidence.push(evidence(battery, 'Décisions déterminées / attendus', localCovered, localPossible));
     }
   }
   const coverage: RadarAxisScore = possible > 0
     ? { value: percent(covered, possible), reason: 'Part des décisions déterminées dans les batteries complètes.',
-        evidence: valid.map((b) => evidence(b, 'Contribue à la couverture consolidée', 0, b.readings.length)) }
+        evidence: coverageEvidence }
     : empty('Aucune batterie complète avec attendus mesurables.');
   const durations = valid.flatMap((battery) => battery.readings
     .map((run) => run.durationMs).filter((ms) => Number.isFinite(ms) && ms >= 0));
