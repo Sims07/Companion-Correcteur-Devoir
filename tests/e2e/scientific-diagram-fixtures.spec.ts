@@ -151,6 +151,19 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await fixtures.getByRole('button', { name: 'Tester ce schéma' }).nth(1).click();
   await expect(results.locator('tbody tr')).toHaveCount(1);
   expect(systemOneRequests).toHaveLength(4);
+
+  // The new journal must restore the automatic protocol reports after a reload.
+  await page.reload();
+  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('group', { name: 'Parcours de test' })
+    .getByRole('button', { name: /Schémas scientifiques/ }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
+    .getByRole('button', { name: /Carnet de résultats/ }).click();
+  const reopened = page.getByRole('region', { name: 'Carnet des résultats scientifiques' });
+  await expect(reopened.getByRole('group', { name: 'Campagnes enregistrées' }).getByRole('button')).toHaveCount(2);
+  await expect(reopened.getByText('D1 test image').first()).toBeVisible();
+  await expect(reopened.getByRole('heading', { name: 'Décisions par dessin' })).toBeVisible();
 });
 
 test('paired D/E diagrams test the pointed structure, not just the written label', async ({ page }) => {
