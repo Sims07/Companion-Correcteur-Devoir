@@ -1,4 +1,5 @@
 import { EvaluationJourneyPicker } from './components/EvaluationJourneyPicker.tsx';
+import { evaluationProviderNotice } from '../domain/evaluationProviderNotice.ts';
 import { ContractPreparationPanel } from './components/ContractPreparationPanel.tsx';
 import { QuestionContractEditor, QuestionScopePreview } from './components/QuestionContractEditor.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -509,6 +510,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationArchiveError, setEvaluationArchiveError] = useState('');
   const [pendingEvaluationArchive, setPendingEvaluationArchive] = useState<ModelEvaluationRecord | null>(null);
   const selectedEvaluationProfiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+  const evaluationProvider = evaluationProviderNotice(selectedEvaluationProfiles, apiCompatible);
   const visibleEvaluationHistoryRecords = savedModelEvaluations.filter((record) => evaluationHistoryStageFilter === 'all' || getModelEvaluationStage(record) === evaluationHistoryStageFilter);
   const selectedEvaluationHistoryRecords = visibleEvaluationHistoryRecords.filter((record) => selectedEvaluationHistoryIds.includes(record.id));
   const evaluationCancelledRef = useRef(false);
@@ -3562,9 +3564,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       {interfaceMode === 'diagnostic' && <section className="evaluation-page-header" aria-labelledby="evaluation-page-title">
         <div className="evaluation-page-identity">
           <h1 id="evaluation-page-title">Évaluer les modèles</h1>
-          <p className={apiCompatible ? 'evaluation-provider-indicator is-remote' : 'evaluation-provider-indicator'} role="note">
+          <p className={evaluationProvider.remote ? 'evaluation-provider-indicator is-remote' : 'evaluation-provider-indicator'} role="note" aria-live="polite">
             <span aria-hidden="true" className="evaluation-provider-dot" />
-            {apiCompatible ? 'API compatible OpenAI · vérifiez le serveur avant d’envoyer une copie' : 'Ollama local · copies conservées sur votre infrastructure'}
+            {evaluationProvider.message}
           </p>
         </div>
       </section>}
@@ -3648,9 +3650,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </div>
         <div hidden={evaluationJourney !== 'custom'}>
         <div className="evaluation-stage-picker" role="group" aria-label="Type d’évaluation">
-          <button type="button" className={evaluationStageMode === 'vision' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'vision'} onClick={() => setEvaluationStageMode('vision')}><span className="evaluation-stage-number">01</span><strong>Vision seule</strong><small>Comparer la transcription des images, sans lancer la notation.</small></button>
-          <button type="button" className={evaluationStageMode === 'analysis' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'analysis'} onClick={() => setEvaluationStageMode('analysis')}><span className="evaluation-stage-number">02</span><strong>Analyse seule</strong><small>Comparer la notation sur une transcription déjà relue et validée.</small></button>
-          <button type="button" className={evaluationStageMode === 'integrated' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'integrated'} onClick={() => setEvaluationStageMode('integrated')}><span className="evaluation-stage-number">03</span><strong>Parcours complet</strong><small>Mesurer le pipeline Vision puis Analyse de bout en bout.</small></button>
+          <button type="button" className={evaluationStageMode === 'vision' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'vision'} title="Comparer les transcriptions des images sans notation" disabled={busy || pilotBusy} onClick={() => setEvaluationStageMode('vision')}><strong>Vision seule</strong></button>
+          <button type="button" className={evaluationStageMode === 'analysis' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'analysis'} title="Comparer la notation sur une transcription de référence" disabled={busy || pilotBusy} onClick={() => setEvaluationStageMode('analysis')}><strong>Analyse seule</strong></button>
+          <button type="button" className={evaluationStageMode === 'integrated' ? 'is-active' : ''} aria-pressed={evaluationStageMode === 'integrated'} title="Mesurer le pipeline complet de lecture et de notation" disabled={busy || pilotBusy} onClick={() => setEvaluationStageMode('integrated')}><strong>Parcours complet</strong></button>
         </div>
         <p className="evaluation-stage-guidance" role="status">{evaluationStageMode === 'vision' ? 'Seul le modèle Vision est sollicité. Les transcriptions obtenues sont comparables entre profils et restent disponibles pour une validation humaine.' : evaluationStageMode === 'analysis' ? 'La transcription courante est réutilisée à l’identique pour chaque profil : aucune image n’est renvoyée au modèle Vision.' : evaluationVisualDirect ? 'D1/D3 : décisions directement depuis les photos, sans OCR. Les autres profils suivent Vision puis Analyse et servent de référence.' : 'Chaque profil exécute les deux étapes successivement. Ce mode mesure aussi le temps total du parcours.'}</p>
         {evaluationStageMode === 'integrated' && <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-visual-proof"><input id="evaluation-visual-proof" type="checkbox" checked={evaluationVisualDirect} disabled={busy} onChange={(event) => setEvaluationVisualDirect(event.target.checked)} /><span><strong>Tester la décision directement sur les images (D1 / D3)</strong><small>Expérimental : les profils Ollama décisionnels D1 et D3 reçoivent les photos sans OCR via System One. Les autres profils restent inchangés et servent de comparaison. Les notes doivent être vérifiées par le professeur. Utiliser uniquement un serveur Ollama local.</small></span></label>}
