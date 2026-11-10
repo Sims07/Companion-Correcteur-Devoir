@@ -3366,7 +3366,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       {interfaceMode !== 'teacher' && (diagramFixtureReport || diagramProtocolReport || diagramSensitivityReport || diagramBlindGraphReport) && <section className="diagram-protocol-export-strip" aria-label="Rapports des schémas scientifiques">
         <details className="diagram-protocol-export-details">
           <summary>Rapports de schémas disponibles · afficher les exports</summary>
-        <div className="diagram-protocol-export-actions">
+          <div className="diagram-protocol-export-actions">
           {diagramFixtureReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramFixtureReport, 'companion-schemas-scientifiques.json')}>
             Exporter les schémas testés ({diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0)} passage{diagramFixtureReport.cases.reduce((sum, item) => sum + item.experiments.length, 0) === 1 ? '' : 's'})
           </Button>}
@@ -3379,7 +3379,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           {diagramProtocolReport && <Button variant="secondary" onClick={() => downloadScientificDiagramJson(diagramProtocolReport, 'companion-protocole-schema-scientifique.json')}>
             Exporter le schéma personnel ({diagramProtocolReport.experiments.length} passage{diagramProtocolReport.experiments.length === 1 ? '' : 's'})
           </Button>}
-        </div>
+          </div>
         </details>
       </section>}
       {interfaceMode === 'debug' && <NetworkInspector initialFilter={networkInitialFilter} />}

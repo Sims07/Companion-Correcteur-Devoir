@@ -52,7 +52,7 @@ describe('DeveloperToolsNavigation', () => {
     await act(async () => {
       root?.render(<DeveloperToolsNavigation activeTool="observability" traces={[{ outcome: 'error' }] as never} onNavigate={onNavigate} />);
     });
-    expect(container.textContent).toContain('1 correction(s) en échec');
+    expect(container.textContent).toContain('1 exécution(s) en échec');
     expect(container.textContent).toContain('1 requête(s) en erreur');
     expect(container.querySelector('.developer-tools-support')?.hasAttribute('open')).toBe(false);
     const detailNav = container.querySelector('nav[aria-label="Détails du suivi"]');

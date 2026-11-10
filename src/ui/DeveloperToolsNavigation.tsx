@@ -61,7 +61,7 @@ export function DeveloperToolsNavigation({ activeTool, traces, onNavigate }: Pro
         <button type="button" aria-pressed={activeTool === 'debug'} className={activeTool === 'debug' ? 'is-active' : ''} onClick={() => onNavigate('debug')}>Inspecteur réseau</button>
       </nav>
       {(failedTraces > 0 || networkErrors > 0) && <div className="developer-tools-signals" aria-label="Erreurs enregistrées">
-        {failedTraces > 0 && <span className="developer-tools-signal"><strong>{failedTraces}</strong> correction(s) en échec</span>}
+        {failedTraces > 0 && <span className="developer-tools-signal"><strong>{failedTraces}</strong> exécution(s) en échec</span>}
         {networkErrors > 0 && <span className="developer-tools-signal"><strong>{networkErrors}</strong> requête(s) en erreur</span>}
       </div>}
       <details className="developer-tools-support">
