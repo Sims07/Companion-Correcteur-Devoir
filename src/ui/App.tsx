@@ -465,7 +465,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [pilotBusy, setPilotBusy] = useState(false);
   const [pilotUploadingCase, setPilotUploadingCase] = useState<string | null>(null);
   const [pilotCurrentCase, setPilotCurrentCase] = useState<string | null>(null);
-  const [pilotMessage, setPilotMessage] = useState('');
+  const [pilotMessage, setPilotMessageState] = useState('');
+  const pilotMessageRef = useRef('');
+  function setPilotMessage(message: string) {
+    pilotMessageRef.current = message;
+    setPilotMessageState(message);
+  }
   const [diagramProtocolProgress, setDiagramProtocolProgress] = useState('');
   // Keep reports outside the conditionally mounted configuration workspace.
   // Switching to the network inspector must not discard a completed or partial benchmark.
@@ -1914,10 +1919,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     try {
       const outcome = await execute();
       const interrupted = evaluationCancelledRef.current || pilotStopRef.current;
-      const failed = Boolean(pilotMemoryErrorRef.current);
+      const pilotError = activity.journey === 'biology'
+        && /^(Erreur|Échec|Gestionnaire|Le benchmark|Ajoutez|Sélectionnez|Essai «.+ interrompu)/i.test(pilotMessageRef.current)
+          ? pilotMessageRef.current : '';
+      const failed = Boolean(pilotMemoryErrorRef.current || pilotError);
       setEvaluationActivity((current) => current?.title === activity.title
         ? { ...current, status: interrupted ? 'cancelled' : failed || (activity.journey === 'custom' && outcome === undefined) ? 'failed' : 'completed',
-          ...(failed ? { error: pilotMemoryErrorRef.current ?? undefined } : {}) } : current);
+          ...(failed ? { error: pilotMemoryErrorRef.current ?? pilotError } : {}) } : current);
       return outcome;
     } catch (cause) {
       const error = cause instanceof Error ? cause.message : String(cause);
