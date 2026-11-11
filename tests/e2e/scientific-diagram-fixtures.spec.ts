@@ -110,7 +110,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   };
   expect(partial.format).toBe('companion-scientific-diagram-fixture-report');
   expect(partial.cases.flatMap((entry) => entry.experiments)).toHaveLength(1);
-  await navigation.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await navigation.getByRole('button', { name: 'Évaluer les modèles' }).click();
   releaseSecondRequest();
 
   const results = fixtures.getByRole('region', { name: 'Résultats des schémas scientifiques' });
