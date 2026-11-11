@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../src/domain/diagramLabHistory.ts';
 import { DIAGRAM_SENSITIVITY_CASES } from '../../src/domain/scientificDiagramSensitivity.ts';
 import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../src/domain/scientificDiagramFixtures.ts';
-import { buildDiagramLabRadar, compareRadarCommonAxes, RADAR_PRESETS, rankDiagramLabRadar, validRadarWeights } from '../../src/domain/diagramLabRadar.ts';
+import { buildDiagramLabRadar, compareRadarCommonAxes, observedRadarScore, RADAR_PRESETS, rankDiagramLabRadar, validRadarWeights } from '../../src/domain/diagramLabRadar.ts';
 
 function sample(protocol: Exclude<DiagramLabProtocol, 'personal'>, createdAt: string, repetitions = 1): DiagramLabArchiveEntry {
   const fixture = protocol === 'reference' || protocol === 'arrows';
@@ -97,4 +97,71 @@ describe('scientific benchmark 8-axis radar', () => {
     expect(validRadarWeights({ ...RADAR_PRESETS.balanced, graphics: 0, arrows: 0, biology: 0, relations: 0, robustness: 0, stability: 0, coverage: 0, speed: 0 })).toBe(false);
     expect(validRadarWeights(RADAR_PRESETS.scientific)).toBe(true);
   });
+  it('groups scientific evidence by the actual LLM, not a saved profile label', () => {
+    const entries = complete(3);
+    const model = buildDiagramLabRadar(entries, 'model');
+    expect(model).toHaveLength(1);
+    expect(model[0]).toMatchObject({ id: 'qwen:4b', name: 'qwen:4b', measured: 8, complete: true });
+    expect(rankDiagramLabRadar(model, RADAR_PRESETS.balanced)[0]?.weightedScore).toBe(93.8);
+  });
+
+  it('accepts two profiles using the same LLM in one campaign without marking the series incomplete', () => {
+    const entry = structuredClone(sample('reference', '2026-11-11T09:00:00Z', 3));
+    const report = entry.report as unknown as { cases: Array<{experiments: Array<{
+      profileId: string; profileName: string; model: string
+    }>}> };
+    for (const c of report.cases) {
+      c.experiments.push(...c.experiments.map((run) => ({
+        ...run, profileId: 'alternative-profile', profileName: 'Un autre profil', model: 'qwen:4b',
+      })));
+    }
+    const result = buildDiagramLabRadar([entry], 'model');
+    expect(result).toHaveLength(1);
+    expect(result[0]?.axes.graphics.value).toBe(100);
+    expect(result[0]?.axes.arrows.value).toBeNull();
+  });
+
+  it('offers saved LLMs before the first benchmark, without inventing missing scores', () => {
+    const candidates = buildDiagramLabRadar([], 'model', [
+      { id: 'saved-a', name: 'Vision locale', configuration: { visionModel: 'vision:4b', analysisModel: 'decision:3b' } },
+      { id: 'saved-b', name: 'Autre libellé', configuration: { visionModel: 'vision:4b', analysisModel: 'decision:3b' } },
+    ]);
+    expect(candidates.map((candidate) => candidate.id).sort()).toEqual(['decision:3b', 'vision:4b']);
+    for (const candidate of candidates) {
+      expect(candidate.measured).toBe(0);
+      expect(candidate.complete).toBe(false);
+      expect(rankDiagramLabRadar([candidate], RADAR_PRESETS.scientific)[0]?.weightedScore).toBeNull();
+      expect(observedRadarScore(candidate, RADAR_PRESETS.scientific)).toBeNull();
+    }
+  });
+
+  it('never credits a model with another model’s graph evidence or missing-axis zeros', () => {
+    const entries = complete(3);
+    const differentGraph = structuredClone(entries[3]!);
+    const report = differentGraph.report as unknown as { cases: Array<{ experiments: Array<{ model: string }> }> };
+    for (const c of report.cases) for (const run of c.experiments) run.model = 'other-vision:9b';
+    const models = buildDiagramLabRadar([...entries.slice(0, 3), differentGraph], 'model');
+    const grading = models.find((model) => model.id === 'qwen:4b')!;
+    const graph = models.find((model) => model.id === 'other-vision:9b')!;
+    expect(grading.axes.relations.value).toBeNull();
+    expect(grading.complete).toBe(false);
+    expect(graph.axes.graphics.value).toBeNull();
+    expect(graph.complete).toBe(false);
+    expect(rankDiagramLabRadar([grading], RADAR_PRESETS.balanced)[0]?.weightedScore).toBeNull();
+    expect(observedRadarScore(grading, RADAR_PRESETS.balanced)).toBeGreaterThan(0);
+  });
+
+  it('ignores legacy runs without a model identifier instead of crashing the radar', () => {
+    const historic = structuredClone(sample('graph', '2026-11-11T15:00:00Z'));
+    const report = historic.report as unknown as {
+      cases: Array<{ experiments: Array<{ model?: string }> }>;
+    };
+    for (const c of report.cases) for (const run of c.experiments) delete run.model;
+    expect(buildDiagramLabRadar([historic], 'model')).toEqual([]);
+    expect(buildDiagramLabRadar([historic], 'model', [{
+      id: 'old-config', name: 'Ancien profil',
+      configuration: { visionModel: 'vision:4b', analysisModel: '' },
+    }])[0]?.measured).toBe(0);
+  });
+
 });

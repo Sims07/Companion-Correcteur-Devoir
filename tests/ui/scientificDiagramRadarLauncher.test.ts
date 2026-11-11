@@ -51,7 +51,7 @@ describe('one-click radar measurement UI', () => {
     const missing = [...first.container.querySelectorAll('button')]
       .find((b) => b.textContent === 'Lancer le test manquant')!;
     expect(missing.disabled).toBe(true);
-    expect(first.container.textContent).toContain('profil d’origine n’existe plus');
+    expect(first.container.textContent).toContain('configuration correspondante n’est plus disponible');
     await act(async () => first.root.unmount());
     first.container.remove();
     const second = await renderRadar(['existing-profile'], true);
