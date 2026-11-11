@@ -86,7 +86,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await expect(activity).toContainText('TEST EN COURS');
   await expect(activity.getByRole('button', { name: 'Suivre ce test' })).toBeVisible();
   const testViews = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
-  await testViews.getByRole('button', { name: 'Carnet de résultats' }).click();
+  await testViews.getByRole('button', { name: 'Campagnes de test' }).click();
   await expect(activity).toBeVisible();
   await activity.getByRole('button', { name: 'Suivre ce test' }).click();
   await expect(fixtures).toBeVisible();
@@ -143,7 +143,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     .flatMap((summary) => summary.decisions)
     .every((decision) => !decision.stable
       && decision.stableAndResolved === null && decision.correctEveryTime === null)).toBe(true);
-  await page.getByRole('button', { name: /Carnet de résultats/ }).click();
+  await page.getByRole('button', { name: /Campagnes de test/ }).click();
   const journal = page.getByRole('region', { name: 'Carnet des résultats scientifiques' });
   await expect(journal.getByRole('group', { name: 'Campagnes enregistrées' })
     .getByRole('button', { name: /Qualité graphique · A\/B\/C/ }).first()).toBeVisible();
@@ -170,7 +170,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
-    .getByRole('button', { name: /Carnet de résultats/ }).click();
+    .getByRole('button', { name: /Campagnes de test/ }).click();
   const reopened = page.getByRole('region', { name: 'Carnet des résultats scientifiques' });
   await expect(reopened.getByRole('group', { name: 'Campagnes enregistrées' }).getByRole('button')).toHaveCount(2);
   await expect(reopened.getByText('D1 test image').first()).toBeVisible();
