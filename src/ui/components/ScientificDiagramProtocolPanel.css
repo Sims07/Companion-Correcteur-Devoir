@@ -217,3 +217,29 @@
   }
   .evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method > details { flex-basis: 100%; }
 }
+
+/* The scientific workspace is a grid within two other grids. All tracks must
+ * shrink below their intrinsic text/select widths on narrow screens; otherwise
+ * the whole page grows beyond the viewport (390px -> 529px). */
+.evaluation-workspace-shell .diagram-protocol-panel,
+.evaluation-workspace-shell .diagram-protocol-panel > *,
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-protocol-fixtures,
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-fixture-run-controls,
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-fixture-grid {
+  min-width: 0;
+  max-width: 100%;
+}
+.evaluation-workspace-shell .diagram-protocol-panel,
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-protocol-fixtures,
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-fixture-run-controls {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (max-width: 560px) {
+  .evaluation-workspace-shell .diagram-protocol-panel .diagram-fixture-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .evaluation-workspace-shell .diagram-protocol-panel :is(.diagram-lab-catalog, .diagram-lab-method, .diagram-lab-legacy) {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
