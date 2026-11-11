@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
-import { buildDiagramLabRadar, compareRadarCommonAxes, rankDiagramLabRadar, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
-  type RadarAxisId, type RadarGrouping, type RadarRankedCandidate, type RadarWeights } from '../../domain/diagramLabRadar.ts';
+import { buildDiagramLabRadar, compareRadarCommonAxes, rankDiagramLabRadar, observedRadarScore, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
+  type RadarAxisId, type RadarGrouping, type RadarModelConfiguration, type RadarRankedCandidate, type RadarWeights } from '../../domain/diagramLabRadar.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
+import type { DiagramMethodSelection } from '../../domain/scientificDiagramProtocol.ts';
 import { planMissingRadarAxis, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
 import { Button } from '../design-system/index.ts';
 import './ScientificDiagramRadar.css';
@@ -89,14 +90,17 @@ function RadarPlot({ candidates, onAxis }: {
   </svg>;
 }
 
-export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, profileIds, busy }: {
+export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, profileIds, profiles = [], busy }: {
   entries: DiagramLabArchiveEntry[];
   onOpenReport: (id: string) => void;
   onRunMissing: (request: Omit<RadarMissingTestRequest, 'id'>) => void;
   profileIds: readonly string[];
+  profiles?: readonly RadarModelConfiguration[];
   busy: boolean;
 }) {
-  const [grouping, setGrouping] = useState<RadarGrouping>('profile');
+  const [grouping, setGrouping] = useState<RadarGrouping>('model');
+  const [modelId, setModelId] = useState('');
+  const [comparisonModelId, setComparisonModelId] = useState('');
   const [family, setFamily] = useState<'grading' | 'graph'>('grading');
   const [weights, setWeights] = useState<RadarWeights>(restoredWeights);
   const [preset, setPreset] = useState<'scientific' | 'balanced' | 'throughput' | 'custom'>(() => {
@@ -107,8 +111,8 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
   const [picked, setPicked] = useState<string[] | null>(null);
   const [axis, setAxis] = useState<RadarAxisId>('arrows');
   const [focus, setFocus] = useState('');
-  const candidates = useMemo(() => buildDiagramLabRadar(entries, grouping), [entries, grouping]);
-  const filtered = useMemo(() => grouping === 'profile' ? candidates : candidates.filter((candidate) =>
+  const candidates = useMemo(() => buildDiagramLabRadar(entries, grouping, profiles), [entries, grouping, profiles]);
+  const filtered = useMemo(() => grouping !== 'method' ? candidates : candidates.filter((candidate) =>
     candidate.methods.some((method) => method.startsWith('blind-graph')) === (family === 'graph')), [candidates, grouping, family]);
   const partial = useMemo(() => grouping === 'method'
     ? compareRadarCommonAxes(filtered, weights) : null, [filtered, grouping, weights]);
@@ -118,13 +122,49 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
     const indexed = new Map(partial.rows.map((item) => [item.id, item.score]));
     return [...rows].sort((a, b) => (indexed.get(b.id) ?? -1) - (indexed.get(a.id) ?? -1));
   }, [filtered, weights, partial]);
-  const selected = picked === null ? ranked.slice(0, 3) : ranked.filter((c) => picked.includes(c.id));
-  const examined = ranked.find((c) => c.id === focus) ?? selected[0] ?? ranked[0] ?? null;
+  const activeModel = grouping === 'model' ? ranked.find((item) => item.id === modelId) ?? ranked[0] ?? null : null;
+  const comparedModel = grouping === 'model'
+    ? ranked.find((item) => item.id === comparisonModelId && item.id !== activeModel?.id) ?? null : null;
+  const selected = grouping === 'model'
+    ? [activeModel, comparedModel].filter((item): item is RadarRankedCandidate => item !== null)
+    : picked === null ? ranked.slice(0, 3) : ranked.filter((c) => picked.includes(c.id));
+  const examined = grouping === 'model' ? activeModel : ranked.find((c) => c.id === focus) ?? selected[0] ?? ranked[0] ?? null;
   const evidence = examined?.axes[axis] ?? null;
-  const missingPlan = examined ? planMissingRadarAxis(examined, axis, grouping) : null;
-  const profileAvailable = examined ? profileIds.includes(examined.profileId) : false;
-  const eligible = ranked.filter((c) => grouping === 'profile' ? c.weightedScore !== null
+
+  /** A model may be saved in several profiles. Launch with an actual profile
+   * that uses the selected LLM for EACH requested protocol, never a random
+   * saved profile sharing its display label. */
+  function planFor(candidate: RadarRankedCandidate, target: RadarAxisId) {
+    const plan = planMissingRadarAxis(candidate, target, grouping);
+    if (!plan || grouping !== 'model') return plan;
+    if (!profiles.length) return plan; // Compatibility with historical archives and older embeds.
+    const matching = profiles.find((profile) => {
+      const needsGrading = plan.steps.some((step) => step.protocol !== 'graph');
+      const needsGraph = plan.steps.some((step) => step.protocol === 'graph');
+      const cfg = profile.configuration;
+      const graphModel = cfg.visionModel.trim() || cfg.analysisModel.trim();
+      return (!needsGrading || cfg.analysisModel.trim() === candidate.id)
+        && (!needsGraph || graphModel === candidate.id);
+    });
+    if (!matching) return null;
+    const config = profiles.find((profile) => profile.id === matching.id)?.configuration;
+    const method: DiagramMethodSelection = config?.analysisModel.trim() === config?.visionModel.trim()
+      ? 'direct-image-generative' : 'vision-then-analysis';
+    return {
+      ...plan, profileId: matching.id, profileName: matching.name,
+      steps: plan.steps.map((step) => ({
+        ...step, method: step.protocol === 'graph' ? step.method : method,
+      })),
+    };
+  }
+  const missingPlan = examined ? planFor(examined, axis) : null;
+  const profileAvailable = examined ? (grouping === 'model' && profiles.length
+    ? Boolean(missingPlan && profileIds.includes(missingPlan.profileId))
+    : profileIds.includes(examined.profileId)) : false;
+  const eligible = ranked.filter((c) => grouping !== 'method' ? c.weightedScore !== null
     : partial?.rows.some((row) => row.id === c.id && row.score !== null));
+  const missingAxes = examined ? RADAR_AXES.filter((item) => examined.axes[item.id].value === null) : [];
+  const indicative = examined ? observedRadarScore(examined, weights) : null;
 
   useEffect(() => {
     try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(weights)); }
