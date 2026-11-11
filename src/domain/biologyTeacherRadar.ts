@@ -115,10 +115,11 @@ export interface BiologyRadarCandidate {
   observations: BiologyRadarObservation[];
 }
 
+// An undecidable criterion is not a teacher-verified zero: only fully resolved cases enter an axis.
 const valid = (item: BiologyRadarObservation) => item.status === 'success' &&
   item.decisions.length === 10 && item.decisions.every((d) =>
     d && typeof d.id === 'string' && (d.expected === 0 || d.expected === 1) &&
-    (d.awarded === null || (typeof d.awarded === 'number' && Number.isFinite(d.awarded) && d.awarded >= 0 && d.awarded <= 1)));
+    typeof d.awarded === 'number' && Number.isFinite(d.awarded) && d.awarded >= 0 && d.awarded <= 1));
 
 const round = (n: number) => Math.round(n * 10) / 10;
 const accuracy = (items: BiologyRadarObservation[]) => {
