@@ -142,14 +142,17 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
       const needsGrading = plan.steps.some((step) => step.protocol !== 'graph');
       const needsGraph = plan.steps.some((step) => step.protocol === 'graph');
       const cfg = profile.configuration;
-      const graphModel = cfg.visionModel.trim() || cfg.analysisModel.trim();
+      const graphModel = cfg.visionModel.trim() || cfg.generativeModel?.trim() || (cfg.correctionMethod === 'generative' ? cfg.analysisModel.trim() : '');
       return (!needsGrading || cfg.analysisModel.trim() === candidate.id)
         && (!needsGraph || graphModel === candidate.id);
     });
     if (!matching) return null;
     const config = profiles.find((profile) => profile.id === matching.id)?.configuration;
-    const method: DiagramMethodSelection = config?.analysisModel.trim() === config?.visionModel.trim()
-      ? 'direct-image-generative' : 'vision-then-analysis';
+    const method: DiagramMethodSelection = config?.correctionMethod === 'visual-decision'
+      ? 'direct-image-systemone'
+      : config?.correctionMethod === 'generative' &&
+        config.analysisModel.trim() === config.visionModel.trim()
+          ? 'direct-image-generative' : 'vision-then-analysis';
     return {
       ...plan, profileId: matching.id, profileName: matching.name,
       steps: plan.steps.map((step) => ({
