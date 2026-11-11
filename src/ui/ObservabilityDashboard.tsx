@@ -95,7 +95,7 @@ function TraceDetails({ trace, expanded }: { trace: ObservabilityTrace; expanded
               {span.doneReason && <p className="observability-call-reason">Fin de génération : <b>{span.doneReason}</b>{span.thinkingPresent ? ' · raisonnement interne détecté' : ''}</p>}
               <pre>{span.raw ?? 'Réponse non conservée pour cette ancienne trace.'}</pre>
             </div>
-            <p className="observability-call-warning">Ces contenus peuvent inclure la consigne, le barème et la transcription de la copie. Ils restent dans le stockage local du navigateur. Les octets des images ne sont pas affichés.</p>
+            <p className="observability-call-warning">Ces contenus peuvent inclure la consigne, le barème et la transcription de la copie. Les octets des images ne sont pas affichés.</p>
           </details>}
         </li>;
       })}</ol> : <p className="observability-empty-inline">Les anciennes traces ne contiennent pas encore le détail des appels par modèle. Les durées des deux étapes restent disponibles.</p>}
@@ -124,15 +124,8 @@ export function ObservabilityDashboard({ records, benchmarkRows = [], onInspectN
 
   return <section className="observability-workspace" aria-labelledby="observability-title">
     <header className="observability-page-heading">
-      <div><p className="observability-eyebrow">PILOTAGE IA · TRAÇABILITÉ</p><h1 id="observability-title">Observabilité</h1><p>Comprenez les performances et la fiabilité de votre chaîne de correction, sans afficher les données binaires des copies.</p></div>
-      <div className="observability-local-badge"><span></span>Données conservées sur cet appareil</div>
+      <div><p className="observability-eyebrow">PILOTAGE IA · TRAÇABILITÉ</p><h1 id="observability-title">Observabilité</h1><p>Comprenez les performances et la fiabilité de votre chaîne de correction.</p></div>
     </header>
-
-    <section className="observability-intro" aria-label="Périmètre des données">
-      <div className="observability-intro-icon" aria-hidden="true">⌂</div>
-      <div><strong>Les traces techniques restent sur cet appareil</strong><p>Les requêtes sont envoyées uniquement à l’endpoint configuré (Ollama local ou API compatible). Leur historique de diagnostic est conservé dans ce navigateur ; les clés API et octets des images sont masqués dans cette vue.</p></div>
-      <span>LOCAL</span>
-    </section>
 
     <section className="observability-incidents observability-panel" aria-label="Incidents à examiner">
       <div className="observability-panel-heading"><div><p className="observability-eyebrow">DÉPANNAGE RAPIDE</p><h2>Incidents à examiner</h2><p>Échecs des exécutions enregistrées. Les requêtes HTTP sont consultables séparément : leur lien avec ces échecs n’est pas présumé.</p></div>
@@ -157,7 +150,7 @@ export function ObservabilityDashboard({ records, benchmarkRows = [], onInspectN
 
     <section className="observability-panel observability-review-metrics" aria-label="Fiabilité face aux références enseignantes">
       <div className="observability-panel-heading"><div>
-        <p className="observability-eyebrow">VALIDATION PÉDAGOGIQUE · LOCALE</p>
+        <p className="observability-eyebrow">VALIDATION PÉDAGOGIQUE</p>
         <h3>Fiabilité face aux corrections de référence</h3>
         <p>Uniquement les corrections associées à un barème et une référence complète du professeur. Les notes « non évaluées » ne sont jamais comptées comme zéro.</p>
       </div></div>
@@ -175,7 +168,7 @@ export function ObservabilityDashboard({ records, benchmarkRows = [], onInspectN
 
 
     <section className="observability-panel observability-review-metrics" aria-label="Mesures de la correction par exceptions">
-      <div className="observability-panel-heading"><div><p className="observability-eyebrow">EXPÉRIENCE ENSEIGNANT</p><h3>Lecture par exceptions</h3><p>Mesures locales issues des traces de correction, sans données de copie supplémentaires.</p></div></div>
+      <div className="observability-panel-heading"><div><p className="observability-eyebrow">EXPÉRIENCE ENSEIGNANT</p><h3>Lecture par exceptions</h3><p>Indicateurs issus des traces de correction.</p></div></div>
       <div className="observability-review-metric-grid">
         <span><small>Critères évalués</small><strong>{number(summary.reviewedCriteriaCount)}</strong></span>
         <span><small>Critères à examiner</small><strong>{number(summary.criteriaToReviewCount)}</strong></span>
@@ -234,6 +227,6 @@ export function ObservabilityDashboard({ records, benchmarkRows = [], onInspectN
       </div>
       {filteredRecords.length ? <div className="observability-trace-list">{filteredRecords.map((trace) => <TraceDetails key={trace.id} trace={trace} expanded={focusedIncidentId === trace.id} />)}</div> : <div className="observability-empty-state"><span>⌕</span><strong>Aucune trace ne correspond à votre recherche</strong><p>Modifiez le filtre ou lancez une nouvelle correction / évaluation.</p></div>}
     </section>
-    <p className="observability-footnote">Les indicateurs reflètent uniquement les données effectivement remontées par le fournisseur configuré et conservées localement. Une note proposée n’est pas une mesure de qualité pédagogique sans référence validée par l’enseignant.</p>
+    <p className="observability-footnote">Les indicateurs reflètent uniquement les données remontées par le fournisseur configuré. Une note proposée n’est pas une mesure de qualité pédagogique sans référence validée par l’enseignant.</p>
   </section>;
 }
