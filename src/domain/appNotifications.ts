@@ -35,7 +35,7 @@ function save(items: AppNotification[]) {
 
 export function pushAppNotification(entry: Omit<AppNotification, 'id' | 'createdAt' | 'read'>): AppNotification {
   const notification: AppNotification = {
-    ...entry, id: crypto.randomUUID(), createdAt: new Date().toISOString(), read: false,
+    ...entry, id: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`, createdAt: new Date().toISOString(), read: false,
   };
   save([notification, ...readAppNotifications()].slice(0, LIMIT));
   return notification;
