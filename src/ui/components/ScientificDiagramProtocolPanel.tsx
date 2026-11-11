@@ -153,13 +153,14 @@ export interface ScientificDiagramProtocolPanelProps {
   onOpenRadar?: () => void;
   onAutoBusyChange?: (busy: boolean) => void;
   onAutoEvaluationFinished?: (request: RadarMissingTestRequest, steps: readonly { protocol: RadarTestStep['protocol']; complete: boolean }[]) => Promise<string>;
+  onAutoWasStopped?: () => boolean;
 }
 
 export function ScientificDiagramProtocolPanel({
   selectedProfiles, busy, progress, onPrepareImages, onRun, onRunFixtures, onStop,
   report, fixtureReport, sensitivityReport, blindGraphReport,
   onClearReport, onClearFixtureReport, onClearSensitivityReport, onClearBlindGraphReport,
-  onRunSensitivity, onRunBlindGraph, autoRequest, onAutoRequestConsumed, onOpenRadar, onAutoBusyChange, onAutoEvaluationFinished,
+  onRunSensitivity, onRunBlindGraph, autoRequest, onAutoRequestConsumed, onOpenRadar, onAutoBusyChange, onAutoEvaluationFinished, onAutoWasStopped,
 }: ScientificDiagramProtocolPanelProps) {
   const [rubric, setRubric] = useState<Rubric>(() => structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC));
   const [context, setContext] = useState('');
@@ -345,7 +346,7 @@ export function ScientificDiagramProtocolPanel({
               ? await runSensitivity(step)
               : await runBlindObservation(step.zoom, step);
         stepResults.push({ protocol: step.protocol, complete: ok });
-        if (autoStopRequested.current) {
+        if (autoStopRequested.current || onAutoWasStopped?.()) {
           setRadarAutoStatus('Campagne interrompue après ' + (index + 1) +
             '/' + autoRequest.steps.length + ' batteries. Les résultats déjà enregistrés restent consultables.');
           return;
