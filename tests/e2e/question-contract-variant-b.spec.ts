@@ -1,3 +1,4 @@
+import { setEvaluationModelChecked } from './helpers/evaluation-models';
 import { expect, test } from '@playwright/test';
 
 test('the question-contract comparison supports locally saved OpenAI-compatible profiles, without extra consent or teacher-data changes', async ({ page }) => {
@@ -30,7 +31,6 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
   const repeatAction = repeatability.getByRole('button', { name: 'Lancer le test de répétabilité en un clic' });
   const count = repeatability.getByLabel('Nombre de passages');
   const suite = repeatability.getByLabel('Jeu de copies');
-  const choices = page.getByRole('group', { name: 'Configurations à exécuter' });
   const assignmentsBefore = await page.evaluate(() => localStorage.getItem('companion-correcteur:assignments:v1'));
 
   await expect(action).toBeVisible();
@@ -51,8 +51,8 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
   await expect(contract.getByText('B — réponses inversées', { exact: false })).toBeVisible();
   await expect(contract.getByText('C — partielle', { exact: false })).toBeVisible();
 
-  await choices.locator('label.evaluation-profile-option').nth(0).click();
-  await choices.locator('label.evaluation-profile-option').nth(1).click();
+  await setEvaluationModelChecked(page, 'Génératif local', true);
+  await setEvaluationModelChecked(page, 'Décisionnel local', true);
   await expect(action).toBeEnabled();
   await panel.getByRole('button', { name: 'Vérifier la répétabilité', exact: true }).click();
   await expect(repeatAction).toBeEnabled();
@@ -60,7 +60,7 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
   // Do not need the Vision model for this analysis-only protocol.
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toHaveCount(0);
 
-  await choices.locator('label.evaluation-profile-option').nth(2).click();
+  await setEvaluationModelChecked(page, 'Profil distant', true);
   await expect(action).toBeEnabled();
   await panel.getByRole('button', { name: 'Vérifier la répétabilité', exact: true }).click();
   await expect(repeatAction).toBeEnabled();
@@ -68,8 +68,8 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
   await expect(contract.getByText(/Profil distant/)).toHaveCount(0);
   // No extra consent control: choosing the saved provider is enough.
   await expect(panel.getByText(/Autoriser l’API externe/)).toHaveCount(0);
-  await choices.locator('label.evaluation-profile-option').nth(0).click();
-  await choices.locator('label.evaluation-profile-option').nth(1).click();
+  await setEvaluationModelChecked(page, 'Génératif local', false);
+  await setEvaluationModelChecked(page, 'Décisionnel local', false);
   await expect(action).toBeEnabled();
   await panel.getByRole('button', { name: 'Vérifier la répétabilité', exact: true }).click();
   await expect(repeatAction).toBeEnabled();
@@ -77,7 +77,7 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
 
   // A private OpenAI-compatible profile must also be usable by the Vision and
   // integrated pilot; none of these test images are transmitted until a run is clicked.
-  await expect(choices.locator('label.evaluation-profile-option').nth(2)).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toContainText('Profil distant');
   await panel.getByRole('button', { name: 'Vision et parallélisme', exact: true }).click();
   await panel.getByRole('button', { name: 'Préparer le protocole en un clic' }).click();
   await expect(panel.getByRole('button', { name: 'Comparer 1, 2 et 4 appels parallèles' })).toBeDisabled();

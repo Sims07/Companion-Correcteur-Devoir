@@ -50,6 +50,7 @@ import type { BackgroundCorrectionService } from '../application/backgroundCorre
 import { aiModelRoles, correctionModelFor, defaultAiModelConfiguration, parseAiModelConfiguration, parseAiModelProfiles, removeAiModelProfiles, upsertAiModelProfile, type AiModelConfiguration, type AiModelProfile } from '../domain/aiModelProfiles.ts';
 import { AiModelRoleFields } from './components/AiModelRoleFields.tsx';
 import { AiProfileManager } from './components/AiProfileManager.tsx';
+import { EvaluationProfilesDialog } from './components/EvaluationProfilesDialog.tsx';
 import { ModelPreloadPanel } from './components/ModelPreloadPanel.tsx';
 import type { CorrectionMethod } from '../domain/correctionMethod.ts';
 import { buildAssignmentContext } from '../domain/assignmentContext.ts';
@@ -452,16 +453,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [aiModelProfileTone, setAiModelProfileTone] = useState<StatusTone>('info');
   const [pendingAiProfileRemoval, setPendingAiProfileRemoval] = useState<AiModelProfile | null>(null);
   const [managingAiProfiles, setManagingAiProfiles] = useState(false);
+  const [managingEvaluationProfiles, setManagingEvaluationProfiles] = useState(false);
   const [diagnosticRuns, setDiagnosticRuns] = useState<DiagnosticModelResult[]>([]);
   const [selectedEvaluationProfileIds, setSelectedEvaluationProfileIds] = useState<string[]>(readSelectedEvaluationProfileIds);
-  const [evaluationProfilesOpen, setEvaluationProfilesOpen] = useState(selectedEvaluationProfileIds.length === 0);
   useEffect(() => {
     try { window.localStorage.setItem(evaluationSelectionKey, JSON.stringify(selectedEvaluationProfileIds)); }
     catch { /* The selection remains usable in this browser session. */ }
   }, [selectedEvaluationProfileIds]);
   const [selectedEvaluationHistoryIds, setSelectedEvaluationHistoryIds] = useState<string[]>([]);
   const [evaluationHistoryStageFilter, setEvaluationHistoryStageFilter] = useState<EvaluationStageMode | 'all'>('all');
-  const [evaluationEditorOpen, setEvaluationEditorOpen] = useState(aiModelProfiles.length === 0);
+  const [evaluationEditorOpen, setEvaluationEditorOpen] = useState(false);
   const [evaluationBiologyScenario, setEvaluationBiologyScenario] = useState<'contracts' | 'repeatability' | 'copies'>('contracts');
   const [evaluationJourney, setEvaluationJourney] = useState<'custom' | 'diagrams' | 'biology'>('custom');
   const [diagramLabView, setDiagramLabView] = useState<'protocols' | 'history' | 'radar'>('protocols');
@@ -920,6 +921,25 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setTranscription(null);
   }
 
+  function createNewAiModelProfile() {
+    setSelectedAiModelProfileId('');
+    setAiModelProfileName('');
+    setAiModelProfileTone('info');
+    setAiModelProfileMessage('Nouvelle configuration : renseignez les modèles puis enregistrez.');
+    setEndpoint(defaultAiModelConfiguration.endpoint);
+    setVisionModel('');
+    setGenerativeModel('');
+    setDecisionModel('');
+    setSecondAnalysisModel('');
+    setArbitratorModel('');
+    setDiagnosticStrategy('single');
+    setCorrectionMethod(defaultAiModelConfiguration.correctionMethod);
+    setAnalysisThinking(false);
+    setCriterionByCriterion(true);
+    setAvailableModels([]);
+    setConnectionMessage('');
+  }
+
   function saveAiModelProfile() {
     const name = aiModelProfileName.trim();
     if (!name) { setAiModelProfileTone('warning'); setAiModelProfileMessage('Donnez un nom à cette configuration avant de l’enregistrer.'); return; }
@@ -941,6 +961,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       window.localStorage.setItem(aiModelProfilesKey, JSON.stringify(next));
       // Creating the first profile should make its experiment runnable directly.
       setSelectedEvaluationProfileIds((current) => current.length ? current : [profile.id]);
+      if (interfaceMode === 'diagnostic') setEvaluationEditorOpen(false);
     } catch { setAiModelProfileTone('error'); setAiModelProfileMessage('Le navigateur n’a pas pu enregistrer ce profil. Vérifiez son espace de stockage.'); }
   }
 
@@ -3748,49 +3769,25 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             {evaluationActivity.status === 'running' ? 'Suivre ce test'
               : evaluationActivity.status === 'completed' ? 'Voir les résultats' : 'Consulter ce test'}
           </button>
-          {evaluationActivity.status === 'running' && <span className="evaluation-activity-hint">Les autres lancements sont temporairement désactivés</span>}
+          {evaluationActivity.status === 'running' && <Button variant="secondary" onClick={evaluationActivity.journey === 'custom' ? cancelModelEvaluation : stopPilotProtocol}>Arrêter après l’appel en cours</Button>}
         </div>
       </section>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && <section id="evaluation-configurations" className="panel evaluation-config-workspace" data-journey={evaluationJourney} aria-labelledby="evaluation-config-title">
+        <div className="evaluation-workbench-controls">
         <EvaluationJourneyPicker value={evaluationJourney} disabled={busy || pilotBusy} onChange={(journey) => { setEvaluationJourney(journey); if (journey === 'diagrams') setDiagramLabView('protocols'); }} />
-        <div className="evaluation-model-selector">
-          <h2 id="evaluation-config-title" className="evaluation-visually-hidden">Configurations à évaluer</h2>
-          <details className="evaluation-selection-block" open={evaluationProfilesOpen} onToggle={(event) => setEvaluationProfilesOpen(event.currentTarget.open)}>
-            <summary>
-              <span className="evaluation-selection-summary"><strong>Configurations</strong><small>{selectedEvaluationProfiles.length ? selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') : 'Sélectionner 1 à 3 modèles'}</small></span>
-              <span className="evaluation-step-chip" aria-live="polite">{selectedEvaluationProfileIds.length} / 3</span>
-            </summary>
-            {aiModelProfiles.length < 1 ? <div className="evaluation-empty-inline"><strong>Aucune configuration enregistrée.</strong><p>Ouvrez « Créer ou modifier une configuration IA » ci-dessous pour pouvoir lancer une première évaluation.</p></div> : <fieldset className="evaluation-profile-list" aria-describedby="evaluation-profile-selection-help"><legend>Configurations à exécuter</legend><p id="evaluation-profile-selection-help" className="evaluation-selection-help">La même copie sera relue et notée par chaque configuration. L’ordre reste séquentiel pour limiter la mémoire utilisée par Ollama.</p><div className="evaluation-profile-options">{aiModelProfiles.map((profile) => { const selected = selectedEvaluationProfileIds.includes(profile.id); const disabled = busy || pilotBusy || (!selected && selectedEvaluationProfileIds.length >= 3); return <label key={profile.id} className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}><input className="evaluation-profile-checkbox" type="checkbox" checked={selected} disabled={disabled} onChange={(event) => setSelectedEvaluationProfileIds((current) => event.target.checked ? [...current, profile.id].slice(-3) : current.filter((id) => id !== profile.id))} /><span className="evaluation-profile-card-content"><strong>{profile.name}</strong><span className="evaluation-profile-models"><span><small>LECTURE</small><b>{profile.configuration.visionModel || 'Modèle non défini'}</b></span><span><small>{profile.configuration.correctionMethod === 'generative' ? 'GÉNÉRATIF' : 'DÉCISIONNEL'}</small><b>{profile.configuration.analysisModel || 'Modèle non défini'}</b></span></span>{profile.configuration.analysisThinking && <span className="evaluation-profile-thinking">Thinking activé</span>}</span><span className="evaluation-profile-selection-mark" aria-hidden="true">{selected ? '✓' : '+'}</span></label>; })}</div></fieldset>}
-          </details>
-          <Button variant="secondary" disabled={busy || pilotBusy || aiModelProfiles.length === 0} onClick={() => setManagingAiProfiles(true)}>Gérer ({aiModelProfiles.length})</Button>
+        <h2 id="evaluation-config-title" className="evaluation-visually-hidden">Configurations à évaluer</h2>
+        <div className="evaluation-model-brief" role="group" aria-label="Modèles sélectionnés pour les tests">
+          <span className="evaluation-model-brief-name">Modèle{selectedEvaluationProfiles.length > 1 ? 's' : ''}</span>
+          <strong className="evaluation-model-brief-selected">{selectedEvaluationProfiles.length ? selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') : 'Aucun modèle sélectionné'}</strong>
+          <Button variant="secondary" className="evaluation-model-brief-manage" onClick={() => setManagingEvaluationProfiles(true)}>Gérer les configurations</Button>
         </div>
-        <details className="evaluation-config-editor" open={evaluationEditorOpen} onToggle={(event) => setEvaluationEditorOpen(event.currentTarget.open)}><summary>Créer ou modifier une configuration IA</summary>
-          <div className="evaluation-config-editor-heading"><div><h3>Configuration IA locale</h3><p>Choisissez un modèle génératif ; ajoutez un décisionnel si vous souhaitez tester cette méthode.</p></div><button type="button" className="secondary-button" disabled={busy} onClick={() => { setSelectedAiModelProfileId(''); setAiModelProfileName(''); setAiModelProfileTone('info'); setAiModelProfileMessage('Nouvelle configuration : renseignez les modèles puis enregistrez.'); setEndpoint(defaultAiModelConfiguration.endpoint); setVisionModel(''); setGenerativeModel(''); setDecisionModel(''); setSecondAnalysisModel(''); setArbitratorModel(''); setDiagnosticStrategy('single'); setCorrectionMethod(defaultAiModelConfiguration.correctionMethod); setAnalysisThinking(false); setCriterionByCriterion(true); setAvailableModels([]); setConnectionMessage(''); }}>＋ Nouvelle configuration</button></div>
-          <div className="evaluation-config-fields">
-            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.configuration.correctionMethod === 'visual-decision' ? 'vision + décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}</DesignSystemSelect></div>
-            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-name">Nom de la configuration</label><input id="evaluation-profile-name" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Ex. Gemma rapide, Qwen raisonnement…" /></div>
-            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-provider">Fournisseur IA</label><DesignSystemSelect id="evaluation-provider" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://serveur/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}><option value="ollama">Ollama local</option><option value="openai">API compatible OpenAI</option></DesignSystemSelect></div><div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-ollama-endpoint">{apiCompatible ? 'URL Chat Completions' : 'Adresse du serveur Ollama'}</label><input id="evaluation-ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} /></div>{apiCompatible && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-api-key">Token API (Bearer)</label><input id="evaluation-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><small>Utilisé pour les appels au serveur compatible OpenAI et conservé dans le stockage local de ce navigateur.</small></div>}
-            <AiModelRoleFields prefix="evaluation" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
-          </div>
-          <details className="ai-model-advanced"><summary>Options avancées du test</summary>
-          <div className="evaluation-config-fields">
-            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-vision-model">Modèle de lecture des images</label>{availableModels.length ? <DesignSystemSelect id="evaluation-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)}><option value="">Choisir un modèle vision</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="Ex. gemma3:4b" />}</div>
-            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-strategy">Stratégie d’analyse</label><DesignSystemSelect id="evaluation-strategy" value={diagnosticStrategy} onChange={(event) => setDiagnosticStrategy(event.target.value as DiagnosticStrategy)}><option value="single">Un modèle d’analyse</option><option value="compare">Comparer deux avis</option><option value="arbitrate">Deux avis + arbitre</option></DesignSystemSelect></div>
-            {diagnosticStrategy !== 'single' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-second-model">Second modèle d’analyse</label>{availableModels.length ? <DesignSystemSelect id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}><option value="">Choisir un modèle</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle" />}</div>}
-            {diagnosticStrategy === 'arbitrate' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-arbitrator-model">Modèle arbitre</label>{availableModels.length ? <DesignSystemSelect id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)}><option value="">Choisir un arbitre</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)} placeholder="Nom du modèle arbitre" />}</div>}
-          </div>
-          <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-criterion-by-criterion"><input id="evaluation-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel par critère, séquentiellement. Désactivez pour comparer avec une requête globale.</small></span></label>
-          <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-analysis-thinking"><input id="evaluation-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} /><span><strong>Activer le mode thinking</strong><small>Désactivé par défaut. Peut améliorer le raisonnement mais allonger fortement les essais.</small></span></label>
-          </details>
-          <div className="evaluation-config-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button><Button variant="primary" disabled={busy || pilotBusy} onClick={saveAiModelProfile}>Enregistrer la configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button></div>
-          {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}{aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
-        </details>
+        </div>
         <div id="evaluation-diagram-workspace" hidden={evaluationJourney !== 'diagrams'}><ScientificDiagramProtocolPanel
           selectedProfiles={selectedEvaluationProfiles} busy={busy || pilotBusy}
           progress={diagramProtocolProgress}
           onPrepareImages={(files) => service.prepareFiles(files)}
           onRun={(request) => followEvaluation({ title: 'Schéma scientifique · essai personnalisé', journey: 'diagrams', targetId: 'evaluation-diagram-personal-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramProtocol(request))}
-          onRunFixtures={(request) => followEvaluation({ title: 'Schémas scientifiques · références intégrées', journey: 'diagrams', targetId: 'evaluation-diagram-fixture-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramFixtures(request))}
+          onRunFixtures={(request) => followEvaluation({ title: request.cases.some((item) => item.id === 'D' || item.id === 'E') ? 'Schémas scientifiques · sens des flèches D/E' : 'Schémas scientifiques · qualité graphique A/B/C', journey: 'diagrams', targetId: 'evaluation-diagram-fixture-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramFixtures(request))}
           onRunSensitivity={(request) => followEvaluation({ title: 'Schémas scientifiques · sensibilité sémantique', journey: 'diagrams', targetId: 'evaluation-diagram-sensitivity-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramSensitivity(request))}
           onRunBlindGraph={(request) => followEvaluation({ title: 'Schémas scientifiques · graphe de relations', journey: 'diagrams', targetId: 'evaluation-diagram-graph-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramBlindGraph(request))}
           onStop={stopPilotProtocol}
@@ -4999,6 +4996,48 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       />}
       {(interfaceMode === 'diagnostic' || !showAiSettings) && <footer><span>Compagnon Correcteur de Devoirs</span><span>Une suggestion d’IA reste une suggestion. <strong>La décision est humaine.</strong></span></footer>}
       </div>}
+      {interfaceMode === 'diagnostic' && managingEvaluationProfiles && <EvaluationProfilesDialog
+        profiles={aiModelProfiles}
+        selectedIds={selectedEvaluationProfileIds}
+        busy={busy || pilotBusy || radarAutoBusy}
+        onChange={setSelectedEvaluationProfileIds}
+        onCreate={() => { setManagingEvaluationProfiles(false); createNewAiModelProfile(); setEvaluationEditorOpen(true); }}
+        onEditCurrent={() => { setManagingEvaluationProfiles(false); setEvaluationEditorOpen(true); }}
+        onEdit={(profile) => { setManagingEvaluationProfiles(false); setAiModelProfileName(profile.name); applyAiModelProfile(profile); setEvaluationEditorOpen(true); }}
+        onManageDeletion={() => { setManagingEvaluationProfiles(false); setManagingAiProfiles(true); }}
+        onClose={() => setManagingEvaluationProfiles(false)}
+      />}
+      {interfaceMode === 'diagnostic' && evaluationEditorOpen && <Dialog
+        title="Créer ou modifier une configuration IA"
+        subtitle="Modèles, fournisseur et options d’évaluation"
+        size="wide"
+        className="evaluation-config-dialog"
+        onClose={() => setEvaluationEditorOpen(false)}
+        actions={<Button variant="secondary" onClick={() => setEvaluationEditorOpen(false)}>Fermer</Button>}
+      >
+        <div className="evaluation-config-editor">
+
+          <div className="evaluation-config-editor-heading"><div><h3>Paramètres du modèle</h3><p>Les réglages de cette configuration s’appliqueront aux prochains tests. Les copies restent sur le serveur sélectionné.</p></div><button type="button" className="secondary-button" disabled={busy} onClick={createNewAiModelProfile}>＋ Nouvelle configuration</button></div>
+          <div className="evaluation-config-fields">
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.configuration.correctionMethod === 'visual-decision' ? 'vision + décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}</DesignSystemSelect></div>
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-name">Nom de la configuration</label><input id="evaluation-profile-name" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Ex. Gemma rapide, Qwen raisonnement…" /></div>
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-provider">Fournisseur IA</label><DesignSystemSelect id="evaluation-provider" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://serveur/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}><option value="ollama">Ollama local</option><option value="openai">API compatible OpenAI</option></DesignSystemSelect></div><div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-ollama-endpoint">{apiCompatible ? 'URL Chat Completions' : 'Adresse du serveur Ollama'}</label><input id="evaluation-ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} /></div>{apiCompatible && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-api-key">Token API (Bearer)</label><input id="evaluation-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><small>Utilisé pour les appels au serveur compatible OpenAI et conservé dans le stockage local de ce navigateur.</small></div>}
+            <AiModelRoleFields prefix="evaluation" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
+          </div>
+          <details className="ai-model-advanced"><summary>Options avancées du test</summary>
+          <div className="evaluation-config-fields">
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-vision-model">Modèle de lecture des images</label>{availableModels.length ? <DesignSystemSelect id="evaluation-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)}><option value="">Choisir un modèle vision</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="Ex. gemma3:4b" />}</div>
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-strategy">Stratégie d’analyse</label><DesignSystemSelect id="evaluation-strategy" value={diagnosticStrategy} onChange={(event) => setDiagnosticStrategy(event.target.value as DiagnosticStrategy)}><option value="single">Un modèle d’analyse</option><option value="compare">Comparer deux avis</option><option value="arbitrate">Deux avis + arbitre</option></DesignSystemSelect></div>
+            {diagnosticStrategy !== 'single' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-second-model">Second modèle d’analyse</label>{availableModels.length ? <DesignSystemSelect id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)}><option value="">Choisir un modèle</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-second-model" value={secondAnalysisModel} onChange={(event) => setSecondAnalysisModel(event.target.value)} placeholder="Nom du second modèle" />}</div>}
+            {diagnosticStrategy === 'arbitrate' && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-arbitrator-model">Modèle arbitre</label>{availableModels.length ? <DesignSystemSelect id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)}><option value="">Choisir un arbitre</option>{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</DesignSystemSelect> : <input id="evaluation-arbitrator-model" value={arbitratorModel} onChange={(event) => setArbitratorModel(event.target.value)} placeholder="Nom du modèle arbitre" />}</div>}
+          </div>
+          <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-criterion-by-criterion"><input id="evaluation-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel par critère, séquentiellement. Désactivez pour comparer avec une requête globale.</small></span></label>
+          <label className="analysis-thinking-option evaluation-thinking-option" htmlFor="evaluation-analysis-thinking"><input id="evaluation-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} /><span><strong>Activer le mode thinking</strong><small>Désactivé par défaut. Peut améliorer le raisonnement mais allonger fortement les essais.</small></span></label>
+          </details>
+          <div className="evaluation-config-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et détecter les modèles'}</button><Button variant="primary" disabled={busy || pilotBusy} onClick={saveAiModelProfile}>Enregistrer la configuration</Button></div>
+          {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}{aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
+        </div>
+      </Dialog>}
       {managingAiProfiles && <AiProfileManager
         profiles={aiModelProfiles}
         activeProfileId={selectedAiModelProfileId}

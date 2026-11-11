@@ -86,6 +86,10 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
 
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await expect(page.getByRole('tablist', { name: 'Sections du devoir' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Gérer les configurations' }).click();
+  await page.getByRole('dialog', { name: 'Gérer les configurations IA' })
+    .getByRole('button', { name: 'Modifier les réglages courants' }).click();
+  await expect(page.getByRole('dialog', { name: 'Créer ou modifier une configuration IA' })).toBeVisible();
   await expect(page.getByLabel('Nom de la configuration')).toBeVisible();
   await expect(page.getByLabel('Modèle génératif', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Modèle décisionnel (facultatif)')).toBeVisible();
