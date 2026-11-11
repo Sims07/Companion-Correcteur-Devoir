@@ -20,11 +20,11 @@
 .diagram-teacher-options .file-picker { margin-top:14px; }
 .diagram-teacher-options .field-label { display:block; margin:12px 0 6px; }
 .diagram-teacher-grid .hint { margin:10px 0; font-size:.78rem; color:var(--ds-color-text-muted); }
-.diagram-teacher-remote, .diagram-teacher-notice {
+.diagram-teacher-notice {
   margin:12px 0; padding:12px; border:1px solid var(--ds-color-border);
   border-radius:var(--ds-radius-md); background:var(--ds-color-surface-subtle);
 }
-.diagram-teacher-remote p, .diagram-teacher-notice p { margin:0 0 10px; font-size:.85rem; }
+.diagram-teacher-notice p { margin:0 0 10px; font-size:.85rem; }
 .diagram-teacher-notice .ds-button { margin-left:10px; }
 .diagram-teacher-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; }
 .diagram-teacher-error, .diagram-teacher-message {

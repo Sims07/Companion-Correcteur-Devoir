@@ -56,7 +56,6 @@ export function PilotEvaluationPanel({
   const readyForImages = PILOT_CASES.every((testCase) => (imageCounts[testCase.id] ?? 0) > 0);
   const visionIssue = pilotSelectionIssue(selectedProfiles, 'vision');
   const analysisIssue = pilotSelectionIssue(selectedProfiles, 'analysis');
-  const externalApiSelected = selectedProfiles.some((profile) => !isLocalPilotProfile(profile));
   const integratedIssue = pilotSelectionIssue(selectedProfiles, 'integrated');
   return <section className="pilot-evaluation-panel" aria-label="Protocole de test guidé">
     <h3 className="evaluation-visually-hidden">Tests de référence en biologie</h3>
@@ -184,7 +183,6 @@ export function PilotEvaluationPanel({
         </article>)}
       </div>
       <p className="pilot-evaluation-guide">Configurations sélectionnées : {selectedProfiles.length}{selectedProfiles.length ? ` — ${selectedProfiles.map((profile) => profile.name).join(', ')}` : ''}. Les appels sont séquentiels.</p>
-      {externalApiSelected && <p className="pilot-evaluation-hint" role="status">Une configuration distante recevra les photos et les transcriptions de ces essais.</p>}
       {visionIssue && !analysisIssue && <p className="pilot-evaluation-hint" role="status">Vision seule : {visionIssue}</p>}
       {analysisIssue && <p className="pilot-evaluation-hint" role="status">{analysisIssue}</p>}
       {!analysisIssue && integratedIssue && <p className="pilot-evaluation-hint" role="status">Parcours complet : {integratedIssue}</p>}
