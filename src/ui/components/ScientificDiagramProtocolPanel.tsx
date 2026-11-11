@@ -429,13 +429,7 @@ export function ScientificDiagramProtocolPanel({
   }
 
   return <section className="pilot-evaluation-panel diagram-protocol-panel" aria-label="Protocole schémas scientifiques">
-    <div className="pilot-evaluation-head">
-      <div>
-        <p className="eyebrow">LABORATOIRE · PROTOCOLES AUTOMATIQUES</p>
-        <h3>Schémas scientifiques · batteries de tests</h3>
-        <p>Choisissez une batterie et lancez-la. Les images et références sont déjà prêtes ; les résultats sont conservés localement.</p>
-      </div>
-    </div>
+    <h3 className="evaluation-visually-hidden">Schémas scientifiques · batteries de tests</h3>
     {radarAutoStatus && <div className="diagram-lab-live" role="status" aria-label="Test lancé depuis le radar">
       <strong>Compléter le radar</strong><span>{radarAutoStatus}</span>
       {onOpenRadar && <Button variant="secondary" disabled={busy || fixtureLoading || sensitivityLoading || blindGraphLoading} onClick={onOpenRadar}>Revenir au radar</Button>}
@@ -457,7 +451,7 @@ export function ScientificDiagramProtocolPanel({
       <strong>En cours · {({ reference: 'Qualité graphique A/B/C', arrows: 'Sens des flèches D/E', semantic: 'Compréhension biologique S0–S5', graph: 'Graphe des relations S0–S5' } as const)[activeProtocol]}</strong><span>{progress || 'Préparation du modèle…'}</span>
       <Button variant="secondary" onClick={onStop}>Arrêter après l’appel en cours</Button>
     </div>}
-    <p className="diagram-lab-protocol-summary" role="status">{({ reference: '3 schémas · présentation, légendes et justesse', arrows: '2 schémas · témoin D et flèches inversées E', semantic: '6 variantes · erreurs biologiques et faux rejets', graph: '6 schémas · relations sans barème' } as const)[activeProtocol]} · {selectedProfiles.length} configuration(s) sélectionnée(s)</p>
+    <p className="diagram-lab-protocol-summary" role="status">{({ reference: '3 schémas · présentation, légendes et justesse', arrows: '2 schémas · témoin D et flèches inversées E', semantic: '6 variantes · erreurs biologiques et faux rejets', graph: '6 schémas · relations sans barème' } as const)[activeProtocol]}</p>
     {activeProtocol !== 'graph' && <div className="diagram-fixture-run-controls diagram-lab-method">
       <label htmlFor="diagram-method-selection">Méthode de correction scientifique à tester</label>
       <DesignSystemSelect id="diagram-method-selection" value={methodSelection} disabled={busy || fixtureLoading || uploading}
