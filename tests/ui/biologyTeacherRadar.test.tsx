@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defaultAiModelConfiguration } from '../../src/domain/aiModelProfiles.ts';
 import type { BiologyRadarObservation } from '../../src/domain/biologyTeacherRadar.ts';
 import { BiologyTeacherRadar } from '../../src/ui/components/BiologyTeacherRadar.tsx';
@@ -22,6 +22,7 @@ const records: BiologyRadarObservation[] = ['A','B','C'].map((caseId, index) => 
 }));
 
 describe('biology teacher radar UI', () => {
+  beforeEach(() => window.localStorage.clear());
   it('puts the professor score first, marks missing traps and launches the matching profile', async () => {
     const mount = document.createElement('div');
     document.body.append(mount);
@@ -56,4 +57,43 @@ describe('biology teacher radar UI', () => {
     await act(async () => root.unmount());
     mount.remove();
   });
+  it('remembers the tested LLM and protocol when returning from the test tab', async () => {
+    const mount = document.createElement('div');
+    document.body.append(mount);
+    const other = { ...profiles[0]!, id: 'gemma', name: 'Gemma', configuration: {
+      ...profiles[0]!.configuration, analysisModel: 'gemma:9b', generativeModel: 'gemma:9b',
+    } };
+    const props = { history: records, profiles: [...profiles, other], busy: false,
+      onEvaluate: vi.fn(), onShowTests: vi.fn() };
+    const first = createRoot(mount);
+    await act(async () => first.render(createElement(BiologyTeacherRadar, props)));
+    const llm = mount.querySelector<HTMLSelectElement>('select[aria-label="Choisir un LLM biologique"]')!;
+    const chosen = [...llm.options].find((option) => option.textContent?.includes('gemma:9b'))!.value;
+    await act(async () => {
+      llm.value = chosen;
+      llm.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const protocol = mount.querySelector<HTMLSelectElement>('select[aria-label="Protocole du radar biologique"]')!;
+    await act(async () => {
+      protocol.value = 'standard';
+      protocol.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await act(async () => first.unmount());
+    const second = createRoot(mount);
+    await act(async () => second.render(createElement(BiologyTeacherRadar, props)));
+    expect(mount.querySelector<HTMLSelectElement>('select[aria-label="Protocole du radar biologique"]')?.value).toBe('standard');
+    // Changing protocol intentionally clears the model; choosing it again must survive navigation.
+    const restored = mount.querySelector<HTMLSelectElement>('select[aria-label="Choisir un LLM biologique"]')!;
+    await act(async () => {
+      restored.value = chosen;
+      restored.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await act(async () => second.unmount());
+    const third = createRoot(mount);
+    await act(async () => third.render(createElement(BiologyTeacherRadar, props)));
+    expect(mount.querySelector<HTMLSelectElement>('select[aria-label="Choisir un LLM biologique"]')?.value).toBe(chosen);
+    await act(async () => third.unmount());
+    mount.remove();
+  });
+
 });
