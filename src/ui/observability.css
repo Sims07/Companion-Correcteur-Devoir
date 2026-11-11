@@ -10,13 +10,6 @@
 .observability-page-heading h1 { margin:6px 0 8px; font-size:clamp(30px,3vw,40px); letter-spacing:-.04em; line-height:1.08; }
 .observability-page-heading p:not(.observability-eyebrow) { margin:0; color:var(--text-secondary,#647467); max-width:720px; line-height:1.6; }
 .observability-eyebrow { margin:0; color:#64806c; font-size:10px; font-weight:800; letter-spacing:.13em; }
-.observability-local-badge { display:flex; align-items:center; gap:9px; border:1px solid #dce8dd; background:#f4f8f3; color:#315d3b; border-radius:999px; padding:10px 14px; font-size:12px; font-weight:700; white-space:nowrap; }
-.observability-local-badge span { width:8px; height:8px; border-radius:50%; background:#3b9b60; box-shadow:0 0 0 4px #dcefe1; }
-.observability-intro { display:grid; grid-template-columns:40px 1fr auto; align-items:center; gap:14px; padding:17px 20px; border:1px solid #dce8dd; background:linear-gradient(110deg,#f5faf4,#fbfcfa); border-radius:16px; }
-.observability-intro-icon { width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:#e4f1e5;color:#39734a;font-size:20px; }
-.observability-intro strong { display:block;font-size:13px; }
-.observability-intro p { margin:4px 0 0;color:#657568;font-size:12px;line-height:1.5; }
-.observability-intro > span { font-size:10px;letter-spacing:.12em;font-weight:800;color:#438253; }
 .observability-section-heading { display:flex;align-items:end;justify-content:space-between;gap:16px;margin-top:4px; }
 .observability-section-heading h2 { margin:5px 0 0;font-size:22px;letter-spacing:-.025em; }
 .observability-period { color:var(--text-secondary,#647467);font-size:12px; }
@@ -126,7 +119,6 @@
 .observability-request-metadata dd { margin:0; color:#45594a; font-weight:700; }
 .observability-call-warning { margin:8px 0 0; color:#8a744a; font-size:9px; line-height:1.5; }
 .observability-call-reason { margin:0 0 7px; color:#8a5a42; font-size:9px; }
-.observability-privacy-note { display:flex;align-items:center;gap:7px;margin:12px 0 0;color:#6d806f;font-size:9px; }
 .observability-footnote { margin:0;color:#859187;font-size:10px;line-height:1.6; }
 @media (max-width: 1000px) {
   .observability-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -135,9 +127,6 @@
 @media (max-width: 700px) {
   .observability-workspace { padding:18px 14px 36px;gap:16px; }
   .observability-page-heading,.observability-section-heading { align-items:flex-start;flex-direction:column; }
-  .observability-local-badge { white-space:normal; }
-  .observability-intro { grid-template-columns:36px 1fr; }
-  .observability-intro > span { grid-column:2; }
   .observability-filters { align-items:stretch;flex-direction:column; }
   .observability-search { max-width:none; }
   .observability-filter-buttons { align-self:flex-start; }

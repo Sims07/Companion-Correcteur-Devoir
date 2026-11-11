@@ -59,7 +59,7 @@ export function StorageUsagePanel({ service, onManageEvaluations }: Props) {
 
   return <section className="observability-panel storage-usage-panel" aria-labelledby="storage-usage-title">
     <div className="observability-panel-heading">
-      <div><p className="observability-eyebrow">CAPACITÉ LOCALE · NAVIGATEUR</p><h3 id="storage-usage-title">Occupation du stockage local</h3><p>Surveillez l’espace utilisé par les copies, les évaluations et les traces, sans transmettre leur contenu.</p></div>
+      <div><p className="observability-eyebrow">STOCKAGE DU NAVIGATEUR</p><h3 id="storage-usage-title">Occupation du stockage local</h3><p>Surveillez l’espace utilisé par les copies, les évaluations et les traces.</p></div>
       <button type="button" className="secondary-button" onClick={() => void refresh()} disabled={!service || loading}>{loading ? 'Mesure en cours…' : 'Actualiser'}</button>
     </div>
     {!service && <p className="storage-usage-notice">Les mesures de stockage ne sont pas configurées sur cet appareil.</p>}

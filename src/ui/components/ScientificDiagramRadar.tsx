@@ -427,7 +427,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
     </section>
     <details className="diagram-radar-weights">
       <summary>Pondérations et méthode de calcul</summary>
-      <p>Réglez chaque axe de 0 à 5. Un axe à poids zéro reste affiché, mais ne participe pas au classement. Toute modification est enregistrée localement sur cet appareil.</p>
+      <p>Réglez chaque axe de 0 à 5. Un axe à poids zéro reste affiché, mais ne participe pas au classement.</p>
       <div className="diagram-radar-weight-grid">
         {RADAR_AXES.map((item) => <label key={item.id}>
           <span>{item.label}</span>

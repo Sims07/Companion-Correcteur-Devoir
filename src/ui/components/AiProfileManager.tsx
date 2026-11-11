@@ -40,7 +40,7 @@ export function AiProfileManager({
   return (
     <Dialog
       title={confirming ? 'Confirmer la suppression des configurations' : 'Gérer mes configurations IA'}
-      subtitle={confirming ? selected.length + ' configuration(s) sélectionnée(s)' : profiles.length + ' configurations enregistrées sur cet appareil'}
+      subtitle={confirming ? selected.length + ' configuration(s) sélectionnée(s)' : profiles.length + ' configurations enregistrées'}
       size="wide"
       onClose={onClose}
       actions={confirming ? <>

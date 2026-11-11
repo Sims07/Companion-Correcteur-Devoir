@@ -42,7 +42,7 @@ export function RubricReusePanel({ assignments, activeAssignmentId, rubric, onRe
   return <details className="rubric-reuse-panel">
     <summary>↳ Réutiliser des critères d’un autre devoir</summary>
     <div className="rubric-reuse-content">
-      <p>Récupérez directement les critères déjà préparés sur cet appareil, sans exporter de fichier. Ils deviennent indépendants du devoir d’origine.</p>
+      <p>Réutilisez les critères d’un autre devoir. Ils deviennent indépendants du barème d’origine.</p>
       {!source ? <p className="rubric-reuse-empty">Aucun autre barème complet n’est disponible. Vous pourrez réutiliser les critères après avoir préparé un autre devoir.</p> : <>
         <label className="field-label" htmlFor="rubric-reuse-source">Devoir source</label>
         <DesignSystemSelect id="rubric-reuse-source" value={source.id} onChange={(event) => { setSourceId(event.target.value); setSelectedIds([]); setError(''); setMessage(''); }}>

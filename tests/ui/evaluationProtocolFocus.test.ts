@@ -24,7 +24,8 @@ describe('Scientific and biology protocol navigation', () => {
     const semanticPreview = diagram.indexOf('className="diagram-fixture-grid diagram-sensitivity-grid"', semantic);
     expect(semanticLaunch).toBeGreaterThan(semantic);
     expect(semanticPreview).toBeGreaterThan(semanticLaunch);
-    expect(diagram).toContain('Protocole détaillé et confidentialité');
+    expect(diagram).toContain('Protocole détaillé');
+    expect(diagram).not.toContain('Protocole détaillé et confidentialité');
     expect(diagram).toContain('blindGraphUsesRemote && <p className="pilot-evaluation-hint" role="status">Profil distant');
   });
 
