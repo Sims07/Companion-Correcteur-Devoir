@@ -8,9 +8,9 @@ test('an existing exported scientific diagram report is readable tomorrow withou
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
-    .getByRole('button', { name: /Carnet de résultats/ }).click();
+    .getByRole('button', { name: /Campagnes de test/ }).click();
 
-  const journal = page.getByRole('region', { name: 'Carnet des résultats scientifiques' });
+  const journal = page.getByRole('region', { name: 'Campagnes de test scientifiques' });
   await expect(journal.getByText('Aucun résultat pour ce filtre')).toBeVisible();
   await journal.getByRole('button', { name: 'Importer un ancien JSON' }).click();
   await journal.getByLabel('Choisir un ancien rapport JSON').setInputFiles({
@@ -18,7 +18,7 @@ test('an existing exported scientific diagram report is readable tomorrow withou
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify(report)),
   });
-  await expect(journal.getByText('Ancien rapport importé dans le carnet local.')).toBeVisible();
+  await expect(journal.getByText('Ancien rapport ajouté aux campagnes de test locales.')).toBeVisible();
   await expect(journal.getByRole('group', { name: 'Campagnes enregistrées' })
     .getByRole('button', { name: /Graphe des relations/ })).toBeVisible();
   await expect(journal.getByRole('heading', { name: 'Examiner les six dessins' })).toBeVisible();
@@ -28,8 +28,8 @@ test('an existing exported scientific diagram report is readable tomorrow withou
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
-    .getByRole('button', { name: /Carnet de résultats/ }).click();
-  const restored = page.getByRole('region', { name: 'Carnet des résultats scientifiques' });
+    .getByRole('button', { name: /Campagnes de test/ }).click();
+  const restored = page.getByRole('region', { name: 'Campagnes de test scientifiques' });
   await expect(restored.getByRole('group', { name: 'Campagnes enregistrées' })
     .getByRole('button', { name: /Graphe des relations/ })).toBeVisible();
   await restored.getByRole('button', { name: 'Exporter JSON' }).click();

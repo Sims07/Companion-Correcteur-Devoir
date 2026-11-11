@@ -72,3 +72,10 @@
   .diagram-radar-model-overview { padding:var(--ds-space-3); }
   .diagram-radar-model-scorecard { gap:var(--ds-space-3); }
 }
+
+.diagram-radar-evaluate { display:flex; flex-wrap:wrap; align-items:center; gap:var(--ds-space-3); padding:var(--ds-space-3); background:var(--ds-color-surface-subtle); border:1px solid var(--ds-color-border); border-radius:var(--ds-radius-sm); }
+.diagram-radar-evaluate > button { flex:0 0 auto; }
+.diagram-radar-evaluate p { flex:1 1 260px; margin:0; }
+.diagram-radar-individual-tests { padding-block:var(--ds-space-2); }
+.diagram-radar-individual-tests summary { cursor:pointer; color:var(--ds-color-text-muted); font-size:.82rem; }
+.diagram-radar-individual-tests .diagram-radar-remaining-list { margin-top:var(--ds-space-3); }

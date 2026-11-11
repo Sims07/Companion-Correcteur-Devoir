@@ -24,7 +24,7 @@ test('each test journey shows its own preparation and preserves custom input acr
   await page.getByRole('button', { name: 'Vérifier la répétabilité', exact: true }).click();
   await expect(page.getByLabel('Nombre de passages')).toHaveValue('5');
   await page.screenshot({ path: 'test-results/evaluation-repeatability-desktop.png', fullPage: true });
-  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: /Carnet de résultats/ }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: /Campagnes de test/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: /Tests/ }).click();
   await expect(page.getByRole('button', { name: 'Vérifier la répétabilité', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await journeys.getByRole('button', { name: /Ma copie/ }).click();

@@ -23,8 +23,8 @@ test('evaluation uses unobtrusive view navigation without fake numbered steps', 
     return { isSelection, notError, light: selected.minHeight === '38px' };
   })).toEqual({ isSelection: true, notError: true, light: true });
 
-  await navigation.getByRole('button', { name: 'Carnet de résultats' }).click();
-  await expect(navigation.getByRole('button', { name: 'Carnet de résultats' })).toHaveAttribute('aria-current', 'page');
+  await navigation.getByRole('button', { name: 'Campagnes de test' }).click();
+  await expect(navigation.getByRole('button', { name: 'Campagnes de test' })).toHaveAttribute('aria-current', 'page');
 });
 
 async function expectUnifiedEvaluationCanvas(page: Page): Promise<void> {
@@ -80,7 +80,7 @@ test('model evaluation uses one aligned, non-floating canvas from profiles to la
     await expectUnifiedEvaluationCanvas(page);
   }
 
-  await navigation.getByRole('button', { name: /Carnet de résultats/ }).click();
+  await navigation.getByRole('button', { name: /Campagnes de test/ }).click();
   await expect(page.locator('.evaluation-results-workspace')).toHaveAttribute('data-evaluation-step', 'history');
   const historicalLayout = await page.evaluate(() => {
     const nav = document.querySelector('.evaluation-step-nav')!.getBoundingClientRect();

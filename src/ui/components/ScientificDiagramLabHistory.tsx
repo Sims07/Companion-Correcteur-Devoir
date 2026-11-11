@@ -163,7 +163,7 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
       setSearch('');
       setSelectedId(entry.id);
       setReload((value) => value + 1);
-      setImportNotice('Ancien rapport importé dans le carnet local.');
+      setImportNotice('Ancien rapport ajouté aux campagnes de test locales.');
     } catch (cause) {
       setImportNotice('Import impossible : ' + (cause instanceof Error ? cause.message : String(cause)));
     } finally {
@@ -191,9 +191,9 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
   const comparisonIssue = selected && comparison ? compareDiagramLabEntries(selected, comparison) : null;
   const comparisonRows = selected && comparison && !comparisonIssue ? buildDiagramLabComparison(selected, comparison) : [];
 
-  return <section className="diagram-lab-history" aria-label="Carnet des résultats scientifiques">
+  return <section className="diagram-lab-history" aria-label="Campagnes de test scientifiques">
     <div className="diagram-lab-history-heading">
-      <div><p className="eyebrow">RÉSULTATS · LABORATOIRE SCIENTIFIQUE</p><h2>Carnet des résultats</h2>
+      <div><p className="eyebrow">CAMPAGNES DE TEST · SCHÉMAS SCIENTIFIQUES</p><h2>Campagnes de test</h2>
         <p>Comparez les performances sur huit caractéristiques ou examinez les preuves de chaque campagne, conservées localement.</p></div>
       <div className="diagram-lab-history-heading-actions">
         <input ref={fileInput} type="file" accept=".json,application/json" hidden
