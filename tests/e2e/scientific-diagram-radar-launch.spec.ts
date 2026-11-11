@@ -160,6 +160,6 @@ test('qwen-like 6/8 radar targets A/B/C x3 to fill graphics and stability in one
   // The compact workspace intentionally hides the radar return note while
   // a long inference is running. Assert the durable navigation and exact
   // selected model instead of racing that transient status element.
-  await expect(page.getByRole('group', { name: 'Configurations à exécuter' })
+  await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })
     .getByText('Vision à compléter')).toBeVisible();
 });
