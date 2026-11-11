@@ -22,7 +22,7 @@ export type RadarGrouping = 'model' | 'profile' | 'method';
 export interface RadarModelConfiguration {
   id: string;
   name: string;
-  configuration: { visionModel: string; analysisModel: string };
+  configuration: { visionModel: string; analysisModel: string; generativeModel?: string; correctionMethod?: string };
 }
 
 export const RADAR_PRESETS = {
