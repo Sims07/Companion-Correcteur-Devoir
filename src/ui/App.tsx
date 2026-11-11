@@ -2066,7 +2066,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     try {
       const prepared = await service.prepareFiles(files);
       setPilotImages((current) => ({ ...current, [caseId]: prepared }));
-      setPilotMessage('Photos de la copie ' + caseId + ' préparées localement. Aucun fichier n’est téléversé vers un cloud.');
+      setPilotMessage('Photos de la copie ' + caseId + ' prêtes pour l’évaluation.');
     } catch (cause) {
       setPilotMessage('Échec de lecture de la copie ' + caseId + ' : ' + (cause instanceof Error ? cause.message : String(cause)));
     } finally { setPilotUploadingCase(null); }
@@ -3546,8 +3546,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     <main className={interfaceMode === 'teacher' ? `app-shell teacher-flow-shell${showAssignmentsHome ? ' teacher-assignments-home' : ''}` : interfaceMode === 'diagnostic' ? 'app-shell evaluation-workspace-shell ai-tools-view' : 'app-shell ai-tools-view'}>
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
-        <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><NotificationCenter onNavigate={openNotification} /><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<nav className="view-switch" aria-label="Navigation principale">
+        <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE</p><h1>Compagnon Correcteur de Devoirs</h1></div>
+        <div className="topbar-actions"><NotificationCenter onNavigate={openNotification} />{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<nav className="view-switch" aria-label="Navigation principale">
           <button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'}
             aria-current={interfaceMode === 'teacher' ? 'page' : undefined}
             onClick={() => setInterfaceMode('teacher')}>Correction</button>
@@ -3617,8 +3617,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         aiConfigured={gradingModelsReady}
         settingsExpanded={showAiSettings}
         isAnalyzing={isAnalyzing}
-        processingStatus={isAnalyzing ? analysisStage === 'checking' ? 'Préparation de la correction' : analysisStage === 'reading' ? 'Lecture de la copie' : 'Correction des réponses' : 'Correction sur cet ordinateur'}
-        processingDetail={isAnalyzing ? formatElapsed(elapsedSeconds) + ' écoulées' : apiCompatible ? 'Contenus transmis au fournisseur API configuré' : 'Vos copies restent sur votre serveur'}
+        processingStatus={isAnalyzing ? analysisStage === 'checking' ? 'Préparation de la correction' : analysisStage === 'reading' ? 'Lecture de la copie' : 'Correction des réponses' : 'Correction prête à démarrer'}
+        processingDetail={isAnalyzing ? formatElapsed(elapsedSeconds) + ' écoulées' : 'Sélectionnez une copie à corriger'}
         onBackToAssignments={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }}
         onSelectCopies={() => { setShowAiSettings(false); setCopyOverviewFilterTouched(false); setTeacherStep('overview'); }}
         onSelectRubric={() => { setShowAiSettings(false); setTeacherStep('rubric'); }}
@@ -3646,12 +3646,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             onChange={(event) => setDiagramConsentEndpoint(event.currentTarget.checked ? endpoint : null)}>
             J’autorise l’envoi des images de ce devoir au serveur actuellement configuré.
           </Checkbox>
-        </div> : <p className="hint">Serveur local (localhost) : les images ne sont pas envoyées au cloud.</p>}
+        </div> : null}
         {diagramIssue && <p className="hint" role="status">{diagramIssue}</p>}
       </section>}
       {interfaceMode === 'teacher' && showAiSettings && <section id="teacher-ai-settings-panel" className={`panel ollama-panel teacher-model-panel ai-settings-view ${gradingModelsReady ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
         <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DU POSTE</p><h2 id="teacher-model-title">Paramètres de l’IA locale</h2></div><span className="step-count">OLLAMA</span></div>
-        <p className="settings-intro">Configurez les modèles utilisés par le parcours de correction. Avec Ollama, les traitements restent sur votre serveur local. Une API compatible OpenAI transmet les contenus au serveur distant configuré.</p>
+        <p className="settings-intro">Configurez les modèles utilisés par le parcours de correction.</p>
         <div className="ai-profile-controls" aria-label="Profils de configuration IA">
           <label className="field-label" htmlFor="ai-model-profile">Configuration enregistrée</label>
           <div className="ai-profile-row">
@@ -3909,7 +3909,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           </label>
           <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
           {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
-          <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale. Aucun basculement cloud n’a lieu en cas d’échec.</p></article>
+          <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale.</p></article>
           <div className="debug-run-actions"><button type="button" className="primary-button" disabled={busy || !images.length || !gradingModelsReady || !validation.valid || !subjectReady || Boolean(diagramIssue)} onClick={() => { if (isScientificDiagramAssignment) void queueCurrentCopy(); else void gradeCopies(); }}>{busy ? 'Diagnostic local en cours…' : 'Lancer le diagnostic avancé'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>
         </section>
         <section className="transcription-review"><h3>Transcription actuellement chargée</h3>{transcription ? <pre>{transcription}</pre> : <p className="hint">Aucune transcription disponible.</p>}</section>
@@ -3919,7 +3919,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             {(interfaceMode as string) === 'debug' && transcription && diagnosticRuns.filter((run) => run.kind === 'model').length === 2 && <button type="button" className="secondary-button full-button" disabled={busy || !arbitratorModel.trim()} onClick={() => void gradeCopies('arbitrate-only')}>Relancer uniquement l’arbitrage avec les deux avis enregistrés</button>}
 
       {(interfaceMode as string) === 'debug' && <section className="panel diagnostic-results" aria-labelledby="diagnostic-results-title">
-        <div className="panel-heading"><span className="number">IA</span><div><h3 id="diagnostic-results-title">Résultats de l’expérience multi-modèles</h3><p>Notes et temps mesurés sur cette copie. Les sorties sont conservées dans cette vue locale.</p></div></div>
+        <div className="panel-heading"><span className="number">IA</span><div><h3 id="diagnostic-results-title">Résultats de l’expérience multi-modèles</h3><p>Notes et temps mesurés sur cette copie. Consultez les sorties ci-dessous.</p></div></div>
         {diagnosticRuns.length === 0 ? <div className="diagnostic-empty-state">
           <span className="diagnostic-empty-icon" aria-hidden="true">↗</span>
           <div><h4>Aucun résultat pour le moment</h4><p>Préparez le barème et importez une copie, puis lancez une analyse. Les résultats des modèles apparaîtront ici pour cette même copie et cette même consigne.</p><p className="diagnostic-reference-optional-note">Pas encore de correction de référence validée ? Aucun problème : comparez les modèles dès maintenant et ajoutez une référence plus tard si vous le souhaitez.</p></div>
@@ -4009,8 +4009,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <details className="debug-performance-history"><summary>Historique et comparaison des performances</summary>
       {timingHistory.length > 0 && <section className="timing-history" aria-labelledby="timing-history-title">
         <div className="timing-history-heading diagnostic-dashboard-header">
-          <div><p className="eyebrow">LABORATOIRE LOCAL · OLLAMA</p><h2 id="timing-history-title">Tableau de bord des expériences</h2><p>Comparez les compromis entre qualité, consommation et vitesse sur les mêmes devoirs et barèmes. Toutes les données restent dans ce navigateur.</p></div>
-          <div className="diagnostic-dashboard-header-actions"><span className="diagnostic-local-pill"><span></span> Données locales</span><button type="button" className="text-button" onClick={() => { setTimingHistory([]); setSelectedComparisonIds([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button></div>
+          <div><p className="eyebrow">LABORATOIRE IA</p><h2 id="timing-history-title">Tableau de bord des expériences</h2><p>Comparez les compromis entre qualité, consommation et vitesse sur les mêmes devoirs et barèmes. </p></div>
+          <div className="diagnostic-dashboard-header-actions"><button type="button" className="text-button" onClick={() => { setTimingHistory([]); setSelectedComparisonIds([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button></div>
         </div>
         {(() => {
           const allRuns = timingHistory.flatMap((item) => item.diagnosticRuns ?? []);
@@ -4273,10 +4273,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <details className="rubric-import rubric-document-import"><summary>Importer un barème depuis un document</summary><div className="rubric-document-import-content">
           <label className="field-label" htmlFor="rubric-file">Importer un barème existant (PDF, Excel (.xlsx), CSV, TXT, Markdown ou JSON)</label>
           <FilePicker id="rubric-file" accept=".pdf,.xlsx,.csv,.txt,.md,.json" disabled={rubricFileImporting} onFilesSelected={(files) => { void importRubricFileFromInput(files?.[0]); }} title="Importer un document de barème" description={rubricFileImporting ? "Lecture par l’IA de vision locale en cours…" : "PDF, Excel, CSV, TXT, Markdown ou JSON"} actionLabel={rubricFileImporting ? "Analyse en cours…" : "Parcourir les fichiers"} />
-          <p className="hint">Les PDF sont convertis en images dans le navigateur puis lus par votre modèle de vision Ollama local. Aucun service cloud n’est utilisé. Vérifiez les critères, les points et le total après import.</p>
+          <p className="hint">Les PDF sont convertis en images dans le navigateur. Vérifiez les critères, les points et le total après import.</p>
           <label className="field-label" htmlFor="rubric-image-file">Ou importer une photo / un scan du barème (JPEG, PNG, WebP)</label>
           <FilePicker id="rubric-image-file" accept="image/jpeg,image/png,image/webp" disabled={rubricImageImporting} onFilesSelected={(files) => { void importRubricImageFromInput(files?.[0]); }} title="Importer une photo ou un scan" description="JPEG, PNG ou WebP · ou PDF multipage" actionLabel={rubricImageImporting ? 'Lecture en cours…' : 'Choisir une image'} compact />
-          <p className="hint">{rubricImageImporting ? 'Lecture du barème par le modèle de vision local…' : 'Une seule requête au modèle de vision Ollama sélectionné, avec toutes les pages PDF dans l’ordre et une sortie JSON structurée. Les pages ne sont envoyées qu’à votre serveur Ollama configuré ; aucun service cloud n’est utilisé. Vérifiez toujours le résultat avant utilisation.'}</p>
+          <p className="hint">{rubricImageImporting ? 'Lecture du barème en cours…' : 'Les pages sont analysées ensemble et le barème est extrait au format structuré. Vérifiez toujours le résultat avant utilisation.'}</p>
           {rubricImportEvents.length > 0 && <section className={`rubric-import-progress ${rubricImportProgress?.stage === 'error' ? 'has-error' : ''}`} aria-label="Étapes de l’import du barème" aria-live="polite">
             <div className="rubric-import-progress-heading"><strong>Import du barème</strong><span>{rubricImportFileName}</span></div>
             {rubricImageImporting && <button type="button" className="secondary-button" onClick={() => rubricImportAbortController.current?.abort()} aria-label="Arrêter l’import du barème">Arrêter l’import</button>}
@@ -4484,10 +4484,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </section>
       {correctionMode === 'separate' && <section className={`panel subject-panel ${subjectReady ? 'setup-complete' : 'setup-needed'}`}>
         <div className="panel-heading">{interfaceMode === 'diagnostic' && <span className="number">A</span>}<div><h3>Sujet de référence</h3><p>Importez les questions et leurs éventuels schémas une seule fois pour ce devoir.</p></div></div>
-        <label className="upload-placeholder" htmlFor="subject-files"><span className="upload-icon">↑</span><strong>Choisir les pages du sujet</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Importer le sujet</span><span className="upload-note">Les pages sont préparées dans le navigateur. Elles sont transmises uniquement au serveur Ollama configuré pour en extraire le contenu.</span></label>
+        <label className="upload-placeholder" htmlFor="subject-files"><span className="upload-icon">↑</span><strong>Choisir les pages du sujet</strong><p>JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier</p><span className="primary-button">Importer le sujet</span></label>
         <FilePicker id="subject-files" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple onFilesSelected={(files) => { void importSubjectFiles(files); }} title="Déposer les pages du sujet ici" description="JPG, PNG, WebP ou PDF · 15 Mo maximum par fichier" actionLabel="Parcourir les fichiers" />
         {subjectImages.length > 0 && <div className="file-list"><strong>{subjectImages.length} page(s) de sujet prête(s)</strong>{subjectImages.map((image, index) => <div className="file-row" key={`${image.fileName}-${index}`}><span>{image.fileName || `Page ${index + 1}`}</span><button type="button" className="text-button" onClick={() => { setSubjectImages((current) => current.filter((_, imageIndex) => imageIndex !== index)); setSubjectTranscription(null); }}>Retirer</button></div>)}<button type="button" className="text-button" onClick={() => { setSubjectImages([]); setSubjectTranscription(null); }}>Retirer toutes les pages du sujet</button></div>}
-        {subjectTranscription && <p className="validation valid" role="status">Sujet lu localement et prêt à être réutilisé pour les copies suivantes de ce devoir.</p>}
+        {subjectTranscription && <p className="validation valid" role="status">Sujet prêt à être réutilisé pour les copies suivantes de ce devoir.</p>}
       </section>}
       </details>
       <section className="setup-grid">
@@ -4524,7 +4524,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             setDiagramLabView('protocols');
           }} />}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep !== 'configuration' && <section id="evaluation-results" data-evaluation-step={evaluationWorkspaceStep} className="panel evaluation-results-workspace" aria-labelledby="evaluation-results-title">
-        <div className="evaluation-section-heading"><div><p className="eyebrow">{evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION' : evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS' : 'ÉTAPE 4 · ANALYSE & HISTORIQUE'}</p><h2 id="evaluation-results-title">{evaluationWorkspaceStep === 'execution' ? 'Exécution de l’expérience' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Résultats de la lecture Vision' : evaluationStageMode === 'analysis' ? 'Résultats de l’analyse' : 'Résultats du parcours complet') : 'Analyser et comparer les expériences'}</h2><p>{evaluationWorkspaceStep === 'execution' ? 'Suivez la progression des modèles locaux et le détail de chaque étape de traitement.' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Examinez les transcriptions produites et les performances des modèles de lecture.' : evaluationStageMode === 'analysis' ? 'Examinez les notes proposées, les justifications et les écarts entre modèles à partir de la même transcription.' : 'Examinez successivement la transcription, la notation et les performances des deux étapes.') : 'Retrouvez les essais précédents et comparez leurs performances grâce aux indicateurs graphiques.'}</p></div><span className="evaluation-step-chip">{evaluationWorkspaceStep === 'history' ? savedModelEvaluations.length + ' essai(s)' : modelEvaluationResults.length + ' résultat(s)'}</span></div>
+        <div className="evaluation-section-heading"><div><p className="eyebrow">{evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION' : evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS' : 'ÉTAPE 4 · ANALYSE & HISTORIQUE'}</p><h2 id="evaluation-results-title">{evaluationWorkspaceStep === 'execution' ? 'Exécution de l’expérience' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Résultats de la lecture Vision' : evaluationStageMode === 'analysis' ? 'Résultats de l’analyse' : 'Résultats du parcours complet') : 'Analyser et comparer les expériences'}</h2><p>{evaluationWorkspaceStep === 'execution' ? 'Suivez la progression des modèles et le détail de chaque étape de traitement.' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Examinez les transcriptions produites et les performances des modèles de lecture.' : evaluationStageMode === 'analysis' ? 'Examinez les notes proposées, les justifications et les écarts entre modèles à partir de la même transcription.' : 'Examinez successivement la transcription, la notation et les performances des deux étapes.') : 'Retrouvez les essais précédents et comparez leurs performances grâce aux indicateurs graphiques.'}</p></div><span className="evaluation-step-chip">{evaluationWorkspaceStep === 'history' ? savedModelEvaluations.length + ' essai(s)' : modelEvaluationResults.length + ' résultat(s)'}</span></div>
         {evaluationWorkspaceStep === 'results' && evaluationArchiveStatus !== 'idle' && <div className={`evaluation-archive-feedback is-${evaluationArchiveStatus}`} role={evaluationArchiveStatus === 'failed' ? 'alert' : 'status'}>
           <div><strong>{evaluationArchiveStatus === 'saving' ? 'Enregistrement dans l’historique…' : evaluationArchiveStatus === 'saved' ? 'Résultats enregistrés sur cet appareil' : evaluationArchiveStatus === 'without-images' ? 'Résultats enregistrés sans les images' : 'Historique non enregistré'}</strong>
             <p>{evaluationArchiveStatus === 'saving' ? 'Vous pouvez déjà consulter les notes et les mesures.' : evaluationArchiveStatus === 'saved' ? 'Vous les retrouverez dans Analyse & historique.' : evaluationArchiveStatus === 'without-images' ? 'Le stockage local était insuffisant pour les photos. Les notes, transcriptions et mesures sont conservées ; les images de cette expérience ne pourront pas être restaurées.' : evaluationArchiveError}</p></div>
@@ -4544,7 +4544,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </section>}
         {evaluationWorkspaceStep === 'execution' && busy && streamedOutput && <section className="transcription-review" aria-live="polite"><h3>Réponse du modèle en streaming</h3><pre>{streamedOutput}</pre></section>}
         {evaluationWorkspaceStep === 'history' && evaluationJourney !== 'diagrams' && <section className="evaluation-result-list evaluation-history-workspace" aria-labelledby="model-evaluation-history-title">
-          <div className="evaluation-section-heading"><div><p className="eyebrow">MESURES CONSERVÉES LOCALEMENT</p><h3 id="model-evaluation-history-title">Historique & comparaison graphique</h3><p>Choisissez Vision, Analyse ou le parcours complet. Vous pouvez comparer les configurations d’un seul essai dès qu’il contient plusieurs modèles, ou comparer deux essais du même type. Les résultats restent sur cet appareil. Un essai non sauvegardé est marqué « session uniquement » et disparaît à la fermeture ou au rechargement de la page.</p></div><span className="evaluation-step-chip">{savedModelEvaluations.length} essai(s)</span></div>
+          <div className="evaluation-section-heading"><div><p className="eyebrow">HISTORIQUE DES MESURES</p><h3 id="model-evaluation-history-title">Historique & comparaison graphique</h3><p>Choisissez Vision, Analyse ou le parcours complet. Vous pouvez comparer les configurations d’un seul essai dès qu’il contient plusieurs modèles, ou comparer deux essais du même type. Un essai non sauvegardé est marqué « session uniquement » et disparaît à la fermeture ou au rechargement de la page.</p></div><span className="evaluation-step-chip">{savedModelEvaluations.length} essai(s)</span></div>
           <div className="evaluation-history-stage-filter" role="group" aria-label="Filtrer les expériences par type">
             {([
               { value: 'all', label: 'Toutes', count: savedModelEvaluations.length },
@@ -4659,7 +4659,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           const lowConfidence = (result: ModelEvaluationResultSnapshot) => result.proposal?.criteria.filter((item) => item.confidence === 'low').length ?? 0;
           const teacherQuestionCount = comparableResults.reduce((sum, result) => sum + (result.proposal?.questionsForTeacher.length ?? 0), 0);
           return <section className="evaluation-result-list evaluation-comparison-analysis" aria-labelledby="evaluation-comparison-analysis-title">
-            <div className="evaluation-analysis-heading"><div><p className="eyebrow">SYNTHÈSE AUTOMATIQUE · LOCALE</p><h3 id="evaluation-comparison-analysis-title">Analyse comparative des configurations</h3></div><span className="evaluation-analysis-count">{complete.length} note(s) complète(s) · {incomplete.length} à arbitrer</span></div>
+            <div className="evaluation-analysis-heading"><div><p className="eyebrow">SYNTHÈSE AUTOMATIQUE</p><h3 id="evaluation-comparison-analysis-title">Analyse comparative des configurations</h3></div><span className="evaluation-analysis-count">{complete.length} note(s) complète(s) · {incomplete.length} à arbitrer</span></div>
             <p className="hint">Cette synthèse distingue les notes complètes des décisions provisoires. Les décisions partial/uncertain ne valent pas zéro point : elles nécessitent l’arbitrage du professeur. Sans correction de référence, on ne peut pas déterminer lequel des modèles est juste.</p>
             <div className="evaluation-analysis-metrics">
               <article><span>Écart entre les notes</span><strong>{scoreSpread === null ? '—' : scoreSpread.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' pt'}</strong><small>entre la note la plus basse et la plus haute</small></article>
@@ -4725,7 +4725,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </section>}
 
       {isAnalyzing && interfaceMode === 'teacher' && analysisStage === 'reading' && <section className="live-copy-preview panel" aria-labelledby="live-copy-preview-title">
-        <div className="live-preview-heading"><div><p className="eyebrow">ÉTAPE 1 · LECTURE LOCALE</p><h3 id="live-copy-preview-title">La copie en cours de lecture</h3><p>Les pages restent visibles à côté du texte reconnu par le modèle local.</p></div><span className="live-preview-state">Lecture en cours</span></div>
+        <div className="live-preview-heading"><div><p className="eyebrow">ÉTAPE 1 · LECTURE</p><h3 id="live-copy-preview-title">La copie en cours de lecture</h3><p>Consultez les pages et le texte reconnu côte à côte.</p></div><span className="live-preview-state">Lecture en cours</span></div>
         <div className="live-copy-layout">
           <div className="live-copy-pages" aria-label="Pages de la copie importée">
             {images.map((image, index) => <figure className="live-copy-page" key={image.fileName + '-' + index}>
