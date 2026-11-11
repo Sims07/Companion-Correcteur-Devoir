@@ -30,9 +30,20 @@ function RadarPlot({ candidate }: { candidate: BiologyRadarCandidate }) {
           fontSize="12">{['Note professeur', 'Barème', 'Bonnes réponses', 'Erreurs', 'Cas pièges'][i]}</text>
       </g>;
     })}
-    <polygon points={polygon(BIOLOGY_RADAR_AXES.map((axis) => (candidate.axes[axis.id] ?? 0) / 100))}
-      fill="var(--ds-color-brand-100)" fillOpacity=".75" stroke="var(--ds-color-brand-700)" strokeWidth="2.5"
-      strokeLinejoin="round" />
+    {candidate.measured === BIOLOGY_RADAR_AXES.length
+      ? <polygon points={polygon(BIOLOGY_RADAR_AXES.map((axis) => axis.id).map((id) => candidate.axes[id]! / 100))}
+          fill="var(--ds-color-brand-100)" fillOpacity=".75" stroke="var(--ds-color-brand-700)" strokeWidth="2.5"
+          strokeLinejoin="round" />
+      : BIOLOGY_RADAR_AXES.map((axis, i) => {
+          const next = BIOLOGY_RADAR_AXES[(i + 1) % BIOLOGY_RADAR_AXES.length]!;
+          const value = candidate.axes[axis.id];
+          const nextValue = candidate.axes[next.id];
+          if (value === null || nextValue === null) return null;
+          const [x1, y1] = vertex(i, value / 100);
+          const [x2, y2] = vertex((i + 1) % BIOLOGY_RADAR_AXES.length, nextValue / 100);
+          return <line key={axis.id} x1={x1} y1={y1} x2={x2} y2={y2}
+            stroke="var(--ds-color-brand-700)" strokeWidth="2.5" />;
+        })}
     {BIOLOGY_RADAR_AXES.map((axis, i) => {
       const value = candidate.axes[axis.id];
       if (value === null) return null;
@@ -104,9 +115,10 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
           </div>
         </div>
         <div className="biology-radar-actions">
-          <button type="button" className="primary-button" disabled={busy || !matchingProfile || protocol === 'pilot'}
+          <button type="button" className="primary-button" disabled={busy || !matchingProfile || protocol !== 'contract'}
             onClick={() => { if (matchingProfile) onEvaluate(matchingProfile.profileId); }}>Évaluer le modèle</button>
           <span>{protocol === 'pilot' ? 'Pour le pilote initial, utilisez les tests Vision et analyse.'
+            : protocol === 'standard' ? 'Pour un classement complet, choisissez « Contrat par question » : le barème standard ne couvre pas D/E/F/G.'
             : matchingProfile ? 'Lance automatiquement les cas A/B/C puis les pièges D/E/F/G pour ce modèle.'
               : 'Enregistrez une configuration IA avec ce modèle pour lancer les batteries.'}</span>
         </div>
