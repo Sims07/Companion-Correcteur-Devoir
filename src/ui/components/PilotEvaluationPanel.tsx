@@ -59,12 +59,8 @@ export function PilotEvaluationPanel({
   const externalApiSelected = selectedProfiles.some((profile) => !isLocalPilotProfile(profile));
   const integratedIssue = pilotSelectionIssue(selectedProfiles, 'integrated');
   return <section className="pilot-evaluation-panel" aria-label="Protocole de test guidé">
-    <div className="pilot-evaluation-head">
-      <div>
-        <p className="eyebrow">LABORATOIRE · EXPÉRIENCE GUIDÉE</p>
-        <h3>Tests de référence en biologie</h3>
-        <p>Trois batteries complémentaires, avec références intégrées. Vos paramètres de correction restent inchangés.</p>
-      </div>
+    <div className="pilot-evaluation-head pilot-evaluation-compact-heading">
+      <h3 className="evaluation-visually-hidden">Tests de référence en biologie</h3>
       {busy && scenario !== 'copies' && <Button variant="secondary" onClick={onStop}>Arrêter après l’appel en cours</Button>}
       {scenario === 'copies' && <button type="button" className="secondary-button" disabled={busy} onClick={onPrepare}>{enabled ? 'Réinitialiser le protocole' : 'Préparer le protocole en un clic'}</button>}
     </div>
@@ -72,7 +68,7 @@ export function PilotEvaluationPanel({
       {([['contracts', 'Comparer les méthodes'], ['repeatability', 'Vérifier la répétabilité'], ['copies', 'Vision et parallélisme']] as const).map(([id, label]) =>
         <button type="button" key={id} disabled={busy || uploadingCase !== null} aria-pressed={scenario === id} onClick={() => setScenario(id)}>{label}</button>)}
     </div>
-    <p className="pilot-evaluation-scope" role="status">{({ contracts: 'Contrats par question · 3 cas de référence', repeatability: 'Répétabilité · mêmes cas rejoués', copies: 'Vision et parallélisme · 3 copies' } as const)[scenario]} · {selectedProfiles.length} configuration(s)</p>
+    <p className="pilot-evaluation-scope" role="status">{({ contracts: 'Contrats par question · 3 cas de référence', repeatability: 'Répétabilité · mêmes cas rejoués', copies: 'Vision et parallélisme · 3 copies' } as const)[scenario]}</p>
     {busy && <p className="pilot-evaluation-running" role="status">Test en cours · {({ contracts: 'comparaison des méthodes', repeatability: 'répétabilité', copies: 'vision et analyse' } as const)[scenario]}{currentCase ? ' · copie ' + currentCase : ''}</p>}
     <section id="evaluation-biology-contract-launch" hidden={scenario !== 'contracts'} className="pilot-evaluation-parallel" aria-label="Protocole variante B par question">
       <div>
