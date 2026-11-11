@@ -184,7 +184,7 @@ export function PilotEvaluationPanel({
         </article>)}
       </div>
       <p className="pilot-evaluation-guide">Configurations sélectionnées : {selectedProfiles.length}{selectedProfiles.length ? ` — ${selectedProfiles.map((profile) => profile.name).join(', ')}` : ''}. Les appels sont séquentiels.</p>
-       {externalApiSelected && <p className="pilot-evaluation-hint" role="status">Une configuration distante recevra les photos et les transcriptions de ces essais.</p>}
+      {externalApiSelected && <p className="pilot-evaluation-hint" role="status">Une configuration distante recevra les photos et les transcriptions de ces essais.</p>}
       {visionIssue && !analysisIssue && <p className="pilot-evaluation-hint" role="status">Vision seule : {visionIssue}</p>}
       {analysisIssue && <p className="pilot-evaluation-hint" role="status">{analysisIssue}</p>}
       {!analysisIssue && integratedIssue && <p className="pilot-evaluation-hint" role="status">Parcours complet : {integratedIssue}</p>}

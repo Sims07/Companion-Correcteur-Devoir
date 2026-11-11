@@ -208,7 +208,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     const text = app();
     const navigation = teacherNavigation();
     expect(text).not.toContain('<strong>Correction</strong><small>Espace enseignant</small>');
-    expect(navigation).toContain('IA locale à configurer');
+    expect(navigation).toContain('Configurer l’IA');
     expect(navigation).toContain('onOpenSettings');
     expect(navigation).toContain('teacher-workspace-processing');
     expect(text).toContain('processingStatus={isAnalyzing');
@@ -231,7 +231,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('className="debug-advanced-settings"');
     expect(text).toContain('id="diagnostic-strategy"');
     expect(text).toContain("interfaceMode === 'teacher' && showAiSettings && <section id=");
-    expect(text).toContain('Paramètres de l’IA locale');
+    expect(text).toContain('Paramètres IA');
     expect(text).toContain('settingsExpanded={showAiSettings}');
     expect(teacherNavigation()).toContain('aria-expanded={settingsExpanded}');
     expect(teacherNavigation()).toContain('aria-controls="teacher-ai-settings-panel"');
@@ -302,9 +302,10 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('keeps the dedicated evaluation workspace isolated from the teacher workspace', () => {
     const text = app();
-    expect(text).toContain('className="evaluation-page-header"');
+    expect(text).not.toContain('className="evaluation-page-header"');
+    expect(text).toContain('id="evaluation-page-title"');
     expect(text).toContain('Évaluation des modèles');
-    expect(text).toContain('evaluation-provider-indicator');
+    expect(text).not.toContain('evaluation-provider-indicator');
     expect(text).toContain('className="evaluation-step-nav"');
     expect(text).toContain('Campagnes de test');
     expect(text).toContain('aria-current={evaluationWorkspaceStep ===');
@@ -390,7 +391,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Comparer les modèles Vision');
     expect(text).toContain('Comparer les modèles d’analyse');
     expect(text).toContain('Évaluer cette configuration');
-    expect(text).toContain('Debug des appels IA locaux');
+    expect(text).toContain('Diagnostic des appels IA');
     expect(evaluation).toContain('className="evaluation-model-brief"');
     expect(evaluation).not.toContain('Lancer la correction');
     expect(text).not.toContain('diagnostic-experiment-setup');

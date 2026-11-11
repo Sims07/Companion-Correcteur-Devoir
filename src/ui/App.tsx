@@ -3700,7 +3700,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           </div>
           <div className="ai-profile-actions"><Button variant="secondary" onClick={saveAiModelProfile}>Enregistrer cette configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button><Button variant="secondary" disabled={busy || pilotBusy || aiModelProfiles.length === 0} onClick={() => setManagingAiProfiles(true)}>Gérer les configurations ({aiModelProfiles.length})</Button></div>
           {aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
-          
         </div>
         <label className="field-label" htmlFor="ai-provider-type">Fournisseur IA</label>
         <DesignSystemSelect id="ai-provider-type" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://ai.zaup.org/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}>
@@ -3897,7 +3896,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           </div>
           <div className="ai-profile-actions"><Button variant="secondary" onClick={saveAiModelProfile}>Enregistrer cette configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button><Button variant="secondary" disabled={busy || pilotBusy || aiModelProfiles.length === 0} onClick={() => setManagingAiProfiles(true)}>Gérer les configurations ({aiModelProfiles.length})</Button></div>
           {aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
-          
         </div>
           <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur</label>
           <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
