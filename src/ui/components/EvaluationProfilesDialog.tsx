@@ -9,6 +9,7 @@ interface EvaluationProfilesDialogProps {
   busy: boolean;
   onChange: (ids: string[]) => void;
   onCreate: () => void;
+  onEditCurrent: () => void;
   onEdit: (profile: AiModelProfile) => void;
   onManageDeletion: () => void;
   onClose: () => void;
@@ -18,7 +19,7 @@ const maxSelection = 3;
 
 /** Model selection and editing are secondary tasks, not another permanent panel above tests. */
 export function EvaluationProfilesDialog({
-  profiles, selectedIds, busy, onChange, onCreate, onEdit, onManageDeletion, onClose,
+  profiles, selectedIds, busy, onChange, onCreate, onEditCurrent, onEdit, onManageDeletion, onClose,
 }: EvaluationProfilesDialogProps) {
   const [search, setSearch] = useState('');
   const visibleProfiles = profiles.filter((profile) =>
@@ -44,6 +45,7 @@ export function EvaluationProfilesDialog({
             placeholder="Nom ou modèle IA" aria-label="Rechercher une configuration" />
         </label>
         <Button variant="secondary" disabled={busy} onClick={onCreate}>+ Nouvelle configuration</Button>
+        <Button variant="secondary" disabled={busy} onClick={onEditCurrent}>Modifier les réglages courants</Button>
         <Button variant="secondary" disabled={busy || profiles.length === 0} onClick={onManageDeletion}>Supprimer des configurations</Button>
       </div>
       <fieldset className="evaluation-profiles-dialog-list" aria-label="Configurations à exécuter">
