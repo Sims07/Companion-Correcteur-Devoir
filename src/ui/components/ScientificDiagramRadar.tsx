@@ -238,7 +238,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
         <div><h4>{missingAxes.length ? 'Caractéristiques à compléter' : 'Toutes les caractéristiques sont mesurées'}</h4>
           <p>{missingAxes.length
             ? missingAxes.length + ' caractéristique(s) non évaluée(s) · lancez directement une batterie disponible.'
-            : 'Les huit axes sont alimentés par les campagnes locales enregistrées.'}</p></div>
+            : 'Les huit axes sont alimentés par les campagnes enregistrées.'}</p></div>
         {missingAxes.length > 0 && <div className="diagram-radar-remaining-list">
           {missingAxes.map((item) => {
             const plan = planFor(activeModel, item.id);
@@ -399,7 +399,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
     </section>
     <details className="diagram-radar-weights">
       <summary>Pondérations et méthode de calcul</summary>
-      <p>Réglez chaque axe de 0 à 5. Un axe à poids zéro reste affiché, mais ne participe pas au classement. Toute modification est enregistrée localement sur cet appareil.</p>
+      <p>Réglez chaque axe de 0 à 5. Un axe à poids zéro reste affiché, mais ne participe pas au classement.</p>
       <div className="diagram-radar-weight-grid">
         {RADAR_AXES.map((item) => <label key={item.id}>
           <span>{item.label}</span>
