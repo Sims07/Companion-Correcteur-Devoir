@@ -122,6 +122,13 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
     const indexed = new Map(partial.rows.map((item) => [item.id, item.score]));
     return [...rows].sort((a, b) => (indexed.get(b.id) ?? -1) - (indexed.get(a.id) ?? -1));
   }, [filtered, weights, partial]);
+  // Pin the initial model once. Changing score weights must not silently
+  // switch the LLM whose results the teacher is inspecting.
+  useEffect(() => {
+    if (grouping !== 'model' || !ranked.length) return;
+    setModelId((current) => ranked.some((candidate) => candidate.id === current)
+      ? current : ranked[0]!.id);
+  }, [grouping, ranked]);
   const activeModel = grouping === 'model' ? ranked.find((item) => item.id === modelId) ?? ranked[0] ?? null : null;
   const comparedModel = grouping === 'model'
     ? ranked.find((item) => item.id === comparisonModelId && item.id !== activeModel?.id) ?? null : null;
@@ -238,7 +245,8 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
             return <div key={item.id} className="diagram-radar-remaining-item">
               <button type="button" onClick={() => setAxis(item.id)}>{item.label}</button>
               {plan && profileIds.includes(plan.profileId)
-                ? <Button variant="secondary" disabled={busy} onClick={() => onRunMissing(plan)}>Lancer</Button>
+                ? <Button variant="secondary" disabled={busy} aria-label={'Lancer le test ' + item.label + ' avec ' + activeModel.name}
+                    onClick={() => onRunMissing(plan)}>Lancer</Button>
                 : <small>Profil compatible requis</small>}
             </div>;
           })}
