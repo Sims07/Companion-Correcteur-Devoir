@@ -145,12 +145,15 @@ export function planRadarModelEvaluation(
     }
   }
   if (missing.some((item) => item.id === 'stability')) {
-    let repeatedProtocol = order.find((protocol) => steps.has(protocol));
+    // Reuse short grading batteries (A/B/C or D/E) if they are missing.
+    // For six-image semantic/graph protocols, keep the independent short
+    // repeat selected by the stability planner instead of tripling six cases.
+    let repeatedProtocol = (['reference', 'arrows'] as const).find((protocol) => steps.has(protocol));
     if (!repeatedProtocol) {
-      // Stability is the only missing measurement.
       const repeat = planMissingRadarAxis(candidate, 'stability', 'model')?.steps[0];
       if (repeat) {
-        steps.set(repeat.protocol, repeat);
+        const previous = steps.get(repeat.protocol);
+        if (!previous || repeat.repetitions > previous.repetitions) steps.set(repeat.protocol, repeat);
         repeatedProtocol = repeat.protocol;
       }
     }
