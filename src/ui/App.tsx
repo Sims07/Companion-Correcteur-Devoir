@@ -3617,7 +3617,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         aiConfigured={gradingModelsReady}
         settingsExpanded={showAiSettings}
         isAnalyzing={isAnalyzing}
-        processingStatus={isAnalyzing ? analysisStage === 'checking' ? 'Préparation de la correction' : analysisStage === 'reading' ? 'Lecture de la copie' : 'Correction des réponses' : 'Correction prête à démarrer'}
+        processingStatus={isAnalyzing ? analysisStage === 'checking' ? 'Préparation de la correction' : analysisStage === 'reading' ? 'Lecture de la copie' : 'Correction des réponses' : 'Aucune correction en cours'}
         processingDetail={isAnalyzing ? formatElapsed(elapsedSeconds) + ' écoulées' : 'Sélectionnez une copie à corriger'}
         onBackToAssignments={() => { setShowAiSettings(false); setShowAssignmentsHome(true); }}
         onSelectCopies={() => { setShowAiSettings(false); setCopyOverviewFilterTouched(false); setTeacherStep('overview'); }}
@@ -4009,7 +4009,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <details className="debug-performance-history"><summary>Historique et comparaison des performances</summary>
       {timingHistory.length > 0 && <section className="timing-history" aria-labelledby="timing-history-title">
         <div className="timing-history-heading diagnostic-dashboard-header">
-          <div><p className="eyebrow">LABORATOIRE IA</p><h2 id="timing-history-title">Tableau de bord des expériences</h2><p>Comparez les compromis entre qualité, consommation et vitesse sur les mêmes devoirs et barèmes. </p></div>
+          <div><p className="eyebrow">LABORATOIRE IA</p><h2 id="timing-history-title">Tableau de bord des expériences</h2><p>Comparez les compromis entre qualité, consommation et vitesse sur les mêmes devoirs et barèmes.</p></div>
           <div className="diagnostic-dashboard-header-actions"><button type="button" className="text-button" onClick={() => { setTimingHistory([]); setSelectedComparisonIds([]); try { window.localStorage.removeItem(timingHistoryKey); } catch { /* History is already cleared in the current view. */ } }}>Effacer l’historique</button></div>
         </div>
         {(() => {
