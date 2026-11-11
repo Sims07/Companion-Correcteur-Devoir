@@ -33,7 +33,9 @@ describe('LLM-first scientific radar', () => {
     const selector = node.querySelector<HTMLSelectElement>('select[aria-label="Choisir un LLM"]')!;
     expect(selector).toBeTruthy();
     expect([...selector.options].map((option) => option.textContent)).toEqual(['gemma:9b', 'qwen:4b']);
-    expect(node.querySelector('[aria-label="Bilan du LLM sélectionné"]')?.textContent).toContain('Note globale');
+    const score = node.querySelector('[aria-label="Résultat du LLM sélectionné"]')!;
+    expect(score.textContent).toContain('Indice partiel · qwen:4b');
+    expect(score.querySelector('strong')?.textContent).toMatch(/\\d+(?:,\\d+)? \\/ 100/);
     await act(async () => {
       selector.value = 'gemma:9b';
       selector.dispatchEvent(new Event('change', { bubbles: true }));
@@ -41,7 +43,7 @@ describe('LLM-first scientific radar', () => {
     const summary = node.querySelector('[aria-label="Bilan du LLM sélectionné"]')!;
     expect(summary.textContent).toContain('gemma:9b');
     expect(summary.textContent).toContain('0 / 8');
-    expect(summary.textContent).toContain('Note indisponible');
+    expect(summary.textContent).toContain('Aucune mesure disponible');
     expect(summary.textContent).not.toContain('qwen:4b ·');
     const item = [...node.querySelectorAll('.diagram-radar-remaining-item')]
       .find((element) => element.textContent?.includes('Qualité graphique'))!;
