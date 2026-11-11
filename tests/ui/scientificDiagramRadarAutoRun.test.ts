@@ -18,7 +18,7 @@ const plan: RadarMissingTestRequest = {
     promptMode: 'standard', graphVariant: 'baseline', zoom: false }],
 };
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('scientific automatic protocol runner invoked from radar', () => {
   it('starts exactly one existing A/B/C protocol for the targeted saved profile, with no manual upload', async () => {
@@ -62,6 +62,25 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true,
       blob: async () => new Blob(['fake-webp'], { type: 'image/webp' }),
     })));
+    // D/E are bundled SVGs, rasterized by the browser before reaching the IA.
+    // jsdom lacks Image.decode, object URLs and canvas rendering by default.
+    const NativeURL = URL;
+    vi.stubGlobal('URL', class extends NativeURL {
+      static createObjectURL() { return 'blob:mock-diagram'; }
+      static revokeObjectURL() { /* local mock */ }
+    });
+    vi.stubGlobal('Image', class {
+      src = '';
+      naturalWidth = 100;
+      naturalHeight = 100;
+      async decode() { /* simulated browser decode */ }
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => {
+      callback(new Blob(['png'], { type: 'image/png' }));
+    });
     const container = document.createElement('div');
     const root = createRoot(container);
     const events: string[] = [];
