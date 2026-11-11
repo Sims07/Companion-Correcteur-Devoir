@@ -5002,6 +5002,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         busy={busy || pilotBusy || radarAutoBusy}
         onChange={setSelectedEvaluationProfileIds}
         onCreate={() => { setManagingEvaluationProfiles(false); createNewAiModelProfile(); setEvaluationEditorOpen(true); }}
+        onEditCurrent={() => { setManagingEvaluationProfiles(false); setEvaluationEditorOpen(true); }}
         onEdit={(profile) => { setManagingEvaluationProfiles(false); setAiModelProfileName(profile.name); applyAiModelProfile(profile); setEvaluationEditorOpen(true); }}
         onManageDeletion={() => { setManagingEvaluationProfiles(false); setManagingAiProfiles(true); }}
         onClose={() => setManagingEvaluationProfiles(false)}
