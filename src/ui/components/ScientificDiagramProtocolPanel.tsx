@@ -239,7 +239,7 @@ export function ScientificDiagramProtocolPanel({
     if (!override && !canRunFixtures) return false;
     setSensitivityLoading(true);
     onClearSensitivityReport();
-    setSensitivityMessage('Préparation locale des six variantes…');
+    setSensitivityMessage('Préparation des six variantes…');
     try {
       const images = new Map<DiagramSensitivityCaseId, ImageInput[]>();
       for (const id of DIAGRAM_SENSITIVITY_CASE_IDS) {
@@ -403,7 +403,7 @@ export function ScientificDiagramProtocolPanel({
       setRubric(imported);
       setGold({});
       onClearReport();
-      setMessage('Barème importé localement : ' + imported.criteria.length + ' critères. Les critères de compréhension sans sous-critères ont été exclus.');
+      setMessage('Barème importé : ' + imported.criteria.length + ' critères. Les critères de compréhension sans sous-critères ont été exclus.');
     } catch (cause) {
       setMessage('Import refusé : ' + (cause instanceof Error ? cause.message : String(cause)));
     }
@@ -417,7 +417,7 @@ export function ScientificDiagramProtocolPanel({
     try {
       const prepared = await onPrepareImages(Array.from(files));
       setImages(prepared);
-      setMessage(prepared.length + ' page(s) préparée(s) localement. Les mêmes pages serviront aux répétitions.');
+      setMessage(prepared.length + ' page(s) préparée(s). Les mêmes pages serviront aux répétitions.');
     } catch (cause) {
       setMessage('Lecture impossible : ' + (cause instanceof Error ? cause.message : String(cause)));
     } finally { setUploading(false); }
@@ -484,7 +484,7 @@ export function ScientificDiagramProtocolPanel({
         <option value="compare">Comparer toutes les méthodes compatibles (recommandé)</option>
         <option value="vision-then-analysis">Vision puis analyse — 2 étapes</option>
         <option value="direct-image-generative">Image → modèle génératif — sans OCR, Think OFF</option>
-        <option value="direct-image-generative-thinking">Image → modèle génératif — Think ON (Ollama local compatible)</option>
+        <option value="direct-image-generative-thinking">Image → modèle génératif — Think ON (Ollama compatible)</option>
         <option value="compare-thinking">Comparer génératif direct : Think OFF / ON (modèle compatible)</option>
         <option value="direct-image-systemone">Image → décisionnel System One — sans OCR</option>
       </DesignSystemSelect>
@@ -582,7 +582,7 @@ export function ScientificDiagramProtocolPanel({
                         : experiment.failureCategory === 'generation-limit' ? 'Limite de génération atteinte'
                         : experiment.failureCategory === 'invalid-or-incomplete-output' ? 'Réponse JSON invalide ou incomplète'
                         : experiment.failureCategory === 'timeout' ? 'Délai dépassé'
-                        : 'Échec de traitement (cause à consulter localement)';
+                        : 'Échec de traitement (cause à consulter dans le diagnostic)';
                     }
                     return experiment.scoreStatus === 'scored' ? 'Notée'
                       : experiment.scoreStatus === 'teacher-review-required' ? 'Arbitrage nécessaire'
@@ -701,7 +701,7 @@ export function ScientificDiagramProtocolPanel({
     </section>}
     {activeProtocol === 'graph' && <section id="evaluation-diagram-graph-launch" className="diagram-protocol-fixtures diagram-sensitivity-section" aria-label="Extraction du graphe de relations">
       <h4>Observer un graphe de relations avant le barème</h4>
-      <p>Ollama local ou API compatible OpenAI. Ce protocole évite d’injecter la réponse scientifique attendue dans la consigne de lecture.</p>
+      <p>Ce protocole évite d’injecter la réponse scientifique attendue dans la consigne de lecture.</p>
       <p className="pilot-evaluation-hint">Le modèle Vision voit uniquement les PNG et une consigne générique de description : noms dessinés, extrémités/pointe des flèches, inclusion des structures. Il ne reçoit ni la consigne de biologie, ni le barème, ni les trois attendus. Le logiciel compare ensuite le graphe extrait aux références S0–S5. Aucune correction de copie n’est modifiée.</p>
       <div className="diagram-fixture-run-controls">
         <label htmlFor="diagram-blind-prompt-variant">Consigne de lecture du graphe</label>
@@ -789,7 +789,7 @@ export function ScientificDiagramProtocolPanel({
       <div className="diagram-protocol-import">
         <h4>1. Schéma et barème</h4>
         <FilePicker id="diagram-protocol-photos" title="Schéma à analyser" description="Photo(s) ou PDF du même schéma ; pages conservées ensemble dans un seul essai" accept="image/png,image/jpeg,image/webp,application/pdf,.pdf" multiple disabled={busy || uploading} onFilesSelected={(files) => { void importImages(files); }} />
-        <p className="pilot-evaluation-hint">{uploading ? 'Préparation locale…' : images.length ? images.length + ' page(s) prêtes' : 'Aucune image fournie.'}</p>
+        <p className="pilot-evaluation-hint">{uploading ? 'Préparation…' : images.length ? images.length + ' page(s) prêtes' : 'Aucune image fournie.'}</p>
         <FilePicker id="diagram-protocol-rubric" title="Barème du professeur (JSON)" description="Par défaut : 15 attendus visuels, 8 points. Importez un barème propre au sujet pour évaluer aussi la compréhension." accept=".json,application/json" disabled={busy || uploading} onFilesSelected={(files) => { void importRubric(files); }} />
         <p className="pilot-evaluation-hint">Barème actif : <strong>{rubric.title}</strong> — {validation.maximumPoints} points, {targets.length} attendu{targets.length > 1 ? 's' : ''}. Les 2 points « Compréhension » de l’exemple sont exclus par défaut : ils nécessitent des structures attendues propres au schéma.</p>
         <label htmlFor="diagram-protocol-context">Contexte biologique du dessin (facultatif pour les seuls critères de présentation)</label>

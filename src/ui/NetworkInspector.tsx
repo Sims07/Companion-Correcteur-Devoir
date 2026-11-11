@@ -84,6 +84,6 @@ export function NetworkInspector({ initialFilter = 'all' }: { initialFilter?: 'a
         </> : <p className="network-empty">Sélectionnez une requête pour examiner ses détails.</p>}
       </section>
     </div>
-    <p className="network-inspector-footnote">Les corps complets restent en mémoire pendant la session ; seuls 4 000 caractères par corps sont persistés localement. Les clés, tokens et données binaires sont masqués. L’historique est limité aux 100 dernières requêtes.</p>
+    <p className="network-inspector-footnote">Les corps complets sont disponibles pendant la session ; seuls les 4 000 premiers caractères par corps sont conservés dans l’historique. Les clés, tokens et données binaires sont masqués. L’historique est limité aux 100 dernières requêtes.</p>
   </section>;
 }

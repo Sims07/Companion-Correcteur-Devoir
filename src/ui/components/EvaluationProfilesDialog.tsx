@@ -37,7 +37,7 @@ export function EvaluationProfilesDialog({
   return <Dialog title="Gérer les configurations IA" subtitle="Sélection, création et modification des modèles" size="wide"
     onClose={onClose} actions={<Button variant="primary" onClick={onClose}>Terminer</Button>}>
     <div className="evaluation-profiles-dialog">
-      <p className="evaluation-profiles-dialog-intro">Sélectionnez jusqu’à trois configurations pour les tests. La sélection est enregistrée sur cet appareil et utilisée par les batteries.</p>
+      <p className="evaluation-profiles-dialog-intro">Sélectionnez jusqu’à trois configurations pour les batteries de tests.</p>
       <div className="evaluation-profiles-dialog-toolbar">
         <label className="evaluation-profiles-search">
           <span>Rechercher</span>

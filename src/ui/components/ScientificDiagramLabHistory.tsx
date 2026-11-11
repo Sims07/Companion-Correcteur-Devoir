@@ -194,7 +194,7 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
   return <section className="diagram-lab-history" aria-label="Campagnes de test scientifiques">
     <div className="diagram-lab-history-heading">
       <div><p className="eyebrow">CAMPAGNES DE TEST · SCHÉMAS SCIENTIFIQUES</p><h2>Campagnes de test</h2>
-        <p>Comparez les performances sur huit caractéristiques ou examinez les preuves de chaque campagne, conservées localement.</p></div>
+        <p>Comparez les performances sur huit caractéristiques ou examinez les preuves de chaque campagne.</p></div>
       <div className="diagram-lab-history-heading-actions">
         <input ref={fileInput} type="file" accept=".json,application/json" hidden
           aria-label="Choisir un ancien rapport JSON"

@@ -63,6 +63,34 @@ describe('aides de confidentialité non répétitives', () => {
     expect(app).toContain('Vérifiez toujours le résultat avant utilisation.');
   });
 
+  it('retire les slogans locaux des sous-parcours sans masquer les envois distants', () => {
+    const assignments = source('./AssignmentsHome.tsx');
+    const profiles = source('./components/EvaluationProfilesDialog.tsx');
+    const pilot = source('./components/PilotEvaluationPanel.tsx');
+    const rubric = source('./components/RubricImportPanel.tsx');
+    const history = source('./components/ScientificDiagramLabHistory.tsx');
+    const scientific = source('./components/ScientificDiagramProtocolPanel.tsx');
+    const diagram = source('./components/ScientificDiagramTeacherPanel.tsx');
+    const inspector = source('./NetworkInspector.tsx');
+    const together = [assignments, profiles, pilot, rubric, history, scientific, diagram, inspector].join('\n');
+
+    for (const phrase of [
+      'Les copies restent sur votre Ollama local.',
+      'fichiers transmis uniquement aux serveurs locaux',
+      'enregistrés localement sur cet appareil',
+      'sélection est enregistrée sur cet appareil',
+      'Fichier JSON versionné · traitement local',
+      'conservées localement',
+      'Préparation locale des pages',
+      'Préparation des images sur cet appareil',
+    ]) expect(together).not.toContain(phrase);
+
+    expect(assignments).toContain('Retour au devoir actif');
+    expect(pilot).toContain('Une configuration distante recevra les photos et les transcriptions');
+    expect(scientific).toContain('Les images seront envoyées à son serveur.');
+    expect(diagram).toContain('J’autorise l’envoi de ces images');
+  });
+
   it('conserve les avertissements distants dans les campagnes de tests', () => {
     const protocol = source('./components/ScientificDiagramProtocolPanel.tsx');
     expect(protocol).toContain('Les images seront envoyées à son serveur.');

@@ -42,7 +42,7 @@ export function RubricImportPanel({ rubric, onImport }: RubricImportPanelProps) 
  }
  return <details className="rubric-import-panel"><summary>Importer des critères</summary><div className="rubric-import-content">
   <p>Ajoutez des critères depuis un export Companion Correcteur. Le contenu du barème actuel ne sera jamais remplacé.</p>
-  <FilePicker id="rubric-criteria-import-file" accept=".json,application/json" title="Choisir un export de critères JSON" description={reading ? 'Lecture du fichier…' : 'Fichier JSON versionné · traitement local'} actionLabel={reading ? 'Lecture…' : 'Parcourir'} disabled={reading} compact onFilesSelected={(files) => { void readFile(files?.[0]); }} />
+  <FilePicker id="rubric-criteria-import-file" accept=".json,application/json" title="Choisir un export de critères JSON" description={reading ? 'Lecture du fichier…' : 'Fichier JSON versionné'} actionLabel={reading ? 'Lecture…' : 'Parcourir'} disabled={reading} compact onFilesSelected={(files) => { void readFile(files?.[0]); }} />
   {error && <StatusNotice tone="error">{error}</StatusNotice>}
   {message && <StatusNotice tone={messageTone}>{message}</StatusNotice>}
   {preview && <section className="rubric-import-preview" aria-label="Aperçu des critères à importer">
