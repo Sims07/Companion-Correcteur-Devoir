@@ -39,7 +39,7 @@ describe('compact direct diagram output', () => {
     expect(JSON.stringify(schema)).not.toContain('anyOf');
     expect(JSON.stringify(schema)).toContain('position');
     expect(JSON.stringify(schema)).not.toContain('finalScore');
-    expect(schema.criteria.properties.title.properties.subcriteria.properties.position.properties.creditFraction)
+    expect(JSON.parse(JSON.stringify(schema)).properties.criteria.properties.title.properties.subcriteria.properties.position.properties.creditFraction)
       .toMatchObject({ type: 'number', minimum: 0, maximum: 1 });
     expect(JSON.stringify(schema)).not.toContain('"points"');
   });
@@ -84,7 +84,8 @@ describe('compact direct diagram output', () => {
           ? 'Lignes du titre écrites horizontalement.' : 'Attendu absent du dessin.',
       }])),
     }]));
-    const mock = vi.fn(async () => stream(JSON.stringify({ criteria: values })));
+    const mock = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
+      stream(JSON.stringify({ criteria: values })));
     const directRequest = { ...request, rubric: JSON.stringify(rubric) };
     const raw = await createOllamaProvider({ endpoint: 'http://localhost:11434',
       analysisModel: 'qwen3.5:4b', correctionMethod: 'generative' }, mock).generate(directRequest);
@@ -93,7 +94,7 @@ describe('compact direct diagram output', () => {
     expect(result.finalScore).toBe(0.33);
     expect(result.criteria.find((item: { criterionId: string }) => item.criterionId === 'title')
       .subcriteria.find((item: { subcriterionId: string }) => item.subcriterionId === 'title-horizontal').points).toBe(0.33);
-    const firstRequest = JSON.parse(mock.mock.calls[0]![1].body);
+    const firstRequest = JSON.parse(String(mock.mock.calls[0]![1]?.body));
     expect(firstRequest.format.properties.criteria.properties.title.properties.subcriteria.properties['title-horizontal']
       .properties.creditFraction.maximum).toBe(1);
     expect(firstRequest.messages[0].content).toContain('0.33 point et NON 1 point');
