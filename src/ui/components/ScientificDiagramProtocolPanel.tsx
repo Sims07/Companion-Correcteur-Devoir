@@ -202,7 +202,7 @@ export function ScientificDiagramProtocolPanel({
     setBlindGraphLoading(true);
     onClearBlindGraphReport();
     setBlindGraphMessage('Préparation des six schémas…' +
-      (blindGraphUsesRemote ? ' Les images seront envoyées au serveur distant sélectionné.' : ' Traitement local.'));
+      (blindGraphUsesRemote ? ' Les images seront envoyées au serveur distant sélectionné.' : ''));
     try {
       const cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }> = [];
       for (const id of DIAGRAM_SENSITIVITY_CASE_IDS) {
@@ -433,7 +433,7 @@ export function ScientificDiagramProtocolPanel({
       <div>
         <p className="eyebrow">LABORATOIRE · PROTOCOLES AUTOMATIQUES</p>
         <h3>Schémas scientifiques · batteries de tests</h3>
-        <p>Choisissez une batterie et lancez-la. Les images et références sont déjà prêtes ; les résultats sont conservés localement.</p>
+        <p>Choisissez une batterie et lancez-la. Les images et références sont déjà prêtes.</p>
       </div>
     </div>
     {radarAutoStatus && <div className="diagram-lab-live" role="status" aria-label="Test lancé depuis le radar">
@@ -717,9 +717,9 @@ export function ScientificDiagramProtocolPanel({
         {blindGraphReport && <Button variant="secondary" onClick={downloadBlindGraphReport}>Exporter l’analyse du graphe JSON</Button>}
       </div>
       {blindGraphUsesRemote && <p className="pilot-evaluation-hint" role="status">Profil distant : images envoyées au serveur configuré.</p>}
-       <details className="diagram-lab-explanation"><summary>Protocole détaillé et confidentialité</summary><p className="pilot-evaluation-hint">Pour comparer avec Qwen 3.5 4B : lancez d'abord « Référence actuelle » (sans agrandissement), puis « Nouvel essai A » et « Nouvel essai B » séparément, avec le même profil et une seule répétition. Chaque méthode exporte son propre JSON. A relit jusqu’à deux flèches, même déclarées certaines ; le recadrage est tenté si Vision fournit une zone, sinon l’image entière est relue et ce repli est compté. B effectue un appel distinct d’inventaire des contours. La correction des devoirs n’est pas affectée.</p>
-      <p className="pilot-evaluation-hint">Le mode d’agrandissement peut ajouter jusqu’à deux appels sur le fournisseur sélectionné, y compris distant si vous avez choisi une API OpenAI-compatible. Le recadrage est traité sur l’appareil mais aussi transmis au fournisseur distant sélectionné ; aucune transmission automatique au cloud n’est effectuée avec un profil Ollama local. Si une zone n’est pas localisable, elle reste indécidable.</p>
-      <p className="pilot-evaluation-hint">Utilisez un profil Vision Ollama local ou OpenAI-compatible (y compris votre lien distant). Les six schémas sont traités séquentiellement. Un profil distant reçoit les images : utilisez-le seulement si cela est autorisé. Aucun basculement implicite vers le cloud. La conclusion peut rester indécidable si les flèches sont mal lues.</p>
+       <details className="diagram-lab-explanation"><summary>Protocole détaillé</summary><p className="pilot-evaluation-hint">Pour comparer avec Qwen 3.5 4B : lancez d'abord « Référence actuelle » (sans agrandissement), puis « Nouvel essai A » et « Nouvel essai B » séparément, avec le même profil et une seule répétition. Chaque méthode exporte son propre JSON. A relit jusqu’à deux flèches, même déclarées certaines ; le recadrage est tenté si Vision fournit une zone, sinon l’image entière est relue et ce repli est compté. B effectue un appel distinct d’inventaire des contours. La correction des devoirs n’est pas affectée.</p>
+      <p className="pilot-evaluation-hint">Le mode d’agrandissement peut ajouter jusqu’à deux appels au fournisseur sélectionné. Si une zone n’est pas localisable, elle reste indécidable.</p>
+      <p className="pilot-evaluation-hint">Les six schémas sont traités séquentiellement. La conclusion peut rester indécidable si les flèches sont mal lues.</p>
       </details>
        {selectedProfiles.length > 0 && <p className="pilot-evaluation-hint">
         Modèle réellement envoyé aux six schémas : <strong>{selectedProfiles.map((profile) =>
@@ -819,7 +819,7 @@ export function ScientificDiagramProtocolPanel({
       <p className="pilot-evaluation-hint">Configurations : {selectedProfiles.length ? selectedProfiles.map((profile) =>
         profile.name + ' (' + selectDiagramMethods(profile, methodSelection).map((method) => diagramMethodLabels[method]).join(' / ') + ')').join(' · ') :
         'Sélectionnez les profils dans « Configurations à exécuter » plus bas.'}</p>
-      {hasRemote && <p className="pilot-evaluation-hint" role="status">Attention : une configuration distante est sélectionnée. Les images seront envoyées à son serveur. Sélectionnez Ollama local pour ne pas envoyer de copies à l’extérieur.</p>}
+      {hasRemote && <p className="pilot-evaluation-hint" role="status">Attention : une configuration distante est sélectionnée. Les images seront envoyées à son serveur.</p>}
       {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={issue}>{issue}</p>)}
       <div className="pilot-evaluation-actions">
         <label htmlFor="diagram-protocol-repeat-count">Répétitions</label>
