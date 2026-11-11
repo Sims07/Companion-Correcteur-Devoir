@@ -6,9 +6,9 @@ test('evaluation starts with one compact workspace rather than stacked cards', a
 
   await expect(page.getByRole('heading', { name: 'Évaluer les modèles' })).toBeVisible();
   await expect(page.locator('.developer-tools-heading, .evaluation-config-workspace > .evaluation-stage-guidance')).toHaveCount(0);
-  await expect(page.locator('.evaluation-page-header')).toHaveCSS('border-top-width', '0px');
+  await expect(page.locator('.evaluation-page-header, .evaluation-provider-indicator')).toHaveCount(0);
   await expect(page.locator('.evaluation-config-workspace')).toHaveCSS('border-top-width', '0px');
-  await expect(page.locator('.evaluation-provider-indicator')).toContainText(/Ollama local|API compatible OpenAI/);
+  await expect(page.getByRole('navigation', { name: 'Espaces de l’évaluation' })).toBeVisible();
 
   const views = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   await expect(views.getByRole('button')).toHaveCount(3);

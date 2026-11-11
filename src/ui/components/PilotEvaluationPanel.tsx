@@ -73,7 +73,7 @@ export function PilotEvaluationPanel({
       <div>
         <h4>Variante B · réponses rattachées aux questions</h4>
         <p>Comparez sur les mêmes réponses le barème standard et un contrat explicite par question (consigne, relation scientifique attendue, équivalences et contradictions). Trois cas intégrés : A = 10/10, B = 0/10 (réponses 1 et 2 échangées), C = 5/10. Aucun document à importer, aucune photo requise.</p>
-        <details className="pilot-evaluation-protocol-notes"><summary>Conditions et limites de l’expérience</summary><p>Choisissez 1 à 3 profils dans « Configurations à exécuter » au-dessus. Le test lance 6 évaluations par profil, séquentiellement. Les modèles Ollama locaux sont libérés entre les profils. Les API compatibles OpenAI sont utilisables sans photo sur ce scénario fictif. Les contrats fournis sont des exemples préremplis, pas des résultats d’une génération automatique : ce protocole mesure uniquement l’effet des contrats sur la correction.</p></details>
+        <details className="pilot-evaluation-protocol-notes"><summary>Conditions et limites de l’expérience</summary><p>Choisissez 1 à 3 profils dans « Configurations à exécuter » au-dessus. Le test lance 6 évaluations par profil, séquentiellement. Les modèles Ollama sont libérés entre les profils. Les API compatibles OpenAI sont utilisables sans photo sur ce scénario fictif. Les contrats fournis sont des exemples préremplis, pas des résultats d’une génération automatique : ce protocole mesure uniquement l’effet des contrats sur la correction.</p></details>
       </div>
       <div className="pilot-evaluation-actions">
         <Button disabled={busy || uploadingCase !== null || Boolean(analysisIssue)}
@@ -115,7 +115,7 @@ export function PilotEvaluationPanel({
       <div>
         <h4>Répétabilité · Variante B</h4>
         <p>Choisissez le protocole initial A/B/C ou quatre cas de robustesse D/E/F/G (négations, équivalences, contradictions et énoncé imprimé). La même copie et le même contrat sont rejoués pour mesurer justesse, stabilité et demandes de vérification, sans confondre décision stable et décision correcte.</p>
-        <details className="pilot-evaluation-protocol-notes"><summary>Conditions d’exécution</summary><p>Analyse seule, sans photo ; appels strictement séquentiels et libération des modèles Ollama locaux entre profils. Des appels et frais d’API peuvent s’appliquer. Gardez l’onglet ouvert et le Mac éveillé pendant le test.</p></details>
+        <details className="pilot-evaluation-protocol-notes"><summary>Conditions d’exécution</summary><p>Analyse seule, sans photo ; appels strictement séquentiels et libération des modèles Ollama entre profils. Des appels et frais d’API peuvent s’appliquer. Gardez l’onglet ouvert et le Mac éveillé pendant le test.</p></details>
       </div>
       <div className="pilot-evaluation-actions">
         <label htmlFor="pilot-repeatability-suite">Jeu de copies</label>
@@ -180,10 +180,11 @@ export function PilotEvaluationPanel({
           <input id={'pilot-image-' + testCase.id} type="file" accept="image/png,image/jpeg,image/webp,application/pdf,.pdf" multiple
             disabled={busy || uploadingCase !== null} onChange={(event) => { onUpload(testCase.id, event.target.files); event.target.value = ''; }} />
           <details className="pilot-evaluation-reference"><summary>Afficher le texte de référence</summary><p>{testCase.transcription}</p></details>
-          <small>{uploadingCase === testCase.id ? 'Préparation locale des pages…' : (imageCounts[testCase.id] ?? 0) ? `${imageCounts[testCase.id]} page(s) prête(s)` : 'Aucune photo fournie'}</small>
+          <small>{uploadingCase === testCase.id ? 'Préparation des pages…' : (imageCounts[testCase.id] ?? 0) ? `${imageCounts[testCase.id]} page(s) prête(s)` : 'Aucune photo fournie'}</small>
         </article>)}
       </div>
-      <p className="pilot-evaluation-guide">Configurations sélectionnées ci-dessous : {selectedProfiles.length} profil(s) sélectionné(s){selectedProfiles.length ? ` — ${selectedProfiles.map((profile) => profile.name).join(', ')}` : ''}. Les appels sont séquentiels. Les modèles Ollama locaux sont déchargés entre les profils. {externalApiSelected ? 'Les photos et transcriptions sont envoyées aux serveurs API sélectionnés, y compris en Vision ; aucune copie n’est envoyée ailleurs.' : 'Les copies restent sur votre Ollama local.'}</p>
+      <p className="pilot-evaluation-guide">Configurations sélectionnées : {selectedProfiles.length}{selectedProfiles.length ? ` — ${selectedProfiles.map((profile) => profile.name).join(', ')}` : ''}. Les appels sont séquentiels.</p>
+      {externalApiSelected && <p className="pilot-evaluation-hint" role="status">Une configuration distante recevra les photos et les transcriptions de ces essais.</p>}
       {visionIssue && !analysisIssue && <p className="pilot-evaluation-hint" role="status">Vision seule : {visionIssue}</p>}
       {analysisIssue && <p className="pilot-evaluation-hint" role="status">{analysisIssue}</p>}
       {!analysisIssue && integratedIssue && <p className="pilot-evaluation-hint" role="status">Parcours complet : {integratedIssue}</p>}
@@ -210,7 +211,7 @@ export function PilotEvaluationPanel({
           <Button variant="secondary" disabled={busy || uploadingCase !== null || Boolean(analysisIssue) || selectedProfiles.some((profile) => !isLocalPilotProfile(profile))}
             onClick={() => onRunConcurrency(benchmarkCase)}>Comparer 1, 2 et 4 appels parallèles</Button>
         </div>
-        <small>Ce benchmark de parallélisme reste réservé à Ollama local (API compatibles OpenAI non prises en charge par cette expérience CPU). Une seule configuration est exécutée à la fois, puis libérée d’Ollama. Un essai par niveau : résultat exploratoire, non prédictif.
+        <small>Ce benchmark de parallélisme nécessite Ollama (les API compatibles OpenAI ne sont pas prises en charge). Une seule configuration est exécutée à la fois, puis libérée d’Ollama. Un essai par niveau : résultat exploratoire, non prédictif.
           La consommation RAM maximale du processus n’est pas accessible depuis le navigateur ; utilisez le Moniteur d’activité sur votre Mac.
           Un appel de préchauffage non chronométré est effectué avant les séries pour limiter le biais du chargement à froid.</small>
       </section>

@@ -74,7 +74,7 @@ export function AssignmentsHome({ assignments, activeAssignmentId, archivedCorre
         <div className="assignment-overview-actions"><button type="button" className="assignment-open-button" onClick={() => onOpen(profile)} disabled={disabled}>{active ? 'Reprendre le devoir' : ready ? 'Ouvrir le devoir' : 'Configurer le devoir'} <span aria-hidden="true">→</span></button><details className="assignment-overview-menu"><summary aria-label={'Actions pour ' + (profile.title.trim() || 'devoir sans titre')}>···</summary><div><button type="button" onClick={() => onDuplicate(profile)} disabled={disabled}>Dupliquer sans les copies</button><button type="button" onClick={() => onDelete(profile)} disabled={disabled || assignments.length <= 1}>Supprimer</button></div></details></div>
       </article>;
     })}</div> : <div className="assignments-empty"><span aria-hidden="true">⌕</span><h3>Aucun devoir trouvé</h3><p>Modifiez votre recherche ou créez un nouveau devoir.</p><button type="button" className="secondary-button" onClick={() => { setQuery(''); setFilter('all'); }}>Effacer les filtres</button></div>}
-    <div className="assignments-home-footer"><span>Les devoirs et les corrections restent enregistrés localement sur cet appareil.</span><button type="button" className="text-button" onClick={onReturn} disabled={disabled}>Retour au devoir actif</button></div>
+    <div className="assignments-home-footer"><button type="button" className="text-button" onClick={onReturn} disabled={disabled}>Retour au devoir actif</button></div>
     </>}
   </section>;
 }

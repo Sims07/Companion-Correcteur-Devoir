@@ -45,8 +45,8 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await expect(page.getByRole('tablist', { name: 'Sections du devoir' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Copies' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
-  await expect(page.getByText('IA locale à configurer')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'IA locale à configurer' })).toBeVisible();
+  await expect(page.getByText('Configurer l’IA')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Configurer l’IA' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Devoir et barème' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Espace enseignant' })).toHaveCount(0);
 
@@ -59,8 +59,8 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await expect(page.getByRole('heading', { name: 'Où se trouvent les questions ?' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Corriger', exact: true })).toBeVisible();
 
-  await page.getByRole('button', { name: 'IA locale à configurer' }).click();
-  await expect(page.getByRole('heading', { name: 'Paramètres de l’IA locale' })).toBeVisible();
+  await page.getByRole('button', { name: 'Configurer l’IA' }).click();
+  await expect(page.getByRole('heading', { name: 'Paramètres IA' })).toBeVisible();
   await expect(page.getByLabel('Adresse du serveur Ollama')).toBeVisible();
   await expect(page.getByLabel('Modèle génératif', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Modèle décisionnel (facultatif)')).toBeVisible();

@@ -57,7 +57,7 @@ describe('navigation entre la bibliothèque de devoirs et l’espace de correcti
     expect(html).toContain('aria-selected="true"');
     expect(html).toContain('Barème');
     expect(html).toContain('Copies');
-    expect(html).toContain('IA locale à configurer');
+    expect(html).toContain('Configurer l’IA');
     expect(html).not.toContain('teacher-step-nav');
   });
 });

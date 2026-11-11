@@ -1,7 +1,6 @@
 import { NotificationCenter } from './components/NotificationCenter.tsx';
 import { pushAppNotification, type AppNotification } from '../domain/appNotifications.ts';
 import { EvaluationJourneyPicker } from './components/EvaluationJourneyPicker.tsx';
-import { evaluationProviderNotice } from '../domain/evaluationProviderNotice.ts';
 import { resolveEvaluationActivityOutcome } from '../domain/evaluationActivityStatus.ts';
 import { ContractPreparationPanel } from './components/ContractPreparationPanel.tsx';
 import { QuestionContractEditor, QuestionScopePreview } from './components/QuestionContractEditor.tsx';
@@ -548,7 +547,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationArchiveError, setEvaluationArchiveError] = useState('');
   const [pendingEvaluationArchive, setPendingEvaluationArchive] = useState<ModelEvaluationRecord | null>(null);
   const selectedEvaluationProfiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
-  const evaluationProvider = evaluationProviderNotice(selectedEvaluationProfiles, apiCompatible);
   const visibleEvaluationHistoryRecords = savedModelEvaluations.filter((record) => evaluationHistoryStageFilter === 'all' || getModelEvaluationStage(record) === evaluationHistoryStageFilter);
   const selectedEvaluationHistoryRecords = visibleEvaluationHistoryRecords.filter((record) => selectedEvaluationHistoryIds.includes(record.id));
   const evaluationCancelledRef = useRef(false);
@@ -895,10 +893,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     { label: 'Barème vérifié', detail: validation.valid ? `${validation.maximumPoints} points répartis sur ${rubric.criteria.length} critères` : 'Corrigez les points ou les critères signalés', ready: validation.valid },
     { label: 'Sujet prêt', detail: correctionMode === 'integrated' ? 'Questions intégrées aux pages de la copie' : subjectReady ? `${subjectImages.length} page(s) du sujet importée(s)` : 'Importez le sujet de référence', ready: subjectReady },
     { label: 'Copie importée', detail: images.length ? `${images.length} page(s) · une seule copie à la fois` : 'Ajoutez les pages d’un étudiant', ready: images.length > 0 },
-    { label: 'IA locale configurée', detail: gradingModelsReady
+    { label: 'IA configurée', detail: gradingModelsReady
       ? correctionMethod === 'visual-decision' ? `Lecture et décisions sur images : ${analysisModel}`
         : `Lecture : ${visionModel} · analyse : ${analysisModel}`
-      : 'Choisissez les modèles Ollama', ready: gradingModelsReady },
+      : 'Choisissez les modèles IA', ready: gradingModelsReady },
   ];
 
   useEffect(() => {
@@ -968,7 +966,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setAiModelProfiles(next);
     setSelectedAiModelProfileId(profile.id);
     setAiModelProfileName(profile.name);
-    setAiModelProfileMessage('Profil « ' + profile.name + ' » enregistré sur cet appareil.');
+    setAiModelProfileMessage('Profil « ' + profile.name + ' » enregistré.');
     setAiModelProfileTone('success');
     try {
       window.localStorage.setItem(aiModelProfilesKey, JSON.stringify(next));
@@ -1129,13 +1127,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     let rubricImportSucceeded = false;
     setRubricImageImporting(true);
     try {
-      if (!visionModel.trim()) throw new Error('Ouvrez les paramètres de l’IA locale pour choisir un modèle de vision pour la lecture du barème.');
+      if (!visionModel.trim()) throw new Error('Ouvrez les paramètres IA pour choisir un modèle de vision pour la lecture du barème.');
       if (!generativeModel.trim()) throw new Error('Choisissez un modèle génératif dans les paramètres IA pour préparer le barème. Le modèle décisionnel est réservé à la correction.');
       const prepared = await service.prepareFiles([file]);
       preparedPageCountForTrace = prepared.length;
       if (abortController.signal.aborted) throw new Error('Import du barème interrompu par l’enseignant.');
       if (prepared.length === 0) throw new Error('Aucune page du barème n’a pu être préparée.');
-      const preparedMessage = `${prepared.length} page(s) préparée(s) en images. Envoi au modèle de vision Ollama « ${visionModel} »…`;
+      const preparedMessage = `${prepared.length} page(s) préparée(s) en images. Envoi au modèle de vision « ${visionModel} »…`;
       setRubricImportProgress({ stage: 'preparing', message: preparedMessage, page: 0, totalPages: prepared.length });
       setRubricImportEvents((events) => [...events, preparedMessage]);
       const imported = await service.importRubricImage(prepared, { endpoint, apiCompatible, apiKey, visionModel, analysisModel: generativeModel, thinking: analysisThinking }, (progress) => {
@@ -2675,7 +2673,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
     const next = timingHistory.map((record) => record.id === currentTimingRecordId ? { ...record, referenceScores: scores } : record);
     setTimingHistory(next);
-    setReferenceMessage('Correction de référence enregistrée sur cet appareil. Les écarts par modèle sont maintenant calculés.');
+    setReferenceMessage('Correction de référence enregistrée. Les écarts par modèle sont maintenant calculés.');
   }
 
   function clearDiagnosticReference() {
@@ -2811,8 +2809,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           ? ` ${savedDecisionCount} décision(s) ajustée(s) ou commentée(s) ont été conservées dans la mémoire locale pour les prochaines analyses de ce contexte.`
           : '';
       setReviewMessage(teacherQuestions.trim()
-        ? `Correction enregistrée sur cet appareil.${memoryStatus} Relisez les questions ouvertes avant de communiquer la note.`
-        : `Correction enregistrée sur cet appareil.${memoryStatus} Vous pourrez la retrouver dans « Corrections enregistrées ».`);
+        ? `Correction enregistrée.${memoryStatus} Relisez les questions ouvertes avant de communiquer la note.`
+        : `Correction enregistrée.${memoryStatus} Vous pourrez la retrouver dans « Corrections enregistrées ».`);
       if (advanceToNextCopy) {
         const nextToReview = copyNavigation.nextCopyToReview;
         if (nextToReview?.kind === 'job') {
@@ -3332,7 +3330,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setReviewMessage(canReview ? 'Correction prête. Examinez les propositions signalées avant validation.'
       : next.status === 'pending' ? 'Cette copie attend sa correction. Aucune note n’a encore été attribuée.'
       : next.status === 'processing' ? 'La lecture et l’évaluation de cette copie sont en cours.'
-      : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés localement.');
+      : 'Cette copie nécessite une vérification ou une relance. Les éléments déjà traités sont conservés.');
     setError(next.status === 'failed' ? '' : next.error ?? '');
     setCurrentCorrectionId(null);
     setIsFinalized(false);
@@ -3689,7 +3687,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         {diagramIssue && <p className="hint" role="status">{diagramIssue}</p>}
       </section>}
       {interfaceMode === 'teacher' && showAiSettings && <section id="teacher-ai-settings-panel" className={`panel ollama-panel teacher-model-panel ai-settings-view ${gradingModelsReady ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
-        <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DU POSTE</p><h2 id="teacher-model-title">Paramètres de l’IA locale</h2></div><span className="step-count">OLLAMA</span></div>
+        <div className="workspace-heading"><div><p className="eyebrow">CONFIGURATION DE L’IA</p><h2 id="teacher-model-title">Paramètres IA</h2></div></div>
         <p className="settings-intro">Configurez les modèles utilisés par le parcours de correction.</p>
         <div className="ai-profile-controls" aria-label="Profils de configuration IA">
           <label className="field-label" htmlFor="ai-model-profile">Configuration enregistrée</label>
@@ -3702,7 +3700,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           </div>
           <div className="ai-profile-actions"><Button variant="secondary" onClick={saveAiModelProfile}>Enregistrer cette configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button><Button variant="secondary" disabled={busy || pilotBusy || aiModelProfiles.length === 0} onClick={() => setManagingAiProfiles(true)}>Gérer les configurations ({aiModelProfiles.length})</Button></div>
           {aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
-          <p className="hint">Les derniers réglages sont restaurés automatiquement. Les profils conservent le serveur, les modèles et la stratégie de diagnostic sur cet appareil.</p>
         </div>
         <label className="field-label" htmlFor="ai-provider-type">Fournisseur IA</label>
         <DesignSystemSelect id="ai-provider-type" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://ai.zaup.org/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}>
@@ -3710,7 +3707,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </DesignSystemSelect>
         <label className="field-label" htmlFor="ollama-endpoint">{apiCompatible ? 'URL Chat Completions' : 'Adresse du serveur Ollama'}</label>
         <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} />
-        {apiCompatible && <><label className="field-label" htmlFor="ai-api-key">Token API (Bearer)</label><input id="ai-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><p className="hint">Conservé dans le stockage local du navigateur et transmis uniquement au serveur configuré. Il n’apparaît pas dans les traces de diagnostic.</p></>}
+        {apiCompatible && <><label className="field-label" htmlFor="ai-api-key">Token API (Bearer)</label><input id="ai-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><p className="hint">Le jeton est masqué dans les traces de diagnostic.</p></>}
         <AiModelRoleFields prefix="ai" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
         <details className="ai-model-advanced"><summary>Options avancées de lecture et de correction</summary>
         <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture des copies</label>
@@ -3744,15 +3741,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
       </section>}
       {interfaceMode === 'observability' && <ObservabilityDashboard records={observabilityRecords} storageDiagnosticsService={storageDiagnosticsService} onManageEvaluations={() => { setInterfaceMode('diagnostic'); setEvaluationWorkspaceStep('history'); }} onInspectNetworkErrors={() => { setNetworkInitialFilter('error'); setInterfaceMode('debug'); }} benchmarkRows={buildLocalDecisionBenchmark(timingHistory)} />}
-      {interfaceMode === 'diagnostic' && <section className="evaluation-page-header" aria-labelledby="evaluation-page-title">
-        <div className="evaluation-page-identity">
-          <h2 id="evaluation-page-title" className="evaluation-visually-hidden">Évaluer les modèles</h2>
-          <p className={evaluationProvider.remote ? 'evaluation-provider-indicator is-remote' : 'evaluation-provider-indicator'} role="note" aria-live="polite">
-            <span aria-hidden="true" className="evaluation-provider-dot" />
-            {evaluationProvider.message}
-          </p>
-        </div>
-      </section>}
+      {interfaceMode === 'diagnostic' && <h2 id="evaluation-page-title" className="evaluation-visually-hidden">Évaluer les modèles</h2>}
       {interfaceMode === 'diagnostic' && <nav className="evaluation-step-nav" data-journey={evaluationJourney} aria-label="Espaces de l’évaluation">
         <button type="button" className={evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') ? 'page' : undefined} onClick={() => { setEvaluationWorkspaceStep('configuration'); setDiagramLabView('protocols'); }}><strong>Tests</strong></button>
         <button type="button" hidden={evaluationJourney !== 'custom' || (!busy && evaluationWorkspaceStep !== 'execution')} className={evaluationWorkspaceStep === 'execution' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'execution' ? 'page' : undefined} onClick={() => setEvaluationWorkspaceStep('execution')}><strong>Exécution</strong></button>
@@ -3800,6 +3789,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <Button variant="secondary" className="evaluation-model-brief-manage" onClick={() => setManagingEvaluationProfiles(true)}>Gérer les configurations</Button>
         </div>
         </div>
+        {evaluationJourney === 'custom' && selectedEvaluationProfiles.some((profile) => !isLocalPilotProfile(profile)) &&
+          <p className="evaluation-remote-endpoint-notice" role="status">Une configuration distante est sélectionnée : les contenus de ce test seront envoyés au serveur configuré.</p>}
         <div id="evaluation-diagram-workspace" hidden={evaluationJourney !== 'diagrams'}><ScientificDiagramProtocolPanel
           selectedProfiles={selectedEvaluationProfiles} busy={busy || pilotBusy}
           progress={diagramProtocolProgress}
@@ -3891,11 +3882,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </div>
       </section>}
       {(interfaceMode as string) === 'debug' ? <section className="panel diagnostic-results" aria-labelledby="debug-workspace-title">
-        <div className="workspace-heading"><div><p className="eyebrow">OUTILS DE DIAGNOSTIC</p><h2 id="debug-workspace-title">Debug des appels IA locaux</h2><p className="workspace-description">Espace technique séparé : consultez les traces brutes d’une exécution déjà réalisée. Pour créer une expérience ou comparer les résultats, utilisez Évaluation des modèles.</p></div></div>
+        <div className="workspace-heading"><div><p className="eyebrow">OUTILS DE DIAGNOSTIC</p><h2 id="debug-workspace-title">Diagnostic des appels IA</h2><p className="workspace-description">Espace technique séparé : consultez les traces brutes d’une exécution déjà réalisée. Pour créer une expérience ou comparer les résultats, utilisez Évaluation des modèles.</p></div></div>
         <section id="debug-advanced-settings" className="debug-advanced-settings" aria-label="Configuration avancée du diagnostic">
           <div className="workspace-heading"><div><p className="eyebrow">OUTILS AVANCÉS</p><h3>Configuration du diagnostic multi-modèles</h3><p>Ces réglages techniques servent aux essais de diagnostic et restent séparés de l’évaluation indépendante.</p></div></div>
           <article className="panel ollama-panel">
-          <div className="panel-heading"><span className="number">03</span><div><h3>Modèle local Ollama</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
+          <div className="panel-heading"><span className="number">03</span><div><h3>Modèles du diagnostic</h3><p>Configurez votre serveur et vérifiez les modèles installés.</p></div></div>
         <div className="diagnostic-ai-profile-controls" aria-label="Profils de configuration IA">
           <label className="field-label" htmlFor="debug-ai-model-profile">Configuration enregistrée</label>
           <div className="ai-profile-row">
@@ -3907,13 +3898,12 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           </div>
           <div className="ai-profile-actions"><Button variant="secondary" onClick={saveAiModelProfile}>Enregistrer cette configuration</Button><Button variant="secondary" disabled={!selectedAiModelProfileId || busy || pilotBusy} onClick={() => setPendingAiProfileRemoval(aiModelProfiles.find((profile) => profile.id === selectedAiModelProfileId) ?? null)}>Supprimer cette configuration</Button><Button variant="secondary" disabled={busy || pilotBusy || aiModelProfiles.length === 0} onClick={() => setManagingAiProfiles(true)}>Gérer les configurations ({aiModelProfiles.length})</Button></div>
           {aiModelProfileMessage && <StatusNotice tone={aiModelProfileTone}>{aiModelProfileMessage}</StatusNotice>}
-          <p className="hint">Les derniers réglages sont restaurés automatiquement. Les profils conservent le serveur, les modèles et la stratégie de diagnostic sur cet appareil.</p>
         </div>
           <label className="field-label" htmlFor="ollama-endpoint">Adresse du serveur</label>
           <input id="ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); setTranscription(null); }} placeholder="http://localhost:11434" />
           <label className="field-label" htmlFor="ollama-vision-model">Modèle de lecture (vision)</label>
           {availableModels.length > 0 ? <DesignSystemSelect id="ollama-vision-model" value={visionModel} onChange={(event) => { setVisionModel(event.target.value); setTranscription(null); }}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-vision-model" value={visionModel} onChange={(event) => setVisionModel(event.target.value)} placeholder="ex. gemma3:4b, qwen2.5vl" />}
-          <p className="hint">Ce modèle lit les images et transcrit la copie sans la corriger. La transcription reste en mémoire locale pour relancer l’analyse sans refaire cette étape.</p>
+          <p className="hint">Ce modèle lit les images et transcrit la copie sans la corriger. Vous pouvez réutiliser la transcription pour relancer l’analyse sans relire la copie.</p>
           <label className="field-label" htmlFor="ollama-analysis-model">Modèle d’analyse et de notation</label>
           {availableModels.length > 0 ? <DesignSystemSelect id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)}>{availableModels.map((item) => <option key={item} value={item}>{item}</option>)}</DesignSystemSelect> : <input id="ollama-analysis-model" value={analysisModel} onChange={(event) => setAnalysisModel(event.target.value)} placeholder="ex. qwen3.5:4b, phi4-mini" />
           }
@@ -4280,7 +4270,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <details className="assignment-details-collapsible">
           <summary><span><strong>Devoir</strong><small>{validation.maximumPoints} points · {rubric.criteria.length} critères</small></span><span className="assignment-details-edit">Modifier</span></summary>
         <section className="panel assignment-details-panel" aria-labelledby="assignment-details-title">
-          <div className="panel-heading"><div><h3 id="assignment-details-title">Informations générales</h3><p>Ces informations sont enregistrées avec le devoir sur cet appareil.</p></div></div>
+          <div className="panel-heading"><div><h3 id="assignment-details-title">Informations générales</h3></div></div>
           <label className="field-label" htmlFor="assignment-title-main">Nom du devoir</label>
           <input id="assignment-title-main" value={assignmentTitle} onChange={(event) => setAssignmentTitle(event.target.value)} placeholder="Ex. Contrôle de biologie cellulaire — chapitre 3" />
           <label className="field-label" htmlFor="assignment-description">Description et objectifs pédagogiques</label>
@@ -4562,7 +4552,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep !== 'configuration' && <section id="evaluation-results" data-evaluation-step={evaluationWorkspaceStep} className="panel evaluation-results-workspace" aria-labelledby="evaluation-results-title">
         <div className="evaluation-section-heading"><div><p className="eyebrow">{evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION' : evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS' : 'ÉTAPE 4 · ANALYSE & HISTORIQUE'}</p><h2 id="evaluation-results-title">{evaluationWorkspaceStep === 'execution' ? 'Exécution de l’expérience' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Résultats de la lecture Vision' : evaluationStageMode === 'analysis' ? 'Résultats de l’analyse' : 'Résultats du parcours complet') : 'Analyser et comparer les expériences'}</h2><p>{evaluationWorkspaceStep === 'execution' ? 'Suivez la progression des modèles et le détail de chaque étape de traitement.' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Examinez les transcriptions produites et les performances des modèles de lecture.' : evaluationStageMode === 'analysis' ? 'Examinez les notes proposées, les justifications et les écarts entre modèles à partir de la même transcription.' : 'Examinez successivement la transcription, la notation et les performances des deux étapes.') : 'Retrouvez les essais précédents et comparez leurs performances grâce aux indicateurs graphiques.'}</p></div><span className="evaluation-step-chip">{evaluationWorkspaceStep === 'history' ? savedModelEvaluations.length + ' essai(s)' : modelEvaluationResults.length + ' résultat(s)'}</span></div>
         {evaluationWorkspaceStep === 'results' && evaluationArchiveStatus !== 'idle' && <div className={`evaluation-archive-feedback is-${evaluationArchiveStatus}`} role={evaluationArchiveStatus === 'failed' ? 'alert' : 'status'}>
-          <div><strong>{evaluationArchiveStatus === 'saving' ? 'Enregistrement dans l’historique…' : evaluationArchiveStatus === 'saved' ? 'Résultats enregistrés sur cet appareil' : evaluationArchiveStatus === 'without-images' ? 'Résultats enregistrés sans les images' : 'Historique non enregistré'}</strong>
+          <div><strong>{evaluationArchiveStatus === 'saving' ? 'Enregistrement dans l’historique…' : evaluationArchiveStatus === 'saved' ? 'Résultats enregistrés' : evaluationArchiveStatus === 'without-images' ? 'Résultats enregistrés sans les images' : 'Historique non enregistré'}</strong>
             <p>{evaluationArchiveStatus === 'saving' ? 'Vous pouvez déjà consulter les notes et les mesures.' : evaluationArchiveStatus === 'saved' ? 'Vous les retrouverez dans Analyse & historique.' : evaluationArchiveStatus === 'without-images' ? 'Le stockage local était insuffisant pour les photos. Les notes, transcriptions et mesures sont conservées ; les images de cette expérience ne pourront pas être restaurées.' : evaluationArchiveError}</p></div>
           {evaluationArchiveStatus === 'failed' && pendingEvaluationArchive && <button type="button" className="secondary-button" onClick={() => void persistModelEvaluationRecord(pendingEvaluationArchive)}>Réessayer la sauvegarde</button>}
         </div>}
@@ -4576,7 +4566,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <div className="evaluation-progress-heading"><div><p className="eyebrow">SUIVI DE L’EXPÉRIENCE</p><h3 id="evaluation-progress-title">{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation interrompue' : 'Évaluation en cours'}</h3><p>{evaluationProgress.status === 'completed' ? 'Toutes les configurations ont été traitées.' : evaluationProgress.status === 'cancelled' ? 'La séquence a été arrêtée après l’appel en cours.' : evaluationProgress.currentConfiguration ? 'La configuration active est indiquée ci-dessous.' : 'Préparation de la prochaine configuration…'}</p></div><strong className="evaluation-progress-counter">{evaluationProgress.completedSteps} / {evaluationProgress.totalSteps} étapes terminées</strong></div>
           <div className="evaluation-progress-track" role="progressbar" aria-label="Étapes de traitement terminées" aria-valuemin={0} aria-valuemax={evaluationProgress.totalSteps} aria-valuenow={evaluationProgress.completedSteps}><span style={{ width: (evaluationProgress.completedSteps / Math.max(1, evaluationProgress.totalSteps) * 100) + '%' }} /></div>
           <ol className="evaluation-configuration-steps" aria-label="Progression par configuration">{selectedEvaluationProfiles.map((profile, index) => { const active = evaluationProgress.currentConfiguration?.id === profile.id; const complete = index < evaluationProgress.completed || (evaluationProgress.status === 'completed' && index < evaluationProgress.total); const result = modelEvaluationResults.find((item) => item.profileId === profile.id); const failed = complete && result?.status === 'failed'; return <li key={profile.id} className={`evaluation-configuration-step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''} ${failed ? 'has-failed' : ''}`}><span className="evaluation-configuration-step-index" aria-hidden="true">{complete ? (failed ? '!' : '✓') : index + 1}</span><div><strong>{profile.name}</strong><span>{active ? (evaluationProgress.currentStage === 'analysis' ? (evaluationVisualDirect && profile.configuration.correctionMethod === 'decision' && isVisualDecisionModel(profile.configuration.analysisModel) ? 'En cours maintenant · décision visuelle directe' : 'En cours maintenant · analyse · lecture terminée') : evaluationProgress.currentStage === 'reading' ? 'En cours maintenant · lecture' : 'En cours maintenant · préparation') : complete ? (failed ? 'Échec — voir le détail' : 'Terminé') : 'En attente'}</span><small>{evaluationStageMode === 'integrated' && evaluationVisualDirect && profile.configuration.correctionMethod === 'decision' && isVisualDecisionModel(profile.configuration.analysisModel) ? 'Image → System One direct · ' + profile.configuration.analysisModel : (profile.configuration.visionModel || 'Vision non définie') + ' → ' + (profile.configuration.analysisModel || 'Analyse non définie')}</small></div>{active && <span className="evaluation-active-pill">EN COURS</span>}</li>; })}</ol>
-          {evaluationProgress.status === 'running' && <div className="evaluation-phase-panel"><strong>{evaluationStage === 'preparing' ? '1. Préparation des modèles' : evaluationStage === 'reading' ? '2. Lecture des images et extraction du texte' : evaluationStage === 'grading' ? (evaluationProgress.currentConfiguration?.directVisualDecision ? 'Décision sur la preuve visuelle (sans OCR)' : '3. Analyse de la copie et attribution des notes') : evaluationStage === 'parsing' ? '4. Structuration et vérification du résultat' : evaluationStage === 'saving' ? '5. Enregistrement de l’expérience locale' : 'Initialisation'}</strong><p>{evaluationStage === 'preparing' ? 'Vérification de la disponibilité des modèles Ollama avant de commencer cette configuration.' : evaluationStage === 'reading' ? 'Le modèle Vision traite les images originales de la copie.' : evaluationStage === 'grading' ? (evaluationProgress.currentConfiguration?.directVisualDecision ? 'D1/D3 évalue directement les images selon les attendus du barème. Les décisions restent provisoires.' : 'Le modèle d’analyse confronte la transcription au barème et prépare les notes.') : evaluationStage === 'parsing' ? 'La réponse est convertie en critères, notes et justifications exploitables.' : evaluationStage === 'saving' ? 'Les résultats, les images et le barème sont enregistrés dans l’historique local.' : 'Mise en place de la séquence de test.'}</p></div>}
+          {evaluationProgress.status === 'running' && <div className="evaluation-phase-panel"><strong>{evaluationStage === 'preparing' ? '1. Préparation des modèles' : evaluationStage === 'reading' ? '2. Lecture des images et extraction du texte' : evaluationStage === 'grading' ? (evaluationProgress.currentConfiguration?.directVisualDecision ? 'Décision sur la preuve visuelle (sans OCR)' : '3. Analyse de la copie et attribution des notes') : evaluationStage === 'parsing' ? '4. Structuration et vérification du résultat' : evaluationStage === 'saving' ? '5. Enregistrement de l’expérience' : 'Initialisation'}</strong><p>{evaluationStage === 'preparing' ? 'Vérification de la disponibilité des modèles Ollama avant de commencer cette configuration.' : evaluationStage === 'reading' ? 'Le modèle Vision traite les images originales de la copie.' : evaluationStage === 'grading' ? (evaluationProgress.currentConfiguration?.directVisualDecision ? 'D1/D3 évalue directement les images selon les attendus du barème. Les décisions restent provisoires.' : 'Le modèle d’analyse confronte la transcription au barème et prépare les notes.') : evaluationStage === 'parsing' ? 'La réponse est convertie en critères, notes et justifications exploitables.' : evaluationStage === 'saving' ? 'Les résultats, les images et le barème sont enregistrés dans l’historique local.' : 'Mise en place de la séquence de test.'}</p></div>}
         </section>}
         {evaluationWorkspaceStep === 'execution' && busy && streamedOutput && <section className="transcription-review" aria-live="polite"><h3>Réponse du modèle en streaming</h3><pre>{streamedOutput}</pre></section>}
         {evaluationWorkspaceStep === 'history' && evaluationJourney !== 'diagrams' && <section className="evaluation-result-list evaluation-history-workspace" aria-labelledby="model-evaluation-history-title">
@@ -4983,10 +4973,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             </details>
           </article>;
         })}
-        {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Cette correction est enregistrée sur cet appareil</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" onClick={() => startNextCopy()}>Corriger une autre copie</button><button type="button" className="secondary-button" onClick={() => { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); setShowAiSettings(false); }}>Voir les copies corrigées</button></div></div>}
+        {isFinalized && <div className="panel finalized-next-actions"><div><span className="eyebrow">COPIE ARCHIVÉE</span><h3>Correction enregistrée</h3><p>Vous pouvez la consulter plus tard ou passer à la copie d’un autre étudiant sans perdre ce résultat.</p></div><div><button type="button" className="primary-button" onClick={() => startNextCopy()}>Corriger une autre copie</button><button type="button" className="secondary-button" onClick={() => { setCopyOverviewFilter('completed'); setCopyOverviewFilterTouched(true); setTeacherStep('overview'); setShowAiSettings(false); }}>Voir les copies corrigées</button></div></div>}
          <details className="review-extra-tools"><summary>Questions générales et export de la correction</summary>
            <div className="questions-field"><span className="field-label">Points à vérifier avant de communiquer la note</span>{teacherQuestions.trim() ? <ul className="teacher-questions-list">{teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p className="no-teacher-questions">Aucune question générale. Les questions liées à un critère restent affichées sur celui-ci.</p>}</div>
-           <details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Export local pour conserver ou réutiliser les résultats de cette correction.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal?.summary ?? '', criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté sur votre appareil.'); }}>{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>
+           <details className="review-export"><summary>Exporter le récapitulatif (JSON)</summary><p>Conservez ou réutilisez les résultats de cette correction au format JSON.</p><button type="button" className="secondary-button" onClick={() => { const payload = { rubric, question, summary: proposal?.summary ?? '', criteria: review, questionsForTeacher: teacherQuestions.split('\n').map((line) => line.trim()).filter(Boolean), total: reviewedTotal, exportedAt: new Date().toISOString() }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'proposition-correction.json'; link.click(); URL.revokeObjectURL(url); setReviewMessage('Récapitulatif JSON exporté.'); }}>{isFinalized ? 'Télécharger la correction enregistrée' : 'Télécharger le récapitulatif provisoire'}</button></details>
          </details>
          <div className="copy-review-validation-bar"><div><span>{unassessedCount > 0 ? 'Total partiel' : 'Total'}</span><strong>{reviewedTotal.toLocaleString('fr-FR')} / {validation.maximumPoints}</strong><small>{teacherReviewStatus(unassessedCount, flaggedCriteriaIds.size)}</small></div><button type="button" className="primary-button" aria-keyshortcuts="Control+Enter Meta+Enter" disabled={isAnalyzing || isFinalized || unassessedCount > 0 || review.length !== rubric.criteria.length} onClick={() => void finalizeReview(true)}>{isFinalized ? 'Correction validée' : 'Valider et passer à la suivante'}</button></div>
           </div>
@@ -5060,7 +5050,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <div className="evaluation-config-fields">
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-select">Charger un profil existant</label><DesignSystemSelect id="evaluation-profile-select" value={selectedAiModelProfileId} onChange={(event) => { const profile = aiModelProfiles.find((item) => item.id === event.target.value); if (profile) { setAiModelProfileName(profile.name); applyAiModelProfile(profile); } else { setSelectedAiModelProfileId(''); } }}><option value="">Nouvelle configuration / réglages courants</option>{aiModelProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.configuration.correctionMethod === 'visual-decision' ? 'vision + décisionnel direct' : profile.configuration.correctionMethod === 'decision' ? 'décisionnelle' : 'classique'}</option>)}</DesignSystemSelect></div>
             <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-profile-name">Nom de la configuration</label><input id="evaluation-profile-name" value={aiModelProfileName} onChange={(event) => setAiModelProfileName(event.target.value)} placeholder="Ex. Gemma rapide, Qwen raisonnement…" /></div>
-            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-provider">Fournisseur IA</label><DesignSystemSelect id="evaluation-provider" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://serveur/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}><option value="ollama">Ollama local</option><option value="openai">API compatible OpenAI</option></DesignSystemSelect></div><div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-ollama-endpoint">{apiCompatible ? 'URL Chat Completions' : 'Adresse du serveur Ollama'}</label><input id="evaluation-ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} /></div>{apiCompatible && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-api-key">Token API (Bearer)</label><input id="evaluation-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><small>Utilisé pour les appels au serveur compatible OpenAI et conservé dans le stockage local de ce navigateur.</small></div>}
+            <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-provider">Fournisseur IA</label><DesignSystemSelect id="evaluation-provider" value={apiCompatible ? 'openai' : 'ollama'} onChange={(event) => { const compatible = event.target.value === 'openai'; setApiCompatible(compatible); setAvailableModels([]); setConnectionMessage(''); if (compatible && endpoint === 'http://localhost:11434') setEndpoint('https://serveur/v1/chat/completions'); if (!compatible && endpoint.includes('/v1/chat/completions')) setEndpoint('http://localhost:11434'); }}><option value="ollama">Ollama local</option><option value="openai">API compatible OpenAI</option></DesignSystemSelect></div><div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-ollama-endpoint">{apiCompatible ? 'URL Chat Completions' : 'Adresse du serveur Ollama'}</label><input id="evaluation-ollama-endpoint" value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setAvailableModels([]); setConnectionMessage(''); }} placeholder={apiCompatible ? 'https://serveur/v1/chat/completions' : 'http://localhost:11434'} /></div>{apiCompatible && <div className="evaluation-config-field"><label className="field-label" htmlFor="evaluation-api-key">Token API (Bearer)</label><input id="evaluation-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Token d’accès" /><small>Jeton masqué dans les traces de diagnostic.</small></div>}
             <AiModelRoleFields prefix="evaluation" models={availableModels} generativeModel={generativeModel} decisionModel={decisionModel} method={correctionMethod} apiCompatible={apiCompatible} visionModel={visionModel} onGenerativeModel={changeGenerativeModel} onDecisionModel={setDecisionModel} onMethod={setCorrectionMethod} disabled={busy || pilotBusy} />
           </div>
           <details className="ai-model-advanced"><summary>Options avancées du test</summary>
@@ -5094,7 +5084,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <Button variant="danger" onClick={() => deleteAiModelProfile(pendingAiProfileRemoval)}>Supprimer la configuration</Button>
         </>}
       >
-        <p>Ce profil ne sera plus proposé pour la correction ni pour les évaluations. Les réglages actuellement chargés, les copies et l’historique des évaluations restent conservés sur cet appareil.</p>
+        <p>Ce profil ne sera plus proposé pour la correction ni pour les évaluations. Les réglages chargés, les copies et l’historique des évaluations ne seront pas supprimés.</p>
       </Dialog>}
       {pendingRemoval && <Dialog
         title={pendingRemoval.kind === 'assignment' ? 'Supprimer ce devoir ?' : 'Retirer cette copie ?'}

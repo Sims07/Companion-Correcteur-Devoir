@@ -83,7 +83,7 @@ describe('Diagnostic IA — comparaison graphique des essais conservés', () => 
     expect(appSource).toContain('Tokens d’entrée');
     expect(appSource).toContain('Tokens générés');
     expect(appSource).toContain('Temps et tokens par modèle / étape');
-    expect(appSource).toContain('Debug des appels IA locaux');
+    expect(appSource).toContain('Diagnostic des appels IA');
     expect(appSource).toContain('debug-performance-history');
     expect(appSource).toContain('Qualité, coût et vitesse par modèle');
     expect(appSource).toContain('Compromis entre qualité et temps');

@@ -194,7 +194,7 @@ export function ScientificDiagramTeacherPanel({
             description="Une image ou plusieurs pages d’un même schéma."
             accept="image/png,image/jpeg,image/webp,application/pdf,.pdf" multiple
             disabled={running || uploading || rotating} onFilesSelected={(files) => { void addImages(files); }} />
-          <p className="hint">{uploading ? 'Préparation des images sur cet appareil…'
+          <p className="hint">{uploading ? 'Préparation des images…'
             : images.length ? images.length + ' page(s) sélectionnée(s)' : 'Aucune image sélectionnée.'}</p>
           <details className="diagram-teacher-options">
             <summary>Barème personnel et contexte <span>Facultatif</span></summary>
