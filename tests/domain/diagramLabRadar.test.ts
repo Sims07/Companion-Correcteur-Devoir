@@ -110,6 +110,20 @@ describe('scientific benchmark 8-axis radar', () => {
     expect(unrelated).toMatchObject({ measured: 0, complete: false });
   });
 
+  it('closes a 6/8 radar with only the archived A/B/C three-pass series', () => {
+    const existing = [
+      sample('arrows', '2026-11-11T13:00:00Z'),
+      sample('semantic', '2026-11-11T13:01:00Z'),
+      sample('graph', '2026-11-11T13:02:00Z'),
+    ];
+    expect(radarEvaluationOutcome(existing, 'qwen:4b')).toMatchObject({
+      measured: 6, complete: false,
+    });
+    expect(radarEvaluationOutcome([
+      sample('reference', '2026-11-11T13:03:00Z', 3), ...existing,
+    ], 'qwen:4b')).toMatchObject({ measured: 8, complete: true, missing: [] });
+  });
+
   it('explains whether A/B/C was never archived or produced no usable rubric decisions', () => {
     expect(diagnoseUnmeasuredRadarAxis([], 'qwen3.5:4b', 'graphics')).toMatch(/Aucune campagne/);
     const reference = structuredClone(sample('reference', '2026-11-11T14:00:00Z', 1));
