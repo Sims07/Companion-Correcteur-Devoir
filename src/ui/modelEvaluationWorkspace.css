@@ -880,11 +880,11 @@
 
 /* Finish the evaluation redesign: a type of test is a choice, not step 01/02/03. */
 .evaluation-workspace-shell .evaluation-stage-picker {
-  display: inline-flex;
-  width: fit-content;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
-  flex-wrap: wrap;
-  align-items: stretch;
   gap: 0;
   margin: 0;
   padding: 3px;
@@ -894,7 +894,7 @@
 }
 .evaluation-workspace-shell .evaluation-stage-picker button {
   display: inline-flex;
-  width: auto;
+  width: 100%;
   min-width: 0;
   min-height: 38px;
   align-items: center;
