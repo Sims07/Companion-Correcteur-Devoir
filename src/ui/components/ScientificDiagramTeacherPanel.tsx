@@ -225,7 +225,7 @@ export function ScientificDiagramTeacherPanel({
             <Checkbox checked={consent} disabled={running} onChange={(event) => setConsent(event.currentTarget.checked)}>
               J’autorise l’envoi de ces images au serveur configuré pour cet essai.
             </Checkbox>
-          </div> : <p className="diagram-teacher-local">Serveur sur cet ordinateur (localhost). Aucune API cloud.</p>}
+          </div> : null}
           <div className="diagram-teacher-actions">
             <Button disabled={!canRun} onClick={() => { void start(); }}>
               {running ? 'Correction du schéma en cours…' : proposal ? 'Relancer la correction' : 'Corriger directement l’image'}
