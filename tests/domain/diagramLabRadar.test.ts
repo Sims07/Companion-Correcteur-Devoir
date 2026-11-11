@@ -3,7 +3,7 @@ import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../src/domai
 import { radarEvaluationOutcome } from '../../src/domain/diagramLabRadarLaunch.ts';
 import { DIAGRAM_SENSITIVITY_CASES } from '../../src/domain/scientificDiagramSensitivity.ts';
 import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../src/domain/scientificDiagramFixtures.ts';
-import { buildDiagramLabRadar, compareRadarCommonAxes, observedRadarScore, RADAR_PRESETS, rankDiagramLabRadar, validRadarWeights } from '../../src/domain/diagramLabRadar.ts';
+import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, observedRadarScore, RADAR_PRESETS, rankDiagramLabRadar, validRadarWeights } from '../../src/domain/diagramLabRadar.ts';
 
 function sample(protocol: Exclude<DiagramLabProtocol, 'personal'>, createdAt: string, repetitions = 1): DiagramLabArchiveEntry {
   const fixture = protocol === 'reference' || protocol === 'arrows';
@@ -108,6 +108,35 @@ describe('scientific benchmark 8-axis radar', () => {
     expect(full).toMatchObject({ measured: 8, complete: true, missing: [] });
     const unrelated = radarEvaluationOutcome(complete(3), 'other:4b');
     expect(unrelated).toMatchObject({ measured: 0, complete: false });
+  });
+
+  it('explains whether A/B/C was never archived or produced no usable rubric decisions', () => {
+    expect(diagnoseUnmeasuredRadarAxis([], 'qwen3.5:4b', 'graphics')).toMatch(/Aucune campagne/);
+    const reference = structuredClone(sample('reference', '2026-11-11T14:00:00Z', 1));
+    const cases = (reference.report as unknown as { cases: Array<{
+      experiments: Array<{ observations: Array<{ key: string; choice: string }> }>;
+    }> }).cases;
+    for (const item of cases) for (const run of item.experiments) {
+      run.observations = [{ key: 'structure::visible', choice: 'uncertain' }];
+    }
+    expect(buildDiagramLabRadar([reference], 'model')[0]?.axes.graphics.value).toBeNull();
+    expect(diagnoseUnmeasuredRadarAxis([reference], 'qwen:4b', 'graphics'))
+      .toMatch(/aucune décision exploitable/);
+    expect(diagnoseUnmeasuredRadarAxis([reference], 'another:4b', 'graphics'))
+      .toMatch(/Aucune campagne/);
+  });
+
+  it('explains incomplete D/E three-pass repetitions instead of promising a stability score', () => {
+    expect(diagnoseUnmeasuredRadarAxis(complete(), 'qwen:4b', 'stability'))
+      .toMatch(/Aucune série de trois passages/);
+    const arrows = structuredClone(sample('arrows', '2026-11-11T14:01:00Z', 3));
+    const cases = (arrows.report as unknown as { cases: Array<{
+      experiments: Array<{ status: string }>;
+    }> }).cases;
+    cases[1]!.experiments[2]!.status = 'failed';
+    expect(buildDiagramLabRadar([arrows], 'model')[0]?.axes.stability.value).toBeNull();
+    expect(diagnoseUnmeasuredRadarAxis([arrows], 'qwen:4b', 'stability'))
+      .toContain('5/6 passages réussis');
   });
 
   it('compares methods only on common observed axes, refusing a weak three-axis ranking', () => {
