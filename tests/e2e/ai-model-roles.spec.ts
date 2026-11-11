@@ -34,7 +34,7 @@ test('models stay independent across method switches, saved profiles, reload and
   expect(saved[0].configuration).toMatchObject({ generativeModel: 'qwen3.5:4b', decisionModel: 'tev1:4b', analysisModel: 'tev1:4b' });
   await page.reload();
   await openActiveAssignment(page);
-  await page.getByRole('button', { name: /Réglages de l’IA locale|IA locale à configurer/ }).click();
+  await page.getByRole('button', { name: /Réglages IA|Configurer l’IA/ }).click();
   const panel = page.locator('#teacher-ai-settings-panel');
   await expect(panel.getByLabel('Modèle génératif', { exact: true })).toHaveValue('qwen3.5:4b');
   await expect(panel.getByLabel('Modèle décisionnel (facultatif)')).toHaveValue('tev1:4b');

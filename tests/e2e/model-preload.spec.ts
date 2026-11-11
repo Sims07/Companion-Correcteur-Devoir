@@ -23,7 +23,7 @@ test('an OpenAI-compatible configuration preloads a typed model without changing
 
   await page.goto('/');
   await page.locator('.assignment-overview-card').first().getByRole('button', { name: /Reprendre le devoir/ }).click();
-  await page.getByRole('button', { name: /Réglages de l’IA locale|IA locale à configurer/ }).click();
+  await page.getByRole('button', { name: /Réglages IA|Configurer l’IA/ }).click();
 
   const panel = page.locator('#teacher-ai-settings-panel');
   const name = panel.getByRole('textbox', { name: 'Nom du modèle à précharger' });

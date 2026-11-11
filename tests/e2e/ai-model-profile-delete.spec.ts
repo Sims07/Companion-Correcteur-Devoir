@@ -63,7 +63,7 @@ test('model removal requires confirmation and keeps local evaluation selection c
 test('teacher deletion is reflected in the evaluation manager and edit modal', async ({ page }) => {
   await page.goto('/');
   await page.locator('.assignment-overview-card').first().getByRole('button', { name: /Reprendre le devoir/ }).click();
-  await page.getByRole('button', { name: /Réglages de l’IA locale|IA locale à configurer/ }).click();
+  await page.getByRole('button', { name: /Réglages IA|Configurer l’IA/ }).click();
   const teacherPanel = page.locator('#teacher-ai-settings-panel');
   await teacherPanel.locator('#ai-model-profile').selectOption('saved-one');
   await teacherPanel.getByRole('button', { name: 'Supprimer cette configuration' }).click();
