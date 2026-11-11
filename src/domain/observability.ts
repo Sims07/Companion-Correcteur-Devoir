@@ -1,4 +1,6 @@
 import type { ReviewTraceMetrics } from './reviewMetrics.ts';
+import type { ModelEvaluationRecord } from './modelEvaluation.ts';
+import type { BlindVisualObservationRun } from './scientificDiagramBlindGraph.ts';
 
 export type ObservabilityStage = 'reading' | 'analysis' | 'arbitration' | 'other';
 
@@ -64,6 +66,7 @@ export function extractObservabilityPromptMessages(requestPayload?: string): Obs
 export type ObservabilityTrace = {
   source?: 'correction' | 'model-evaluation' | 'rubric-import' | 'scientific-diagram';
   evaluationProfileName?: string;
+  executionError?: string;
   id: string;
   completedAt: string;
   visionModel: string;
@@ -117,12 +120,64 @@ export function toModelEvaluationObservabilityTraces(records: import('./modelEva
       readingSeconds,
       analysisSeconds,
       outcome: result.status === 'success' ? 'success' as const : 'error' as const,
+      ...(result.error ? { executionError: result.error } : {}),
       modelScore: result.score,
       pageCount: record.images.length,
       assignmentTitle: record.assignmentTitle,
       diagnosticRuns,
     };
   }));
+}
+
+/** Scientific-diagram laboratory runs are deliberately not saved as full model
+ * evaluations. Store their diagnostic calls in the separate local observability
+ * history instead, retaining no image or credential from the evaluation record. */
+export function toDiagramLabObservabilityTraces(
+  record: ModelEvaluationRecord,
+  context: { caseId: string; repetition: number; imageCount: number; methodLabel: string },
+): ObservabilityTrace[] {
+  return toModelEvaluationObservabilityTraces([record]).map((trace) => ({
+    ...trace,
+    id: `diagram-lab::${trace.id}::${context.caseId}::${context.repetition}`,
+    source: 'scientific-diagram' as const,
+    pageCount: context.imageCount,
+    assignmentTitle: `Schéma ${context.caseId} · passage ${context.repetition} · ${context.methodLabel}`,
+  }));
+}
+
+/** Graph extraction uses its own vision client, so it needs a matching trace.
+ * Its diagnostic contains response text only, never the original image. */
+export function toBlindGraphObservabilityTrace(
+  run: BlindVisualObservationRun, completedAt: string,
+): ObservabilityTrace {
+  return {
+    id: `diagram-graph::${completedAt}::${run.profileId}::${run.caseId}::${run.repetition}`,
+    source: 'scientific-diagram',
+    evaluationProfileName: run.profileName,
+    completedAt,
+    visionModel: run.model,
+    analysisModel: '',
+    totalSeconds: run.durationMs / 1000,
+    readingSeconds: run.durationMs / 1000,
+    analysisSeconds: null,
+    outcome: run.status === 'success' ? 'success' : 'error',
+    ...(run.status === 'success' ? {} : {
+      executionError: run.diagnostic?.validationError ?? `Extraction de graphe : ${run.errorCategory ?? run.status}.`,
+    }),
+    modelScore: null,
+    pageCount: 1,
+    assignmentTitle: `Graphe de relations · schéma ${run.caseId} · passage ${run.repetition}`,
+    diagnosticRuns: [{
+      kind: 'vision',
+      stage: 'reading',
+      model: run.model,
+      elapsedMs: run.durationMs,
+      raw: run.diagnostic?.rawResponse ?? '',
+      ...(run.diagnostic?.doneReason ? { doneReason: run.diagnostic.doneReason } : {}),
+      ...(run.diagnostic?.outputTokens !== undefined ? { generatedTokens: run.diagnostic.outputTokens } : {}),
+      ...(run.diagnostic?.validationError ? { error: run.diagnostic.validationError } : {}),
+    }],
+  };
 }
 
 export type ObservabilityModelMetric = {

@@ -72,7 +72,7 @@ import type { DiagramLabArchiveRepository } from '../ports/diagramLabArchiveRepo
 import { initialAssignmentRubric, type AssignmentKind } from '../domain/assignmentKind.ts';
 import { buildDiagramReview } from '../domain/diagramTeacherReview.ts';
 import { directDiagramAssignmentIssue, isLoopbackDiagramEndpoint } from '../application/directScientificDiagramCorrection.ts';
-import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
+import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_CONTEXT, DIAGRAM_SENSITIVITY_RUBRIC, buildScientificDiagramSensitivityReport, type DiagramSensitivityCaseId, type DiagramSensitivityRun, type DiagramSensitivityPromptMode } from '../domain/scientificDiagramSensitivity.ts';
 import { buildBlindVisualObservationReport, compareBlindVisualGraph, explainBlindVisualGraph, blindGraphProfileIssue, blindGraphVisionModel, type BlindGraphDiagnostic,
@@ -100,7 +100,7 @@ import { ActiveCopyProcessingWorkspace } from './components/ActiveCopyProcessing
 import { TeacherWorkspaceNavigation } from './components/TeacherWorkspaceNavigation.tsx';
 import { Button, Checkbox, Dialog, StatusNotice, type StatusTone } from './design-system/index.ts';
 
-import { toModelEvaluationObservabilityTraces } from '../domain/observability.ts';
+import { toModelEvaluationObservabilityTraces, toDiagramLabObservabilityTraces, toBlindGraphObservabilityTrace, type ObservabilityTrace } from '../domain/observability.ts';
 import { summarizeCriterionProgress } from '../domain/criterionProgress.ts';
 import { estimateRemainingCorrectionSeconds } from '../domain/correctionTimeEstimate.ts';
 import { createReviewTraceMetrics, markGroupConfirmedCriterionModified, type ReviewTraceMetrics } from '../domain/reviewMetrics.ts';
@@ -122,7 +122,7 @@ interface PilotRunOptions {
   profiles: AiModelProfile[];
   caseImages: ImageInput[];
   contractVariant?: QuestionContractVariant;
-  diagram?: { rubric: Rubric; question: string; method: DiagramMethod; thinkSetting?: DiagramThinkSetting };
+  diagram?: { rubric: Rubric; question: string; method: DiagramMethod; caseId?: string; repetition?: number; imageCount?: number; thinkSetting?: DiagramThinkSetting };
   retainModelAfterRun?: boolean;
 }
 
@@ -260,6 +260,8 @@ type TimingRecord = {
   rubricSnapshot?: Rubric;
   diagnosticStrategy?: DiagnosticStrategy;
   diagnosticRuns?: DiagnosticModelResult[];
+  evaluationProfileName?: string;
+  executionError?: string;
   reviewMetrics?: ReviewTraceMetrics;
   referenceScores?: ReferenceCriterionScore[];
 };
@@ -762,6 +764,22 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     void evaluationService.saveDiagnosticHistory(timingHistory).catch(() => { /* Keep the current session usable if IndexedDB is unavailable. */ });
   }, [timingHistory]);
   const observabilityRecords = useMemo(() => [...timingHistory, ...toModelEvaluationObservabilityTraces(savedModelEvaluations)].sort((left, right) => right.completedAt.localeCompare(left.completedAt)).slice(0, timingHistoryLimit), [timingHistory, savedModelEvaluations]);
+  function retainDiagramObservability(traces: ObservabilityTrace[]) {
+    if (!traces.length) return;
+    // Only the image-redacted request and response traces are stored locally.
+    // The laboratory's original photos remain excluded from model-evaluation archives.
+    setTimingHistory((current) => [
+      ...traces.map((trace): TimingRecord => ({
+        ...trace,
+        source: 'scientific-diagram',
+        thinking: false,
+        correctionMode: 'integrated',
+        criterionScores: [],
+        diagnosticRuns: (trace.diagnosticRuns ?? []) as DiagnosticModelResult[],
+      })),
+      ...current,
+    ].slice(0, timingHistoryLimit));
+  }
   const [currentTimingRecordId, setCurrentTimingRecordId] = useState<string | null>(null);
   const [referenceScoreInputs, setReferenceScoreInputs] = useState<Record<string, string>>({});
   const [referenceMessage, setReferenceMessage] = useState('');
@@ -1992,9 +2010,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       results,
       stage: runStage,
     };
-    // The diagram lab is ephemeral: avoid copying photos into IndexedDB
-    // for every repetition. Users explicitly export its sanitized report.
-    if (!options?.diagram) {
+    // The diagram lab does not save full evaluations or images; it DOES retain
+    // each run's diagnostic calls for Observabilité, including failed responses.
+    if (options?.diagram) {
+      retainDiagramObservability(toDiagramLabObservabilityTraces(savedRecord, {
+        caseId: options.diagram.caseId ?? 'libre',
+        repetition: options.diagram.repetition ?? 1,
+        imageCount: options.diagram.imageCount ?? runImages.length,
+        methodLabel: diagramMethodLabels[options.diagram.method],
+      }));
+    } else {
       const previousComparable = savedModelEvaluations.find((record) => canCompareModelEvaluationRecords([record, savedRecord]));
       if (previousComparable) setSuggestedEvaluationComparisonIds([previousComparable.id, savedRecord.id]);
       await persistModelEvaluationRecord(savedRecord);
@@ -2402,6 +2427,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                   caseImages: testCase.images, retainModelAfterRun: true,
                   diagram: {
                     rubric,
+                    caseId: testCase.id,
+                    repetition,
+                    imageCount: testCase.images.length,
                     question: ((testCase.context ?? context) || 'Évalue uniquement les propriétés visibles du schéma scientifique selon le barème fourni.')
                       + ' Vérifie chaque attendu sur le dessin original. N’invente pas de structures absentes ; signale les éléments incertains.',
                     method,
@@ -2543,7 +2571,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setDiagramBlindGraphReport(null);
     const createdAt = new Date().toISOString();
     const runs: BlindVisualObservationRun[] = [];
+    let tracedRuns = 0;
     const emit = () => {
+      if (runs.length > tracedRuns) {
+        retainDiagramObservability(runs.slice(tracedRuns).map((run) =>
+          toBlindGraphObservabilityTrace(run, new Date().toISOString())));
+        tracedRuns = runs.length;
+      }
       const report = buildBlindVisualObservationReport(runs, request.repetitions, createdAt, request.promptVariant ?? 'baseline');
       setDiagramBlindGraphReport(report);
       return report;

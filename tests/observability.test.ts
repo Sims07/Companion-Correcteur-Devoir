@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildObservabilityModelMetrics, buildObservabilitySummary, extractObservabilityPromptMessages, getObservabilityStage, toModelEvaluationObservabilityTraces, type ObservabilityTrace } from '../src/domain/observability.ts';
+import { buildObservabilityModelMetrics, buildObservabilitySummary, extractObservabilityPromptMessages, getObservabilityStage, toModelEvaluationObservabilityTraces, toDiagramLabObservabilityTraces, toBlindGraphObservabilityTrace, type ObservabilityTrace } from '../src/domain/observability.ts';
 
 const traces: ObservabilityTrace[] = [
   {
@@ -245,4 +245,87 @@ describe('local observability metrics', () => {
     expect(vision.diagnosticRuns?.[0]).toMatchObject({ model: 'qwen-vl', stage: 'reading' });
   });
 
+});
+
+
+describe('scientific diagram laboratory observability', () => {
+  it('retains failed image-to-generative calls and validation errors with a navigable case label', () => {
+    const record = {
+      id: 'evaluation-diagram-C', completedAt: '2026-11-11T17:38:42.000Z',
+      assignmentId: 'assignment-private', assignmentTitle: 'Devoir privé',
+      question: 'PRIVATE_QUESTION', rubricSnapshot: { title: 'Privé', criteria: [] },
+      correctionMode: 'integrated' as const,
+      images: [{ mimeType: 'image/png', base64: 'PRIVATE_IMAGE_BYTES' }],
+      subjectImages: [], subjectTranscription: null,
+      configurations: [{ id: 'qwen', name: 'Qwen 4B', endpoint: 'http://localhost:11434',
+        visionModel: 'qwen3.5:4b', analysisModel: 'qwen3.5:4b', thinking: false }],
+      stage: 'integrated' as const,
+      results: [{
+        profileId: 'qwen', profileName: 'Qwen 4B', elapsedMs: 391024,
+        readingMs: 0, analysisMs: 390954, tokens: 1979,
+        status: 'failed' as const, transcription: 'PRIVATE_TRANSCRIPTION',
+        raw: 'PRIVATE_UNPARSED_RESULT', score: null, proposal: null,
+        error: 'Évaluation du schéma inexploitable après réparation : [diagram-output:invalid-points] : drawing.subcriteria.drawing-page.points attend un nombre entre 0 et 0.66 (reçu : -1).',
+        diagnosticRuns: [
+          { kind: 'model' as const, stage: 'analysis' as const, model: 'qwen3.5:4b',
+            elapsedMs: 228590, promptId: 'diagram.direct-grading', raw: '{"criteria":{}}',
+            requestPayload: '{"attempts":[{"messages":[{"role":"user","content":"BARÈME, pas de pixels","images":["[IMAGE REDACTED]"]}]}]}', doneReason: 'stop' },
+          { kind: 'model' as const, stage: 'analysis' as const, model: 'qwen3.5:4b',
+            elapsedMs: 162310, promptId: 'diagram.direct-repair', raw: '{"criteria":{"drawing":{"points":-1}}}',
+            doneReason: 'stop' },
+        ],
+      }],
+    };
+    const [trace] = toDiagramLabObservabilityTraces(record, {
+      caseId: 'C', repetition: 1, imageCount: 1, methodLabel: 'Image → génératif direct',
+    });
+    expect(trace).toMatchObject({
+      source: 'scientific-diagram', evaluationProfileName: 'Qwen 4B',
+      outcome: 'error', pageCount: 1,
+      assignmentTitle: 'Schéma C · passage 1 · Image → génératif direct',
+      executionError: expect.stringContaining('drawing.subcriteria.drawing-page.points'),
+      diagnosticRuns: [{ promptId: 'diagram.direct-grading' }, { promptId: 'diagram.direct-repair' }],
+    });
+    expect(buildObservabilitySummary([trace!])).toMatchObject({ errorCount: 1, totalCalls: 2 });
+    const text = JSON.stringify(trace);
+    expect(text).not.toContain('PRIVATE_IMAGE_BYTES');
+    expect(text).not.toContain('PRIVATE_QUESTION');
+    expect(text).not.toContain('PRIVATE_TRANSCRIPTION');
+    expect(text).not.toContain('PRIVATE_UNPARSED_RESULT');
+  });
+
+  it('records successful zero-point cases as scores, not missing results', () => {
+    const record = {
+      id: 'evaluation-C-success', completedAt: '2026-11-11T18:00:00.000Z',
+      assignmentId: 'a', assignmentTitle: 'B', question: '', rubricSnapshot: { title: 'B', criteria: [] },
+      correctionMode: 'integrated' as const, images: [], subjectImages: [], subjectTranscription: null,
+      configurations: [{ id: 'p', name: 'Qwen', endpoint: 'http://localhost:11434',
+        visionModel: 'qwen3.5:4b', analysisModel: 'qwen3.5:4b', thinking: false }],
+      results: [{ profileId: 'p', profileName: 'Qwen', elapsedMs: 1500, readingMs: 700, analysisMs: 800,
+        tokens: 100, status: 'success' as const, transcription: '', raw: '', score: 0, proposal: null }],
+    };
+    const [trace] = toDiagramLabObservabilityTraces(record, {
+      caseId: 'C', repetition: 2, imageCount: 1, methodLabel: 'Vision puis analyse',
+    });
+    expect(trace).toMatchObject({ source: 'scientific-diagram', outcome: 'success', modelScore: 0,
+      pageCount: 1, assignmentTitle: 'Schéma C · passage 2 · Vision puis analyse' });
+  });
+
+  it('captures blind graph response diagnostics as local vision spans without pixels', () => {
+    const trace = toBlindGraphObservabilityTrace({
+      caseId: 'S1', repetition: 1, profileId: 'qwen', profileName: 'Qwen',
+      model: 'qwen3.5:4b', zoom: false, promptVariant: 'baseline',
+      provider: 'ollama-local', remote: false,
+      status: 'failed', durationMs: 3500, observations: {},
+      arrowCount: 0, containmentCount: 0, errorCategory: 'invalid-output',
+      diagnostic: { rawResponse: '{"arrows":[]}', rawResponseTruncated: false,
+        doneReason: 'stop', outputTokens: 54, validationError: 'Graphe visuel non conforme' },
+    }, '2026-11-11T18:00:00.000Z');
+    expect(trace).toMatchObject({
+      source: 'scientific-diagram', outcome: 'error', visionModel: 'qwen3.5:4b',
+      assignmentTitle: 'Graphe de relations · schéma S1 · passage 1',
+      executionError: 'Graphe visuel non conforme',
+      diagnosticRuns: [{ stage: 'reading', generatedTokens: 54, raw: '{"arrows":[]}' }],
+    });
+  });
 });

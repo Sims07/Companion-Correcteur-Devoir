@@ -109,3 +109,45 @@ test('opens the observability workspace and explores a trace without exposing co
   await expect(page.locator('.observability-call-warning').first()).toContainText('Les octets des images ne sont pas affichés.');
   await expect(page.getByText('PRIVATE_EVALUATION_IMAGE')).toHaveCount(0);
 });
+
+test('a failed diagram campaign is visible with its two raw responses and validation error', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('companion-correcteur:timing-history:v1', JSON.stringify([{
+      id: 'diagram-lab::evaluation-C::qwen::C::1',
+      source: 'scientific-diagram',
+      evaluationProfileName: 'Qwen 3.5:4B',
+      completedAt: '2026-11-11T17:38:42.000Z',
+      visionModel: 'qwen3.5:4b', analysisModel: 'qwen3.5:4b',
+      thinking: false, correctionMode: 'integrated',
+      pageCount: 1, readingSeconds: 0, analysisSeconds: 390,
+      totalSeconds: 391, outcome: 'error', modelScore: null,
+      criterionScores: [],
+      assignmentTitle: 'Schéma C · passage 1 · Image → génératif direct',
+      executionError: 'Sortie schéma invalide [diagram-output:invalid-points] : drawing.subcriteria.drawing-page.points attend un nombre entre 0 et 0.66 (reçu : -1).',
+      diagnosticRuns: [
+        { kind: 'model', model: 'qwen3.5:4b', stage: 'analysis',
+          promptId: 'diagram.direct-grading', elapsedMs: 229000,
+          raw: '{"criteria":{"drawing":{"points":-1}}}' },
+        { kind: 'model', model: 'qwen3.5:4b', stage: 'analysis',
+          promptId: 'diagram.direct-repair', elapsedMs: 162000,
+          raw: '{"criteria":{"drawing":{"points":-1}}}' },
+      ],
+    }]));
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => localStorage.getItem('companion-correcteur:timing-history:v1') === null);
+  await page.getByRole('navigation', { name: 'Navigation principale' })
+    .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
+  await expect(page.getByText('Campagne · Qwen 3.5:4B')).toBeVisible();
+  const trace = page.locator('.observability-trace-details').filter({ hasText: 'Campagne · Qwen 3.5:4B' });
+  await trace.locator('summary').first().click();
+  await expect(trace).toContainText('Schéma C · passage 1 · Image → génératif direct');
+  await expect(trace.getByRole('alert')).toContainText('drawing.subcriteria.drawing-page.points');
+  await expect(trace.locator('.observability-call-details')).toHaveCount(2);
+  await trace.locator('.observability-call-details summary').nth(0).click();
+  await trace.locator('.observability-call-details summary').nth(1).click();
+  await expect(trace.getByText('{"criteria":{"drawing":{"points":-1}}}')).toHaveCount(2);
+  await expect(page.getByText('PRIVATE_IMAGE_BYTES')).toHaveCount(0);
+});
