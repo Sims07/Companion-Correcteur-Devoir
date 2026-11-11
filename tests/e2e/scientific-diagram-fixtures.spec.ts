@@ -77,13 +77,17 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   ).toBe(3);
   await expect(fixtures.getByRole('button', { name: 'Tester les 3 schémas en un clic' })).toBeDisabled();
 
-  await page.getByRole('group', { name: 'Configurations à exécuter' })
-    .locator('label.evaluation-profile-option').first().click();
+  await page.getByRole('button', { name: 'Gérer les configurations' }).click();
+  const modelDialog = page.getByRole('dialog', { name: 'Gérer les configurations IA' });
+  await modelDialog.getByRole('checkbox').first().check();
+  await modelDialog.getByRole('button', { name: 'Terminer' }).click();
   await fixtures.getByRole('button', { name: 'Tester les 3 schémas en un clic' }).click();
 
   const activity = page.getByRole('status', { name: 'Dernière expérience lancée' });
-  await expect(activity).toContainText('Schémas scientifiques · références intégrées');
+  await expect(activity).toContainText('Schémas scientifiques · qualité graphique A/B/C');
   await expect(activity).toContainText('TEST EN COURS');
+  await expect(activity.getByRole('button', { name: 'Arrêter après l’appel en cours' })).toBeVisible();
+  await expect(page.locator('.diagram-lab-live')).toHaveCount(0);
   await expect(activity.getByRole('button', { name: 'Suivre ce test' })).toBeVisible();
   const testViews = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   await testViews.getByRole('button', { name: 'Campagnes de test' }).click();
@@ -233,8 +237,10 @@ test('paired D/E diagrams test the pointed structure, not just the written label
   await expect(cards.nth(1).getByText('8.66/10 attendu')).toBeVisible();
   await expect(cards.nth(0).getByText(/Alignement en colonne : 0\/0\.66 pt/)).toBeVisible();
   await expect(cards.nth(1).getByText(/Alignement en colonne : 0\/0\.66 pt/)).toBeVisible();
-  await page.getByRole('group', { name: 'Configurations à exécuter' })
-    .locator('label.evaluation-profile-option').first().click();
+  await page.getByRole('button', { name: 'Gérer les configurations' }).click();
+  const modelDialog = page.getByRole('dialog', { name: 'Gérer les configurations IA' });
+  await modelDialog.getByRole('checkbox').first().check();
+  await modelDialog.getByRole('button', { name: 'Terminer' }).click();
   await fixtures.getByRole('button', { name: 'Tester les flèches D/E en un clic' }).click();
   const results = fixtures.getByRole('region', { name: 'Résultats des schémas scientifiques' });
   await expect(results.locator('tbody tr')).toHaveCount(2, { timeout: 30_000 });
@@ -349,8 +355,10 @@ test(scenario.model + ' compares Think OFF/ON on E with runtime Ollama capabilit
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
-  await page.getByRole('group', { name: 'Configurations à exécuter' })
-    .locator('label.evaluation-profile-option').first().click();
+  await page.getByRole('button', { name: 'Gérer les configurations' }).click();
+  const modelDialog = page.getByRole('dialog', { name: 'Gérer les configurations IA' });
+  await modelDialog.getByRole('checkbox').first().check();
+  await modelDialog.getByRole('button', { name: 'Terminer' }).click();
   await panel.getByRole('combobox', { name: 'Méthode de correction scientifique à tester' })
     .selectOption('compare-thinking');
   await panel.getByRole('tab', { name: /Sens des flèches/ }).click();

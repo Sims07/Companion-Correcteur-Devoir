@@ -1,3 +1,4 @@
+import { chooseEvaluationModel } from './helpers/evaluation-models';
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -55,8 +56,7 @@ test('optional blind-graph zoom crops actual local pixels, resolves only observe
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   await panel.getByRole('tab', { name: /Graphe des relations/ }).click();
   const observer = panel.getByRole('region', { name: 'Extraction du graphe de relations' });
-  await page.getByRole('group', { name: 'Configurations à exécuter' })
-    .locator('label.evaluation-profile-option').first().click();
+  await chooseEvaluationModel(page);
   const start = observer.getByRole('button', { name: 'Tester avec agrandissement ciblé' });
   await expect(start).toBeEnabled();
   await start.click();
