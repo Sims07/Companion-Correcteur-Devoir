@@ -148,7 +148,7 @@ export function planRadarModelEvaluation(
     // Reuse short grading batteries (A/B/C or D/E) if they are missing.
     // For six-image semantic/graph protocols, keep the independent short
     // repeat selected by the stability planner instead of tripling six cases.
-    let repeatedProtocol = (['reference', 'arrows'] as const).find((protocol) => steps.has(protocol));
+    let repeatedProtocol: RadarTestProtocol | undefined = (['reference', 'arrows'] as const).find((protocol) => steps.has(protocol));
     if (!repeatedProtocol) {
       const repeat = planMissingRadarAxis(candidate, 'stability', 'model')?.steps[0];
       if (repeat) {
