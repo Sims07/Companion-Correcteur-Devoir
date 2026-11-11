@@ -2,8 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('profile feedback uses information, warning and success instead of the brand red', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('button', { name: /Nouvelle configuration/ }).click();
 
   const info = page.getByRole('status').filter({ hasText: 'Nouvelle configuration : renseignez' });

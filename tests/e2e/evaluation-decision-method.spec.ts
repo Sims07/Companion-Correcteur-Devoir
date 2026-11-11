@@ -4,8 +4,7 @@ const profilesKey = 'companion-correcteur:ollama-profiles:v1';
 
 test('the evaluator creates, reloads and resets decision-model configurations', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
 
   const method = page.locator('#evaluation-correction-method');
   const byCriterion = page.locator('#evaluation-criterion-by-criterion');
@@ -49,8 +48,7 @@ test('the evaluator creates, reloads and resets decision-model configurations', 
   await expect(page.locator('#evaluation-decision-model')).toHaveValue('tev1:4b');
 
   await page.reload();
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.locator('.evaluation-config-editor').evaluate((element) => { (element as HTMLDetailsElement).open = true; });
   await page.locator('#evaluation-profile-select').selectOption(savedProfile!.id);
   await expect(page.locator('#evaluation-correction-method')).toHaveValue('decision');

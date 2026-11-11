@@ -2,8 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('evaluation navigates directly between tests and local results without artificial numbered steps', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
 
   const navigation = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   await expect(navigation).toBeVisible();
@@ -26,11 +25,10 @@ test('evaluation navigates directly between tests and local results without arti
 
 test('Debug remains a dedicated network inspector, separate from evaluation', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await expect(page.locator('.evaluation-model-selector summary')).toBeVisible();
 
-  await page.getByRole('navigation', { name: 'Navigation des outils IA' }).getByRole('button', { name: /Suivre et diagnostiquer/ }).click();
+  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
   await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Inspecteur réseau' }).click();
   await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
   await expect(page.locator('.evaluation-model-selector')).toHaveCount(0);

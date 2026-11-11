@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('two compact local evaluations remain comparable after a page reload without their image payloads', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).waitFor();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).waitFor();
 
   await page.evaluate(async () => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -45,8 +45,7 @@ test('two compact local evaluations remain comparable after a page reload withou
   });
 
   await page.reload();
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('button', { name: /Carnet de résultats/ }).click();
 
   const comparisons = page.getByRole('group', { name: 'Expériences à comparer' });

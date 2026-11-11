@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('all scientific protocol buttons are reachable before the image catalog, on desktop and mobile', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Schémas scientifiques' }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques', exact: true });
   const choices = panel.getByRole('tablist', { name: 'Protocoles automatiques des schémas scientifiques' });
@@ -34,7 +34,7 @@ test('all scientific protocol buttons are reachable before the image catalog, on
 
 test('biology protocol puts the one-click method comparison above reference detail', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Biologie' }).click();
   const panel = page.getByRole('region', { name: 'Protocole de test guidé' });
   await expect(panel.getByRole('group', { name: 'Objectif du protocole de biologie' }).getByRole('button')).toHaveCount(3);
