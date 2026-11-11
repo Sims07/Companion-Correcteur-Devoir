@@ -2689,9 +2689,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       journey: 'biology', scenario: 'contracts', targetId: 'evaluation-biology-radar', profiles: profile.name,
     }, async () => {
       const baselineComplete = await runPilotQuestionContractBenchmark([profile]);
-      if (!baselineComplete || pilotStopRef.current || evaluationCancelledRef.current) return 0;
+      if (pilotStopRef.current || evaluationCancelledRef.current) return 0;
+      // Run the stress battery even when A/B/C was only partially resolved.
+      // This keeps independently measurable axes available in the radar.
       const trapsComplete = await runPilotRepeatabilityBenchmark(3, 'stress', [profile]);
-      return trapsComplete ? 1 : 0;
+      return baselineComplete && trapsComplete ? 1 : 0;
     });
   }
 
