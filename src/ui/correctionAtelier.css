@@ -496,8 +496,6 @@
 .diagram-assignment-context details > summary { cursor: pointer; font-size: .86rem; font-weight: 650; }
 .diagram-assignment-context details ol { margin: var(--ds-space-3) 0 0; padding-left: 22px; display: grid; gap: 12px; font-size: .82rem; }
 .diagram-assignment-context details ul { margin: 5px 0 0; padding-left: 20px; display: grid; gap: 5px; color: var(--ds-color-text-muted); font-size: .79rem; }
-.diagram-assignment-context .diagram-assignment-consent { padding: var(--ds-space-3); border: 1px solid var(--ds-color-border-strong); border-radius: var(--ds-radius-md); background: var(--ds-color-surface-subtle); }
-.diagram-assignment-context .diagram-assignment-consent p { margin: 0 0 8px; font-size: .82rem; }
 .diagram-assignment-context > .hint { margin: 0; font-size: .8rem; color: var(--ds-color-text-muted); }
 
 .diagram-assignment-cumulative { display:block; margin-top:3px; color:var(--ds-color-text-muted); font-size:.78rem; font-variant-numeric:tabular-nums; }

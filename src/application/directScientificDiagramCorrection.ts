@@ -3,7 +3,6 @@ import { parseGradingProposal, type GradingProposal } from '../domain/grading.ts
 import { validateRubric, type Rubric } from '../domain/rubric.ts';
 import type { ImageInput } from '../ports/aiProvider.ts';
 import type { CorrectionWorkspaceService } from './correctionWorkspaceService.ts';
-import { isLoopbackDiagramEndpoint } from '../domain/directDiagramAssignment.ts';
 export { isLoopbackDiagramEndpoint, directDiagramAssignmentIssue } from '../domain/directDiagramAssignment.ts';
 
 export interface DirectScientificDiagramRequest {
@@ -11,8 +10,6 @@ export interface DirectScientificDiagramRequest {
   rubric: Rubric;
   question: string;
   configuration: AiModelConfiguration;
-  /** Required when the configured server is not on this computer. */
-  remoteConsent: boolean;
   signal?: AbortSignal;
 }
 
@@ -24,7 +21,7 @@ export async function correctScientificDiagramDirect(
   gateway: Pick<CorrectionWorkspaceService, 'checkReady' | 'createProvider'>,
   request: DirectScientificDiagramRequest,
 ): Promise<GradingProposal> {
-  const { images, rubric, question, configuration, signal, remoteConsent } = request;
+  const { images, rubric, question, configuration, signal } = request;
   if (!images.length) throw new Error('Ajoutez une photo ou un PDF du schéma.');
   const validation = validateRubric(rubric);
   if (!validation.valid) throw new Error(validation.errors.join(' '));
@@ -36,9 +33,6 @@ export async function correctScientificDiagramDirect(
   }
   if (!configuration.analysisModel.trim()) throw new Error('Choisissez un modèle génératif capable de lire les images.');
   if (!configuration.endpoint.trim()) throw new Error('Configurez un serveur IA.');
-  if (!isLoopbackDiagramEndpoint(configuration.endpoint) && !remoteConsent) {
-    throw new Error('Confirmez explicitement l’envoi des images au serveur configuré.');
-  }
   if (signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
 
   const settings = {

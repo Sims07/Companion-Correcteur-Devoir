@@ -71,7 +71,7 @@ import { radarEvaluationOutcome, RADAR_TEST_PROTOCOL_NAMES } from '../domain/dia
 import type { DiagramLabArchiveRepository } from '../ports/diagramLabArchiveRepository.ts';
 import { initialAssignmentRubric, type AssignmentKind } from '../domain/assignmentKind.ts';
 import { buildDiagramReview } from '../domain/diagramTeacherReview.ts';
-import { directDiagramAssignmentIssue, isLoopbackDiagramEndpoint } from '../application/directScientificDiagramCorrection.ts';
+import { directDiagramAssignmentIssue } from '../application/directScientificDiagramCorrection.ts';
 import { SCIENTIFIC_DIAGRAM_PROTOCOL_ID, buildScientificDiagramProtocolReport, diagramMethodIssue, diagramMethodLabels, selectDiagramMethods, usesDirectDiagramVision, type DiagramMethod, type DiagramMethodSelection, type DiagramProtocolCount } from '../domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT, SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, buildScientificDiagramFixtureReport, type ScientificDiagramFixtureId, type ScientificDiagramFixtureRun } from '../domain/scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASE_IDS, DIAGRAM_SENSITIVITY_CONTEXT, DIAGRAM_SENSITIVITY_RUBRIC, buildScientificDiagramSensitivityReport, type DiagramSensitivityCaseId, type DiagramSensitivityRun, type DiagramSensitivityPromptMode } from '../domain/scientificDiagramSensitivity.ts';
@@ -422,8 +422,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [rubricFileImporting, setRubricFileImporting] = useState(false);
   const [question, setQuestion] = useState(() => readActiveAssignmentProfile().question);
   const [endpoint, setEndpoint] = useState(() => readAiModelConfiguration().endpoint);
-  const [diagramConsentEndpoint, setDiagramConsentEndpoint] = useState<string | null>(null);
-  useEffect(() => { setDiagramConsentEndpoint(null); }, [activeAssignmentId, endpoint]);
   const [apiCompatible, setApiCompatible] = useState(() => readAiModelConfiguration().apiCompatible);
   const [apiKey, setApiKey] = useState(() => readAiModelConfiguration().apiKey);
   const [visionModel, setVisionModel] = useState(() => readAiModelConfiguration().visionModel);
@@ -818,7 +816,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [networkInitialFilter, setNetworkInitialFilter] = useState<'all' | 'error'>('all');
   const validation = useMemo(() => validateRubric(rubric), [rubric]);
   const diagramIssue = isScientificDiagramAssignment
-    ? directDiagramAssignmentIssue(rubric, { endpoint, analysisModel, correctionMethod }, diagramConsentEndpoint)
+    ? directDiagramAssignmentIssue(rubric, { endpoint, analysisModel, correctionMethod })
     : null;
   const criterionProgress = useMemo(() => summarizeCriterionProgress(rubric.criteria, review.map((item) => ({ criterionId: item.criterionId, points: item.teacherPoints }))), [rubric.criteria, review]);
   const reviewedTotal = criterionProgress.provisionalPoints;
@@ -2872,7 +2870,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   function applyAssignment(profile: AssignmentProfile) {
     setCopyOverviewFilter('all');
     setCopyOverviewFilterTouched(false);
-    setDiagramConsentEndpoint(null);
     setCurrentBackgroundJobId(null);
     setShowOnlyFlagged(true);
     setFocusedEvidencePage(null);
@@ -3006,7 +3003,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
             rubric: structuredClone(rubric),
             correctionMode,
-            ...(isScientificDiagramAssignment ? { gradingFlow: 'scientific-diagram-direct' as const, diagramConsentedEndpoint: diagramConsentEndpoint ?? undefined } : {}),
+            ...(isScientificDiagramAssignment ? { gradingFlow: 'scientific-diagram-direct' as const } : {}),
             images: structuredClone(prepared),
             originalImages: structuredClone(prepared),
             subjectImages: structuredClone(subjectImages),
@@ -3216,7 +3213,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
         rubric: structuredClone(rubric),
         correctionMode,
-        ...(isScientificDiagramAssignment ? { gradingFlow: 'scientific-diagram-direct' as const, diagramConsentedEndpoint: diagramConsentEndpoint ?? undefined } : {}),
+        ...(isScientificDiagramAssignment ? { gradingFlow: 'scientific-diagram-direct' as const } : {}),
         images: structuredClone(images),
         originalImages: structuredClone(originalImages),
         subjectImages: structuredClone(subjectImages),
@@ -3275,7 +3272,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         thinking: analysisThinking, criterionByCriterion: true, correctionMethod, autoBackgroundCorrection,
         transcriptionTokenLimit, transcriptionPromptMode, transcriptionRepeatPenalty,
         transcriptionPenaltyParameter, transcriptionFrequencyPenalty,
-      }, diagramConsentEndpoint);
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible de relancer la correction.');
     }
@@ -3408,7 +3405,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             question: buildAssignmentContext({ title: assignmentTitle, description: assignmentDescription, educationLevel, question }),
             rubric: structuredClone(rubric),
             correctionMode,
-            ...(isScientificDiagramAssignment ? { gradingFlow: 'scientific-diagram-direct' as const, diagramConsentedEndpoint: diagramConsentEndpoint ?? undefined } : {}),
+            ...(isScientificDiagramAssignment ? { gradingFlow: 'scientific-diagram-direct' as const } : {}),
             images: structuredClone(images),
             originalImages: structuredClone(originalImages),
             subjectImages: structuredClone(subjectImages),
@@ -3711,13 +3708,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <ul>{item.subcriteria.map((sub) => <li key={sub.id}>{sub.title} · {sub.maxPoints} pt</li>)}</ul>
           </li>)}</ol>
         </details>
-        {!isLoopbackDiagramEndpoint(endpoint) ? <div className="diagram-assignment-consent">
-          <p><strong>Serveur non local :</strong> les copies seront envoyées à l’adresse configurée uniquement avec votre accord.</p>
-          <Checkbox checked={diagramConsentEndpoint === endpoint}
-            onChange={(event) => setDiagramConsentEndpoint(event.currentTarget.checked ? endpoint : null)}>
-            J’autorise l’envoi des images de ce devoir au serveur actuellement configuré.
-          </Checkbox>
-        </div> : null}
         {diagramIssue && <p className="hint" role="status">{diagramIssue}</p>}
       </section>}
       {interfaceMode === 'teacher' && showAiSettings && <section id="teacher-ai-settings-panel" className={`panel ollama-panel teacher-model-panel ai-settings-view ${gradingModelsReady ? 'setup-complete' : 'setup-needed'}`} aria-labelledby="teacher-model-title">
@@ -3823,8 +3813,6 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <Button variant="secondary" className="evaluation-model-brief-manage" onClick={() => setManagingEvaluationProfiles(true)}>Gérer les configurations</Button>
         </div>
         </div>
-        {evaluationJourney === 'custom' && selectedEvaluationProfiles.some((profile) => !isLocalPilotProfile(profile)) &&
-          <p className="evaluation-remote-endpoint-notice" role="status">Une configuration distante est sélectionnée : les contenus de ce test seront envoyés au serveur configuré.</p>}
         <div id="evaluation-diagram-workspace" hidden={evaluationJourney !== 'diagrams'}><ScientificDiagramProtocolPanel
           selectedProfiles={selectedEvaluationProfiles} busy={busy || pilotBusy}
           progress={diagramProtocolProgress}

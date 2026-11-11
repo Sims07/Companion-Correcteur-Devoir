@@ -26,7 +26,9 @@ describe('Scientific and biology protocol navigation', () => {
     expect(semanticPreview).toBeGreaterThan(semanticLaunch);
     expect(diagram).toContain('Protocole détaillé');
     expect(diagram).not.toContain('Protocole détaillé et confidentialité');
-    expect(diagram).toContain('blindGraphUsesRemote && <p className="pilot-evaluation-hint" role="status">Profil distant');
+    expect(diagram).not.toContain('blindGraphUsesRemote');
+    expect(diagram).not.toContain('Profil distant : images envoyées');
+    expect(diagram).toContain('Préparation des six schémas…');
   });
 
   it('preserves the biology tests and reveals launch before reference details', () => {

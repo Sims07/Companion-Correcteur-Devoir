@@ -1358,7 +1358,7 @@ describe('diagram assignments share the resumable correction queue', () => {
     expect((await service.listJobSummaries('assignment-1'))).toHaveLength(2);
   });
 
-  it('refuses all network calls for remote models without consent and allows an explicit retry for that exact endpoint', async () => {
+  it('corrige avec le serveur distant configuré et autorise la reprise après changement de serveur', async () => {
     const { f, rubric } = diagramFixture();
     f.setGenerateImplementation(async (request) => {
       f.requests.push(request);
@@ -1369,20 +1369,15 @@ describe('diagram assignments share the resumable correction queue', () => {
       apiCompatible: true, visionModel: '', analysisModel: 'qwen-vision',
       correctionMethod: 'generative' as const };
     await service.processPending(settings, 'assignment-1');
-    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'failed' });
-    expect(f.requests).toHaveLength(0);
-    expect(f.workspace.checkReady).not.toHaveBeenCalled();
-    await expect(service.retry('copy-1', settings, 'https://other.example/v1')).rejects.toThrow('Autorisez');
-    expect(f.jobs.get('copy-1')?.status).toBe('failed');
-    await service.retry('copy-1', settings, settings.endpoint);
-    expect(f.jobs.get('copy-1')).toMatchObject({
-      status: 'ready', diagramConsentedEndpoint: settings.endpoint,
-    });
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'ready', completedCriteria: 3 });
     expect(f.requests).toHaveLength(1);
+    expect(f.workspace.checkReady).toHaveBeenCalled();
+
     const altered = { ...settings, endpoint: 'https://another.example/v1/chat/completions' };
     f.jobs.set('copy-1', { ...f.jobs.get('copy-1')!, status: 'failed' });
-    await expect(service.retry('copy-1', altered)).rejects.toThrow('Autorisez');
-    expect(f.requests).toHaveLength(1);
+    await service.retry('copy-1', altered);
+    expect(f.jobs.get('copy-1')).toMatchObject({ status: 'ready', completedCriteria: 3 });
+    expect(f.requests).toHaveLength(2);
   });
 
   it('keeps a malformed visual response retryable instead of inventing a score', async () => {

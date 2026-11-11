@@ -6,8 +6,8 @@ import { buildDiagramReview } from '../../domain/diagramTeacherReview.ts';
 import { accumulateClockwiseRotation } from '../../domain/scientificPageOrientation.ts';
 import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, parseScientificDiagramProtocolRubric } from '../../domain/scientificDiagramProtocol.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
-import { isLoopbackDiagramEndpoint, type DirectScientificDiagramRequest } from '../../application/directScientificDiagramCorrection.ts';
-import { Button, Checkbox, TextArea } from '../design-system/index.ts';
+import type { DirectScientificDiagramRequest } from '../../application/directScientificDiagramCorrection.ts';
+import { Button, TextArea } from '../design-system/index.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import { FilePicker } from './FilePicker.tsx';
 import { CopyPageViewer } from './CopyPageViewer.tsx';
@@ -41,7 +41,6 @@ export function ScientificDiagramTeacherPanel({
   const [elapsed, setElapsed] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [running, setRunning] = useState(false);
-  const [consent, setConsent] = useState(false);
   const [proposal, setProposal] = useState<GradingProposal | null>(null);
   const [completedAt, setCompletedAt] = useState('');
   const [usedModel, setUsedModel] = useState('');
@@ -59,12 +58,11 @@ export function ScientificDiagramTeacherPanel({
 
   const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId);
   const configuration = selectedProfile?.configuration ?? currentConfiguration;
-  const isLocal = isLoopbackDiagramEndpoint(configuration.endpoint);
   const validation = validateRubric(rubric);
   const review = buildDiagramReview(rubric, proposal);
   const compatible = configuration.correctionMethod === 'generative' && Boolean(configuration.analysisModel.trim());
   const canRun = !running && !uploading && !rotating && images.length > 0 && validation.valid
-    && compatible && (isLocal || consent);
+    && compatible;
 
   function invalidate() {
     setProposal(null);
@@ -134,7 +132,7 @@ export function ScientificDiagramTeacherPanel({
     try {
       const evaluated = await onRun({
         images, rubric: structuredClone(rubric), question, configuration: { ...configuration },
-        remoteConsent: isLocal ? false : consent, signal: controller.signal,
+        signal: controller.signal,
       });
       if (controller.signal.aborted) return;
       setProposal(evaluated);
@@ -212,7 +210,7 @@ export function ScientificDiagramTeacherPanel({
           <h3>2. Corriger le schéma</h3>
           <label className="field-label" htmlFor="teacher-diagram-model">Configuration IA</label>
           <DesignSystemSelect id="teacher-diagram-model" value={selectedProfileId} disabled={running}
-            onChange={(event) => { setSelectedProfileId(event.currentTarget.value); setConsent(false); invalidate(); }}>
+            onChange={(event) => { setSelectedProfileId(event.currentTarget.value); invalidate(); }}>
             <option value="">Configuration actuelle · {currentConfiguration.analysisModel || 'non définie'}</option>
             {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.configuration.analysisModel || 'sans modèle'}</option>)}
           </DesignSystemSelect>
@@ -220,19 +218,12 @@ export function ScientificDiagramTeacherPanel({
             Choisissez une configuration générative avec un modèle visuel.
             <Button variant="secondary" onClick={onOpenSettings}>Configurer l’IA</Button>
           </div>}
-          {!isLocal ? <div className="diagram-teacher-remote">
-            <p><strong>Serveur non local.</strong> Les photos seront envoyées au serveur configuré après votre accord.</p>
-            <Checkbox checked={consent} disabled={running} onChange={(event) => setConsent(event.currentTarget.checked)}>
-              J’autorise l’envoi de ces images au serveur configuré pour cet essai.
-            </Checkbox>
-          </div> : null}
           <div className="diagram-teacher-actions">
             <Button disabled={!canRun} onClick={() => { void start(); }}>
               {running ? 'Correction du schéma en cours…' : proposal ? 'Relancer la correction' : 'Corriger directement l’image'}
             </Button>
             {running && <Button variant="secondary" onClick={() => abortRef.current?.abort()}>Arrêter</Button>}
           </div>
-          <p className="hint">Une analyse visuelle directe, sans OCR ni sauvegarde automatique des photos.</p>
         </div>
       </div>
       {error && <p className="diagram-teacher-error" role="alert">{error}</p>}

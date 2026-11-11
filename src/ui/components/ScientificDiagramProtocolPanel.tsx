@@ -2,7 +2,6 @@ import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { useEffect, useRef, useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import { radarPlanDescription, RADAR_TEST_PROTOCOL_NAMES, type RadarMissingTestRequest, type RadarTestStep } from '../../domain/diagramLabRadarLaunch.ts';
-import { isLoopbackPilotEndpoint } from '../../domain/pilotEvaluationProtocol.ts';
 import { buildBlindVisualObservationReport, blindGraphProfileIssue, blindGraphVisionModel, type BlindGraphPromptVariant } from '../../domain/scientificDiagramBlindGraph.ts';
 import type { Rubric } from '../../domain/rubric.ts';
 import type { ImageInput } from '../../ports/aiProvider.ts';
@@ -192,10 +191,6 @@ export function ScientificDiagramProtocolPanel({
     getRubricSubcriteria(criterion).map((item) => ({ criterion, item, key: diagramTargetKey(criterion.id, item.id) })));
   const validation = validateRubric(rubric);
   const profileIssues = selectedProfiles.map((profile) => diagramMethodIssue(profile, methodSelection)).filter((issue): issue is string => Boolean(issue));
-  const hasRemote = selectedProfiles.some((profile) => {
-    try { return !['localhost', '127.0.0.1', '[::1]'].includes(new URL(profile.configuration.endpoint).hostname); }
-    catch { return true; }
-  });
   const canRun = !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading && images.length > 0 && validation.valid && selectedProfiles.length > 0 && profileIssues.length === 0;
   const canRunFixtures = !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading && selectedProfiles.length > 0 && profileIssues.length === 0;
   const blindGraphIssue = selectedProfiles.length === 0
@@ -203,14 +198,12 @@ export function ScientificDiagramProtocolPanel({
     : selectedProfiles.map(blindGraphProfileIssue).find((issue): issue is string => Boolean(issue)) ?? null;
   const canRunBlindGraph = !busy && !uploading && !fixtureLoading && !sensitivityLoading && !blindGraphLoading &&
     !blindGraphIssue;
-  const blindGraphUsesRemote = selectedProfiles.some((profile) => !isLoopbackPilotEndpoint(profile.configuration.endpoint));
 
   async function runBlindObservation(zoomUncertainArrows = false, override?: RadarTestStep): Promise<boolean> {
     if (!override && !canRunBlindGraph) return false;
     setBlindGraphLoading(true);
     onClearBlindGraphReport();
-    setBlindGraphMessage('Préparation des six schémas…' +
-      (blindGraphUsesRemote ? ' Les images seront envoyées au serveur distant sélectionné.' : ''));
+    setBlindGraphMessage('Préparation des six schémas…');
     try {
       const cases: Array<{ id: DiagramSensitivityCaseId; images: ImageInput[] }> = [];
       for (const id of DIAGRAM_SENSITIVITY_CASE_IDS) {
@@ -516,7 +509,6 @@ export function ScientificDiagramProtocolPanel({
           {(busy || fixtureLoading) && <Button variant="secondary" onClick={stopProtocol} disabled={!busy}>Arrêter après l’appel en cours</Button>}
         </div>
         <details className="diagram-lab-explanation"><summary>Conditions de comparaison</summary><p className="pilot-evaluation-hint">Choisissez 1 à 3 configurations dans la sélection au-dessus. Pour une comparaison équitable, le même barème et les mêmes images sont utilisés à chaque passage, par méthode et par profil. Exécution séquentielle. Un seul passage ne mesure pas la répétabilité.</p></details>
-        {hasRemote && <p className="pilot-evaluation-hint" role="status">Une configuration distante est sélectionnée : les photos seront envoyées uniquement à son serveur configuré.</p>}
         {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={'fixture-' + issue}>{issue}</p>)}
         {(fixtureMessage || (busy && progress)) && <p role="status" className="pilot-evaluation-message">{fixtureMessage || progress}</p>}
       </div>
@@ -731,7 +723,6 @@ export function ScientificDiagramProtocolPanel({
         {(busy || blindGraphLoading) && <Button variant="secondary" disabled={!busy} onClick={stopProtocol}>Arrêter après l’appel en cours</Button>}
         {blindGraphReport && <Button variant="secondary" onClick={downloadBlindGraphReport}>Exporter l’analyse du graphe JSON</Button>}
       </div>
-      {blindGraphUsesRemote && <p className="pilot-evaluation-hint" role="status">Profil distant : images envoyées au serveur configuré.</p>}
        <details className="diagram-lab-explanation"><summary>Protocole détaillé</summary><p className="pilot-evaluation-hint">Pour comparer avec Qwen 3.5 4B : lancez d'abord « Référence actuelle » (sans agrandissement), puis « Nouvel essai A » et « Nouvel essai B » séparément, avec le même profil et une seule répétition. Chaque méthode exporte son propre JSON. A relit jusqu’à deux flèches, même déclarées certaines ; le recadrage est tenté si Vision fournit une zone, sinon l’image entière est relue et ce repli est compté. B effectue un appel distinct d’inventaire des contours. La correction des devoirs n’est pas affectée.</p>
       <p className="pilot-evaluation-hint">Le mode d’agrandissement peut ajouter jusqu’à deux appels au fournisseur sélectionné. Si une zone n’est pas localisable, elle reste indécidable.</p>
       <p className="pilot-evaluation-hint">Les six schémas sont traités séquentiellement. La conclusion peut rester indécidable si les flèches sont mal lues.</p>
@@ -834,7 +825,6 @@ export function ScientificDiagramProtocolPanel({
       <p className="pilot-evaluation-hint">Configurations : {selectedProfiles.length ? selectedProfiles.map((profile) =>
         profile.name + ' (' + selectDiagramMethods(profile, methodSelection).map((method) => diagramMethodLabels[method]).join(' / ') + ')').join(' · ') :
         'Sélectionnez les profils dans « Configurations à exécuter » plus bas.'}</p>
-      {hasRemote && <p className="pilot-evaluation-hint" role="status">Attention : une configuration distante est sélectionnée. Les images seront envoyées à son serveur.</p>}
       {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={issue}>{issue}</p>)}
       <div className="pilot-evaluation-actions">
         <label htmlFor="diagram-protocol-repeat-count">Répétitions</label>

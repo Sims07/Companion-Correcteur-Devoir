@@ -24,7 +24,7 @@ function gateway(raw = response) {
   return { generate, checkReady, createProvider,
     service: { checkReady, createProvider } as unknown as CorrectionWorkspaceService };
 }
-const request = () => ({ rubric, images, question: 'Décrire la mitose', configuration, remoteConsent: false });
+const request = () => ({ rubric, images, question: 'Décrire la mitose', configuration });
 
 describe('direct diagram teacher correction', () => {
   it('routes the original image and rubric through the direct generative path, without OCR', async () => {
@@ -59,13 +59,11 @@ describe('direct diagram teacher correction', () => {
     expect(fake.checkReady).not.toHaveBeenCalled();
   });
 
-  it('refuses remote sending without consent and allows it only when confirmed', async () => {
+  it('envoie la copie directement au serveur distant choisi, sans autorisation intermédiaire', async () => {
     const fake = gateway();
     const remote = { ...configuration, endpoint: 'https://example.org/v1/chat/completions', apiCompatible: true };
-    await expect(correctScientificDiagramDirect(fake.service, { ...request(), configuration: remote }))
-      .rejects.toThrow('Confirmez');
-    expect(fake.generate).not.toHaveBeenCalled();
-    await correctScientificDiagramDirect(fake.service, { ...request(), configuration: remote, remoteConsent: true });
+    await correctScientificDiagramDirect(fake.service, { ...request(), configuration: remote });
+    expect(fake.checkReady).toHaveBeenCalledWith(expect.objectContaining({ endpoint: remote.endpoint }));
     expect(fake.generate).toHaveBeenCalledTimes(1);
   });
 
@@ -77,7 +75,7 @@ describe('direct diagram teacher correction', () => {
     expect(fake.checkReady).not.toHaveBeenCalled();
   });
 
-  it('recognizes loopback only; private-network or remote servers still require explicit consent', () => {
+  it('recognizes loopback endpoints for diagnostics without blocking other servers', () => {
     expect(isLoopbackDiagramEndpoint('http://localhost:11434')).toBe(true);
     expect(isLoopbackDiagramEndpoint('http://127.0.0.1:11434')).toBe(true);
     expect(isLoopbackDiagramEndpoint('http://192.168.1.12:11434')).toBe(false);

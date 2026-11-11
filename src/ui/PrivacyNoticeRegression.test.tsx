@@ -5,6 +5,8 @@ import type { AiModelConfiguration } from '../domain/aiModelProfiles.ts';
 import { ObservabilityDashboard } from './ObservabilityDashboard.tsx';
 import { ScientificDiagramTeacherPanel } from './components/ScientificDiagramTeacherPanel.tsx';
 
+const source = (file: string): string => readFileSync(new URL(file, import.meta.url), 'utf8');
+
 function diagramPanel(endpoint: string): string {
   const configuration = {
     endpoint, analysisModel: 'vision-model', correctionMethod: 'generative',
@@ -21,10 +23,8 @@ function diagramPanel(endpoint: string): string {
   );
 }
 
-const source = (file: string): string => readFileSync(new URL(file, import.meta.url), 'utf8');
-
-describe('aides de confidentialité non répétitives', () => {
-  it('supprime les encarts locaux de la page observabilité sans perdre ses commandes', () => {
+describe('parcours sans bandeaux de consentement ou de confidentialité répétitifs', () => {
+  it('conserve les commandes de l’observabilité sans encart de confidentialité', () => {
     const markup = renderToStaticMarkup(<ObservabilityDashboard records={[]} />);
     expect(markup).toContain('Incidents à examiner');
     expect(markup).toContain('Observabilité');
@@ -33,71 +33,61 @@ describe('aides de confidentialité non répétitives', () => {
     expect(markup).not.toContain('Les traces techniques restent sur cet appareil');
   });
 
-  it('ne répète pas les assurances cloud pour le modèle local', () => {
-    const markup = diagramPanel('http://localhost:11434');
-    expect(markup).not.toContain('diagram-teacher-local');
-    expect(markup).not.toContain('Aucune API cloud');
-    expect(markup).not.toContain('J’autorise l’envoi de ces images');
-  });
+  it.each(['http://localhost:11434', 'https://ai.example/v1/chat/completions'])(
+    'affiche directement les commandes de correction avec le serveur %s',
+    (endpoint) => {
+      const markup = diagramPanel(endpoint);
+      expect(markup).toContain('Corriger directement l’image');
+      expect(markup).toContain('Configuration IA');
+      expect(markup).not.toContain('Serveur non local');
+      expect(markup).not.toContain('J’autorise');
+      expect(markup).not.toContain('diagram-teacher-remote');
+    },
+  );
 
-  it('conserve la confirmation explicite sur un serveur distant', () => {
-    const markup = diagramPanel('https://remote.example.org/v1/chat/completions');
-    expect(markup).toContain('Serveur non local');
-    expect(markup).toContain('J’autorise l’envoi de ces images');
-    expect(markup).toContain('type="checkbox"');
-  });
-
-  it('supprime les slogans du bandeau et des imports, sans toucher au consentement distant', () => {
+  it('ne montre aucune case de consentement dans le parcours Copies', () => {
     const app = source('./App.tsx');
-    expect(app).not.toContain('Mode local prioritaire');
-    expect(app).not.toContain('evaluation-provider-indicator');
-    expect(app).not.toContain('evaluation-page-header');
-    expect(app).not.toContain('Paramètres de l’IA locale');
-    expect(app).not.toContain('Les derniers réglages sont restaurés automatiquement.');
-    expect(app).not.toContain('transmis uniquement au serveur configuré');
+    expect(app).toContain('Correction directe du dessin, sans transcription OCR');
+    expect(app).toContain('Voir le barème graphique');
+    expect(app).not.toContain('diagram-assignment-consent');
+    expect(app).not.toContain('diagramConsentEndpoint');
+    expect(app).not.toContain('J’autorise l’envoi');
+    expect(app).not.toContain('Serveur non local');
+    expect(app).not.toContain('evaluation-remote-endpoint-notice');
     expect(app).toContain('<option value="ollama">Ollama local</option>');
-    expect(app).toContain("selectedEvaluationProfiles.some((profile) => !isLocalPilotProfile(profile))");
-    expect(app).toContain('Une configuration distante est sélectionnée : les contenus de ce test');
-    expect(app).not.toContain('Aucun service cloud n’est utilisé');
-    expect(app).not.toContain('Les pages sont préparées dans le navigateur. Elles sont transmises uniquement');
-    expect(app).not.toContain('Données locales</span>');
-    expect(app).toContain('J’autorise l’envoi des images de ce devoir');
     expect(app).toContain('Vérifiez toujours le résultat avant utilisation.');
   });
 
-  it('retire les slogans locaux des sous-parcours sans masquer les envois distants', () => {
-    const assignments = source('./AssignmentsHome.tsx');
-    const profiles = source('./components/EvaluationProfilesDialog.tsx');
-    const pilot = source('./components/PilotEvaluationPanel.tsx');
-    const rubric = source('./components/RubricImportPanel.tsx');
-    const history = source('./components/ScientificDiagramLabHistory.tsx');
-    const scientific = source('./components/ScientificDiagramProtocolPanel.tsx');
-    const diagram = source('./components/ScientificDiagramTeacherPanel.tsx');
-    const inspector = source('./NetworkInspector.tsx');
-    const together = [assignments, profiles, pilot, rubric, history, scientific, diagram, inspector].join('\n');
-
-    for (const phrase of [
-      'Les copies restent sur votre Ollama local.',
-      'fichiers transmis uniquement aux serveurs locaux',
-      'enregistrés localement sur cet appareil',
-      'sélection est enregistrée sur cet appareil',
-      'Fichier JSON versionné · traitement local',
-      'conservées localement',
-      'Préparation locale des pages',
-      'Préparation des images sur cet appareil',
-    ]) expect(together).not.toContain(phrase);
-
-    expect(assignments).toContain('Retour au devoir actif');
-    expect(pilot).toContain('Une configuration distante recevra les photos et les transcriptions');
-    expect(scientific).toContain('Les images seront envoyées à son serveur.');
-    expect(diagram).toContain('J’autorise l’envoi de ces images');
-  });
-
-  it('conserve les avertissements distants dans les campagnes de tests', () => {
-    const protocol = source('./components/ScientificDiagramProtocolPanel.tsx');
-    expect(protocol).toContain('Les images seront envoyées à son serveur.');
-    expect(protocol).not.toContain('Aucun basculement implicite vers le cloud');
-    expect(source('./components/ScientificDiagramRadar.tsx')).not.toContain('Toute modification est enregistrée localement');
-    expect(source('./components/PilotEvaluationPanel.tsx')).not.toContain('Aucun accès au cloud');
+  it('ne réintroduit pas de messages serveur distant dans les outils et les campagnes de test', () => {
+    const files = [
+      './AssignmentsHome.tsx',
+      './components/EvaluationProfilesDialog.tsx',
+      './components/PilotEvaluationPanel.tsx',
+      './components/RubricImportPanel.tsx',
+      './components/ScientificDiagramLabHistory.tsx',
+      './components/ScientificDiagramProtocolPanel.tsx',
+      './components/ScientificDiagramTeacherPanel.tsx',
+      './NetworkInspector.tsx',
+    ];
+    for (const file of files) {
+      const content = source(file);
+      for (const phrase of [
+        'Serveur non local',
+        'J’autorise l’envoi',
+        'Une configuration distante recevra',
+        'Les images seront envoyées à son serveur',
+        'Profil distant : images envoyées',
+        'Les copies restent sur votre Ollama local.',
+        'fichiers transmis uniquement aux serveurs locaux',
+        'enregistrés localement sur cet appareil',
+        'sélection est enregistrée sur cet appareil',
+        'Fichier JSON versionné · traitement local',
+        'conservées localement',
+        'Préparation locale des pages',
+        'Préparation des images sur cet appareil',
+      ]) expect(content, `${file} : ${phrase}`).not.toContain(phrase);
+    }
+    expect(source('./components/PilotEvaluationPanel.tsx')).toContain('Lancer les 3 lectures (Vision seule)');
+    expect(source('./components/ScientificDiagramProtocolPanel.tsx')).toContain('Tester les 3 schémas en un clic');
   });
 });

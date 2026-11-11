@@ -42,8 +42,6 @@ export interface BackgroundCorrectionJob {
   correctionMode: 'integrated' | 'separate';
   /** Assignment-specific direct image correction; absent for older and textual jobs. */
   gradingFlow?: 'scientific-diagram-direct';
-  /** Explicit teacher opt-in for this exact remote endpoint (never exported). */
-  diagramConsentedEndpoint?: string;
   images: ImageInput[];
   originalImages: ImageInput[];
   /** UI-only projection: image bytes must be fetched before preview or grading. */
