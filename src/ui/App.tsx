@@ -3823,6 +3823,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           autoRequest={radarAutoRequest}
           onAutoRequestConsumed={(id) => setRadarAutoRequest((current) => current?.id === id ? null : current)}
           onAutoBusyChange={setRadarAutoBusy}
+          onAutoEvaluationFinished={async (request) => {
+            if (!request.modelId) {
+              return 'Batteries terminées pour ' + request.profileName + '. Consultez le radar pour vérifier les axes mesurés.';
+            }
+            // Each runner has already awaited its final archive write here.
+            const outcome = radarEvaluationOutcome(await diagramArchive.list(), request.modelId);
+            if (outcome.complete) return 'Batteries terminées pour ' + request.profileName +
+              ' · radar complet : 8/8 caractéristiques mesurées.';
+            return 'Batteries exécutées pour ' + request.profileName + ' · radar encore incomplet : ' +
+              outcome.measured + '/8 caractéristiques mesurées. Restent à mesurer : ' +
+              outcome.missing.map((axis) => axis.label + ' (' + axis.reason + ')').join(' ; ') +
+              '. Consultez les campagnes enregistrées avant de relancer.';
+          }}
           onOpenRadar={() => setDiagramLabView('radar')}
         />
         </div>
