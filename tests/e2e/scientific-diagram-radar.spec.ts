@@ -87,7 +87,12 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   const radar = journal.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await expect(radar.getByRole('img', { name: /Comparaison radar/ })).toBeVisible();
   await expect(radar.getByRole('region', { name: 'Classement des candidats' }).getByText('2 candidat(s) classable(s)')).toBeVisible();
-  await expect(radar.getByText('Vision témoin').first()).toBeVisible();
+  await expect(radar.getByLabel('Choisir un LLM')).toHaveValue('vision-good:4b');
+  await expect(radar.getByRole('region', { name: 'Bilan du LLM sélectionné' })).toContainText('Note globale');
+  await expect(radar.getByRole('region', { name: 'Bilan du LLM sélectionné' })).toContainText('8/8 caractéristiques mesurées');
+  await radar.getByLabel('Choisir un LLM').selectOption('vision-fast:4b');
+  await expect(radar.getByRole('region', { name: 'Bilan du LLM sélectionné' })).toContainText('vision-fast:4b');
+  await radar.getByLabel('Choisir un LLM').selectOption('vision-good:4b');
   await radar.getByLabel('Priorité du classement').selectOption('balanced');
   await radar.getByText('Pondérations et méthode de calcul').click();
   await expect(radar.getByRole('slider', { name: 'Poids : Sens des flèches' })).toHaveValue('1');
