@@ -2191,6 +2191,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     evaluationCancelledRef.current = false;
     pilotMemoryErrorRef.current = null;
     setPilotContractRuns([]);
+    let resolvedContractCases = 0;
     setPilotBusy(true);
     setEvaluationStageMode('analysis');
     setEvaluationVisualDirect(false);
@@ -2205,15 +2206,24 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           const record = await startModelEvaluation({
             pilotCase: testCase, stage: 'analysis', profiles, caseImages: [], contractVariant: variant,
           });
-          if (record) setPilotContractRuns((current) => [...current, { caseId: testCase.id, variant, record }]);
+          if (record) {
+            setPilotContractRuns((current) => [...current, { caseId: testCase.id, variant, record }]);
+            if (variant === 'contract') resolvedContractCases += record.results.filter((result) =>
+              result.status === 'success' && result.score !== null &&
+              summarizePilotResult(testCase, result).unresolved === 0).length;
+          }
           if (pilotStopRef.current || evaluationCancelledRef.current) break;
         }
         if (pilotStopRef.current || evaluationCancelledRef.current) break;
       }
+      const complete = !pilotStopRef.current && !evaluationCancelledRef.current &&
+        resolvedContractCases === QUESTION_CONTRACT_CASES.length * profiles.length;
       setPilotMessage(pilotMemoryErrorRef.current ??
         (pilotStopRef.current || evaluationCancelledRef.current
           ? 'Comparaison interrompue : les résultats terminés restent exportables.'
-          : 'Comparaison standard / variante B terminée. Copiez le rapport JSON pour analyser les écarts.'));
+          : complete ? 'Comparaison standard / variante B terminée. Copiez le rapport JSON pour analyser les écarts.'
+            : 'Comparaison partielle : des notes ou sous-critères restent indéterminés.'));
+      return complete;
     } catch (cause) {
       setPilotMessage('Erreur de comparaison : ' + (cause instanceof Error ? cause.message : String(cause)) +
         '. Les essais terminés restent exportables.');
@@ -2235,6 +2245,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     evaluationCancelledRef.current = false;
     pilotMemoryErrorRef.current = null;
     setPilotRepeatabilityRuns([]);
+    let resolvedCases = 0;
     setPilotRepeatabilityPlanned(repetitions);
     setPilotRepeatabilitySuite(suite);
     setPilotRepeatabilityProgress({ completed: 0, total: steps.length });
@@ -2254,14 +2265,21 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         });
         if (record) {
           setPilotRepeatabilityRuns((current) => [...current, { repetition: step.repetition, caseId: step.caseId, record }]);
+          resolvedCases += record.results.filter((result) =>
+            result.status === 'success' && result.score !== null &&
+            summarizePilotResult(testCase, result).unresolved === 0).length;
           setPilotRepeatabilityProgress({ completed: index + 1, total: steps.length });
         }
         if (pilotStopRef.current || evaluationCancelledRef.current) break;
       }
+      const complete = !pilotStopRef.current && !evaluationCancelledRef.current &&
+        resolvedCases === steps.length * profiles.length;
       setPilotMessage(pilotMemoryErrorRef.current ??
         (pilotStopRef.current || evaluationCancelledRef.current
           ? 'Répétabilité interrompue : les passages terminés restent exportables, sans être présentés comme répétables.'
-          : 'Répétabilité terminée. Comparez les décisions et exportez le rapport JSON pour ChatGPT.'));
+          : complete ? 'Répétabilité terminée. Comparez les décisions et exportez le rapport JSON pour ChatGPT.'
+            : 'Répétabilité partielle : des notes ou sous-critères restent indéterminés.'));
+      return complete;
     } catch (cause) {
       setPilotMessage('Erreur de répétabilité : ' + (cause instanceof Error ? cause.message : String(cause)) +
         '. Les passages terminés restent exportables.');
@@ -2670,9 +2688,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       title: 'Biologie · évaluation complète du modèle',
       journey: 'biology', scenario: 'contracts', targetId: 'evaluation-biology-radar', profiles: profile.name,
     }, async () => {
-      await runPilotQuestionContractBenchmark([profile]);
-      if (pilotStopRef.current || evaluationCancelledRef.current) return;
-      await runPilotRepeatabilityBenchmark(3, 'stress', [profile]);
+      const baselineComplete = await runPilotQuestionContractBenchmark([profile]);
+      if (!baselineComplete || pilotStopRef.current || evaluationCancelledRef.current) return 0;
+      const trapsComplete = await runPilotRepeatabilityBenchmark(3, 'stress', [profile]);
+      return trapsComplete ? 1 : 0;
     });
   }
 
