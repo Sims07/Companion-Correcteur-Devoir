@@ -41,3 +41,34 @@
 .diagram-radar-axis-buttons button small { display:block; font-size:.69rem; font-weight:500; margin-top:3px; color:var(--ds-color-text-muted); }
 .diagram-radar-next-test { display:grid; justify-items:start; gap:var(--ds-space-2); padding:var(--ds-space-3) 0; border-top:1px solid var(--ds-color-border); }
 .diagram-radar-next-test p { margin:0; color:var(--ds-color-text-muted); font-size:.84rem; line-height:1.5; }
+
+
+/* LLM-first radar: a quiet selector, a single main grade and actionable gaps. */
+.diagram-radar-model-overview { display:grid; gap:var(--ds-space-3); border:1px solid var(--ds-color-border); border-radius:var(--ds-radius-md); background:var(--ds-color-surface); padding:var(--ds-space-4); }
+.diagram-radar-model-pickers { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--ds-space-4); }
+.diagram-radar-model-pickers label { display:grid; gap:var(--ds-space-2); font-size:.83rem; font-weight:650; min-width:0; }
+.diagram-radar-model-pickers select { min-width:0; width:100%; }
+.diagram-radar-model-scorecard { display:flex; flex-wrap:wrap; gap:var(--ds-space-5); align-items:center; padding:var(--ds-space-3) 0; border-block:1px solid var(--ds-color-border); }
+.diagram-radar-score-number { flex:1 1 240px; display:grid; gap:var(--ds-space-1); min-width:0; }
+.diagram-radar-score-number > span, .diagram-radar-score-compare > span { color:var(--ds-color-text-muted); font-size:.79rem; }
+.diagram-radar-score-number > strong { font-size:clamp(1.65rem,3vw,2.25rem); font-variant-numeric:tabular-nums; letter-spacing:-.03em; color:var(--ds-color-text); line-height:1.2; }
+.diagram-radar-model-scorecard small { display:block; font-size:.73rem; color:var(--ds-color-text-muted); line-height:1.45; }
+.diagram-radar-score-coverage, .diagram-radar-score-compare { display:grid; flex:1 1 165px; gap:var(--ds-space-1); }
+.diagram-radar-score-coverage > strong, .diagram-radar-score-compare > strong { font-size:1.12rem; font-variant-numeric:tabular-nums; }
+.diagram-radar-score-coverage > span { color:var(--ds-color-text-muted); font-size:.78rem; }
+.diagram-radar-remaining { display:grid; gap:var(--ds-space-3); }
+.diagram-radar-remaining h4 { margin:0; font-size:.92rem; }
+.diagram-radar-remaining p { margin:var(--ds-space-1) 0 0; color:var(--ds-color-text-muted); font-size:.78rem; }
+.diagram-radar-remaining-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--ds-space-2); }
+.diagram-radar-remaining-item { display:flex; align-items:center; gap:var(--ds-space-2); min-width:0; background:var(--ds-color-surface-subtle); padding:var(--ds-space-2); border:1px solid var(--ds-color-border); border-radius:var(--ds-radius-sm); }
+.diagram-radar-remaining-item > button:first-child { padding:var(--ds-space-1); margin:0; flex:1; min-width:0; border:0; background:transparent; color:var(--ds-color-text); text-align:left; font-size:.8rem; cursor:pointer; }
+.diagram-radar-remaining-item > button:last-child { flex:0 0 auto; }
+.diagram-radar-remaining-item > small { flex:0 1 145px; color:var(--ds-color-text-muted); font-size:.68rem; }
+.diagram-radar-legend-selected { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.diagram-radar-ranking .is-selected-llm { background:var(--ds-color-surface-subtle); }
+.diagram-radar-ranking td > button { white-space:nowrap; }
+@media(max-width:710px) {
+  .diagram-radar-model-pickers, .diagram-radar-remaining-list { grid-template-columns:minmax(0,1fr); }
+  .diagram-radar-model-overview { padding:var(--ds-space-3); }
+  .diagram-radar-model-scorecard { gap:var(--ds-space-3); }
+}
