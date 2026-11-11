@@ -78,7 +78,8 @@ describe('biology radar scored against teacher-keyed references', () => {
       decisions: observation('C').decisions.map((d, index) => index === 0 ? { ...d, awarded: null } : d) });
     const partial = buildBiologyRadar(unresolved, 'contract')[0]!;
     expect(partial.axes.grade).toBeNull();
-    expect(partial.axes.rubric).toBeLessThan(100);
+    expect(partial.axes.rubric).toBeNull();
+    expect(partial.axes.positives).toBeNull();
     expect(partial.score).toBeNull();
   });
 
