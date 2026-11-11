@@ -31,7 +31,7 @@ test('the guided biology protocol reuses the evaluator selection without creatin
   await expect(panel.getByText('A — correcte', { exact: true })).toBeVisible();
   await expect(panel.getByText('B — inversions', { exact: true })).toBeVisible();
   await expect(panel.getByText('C — partielle', { exact: true })).toBeVisible();
-  await expect(panel.getByText('0 profil(s) sélectionné(s)', { exact: false })).toBeVisible();
+  await expect(panel.locator('.pilot-evaluation-guide')).toContainText('Configurations sélectionnées : 0');
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeDisabled();
   await expect(panel.getByRole('button', { name: 'Comparer 1, 2 et 4 appels parallèles' })).toBeDisabled();
   await expect(panel.getByRole('combobox', { name: 'Réponse de référence' })).toHaveValue('C');
@@ -40,7 +40,7 @@ test('the guided biology protocol reuses the evaluator selection without creatin
 
   await setEvaluationModelChecked(page, 'Ma configuration locale', true);
   await expect(panel.getByText('Ma configuration locale', { exact: false })).toBeVisible();
-  await expect(panel.getByText('1 profil(s) sélectionné(s)', { exact: false })).toBeVisible();
+  await expect(panel.locator('.pilot-evaluation-guide')).toContainText('Configurations sélectionnées : 1');
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
   await expect(panel.getByRole('button', { name: 'Comparer 1, 2 et 4 appels parallèles' })).toBeEnabled();
   await panel.getByRole('combobox', { name: 'Réponse de référence' }).selectOption('B');

@@ -14,7 +14,7 @@ test('Correction, Évaluer and Suivi & diagnostic use the same full-width page f
   await expect(evalShell).toHaveCSS('max-width', 'none');
   const evalBox = await evalShell.boundingBox();
   const evalHeader = await evalShell.locator(':scope > .topbar').boundingBox();
-  const evalContent = await page.locator('.evaluation-page-header').boundingBox();
+  const evalContent = await page.locator('.evaluation-step-nav').boundingBox();
   expect(evalBox?.width).toBeGreaterThanOrEqual(1679);
   expect(evalHeader?.width).toBeGreaterThanOrEqual(1679);
   expect(evalContent?.width).toBeGreaterThan(1590);
@@ -43,7 +43,7 @@ test('Évaluer and Suivi keep an accessible gutter without horizontal scrolling 
   const evaluation = page.locator('main.evaluation-workspace-shell');
   await expect(evaluation).toHaveCSS('max-width', 'none');
   const evalHeader = await evaluation.locator(':scope > .topbar').boundingBox();
-  const content = await page.locator('.evaluation-page-header').boundingBox();
+  const content = await page.locator('.evaluation-step-nav').boundingBox();
   expect(evalHeader?.width).toBeGreaterThanOrEqual(389);
   expect(content?.x).toBeGreaterThanOrEqual(15);
   expect(content?.width).toBeLessThan(390);
