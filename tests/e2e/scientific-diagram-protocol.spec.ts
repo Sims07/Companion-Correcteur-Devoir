@@ -24,7 +24,7 @@ test('Qwen direct diagram repairs missing evidence and exports all 19 decisions 
       payloads.push(body);
       const criteria = Object.fromEntries(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.map(c => [c.id, {
         evidence: 'Observation visible', confidence: 'medium', questionForTeacher: '',
-        subcriteria: Object.fromEntries(c.subcriteria!.map(s => [s.id, { creditFraction: 0, evidence: 'Élément absent' }])),
+        subcriteria: Object.fromEntries(c.subcriteria!.map(s => [s.id, { points: 0, evidence: 'Élément absent' }])),
       }]));
       // A valid JSON with a missing proof must be repaired, never scored silently.
       if (payloads.length === 1) criteria.drawing.subcriteria['drawing-page'].evidence = '';
