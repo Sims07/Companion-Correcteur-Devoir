@@ -4,8 +4,7 @@ import { buildBlindVisualObservationReport } from '../../src/domain/scientificDi
 test('an existing exported scientific diagram report is readable tomorrow without rerunning models', async ({ page }) => {
   const report = buildBlindVisualObservationReport([], 1, '2026-11-09T09:00:00.000Z', 'isolated-arrows-outside');
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
@@ -25,8 +24,7 @@ test('an existing exported scientific diagram report is readable tomorrow withou
   await expect(journal.getByRole('heading', { name: 'Examiner les six dessins' })).toBeVisible();
 
   await page.reload();
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })

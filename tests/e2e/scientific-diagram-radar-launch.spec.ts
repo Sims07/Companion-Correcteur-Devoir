@@ -33,8 +33,7 @@ test('a missing radar axis leads directly to its automatic fixture battery on th
     db.close();
   }, { entry, profile });
   await page.reload();
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   const nav = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   await nav.getByRole('button', { name: 'Radar des candidats' }).click();
   const radar = page.getByRole('region', { name: 'Radar des candidats scientifiques' });

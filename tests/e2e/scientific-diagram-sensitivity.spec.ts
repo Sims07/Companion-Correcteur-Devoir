@@ -63,8 +63,7 @@ test('semantic sensitivity suite sends the same independent rubric with six pixe
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
 

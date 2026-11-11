@@ -52,8 +52,7 @@ test('arrow and contour recheck arms issue distinct calls and export the indepen
     return route.fulfill({ status: 404, headers, body: '{}' });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });

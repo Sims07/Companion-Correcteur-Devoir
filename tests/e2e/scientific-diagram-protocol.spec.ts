@@ -34,8 +34,7 @@ test('Qwen direct diagram repairs missing evidence and exports all 19 decisions 
     return route.fulfill({ headers, json: { done: true, message: { content: '{}' } } });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   await page.getByRole('group', { name: 'Configurations à exécuter' }).locator('label.evaluation-profile-option').first().click();
@@ -67,8 +66,7 @@ test('a scientific diagram protocol accepts a photo, rubric, teacher decisions a
     localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify(profiles));
   }, [{ id: 'd1-vision', name: 'D1 image directe', mode: 'single', updatedAt: '2026-11-07T00:00:00Z', configuration }]);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
 
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
@@ -127,8 +125,7 @@ test('the scientific-diagram lab exposes an explicit multimodal comparison indep
     localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify(profiles));
   }, [{ id: 'qwen-image', name: 'Qwen 9B multimodal', mode: 'single', updatedAt: '2026-11-08T00:00:00Z', configuration }]);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
 
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
