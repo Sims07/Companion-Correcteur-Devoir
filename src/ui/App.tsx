@@ -2181,7 +2181,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  async function runPilotQuestionContractBenchmark(profilesOverride?: readonly AiModelProfile[]) {
+  async function runPilotQuestionContractBenchmark(profilesOverride?: AiModelProfile[]) {
     if (pilotBusy || busy || pilotUploadingCase) return;
     const profiles = profilesOverride ?? selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     const issue = pilotSelectionIssue(profiles, 'analysis');
@@ -2223,7 +2223,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  async function runPilotRepeatabilityBenchmark(repetitions: RepeatabilityCount, suite: RepeatabilitySuite = 'baseline', profilesOverride?: readonly AiModelProfile[]) {
+  async function runPilotRepeatabilityBenchmark(repetitions: RepeatabilityCount, suite: RepeatabilitySuite = 'baseline', profilesOverride?: AiModelProfile[]) {
     if (pilotBusy || busy || pilotUploadingCase || (repetitions !== 3 && repetitions !== 5)) return;
     const profiles = profilesOverride ?? selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     const issue = pilotSelectionIssue(profiles, 'analysis');
