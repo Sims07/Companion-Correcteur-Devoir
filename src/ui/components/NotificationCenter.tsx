@@ -38,8 +38,11 @@ export function NotificationCenter({ onNavigate }: { onNavigate: (item: AppNotif
   }, [open]);
 
   return <div className="notification-center" ref={rootRef}>
-    <button type="button" className="notification-trigger" aria-label={unread ? `Notifications, ${unread} non lues` : 'Notifications'} aria-expanded={open} aria-controls="app-notifications-panel" onClick={() => setOpen((value) => !value)}>
-      <span aria-hidden="true">🔔</span><span>Notifications</span>
+    <button type="button" className="notification-trigger" title="Notifications" aria-label={unread ? `Notifications, ${unread} non lues` : 'Notifications'} aria-expanded={open} aria-controls="app-notifications-panel" onClick={() => setOpen((value) => !value)}>
+      <svg className="notification-bell" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+        <path d="M10 21h4" />
+      </svg>
       {unread > 0 && <span className="notification-count" aria-hidden="true">{unread > 99 ? '99+' : unread}</span>}
     </button>
     {open && <section id="app-notifications-panel" className="notification-popover" aria-label="Historique des notifications">
