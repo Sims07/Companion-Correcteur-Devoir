@@ -1,0 +1,16 @@
+.notification-center { position: relative; flex: none; }
+.notification-trigger { display: inline-flex; align-items: center; gap: .45rem; border: 1px solid var(--border-color, #d6d7d4); border-radius: 999px; padding: .48rem .7rem; background: var(--surface, #fff); color: inherit; cursor: pointer; font: inherit; font-size: .83rem; }
+.notification-trigger:hover, .notification-trigger:focus-visible { outline-offset: 2px; border-color: currentColor; }
+.notification-count { min-width: 1.25rem; padding: .1rem .3rem; border-radius: 999px; background: #a0573d; color: white; font-weight: 700; text-align: center; }
+.notification-popover { position: absolute; z-index: 110; top: calc(100% + .6rem); right: 0; width: min(390px, calc(100vw - 2rem)); max-height: min(560px, 75vh); display: flex; flex-direction: column; background: var(--surface, #fff); color: var(--text-primary, inherit); border: 1px solid var(--border-color, #d6d7d4); border-radius: 14px; box-shadow: 0 16px 46px #0002; overflow: hidden; }
+.notification-heading { display: flex; justify-content: space-between; align-items: center; gap: .5rem; padding: .9rem 1rem; border-bottom: 1px solid var(--border-color, #ddd); }
+.notification-heading button { border: 0; background: transparent; color: inherit; text-decoration: underline; cursor: pointer; font-size: .78rem; }
+.notification-list { list-style: none; margin: 0; padding: .3rem; overflow-y: auto; }
+.notification-list li { margin: 0; }
+.notification-entry { display: flex; width: 100%; gap: .35rem; flex-direction: column; align-items: stretch; padding: .7rem; background: transparent; color: inherit; border: none; border-radius: 8px; cursor: pointer; text-align: left; font: inherit; font-size: .83rem; }
+.notification-entry:hover, .notification-entry:focus-visible { background: var(--surface-muted, #f3f1ee); }
+.notification-entry.is-unread { background: color-mix(in srgb, #a0573d 7%, transparent); }
+.notification-entry-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.notification-entry time { font-size: .73rem; opacity: .65; }
+.notification-dot { width: .45rem; height: .45rem; flex: none; background: #a0573d; border-radius: 50%; }
+.notification-empty { padding: 1rem; font-size: .85rem; }
