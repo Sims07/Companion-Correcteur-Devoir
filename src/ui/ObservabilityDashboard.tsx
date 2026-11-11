@@ -99,7 +99,6 @@ function TraceDetails({ trace, expanded }: { trace: ObservabilityTrace; expanded
           </details>}
         </li>;
       })}</ol> : <p className="observability-empty-inline">Les anciennes traces ne contiennent pas encore le détail des appels par modèle. Les durées des deux étapes restent disponibles.</p>}
-      <p className="observability-privacy-note"><span aria-hidden="true">⌂</span> Les requêtes et réponses LLM sont accessibles à la demande ; les clés API et les octets des images ne sont jamais exposés.</p>
     </div>
   </details>;
 }
