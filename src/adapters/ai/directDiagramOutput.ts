@@ -53,6 +53,90 @@ function points(value: unknown, maximum: number, path: string): number {
   return value;
 }
 
+
+/** When exactly one value is outside its barème, offer the model a narrowly
+ * scoped second pass instead of requesting 19 fresh grades. This never
+ * interprets the model's original 1 as a valid 0.33 without confirmation. */
+export interface DirectDiagramPointRepair {
+  criterionId: string;
+  criterionTitle: string;
+  subcriterionId?: string;
+  subcriterionTitle: string;
+  maximum: number;
+  originalValue: unknown;
+  originalEvidence: string;
+}
+
+export function findSingleInvalidDiagramPoint(
+  raw: string, criteria: RubricCriterion[],
+): DirectDiagramPointRepair | null {
+  let parsed: unknown;
+  try { parsed = parseModelJson(raw); } catch { return null; }
+  if (!record(parsed) || !record(parsed.criteria)) return null;
+  const invalid: DirectDiagramPointRepair[] = [];
+  for (const criterion of criteria) {
+    const item = parsed.criteria[criterion.id];
+    if (!record(item)) return null;
+    const subcriteria = getRubricSubcriteria(criterion);
+    if (subcriteria.length && !record(item.subcriteria)) return null;
+    for (const sub of subcriteria.length ? subcriteria : [undefined]) {
+      const value = sub ? (item.subcriteria as Record<string, unknown>)[sub.id] : item;
+      if (!record(value)) return null;
+      const maximum = sub?.maxPoints ?? criterion.maxPoints;
+      const grade = value.points;
+      if (typeof grade !== 'number' || !Number.isFinite(grade)
+        || grade < Math.min(0, maximum) || grade > Math.max(0, maximum)) {
+        invalid.push({
+          criterionId: criterion.id,
+          criterionTitle: criterion.title,
+          ...(sub ? { subcriterionId: sub.id } : {}),
+          subcriterionTitle: sub?.title ?? criterion.title,
+          maximum,
+          originalValue: grade,
+          originalEvidence: typeof value.evidence === 'string' ? value.evidence : '',
+        });
+      }
+    }
+  }
+  return invalid.length === 1 ? invalid[0]! : null;
+}
+
+export function directDiagramPointRepairSchema(maximum: number) {
+  return object({
+    points: { type: 'number', minimum: Math.min(0, maximum), maximum: Math.max(0, maximum) },
+    evidence: { type: 'string' },
+  });
+}
+
+/** Only the flagged score and its evidence may change. Revalidate the whole
+ * rubric afterwards; any other invalid or incomplete field remains an error. */
+export function applyDirectDiagramPointRepair(
+  originalRaw: string, repairRaw: string, issue: DirectDiagramPointRepair,
+  criteria: RubricCriterion[],
+): string {
+  let corrected: unknown;
+  let initial: unknown;
+  try {
+    corrected = parseModelJson(repairRaw);
+    initial = parseModelJson(originalRaw);
+  } catch { fail('invalid-json'); }
+  exactKeys(corrected, ['points', 'evidence']);
+  const newPoints = points(corrected.points, issue.maximum,
+    issue.subcriterionId ? `${issue.criterionId}.subcriteria.${issue.subcriterionId}.points`
+      : `${issue.criterionId}.points`);
+  const newEvidence = evidence(corrected.evidence);
+  if (!record(initial) || !record(initial.criteria)) fail('invalid-shape');
+  const criterion = initial.criteria[issue.criterionId];
+  if (!record(criterion)) fail('invalid-shape');
+  const leaf = issue.subcriterionId
+    ? record(criterion.subcriteria) ? criterion.subcriteria[issue.subcriterionId] : null
+    : criterion;
+  if (!record(leaf)) fail('invalid-shape');
+  leaf.points = newPoints;
+  leaf.evidence = newEvidence;
+  return parseDirectDiagramOutput(JSON.stringify(initial), criteria);
+}
+
 export function parseDirectDiagramOutput(raw: string, criteria: RubricCriterion[]): string {
   let parsed: unknown;
   try { parsed = parseModelJson(raw); } catch { fail('invalid-json'); }
