@@ -92,7 +92,6 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('exposes an independent local observability workspace with privacy-safe trace exploration', () => {
     const text = app();
-    const navigation = source('../src/ui/DeveloperToolsNavigation.tsx');
     expect(text).toContain('>Suivi & diagnostic</button>');
     expect(text).toContain("interfaceMode === 'observability' || interfaceMode === 'debug' ? 'page' : undefined");
     expect(text).toContain('<ObservabilityDashboard records={observabilityRecords} storageDiagnosticsService={storageDiagnosticsService} onManageEvaluations=');
