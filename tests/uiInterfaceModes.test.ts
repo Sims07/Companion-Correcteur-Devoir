@@ -352,7 +352,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('evaluationService.listDiagnosticHistory()');
     expect(text).toContain('window.localStorage.removeItem(timingHistoryKey)');
     expect(text).toContain('Tableau de bord des expériences');
-    expect(text).toContain('LABORATOIRE LOCAL · OLLAMA');
+    expect(text).toContain('LABORATOIRE IA');
     expect(text).toContain('Tableau de bord des expériences');
     expect(text).toContain('Modèles (lecture / analyse)');
     expect(text).toContain('Réutilisée / non mesurée');
