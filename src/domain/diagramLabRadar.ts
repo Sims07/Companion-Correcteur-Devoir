@@ -84,6 +84,7 @@ interface CandidateDraft {
   models: Set<string>;
   updatedAt: string;
   batteries: Map<DiagramLabProtocol, Battery>;
+  stabilityBatteries: Map<DiagramLabProtocol, Battery>;
 }
 interface Fraction {
   n: number;
@@ -261,7 +262,7 @@ function stabilityFraction(battery: Battery): Fraction | null {
   return examined ? { n: stable, d: examined, label: 'Relations répétées à l’identique et déterminées' } : null;
 }
 
-function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>): Record<RadarAxisId, RadarAxisScore> {
+function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>, stabilityBatteries: Map<DiagramLabProtocol, Battery>): Record<RadarAxisId, RadarAxisScore> {
   const reference = batteries.get('reference') ?? null;
   const arrows = batteries.get('arrows') ?? null;
   const semantic = batteries.get('semantic') ?? null;
@@ -293,7 +294,10 @@ function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>): Record<
           evidence(graph, gr.controls.label, gr.controls.n, gr.controls.d),
         ],
       } : empty('Deux batteries complètes (biologie et graphe) sont nécessaires.');
-  const repeats = valid.flatMap((battery) => {
+  // A later one-pass reference must not erase an earlier valid 3-pass stability
+  // experiment. Accuracy uses the newest complete series; stability uses the
+  // newest complete repeated series, independently for each protocol.
+  const repeats = [...stabilityBatteries.values()].flatMap((battery) => {
     const result = stabilityFraction(battery);
     return result ? [{ battery, result }] : [];
   });
@@ -374,15 +378,19 @@ export function buildDiagramLabRadar(
         candidate = { id: key, profileId: first.profileId,
           name: grouping === 'model' ? key : first.profileName,
           updatedAt: entry.createdAt, methods: new Set<string>(), models: new Set<string>(),
-          batteries: new Map<DiagramLabProtocol, Battery>() };
+          batteries: new Map<DiagramLabProtocol, Battery>(),
+          stabilityBatteries: new Map<DiagramLabProtocol, Battery>() };
         candidates.set(key, candidate);
       }
       for (const row of participantRows) {
         candidate.methods.add(row.method + (row.variant === 'standard' ? '' : ' · ' + row.variant));
         if (row.model) candidate.models.add(row.model);
       }
-      if (full.length && !candidate.batteries.has(entry.protocol)) {
-        candidate.batteries.set(entry.protocol, { entry, readings: full });
+      if (full.length) {
+        if (!candidate.batteries.has(entry.protocol)) candidate.batteries.set(entry.protocol, { entry, readings: full });
+        if (entry.plannedRepetitions >= 3 && !candidate.stabilityBatteries.has(entry.protocol)) {
+          candidate.stabilityBatteries.set(entry.protocol, { entry, readings: full });
+        }
       }
     }
   }
@@ -397,12 +405,13 @@ export function buildDiagramLabRadar(
           id, name: id, profileId: profile.id, updatedAt: profile.name,
           methods: new Set<string>(), models: new Set([id]),
           batteries: new Map<DiagramLabProtocol, Battery>(),
+          stabilityBatteries: new Map<DiagramLabProtocol, Battery>(),
         });
       }
     }
   }
   return [...candidates.values()].map((candidate) => {
-    const axes = makeCandidateAxes(candidate.batteries);
+    const axes = makeCandidateAxes(candidate.batteries, candidate.stabilityBatteries);
     const measured = RADAR_AXES.filter((axis) => axes[axis.id].value !== null).length;
     return {
       id: candidate.id, profileId: candidate.profileId,
