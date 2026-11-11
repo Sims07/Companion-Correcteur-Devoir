@@ -1,0 +1,25 @@
+/* Model management stays inside a focused dialog, never stacked above test protocols. */
+.evaluation-profiles-dialog { display: grid; gap: var(--ds-space-3); min-width: 0; }
+.evaluation-profiles-dialog-intro { margin: 0; color: var(--ds-color-text-muted); font-size: .86rem; line-height: 1.5; }
+.evaluation-profiles-dialog-toolbar { display: flex; align-items: end; gap: var(--ds-space-2); flex-wrap: wrap; }
+.evaluation-profiles-dialog-toolbar > button { min-height: 38px; }
+.evaluation-profiles-search { display: grid; gap: 4px; flex: 1 1 220px; min-width: 0; font-size: .77rem; color: var(--ds-color-text-muted); }
+.evaluation-profiles-search input { width: 100%; min-width: 0; min-height: 38px; padding: 8px 11px; border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-sm); background: var(--ds-color-surface); color: var(--ds-color-text); }
+.evaluation-profiles-dialog-list { display: grid; gap: 0; min-width: 0; max-height: min(54vh, 480px); overflow-y: auto; padding: var(--ds-space-2); margin: 0; border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); }
+.evaluation-profiles-dialog-list legend { padding: 0 var(--ds-space-2); color: var(--ds-color-text); font-weight: 700; font-size: .83rem; }
+.evaluation-profiles-dialog-list legend span { margin-left: var(--ds-space-2); font-weight: 500; color: var(--ds-color-text-muted); }
+.evaluation-profiles-dialog-item { display: flex; align-items: center; justify-content: space-between; gap: var(--ds-space-2); padding: var(--ds-space-2); border-bottom: 1px solid var(--ds-color-border); }
+.evaluation-profiles-dialog-item:last-child { border-bottom: 0; }
+.evaluation-profiles-dialog-item.is-selected { background: var(--ds-color-surface-subtle); }
+.evaluation-profiles-dialog-choice { display: flex; align-items: center; gap: var(--ds-space-3); min-width: 0; flex: 1 1 auto; cursor: pointer; }
+.evaluation-profiles-dialog-choice > input { width: 17px; height: 17px; flex: 0 0 17px; accent-color: var(--ds-color-brand-700); }
+.evaluation-profiles-dialog-choice > span { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+.evaluation-profiles-dialog-choice strong { font-size: .84rem; }
+.evaluation-profiles-dialog-choice small { color: var(--ds-color-text-muted); font-size: .73rem; }
+.evaluation-profiles-dialog-item > button { flex: 0 0 auto; min-height: 34px; padding: 6px 10px; font-size: .75rem; }
+.evaluation-profiles-dialog-limit, .evaluation-profiles-dialog-empty { margin: 0; color: var(--ds-color-text-muted); font-size: .79rem; }
+@media (max-width: 540px) {
+  .evaluation-profiles-dialog-toolbar > button { flex: 1 1 145px; }
+  .evaluation-profiles-dialog-item { gap: 6px; padding: var(--ds-space-2) 2px; }
+  .evaluation-profiles-dialog-item > button { padding: 6px; }
+}
