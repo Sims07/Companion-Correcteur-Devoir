@@ -3773,12 +3773,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </div>
       </section>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && <section id="evaluation-configurations" className="panel evaluation-config-workspace" data-journey={evaluationJourney} aria-labelledby="evaluation-config-title">
+        <div className="evaluation-workbench-controls">
         <EvaluationJourneyPicker value={evaluationJourney} disabled={busy || pilotBusy} onChange={(journey) => { setEvaluationJourney(journey); if (journey === 'diagrams') setDiagramLabView('protocols'); }} />
         <h2 id="evaluation-config-title" className="evaluation-visually-hidden">Configurations à évaluer</h2>
         <div className="evaluation-model-brief" role="group" aria-label="Modèles sélectionnés pour les tests">
           <span className="evaluation-model-brief-name">Modèle{selectedEvaluationProfiles.length > 1 ? 's' : ''}</span>
           <strong className="evaluation-model-brief-selected">{selectedEvaluationProfiles.length ? selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') : 'Aucun modèle sélectionné'}</strong>
-          <button type="button" className="evaluation-model-brief-manage" onClick={() => setManagingEvaluationProfiles(true)}>Gérer les configurations</button>
+          <Button variant="secondary" className="evaluation-model-brief-manage" onClick={() => setManagingEvaluationProfiles(true)}>Gérer les configurations</Button>
+        </div>
         </div>
         <div id="evaluation-diagram-workspace" hidden={evaluationJourney !== 'diagrams'}><ScientificDiagramProtocolPanel
           selectedProfiles={selectedEvaluationProfiles} busy={busy || pilotBusy}
