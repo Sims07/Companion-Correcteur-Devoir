@@ -59,11 +59,11 @@ export function PilotEvaluationPanel({
   const externalApiSelected = selectedProfiles.some((profile) => !isLocalPilotProfile(profile));
   const integratedIssue = pilotSelectionIssue(selectedProfiles, 'integrated');
   return <section className="pilot-evaluation-panel" aria-label="Protocole de test guidé">
-    <div className="pilot-evaluation-head pilot-evaluation-compact-heading">
-      <h3 className="evaluation-visually-hidden">Tests de référence en biologie</h3>
+    <h3 className="evaluation-visually-hidden">Tests de référence en biologie</h3>
+    {((busy && scenario !== 'copies') || scenario === 'copies') && <div className="pilot-evaluation-head pilot-evaluation-compact-heading">
       {busy && scenario !== 'copies' && <Button variant="secondary" onClick={onStop}>Arrêter après l’appel en cours</Button>}
       {scenario === 'copies' && <button type="button" className="secondary-button" disabled={busy} onClick={onPrepare}>{enabled ? 'Réinitialiser le protocole' : 'Préparer le protocole en un clic'}</button>}
-    </div>
+    </div>}
     <div className="evaluation-scenario-picker" role="group" aria-label="Objectif du protocole de biologie">
       {([['contracts', 'Comparer les méthodes'], ['repeatability', 'Vérifier la répétabilité'], ['copies', 'Vision et parallélisme']] as const).map(([id, label]) =>
         <button type="button" key={id} disabled={busy || uploadingCase !== null} aria-pressed={scenario === id} onClick={() => setScenario(id)}>{label}</button>)}
