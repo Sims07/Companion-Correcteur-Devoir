@@ -76,7 +76,7 @@ test('teacher deletion is reflected in the evaluation manager and edit modal', a
   const selection = page.getByRole('dialog', { name: 'Gérer les configurations IA' });
   await expect(selection).not.toContainText('Configuration à supprimer');
   await expect(selection).toContainText('Configuration à conserver');
-  await selection.getByRole('button', { name: 'Modifier' }).click();
+  await selection.getByRole('button', { name: 'Modifier', exact: true }).click();
   const editor = page.getByRole('dialog', { name: 'Créer ou modifier une configuration IA' });
   await expect(editor.locator('#evaluation-profile-select')).toHaveValue('saved-two');
   await expect(editor.locator('#evaluation-profile-name')).toHaveValue('Configuration à conserver');
@@ -100,7 +100,7 @@ test('batch cleanup safely retains three profiles and preserves settings', async
   await expect(selection.getByRole('checkbox')).toHaveCount(16);
   await selection.getByRole('checkbox', { name: /Ancien 16/ }).check();
   await selection.locator('.evaluation-profiles-dialog-item').filter({ hasText: 'Ancien 16' })
-    .getByRole('button', { name: 'Modifier' }).click();
+    .getByRole('button', { name: 'Modifier', exact: true }).click();
   const editor = page.getByRole('dialog', { name: 'Créer ou modifier une configuration IA' });
   await expect(editor.locator('#evaluation-analysis-model')).toHaveValue('model-15');
   await editor.getByRole('button', { name: 'Fermer', exact: true }).click();
