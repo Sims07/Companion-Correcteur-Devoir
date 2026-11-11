@@ -3820,6 +3820,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           autoRequest={radarAutoRequest}
           onAutoRequestConsumed={(id) => setRadarAutoRequest((current) => current?.id === id ? null : current)}
           onAutoBusyChange={setRadarAutoBusy}
+          onAutoWasStopped={() => pilotStopRef.current || evaluationCancelledRef.current}
           onAutoEvaluationFinished={async (request, steps) => {
             const failed = steps.filter((step) => !step.complete)
               .map((step) => RADAR_TEST_PROTOCOL_NAMES[step.protocol]);
