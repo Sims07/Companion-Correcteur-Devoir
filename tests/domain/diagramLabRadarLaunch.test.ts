@@ -73,7 +73,7 @@ describe('launch missing radar tests', () => {
   it('reuses existing evidence, reruns incomplete robustness inputs, and does not rerun complete models', () => {
     const partiallyMeasured = candidate({ graphics: 90, arrows: 100, biology: 80, coverage: 85, speed: 50 });
     expect(planRadarModelEvaluation(partiallyMeasured)?.steps.map((step) => [step.protocol, step.repetitions]))
-      .toEqual([['reference', 3], ['semantic', 1], ['graph', 1]]);
+      .toEqual([['reference', 3], ['graph', 1]]);
     const complete = candidate(Object.fromEntries(RADAR_AXES.map((axis) => [axis.id, 0])) as Record<RadarAxisId, number>);
     expect(planRadarModelEvaluation(complete)).toBeNull();
   });
