@@ -3495,7 +3495,18 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<div className="view-switch" role="group" aria-label="Mode d’interface"><button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode === 'teacher'} onClick={() => setInterfaceMode('teacher')}>Correction</button><button type="button" className={interfaceMode !== 'teacher' ? 'view-switch-button active' : 'view-switch-button'} aria-pressed={interfaceMode !== 'teacher'} onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode(interfaceMode === 'teacher' ? 'diagnostic' : interfaceMode); }}>Outils IA</button></div></div>
+        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<nav className="view-switch" aria-label="Navigation principale">
+          <button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'}
+            aria-current={interfaceMode === 'teacher' ? 'page' : undefined}
+            onClick={() => setInterfaceMode('teacher')}>Correction</button>
+          <button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'}
+            aria-current={interfaceMode === 'diagnostic' ? 'page' : undefined}
+            aria-label="Évaluer les modèles" title="Évaluer les modèles"
+            onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('diagnostic'); }}>Évaluer</button>
+          <button type="button" className={interfaceMode === 'observability' || interfaceMode === 'debug' ? 'view-switch-button active' : 'view-switch-button'}
+            aria-current={interfaceMode === 'observability' || interfaceMode === 'debug' ? 'page' : undefined}
+            onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('observability'); }}>Suivi & diagnostic</button>
+        </nav></div>
       </header>
 
       {interfaceMode !== 'teacher' && <DeveloperToolsNavigation activeTool={interfaceMode} traces={observabilityRecords} onNavigate={(tool: DeveloperTool) => { setShowAiSettings(false); setShowAssignmentsHome(false); if (tool === 'debug') setNetworkInitialFilter('all'); setInterfaceMode(tool); }} />}
@@ -3644,7 +3655,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       {interfaceMode === 'observability' && <ObservabilityDashboard records={observabilityRecords} storageDiagnosticsService={storageDiagnosticsService} onManageEvaluations={() => { setInterfaceMode('diagnostic'); setEvaluationWorkspaceStep('history'); }} onInspectNetworkErrors={() => { setNetworkInitialFilter('error'); setInterfaceMode('debug'); }} benchmarkRows={buildLocalDecisionBenchmark(timingHistory)} />}
       {interfaceMode === 'diagnostic' && <section className="evaluation-page-header" aria-labelledby="evaluation-page-title">
         <div className="evaluation-page-identity">
-          <h1 id="evaluation-page-title">Évaluer les modèles</h1>
+          <h2 id="evaluation-page-title" className="evaluation-visually-hidden">Évaluer les modèles</h2>
           <p className={evaluationProvider.remote ? 'evaluation-provider-indicator is-remote' : 'evaluation-provider-indicator'} role="note" aria-live="polite">
             <span aria-hidden="true" className="evaluation-provider-dot" />
             {evaluationProvider.message}
