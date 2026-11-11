@@ -152,7 +152,7 @@ export interface ScientificDiagramProtocolPanelProps {
   onAutoRequestConsumed?: (id: number) => void;
   onOpenRadar?: () => void;
   onAutoBusyChange?: (busy: boolean) => void;
-  onAutoEvaluationFinished?: (request: RadarMissingTestRequest) => Promise<string>;
+  onAutoEvaluationFinished?: (request: RadarMissingTestRequest, steps: readonly { protocol: RadarTestStep['protocol']; complete: boolean }[]) => Promise<string>;
 }
 
 export function ScientificDiagramProtocolPanel({
@@ -180,6 +180,11 @@ export function ScientificDiagramProtocolPanel({
   const [methodSelection, setMethodSelection] = useState<DiagramMethodSelection>('compare');
   const [activeProtocol, setActiveProtocol] = useState<'reference' | 'arrows' | 'semantic' | 'graph'>('reference');
   const autoClaimed = useRef<number | null>(null);
+  const autoStopRequested = useRef(false);
+  function stopProtocol() {
+    autoStopRequested.current = true;
+    onStop();
+  }
   const [radarAutoStatus, setRadarAutoStatus] = useState('');
   const [autoSequenceRunning, setAutoSequenceRunning] = useState(false);
   const targets = rubric.criteria.flatMap((criterion) =>
@@ -308,6 +313,7 @@ export function ScientificDiagramProtocolPanel({
     if (selectedProfiles.length !== 1 || selectedProfiles[0]?.id !== autoRequest.profileId) return;
 
     autoClaimed.current = autoRequest.id;
+    autoStopRequested.current = false;
     onAutoRequestConsumed?.(autoRequest.id);
     const profile = selectedProfiles[0]!;
     const issue = autoRequest.steps.map((step) =>
@@ -321,6 +327,7 @@ export function ScientificDiagramProtocolPanel({
     setAutoSequenceRunning(true);
     onAutoBusyChange?.(true);
     void (async () => {
+      const stepResults: Array<{ protocol: RadarTestStep['protocol']; complete: boolean }> = [];
       try {
       for (const [index, step] of autoRequest.steps.entries()) {
         setActiveProtocol(step.protocol);
@@ -337,15 +344,21 @@ export function ScientificDiagramProtocolPanel({
             : step.protocol === 'semantic'
               ? await runSensitivity(step)
               : await runBlindObservation(step.zoom, step);
-        if (!ok) {
-          setRadarAutoStatus('La batterie ' + RADAR_TEST_PROTOCOL_NAMES[step.protocol] +
-            ' pour ' + profile.name + ' n’a pas terminé tous ses passages. Corrigez le problème ou relancez depuis le radar.');
+        stepResults.push({ protocol: step.protocol, complete: ok });
+        if (autoStopRequested.current) {
+          setRadarAutoStatus('Campagne interrompue après ' + (index + 1) +
+            '/' + autoRequest.steps.length + ' batteries. Les résultats déjà enregistrés restent consultables.');
           return;
         }
+        // Each battery is independent. An unusable A/B/C run must not prevent
+        // a still-needed D/E, semantic or graph measurement from being tried.
       }
+      const failed = stepResults.filter((step) => !step.complete).map((step) => RADAR_TEST_PROTOCOL_NAMES[step.protocol]);
       const result = onAutoEvaluationFinished
-        ? await onAutoEvaluationFinished(autoRequest)
-        : 'Batteries terminées pour ' + profile.name + '. Consultez le radar pour vérifier les mesures.';
+        ? await onAutoEvaluationFinished(autoRequest, stepResults)
+        : failed.length ? 'Campagne partielle pour ' + profile.name + ' : batteries incomplètes : ' +
+          failed.join(', ') + '. Consultez les campagnes pour les détails.'
+          : 'Batteries terminées pour ' + profile.name + '. Consultez le radar pour vérifier les mesures.';
       setRadarAutoStatus(result);
       } catch (cause) {
         setRadarAutoStatus('Vérification du radar impossible pour ' + profile.name + ' : ' +
@@ -499,7 +512,7 @@ export function ScientificDiagramProtocolPanel({
             onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS); }}>
             Tester les flèches D/E en un clic
           </Button>}
-          {(busy || fixtureLoading) && <Button variant="secondary" onClick={onStop} disabled={!busy}>Arrêter après l’appel en cours</Button>}
+          {(busy || fixtureLoading) && <Button variant="secondary" onClick={stopProtocol} disabled={!busy}>Arrêter après l’appel en cours</Button>}
         </div>
         <details className="diagram-lab-explanation"><summary>Conditions de comparaison</summary><p className="pilot-evaluation-hint">Choisissez 1 à 3 configurations dans la sélection au-dessus. Pour une comparaison équitable, le même barème et les mêmes images sont utilisés à chaque passage, par méthode et par profil. Exécution séquentielle. Un seul passage ne mesure pas la répétabilité.</p></details>
         {hasRemote && <p className="pilot-evaluation-hint" role="status">Une configuration distante est sélectionnée : les photos seront envoyées uniquement à son serveur configuré.</p>}
@@ -648,7 +661,7 @@ export function ScientificDiagramProtocolPanel({
       </div>
       <div className="pilot-evaluation-actions">
         <Button disabled={!canRunFixtures} onClick={() => { void runSensitivity(); }}>Tester les 6 variantes sémantiques</Button>
-        {(busy || sensitivityLoading) && <Button variant="secondary" disabled={!busy} onClick={onStop}>Arrêter après l’appel en cours</Button>}
+        {(busy || sensitivityLoading) && <Button variant="secondary" disabled={!busy} onClick={stopProtocol}>Arrêter après l’appel en cours</Button>}
         <div className="diagram-fixture-grid diagram-sensitivity-grid">
         {DIAGRAM_SENSITIVITY_CASES.map((testCase) => <article className="diagram-fixture-card" key={testCase.id}>
           <img src={scientificDiagramSensitivityPreviewUrl(testCase.id)} alt={'Relations biologiques — ' + testCase.label} loading="lazy" />
@@ -714,7 +727,7 @@ export function ScientificDiagramProtocolPanel({
         <Button variant="secondary" disabled={!canRunBlindGraph || blindGraphPromptVariant === 'recheck-arrows' || blindGraphPromptVariant === 'recheck-contours'} onClick={() => { void runBlindObservation(true); }}>
           Tester avec agrandissement ciblé
         </Button>
-        {(busy || blindGraphLoading) && <Button variant="secondary" disabled={!busy} onClick={onStop}>Arrêter après l’appel en cours</Button>}
+        {(busy || blindGraphLoading) && <Button variant="secondary" disabled={!busy} onClick={stopProtocol}>Arrêter après l’appel en cours</Button>}
         {blindGraphReport && <Button variant="secondary" onClick={downloadBlindGraphReport}>Exporter l’analyse du graphe JSON</Button>}
       </div>
       {blindGraphUsesRemote && <p className="pilot-evaluation-hint" role="status">Profil distant : images envoyées au serveur configuré.</p>}
@@ -829,7 +842,7 @@ export function ScientificDiagramProtocolPanel({
           <option value={3}>3 passages</option><option value={5}>5 passages</option>
         </DesignSystemSelect>
         <Button disabled={!canRun} onClick={() => { void start(); }}>Tester le schéma en un clic</Button>
-        {busy && <Button variant="secondary" onClick={onStop}>Arrêter après l’appel en cours</Button>}
+        {busy && <Button variant="secondary" onClick={stopProtocol}>Arrêter après l’appel en cours</Button>}
       </div>
       {(progress || message) && <p role="status" className="pilot-evaluation-message">{message || progress}</p>}
     </div>
