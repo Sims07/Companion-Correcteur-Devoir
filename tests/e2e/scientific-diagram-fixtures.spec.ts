@@ -70,7 +70,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await expect(fixtures.getByText('7.36/10 attendu', { exact: true })).toBeVisible();
   await fixtures.getByText('Voir le détail de la référence provisoire', { exact: true }).click();
   await expect(fixtures.getByText(/Des prolongements de paroi sont visibles/)).toBeVisible();
-  await expect(fixtures.getByText('0/10 attendu', { exact: true })).toBeVisible();
+  await expect(fixtures.getByText('0.33/10 attendu', { exact: true })).toBeVisible();
   await expect(fixtures.getByRole('combobox', { name: 'Passages par schéma' })).toHaveValue('1');
   await expect.poll(async () => fixtures.locator('img').evaluateAll((images) =>
     images.filter((image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0).length),
@@ -128,7 +128,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await expect(results.getByText('19/19', { exact: true })).toHaveCount(3);
   await expect(results.getByText('10/10', { exact: true }).first()).toBeVisible();
   await expect(results.getByText('7.36/10', { exact: true }).first()).toBeVisible();
-  await expect(results.getByText('0/10', { exact: true }).first()).toBeVisible();
+  await expect(results.getByText('0.33/10', { exact: true }).first()).toBeVisible();
   expect(systemOneRequests).toHaveLength(3);
   // A complete report is still downloadable after the panel was unmounted.
   const [completeDownload] = await Promise.all([
