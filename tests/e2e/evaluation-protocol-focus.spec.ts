@@ -29,7 +29,24 @@ test('all scientific protocol buttons are reachable before the image catalog, on
   expect(positions.controls).toBeLessThan(positions.preview);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(choices.getByRole('tab')).toHaveCount(4);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  const overflow = await page.evaluate(() => {
+    const width = document.documentElement.clientWidth;
+    return {
+      viewportWidth: width,
+      scrollWidth: document.documentElement.scrollWidth,
+      elements: [...document.querySelectorAll<HTMLElement>('body *')]
+        .map((element) => ({ element, right: element.getBoundingClientRect().right }))
+        .filter(({ element, right }) => right > width + 2 && getComputedStyle(element).display !== 'none')
+        .sort((a, b) => b.right - a.right)
+        .slice(0, 14)
+        .map(({ element, right }) => ({
+          selector: element.tagName.toLowerCase() + (element.id ? '#' + element.id : '') +
+            (typeof element.className === 'string' ? '.' + element.className.trim().split(/\\s+/).slice(0, 3).join('.') : ''),
+          right: Math.round(right),
+        })),
+    };
+  });
+  expect(overflow.scrollWidth, JSON.stringify(overflow, null, 2)).toBeLessThanOrEqual(overflow.viewportWidth);
 });
 
 test('biology protocol puts the one-click method comparison above reference detail', async ({ page }) => {
