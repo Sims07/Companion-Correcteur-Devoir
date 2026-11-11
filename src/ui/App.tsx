@@ -4451,7 +4451,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       {interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView !== 'protocols' && evaluationWorkspaceStep === 'configuration' &&
         <ScientificDiagramLabHistory repository={diagramArchive} revision={diagramHistoryRevision} archiveError={diagramHistoryError}
           view={diagramLabView === 'radar' ? 'radar' : 'campaigns'} onViewChange={(view) => setDiagramLabView(view === 'radar' ? 'radar' : 'history')}
-          profileIds={aiModelProfiles.map((profile) => profile.id)} busy={busy || pilotBusy || radarAutoBusy}
+          profileIds={aiModelProfiles.map((profile) => profile.id)} profiles={aiModelProfiles} busy={busy || pilotBusy || radarAutoBusy}
           onRunMissing={(planned) => {
             if (busy || pilotBusy || radarAutoBusy || !aiModelProfiles.some((profile) => profile.id === planned.profileId)) return;
             setSelectedEvaluationProfileIds([planned.profileId]);
