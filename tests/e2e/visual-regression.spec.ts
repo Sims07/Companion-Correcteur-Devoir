@@ -82,8 +82,7 @@ test.describe('visual regression contracts', () => {
     for (const viewport of viewports) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto('/');
-      await page.getByRole('button', { name: 'Outils IA' }).click();
-      await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+      await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
 
       await expect(page.getByRole('heading', { name: 'Évaluer les modèles' })).toBeVisible();
       await expect(page.locator('.evaluation-workspace-shell')).toBeVisible();
@@ -107,8 +106,8 @@ test.describe('visual regression contracts', () => {
     for (const viewport of viewports) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto('/');
-      await page.getByRole('button', { name: 'Outils IA' }).click();
-      await page.getByRole('navigation', { name: 'Navigation des outils IA' }).getByRole('button', { name: /Suivre et diagnostiquer/ }).click();
+      await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+      await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
 
       await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
       await expect(page.locator('.observability-workspace')).toBeVisible();
@@ -123,8 +122,8 @@ test.describe('visual regression contracts', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
 
-    await page.getByRole('button', { name: 'Outils IA' }).click();
-    await page.getByRole('navigation', { name: 'Navigation des outils IA' }).getByRole('button', { name: /Suivre et diagnostiquer/ }).click();
+    await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+    await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
     await expect(page.locator('.observability-kpi').first()).toBeVisible();
 
     const reducedMotion = await page.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
