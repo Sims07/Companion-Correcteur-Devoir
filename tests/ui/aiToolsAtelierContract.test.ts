@@ -18,16 +18,19 @@ describe('Atelier pédagogique — Outils IA', () => {
   });
 
   it('uses the shared visual language for navigation and keeps support actions secondary', () => {
-    expect(navigation).toContain('font: 700 1.3rem/1.25');
-    expect(navigation).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
-    expect(navigation).toContain('var(--ds-font-editorial)');
-    expect(navigation).toContain('.developer-tools-link.is-active');
+    const app = read('src/ui/App.tsx');
+    const header = read('src/ui/design-system/application-theme.css');
+    expect(app).toContain('aria-label="Navigation principale"');
+    expect(header).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
+    expect(navigation).toContain('.developer-tools-subnav button.is-active');
+    expect(navigation).not.toContain('.developer-tools-link');
     expect(navigation).toContain('var(--ds-color-brand-700)');
     expect(navigation).toContain('var(--ds-focus-ring)');
     expect(navigation).toContain('prefers-reduced-motion');
     const component = read('src/ui/DeveloperToolsNavigation.tsx');
     expect(component).toContain('<details className="developer-tools-support">');
-    expect(component).toContain('{!evaluating && <div className="developer-tools-diagnostics">');
+    expect(component).toContain('if (evaluating) return null;');
+    expect(component).toContain('<div className="developer-tools-diagnostics">');
     expect(component).toContain('<Button variant="secondary"');
   });
 
