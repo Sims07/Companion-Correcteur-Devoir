@@ -151,4 +151,17 @@ describe('scientific benchmark 8-axis radar', () => {
     expect(observedRadarScore(grading, RADAR_PRESETS.balanced)).toBeGreaterThan(0);
   });
 
+  it('ignores legacy runs without a model identifier instead of crashing the radar', () => {
+    const historic = structuredClone(sample('graph', '2026-11-11T15:00:00Z'));
+    const report = historic.report as unknown as {
+      cases: Array<{ experiments: Array<{ model?: string }> }>;
+    };
+    for (const c of report.cases) for (const run of c.experiments) delete run.model;
+    expect(buildDiagramLabRadar([historic], 'model')).toEqual([]);
+    expect(buildDiagramLabRadar([historic], 'model', [{
+      id: 'old-config', name: 'Ancien profil',
+      configuration: { visionModel: 'vision:4b', analysisModel: '' },
+    }])[0]?.measured).toBe(0);
+  });
+
 });
