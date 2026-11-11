@@ -153,7 +153,7 @@ test('a failed diagram image call becomes À reprendre and retry restores an unv
   await expect(page.locator('.copy-review-header-score')).toContainText('0 / 8');
 });
 
-test('remote diagram assignments never queue images without explicit consent, even when the rubric is ready', async ({ page }) => {
+test('remote diagram assignments accept image copies without consent banners and start on demand', async ({ page }) => {
   let remoteCalls = 0;
   await page.route('https://ai.example/**', async (route) => {
     remoteCalls += 1;
@@ -161,14 +161,16 @@ test('remote diagram assignments never queue images without explicit consent, ev
   });
   await page.goto('/');
   const context = await createDiagramAssignment(page, 'Dessin botanique');
-  await expect(context).toContainText('Serveur non local');
+  await expect(context).not.toContainText('Serveur non local');
+  await expect(context.getByRole('checkbox', { name: /J’autorise/ })).toHaveCount(0);
+
   await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter des copies/ }).click();
-  const input = page.locator('#teacher-copy-intake-files');
-  await input.setInputFiles({ name: 'dessin.png', mimeType: 'image/png', buffer: onePixelPng });
-  await expect(page.locator('.copy-overview-grid .correction-series-card')).toHaveCount(0);
-  expect(remoteCalls).toBe(0);
-  await context.getByRole('checkbox', { name: /J’autorise l’envoi des images/ }).check();
-  await input.setInputFiles({ name: 'dessin.png', mimeType: 'image/png', buffer: onePixelPng });
+  await page.locator('#teacher-copy-intake-files').setInputFiles({
+    name: 'dessin.png', mimeType: 'image/png', buffer: onePixelPng,
+  });
   await expect(page.locator('.copy-overview-grid .correction-series-card')).toHaveCount(1);
   expect(remoteCalls).toBe(0);
+
+  await page.locator('.copy-overview-heading').getByRole('button', { name: /Démarrer les corrections/ }).click();
+  await expect.poll(() => remoteCalls).toBeGreaterThan(0);
 });
