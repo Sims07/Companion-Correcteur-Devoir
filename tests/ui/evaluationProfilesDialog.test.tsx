@@ -19,7 +19,7 @@ const noop = () => undefined;
 function render(selectedIds: string[] = []) {
   return renderToStaticMarkup(<EvaluationProfilesDialog
     profiles={profiles} selectedIds={selectedIds} busy={false}
-    onChange={noop} onCreate={noop} onEdit={noop} onManageDeletion={noop} onClose={noop}
+    onChange={noop} onCreate={noop} onEditCurrent={noop} onEdit={noop} onManageDeletion={noop} onClose={noop}
   />);
 }
 
@@ -50,7 +50,7 @@ describe('model configurations dialog', () => {
   it('does not require a saved model to open the dialog and prepare the first configuration', () => {
     const html = renderToStaticMarkup(<EvaluationProfilesDialog
       profiles={[]} selectedIds={[]} busy={false}
-      onChange={noop} onCreate={noop} onEdit={noop} onManageDeletion={noop} onClose={noop}
+      onChange={noop} onCreate={noop} onEditCurrent={noop} onEdit={noop} onManageDeletion={noop} onClose={noop}
     />);
     expect(html).toContain('Aucune configuration enregistrée');
     expect(html).toContain('+ Nouvelle configuration');
