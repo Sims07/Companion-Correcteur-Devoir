@@ -344,6 +344,7 @@ export function ScientificDiagramProtocolPanel({
       }
       setRadarAutoStatus('Batteries terminées. Sauvegarde automatique en cours : retournez au radar pour consulter les mesures.');
       } finally {
+        setAutoSequenceRunning(false);
         onAutoBusyChange?.(false);
       }
     })();
