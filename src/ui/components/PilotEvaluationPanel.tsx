@@ -120,7 +120,7 @@ export function PilotEvaluationPanel({
       <div>
         <h4>Répétabilité · Variante B</h4>
         <p>Choisissez le protocole initial A/B/C ou quatre cas de robustesse D/E/F/G (négations, équivalences, contradictions et énoncé imprimé). La même copie et le même contrat sont rejoués pour mesurer justesse, stabilité et demandes de vérification, sans confondre décision stable et décision correcte.</p>
-        <details className="pilot-evaluation-protocol-notes"><summary>Conditions d’exécution et confidentialité</summary><p>Analyse seule, sans photo ; appels strictement séquentiels et libération des modèles Ollama locaux entre profils. Des appels et frais d’API peuvent s’appliquer. Gardez l’onglet ouvert et le Mac éveillé pendant le test.</p></details>
+        <details className="pilot-evaluation-protocol-notes"><summary>Conditions d’exécution</summary><p>Analyse seule, sans photo ; appels strictement séquentiels et libération des modèles Ollama locaux entre profils. Des appels et frais d’API peuvent s’appliquer. Gardez l’onglet ouvert et le Mac éveillé pendant le test.</p></details>
       </div>
       <div className="pilot-evaluation-actions">
         <label htmlFor="pilot-repeatability-suite">Jeu de copies</label>
@@ -252,7 +252,7 @@ export function PilotEvaluationPanel({
             </tbody>
           </table>
         </div>
-        <p className="pilot-evaluation-hint">Comparer à la fois la durée et la fiabilité (faux positifs, faux négatifs et non-évalués). Les chiffres incluent les éventuelles reprises du modèle ; l’ordre 1 → 2 → 4 et le chargement à froid peuvent biaiser une mesure unique. Aucun accès au cloud n’est autorisé dans ce protocole.</p>
+        <p className="pilot-evaluation-hint">Comparer à la fois la durée et la fiabilité (faux positifs, faux négatifs et non-évalués). Les chiffres incluent les éventuelles reprises du modèle ; l’ordre 1 → 2 → 4 et le chargement à froid peuvent biaiser une mesure unique. </p>
       </section>}
       {runs.length > 0 && <div id="evaluation-biology-copy-results" className="pilot-evaluation-report">
         <div className="pilot-evaluation-report-head">
