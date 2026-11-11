@@ -184,6 +184,37 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     await act(async () => root.unmount());
   });
 
+  it('honors a global stop after A/B/C and never starts the next independent battery', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true,
+      blob: async () => new Blob(['fixture'], { type: 'image/webp' }),
+    })));
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    const onRunFixtures = vi.fn(async (batch: { cases: { id: string }[] }) => ({
+      cases: batch.cases.map(({ id }) => ({ caseId: id, experiments: [{ status: 'success' }] })),
+    } as unknown as ReturnType<typeof buildScientificDiagramFixtureReport>));
+    const finished = vi.fn(async () => '8/8');
+    const request: RadarMissingTestRequest = {
+      ...plan, steps: [...plan.steps, { ...plan.steps[0]!, protocol: 'arrows' }],
+    };
+    await act(async () => root.render(createElement(ScientificDiagramProtocolPanel, {
+      selectedProfiles: [profile], busy: false, progress: '',
+      onPrepareImages: vi.fn(async (files: File[]) => files.map((file) => ({
+        fileName: file.name, base64: 'ZmFrZQ==', mimeType: file.type,
+      }))),
+      onRun: vi.fn(), onRunFixtures, onRunSensitivity: vi.fn(), onRunBlindGraph: vi.fn(),
+      onStop: vi.fn(), report: null, fixtureReport: null, sensitivityReport: null, blindGraphReport: null,
+      onClearReport: vi.fn(), onClearFixtureReport: vi.fn(), onClearSensitivityReport: vi.fn(),
+      onClearBlindGraphReport: vi.fn(), autoRequest: request,
+      onAutoRequestConsumed: vi.fn(), onAutoEvaluationFinished: finished,
+      onAutoWasStopped: () => true,
+    })));
+    await vi.waitFor(() => expect(container.textContent).toContain('Campagne interrompue'));
+    expect(onRunFixtures).toHaveBeenCalledTimes(1);
+    expect(finished).not.toHaveBeenCalled();
+    await act(async () => root.unmount());
+  });
+
   it('waits for exact profile selection, never calls a different configured model', async () => {
     const container = document.createElement('div');
     const root = createRoot(container);
