@@ -47,7 +47,7 @@ describe('compact direct diagram output', () => {
     'does not fabricate or clamp marks after %s', code => {
       const value = answer();
       if (code === 'missing-id') delete (value.criteria.title.subcriteria as Partial<typeof value.criteria.title.subcriteria>).position;
-      if (code === 'unknown-id') Object.assign(value.criteria.title.subcriteria, { invented: { points: 0, evidence: 'x' } });
+      if (code === 'unknown-id') Object.assign(value.criteria.title.subcriteria, { invented: { creditFraction: 0, evidence: 'x' } });
       if (code === 'missing-evidence') value.criteria.title.subcriteria.position.evidence = '';
       if (code === 'invalid-points') value.criteria.title.subcriteria.position.creditFraction = 1.1;
       expect(() => parseDirectDiagramOutput(JSON.stringify(value), criteria)).toThrow(`[diagram-output:${code}]`);
@@ -128,7 +128,7 @@ describe('compact direct diagram output', () => {
 
   it('repairs a negative mark on a poor diagram while preserving the zero score', async () => {
     const bad = answer();
-    bad.criteria.title.subcriteria.position.points = -0.33;
+    bad.criteria.title.subcriteria.position.creditFraction = -0.33;
     const corrected = answer();
     corrected.criteria.title.subcriteria.position.creditFraction = 0;
     corrected.criteria.title.subcriteria.content.creditFraction = 0;
