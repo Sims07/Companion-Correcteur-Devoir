@@ -18,12 +18,14 @@ test('evaluation starts with one compact workspace rather than stacked cards', a
   await expect(page.locator('.evaluation-journey-options button span, .evaluation-journey-options button small')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Que voulez-vous tester ?' })).toHaveCount(0);
 
-  const configurations = page.locator('details.evaluation-selection-block');
-  await expect(configurations.locator('summary')).toContainText('Configurations');
-  await configurations.locator('summary').click();
-  await expect(configurations).not.toHaveAttribute('open', '');
-  await configurations.locator('summary').click();
-  await expect(configurations).toHaveAttribute('open', '');
+  await expect(page.locator('.evaluation-selection-block, .evaluation-config-editor')).toHaveCount(0);
+  const models = page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' });
+  await expect(models).toBeVisible();
+  await models.getByRole('button', { name: 'Gérer les configurations' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Gérer les configurations IA' });
+  await expect(dialog.getByRole('group', { name: 'Configurations à exécuter' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Terminer' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
   await families.getByRole('button', { name: 'Schémas scientifiques' }).click();
   await expect(page.getByRole('region', { name: 'Protocole schémas scientifiques', exact: true })).toBeVisible();
