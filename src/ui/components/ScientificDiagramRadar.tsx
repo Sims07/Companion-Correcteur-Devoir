@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
-import { buildDiagramLabRadar, compareRadarCommonAxes, rankDiagramLabRadar, observedRadarScore, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
+import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, rankDiagramLabRadar, observedRadarScore, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
   type RadarAxisId, type RadarGrouping, type RadarModelConfiguration, type RadarRankedCandidate, type RadarWeights } from '../../domain/diagramLabRadar.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import type { DiagramMethodSelection } from '../../domain/scientificDiagramProtocol.ts';
@@ -270,6 +270,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
                 const plan = planFor(activeModel, item.id);
                 return <div key={item.id} className="diagram-radar-remaining-item">
                   <button type="button" onClick={() => setAxis(item.id)}>{item.label}</button>
+                  {grouping === 'model' && <small>{diagnoseUnmeasuredRadarAxis(entries, activeModel.id, item.id)}</small>}
                   {plan && profileIds.includes(plan.profileId)
                     ? <Button variant="secondary" disabled={busy} aria-label={'Lancer le test ' + item.label + ' avec ' + activeModel.name}
                         onClick={() => onRunMissing(plan)}>Lancer</Button>
@@ -357,6 +358,8 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
             {evidence.value === null ? 'Non mesuré' : evidence.value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100'}
           </strong>
           <p>{evidence.reason}</p>
+          {evidence.value === null && grouping === 'model' && examined &&
+            <p role="status">{diagnoseUnmeasuredRadarAxis(entries, examined.id, axis)}</p>}
           {evidence.value === null && examined && <div className="diagram-radar-next-test">
             {missingPlan ? <>
               <strong>Compléter cet axe</strong>
