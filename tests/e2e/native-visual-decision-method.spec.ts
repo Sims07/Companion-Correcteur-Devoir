@@ -68,7 +68,7 @@ test('third method persists and sends diagram + all typed questions to Clef thro
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('button', { name: 'Gérer les configurations' }).click();
   await page.getByRole('dialog', { name: 'Gérer les configurations IA' })
-    .getByRole('button', { name: 'Modifier' }).click();
+    .getByRole('button', { name: 'Modifier', exact: true }).click();
   await expect(page.locator('#evaluation-profile-select')).toHaveValue(saved!.id);
   await expect(page.locator('#evaluation-correction-method')).toHaveValue('decision');
   await page.getByText('Options de décision sur image', { exact: true }).click();
