@@ -1,6 +1,6 @@
 import { validateRubric, type Rubric } from './rubric.ts';
 
-/** Browser-independent permission policy. Loopback is the only implicit local endpoint. */
+/** Identify loopback URLs for endpoint diagnostics. */
 export function isLoopbackDiagramEndpoint(endpoint: string): boolean {
   try {
     const hostname = new URL(endpoint).hostname.toLowerCase();
@@ -8,11 +8,10 @@ export function isLoopbackDiagramEndpoint(endpoint: string): boolean {
   } catch { return false; }
 }
 
-/** An opt-in belongs to the exact URL, never to an arbitrary replacement endpoint. */
+/** Check the diagram assignment and selected model before correction. */
 export function directDiagramAssignmentIssue(
   rubric: Rubric,
   configuration: { correctionMethod?: string; analysisModel: string; endpoint: string },
-  consentedEndpoint: string | null,
 ): string | null {
   const validation = validateRubric(rubric);
   if (!validation.valid) return validation.errors.join(' ');
@@ -24,8 +23,5 @@ export function directDiagramAssignmentIssue(
   }
   if (!configuration.analysisModel.trim()) return 'Choisissez un modèle génératif capable de lire le schéma.';
   if (!configuration.endpoint.trim()) return 'Configurez une adresse de serveur IA.';
-  if (!isLoopbackDiagramEndpoint(configuration.endpoint) && consentedEndpoint !== configuration.endpoint) {
-    return 'Autorisez explicitement l’envoi des schémas au serveur configuré avant de lancer la correction.';
-  }
   return null;
 }
