@@ -9,7 +9,6 @@ test('biology has its own radar and returns to the existing test battery', async
   const radar = page.getByRole('region', { name: 'Radar de correction biologique' });
   await expect(radar).toBeVisible();
   await expect(radar.getByLabel('Protocole du radar biologique')).toBeVisible();
-  await expect(radar.getByText('Fidélité', { exact: false }).first()).toBeVisible().catch(() => {});
   await expect(page.getByRole('region', { name: 'Radar des candidats scientifiques' })).toHaveCount(0);
   await navigation.getByRole('button', { name: 'Tests' }).click();
   await expect(page.getByRole('region', { name: 'Protocole de test guidé' })).toBeVisible();
