@@ -96,9 +96,10 @@
 .evaluation-workspace-shell .pilot-evaluation-head .eyebrow { margin: 0; font-size: .68rem; }
 .evaluation-workspace-shell .pilot-evaluation-head h3 { font-size: 1.05rem; }
 .evaluation-workspace-shell .evaluation-scenario-picker {
-  display: inline-flex;
-  justify-self: start;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
   gap: 0;
   margin: 0;
   padding: 3px;
