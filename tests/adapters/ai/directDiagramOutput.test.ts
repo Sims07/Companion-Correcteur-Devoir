@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { directDiagramSchema, parseDirectDiagramOutput } from '../../../src/adapters/ai/directDiagramOutput.ts';
+import { directDiagramSchema, parseDirectDiagramOutput, findSingleInvalidDiagramPoint, applyDirectDiagramPointRepair } from '../../../src/adapters/ai/directDiagramOutput.ts';
 import { createOllamaProvider } from '../../../src/adapters/ai/ollamaProvider.ts';
 import { diagramAnalysisDiagnostics, diagramFailureCategory } from '../../../src/domain/scientificDiagramProtocol.ts';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../../src/domain/scientificDiagramFixtures.ts';
@@ -107,7 +107,9 @@ describe('compact direct diagram output', () => {
       },
     ])) });
     const mock = vi.fn().mockResolvedValueOnce(stream(JSON.stringify(make(1))))
-      .mockResolvedValueOnce(stream(JSON.stringify(make(0.33))));
+      .mockResolvedValueOnce(stream(JSON.stringify({
+        points: 0.33, evidence: 'Le titre est bien écrit horizontalement.',
+      })));
     const raw = await createOllamaProvider({ endpoint: 'http://localhost:11434',
       analysisModel: 'qwen3.5:4b', correctionMethod: 'generative' }, mock).generate({
         ...request, rubric: JSON.stringify(rubric),
@@ -123,38 +125,82 @@ describe('compact direct diagram output', () => {
     expect(bodies[0].messages[0].content).toContain('maxPoints: 0.33');
     expect(bodies[0].messages[0].content).not.toContain('creditFraction');
     expect(bodies[1].messages[0].content).toContain('title.subcriteria.title-horizontal.points');
-    expect(bodies[1].messages[0].content).toContain('entre 0 et 0.33');
+    expect(bodies[1].messages[0].content).toContain('0 à 0.33');
+    expect(Object.keys(bodies[1].format.properties).sort()).toEqual(['evidence', 'points']);
+    expect(bodies[1].messages[0].content).not.toContain('renvoie le JSON COMPLET');
     expect(bodies[1].messages[0].images).toEqual(bodies[0].messages[0].images);
   });
 
-  it('repairs a negative mark on a poor diagram while preserving the zero score', async () => {
+  it('repairs one invalid mark without changing an already valid score elsewhere', async () => {
     const bad = answer();
     bad.criteria.title.subcriteria.position.points = -0.33;
-    const corrected = answer();
-    corrected.criteria.title.subcriteria.position.points = 0;
-    corrected.criteria.title.subcriteria.content.points = 0;
     const fetchMock = vi.fn().mockResolvedValueOnce(stream(JSON.stringify(bad)))
-      .mockResolvedValueOnce(stream(JSON.stringify(corrected)));
+      .mockResolvedValueOnce(stream(JSON.stringify({ points: 0, evidence: 'Position incorrecte' })));
     const raw = await createOllamaProvider({ endpoint: 'http://localhost:11434',
       analysisModel: 'qwen3.5:4b', correctionMethod: 'generative' }, fetchMock).generate(request);
-    expect(JSON.parse(raw).finalScore).toBe(0);
+    const result = JSON.parse(raw);
+    expect(result.finalScore).toBe(0.34);
+    expect(result.criteria[0].subcriteria.map((s: {points:number})=>s.points)).toEqual([0, 0.34]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const first = JSON.parse(fetchMock.mock.calls[0]![1].body);
     const repair = JSON.parse(fetchMock.mock.calls[1]![1].body);
     expect(first.messages[0].content).toContain('jamais une chaîne, null ou une pénalité négative');
-    expect(repair.messages[0].content).toContain('title.subcriteria.position.points');
-    expect(repair.messages[0].content).toContain('entre 0 et 0.66');
+    expect(repair.messages[0].content).toContain('Position');
+    expect(repair.messages[0].content).toContain('0 à 0.66');
     expect(repair.messages[0].images).toEqual(first.messages[0].images);
+    expect(Object.keys(repair.format.properties).sort()).toEqual(['evidence','points']);
   });
-  it('rejects a repeated invalid mark rather than manufacturing a score', async () => {
+  it('rejects a repeated invalid single-point repair rather than manufacturing a score', async () => {
     const bad = answer();
     bad.criteria.title.subcriteria.position.points = -0.5;
-    const fetchMock = vi.fn(async () => stream(JSON.stringify(bad)));
+    const fetchMock = vi.fn().mockResolvedValueOnce(stream(JSON.stringify(bad)))
+      .mockResolvedValueOnce(stream(JSON.stringify({ points: -0.5, evidence: 'Toujours négatif' })));
     await expect(createOllamaProvider({ endpoint: 'http://localhost:11434',
       analysisModel: 'qwen3.5:4b', correctionMethod: 'generative' }, fetchMock).generate(request))
       .rejects.toThrow(/\[diagram-output:invalid-points\].*position\.points/);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it('refuses to silently clamp an invalid 1-point observation to a 0.33 maximum', () => {
+    const first = answer();
+    first.criteria.title.subcriteria.position.points = 1;
+    const original = JSON.stringify(first);
+    const issue = findSingleInvalidDiagramPoint(original, criteria);
+    expect(issue).toMatchObject({ criterionId: 'title', subcriterionId: 'position', maximum: 0.66 });
+    expect(() => applyDirectDiagramPointRepair(original, JSON.stringify({
+      points: 1, evidence: 'Position visible',
+    }), issue!, criteria)).toThrow('[diagram-output:invalid-points]');
+    expect(first.criteria.title.subcriteria.position.points).toBe(1);
+  });
+
+  it('uses a full-rubric retry if more than one point is invalid', async () => {
+    const original = answer();
+    original.criteria.title.subcriteria.position.points = 1;
+    original.criteria.title.subcriteria.content.points = -1;
+    expect(findSingleInvalidDiagramPoint(JSON.stringify(original), criteria)).toBeNull();
+    const fetchMock = vi.fn().mockResolvedValueOnce(stream(JSON.stringify(original)))
+      .mockResolvedValueOnce(stream(JSON.stringify(answer())));
+    const result = await createOllamaProvider({ endpoint: 'http://localhost:11434',
+      analysisModel: 'qwen3.5:4b', correctionMethod: 'generative' }, fetchMock).generate(request);
+    expect(JSON.parse(result).finalScore).toBe(0.67);
+    const repairRequest = JSON.parse(fetchMock.mock.calls[1]![1].body);
+    expect(repairRequest.format.properties.criteria).toBeDefined();
+    expect(repairRequest.messages[0].content).toContain('JSON COMPLET');
+  });
+
+  it('rejects an attempted patch containing additional scores or empty evidence', () => {
+    const invalid = answer();
+    invalid.criteria.title.subcriteria.position.points = 1;
+    const original = JSON.stringify(invalid);
+    const issue = findSingleInvalidDiagramPoint(original, criteria)!;
+    expect(() => applyDirectDiagramPointRepair(original, JSON.stringify({
+      points: 0.66, evidence: 'Position conforme', otherCriterion: 1,
+    }), issue, criteria)).toThrow('[diagram-output:unknown-id]');
+    expect(() => applyDirectDiagramPointRepair(original, JSON.stringify({
+      points: 0.66, evidence: '',
+    }), issue, criteria)).toThrow('[diagram-output:missing-evidence]');
+  });
+
   it.each(['qwen3.5:4b', 'qwen3.5:9b'])('repairs only once with images and exact IDs for %s', async model => {
     const bad = answer();
     delete (bad.criteria.title.subcriteria as Partial<typeof bad.criteria.title.subcriteria>).position;
