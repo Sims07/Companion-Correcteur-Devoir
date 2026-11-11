@@ -11,10 +11,11 @@ export function buildDirectDiagramPrompt(request: GradingRequest, repairReason?:
     'Réponds uniquement en JSON selon le schéma fourni. criteria est un OBJET indexé par les identifiants exacts du barème ; subcriteria est aussi un OBJET indexé par ses identifiants exacts. Chaque identifiant apparaît une seule fois.',
     'Pour chaque sous-critère, donne points et evidence (observation visuelle, 20 mots maximum : éléments reliés, pointe ou contour constaté). Pour un critère sans sous-critères, donne ses points. Ne calcule ni total de critère avec sous-critères, ni note finale : le logiciel additionne les points.',
     'Respecte les maxima. Les points partiels suivent le barème, sans règle automatique de moitié. Zéro signifie attendu absent ou incorrect, jamais illisible par défaut.',
+    'Chaque champ points doit contenir un NOMBRE JSON, jamais une chaîne, null ou une pénalité négative. Il doit être entre 0 et le maxPoints de son sous-critère (bornes incluses). Un attendu absent reçoit 0 point, pas un nombre négatif.',
     'Pour chaque critère : evidence (20 mots maximum, constat et non reformulation de l’attendu), confidence (low, medium ou high), questionForTeacher (vide sauf ambiguïté concrète pouvant modifier les points). Si la preuve est indisponible ou contradictoire, utilise confidence=low et une questionForTeacher précise sur le trait, contour ou élément à vérifier. Si elle est indisponible, écris preuve non disponible. Ne transforme pas une limite de lecture en erreur scientifique.',
     `CONSIGNE ENSEIGNANT :\n${request.question}`,
     ...(request.subjectTranscription ? [`SUJET DE RÉFÉRENCE (ne remplace pas le barème) :\n${request.subjectTranscription}`] : []),
     `BARÈME ENSEIGNANT :\n${request.rubric}`,
-    ...(repairReason ? [`La sortie précédente a échoué au contrôle ${repairReason}. Réexamine les mêmes images et fournis tous les identifiants et preuves dans le format demandé.`] : []),
+    ...(repairReason ? [`La sortie précédente a échoué au contrôle ${repairReason}. Corrige la valeur ou le champ précisément indiqué, sans inventer ou ajuster les autres notes pour contourner la validation. Réexamine les mêmes images et renvoie le JSON COMPLET avec tous les identifiants et preuves. Les points doivent être des nombres JSON compris entre 0 et leur maximum.`] : []),
   ].join('\n\n');
 }
