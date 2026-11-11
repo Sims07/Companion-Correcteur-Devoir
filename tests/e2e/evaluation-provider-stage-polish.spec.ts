@@ -48,7 +48,7 @@ test('personal tests use a compact type switch, never a numbered sequence', asyn
   await options.nth(1).click();
   await expect(options.nth(1)).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('heading', { name: 'Transcription à noter' })).toBeVisible();
-  await expect(picker).toHaveCSS('display', 'inline-flex');
+  await expect(picker).toHaveCSS('display', 'grid');
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(picker).toHaveCSS('display', 'grid');
