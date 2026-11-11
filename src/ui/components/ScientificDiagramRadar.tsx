@@ -270,7 +270,6 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
                 const plan = planFor(activeModel, item.id);
                 return <div key={item.id} className="diagram-radar-remaining-item">
                   <button type="button" onClick={() => setAxis(item.id)}>{item.label}</button>
-                  {grouping === 'model' && <small>{diagnoseUnmeasuredRadarAxis(entries, activeModel.id, item.id)}</small>}
                   {plan && profileIds.includes(plan.profileId)
                     ? <Button variant="secondary" disabled={busy} aria-label={'Lancer le test ' + item.label + ' avec ' + activeModel.name}
                         onClick={() => onRunMissing(plan)}>Lancer</Button>
