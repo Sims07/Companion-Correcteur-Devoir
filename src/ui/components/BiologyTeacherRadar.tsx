@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import {
   BIOLOGY_RADAR_AXES, buildBiologyRadar, type BiologyCorrectionProtocol,
@@ -9,6 +9,18 @@ import './BiologyTeacherRadar.css';
 const PROTOCOL_NAMES: Record<BiologyCorrectionProtocol, string> = {
   contract: 'Contrat par question', standard: 'Barème standard', pilot: 'Pilote initial',
 };
+const SELECTION_KEY = 'companion:biology-radar-selection:v1';
+function savedSelection(): { protocol: BiologyCorrectionProtocol; selectedId: string } {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(SELECTION_KEY) ?? '{}');
+    if (!parsed || typeof parsed !== 'object') throw new Error('Invalid selection');
+    const value = parsed as { protocol?: unknown; selectedId?: unknown };
+    return {
+      protocol: value.protocol === 'standard' || value.protocol === 'pilot' ? value.protocol : 'contract',
+      selectedId: typeof value.selectedId === 'string' ? value.selectedId : '',
+    };
+  } catch { return { protocol: 'contract', selectedId: '' }; }
+}
 
 function RadarPlot({ candidate }: { candidate: BiologyRadarCandidate }) {
   const vertex = (index: number, value: number) => {
@@ -60,8 +72,13 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
   onEvaluate: (profileId: string) => void;
   onShowTests: (scenario: 'contracts' | 'repeatability' | 'copies') => void;
 }) {
-  const [protocol, setProtocol] = useState<BiologyCorrectionProtocol>('contract');
-  const [selectedId, setSelectedId] = useState('');
+  const [initialSelection] = useState(savedSelection);
+  const [protocol, setProtocol] = useState<BiologyCorrectionProtocol>(initialSelection.protocol);
+  const [selectedId, setSelectedId] = useState(initialSelection.selectedId);
+  useEffect(() => {
+    try { window.localStorage.setItem(SELECTION_KEY, JSON.stringify({ protocol, selectedId })); }
+    catch { /* Selection remains available in the current session. */ }
+  }, [protocol, selectedId]);
   const measured = useMemo(() => buildBiologyRadar(history, protocol), [history, protocol]);
   const configured = profiles.map((profile) => {
     const method = profile.configuration.correctionMethod;
