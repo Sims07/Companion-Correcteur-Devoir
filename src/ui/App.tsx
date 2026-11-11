@@ -59,8 +59,10 @@ import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision 
 import { buildLocalDecisionBenchmark } from '../domain/localDecisionBenchmark.ts';
 import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluationScores, visualChoiceLabels } from '../domain/visualDecisionEvaluation.ts';
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
-import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, isLoopbackPilotEndpoint, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
+import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, summarizePilotResult, isLocalPilotConfiguration, isLocalPilotProfile, isLoopbackPilotEndpoint, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
+import { BiologyTeacherRadar } from './components/BiologyTeacherRadar.tsx';
+import { biologyRadarObservations, loadBiologyRadarHistory, mergeBiologyRadarHistory, saveBiologyRadarHistory } from '../domain/biologyTeacherRadar.ts';
 import type { DiagramThinkSetting } from '../ports/correctionWorkspace.ts';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
 import { ScientificDiagramLabHistory } from './components/ScientificDiagramLabHistory.tsx';
@@ -465,6 +467,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationHistoryStageFilter, setEvaluationHistoryStageFilter] = useState<EvaluationStageMode | 'all'>('all');
   const [evaluationEditorOpen, setEvaluationEditorOpen] = useState(false);
   const [evaluationBiologyScenario, setEvaluationBiologyScenario] = useState<'contracts' | 'repeatability' | 'copies'>('contracts');
+  const [biologyRadarOpen, setBiologyRadarOpen] = useState(false);
   const [evaluationJourney, setEvaluationJourney] = useState<'custom' | 'diagrams' | 'biology'>('custom');
   const [diagramLabView, setDiagramLabView] = useState<'protocols' | 'history' | 'radar'>('protocols');
   const [radarAutoRequest, setRadarAutoRequest] = useState<RadarMissingTestRequest | null>(null);
@@ -483,6 +486,18 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [pilotRepeatabilitySuite, setPilotRepeatabilitySuite] = useState<RepeatabilitySuite>('baseline');
   const [pilotRepeatabilityProgress, setPilotRepeatabilityProgress] = useState<{ completed: number; total: number } | null>(null);
   const [pilotConcurrencyRuns, setPilotConcurrencyRuns] = useState<PilotConcurrencyRun[]>([]);
+  const [biologyRadarHistory, setBiologyRadarHistory] = useState(loadBiologyRadarHistory);
+  useEffect(() => {
+    const observations = biologyRadarObservations(pilotRuns, pilotContractRuns, pilotRepeatabilityRuns,
+      pilotRepeatabilityPlanned, pilotRepeatabilitySuite);
+    if (!observations.length) return;
+    setBiologyRadarHistory((existing) => {
+      const ids = new Set(existing.map((observation) => observation.id));
+      const additions = observations.filter((observation) => !ids.has(observation.id));
+      return additions.length ? mergeBiologyRadarHistory(existing, additions) : existing;
+    });
+  }, [pilotRuns, pilotContractRuns, pilotRepeatabilityRuns, pilotRepeatabilityPlanned, pilotRepeatabilitySuite]);
+  useEffect(() => { saveBiologyRadarHistory(biologyRadarHistory); }, [biologyRadarHistory]);
   const [pilotImages, setPilotImages] = useState<Record<string, ImageInput[]>>({});
   const [pilotBusy, setPilotBusy] = useState(false);
   const [pilotUploadingCase, setPilotUploadingCase] = useState<string | null>(null);
@@ -2166,9 +2181,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  async function runPilotQuestionContractBenchmark() {
+  async function runPilotQuestionContractBenchmark(profilesOverride?: AiModelProfile[]) {
     if (pilotBusy || busy || pilotUploadingCase) return;
-    const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+    const profiles = profilesOverride ?? selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     const issue = pilotSelectionIssue(profiles, 'analysis');
     if (issue) { setPilotMessage(issue); return; }
     if (profiles.some(isLocalPilotProfile) && !releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : comparaison bloquée pour protéger la RAM.'); return; }
@@ -2176,6 +2191,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     evaluationCancelledRef.current = false;
     pilotMemoryErrorRef.current = null;
     setPilotContractRuns([]);
+    let resolvedContractCases = 0;
     setPilotBusy(true);
     setEvaluationStageMode('analysis');
     setEvaluationVisualDirect(false);
@@ -2190,15 +2206,24 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           const record = await startModelEvaluation({
             pilotCase: testCase, stage: 'analysis', profiles, caseImages: [], contractVariant: variant,
           });
-          if (record) setPilotContractRuns((current) => [...current, { caseId: testCase.id, variant, record }]);
+          if (record) {
+            setPilotContractRuns((current) => [...current, { caseId: testCase.id, variant, record }]);
+            if (variant === 'contract') resolvedContractCases += record.results.filter((result) =>
+              result.status === 'success' && result.score !== null &&
+              summarizePilotResult(testCase, result).unresolved === 0).length;
+          }
           if (pilotStopRef.current || evaluationCancelledRef.current) break;
         }
         if (pilotStopRef.current || evaluationCancelledRef.current) break;
       }
+      const complete = !pilotStopRef.current && !evaluationCancelledRef.current &&
+        resolvedContractCases === QUESTION_CONTRACT_CASES.length * profiles.length;
       setPilotMessage(pilotMemoryErrorRef.current ??
         (pilotStopRef.current || evaluationCancelledRef.current
           ? 'Comparaison interrompue : les résultats terminés restent exportables.'
-          : 'Comparaison standard / variante B terminée. Copiez le rapport JSON pour analyser les écarts.'));
+          : complete ? 'Comparaison standard / variante B terminée. Copiez le rapport JSON pour analyser les écarts.'
+            : 'Comparaison partielle : des notes ou sous-critères restent indéterminés.'));
+      return complete;
     } catch (cause) {
       setPilotMessage('Erreur de comparaison : ' + (cause instanceof Error ? cause.message : String(cause)) +
         '. Les essais terminés restent exportables.');
@@ -2208,9 +2233,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
   }
 
-  async function runPilotRepeatabilityBenchmark(repetitions: RepeatabilityCount, suite: RepeatabilitySuite = 'baseline') {
+  async function runPilotRepeatabilityBenchmark(repetitions: RepeatabilityCount, suite: RepeatabilitySuite = 'baseline', profilesOverride?: AiModelProfile[]) {
     if (pilotBusy || busy || pilotUploadingCase || (repetitions !== 3 && repetitions !== 5)) return;
-    const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
+    const profiles = profilesOverride ?? selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
     const issue = pilotSelectionIssue(profiles, 'analysis');
     if (issue) { setPilotMessage(issue); return; }
     if (profiles.some(isLocalPilotProfile) && !releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : répétabilité bloquée pour protéger la RAM.'); return; }
@@ -2220,6 +2245,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     evaluationCancelledRef.current = false;
     pilotMemoryErrorRef.current = null;
     setPilotRepeatabilityRuns([]);
+    let resolvedCases = 0;
     setPilotRepeatabilityPlanned(repetitions);
     setPilotRepeatabilitySuite(suite);
     setPilotRepeatabilityProgress({ completed: 0, total: steps.length });
@@ -2239,14 +2265,21 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         });
         if (record) {
           setPilotRepeatabilityRuns((current) => [...current, { repetition: step.repetition, caseId: step.caseId, record }]);
+          resolvedCases += record.results.filter((result) =>
+            result.status === 'success' && result.score !== null &&
+            summarizePilotResult(testCase, result).unresolved === 0).length;
           setPilotRepeatabilityProgress({ completed: index + 1, total: steps.length });
         }
         if (pilotStopRef.current || evaluationCancelledRef.current) break;
       }
+      const complete = !pilotStopRef.current && !evaluationCancelledRef.current &&
+        resolvedCases === steps.length * profiles.length;
       setPilotMessage(pilotMemoryErrorRef.current ??
         (pilotStopRef.current || evaluationCancelledRef.current
           ? 'Répétabilité interrompue : les passages terminés restent exportables, sans être présentés comme répétables.'
-          : 'Répétabilité terminée. Comparez les décisions et exportez le rapport JSON pour ChatGPT.'));
+          : complete ? 'Répétabilité terminée. Comparez les décisions et exportez le rapport JSON pour ChatGPT.'
+            : 'Répétabilité partielle : des notes ou sous-critères restent indéterminés.'));
+      return complete;
     } catch (cause) {
       setPilotMessage('Erreur de répétabilité : ' + (cause instanceof Error ? cause.message : String(cause)) +
         '. Les passages terminés restent exportables.');
@@ -2645,6 +2678,23 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     blindGraphAbortRef.current?.abort();
     pilotStopRef.current = true;
     cancelModelEvaluation();
+  }
+
+  function evaluateBiologyModel(profileId: string) {
+    const profile = aiModelProfiles.find((item) => item.id === profileId);
+    if (!profile || busy || pilotBusy) return;
+    setSelectedEvaluationProfileIds([profileId]);
+    void followEvaluation({
+      title: 'Biologie · évaluation complète du modèle',
+      journey: 'biology', scenario: 'contracts', targetId: 'evaluation-biology-radar', profiles: profile.name,
+    }, async () => {
+      const baselineComplete = await runPilotQuestionContractBenchmark([profile]);
+      if (pilotStopRef.current || evaluationCancelledRef.current) return 0;
+      // Run the stress battery even when A/B/C was only partially resolved.
+      // This keeps independently measurable axes available in the radar.
+      const trapsComplete = await runPilotRepeatabilityBenchmark(3, 'stress', [profile]);
+      return baselineComplete && trapsComplete ? 1 : 0;
+    });
   }
 
   function combinedPilotReport() {
@@ -3767,11 +3817,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       {interfaceMode === 'observability' && <ObservabilityDashboard records={observabilityRecords} storageDiagnosticsService={storageDiagnosticsService} onManageEvaluations={() => { setInterfaceMode('diagnostic'); setEvaluationWorkspaceStep('history'); }} onInspectNetworkErrors={() => { setNetworkInitialFilter('error'); setInterfaceMode('debug'); }} benchmarkRows={buildLocalDecisionBenchmark(timingHistory)} />}
       {interfaceMode === 'diagnostic' && <h2 id="evaluation-page-title" className="evaluation-visually-hidden">Évaluer les modèles</h2>}
       {interfaceMode === 'diagnostic' && <nav className="evaluation-step-nav" data-journey={evaluationJourney} aria-label="Espaces de l’évaluation">
-        <button type="button" className={evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') ? 'page' : undefined} onClick={() => { setEvaluationWorkspaceStep('configuration'); setDiagramLabView('protocols'); }}><strong>Tests</strong></button>
+        <button type="button" className={evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && (evaluationJourney !== 'biology' || !biologyRadarOpen) ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && (evaluationJourney !== 'biology' || !biologyRadarOpen) ? 'page' : undefined} onClick={() => { setEvaluationWorkspaceStep('configuration'); setDiagramLabView('protocols'); setBiologyRadarOpen(false); }}><strong>Tests</strong></button>
         <button type="button" hidden={evaluationJourney !== 'custom' || (!busy && evaluationWorkspaceStep !== 'execution')} className={evaluationWorkspaceStep === 'execution' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'execution' ? 'page' : undefined} onClick={() => setEvaluationWorkspaceStep('execution')}><strong>Exécution</strong></button>
         <button type="button" hidden={evaluationJourney !== 'custom' || (!modelEvaluationResults.length && evaluationWorkspaceStep !== 'results')} className={evaluationWorkspaceStep === 'results' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'results' ? 'page' : undefined} onClick={() => setEvaluationWorkspaceStep('results')}><strong>Résultats</strong></button>
         <button type="button" className={evaluationJourney === 'diagrams' ? (diagramLabView === 'history' ? 'is-active' : '') : (evaluationWorkspaceStep === 'history' ? 'is-active' : '')} aria-current={evaluationJourney === 'diagrams' ? (diagramLabView === 'history' ? 'page' : undefined) : (evaluationWorkspaceStep === 'history' ? 'page' : undefined)} onClick={() => { if (evaluationJourney === 'diagrams') { setEvaluationWorkspaceStep('configuration'); setDiagramLabView('history'); } else setEvaluationWorkspaceStep('history'); }}><strong>Campagnes de test</strong></button>
-        <button type="button" className={evaluationJourney === 'diagrams' && diagramLabView === 'radar' && evaluationWorkspaceStep === 'configuration' ? 'is-active' : ''} aria-current={evaluationJourney === 'diagrams' && diagramLabView === 'radar' && evaluationWorkspaceStep === 'configuration' ? 'page' : undefined} onClick={() => { setEvaluationJourney('diagrams'); setEvaluationWorkspaceStep('configuration'); setDiagramLabView('radar'); }}><strong>Radar des candidats</strong></button>
+        <button type="button" className={evaluationWorkspaceStep === 'configuration' && (evaluationJourney === 'biology' ? biologyRadarOpen : evaluationJourney === 'diagrams' && diagramLabView === 'radar') ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'configuration' && (evaluationJourney === 'biology' ? biologyRadarOpen : evaluationJourney === 'diagrams' && diagramLabView === 'radar') ? 'page' : undefined} onClick={() => { setEvaluationWorkspaceStep('configuration'); if (evaluationJourney === 'biology') setBiologyRadarOpen(true); else { setEvaluationJourney('diagrams'); setDiagramLabView('radar'); } }}><strong>Radar des candidats</strong></button>
       </nav>}
       {interfaceMode === 'diagnostic' && evaluationActivity && <section className={`evaluation-activity-banner is-${evaluationActivity.status}`}
         role="status" aria-live="polite" aria-label="Dernière expérience lancée">
@@ -3803,7 +3853,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           {evaluationActivity.status === 'running' && <Button variant="secondary" onClick={evaluationActivity.journey === 'custom' ? cancelModelEvaluation : stopPilotProtocol}>Arrêter après l’appel en cours</Button>}
         </div>
       </section>}
-      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && <section id="evaluation-configurations" className="panel evaluation-config-workspace" data-journey={evaluationJourney} aria-labelledby="evaluation-config-title">
+      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && (evaluationJourney !== 'biology' || !biologyRadarOpen) && <section id="evaluation-configurations" className="panel evaluation-config-workspace" data-journey={evaluationJourney} aria-labelledby="evaluation-config-title">
         <div className="evaluation-workbench-controls">
         <EvaluationJourneyPicker value={evaluationJourney} disabled={busy || pilotBusy} onChange={(journey) => { setEvaluationJourney(journey); if (journey === 'diagrams') setDiagramLabView('protocols'); }} />
         <h2 id="evaluation-config-title" className="evaluation-visually-hidden">Configurations à évaluer</h2>
@@ -4559,6 +4609,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="evaluation-launch-intro"><p className="eyebrow">PRÊT POUR L’EXPÉRIENCE ?</p><h2>Lancer l’évaluation</h2><p>{!validation.valid ? 'Vérifiez le barème pour continuer.' : !selectedEvaluationProfileIds.length ? 'Sélectionnez au moins une configuration.' : evaluationStageMode !== 'analysis' && !images.length ? 'Ajoutez les pages de la copie à évaluer.' : evaluationStageMode === 'analysis' && !transcription?.trim() ? 'Renseignez la transcription de référence.' : 'Votre jeu d’essai est prêt. Les configurations seront évaluées l’une après l’autre.'}</p></div>
         <div className="evaluation-run-actions evaluation-config-launch"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>Le lancement passera à l’espace Exécution pour afficher la progression en direct.</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => { setEvaluationWorkspaceStep('execution'); void startModelEvaluation(); }}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button></div>
       </section>}
+      {interfaceMode === 'diagnostic' && evaluationJourney === 'biology' && biologyRadarOpen && evaluationWorkspaceStep === 'configuration' &&
+        <div id="evaluation-biology-radar"><BiologyTeacherRadar
+          history={biologyRadarHistory} profiles={aiModelProfiles} busy={busy || pilotBusy}
+          onEvaluate={evaluateBiologyModel}
+          onShowTests={(scenario) => {
+            setEvaluationBiologyScenario(scenario);
+            setBiologyRadarOpen(false);
+          }} /></div>}
       {interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView !== 'protocols' && evaluationWorkspaceStep === 'configuration' &&
         <ScientificDiagramLabHistory repository={diagramArchive} revision={diagramHistoryRevision} archiveError={diagramHistoryError}
           view={diagramLabView === 'radar' ? 'radar' : 'campaigns'} onViewChange={(view) => setDiagramLabView(view === 'radar' ? 'radar' : 'history')}
