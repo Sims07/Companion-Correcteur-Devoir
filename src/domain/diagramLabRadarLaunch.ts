@@ -1,6 +1,6 @@
 import type { BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
 import type { DiagramMethodSelection } from './scientificDiagramProtocol.ts';
-import type { RadarAxisId, RadarCandidate, RadarGrouping } from './diagramLabRadar.ts';
+import { RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarGrouping } from './diagramLabRadar.ts';
 
 export type RadarTestProtocol = 'reference' | 'arrows' | 'semantic' | 'graph';
 export interface RadarTestStep {
@@ -113,4 +113,33 @@ export const RADAR_TEST_PROTOCOL_NAMES: Record<RadarTestProtocol, string> = {
 export function radarPlanDescription(steps: readonly RadarTestStep[]) {
   return steps.map((step) => RADAR_TEST_PROTOCOL_NAMES[step.protocol] +
     ' · ' + step.repetitions + ' passage' + (step.repetitions > 1 ? 's' : '')).join(' puis ');
+}
+
+/** Assemble the smallest useful campaign for a model's missing radar axes.
+ * Deduplicate protocols: one three-pass reference run can measure both quality
+ * and stability, while semantic + graph evidence are both needed for robustness.
+ * Missing/invalid observations remain missing after the campaign. */
+export function planRadarModelEvaluation(
+  candidate: RadarCandidate,
+): Omit<RadarMissingTestRequest, 'id'> | null {
+  const missing = RADAR_AXES.filter((axis) => candidate.axes[axis.id].value === null);
+  if (!missing.length) return null;
+
+  const steps = new Map<RadarTestProtocol, RadarTestStep>();
+  for (const axis of missing) {
+    const plan = planMissingRadarAxis(candidate, axis.id, 'model');
+    if (!plan) continue;
+    for (const step of plan.steps) {
+      const previous = steps.get(step.protocol);
+      if (!previous || step.repetitions > previous.repetitions) steps.set(step.protocol, step);
+    }
+  }
+  if (!steps.size) return null;
+  const order: RadarTestProtocol[] = ['reference', 'arrows', 'semantic', 'graph'];
+  return {
+    axis: missing[0]!.id,
+    profileId: candidate.profileId,
+    profileName: candidate.name,
+    steps: order.flatMap((protocol) => steps.has(protocol) ? [steps.get(protocol)!] : []),
+  };
 }

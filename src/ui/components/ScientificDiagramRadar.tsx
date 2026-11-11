@@ -4,12 +4,18 @@ import { buildDiagramLabRadar, compareRadarCommonAxes, rankDiagramLabRadar, obse
   type RadarAxisId, type RadarGrouping, type RadarModelConfiguration, type RadarRankedCandidate, type RadarWeights } from '../../domain/diagramLabRadar.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import type { DiagramMethodSelection } from '../../domain/scientificDiagramProtocol.ts';
-import { planMissingRadarAxis, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
+import { planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
 import { Button } from '../design-system/index.ts';
 import './ScientificDiagramRadar.css';
 
 const PALETTE = ['#b4563d', '#287a8d', '#7556a8', '#688148'];
 const STORAGE_KEY = 'companion:scientific-lab-radar-weights:v1';
+const MODEL_STORAGE_KEY = 'companion:scientific-lab-radar-model:v1';
+
+function restoredModelId() {
+  try { return window.localStorage.getItem(MODEL_STORAGE_KEY) ?? ''; }
+  catch { return ''; }
+}
 
 function restoredWeights(): RadarWeights {
   try {
@@ -99,7 +105,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
   busy: boolean;
 }) {
   const [grouping, setGrouping] = useState<RadarGrouping>('model');
-  const [modelId, setModelId] = useState('');
+  const [modelId, setModelId] = useState(restoredModelId);
   const [comparisonModelId, setComparisonModelId] = useState('');
   const [family, setFamily] = useState<'grading' | 'graph'>('grading');
   const [weights, setWeights] = useState<RadarWeights>(restoredWeights);
@@ -129,6 +135,11 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
     setModelId((current) => ranked.some((candidate) => candidate.id === current)
       ? current : ranked[0]!.id);
   }, [grouping, ranked]);
+  useEffect(() => {
+    if (!modelId) return;
+    try { window.localStorage.setItem(MODEL_STORAGE_KEY, modelId); }
+    catch { /* The current selection still works without browser storage. */ }
+  }, [modelId]);
   const activeModel = grouping === 'model' ? ranked.find((item) => item.id === modelId) ?? ranked[0] ?? null : null;
   const comparedModel = grouping === 'model'
     ? ranked.find((item) => item.id === comparisonModelId && item.id !== activeModel?.id) ?? null : null;
@@ -141,8 +152,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
   /** A model may be saved in several profiles. Launch with an actual profile
    * that uses the selected LLM for EACH requested protocol, never a random
    * saved profile sharing its display label. */
-  function planFor(candidate: RadarRankedCandidate, target: RadarAxisId) {
-    const plan = planMissingRadarAxis(candidate, target, grouping);
+  function resolveModelProfile(candidate: RadarRankedCandidate, plan: Omit<RadarMissingTestRequest, 'id'> | null) {
     if (!plan || grouping !== 'model') return plan;
     if (!profiles.length) return plan; // Compatibility with historical archives and older embeds.
     const matching = profiles.find((profile) => {
@@ -167,6 +177,10 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
       })),
     };
   }
+  function planFor(candidate: RadarRankedCandidate, target: RadarAxisId) {
+    return resolveModelProfile(candidate, planMissingRadarAxis(candidate, target, grouping));
+  }
+  const completePlan = activeModel ? resolveModelProfile(activeModel, planRadarModelEvaluation(activeModel)) : null;
   const missingPlan = examined ? planFor(examined, axis) : null;
   const profileAvailable = examined ? (grouping === 'model' && profiles.length
     ? Boolean(missingPlan && profileIds.includes(missingPlan.profileId))
@@ -235,22 +249,36 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
         </div>}
       </div>}
       {activeModel && <div className="diagram-radar-remaining" aria-label="Tests restant à faire pour ce LLM">
-        <div><h4>{missingAxes.length ? 'Caractéristiques à compléter' : 'Toutes les caractéristiques sont mesurées'}</h4>
+        <div><h4>{missingAxes.length ? 'Évaluation du modèle' : 'Toutes les caractéristiques sont mesurées'}</h4>
           <p>{missingAxes.length
-            ? missingAxes.length + ' caractéristique(s) non évaluée(s) · lancez directement une batterie disponible.'
-            : 'Les huit axes sont alimentés par les campagnes locales enregistrées.'}</p></div>
-        {missingAxes.length > 0 && <div className="diagram-radar-remaining-list">
-          {missingAxes.map((item) => {
-            const plan = planFor(activeModel, item.id);
-            return <div key={item.id} className="diagram-radar-remaining-item">
-              <button type="button" onClick={() => setAxis(item.id)}>{item.label}</button>
-              {plan && profileIds.includes(plan.profileId)
-                ? <Button variant="secondary" disabled={busy} aria-label={'Lancer le test ' + item.label + ' avec ' + activeModel.name}
-                    onClick={() => onRunMissing(plan)}>Lancer</Button>
-                : <small>Profil compatible requis</small>}
-            </div>;
-          })}
-        </div>}
+            ? missingAxes.length + ' caractéristique(s) à mesurer sur huit.'
+            : 'Les huit axes sont alimentés par les campagnes de test enregistrées.'}</p></div>
+        {missingAxes.length > 0 && <>
+          <div className="diagram-radar-evaluate">
+            <Button disabled={busy || !completePlan || !profileIds.includes(completePlan.profileId)}
+              onClick={() => { if (completePlan) onRunMissing(completePlan); }}>Évaluer le modèle</Button>
+            <p>{completePlan && profileIds.includes(completePlan.profileId)
+              ? completePlan.steps.length + ' batteries de test à enchaîner automatiquement · ' +
+                radarPlanDescription(completePlan.steps) + '.'
+              : 'Une même configuration doit pouvoir tester ce LLM en Analyse et en Vision pour couvrir les huit caractéristiques.'}
+              {' '}Les résultats non exploitables resteront non mesurés.</p>
+          </div>
+          <details className="diagram-radar-individual-tests">
+            <summary>Compléter une caractéristique seulement</summary>
+            <div className="diagram-radar-remaining-list">
+              {missingAxes.map((item) => {
+                const plan = planFor(activeModel, item.id);
+                return <div key={item.id} className="diagram-radar-remaining-item">
+                  <button type="button" onClick={() => setAxis(item.id)}>{item.label}</button>
+                  {plan && profileIds.includes(plan.profileId)
+                    ? <Button variant="secondary" disabled={busy} aria-label={'Lancer le test ' + item.label + ' avec ' + activeModel.name}
+                        onClick={() => onRunMissing(plan)}>Lancer</Button>
+                    : <small>Profil compatible requis</small>}
+                </div>;
+              })}
+            </div>
+          </details>
+        </>}
       </div>}
     </section>}
     <div className="diagram-radar-toolbar">
