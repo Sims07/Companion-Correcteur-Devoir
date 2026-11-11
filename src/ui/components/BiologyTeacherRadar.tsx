@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { aiModelRoles, correctionModelFor, type AiModelProfile } from '../../domain/aiModelProfiles.ts';
+import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import {
   BIOLOGY_RADAR_AXES, buildBiologyRadar, type BiologyCorrectionProtocol,
   type BiologyRadarCandidate, type BiologyRadarObservation,
@@ -65,7 +65,8 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
   const measured = useMemo(() => buildBiologyRadar(history, protocol), [history, protocol]);
   const configured = profiles.map((profile) => {
     const method = profile.configuration.correctionMethod;
-    const model = correctionModelFor(method, aiModelRoles(profile.configuration));
+    // Match the model actually sent by the current evaluation runner.
+    const model = profile.configuration.analysisModel;
     const provider = profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama';
     return { profileId: profile.id, model, provider, method,
       id: [provider, method, model].join('::') };
