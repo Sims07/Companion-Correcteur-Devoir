@@ -338,7 +338,7 @@ export function ScientificDiagramProtocolPanel({
               : await runBlindObservation(step.zoom, step);
         if (!ok) {
           setRadarAutoStatus('La batterie ' + RADAR_TEST_PROTOCOL_NAMES[step.protocol] +
-            ' pour ' + profile.name + ' n’a pas terminé tous ses passages. Corrigez le problème ou relancez depuis le radar.);
+            ' pour ' + profile.name + ' n’a pas terminé tous ses passages. Corrigez le problème ou relancez depuis le radar.');
           return;
         }
       }
