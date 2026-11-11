@@ -322,7 +322,7 @@ test(scenario.model + ' compares Think OFF/ON on E with runtime Ollama capabilit
         model: string; think: boolean | string; options: { num_predict: number };
         messages: Array<{ images?: string[]; content?: string }>;
         format: { properties: { criteria: { properties: Record<string, {
-          properties: { subcriteria?: { properties: Record<string, { properties: { creditFraction: { maximum: number } } }> } };
+          properties: { subcriteria?: { properties: Record<string, { properties: { points: { maximum: number } } }> } };
         }> } } };
       };
       requests.push({
@@ -334,8 +334,8 @@ test(scenario.model + ' compares Think OFF/ON on E with runtime Ollama capabilit
         id, {
           evidence: 'Structure examinée', confidence: 'high', questionForTeacher: '',
           subcriteria: Object.fromEntries(Object.entries(criterion.properties.subcriteria?.properties ?? {}).map(([sid, sub]) => [
-            sid, { creditFraction: sid === 'legends-aligned' || (sid === 'legends-visible' && body.think)
-              ? 0 : sub.properties.creditFraction.maximum, evidence: 'Visuellement contrôlé' },
+            sid, { points: sid === 'legends-aligned' || (sid === 'legends-visible' && body.think)
+              ? 0 : sub.properties.points.maximum, evidence: 'Visuellement contrôlé' },
           ])),
         },
       ]));
