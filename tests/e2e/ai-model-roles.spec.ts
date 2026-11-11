@@ -5,9 +5,10 @@ const settingsKey = 'companion-correcteur:ollama-configuration:v1';
 const profilesKey = 'companion-correcteur:ollama-profiles:v1';
 async function openEvaluator(page: Page) {
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  const editor = page.locator('.evaluation-config-editor');
-  if (!await editor.getAttribute('open').then(value => value !== null)) await editor.locator('summary').first().click();
-  return editor;
+  await page.getByRole('button', { name: 'Gérer les configurations' }).click();
+  await page.getByRole('dialog', { name: 'Gérer les configurations IA' })
+    .getByRole('button', { name: 'Modifier les réglages courants' }).click();
+  return page.getByRole('dialog', { name: 'Créer ou modifier une configuration IA' });
 }
 
 test('models stay independent across method switches, saved profiles, reload and teacher settings', async ({ page }, testInfo) => {
