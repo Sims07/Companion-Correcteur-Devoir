@@ -590,6 +590,28 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       : backgroundJobs.find((job) => job.id === queuedViewer.jobId && job.assignmentId === activeAssignmentId && !job.imagesDeferred)
     : undefined;
   const [allBackgroundJobs, setAllBackgroundJobs] = useState<BackgroundJobSummary[]>([]);
+  // Track transitions only after the first snapshot: reopening the app must not
+  // produce a notification for every already completed copy.
+  const previousBackgroundStatuses = useRef<Map<string, string> | null>(null);
+  useEffect(() => {
+    const previous = previousBackgroundStatuses.current;
+    const next = new Map(allBackgroundJobs.map((job) => [job.id, job.status]));
+    previousBackgroundStatuses.current = next;
+    if (!previous) return;
+    for (const job of allBackgroundJobs) {
+      const oldStatus = previous.get(job.id);
+      if (!oldStatus || oldStatus === job.status) continue;
+      if (job.status === 'ready' || job.status === 'needs-review' || job.status === 'failed') {
+        pushAppNotification({
+          title: job.status === 'failed' ? 'Correction à reprendre' : 'Copie prête à vérifier',
+          message: job.label + (job.status === 'failed' ? ' · Le traitement a échoué.' : ' · La correction est disponible pour relecture.'),
+          kind: job.status === 'failed' ? 'error' : job.status === 'needs-review' ? 'warning' : 'success',
+          target: 'correction',
+        });
+      }
+    }
+  }, [allBackgroundJobs]);
+
   const [selectedSeriesPreviewId, setSelectedSeriesPreviewId] = useState<string | null>(null);
   const [currentBackgroundJobId, setCurrentBackgroundJobId] = useState<string | null>(null);
   const [backgroundCopyLabel, setBackgroundCopyLabel] = useState('');
