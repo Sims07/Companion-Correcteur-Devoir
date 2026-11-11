@@ -771,6 +771,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     setTimingHistory((current) => [
       ...traces.map((trace): TimingRecord => ({
         ...trace,
+        source: 'scientific-diagram',
         thinking: false,
         correctionMode: 'integrated',
         criterionScores: [],
