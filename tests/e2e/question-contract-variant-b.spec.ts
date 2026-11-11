@@ -20,8 +20,7 @@ test('the question-contract comparison supports locally saved OpenAI-compatible 
     localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify(savedProfiles));
   }, profiles);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Biologie/ }).click();
 
   const panel = page.getByRole('region', { name: 'Protocole de test guidé' });

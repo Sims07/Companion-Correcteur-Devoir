@@ -30,8 +30,7 @@ test('third method persists and sends diagram + all typed questions to Clef thro
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.locator('#evaluation-profile-name').fill('Clef Vision + Décision');
   await page.locator('#evaluation-decision-model').fill('clef-flash');
   await page.locator('#evaluation-correction-method').selectOption('decision');
@@ -65,8 +64,7 @@ test('third method persists and sends diagram + all typed questions to Clef thro
   expect(Object.keys(body.questions as Record<string, unknown>).length).toBeGreaterThanOrEqual(19);
 
   await page.reload();
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByText('Créer ou modifier une configuration IA', { exact: true }).click();
   await page.locator('#evaluation-profile-select').selectOption(saved!.id);
   await expect(page.locator('#evaluation-correction-method')).toHaveValue('decision');
@@ -76,8 +74,7 @@ test('third method persists and sends diagram + all typed questions to Clef thro
 
 test('TEV1 configured as direct image decision is blocked visibly before running the scientific diagram benchmark', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.locator('#evaluation-profile-name').fill('TEV1 visual incompatible');
   await page.locator('#evaluation-decision-model').fill('tev1:4b');
   await page.locator('#evaluation-correction-method').selectOption('decision');
