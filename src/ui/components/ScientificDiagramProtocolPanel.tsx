@@ -336,11 +336,11 @@ export function ScientificDiagramProtocolPanel({
               : await runBlindObservation(step.zoom, step);
         if (!ok) {
           setRadarAutoStatus('La batterie ' + RADAR_TEST_PROTOCOL_NAMES[step.protocol] +
-            ' n’a pas terminé tous ses passages. Corrigez le problème ou relancez depuis le radar.');
+            ' pour ' + profile.name + ' n’a pas terminé tous ses passages. Corrigez le problème ou relancez depuis le radar.');
           return;
         }
       }
-      setRadarAutoStatus('Batteries terminées. Sauvegarde automatique en cours : retournez au radar pour consulter les mesures.');
+      setRadarAutoStatus('Batteries terminées pour ' + profile.name + '. Sauvegarde automatique en cours : retournez au radar pour consulter les mesures.');
       } finally {
         onAutoBusyChange?.(false);
       }

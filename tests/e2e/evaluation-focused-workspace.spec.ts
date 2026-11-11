@@ -27,8 +27,8 @@ test('evaluation starts with one compact workspace rather than stacked cards', a
 
   await families.getByRole('button', { name: 'Schémas scientifiques' }).click();
   await expect(page.getByRole('region', { name: 'Protocole schémas scientifiques', exact: true })).toBeVisible();
-  await views.getByRole('button', { name: 'Carnet de résultats' }).click();
-  await expect(views.getByRole('button', { name: 'Carnet de résultats' })).toHaveAttribute('aria-current', 'page');
+  await views.getByRole('button', { name: 'Campagnes de test' }).click();
+  await expect(views.getByRole('button', { name: 'Campagnes de test' })).toHaveAttribute('aria-current', 'page');
   await views.getByRole('button', { name: 'Tests' }).click();
   await expect(families.getByRole('button', { name: 'Schémas scientifiques' })).toHaveAttribute('aria-pressed', 'true');
   await families.getByRole('button', { name: 'Biologie' }).click();

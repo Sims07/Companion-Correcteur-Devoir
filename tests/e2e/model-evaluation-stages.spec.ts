@@ -22,7 +22,7 @@ test('the model laboratory exposes independent Vision and Analysis experiments',
 test('the history lets teachers filter Vision, Analysis and full-pipeline experiments before any run exists', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await page.getByRole('button', { name: 'Carnet de résultats' }).click();
+  await page.getByRole('button', { name: 'Campagnes de test' }).click();
 
   const filters = page.getByRole('group', { name: 'Filtrer les expériences par type' });
   await expect(filters).toBeVisible();

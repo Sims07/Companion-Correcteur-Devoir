@@ -111,7 +111,7 @@ describe('Évaluation des modèles — navigation par espace', () => {
   it('provides task-centered views without misleading numbered steps', () => {
     expect(appSource).toContain("useState<'configuration' | 'execution' | 'results' | 'history'>('configuration')");
     expect(appSource).toContain('Espaces de l’évaluation');
-    expect(appSource).toContain('Carnet de résultats');
+    expect(appSource).toContain('Campagnes de test');
     expect(appSource).toContain('aria-label="Espaces de l’évaluation"');
     expect(appSource).toContain("diagramLabView === 'history' ? 'page' : undefined");
   });

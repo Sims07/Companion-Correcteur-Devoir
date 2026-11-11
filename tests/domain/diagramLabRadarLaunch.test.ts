@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planMissingRadarAxis, radarPlanDescription } from '../../src/domain/diagramLabRadarLaunch.ts';
+import { planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription } from '../../src/domain/diagramLabRadarLaunch.ts';
 import { RADAR_AXES, type RadarCandidate, type RadarAxisId } from '../../src/domain/diagramLabRadar.ts';
 
 function candidate(values: Partial<Record<RadarAxisId, number>> = {}, method?: string): RadarCandidate {
@@ -61,5 +61,27 @@ describe('launch missing radar tests', () => {
 
   it('does not offer another run for already measured axes, including a measured score of zero', () => {
     expect(planMissingRadarAxis(candidate({ arrows: 0 }), 'arrows', 'profile')).toBeNull();
+  });
+  it('plans a fresh model in four deduplicated batteries with a three-pass stability measurement', () => {
+    const plan = planRadarModelEvaluation(candidate())!;
+    expect(plan.steps.map((step) => [step.protocol, step.repetitions])).toEqual([
+      ['reference', 3], ['arrows', 1], ['semantic', 1], ['graph', 1],
+    ]);
+    expect(plan.profileId).toBe('saved-profile');
+  });
+
+  it('reuses existing evidence, reruns incomplete robustness inputs, and does not rerun complete models', () => {
+    const partiallyMeasured = candidate({ graphics: 90, arrows: 100, biology: 80, coverage: 85, speed: 50 });
+    expect(planRadarModelEvaluation(partiallyMeasured)?.steps.map((step) => [step.protocol, step.repetitions]))
+      .toEqual([['reference', 3], ['graph', 1]]);
+    const complete = candidate(Object.fromEntries(RADAR_AXES.map((axis) => [axis.id, 0])) as Record<RadarAxisId, number>);
+    expect(planRadarModelEvaluation(complete)).toBeNull();
+  });
+
+  it('plans only the extra repeat series when stability is the sole gap', () => {
+    const allExceptStability = Object.fromEntries(RADAR_AXES.filter((axis) =>
+      axis.id !== 'stability').map((axis) => [axis.id, 90])) as Record<RadarAxisId, number>;
+    expect(planRadarModelEvaluation(candidate(allExceptStability))?.steps.map((step) => [step.protocol, step.repetitions]))
+      .toEqual([['reference', 3]]);
   });
 });
