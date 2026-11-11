@@ -1,5 +1,6 @@
 import { SCIENTIFIC_DIAGRAM_OBSERVATION_RULES } from '../../../domain/scientificDiagramObservation.ts';
 import type { GradingRequest } from '../../../ports/aiProvider.ts';
+import type { DirectDiagramPointRepair } from '../directDiagramOutput.ts';
 
 export function buildDirectDiagramPrompt(request: GradingRequest, repairReason?: string): string {
   return [
@@ -17,5 +18,26 @@ export function buildDirectDiagramPrompt(request: GradingRequest, repairReason?:
     ...(request.subjectTranscription ? [`SUJET DE RÉFÉRENCE (ne remplace pas le barème) :\n${request.subjectTranscription}`] : []),
     `BARÈME ENSEIGNANT :\n${request.rubric}`,
     ...(repairReason ? [`La sortie précédente a échoué au contrôle ${repairReason}. Corrige la valeur ou le champ précisément indiqué, sans inventer ou ajuster les autres notes pour contourner la validation. Réexamine les mêmes images et renvoie le JSON COMPLET avec tous les identifiants et preuves. Les points doivent être des nombres JSON compris entre 0 et leur maximum ; si un maximum vaut 0.33, une réussite complète vaut 0.33 et non 1 ; si l’attendu est absent, sa note reste 0, sans compensation sur les autres sous-critères.`] : []),
+  ].join('\n\n');
+}
+
+
+/** Repair only a mechanically invalid score from an otherwise usable
+ * multimodal decision. The model must itself pick the revised mark, rather
+ * than the application clamping or reinterpreting its original number. */
+export function buildDirectDiagramPointRepairPrompt(
+  request: GradingRequest, issue: DirectDiagramPointRepair,
+): string {
+  const originalValue = JSON.stringify(issue.originalValue)?.slice(0, 100) ?? 'indéfini';
+  return [
+    'Tu assistes un professeur de biologie. Tu as déjà examiné les images de ce schéma.',
+    'UNE SEULE VALEUR DE POINTS EST INVALIDE. Ne réévalue pas les autres sous-critères et ne fournis pas une nouvelle correction complète.',
+    `Sous-critère à corriger : ${issue.criterionTitle} / ${issue.subcriterionTitle} (identifiant ${issue.criterionId}${issue.subcriterionId ? ` / ${issue.subcriterionId}` : ''}).`,
+    `Valeur initiale invalide : ${originalValue}. Barème réel autorisé : 0 à ${issue.maximum} point(s), bornes incluses.`,
+    `Observation initiale du modèle, à VÉRIFIER SUR L'IMAGE : ${issue.originalEvidence || 'aucune preuve disponible'}.`,
+    'Conserve la distinction : absent ou incorrect = points: 0 ; complètement satisfait = points égaux au maximum EXACT du barème (si le maximum vaut 0.33, réponds 0.33 et jamais 1).',
+    'Un crédit partiel exige un détail réellement visible et explicitement indiqué dans evidence. Ne distribue pas des points par défaut. Si ton observation initiale était fausse, corrige-la librement et attribue 0.',
+    'Retourne UNIQUEMENT un objet JSON avec exactement deux champs : points (nombre JSON entre 0 et le maximum) et evidence (observation visuelle courte non vide). Ne fournis aucune autre note.',
+    `CONSIGNE : ${request.question}`,
   ].join('\n\n');
 }
