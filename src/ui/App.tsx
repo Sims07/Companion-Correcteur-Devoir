@@ -502,7 +502,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [diagramBlindGraphReport, setDiagramBlindGraphReport] = useState<ReturnType<typeof buildBlindVisualObservationReport> | null>(null);
   const [diagramHistoryRevision, setDiagramHistoryRevision] = useState(0);
   const [diagramHistoryError, setDiagramHistoryError] = useState('');
-  const diagramArchiveWriter = useMemo(() => createDiagramLabArchiveWriter(diagramLabArchive), [diagramLabArchive]);
+  const diagramArchiveWriter = useMemo(() => createDiagramLabArchiveWriter(diagramArchive), [diagramArchive]);
   const activeDiagramReportRef = useRef<'fixture' | 'sensitivity' | 'graph' | 'personal' | null>(null);
   // Intermediate updates remain visible in the local archive, but a completed
   // battery is also saved explicitly before the next automatic battery starts.
