@@ -88,7 +88,7 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   await expect(radar.getByRole('region', { name: 'Classement des candidats' }).getByText('2 candidat(s) classable(s)')).toBeVisible();
   await expect(radar.getByLabel('Choisir un LLM')).toHaveValue('vision-good:4b');
   await expect(radar.getByRole('region', { name: 'Bilan du LLM sélectionné' })).toContainText('Note globale');
-  await expect(radar.getByRole('region', { name: 'Bilan du LLM sélectionné' })).toContainText('8/8 caractéristiques mesurées');
+  await expect(radar.locator('.diagram-radar-score-coverage')).toContainText('8 / 8');
   await radar.getByLabel('Choisir un LLM').selectOption('vision-fast:4b');
   await expect(radar.getByRole('region', { name: 'Bilan du LLM sélectionné' })).toContainText('vision-fast:4b');
   await radar.getByLabel('Choisir un LLM').selectOption('vision-good:4b');
