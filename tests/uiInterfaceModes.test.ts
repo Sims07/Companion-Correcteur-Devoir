@@ -50,7 +50,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('archiveService.saveCorrection(correction)');
     expect(text).toContain("images: runStage === 'analysis' ? [] : structuredClone(runImages)");
     expect(text).toContain('snapshot.review');
-    expect(text).toContain('Cette correction est enregistrée sur cet appareil');
+    expect(text).toContain('<h3>Correction enregistrée</h3>');
   });
 
 

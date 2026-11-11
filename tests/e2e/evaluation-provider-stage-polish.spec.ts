@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('provider disclosure follows actual saved selections instead of current Ollama settings', async ({ page }) => {
+test('evaluation does not add a permanent provider/privacy banner regardless of selected configuration', async ({ page }) => {
   const configuration = {
     endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '',
     visionModel: 'qwen3.5:4b', analysisModel: 'qwen3.5:4b',
@@ -17,21 +17,17 @@ test('provider disclosure follows actual saved selections instead of current Oll
   ])), configuration);
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  const notice = page.locator('.evaluation-provider-indicator');
-  await expect(notice).toContainText('aucun profil sélectionné');
-  await expect(notice).not.toContainText('copies conservées');
+  const notice = page.locator('.evaluation-provider-indicator, .evaluation-page-header');
+  await expect(notice).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Gérer les configurations' }).click();
   const configurations = page.getByRole('dialog', { name: 'Gérer les configurations IA' });
   await configurations.getByRole('checkbox', { name: /Profil serveur distant/ }).check();
-  await expect(notice).toContainText('Serveur réseau ou distant');
-  await expect(notice).toContainText('fichiers transmis');
-  await expect(notice).toHaveClass(/is-remote/);
+  await expect(notice).toHaveCount(0);
   await configurations.getByRole('checkbox', { name: /Local témoin/ }).check();
-  await expect(notice).toContainText('Profils locaux et réseau/distant');
+  await expect(notice).toHaveCount(0);
   await configurations.getByRole('checkbox', { name: /Profil serveur distant/ }).uncheck();
-  await expect(notice).toContainText('Ollama local');
-  await expect(notice).not.toHaveClass(/is-remote/);
+  await expect(notice).toHaveCount(0);
 });
 
 test('personal tests use a compact type switch, never a numbered sequence', async ({ page }) => {

@@ -50,6 +50,12 @@ describe('aides de confidentialité non répétitives', () => {
   it('supprime les slogans du bandeau et des imports, sans toucher au consentement distant', () => {
     const app = source('./App.tsx');
     expect(app).not.toContain('Mode local prioritaire');
+    expect(app).not.toContain('evaluation-provider-indicator');
+    expect(app).not.toContain('evaluation-page-header');
+    expect(app).not.toContain('Paramètres de l’IA locale');
+    expect(app).not.toContain('Les derniers réglages sont restaurés automatiquement.');
+    expect(app).not.toContain('transmis uniquement au serveur configuré');
+    expect(app).toContain('<option value="ollama">Ollama local</option>');
     expect(app).not.toContain('Aucun service cloud n’est utilisé');
     expect(app).not.toContain('Les pages sont préparées dans le navigateur. Elles sont transmises uniquement');
     expect(app).not.toContain('Données locales</span>');

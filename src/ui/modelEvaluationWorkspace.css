@@ -652,27 +652,6 @@
   margin: 0;
   font-size: clamp(1.4rem, 2.3vw, 1.85rem);
 }
-.evaluation-workspace-shell .evaluation-page-header p.evaluation-provider-indicator {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--ds-space-2);
-  margin: 0;
-  font-size: .75rem;
-  line-height: 1.45;
-  color: var(--ds-color-text-muted);
-}
-.evaluation-workspace-shell .evaluation-provider-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  flex: 0 0 7px;
-  align-self: center;
-  border-radius: 50%;
-  background: var(--ds-color-success);
-}
-.evaluation-workspace-shell .evaluation-provider-indicator.is-remote .evaluation-provider-dot {
-  background: var(--ds-color-warning);
-}
 .evaluation-workspace-shell .evaluation-step-nav,
 .evaluation-workspace-shell .evaluation-step-nav:not([data-journey="custom"]) {
   display: flex;
