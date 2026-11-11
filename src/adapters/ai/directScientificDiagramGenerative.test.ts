@@ -41,7 +41,7 @@ describe('vision + analyse générative directe (laboratoire scientifique)', () 
     }) };
     const answer = JSON.stringify({ criteria: { legends: {
       evidence: 'Mauvaise correspondance', confidence: 'high', questionForTeacher: '',
-      subcriteria: { arrows: { points: 0, evidence: 'Flèche erronée' } },
+      subcriteria: { arrows: { creditFraction: 0, evidence: 'Flèche erronée' } },
     } } });
     const calls: Array<{ think: boolean; options: { num_predict: number } }> = [];
     const diagnostics: import('../../ports/aiProvider.ts').DiagnosticModelResult[] = [];

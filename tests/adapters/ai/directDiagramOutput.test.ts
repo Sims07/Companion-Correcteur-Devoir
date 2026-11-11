@@ -8,7 +8,7 @@ const criteria = [{ id: 'title', title: 'Titre', description: '', maxPoints: 1,
   subcriteria: [{ id: 'position', title: 'Position', description: '', maxPoints: 0.66 },
     { id: 'content', title: 'Contenu', description: '', maxPoints: 0.34 }] }];
 const answer = () => ({ criteria: { title: { evidence: 'Titre sous le dessin', confidence: 'medium', questionForTeacher: '',
-  subcriteria: { position: { points: 0.33, evidence: 'Titre décalé' }, content: { points: 0.34, evidence: 'Sujet précisé' } } } } });
+  subcriteria: { position: { creditFraction: 0.5, evidence: 'Titre décalé' }, content: { creditFraction: 1, evidence: 'Sujet précisé' } } } } });
 const stream = (raw: string, done_reason = 'stop') => new Response(
   JSON.stringify({ message: { content: raw } }) + '\n' + JSON.stringify({ done: true, done_reason }) + '\n');
 const request = { question: 'Vérifier le dessin', rubric: JSON.stringify({ title: 'Dessin', criteria }),
@@ -20,7 +20,7 @@ describe('compact direct diagram output', () => {
     const values = Object.fromEntries(rubric.criteria.map(c => [c.id, {
       evidence: 'Observation du dessin', confidence: 'medium', questionForTeacher: '',
       subcriteria: Object.fromEntries(c.subcriteria!.map((s, i) => [s.id, {
-        points: i % 3 === 0 ? 0 : i % 3 === 1 ? 0.1 : s.maxPoints, evidence: 'Détail visible',
+        creditFraction: i % 3 === 0 ? 0 : i % 3 === 1 ? 0.5 : 1, evidence: 'Détail visible',
       }])),
     }]));
     const parsed = JSON.parse(parseDirectDiagramOutput(JSON.stringify({ criteria: values }), rubric.criteria));
@@ -39,14 +39,17 @@ describe('compact direct diagram output', () => {
     expect(JSON.stringify(schema)).not.toContain('anyOf');
     expect(JSON.stringify(schema)).toContain('position');
     expect(JSON.stringify(schema)).not.toContain('finalScore');
+    expect(JSON.parse(JSON.stringify(schema)).properties.criteria.properties.title.properties.subcriteria.properties.position.properties.creditFraction)
+      .toMatchObject({ type: 'number', minimum: 0, maximum: 1 });
+    expect(JSON.stringify(schema)).not.toContain('"points"');
   });
   it.each(['missing-id', 'unknown-id', 'missing-evidence', 'invalid-points'])(
     'does not fabricate or clamp marks after %s', code => {
       const value = answer();
       if (code === 'missing-id') delete (value.criteria.title.subcriteria as Partial<typeof value.criteria.title.subcriteria>).position;
-      if (code === 'unknown-id') Object.assign(value.criteria.title.subcriteria, { invented: { points: 0, evidence: 'x' } });
+      if (code === 'unknown-id') Object.assign(value.criteria.title.subcriteria, { invented: { creditFraction: 0, evidence: 'x' } });
       if (code === 'missing-evidence') value.criteria.title.subcriteria.position.evidence = '';
-      if (code === 'invalid-points') value.criteria.title.subcriteria.position.points = 1;
+      if (code === 'invalid-points') value.criteria.title.subcriteria.position.creditFraction = 1.1;
       expect(() => parseDirectDiagramOutput(JSON.stringify(value), criteria)).toThrow(`[diagram-output:${code}]`);
     });
   it('accepts a completely absent diagram with zero on every scientific subcriterion', () => {
@@ -54,7 +57,7 @@ describe('compact direct diagram output', () => {
     const values = Object.fromEntries(rubric.criteria.map(c => [c.id, {
       evidence: 'Attendus absents du dessin', confidence: 'high', questionForTeacher: '',
       subcriteria: Object.fromEntries(c.subcriteria!.map(s => [s.id, {
-        points: 0, evidence: 'Élément non dessiné',
+        creditFraction: 0, evidence: 'Élément non dessiné',
       }])),
     }]));
     const parsed = JSON.parse(parseDirectDiagramOutput(JSON.stringify({ criteria: values }), rubric.criteria));
@@ -63,19 +66,72 @@ describe('compact direct diagram output', () => {
   });
   it('pinpoints invalid marks without silently coercing them', () => {
     const bad = answer();
-    bad.criteria.title.subcriteria.position.points = -0.33;
+    bad.criteria.title.subcriteria.position.creditFraction = -0.33;
     expect(() => parseDirectDiagramOutput(JSON.stringify(bad), criteria))
-      .toThrow(/\[diagram-output:invalid-points\].*title\.subcriteria\.position\.points.*entre 0 et 0\.66.*-0\.33/);
-    const notANumber = JSON.stringify(answer()).replace('"points":0.33', '"points":"0.33"');
+      .toThrow(/\[diagram-output:invalid-points\].*title\.subcriteria\.position\.creditFraction.*entre 0 et 1.*-0\.33/);
+    const notANumber = JSON.stringify(answer()).replace('"creditFraction":0.5', '"creditFraction":"0.5"');
     expect(() => parseDirectDiagramOutput(notANumber, criteria))
-      .toThrow(/\[diagram-output:invalid-points\].*position\.points.*reçu : string/);
+      .toThrow(/\[diagram-output:invalid-points\].*position\.creditFraction.*reçu : string/);
   });
+
+  it('uses the real C failure: a model 1 means full credit for the 0.33-point title criterion, not one point', async () => {
+    const rubric = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC;
+    const values = Object.fromEntries(rubric.criteria.map(criterion => [criterion.id, {
+      evidence: 'Éléments absents du schéma', confidence: 'high', questionForTeacher: '',
+      subcriteria: Object.fromEntries(criterion.subcriteria!.map(sub => [sub.id, {
+        creditFraction: sub.id === 'title-horizontal' ? 1 : 0,
+        evidence: sub.id === 'title-horizontal'
+          ? 'Lignes du titre écrites horizontalement.' : 'Attendu absent du dessin.',
+      }])),
+    }]));
+    const mock = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
+      stream(JSON.stringify({ criteria: values })));
+    const directRequest = { ...request, rubric: JSON.stringify(rubric) };
+    const raw = await createOllamaProvider({ endpoint: 'http://localhost:11434',
+      analysisModel: 'qwen3.5:4b', correctionMethod: 'generative' }, mock).generate(directRequest);
+    const result = JSON.parse(raw);
+    expect(mock).toHaveBeenCalledTimes(1);
+    expect(result.finalScore).toBe(0.33);
+    expect(result.criteria.find((item: { criterionId: string }) => item.criterionId === 'title')
+      .subcriteria.find((item: { subcriterionId: string }) => item.subcriterionId === 'title-horizontal').points).toBe(0.33);
+    const firstRequest = JSON.parse(String(mock.mock.calls[0]![1]?.body));
+    expect(firstRequest.format.properties.criteria.properties.title.properties.subcriteria.properties['title-horizontal']
+      .properties.creditFraction.maximum).toBe(1);
+    expect(firstRequest.messages[0].content).toContain('0.33 point et NON 1 point');
+  });
+
+  it('rounds partial credit to hundredths according to the application scale', () => {
+    const sample = answer();
+    sample.criteria.title.subcriteria.position.creditFraction = 0.25;
+    const output = JSON.parse(parseDirectDiagramOutput(JSON.stringify(sample), criteria));
+    expect(output.criteria[0].subcriteria[0].points).toBe(0.17); // 25% of 0.66 = 0.165
+    expect(output.finalScore).toBe(0.51);
+  });
+
+  it('rejects an out-of-range credit fraction and does not clamp or infer a mark', () => {
+    const sample = answer();
+    sample.criteria.title.subcriteria.position.creditFraction = 1.5;
+    expect(() => parseDirectDiagramOutput(JSON.stringify(sample), criteria))
+      .toThrow(/\[diagram-output:invalid-points\].*position\.creditFraction.*1\.5/);
+  });
+
+  it('handles a criterion without subcriteria with the same normalized scale', () => {
+    const plain = [{ id: 'accuracy', title: 'Exactitude', description: '', maxPoints: 2 }];
+    const raw = JSON.stringify({ criteria: { accuracy: {
+      evidence: 'Réponse partielle', confidence: 'medium', questionForTeacher: '',
+      creditFraction: 0.5,
+    } } });
+    const output = JSON.parse(parseDirectDiagramOutput(raw, plain));
+    expect(output.finalScore).toBe(1);
+    expect(output.criteria[0].points).toBe(1);
+  });
+
   it('repairs a negative mark on a poor diagram while preserving the zero score', async () => {
     const bad = answer();
-    bad.criteria.title.subcriteria.position.points = -0.33;
+    bad.criteria.title.subcriteria.position.creditFraction = -0.33;
     const corrected = answer();
-    corrected.criteria.title.subcriteria.position.points = 0;
-    corrected.criteria.title.subcriteria.content.points = 0;
+    corrected.criteria.title.subcriteria.position.creditFraction = 0;
+    corrected.criteria.title.subcriteria.content.creditFraction = 0;
     const fetchMock = vi.fn().mockResolvedValueOnce(stream(JSON.stringify(bad)))
       .mockResolvedValueOnce(stream(JSON.stringify(corrected)));
     const raw = await createOllamaProvider({ endpoint: 'http://localhost:11434',
@@ -84,18 +140,18 @@ describe('compact direct diagram output', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const first = JSON.parse(fetchMock.mock.calls[0]![1].body);
     const repair = JSON.parse(fetchMock.mock.calls[1]![1].body);
-    expect(first.messages[0].content).toContain('jamais une chaîne, null ou une pénalité négative');
-    expect(repair.messages[0].content).toContain('title.subcriteria.position.points');
-    expect(repair.messages[0].content).toContain('entre 0 et 0.66');
+    expect(first.messages[0].content).toContain('creditFraction: 1 signifie 0.33 point');
+    expect(repair.messages[0].content).toContain('title.subcriteria.position.creditFraction');
+    expect(repair.messages[0].content).toContain('entre 0 et 1');
     expect(repair.messages[0].images).toEqual(first.messages[0].images);
   });
   it('rejects a repeated invalid mark rather than manufacturing a score', async () => {
     const bad = answer();
-    bad.criteria.title.subcriteria.position.points = -0.5;
+    bad.criteria.title.subcriteria.position.creditFraction = -0.5;
     const fetchMock = vi.fn(async () => stream(JSON.stringify(bad)));
     await expect(createOllamaProvider({ endpoint: 'http://localhost:11434',
       analysisModel: 'qwen3.5:4b', correctionMethod: 'generative' }, fetchMock).generate(request))
-      .rejects.toThrow(/\[diagram-output:invalid-points\].*position\.points/);
+      .rejects.toThrow(/\[diagram-output:invalid-points\].*position\.creditFraction/);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
   it.each(['qwen3.5:4b', 'qwen3.5:9b'])('repairs only once with images and exact IDs for %s', async model => {

@@ -17,7 +17,7 @@ function diagramResult() {
     criterion.id, {
       evidence: 'Observation à vérifier', confidence: 'medium', questionForTeacher: '',
       subcriteria: Object.fromEntries((criterion.subcriteria ?? []).map((sub) => [
-        sub.id, { points: 0, evidence: 'Non visible' },
+        sub.id, { creditFraction: 0, evidence: 'Non visible' },
       ])),
     },
   ]));
