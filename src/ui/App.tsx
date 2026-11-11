@@ -1,3 +1,5 @@
+import { NotificationCenter } from './components/NotificationCenter.tsx';
+import { pushAppNotification, type AppNotification } from '../domain/appNotifications.ts';
 import { EvaluationJourneyPicker } from './components/EvaluationJourneyPicker.tsx';
 import { evaluationProviderNotice } from '../domain/evaluationProviderNotice.ts';
 import { resolveEvaluationActivityOutcome } from '../domain/evaluationActivityStatus.ts';
@@ -1971,12 +1973,40 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       });
       setEvaluationActivity((current) => current?.title === activity.title
         ? { ...current, ...result } : current);
+      pushAppNotification({
+        title: result.status === 'completed' ? 'Test terminé' : result.status === 'cancelled' ? 'Test interrompu' : 'Test en échec',
+        message: activity.title + ' · ' + activity.profiles + (result.error ? ' · ' + result.error.slice(0, 180) : ''),
+        kind: result.status === 'completed' ? 'success' : result.status === 'cancelled' ? 'warning' : 'error',
+        target: 'evaluation', journey: activity.journey, targetId: activity.targetId,
+      });
       return outcome;
     } catch (cause) {
       const error = cause instanceof Error ? cause.message : String(cause);
       setEvaluationActivity((current) => current?.title === activity.title
         ? { ...current, status: 'failed', error } : current);
+      pushAppNotification({
+        title: 'Test en échec', message: activity.title + ' · ' + error.slice(0, 180),
+        kind: 'error', target: 'evaluation', journey: activity.journey, targetId: activity.targetId,
+      });
       throw cause;
+    }
+  }
+
+  function openNotification(item: AppNotification) {
+    if (item.target === 'evaluation') {
+      setShowAiSettings(false);
+      setShowAssignmentsHome(false);
+      setInterfaceMode('diagnostic');
+      setEvaluationJourney(item.journey ?? 'custom');
+      if (item.journey === 'diagrams') setDiagramLabView('protocols');
+      setEvaluationWorkspaceStep(item.journey === 'custom' ? 'results' : 'configuration');
+      if (item.targetId) setEvaluationJumpTarget(item.targetId);
+    } else if (item.target === 'correction') {
+      setInterfaceMode('teacher');
+      setShowAssignmentsHome(false);
+      setTeacherStep('overview');
+    } else if (item.target === 'diagnostic') {
+      setInterfaceMode('observability');
     }
   }
 
@@ -3495,7 +3525,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">CC</div>
         <div><p className="eyebrow">ASSISTANT PÉDAGOGIQUE LOCAL</p><h1>Compagnon Correcteur de Devoirs</h1></div>
-        <div className="topbar-actions"><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<nav className="view-switch" aria-label="Navigation principale">
+        <div className="topbar-actions"><NotificationCenter onNavigate={openNotification} /><span className="local-badge"><span /> Mode local prioritaire</span>{interfaceMode === 'teacher' && (activeQueueCopy || isAnalyzing) && <button type="button" className="teacher-processing-copy-link" onClick={() => { setShowAssignmentsHome(false); setShowAiSettings(false); if (activeQueueCopy) void loadNextQueuedCopy(activeQueueCopy.id); else setTeacherStep(proposal ? 'review' : 'copy'); }}><span aria-hidden="true">◌</span> {activeQueueCopy ? (processingCopy ? 'Copie en cours' : 'Préparation de la copie') : 'Copie en cours'} : {activeQueueCopy?.label || studentLabel || images[0]?.fileName || 'Copie sans nom'} <span aria-hidden="true">→</span></button>}<nav className="view-switch" aria-label="Navigation principale">
           <button type="button" className={interfaceMode === 'teacher' ? 'view-switch-button active' : 'view-switch-button'}
             aria-current={interfaceMode === 'teacher' ? 'page' : undefined}
             onClick={() => setInterfaceMode('teacher')}>Correction</button>
