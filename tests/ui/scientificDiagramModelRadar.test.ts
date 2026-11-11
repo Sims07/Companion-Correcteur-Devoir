@@ -35,7 +35,8 @@ describe('LLM-first scientific radar', () => {
     expect([...selector.options].map((option) => option.textContent)).toEqual(['gemma:9b', 'qwen:4b']);
     const score = node.querySelector('[aria-label="Résultat du LLM sélectionné"]')!;
     expect(score.textContent).toContain('Indice partiel · qwen:4b');
-    expect(score.querySelector('strong')?.textContent).toMatch(/\\d+(?:,\\d+)? \\/ 100/);
+    expect(score.querySelector('strong')?.textContent).toContain(' / 100');
+    expect(score.querySelector('strong')?.textContent).not.toContain('—');
     await act(async () => {
       selector.value = 'gemma:9b';
       selector.dispatchEvent(new Event('change', { bubbles: true }));
