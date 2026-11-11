@@ -18,11 +18,15 @@ test('profile feedback uses information, warning and success instead of the bran
 
   await page.getByRole('textbox', { name: 'Nom de la configuration' }).fill('Test palette B');
   await page.getByRole('button', { name: 'Enregistrer la configuration' }).click();
-  const success = page.getByRole('status').filter({ hasText: 'Profil « Test palette B » enregistré' });
-  await expect(success).toBeVisible();
-  await expect(success).toHaveCSS('border-left-color', 'rgb(39, 98, 58)');
-  await expect(success).toHaveCSS('color', 'rgb(43, 43, 49)');
+  // Saving succeeds and closes the editor: the selected model is now the
+  // confirmation in the compact test toolbar, not an extra persistent card.
+  await expect(page.getByRole('dialog', { name: 'Créer ou modifier une configuration IA' })).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' }))
+    .toContainText('Test palette B');
 
+  await page.getByRole('button', { name: 'Gérer les configurations' }).click();
+  await page.getByRole('dialog', { name: 'Gérer les configurations IA' })
+    .getByRole('button', { name: 'Modifier', exact: true }).click();
   await expect(page.locator('.evaluation-thinking-option').first()).toHaveCSS('background-color', 'rgb(251, 248, 242)');
   await expect(page.locator('.evaluation-thinking-option input').first()).toHaveCSS('accent-color', 'rgb(161, 77, 55)');
 });
