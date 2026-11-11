@@ -152,13 +152,14 @@ export interface ScientificDiagramProtocolPanelProps {
   onAutoRequestConsumed?: (id: number) => void;
   onOpenRadar?: () => void;
   onAutoBusyChange?: (busy: boolean) => void;
+  onAutoEvaluationFinished?: (request: RadarMissingTestRequest) => Promise<string>;
 }
 
 export function ScientificDiagramProtocolPanel({
   selectedProfiles, busy, progress, onPrepareImages, onRun, onRunFixtures, onStop,
   report, fixtureReport, sensitivityReport, blindGraphReport,
   onClearReport, onClearFixtureReport, onClearSensitivityReport, onClearBlindGraphReport,
-  onRunSensitivity, onRunBlindGraph, autoRequest, onAutoRequestConsumed, onOpenRadar, onAutoBusyChange,
+  onRunSensitivity, onRunBlindGraph, autoRequest, onAutoRequestConsumed, onOpenRadar, onAutoBusyChange, onAutoEvaluationFinished,
 }: ScientificDiagramProtocolPanelProps) {
   const [rubric, setRubric] = useState<Rubric>(() => structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC));
   const [context, setContext] = useState('');
@@ -340,7 +341,13 @@ export function ScientificDiagramProtocolPanel({
           return;
         }
       }
-      setRadarAutoStatus('Batteries terminées pour ' + profile.name + '. Sauvegarde automatique en cours : retournez au radar pour consulter les mesures.');
+      const result = onAutoEvaluationFinished
+        ? await onAutoEvaluationFinished(autoRequest)
+        : 'Batteries terminées pour ' + profile.name + '. Consultez le radar pour vérifier les mesures.';
+      setRadarAutoStatus(result);
+      } catch (cause) {
+        setRadarAutoStatus('Vérification du radar impossible pour ' + profile.name + ' : ' +
+          (cause instanceof Error ? cause.message : String(cause)) + '. Consultez les campagnes enregistrées.');
       } finally {
         onAutoBusyChange?.(false);
       }
