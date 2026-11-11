@@ -68,7 +68,7 @@ import { ScientificDiagramLabHistory } from './components/ScientificDiagramLabHi
 import type { RadarMissingTestRequest } from '../domain/diagramLabRadarLaunch.ts';
 import { type DiagramLabReport } from '../domain/diagramLabHistory.ts';
 import { createDiagramLabArchiveWriter } from '../application/diagramLabArchiveWriter.ts';
-import { radarEvaluationOutcome } from '../domain/diagramLabRadarLaunch.ts';
+import { radarEvaluationOutcome, RADAR_TEST_PROTOCOL_NAMES } from '../domain/diagramLabRadarLaunch.ts';
 import type { DiagramLabArchiveRepository } from '../ports/diagramLabArchiveRepository.ts';
 import { initialAssignmentRubric, type AssignmentKind } from '../domain/assignmentKind.ts';
 import { buildDiagramReview } from '../domain/diagramTeacherReview.ts';
@@ -3820,18 +3820,26 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           autoRequest={radarAutoRequest}
           onAutoRequestConsumed={(id) => setRadarAutoRequest((current) => current?.id === id ? null : current)}
           onAutoBusyChange={setRadarAutoBusy}
-          onAutoEvaluationFinished={async (request) => {
+          onAutoWasStopped={() => pilotStopRef.current || evaluationCancelledRef.current}
+          onAutoEvaluationFinished={async (request, steps) => {
+            const failed = steps.filter((step) => !step.complete)
+              .map((step) => RADAR_TEST_PROTOCOL_NAMES[step.protocol]);
+            const batteryStatus = failed.length
+              ? 'Batteries incomplètes : ' + failed.join(', ') + '. '
+              : '';
             if (!request.modelId) {
-              return 'Batteries terminées pour ' + request.profileName + '. Consultez le radar pour vérifier les axes mesurés.';
+              return batteryStatus + 'Batteries exécutées pour ' + request.profileName +
+                '. Consultez le radar pour vérifier les mesures.';
             }
-            // Each runner has already awaited its final archive write here.
+            // Each runner has awaited its archive write; never derive completion
+            // from the number of API calls or a notification saying "terminé".
             const outcome = radarEvaluationOutcome(await diagramArchive.list(), request.modelId);
-            if (outcome.complete) return 'Batteries terminées pour ' + request.profileName +
-              ' · radar complet : 8/8 caractéristiques mesurées.';
-            return 'Batteries exécutées pour ' + request.profileName + ' · radar encore incomplet : ' +
+            if (outcome.complete) return batteryStatus + 'Radar complet pour ' + request.profileName +
+              ' : 8/8 caractéristiques mesurées.';
+            return batteryStatus + 'Évaluation partielle pour ' + request.profileName + ' : ' +
               outcome.measured + '/8 caractéristiques mesurées. Restent à mesurer : ' +
               outcome.missing.map((axis) => axis.label + ' (' + axis.reason + ')').join(' ; ') +
-              '. Consultez les campagnes enregistrées avant de relancer.';
+              '. Consultez les campagnes pour comprendre les échecs ou les décisions indéterminées.';
           }}
           onOpenRadar={() => setDiagramLabView('radar')}
         />

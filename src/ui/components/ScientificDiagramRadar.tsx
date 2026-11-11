@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
-import { buildDiagramLabRadar, compareRadarCommonAxes, rankDiagramLabRadar, observedRadarScore, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
+import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, rankDiagramLabRadar, observedRadarScore, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
   type RadarAxisId, type RadarGrouping, type RadarModelConfiguration, type RadarRankedCandidate, type RadarWeights } from '../../domain/diagramLabRadar.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import type { DiagramMethodSelection } from '../../domain/scientificDiagramProtocol.ts';
@@ -258,7 +258,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
             <Button disabled={busy || !completePlan || !profileIds.includes(completePlan.profileId)}
               onClick={() => { if (completePlan) onRunMissing(completePlan); }}>Évaluer le modèle</Button>
             <p>{completePlan && profileIds.includes(completePlan.profileId)
-              ? completePlan.steps.length + ' batteries de test à enchaîner automatiquement · ' +
+              ? completePlan.steps.length + ' batterie' + (completePlan.steps.length > 1 ? 's' : '') + ' de test à enchaîner automatiquement · ' +
                 radarPlanDescription(completePlan.steps) + '.'
               : 'Une même configuration doit pouvoir tester ce LLM en Analyse et en Vision pour couvrir les huit caractéristiques.'}
               {' '}Les résultats non exploitables resteront non mesurés.</p>
@@ -357,6 +357,8 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
             {evidence.value === null ? 'Non mesuré' : evidence.value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100'}
           </strong>
           <p>{evidence.reason}</p>
+          {evidence.value === null && grouping === 'model' && examined &&
+            <p role="status">{diagnoseUnmeasuredRadarAxis(entries, examined.id, axis)}</p>}
           {evidence.value === null && examined && <div className="diagram-radar-next-test">
             {missingPlan ? <>
               <strong>Compléter cet axe</strong>

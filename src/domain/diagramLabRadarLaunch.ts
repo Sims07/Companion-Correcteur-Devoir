@@ -1,6 +1,6 @@
 import type { BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
 import type { DiagramMethodSelection } from './scientificDiagramProtocol.ts';
-import { buildDiagramLabRadar, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarGrouping } from './diagramLabRadar.ts';
+import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarGrouping } from './diagramLabRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
 
 export type RadarTestProtocol = 'reference' | 'arrows' | 'semantic' | 'graph';
@@ -129,7 +129,14 @@ export function planRadarModelEvaluation(
   if (!missing.length) return null;
 
   const steps = new Map<RadarTestProtocol, RadarTestStep>();
-  for (const axis of missing) {
+  const order: RadarTestProtocol[] = ['reference', 'arrows', 'semantic', 'graph'];
+
+  // First plan the tests needed for actual missing axes. When stability is
+  // missing too, repeat ONE of those already-needed batteries three times.
+  // The old planner chose an unrelated previously measured protocol for
+  // stability (e.g. D/E x3 alongside A/B/C x1), wasting tests and leaving
+  // the radar incomplete if the first battery failed.
+  for (const axis of missing.filter((item) => item.id !== 'stability')) {
     const plan = planMissingRadarAxis(candidate, axis.id, 'model');
     if (!plan) continue;
     for (const step of plan.steps) {
@@ -137,8 +144,25 @@ export function planRadarModelEvaluation(
       if (!previous || step.repetitions > previous.repetitions) steps.set(step.protocol, step);
     }
   }
+  if (missing.some((item) => item.id === 'stability')) {
+    // Reuse short grading batteries (A/B/C or D/E) if they are missing.
+    // For six-image semantic/graph protocols, keep the independent short
+    // repeat selected by the stability planner instead of tripling six cases.
+    let repeatedProtocol: RadarTestProtocol | undefined = (['reference', 'arrows'] as const).find((protocol) => steps.has(protocol));
+    if (!repeatedProtocol) {
+      const repeat = planMissingRadarAxis(candidate, 'stability', 'model')?.steps[0];
+      if (repeat) {
+        const previous = steps.get(repeat.protocol);
+        if (!previous || repeat.repetitions > previous.repetitions) steps.set(repeat.protocol, repeat);
+        repeatedProtocol = repeat.protocol;
+      }
+    }
+    if (repeatedProtocol) {
+      const step = steps.get(repeatedProtocol)!;
+      steps.set(repeatedProtocol, { ...step, repetitions: 3 });
+    }
+  }
   if (!steps.size) return null;
-  const order: RadarTestProtocol[] = ['reference', 'arrows', 'semantic', 'graph'];
   return {
     axis: missing[0]!.id,
     profileId: candidate.profileId,
@@ -156,7 +180,7 @@ export function radarEvaluationOutcome(entries: readonly DiagramLabArchiveEntry[
     .map((axis) => ({
       id: axis.id,
       label: axis.label,
-      reason: candidate?.axes[axis.id].reason ?? 'Aucun résultat enregistré pour ce modèle.',
+      reason: diagnoseUnmeasuredRadarAxis(entries, modelId, axis.id),
     }));
   return { measured: candidate?.measured ?? 0, complete: candidate?.complete ?? false, missing };
 }

@@ -3,6 +3,8 @@ import { buildBlindVisualObservationReport } from '../../src/domain/scientificDi
 import { DIAGRAM_SENSITIVITY_CASES } from '../../src/domain/scientificDiagramSensitivity.ts';
 import { summarizeDiagramLabReport } from '../../src/domain/diagramLabHistory.ts';
 import { defaultAiModelConfiguration } from '../../src/domain/aiModelProfiles.ts';
+import { buildDiagramLabRadar } from '../../src/domain/diagramLabRadar.ts';
+import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../src/domain/scientificDiagramFixtures.ts';
 
 const report = buildBlindVisualObservationReport(DIAGRAM_SENSITIVITY_CASES.map((item) => ({
   caseId: item.id, profileId: 'radar-prof', profileName: 'Vision à compléter',
@@ -87,4 +89,77 @@ test('evaluating a new model launches the four required batteries from one actio
   await expect(running).toBeVisible();
   await expect(running).toContainText('Schémas scientifiques');
   await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toContainText('Nouveau modèle');
+});
+
+test('qwen-like 6/8 radar targets A/B/C x3 to fill graphics and stability in one battery', async ({ page }) => {
+  const model = 'vision:4b';
+  const profile = {
+    id: 'radar-prof', name: 'Vision à compléter', mode: 'single', updatedAt: '2026-11-11T14:40:00Z',
+    configuration: { ...defaultAiModelConfiguration, visionModel: model,
+      analysisModel: model, generativeModel: model, correctionMethod: 'generative' },
+  };
+  const makeRuns = (observations: Record<string, string>) => [{
+    profileId: profile.id, profileName: profile.name, model, repetition: 1, status: 'success',
+    method: 'direct-image-generative', durationMs: 2000,
+    observations: Object.entries(observations).map(([key, choice]) => ({ key, choice })),
+  }];
+  const arrows = {
+    format: 'companion-scientific-diagram-fixture-report', createdAt: '2026-11-11T14:39:00Z',
+    plannedRepetitions: 1, localOnly: true, cases: (['D', 'E'] as const).map((id) => ({
+      caseId: id, label: id, gold: { [SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET]: id === 'D' ? 'present' : 'absent' },
+      // E was incorrectly accepted, leading to the 50/100 arrow score seen in the screenshot.
+      experiments: makeRuns({ [SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET]: 'present' }),
+      summaries: [],
+    })),
+  };
+  const semantic = {
+    format: 'companion-scientific-diagram-sensitivity-report',
+    createdAt: '2026-11-11T14:38:00Z', plannedRepetitions: 1, localOnly: true,
+    promptModes: ['standard'], statistics: [],
+    cases: DIAGRAM_SENSITIVITY_CASES.map((item) => ({
+      caseId: item.id, label: item.label, promptMode: 'standard',
+      experiments: makeRuns(item.gold),
+    })),
+  };
+  const entries = [
+    summarizeDiagramLabReport(report, 'finished'),
+    summarizeDiagramLabReport(arrows as unknown as Parameters<typeof summarizeDiagramLabReport>[0], 'finished'),
+    summarizeDiagramLabReport(semantic as unknown as Parameters<typeof summarizeDiagramLabReport>[0], 'finished'),
+  ];
+  const candidate = buildDiagramLabRadar(entries, 'model').find((item) => item.id === model);
+  expect(candidate?.measured).toBe(6);
+  expect(candidate?.axes.graphics.value).toBeNull();
+  expect(candidate?.axes.stability.value).toBeNull();
+  expect(candidate?.axes.arrows.value).toBe(50);
+
+  await page.goto('/');
+  await page.evaluate(async ({ entries: saved, profile: savedProfile }) => {
+    localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([savedProfile]));
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('companion-correcteur-devoir', 6);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const tx = db.transaction('diagram-lab-archive', 'readwrite');
+    for (const entry of saved) tx.objectStore('diagram-lab-archive').put(entry);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  }, { entries, profile });
+  await page.reload();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  const nav = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
+  await nav.getByRole('button', { name: 'Radar des candidats' }).click();
+  const radar = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
+  await radar.getByLabel('Choisir un LLM').selectOption(model);
+  await expect(radar.getByText(/2 caractéristique\(s\) à mesurer sur huit/)).toBeVisible();
+  await expect(radar.getByText(/1 batterie de test à enchaîner automatiquement · Qualité graphique A\/B\/C · 3 passages/)).toBeVisible();
+  await radar.getByRole('button', { name: 'Évaluer le modèle' }).click();
+  await expect(nav.getByRole('button', { name: 'Tests' })).toHaveAttribute('aria-current', 'page');
+  // The compact workspace intentionally hides the radar return note while
+  // a long inference is running. Assert the durable navigation and exact
+  // selected model instead of racing that transient status element.
+  await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })
+    .getByText('Vision à compléter')).toBeVisible();
 });

@@ -121,6 +121,100 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     await act(async () => root.unmount());
   });
 
+  it('continues with D/E when A/B/C fails and reports both battery outcomes', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true,
+      blob: async () => new Blob(['fixture'], { type: 'image/webp' }),
+    })));
+    const NativeURL = URL;
+    vi.stubGlobal('URL', class extends NativeURL {
+      static createObjectURL() { return 'blob:fake-svg'; }
+      static revokeObjectURL() {}
+    });
+    vi.stubGlobal('Image', class {
+      src = ''; naturalWidth = 100; naturalHeight = 100;
+      async decode() {}
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => {
+      callback(new Blob(['png'], { type: 'image/png' }));
+    });
+
+    const events: string[] = [];
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    const failedRequest: RadarMissingTestRequest = {
+      ...plan, modelId: 'vision:4b', steps: [
+        { ...plan.steps[0]! }, { ...plan.steps[0]!, protocol: 'arrows' },
+      ],
+    };
+    const onRunFixtures = vi.fn(async (batch: { cases: { id: string }[] }) => {
+      const id = batch.cases[0]!.id;
+      events.push(id);
+      return { cases: batch.cases.map((item) => ({
+        caseId: item.id, experiments: [{ status: id === 'A' ? 'failed' : 'success' }],
+      })) } as unknown as ReturnType<typeof buildScientificDiagramFixtureReport>;
+    });
+    const finished = vi.fn(async (
+      _request: RadarMissingTestRequest,
+      results: readonly { protocol: string; complete: boolean }[],
+    ) => {
+      events.push('verified');
+      expect(results).toEqual([
+        { protocol: 'reference', complete: false },
+        { protocol: 'arrows', complete: true },
+      ]);
+      return 'Batteries incomplètes : A/B/C · radar encore incomplet : 6/8.';
+    });
+    await act(async () => root.render(createElement(ScientificDiagramProtocolPanel, {
+      selectedProfiles: [profile], busy: false, progress: '',
+      onPrepareImages: vi.fn(async (files: File[]) => files.map((file) => ({
+        fileName: file.name, base64: 'ZmFrZQ==', mimeType: file.type,
+      }))),
+      onRun: vi.fn(), onRunFixtures, onRunSensitivity: vi.fn(), onRunBlindGraph: vi.fn(),
+      onStop: vi.fn(), report: null, fixtureReport: null, sensitivityReport: null, blindGraphReport: null,
+      onClearReport: vi.fn(), onClearFixtureReport: vi.fn(), onClearSensitivityReport: vi.fn(),
+      onClearBlindGraphReport: vi.fn(), autoRequest: failedRequest,
+      onAutoRequestConsumed: vi.fn(), onAutoEvaluationFinished: finished,
+    })));
+    await vi.waitFor(() => expect(finished).toHaveBeenCalledOnce());
+    expect(events).toEqual(['A', 'D', 'verified']);
+    expect(container.textContent).toContain('radar encore incomplet : 6/8');
+    await act(async () => root.unmount());
+  });
+
+  it('honors a global stop after A/B/C and never starts the next independent battery', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true,
+      blob: async () => new Blob(['fixture'], { type: 'image/webp' }),
+    })));
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    const onRunFixtures = vi.fn(async (batch: { cases: { id: string }[] }) => ({
+      cases: batch.cases.map(({ id }) => ({ caseId: id, experiments: [{ status: 'success' }] })),
+    } as unknown as ReturnType<typeof buildScientificDiagramFixtureReport>));
+    const finished = vi.fn(async () => '8/8');
+    const request: RadarMissingTestRequest = {
+      ...plan, steps: [...plan.steps, { ...plan.steps[0]!, protocol: 'arrows' }],
+    };
+    await act(async () => root.render(createElement(ScientificDiagramProtocolPanel, {
+      selectedProfiles: [profile], busy: false, progress: '',
+      onPrepareImages: vi.fn(async (files: File[]) => files.map((file) => ({
+        fileName: file.name, base64: 'ZmFrZQ==', mimeType: file.type,
+      }))),
+      onRun: vi.fn(), onRunFixtures, onRunSensitivity: vi.fn(), onRunBlindGraph: vi.fn(),
+      onStop: vi.fn(), report: null, fixtureReport: null, sensitivityReport: null, blindGraphReport: null,
+      onClearReport: vi.fn(), onClearFixtureReport: vi.fn(), onClearSensitivityReport: vi.fn(),
+      onClearBlindGraphReport: vi.fn(), autoRequest: request,
+      onAutoRequestConsumed: vi.fn(), onAutoEvaluationFinished: finished,
+      onAutoWasStopped: () => true,
+    })));
+    await vi.waitFor(() => expect(container.textContent).toContain('Campagne interrompue'));
+    expect(onRunFixtures).toHaveBeenCalledTimes(1);
+    expect(finished).not.toHaveBeenCalled();
+    await act(async () => root.unmount());
+  });
+
   it('waits for exact profile selection, never calls a different configured model', async () => {
     const container = document.createElement('div');
     const root = createRoot(container);

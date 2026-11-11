@@ -6,6 +6,26 @@ const base = { journey: 'diagrams' as const, interrupted: false, pilotMemoryErro
 describe('evaluation activity status', () => {
   it('classifies a valid scientific result', () =>
     expect(resolveEvaluationActivityOutcome(base)).toEqual({ status: 'completed' }));
+  it('reports an incomplete diagram battery instead of a misleading Test terminé notification', () => {
+    const report = { format: 'companion-scientific-diagram-fixture-report', cases: [
+      { experiments: [{ status: 'success', observations: [{ choice: 'present' }] },
+        { status: 'failed', observations: [] }] },
+    ] };
+    expect(resolveEvaluationActivityOutcome({ ...base, outcome: report }))
+      .toMatchObject({ status: 'failed', error: expect.stringContaining('1/2 passages réussis') });
+  });
+
+  it('does not claim an all-uncertain model response measured a scientific axis', () => {
+    const report = { format: 'companion-scientific-diagram-fixture-report', cases: [
+      { experiments: [{ status: 'success', observations: [{ choice: 'uncertain' }] }] },
+    ] };
+    expect(resolveEvaluationActivityOutcome({ ...base, outcome: report }))
+      .toMatchObject({ status: 'failed', error: expect.stringContaining('aucune décision scientifique exploitable') });
+    report.cases[0]!.experiments[0]!.observations[0]!.choice = 'absent';
+    expect(resolveEvaluationActivityOutcome({ ...base, outcome: report }))
+      .toEqual({ status: 'completed' });
+  });
+
   it('does not present zero successful scientific tests as completed', () =>
     expect(resolveEvaluationActivityOutcome({ ...base, outcome: 0 })).toMatchObject({ status: 'failed', error: expect.any(String) }));
   it('honors a teacher stop request before a late result', () =>
