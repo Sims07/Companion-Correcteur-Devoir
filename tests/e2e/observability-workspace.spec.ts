@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('opens the local observability workspace and explores a trace without exposing copy content', async ({ page }) => {
+test('opens the observability workspace and explores a trace without exposing copy content', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('companion-correcteur:timing-history:v1', JSON.stringify([{
       id: 'trace-e2e-1',
@@ -76,6 +76,7 @@ test('opens the local observability workspace and explores a trace without expos
   await expect(page.getByRole('button', { name: 'Suivi & diagnostic' })).toHaveAttribute('aria-current', 'page');
 
   await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
+  await expect(page.locator('.observability-local-badge, .observability-intro')).toHaveCount(0);
   await expect(page.getByText('Exécutions observées')).toBeVisible();
   await expect(page.getByText('Lecture par exceptions')).toBeVisible();
   await expect(page.getByText('Taux de modification après confirmation groupée')).toBeVisible();
@@ -105,6 +106,6 @@ test('opens the local observability workspace and explores a trace without expos
   await page.locator('.observability-call-details summary').nth(1).click();
   await expect(page.locator('.observability-call-details').nth(1)).toContainText('PROMPT ANALYSE ENVOYÉ');
   await expect(page.getByText('RÉPONSE ANALYSE BRUTE')).toBeVisible();
-  await expect(page.locator('.observability-call-warning').first()).toContainText('stockage local');
+  await expect(page.locator('.observability-call-warning').first()).toContainText('Les octets des images ne sont pas affichés.');
   await expect(page.getByText('PRIVATE_EVALUATION_IMAGE')).toHaveCount(0);
 });
