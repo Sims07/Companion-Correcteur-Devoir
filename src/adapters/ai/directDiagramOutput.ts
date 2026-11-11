@@ -40,8 +40,16 @@ function evidence(value: unknown): string {
   return value.trim();
 }
 
-function points(value: unknown, maximum: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < Math.min(0, maximum) || value > Math.max(0, maximum)) fail('invalid-points');
+function points(value: unknown, maximum: number, path: string): number {
+  const minimum = Math.min(0, maximum);
+  const upper = Math.max(0, maximum);
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < minimum || value > upper) {
+    // A precise validation error makes the one permitted repair attempt actionable.
+    // Never clamp, coerce or infer a scientific mark.
+    const received = typeof value === 'number' && Number.isFinite(value)
+      ? String(value) : value === null ? 'null' : typeof value;
+    throw new Error(`Sortie schéma invalide [diagram-output:invalid-points] : ${path} attend un nombre entre ${minimum} et ${upper} (reçu : ${received}).`);
+  }
   return value;
 }
 
@@ -64,13 +72,13 @@ export function parseDirectDiagramOutput(raw: string, criteria: RubricCriterion[
       subcriteria = subs.map(s => {
         const entry = values[s.id];
         if (!record(entry)) fail('invalid-shape');
-        return { subcriterionId: s.id, points: points(entry.points, s.maxPoints), evidence: evidence(entry.evidence) };
+        return { subcriterionId: s.id, points: points(entry.points, s.maxPoints, `${c.id}.subcriteria.${s.id}.points`), evidence: evidence(entry.evidence) };
       });
     }
     return {
       criterionId: c.id, evidence: evidence(item.evidence), confidence: item.confidence,
       rationale: '', questionForTeacher: item.questionForTeacher,
-      points: subcriteria ? sumGradeScores(subcriteria.map(s => s.points)) : points(item.points, c.maxPoints),
+      points: subcriteria ? sumGradeScores(subcriteria.map(s => s.points)) : points(item.points, c.maxPoints, `${c.id}.points`),
       ...(subcriteria ? { subcriteria } : {}),
     };
   });
