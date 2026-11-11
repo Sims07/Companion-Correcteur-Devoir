@@ -1,6 +1,6 @@
 import type { BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
 import type { DiagramMethodSelection } from './scientificDiagramProtocol.ts';
-import { buildDiagramLabRadar, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarGrouping } from './diagramLabRadar.ts';
+import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarGrouping } from './diagramLabRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
 
 export type RadarTestProtocol = 'reference' | 'arrows' | 'semantic' | 'graph';
@@ -180,7 +180,7 @@ export function radarEvaluationOutcome(entries: readonly DiagramLabArchiveEntry[
     .map((axis) => ({
       id: axis.id,
       label: axis.label,
-      reason: candidate?.axes[axis.id].reason ?? 'Aucun résultat enregistré pour ce modèle.',
+      reason: diagnoseUnmeasuredRadarAxis(entries, modelId, axis.id),
     }));
   return { measured: candidate?.measured ?? 0, complete: candidate?.complete ?? false, missing };
 }
