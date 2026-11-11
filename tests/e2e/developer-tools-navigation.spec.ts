@@ -6,7 +6,7 @@ test('application offers evaluation and diagnostics as top-level destinations', 
   const primaryNavigation = page.getByRole('navigation', { name: 'Navigation principale' });
   await expect(primaryNavigation.getByRole('button')).toHaveCount(3);
   await expect(primaryNavigation.getByRole('button', { name: 'Correction' })).toHaveAttribute('aria-current', 'page');
-  await expect(page.getByRole('navigation', { name: 'Navigation des outils IA' })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Navigation principale' })).toHaveCount(0);
 
   await primaryNavigation.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await expect(primaryNavigation.getByRole('button', { name: 'Évaluer les modèles' })).toHaveAttribute('aria-current', 'page');
