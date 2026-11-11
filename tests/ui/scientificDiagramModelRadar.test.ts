@@ -46,6 +46,15 @@ describe('LLM-first scientific radar', () => {
     const item = [...node.querySelectorAll('.diagram-radar-remaining-item')]
       .find((element) => element.textContent?.includes('Qualité graphique'))!;
     expect(item).toBeTruthy();
+    expect((item.querySelector('button:last-child') as HTMLButtonElement).getAttribute('aria-label'))
+      .toBe('Lancer le test Qualité graphique avec gemma:9b');
+    const priority = [...node.querySelectorAll('select')].find((element) =>
+      [...element.options].some((option) => option.value === 'throughput'))!;
+    await act(async () => {
+      priority.value = 'throughput';
+      priority.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(selector.value).toBe('gemma:9b');
     await act(async () => (item.querySelector('button:last-child') as HTMLButtonElement).click());
     expect(onRunMissing).toHaveBeenCalledWith(expect.objectContaining({
       profileId: 'vision-two', axis: 'graphics',
