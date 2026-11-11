@@ -120,3 +120,48 @@
 }
 .ai-tools-view .diagram-protocol-export-details > summary:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 .ai-tools-view .diagram-protocol-export-actions { margin-top: var(--ds-space-3); }
+
+
+/* Same edge-to-edge application frame as Correction for Évaluer and Suivi.
+   Keep one responsive gutter for both the page contents and the global header.
+   Specificity intentionally overrides the legacy 1240px app-shell and the
+   1560px evaluation-workspace-shell rules loaded after this stylesheet. */
+.ai-tools-view.app-shell {
+  --ai-tools-page-gutter: clamp(20px, 2.4vw, 36px);
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  padding: 0 var(--ai-tools-page-gutter) 36px;
+}
+.ai-tools-view.app-shell > .topbar {
+  display: flex;
+  align-items: center;
+  min-height: 76px;
+  margin-inline: calc(-1 * var(--ai-tools-page-gutter));
+  padding: 12px var(--ai-tools-page-gutter);
+  background: var(--ds-color-surface);
+  border-bottom: 1px solid var(--ds-color-border);
+}
+.ai-tools-view.app-shell > .topbar h1 {
+  font-family: var(--ds-font-editorial);
+  font-size: clamp(17px, 1.5vw, 21px);
+  letter-spacing: -.025em;
+}
+.ai-tools-view.app-shell > .topbar .brand-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+}
+@media (max-width: 720px) {
+  .ai-tools-view.app-shell { --ai-tools-page-gutter: 16px; }
+  .ai-tools-view.app-shell > .topbar { flex-wrap: wrap; }
+  .ai-tools-view.app-shell .topbar-actions {
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+@media (max-width: 430px) {
+  .ai-tools-view.app-shell > .topbar .topbar-actions { width: 100%; justify-content: flex-start; }
+  .ai-tools-view.app-shell > .topbar .view-switch { max-width: 100%; }
+}
