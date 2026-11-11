@@ -168,3 +168,58 @@
 .diagram-protocol-fixtures > .pilot-evaluation-report { margin-top: var(--ds-space-3); }
 @media (max-width: 920px) { .diagram-lab-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .diagram-lab-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); } .diagram-lab-catalog button { min-height: 46px; } .diagram-lab-catalog button strong { font-size: .75rem; } .diagram-lab-catalog button small { font-size: .65rem; } .diagram-fixture-grid { grid-template-columns: minmax(0,1fr); } .diagram-lab-live { position: static; } }
+
+
+/* One active protocol, not another card inside a card. */
+.evaluation-workspace-shell .diagram-protocol-panel {
+  gap: var(--ds-space-2);
+  margin: 0;
+  padding: var(--ds-space-1) 0;
+}
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-catalog {
+  margin: 0 0 var(--ds-space-1);
+}
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-protocol-summary {
+  margin: 0;
+  line-height: 1.4;
+  font-size: .76rem;
+}
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-2) var(--ds-space-3);
+  margin: 0 0 var(--ds-space-2);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method > label {
+  flex: 0 0 auto;
+  font-size: .8rem;
+}
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method > select {
+  flex: 1 1 290px;
+  min-width: 200px;
+  max-width: 520px;
+  width: auto;
+}
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method > .diagram-lab-explanation {
+  flex: 0 1 auto;
+}
+.evaluation-workspace-shell .diagram-protocol-panel > .diagram-lab-live:not([aria-label]) {
+  position: static;
+  top: auto;
+  z-index: auto;
+  padding: var(--ds-space-2) 0;
+  border: 0;
+  background: transparent;
+  font-size: .78rem;
+  line-height: 1.4;
+}
+@media (max-width: 680px) {
+  .evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method > label { flex-basis: 100%; }
+  .evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method > select { flex-basis: 100%; max-width: 100%; min-width: 0; }
+  .evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method > .diagram-lab-explanation { flex-basis: 100%; }
+}
