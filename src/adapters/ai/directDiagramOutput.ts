@@ -1,7 +1,7 @@
 import { parseModelJson } from '../../domain/modelJson.ts';
 import { parseGradingProposal } from '../../domain/grading.ts';
 import { getRubricSubcriteria, type RubricCriterion } from '../../domain/rubric.ts';
-import { sumGradeScores } from '../../domain/scorePrecision.ts';
+import { normalizeGradeScore, sumGradeScores } from '../../domain/scorePrecision.ts';
 
 const object = (properties: Record<string, unknown>) => ({
   type: 'object', additionalProperties: false, required: Object.keys(properties), properties,
@@ -17,8 +17,14 @@ export function directDiagramSchema(criteria: RubricCriterion[]) {
       confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
       questionForTeacher: { type: 'string' },
       ...(subs.length ? { subcriteria: object(Object.fromEntries(subs.map(s => [s.id, object({
-        points: { type: 'number', minimum: 0, maximum: s.maxPoints }, evidence: { type: 'string' },
-      })]))) } : { points: { type: 'number', minimum: Math.min(0, c.maxPoints), maximum: Math.max(0, c.maxPoints) } }),
+        creditFraction: {
+          type: 'number', minimum: 0, maximum: 1,
+          description: `Part du maximum ${s.maxPoints} accordée à cet attendu : 0 = aucun, 1 = maximum complet.`,
+        }, evidence: { type: 'string' },
+      })]))) } : { creditFraction: {
+        type: 'number', minimum: 0, maximum: 1,
+        description: `Part du maximum ${c.maxPoints} accordée à ce critère : 0 = aucun, 1 = maximum complet.`,
+      } }),
     })];
   }))) });
 }
@@ -40,17 +46,17 @@ function evidence(value: unknown): string {
   return value.trim();
 }
 
-function points(value: unknown, maximum: number, path: string): number {
-  const minimum = Math.min(0, maximum);
-  const upper = Math.max(0, maximum);
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < minimum || value > upper) {
-    // A precise validation error makes the one permitted repair attempt actionable.
-    // Never clamp, coerce or infer a scientific mark.
+/** The LLM expresses an award proportion, not a point amount. This avoids
+ * confusing the semantic "1 = fully met" with "1 point" for a 0.33-point
+ * rubric item. The application (not the model) owns conversion to the barème.
+ * Never clamp invalid proportions or invent a grade from the evidence. */
+function awardedPoints(value: unknown, maximum: number, path: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
     const received = typeof value === 'number' && Number.isFinite(value)
       ? String(value) : value === null ? 'null' : typeof value;
-    throw new Error(`Sortie schéma invalide [diagram-output:invalid-points] : ${path} attend un nombre entre ${minimum} et ${upper} (reçu : ${received}).`);
+    throw new Error(`Sortie schéma invalide [diagram-output:invalid-points] : ${path} attend une proportion entre 0 et 1 (reçu : ${received}). Le maximum de ce critère est de ${maximum} point(s).`);
   }
-  return value;
+  return normalizeGradeScore(value * maximum);
 }
 
 export function parseDirectDiagramOutput(raw: string, criteria: RubricCriterion[]): string {
@@ -72,13 +78,13 @@ export function parseDirectDiagramOutput(raw: string, criteria: RubricCriterion[
       subcriteria = subs.map(s => {
         const entry = values[s.id];
         if (!record(entry)) fail('invalid-shape');
-        return { subcriterionId: s.id, points: points(entry.points, s.maxPoints, `${c.id}.subcriteria.${s.id}.points`), evidence: evidence(entry.evidence) };
+        return { subcriterionId: s.id, points: awardedPoints(entry.creditFraction, s.maxPoints, `${c.id}.subcriteria.${s.id}.creditFraction`), evidence: evidence(entry.evidence) };
       });
     }
     return {
       criterionId: c.id, evidence: evidence(item.evidence), confidence: item.confidence,
       rationale: '', questionForTeacher: item.questionForTeacher,
-      points: subcriteria ? sumGradeScores(subcriteria.map(s => s.points)) : points(item.points, c.maxPoints, `${c.id}.points`),
+      points: subcriteria ? sumGradeScores(subcriteria.map(s => s.points)) : awardedPoints(item.creditFraction, c.maxPoints, `${c.id}.creditFraction`),
       ...(subcriteria ? { subcriteria } : {}),
     };
   });
