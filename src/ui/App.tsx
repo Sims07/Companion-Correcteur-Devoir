@@ -65,7 +65,9 @@ import type { DiagramThinkSetting } from '../ports/correctionWorkspace.ts';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
 import { ScientificDiagramLabHistory } from './components/ScientificDiagramLabHistory.tsx';
 import type { RadarMissingTestRequest } from '../domain/diagramLabRadarLaunch.ts';
-import { summarizeDiagramLabReport, type DiagramLabReport } from '../domain/diagramLabHistory.ts';
+import { type DiagramLabReport } from '../domain/diagramLabHistory.ts';
+import { createDiagramLabArchiveWriter } from '../application/diagramLabArchiveWriter.ts';
+import { radarEvaluationOutcome } from '../domain/diagramLabRadarLaunch.ts';
 import type { DiagramLabArchiveRepository } from '../ports/diagramLabArchiveRepository.ts';
 import { initialAssignmentRubric, type AssignmentKind } from '../domain/assignmentKind.ts';
 import { buildDiagramReview } from '../domain/diagramTeacherReview.ts';
@@ -500,27 +502,38 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [diagramBlindGraphReport, setDiagramBlindGraphReport] = useState<ReturnType<typeof buildBlindVisualObservationReport> | null>(null);
   const [diagramHistoryRevision, setDiagramHistoryRevision] = useState(0);
   const [diagramHistoryError, setDiagramHistoryError] = useState('');
-  const diagramArchiveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const diagramArchiveWriter = useMemo(() => createDiagramLabArchiveWriter(diagramLabArchive), [diagramLabArchive]);
   const activeDiagramReportRef = useRef<'fixture' | 'sensitivity' | 'graph' | 'personal' | null>(null);
-  // Persist intermediate runs as well as the final report. Each report's createdAt
-  // identifies one experiment; subsequent updates overwrite that same IndexedDB row.
-  // Writes are serialized so an older partial result cannot replace a newer one.
+  // Intermediate updates remain visible in the local archive, but a completed
+  // battery is also saved explicitly before the next automatic battery starts.
+  // The writer serializes calls and prevents late partial effects from
+  // downgrading a finished report.
   useEffect(() => {
     const pending: Array<{ kind: 'fixture' | 'sensitivity' | 'graph' | 'personal'; report: DiagramLabReport }> = [];
     if (diagramFixtureReport) pending.push({ kind: 'fixture', report: diagramFixtureReport });
     if (diagramSensitivityReport) pending.push({ kind: 'sensitivity', report: diagramSensitivityReport });
     if (diagramBlindGraphReport) pending.push({ kind: 'graph', report: diagramBlindGraphReport });
     if (diagramProtocolReport) pending.push({ kind: 'personal', report: diagramProtocolReport });
-    if (pending.length === 0) return;
-    const entries = pending.map(({ kind, report }) =>
-      summarizeDiagramLabReport(report, pilotBusy && activeDiagramReportRef.current === kind ? 'running' : 'finished'));
-    diagramArchiveQueueRef.current = diagramArchiveQueueRef.current.catch(() => {}).then(async () => {
-      for (const entry of entries) await diagramArchive.save(entry);
-    }).then(() => {
+    if (!pending.length) return;
+    void Promise.all(pending.map(({ kind, report }) =>
+      diagramArchiveWriter.save(report, pilotBusy && activeDiagramReportRef.current === kind ? 'running' : 'finished')))
+      .then(() => {
+        setDiagramHistoryError('');
+        setDiagramHistoryRevision((value) => value + 1);
+      })
+      .catch((cause) => setDiagramHistoryError(cause instanceof Error ? cause.message : String(cause)));
+  }, [diagramFixtureReport, diagramSensitivityReport, diagramBlindGraphReport, diagramProtocolReport, pilotBusy, diagramArchiveWriter]);
+
+  async function persistFinishedDiagramReport(report: DiagramLabReport) {
+    try {
+      await diagramArchiveWriter.save(report, 'finished');
       setDiagramHistoryError('');
       setDiagramHistoryRevision((value) => value + 1);
-    }).catch((cause) => setDiagramHistoryError(cause instanceof Error ? cause.message : String(cause)));
-  }, [diagramFixtureReport, diagramSensitivityReport, diagramBlindGraphReport, diagramProtocolReport, pilotBusy]);
+    } catch (cause) {
+      setDiagramHistoryError(cause instanceof Error ? cause.message : String(cause));
+      throw cause;
+    }
+  }
   const blindGraphAbortRef = useRef<AbortController | null>(null);
   const pilotStopRef = useRef(false);
   const pilotMemoryErrorRef = useRef<string | null>(null);
@@ -2433,6 +2446,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     );
     const report = build(runs);
     setDiagramProtocolReport(report);
+    await persistFinishedDiagramReport(report);
     return report;
   }
 
@@ -2454,6 +2468,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     );
     const report = build(runs);
     setDiagramFixtureReport(report);
+    await persistFinishedDiagramReport(report);
     return report;
   }
 
@@ -2482,6 +2497,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     );
     const report = build(runs);
     setDiagramSensitivityReport(report);
+    await persistFinishedDiagramReport(report);
     return report;
   }
 
@@ -2564,7 +2580,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         }
         if (controller.signal.aborted || pilotStopRef.current) break;
       }
-      return emit();
+      const report = emit();
+      await persistFinishedDiagramReport(report);
+      return report;
     } finally {
       if (blindGraphAbortRef.current === controller) blindGraphAbortRef.current = null;
       setDiagramProtocolProgress(controller.signal.aborted ? 'Observation interrompue.' : 'Observation terminée.');
