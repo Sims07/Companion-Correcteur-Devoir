@@ -193,7 +193,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain("aria-current={interfaceMode === 'teacher' ? 'page' : undefined}");
     expect(text).toContain("aria-current={interfaceMode === 'diagnostic' ? 'page' : undefined}");
     expect(text).toContain("onClick={() => setInterfaceMode('teacher')}");
-    expect(text).toContain("setInterfaceMode('observability'); }); }}");
+    expect(text).toContain("setInterfaceMode('observability'); }}>Suivi & diagnostic</button>");
     const switcher = text.slice(text.indexOf('<div className="view-switch"'), text.indexOf('</header>', text.indexOf('<div className="view-switch"')));
     expect(switcher).not.toContain('>Inspecteur réseau</button>');
     expect(switcher).not.toContain('>Évaluation des modèles</button>');
