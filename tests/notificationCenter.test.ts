@@ -19,6 +19,16 @@ describe('global notification center', () => {
     await act(async () => root.unmount());
     host.remove();
   });
+  it('keeps the empty notification bell neutral, monochrome and without a badge', async () => {
+    await act(async () => root.render(React.createElement(NotificationCenter, { onNavigate: vi.fn() })));
+    const trigger = host.querySelector<HTMLButtonElement>('.notification-trigger')!;
+    const icon = trigger.querySelector('svg.notification-bell');
+    expect(trigger.getAttribute('aria-label')).toBe('Notifications');
+    expect(icon?.getAttribute('stroke')).toBe('currentColor');
+    expect(icon?.getAttribute('aria-hidden')).toBe('true');
+    expect(trigger.querySelector('.notification-count')).toBeNull();
+    expect(trigger.textContent).not.toContain('🔔');
+  });
   it('updates the unread badge and navigates when an event is selected', async () => {
     const onNavigate = vi.fn();
     await act(async () => root.render(React.createElement(NotificationCenter, { onNavigate })));
