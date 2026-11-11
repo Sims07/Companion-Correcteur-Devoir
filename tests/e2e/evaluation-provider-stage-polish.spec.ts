@@ -26,7 +26,7 @@ test('evaluation does not add a permanent provider/privacy banner regardless of 
   const configurations = page.getByRole('dialog', { name: 'Gérer les configurations IA' });
   await configurations.getByRole('checkbox', { name: /Profil serveur distant/ }).check();
   await expect(notice).toHaveCount(0);
-  await expect(remoteNotice).toContainText('les contenus de ce test seront envoyés');
+  await expect(remoteNotice).toHaveCount(0);
   await configurations.getByRole('checkbox', { name: /Local témoin/ }).check();
   await expect(notice).toHaveCount(0);
   await configurations.getByRole('checkbox', { name: /Profil serveur distant/ }).uncheck();
