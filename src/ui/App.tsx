@@ -3769,7 +3769,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             {evaluationActivity.status === 'running' ? 'Suivre ce test'
               : evaluationActivity.status === 'completed' ? 'Voir les résultats' : 'Consulter ce test'}
           </button>
-          {evaluationActivity.status === 'running' && <span className="evaluation-activity-hint">Les autres lancements sont temporairement désactivés</span>}
+          {evaluationActivity.status === 'running' && <Button variant="secondary" onClick={evaluationActivity.journey === 'custom' ? cancelModelEvaluation : stopPilotProtocol}>Arrêter après l’appel en cours</Button>}
         </div>
       </section>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && <section id="evaluation-configurations" className="panel evaluation-config-workspace" data-journey={evaluationJourney} aria-labelledby="evaluation-config-title">
@@ -3787,7 +3787,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           progress={diagramProtocolProgress}
           onPrepareImages={(files) => service.prepareFiles(files)}
           onRun={(request) => followEvaluation({ title: 'Schéma scientifique · essai personnalisé', journey: 'diagrams', targetId: 'evaluation-diagram-personal-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramProtocol(request))}
-          onRunFixtures={(request) => followEvaluation({ title: 'Schémas scientifiques · références intégrées', journey: 'diagrams', targetId: 'evaluation-diagram-fixture-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramFixtures(request))}
+          onRunFixtures={(request) => followEvaluation({ title: request.cases.some((item) => item.id === 'D' || item.id === 'E') ? 'Schémas scientifiques · sens des flèches D/E' : 'Schémas scientifiques · qualité graphique A/B/C', journey: 'diagrams', targetId: 'evaluation-diagram-fixture-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramFixtures(request))}
           onRunSensitivity={(request) => followEvaluation({ title: 'Schémas scientifiques · sensibilité sémantique', journey: 'diagrams', targetId: 'evaluation-diagram-sensitivity-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramSensitivity(request))}
           onRunBlindGraph={(request) => followEvaluation({ title: 'Schémas scientifiques · graphe de relations', journey: 'diagrams', targetId: 'evaluation-diagram-graph-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') }, () => runScientificDiagramBlindGraph(request))}
           onStop={stopPilotProtocol}
