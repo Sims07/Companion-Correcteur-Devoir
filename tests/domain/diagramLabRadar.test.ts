@@ -90,6 +90,15 @@ describe('scientific benchmark 8-axis radar', () => {
     expect(model.axes.stability.evidence[0]?.reportId).toBe(repeated.id);
   });
 
+  it('fills the exact two remaining batteries: A/B/C once and D/E three times', () => {
+    const all = complete();
+    const measured = [all[2]!, all[3]!,
+      sample('reference', '2026-11-11T13:00:00Z', 1),
+      sample('arrows', '2026-11-11T13:01:00Z', 3)];
+    const result = radarEvaluationOutcome(measured, 'qwen:4b');
+    expect(result).toMatchObject({ measured: 8, complete: true, missing: [] });
+  });
+
   it('checks real archived measurements after a complete auto-run, not simply API success', () => {
     expect(radarEvaluationOutcome([], 'qwen:4b')).toMatchObject({ measured: 0, complete: false });
     const incomplete = radarEvaluationOutcome(complete(), 'qwen:4b');
