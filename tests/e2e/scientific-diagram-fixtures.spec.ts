@@ -86,6 +86,8 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   const activity = page.getByRole('status', { name: 'Dernière expérience lancée' });
   await expect(activity).toContainText('Schémas scientifiques · qualité graphique A/B/C');
   await expect(activity).toContainText('TEST EN COURS');
+  await expect(activity.getByRole('button', { name: 'Arrêter après l’appel en cours' })).toBeVisible();
+  await expect(page.locator('.diagram-lab-live')).toHaveCount(0);
   await expect(activity.getByRole('button', { name: 'Suivre ce test' })).toBeVisible();
   const testViews = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   await testViews.getByRole('button', { name: 'Carnet de résultats' }).click();
