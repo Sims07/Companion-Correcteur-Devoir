@@ -355,7 +355,7 @@ export function buildDiagramLabRadar(
       // The same model can be used by several saved profiles in one campaign.
       // Keep their series separate when validating completeness, otherwise
       // duplicate repetitions would incorrectly invalidate a whole battery.
-      const modelName = row.model.trim();
+      const modelName = typeof row.model === 'string' ? row.model.trim() : '';
       if (grouping === 'model' && !modelName) continue;
       const key = grouping === 'model' ? modelName + '\u0000' + row.profileId
         : grouping === 'method' ? row.profileId + '\u0000' + row.method + '\u0000' + row.variant
@@ -368,7 +368,7 @@ export function buildDiagramLabRadar(
       const full = completeReadings(participantRows, entry.protocol, entry.plannedRepetitions);
       const first = participantRows[0];
       if (!first) continue;
-      const key = grouping === 'model' ? first.model.trim() : participantKey;
+      const key = grouping === 'model' ? (typeof first.model === 'string' ? first.model.trim() : '') : participantKey;
       let candidate = candidates.get(key);
       if (!candidate) {
         candidate = { id: key, profileId: first.profileId,
