@@ -39,7 +39,7 @@ describe('compact direct diagram output', () => {
     expect(JSON.stringify(schema)).not.toContain('anyOf');
     expect(JSON.stringify(schema)).toContain('position');
     expect(JSON.stringify(schema)).not.toContain('finalScore');
-    expect(schema.properties.criteria.properties.title.properties.subcriteria.properties.position.properties.points)
+    expect(JSON.parse(JSON.stringify(schema)).properties.criteria.properties.title.properties.subcriteria.properties.position.properties.points)
       .toMatchObject({ type: 'number', minimum: 0, maximum: 0.66 });
     expect(JSON.stringify(schema)).not.toContain('creditFraction');
   });
