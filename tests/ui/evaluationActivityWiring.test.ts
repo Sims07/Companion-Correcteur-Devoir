@@ -35,3 +35,13 @@ describe('persistent evaluation activity deep links', () => {
     expect(app).toContain('function cancelModelEvaluation()');
   });
 });
+
+describe('scientific diagram observability wiring', () => {
+  it('sends all diagram runs and graph observations to local observability history', () => {
+    const app = readFileSync('src/ui/App.tsx', 'utf8');
+    expect(app).toContain('toDiagramLabObservabilityTraces(savedRecord');
+    expect(app).toContain('toBlindGraphObservabilityTrace(run');
+    expect(app).toContain('retainDiagramObservability(');
+    expect(app).toContain('setTimingHistory((current)');
+  });
+});
