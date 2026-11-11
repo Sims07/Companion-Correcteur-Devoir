@@ -306,7 +306,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Évaluation des modèles');
     expect(text).toContain('evaluation-provider-indicator');
     expect(text).toContain('className="evaluation-step-nav"');
-    expect(text).toContain('Carnet de résultats');
+    expect(text).toContain('Campagnes de test');
     expect(text).toContain('aria-current={evaluationWorkspaceStep ===');
     expect(text).not.toContain('Un devoir, un espace de travail');
   });
