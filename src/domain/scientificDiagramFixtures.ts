@@ -83,7 +83,7 @@ const middlePointsBySubcriterion: Record<string, number> = {
   'understanding-other-two': 0.50,
 };
 
-/** Recalibrated after the teacher identified horizontal writing in the
+/** Recalibrated after user feedback identified horizontal writing in the
  * actual poor-quality C drawing (2026-11-11). The text « cellule ? » is
  * incomplete but its orientation is a separate, objectively visible rubric
  * criterion worth 0.33 point. Do not infer credit for any other criterion. */
@@ -215,7 +215,7 @@ export function buildScientificDiagramFixtureReport(
     localOnly: runs.every(({ record }) => record.configurations.every((config) => {
       try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(config.endpoint).hostname); } catch { return false; }
     })),
-    limitations: 'Cinq dessins synthétiques (A/B/C et paire contrôlée D/E), références PROVISOIRES non validées par un enseignant. A=10/10, B=7,36/10, C=0,33/10, D=9,34/10, E=8,66/10. Pour C, l’orientation horizontale du titre « cellule ? » vaut 0,33/0,33 malgré son contenu insuffisant ; les 18 autres attendus restent à zéro. La référence C a été recalibrée le 11 novembre 2026 à la suite d’une observation de l’enseignant. Les anciens exports de version 4 conservent leur référence initiale à 0/10 et ne sont pas recalculés. D et E perdent chacun 0,66 point au critère « Légendes alignées en colonne », car leurs légendes sont en lignes. Les deux images ne diffèrent que par quatre destinations de flèches : seul le critère « Légendes : structures visibles et flèches correctes » (0,68 point) change entre D et E. Ces pénalités suivent le barème du pilote, mais les autres critères et les notes totales restent des références provisoires à confirmer par un enseignant. Les exports antérieurs de version 3 ne sont pas recalibrés automatiquement. Les images, clés, endpoints et réponses brutes ne sont jamais exportés.',
+    limitations: 'Cinq dessins synthétiques (A/B/C et paire contrôlée D/E), références PROVISOIRES non validées par un enseignant. A=10/10, B=7,36/10, C=0,33/10, D=9,34/10, E=8,66/10. Pour C, l’orientation horizontale du titre « cellule ? » vaut 0,33/0,33 malgré son contenu insuffisant ; les 18 autres attendus restent à zéro. La référence C a été recalibrée le 11 novembre 2026 à la suite d’une observation de l’utilisateur. Les anciens exports de version 4 conservent leur référence initiale à 0/10 et ne sont pas recalculés. D et E perdent chacun 0,66 point au critère « Légendes alignées en colonne », car leurs légendes sont en lignes. Les deux images ne diffèrent que par quatre destinations de flèches : seul le critère « Légendes : structures visibles et flèches correctes » (0,68 point) change entre D et E. Ces pénalités suivent le barème du pilote, mais les autres critères et les notes totales restent des références provisoires à confirmer par un enseignant. Les exports antérieurs de version 3 ne sont pas recalibrés automatiquement. Les images, clés, endpoints et réponses brutes ne sont jamais exportés.',
     cases,
   };
 }
