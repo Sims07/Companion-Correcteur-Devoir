@@ -1,3 +1,4 @@
+import { chooseEvaluationModel } from './helpers/evaluation-models';
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -71,8 +72,7 @@ test('blind diagram observer only sends PNGs and generic instructions to local O
   const start = observer.getByRole('button', { name: 'Extraire les relations des 6 schémas' });
   await expect(start).toBeDisabled();
   await expect(observer.getByRole('status')).toContainText('Sélectionnez au moins une configuration');
-  await page.getByRole('group', { name: 'Configurations à exécuter' })
-    .locator('label.evaluation-profile-option').first().click();
+  await chooseEvaluationModel(page);
   await expect(start).toBeEnabled();
   await observer.getByLabel('Consigne de lecture du graphe').selectOption('isolated-arrows-outside');
   await start.click();
@@ -206,8 +206,7 @@ test('blind graph observer supports an explicitly selected OpenAI-compatible Vis
   const observer = panel.getByRole('region', { name: 'Extraction du graphe de relations' });
   const start = observer.getByRole('button', { name: 'Extraire les relations des 6 schémas' });
   await expect(start).toBeDisabled();
-  await page.getByRole('group', { name: 'Configurations à exécuter' })
-    .locator('label.evaluation-profile-option').first().click();
+  await chooseEvaluationModel(page);
   await expect(start).toBeEnabled();
   await start.click();
   await expect.poll(() => requests.length, { timeout: 90_000 }).toBe(6);
