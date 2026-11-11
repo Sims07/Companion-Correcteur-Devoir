@@ -1,6 +1,7 @@
 import type { BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
 import type { DiagramMethodSelection } from './scientificDiagramProtocol.ts';
-import { RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarGrouping } from './diagramLabRadar.ts';
+import { buildDiagramLabRadar, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarGrouping } from './diagramLabRadar.ts';
+import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
 
 export type RadarTestProtocol = 'reference' | 'arrows' | 'semantic' | 'graph';
 export interface RadarTestStep {
@@ -16,6 +17,8 @@ export interface RadarMissingTestRequest {
   axis: RadarAxisId;
   profileId: string;
   profileName: string;
+  /** Exact LLM under evaluation, distinct from the saved profile ID. */
+  modelId?: string;
   steps: RadarTestStep[];
 }
 
@@ -142,4 +145,18 @@ export function planRadarModelEvaluation(
     profileName: candidate.name,
     steps: order.flatMap((protocol) => steps.has(protocol) ? [steps.get(protocol)!] : []),
   };
+}
+
+/** Read the radar from persisted campaigns, not from successful API calls.
+ * A successful response may still lack usable decisions; those axes remain
+ * explicitly unmeasured and must never be counted as a completed evaluation. */
+export function radarEvaluationOutcome(entries: readonly DiagramLabArchiveEntry[], modelId: string) {
+  const candidate = buildDiagramLabRadar(entries, 'model').find((item) => item.id === modelId);
+  const missing = RADAR_AXES.filter((axis) => candidate?.axes[axis.id].value === null || !candidate)
+    .map((axis) => ({
+      id: axis.id,
+      label: axis.label,
+      reason: candidate?.axes[axis.id].reason ?? 'Aucun résultat enregistré pour ce modèle.',
+    }));
+  return { measured: candidate?.measured ?? 0, complete: candidate?.complete ?? false, missing };
 }
