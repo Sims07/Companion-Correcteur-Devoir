@@ -258,7 +258,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
             <Button disabled={busy || !completePlan || !profileIds.includes(completePlan.profileId)}
               onClick={() => { if (completePlan) onRunMissing(completePlan); }}>Évaluer le modèle</Button>
             <p>{completePlan && profileIds.includes(completePlan.profileId)
-              ? completePlan.steps.length + ' batteries de test à enchaîner automatiquement · ' +
+              ? completePlan.steps.length + ' batterie' + (completePlan.steps.length > 1 ? 's' : '') + ' de test à enchaîner automatiquement · ' +
                 radarPlanDescription(completePlan.steps) + '.'
               : 'Une même configuration doit pouvoir tester ce LLM en Analyse et en Vision pour couvrir les huit caractéristiques.'}
               {' '}Les résultats non exploitables resteront non mesurés.</p>
