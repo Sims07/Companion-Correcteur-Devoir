@@ -1,6 +1,6 @@
 import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from './scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS } from './scientificDiagramSensitivity.ts';
-import type { DiagramLabArchiveEntry, DiagramLabProtocol } from './diagramLabHistory.ts';
+import { diagramLabProtocolLabels, type DiagramLabArchiveEntry, type DiagramLabProtocol } from './diagramLabHistory.ts';
 
 export const RADAR_AXES = [
   { id: 'graphics', label: 'Qualité graphique', short: 'Graphisme', detail: 'Accord des décisions visuelles avec les références A/B/C.' },
@@ -423,6 +423,48 @@ export function buildDiagramLabRadar(
   }).sort((a, b) => b.measured - a.measured || a.name.localeCompare(b.name, 'fr'));
 }
 
+
+/** Explain a missing measure from locally archived runs, without inventing
+ * a zero or treating a successful network request as a scored decision. */
+export function diagnoseUnmeasuredRadarAxis(
+  entries: readonly DiagramLabArchiveEntry[], modelId: string, axis: RadarAxisId,
+): string {
+  const protocol: Exclude<DiagramLabProtocol, 'personal'> | null =
+    axis === 'graphics' ? 'reference'
+      : axis === 'arrows' ? 'arrows'
+        : axis === 'biology' ? 'semantic'
+          : axis === 'relations' ? 'graph' : null;
+  const relevant = [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .filter((entry) => entry.protocol !== 'personal' && (protocol === null || entry.protocol === protocol)
+      && (axis !== 'stability' || entry.plannedRepetitions >= 3))
+    .map((entry) => ({
+      entry, rows: flatten(entry).filter((row) => typeof row.model === 'string' && row.model.trim() === modelId),
+    }))
+    .find(({ rows }) => rows.length > 0);
+  if (!relevant) {
+    return axis === 'stability'
+      ? 'Aucune série de trois passages enregistrée pour ce LLM.'
+      : protocol !== null
+        ? 'Aucune campagne ' + diagramLabProtocolLabels[protocol] + ' enregistrée pour ce LLM.'
+        : 'Aucune preuve suffisante pour cet axe dans les campagnes enregistrées.';
+  }
+  const { entry, rows } = relevant;
+  const currentProtocol = entry.protocol as Exclude<DiagramLabProtocol, 'personal'>;
+  const expected = requiredCases[currentProtocol].length * entry.plannedRepetitions;
+  const successes = rows.filter((run) => run.status === 'success').length;
+  const complete = [...new Set(rows.map((row) => row.profileId))]
+    .some((profileId) => completeReadings(rows.filter((row) => row.profileId === profileId),
+      currentProtocol, entry.plannedRepetitions).length > 0);
+  if (!complete) {
+    return 'Dernière campagne : ' + successes + '/' + expected +
+      ' passages réussis, série incomplète ou interrompue. Consultez la campagne.';
+  }
+  const resolved = rows.reduce((sum, run) => sum + Object.values(run.observations)
+    .filter((choice) => choice === 'present' || choice === 'absent' || choice === 'partial').length, 0);
+  if (resolved === 0) return 'Tous les passages ont abouti, mais aucune décision exploitable n’a été récupérée.';
+  if (entry.state !== 'finished') return 'Une campagne existe, mais sa sauvegarde définitive n’est pas encore confirmée.';
+  return 'Les passages existent, mais ils ne satisfont pas les conditions de mesure de cet axe.';
+}
 
 /** A provisional indicator is intentionally NOT a global rating or a rank.
  * It uses only measured axes, without treating missing tests as zeros. */
