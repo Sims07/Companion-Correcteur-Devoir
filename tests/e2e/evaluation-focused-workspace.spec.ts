@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('evaluation starts with one compact workspace rather than stacked cards', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
 
   await expect(page.getByRole('heading', { name: 'Évaluer les modèles' })).toBeVisible();
   await expect(page.locator('.developer-tools-heading, .evaluation-config-workspace > .evaluation-stage-guidance')).toHaveCount(0);

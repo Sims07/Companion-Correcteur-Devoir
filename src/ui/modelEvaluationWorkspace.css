@@ -630,34 +630,6 @@
   box-shadow: none;
   overflow: visible;
 }
-.ai-tools-view .developer-tools-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ds-space-5);
-  padding: 0;
-  border-bottom: 1px solid var(--ds-color-border);
-}
-.ai-tools-view .developer-tools-link {
-  width: auto;
-  min-height: 40px;
-  padding: var(--ds-space-2) 0;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--ds-color-text-muted);
-}
-.ai-tools-view .developer-tools-link strong { font-size: .84rem; font-weight: 650; }
-.ai-tools-view .developer-tools-link:is(.is-active, :hover:not(.is-active)) {
-  background: transparent;
-  box-shadow: none;
-}
-.ai-tools-view .developer-tools-link.is-active {
-  color: var(--ds-color-text);
-  border-bottom-color: var(--ds-color-brand-700);
-}
-.ai-tools-view .developer-tools-link:focus-visible { box-shadow: var(--ds-focus-ring); }
 .evaluation-workspace-shell .evaluation-page-header {
   display: flex;
   align-items: center;
@@ -759,11 +731,6 @@
   flex-wrap: wrap;
   gap: var(--ds-space-3);
   margin: 0 0 var(--ds-space-4);
-}
-.evaluation-workspace-shell .evaluation-journey-label {
-  font-size: .8rem;
-  font-weight: 700;
-  color: var(--ds-color-text-muted);
 }
 .evaluation-workspace-shell .evaluation-journey-options {
   display: inline-flex;
@@ -1055,4 +1022,16 @@
   .evaluation-workspace-shell .evaluation-activity-banner { top: 3px; gap: var(--ds-space-1) var(--ds-space-2); }
   .evaluation-workspace-shell .evaluation-activity-main { flex-basis: 100%; }
   .evaluation-workspace-shell .evaluation-activity-actions { justify-content: flex-end; width: 100%; }
+}
+
+/* The primary destination is in the header: do not display the same title twice. */
+.evaluation-workspace-shell .evaluation-page-header {
+  margin: 0;
+  padding: var(--ds-space-2) 0 0;
+}
+.evaluation-workspace-shell .evaluation-page-header .evaluation-page-identity {
+  gap: 0;
+}
+.evaluation-workspace-shell .evaluation-journey-picker {
+  margin-bottom: var(--ds-space-2);
 }

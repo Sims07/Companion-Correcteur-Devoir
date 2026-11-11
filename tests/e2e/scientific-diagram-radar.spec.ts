@@ -50,7 +50,7 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).waitFor();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).waitFor();
   await page.evaluate(async (items) => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open('companion-correcteur-devoir', 6);
@@ -66,8 +66,7 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
     database.close();
   }, inputs);
 
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
@@ -97,8 +96,7 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   await expect(journal.getByRole('group', { name: 'Campagnes enregistrées' }).getByRole('button', { name: /Sens des flèches/ })).toBeVisible();
 
   await page.reload();
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
     .getByRole('button', { name: 'Radar des candidats' }).click();
   const reopened = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
@@ -110,8 +108,7 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
 
 test('radar is reachable from the general evaluation notebook without a previous science campaign', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   const nav = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   await nav.getByRole('button', { name: 'Carnet de résultats' }).click();
   await expect(nav.getByRole('button', { name: 'Carnet de résultats' })).toHaveAttribute('aria-current', 'page');

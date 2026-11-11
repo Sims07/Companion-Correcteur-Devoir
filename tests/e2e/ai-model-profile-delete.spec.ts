@@ -27,8 +27,7 @@ test.beforeEach(async ({ page }) => {
 
 test('deleting a saved profile requires confirmation, updates evaluation selection and persists after reload', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByText('Créer ou modifier une configuration IA', { exact: true }).click();
   const options = page.getByRole('group', { name: 'Configurations à exécuter' });
   await options.locator('label.evaluation-profile-option').filter({ hasText: 'Configuration à supprimer' }).click();
@@ -64,8 +63,7 @@ test('deleting a saved profile requires confirmation, updates evaluation selecti
   expect(initialSettings).toBeTruthy();
 
   await page.reload();
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByText('Créer ou modifier une configuration IA', { exact: true }).click();
   await expect(page.locator('#evaluation-profile-select option')).toHaveCount(2); // Current + retained profile
   await expect(page.locator('#evaluation-profile-select')).toContainText('Configuration à conserver');
@@ -84,8 +82,7 @@ test('teacher deletion is reflected immediately in the evaluator profiles', asyn
     .getByRole('button', { name: 'Supprimer la configuration' }).click();
   await expect(teacherPanel.locator('#ai-model-profile option')).toHaveCount(2);
 
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByText('Créer ou modifier une configuration IA', { exact: true }).click();
   await expect(page.locator('#evaluation-profile-select')).not.toContainText('Configuration à supprimer');
   await expect(page.locator('#evaluation-profile-select')).toContainText('Configuration à conserver');
@@ -105,8 +102,7 @@ test('manage 16 saved configurations at once: select all, retain 3, confirm, and
     key: profileStorageKey, data: many,
   });
   await page.reload();
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByText('Créer ou modifier une configuration IA', { exact: true }).click();
   const options = page.getByRole('group', { name: 'Configurations à exécuter' });
   await expect(options.getByRole('checkbox')).toHaveCount(16);
@@ -147,8 +143,7 @@ test('manage 16 saved configurations at once: select all, retain 3, confirm, and
   expect(await page.evaluate((key) => localStorage.getItem(key), configurationStorageKey)).toBeTruthy();
 
   await page.reload();
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByText('Créer ou modifier une configuration IA', { exact: true }).click();
   await expect(page.getByRole('button', { name: 'Gérer (3)' })).toBeVisible();
   await expect(page.locator('#evaluation-profile-select option')).toHaveCount(4);
@@ -158,8 +153,7 @@ test('manage 16 saved configurations at once: select all, retain 3, confirm, and
 
 test('batch removal aborts safely if local storage fails, keeping all saved profiles', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByText('Créer ou modifier une configuration IA', { exact: true }).click();
   await page.getByRole('button', { name: 'Gérer (2)' }).click();
   const manager = page.getByRole('dialog', { name: 'Gérer mes configurations IA' });

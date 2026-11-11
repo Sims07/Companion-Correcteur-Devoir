@@ -16,7 +16,7 @@ test('provider disclosure follows actual saved selections instead of current Oll
       configuration: { ...config, endpoint: 'https://remote.example/v1/chat/completions', apiCompatible: true } },
   ])), configuration);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   const notice = page.locator('.evaluation-provider-indicator');
   await expect(notice).toContainText('aucun profil sélectionné');
   await expect(notice).not.toContainText('copies conservées');
@@ -35,7 +35,7 @@ test('provider disclosure follows actual saved selections instead of current Oll
 
 test('personal tests use a compact type switch, never a numbered sequence', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   const picker = page.getByRole('group', { name: 'Type d’évaluation' });
   const options = picker.getByRole('button');
   await expect(options).toHaveCount(3);

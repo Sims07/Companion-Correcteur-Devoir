@@ -84,8 +84,7 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter des copies/ }).click();
   await expect(page.getByRole('heading', { name: 'Ajouter des copies' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await expect(page.getByRole('tablist', { name: 'Sections du devoir' })).toHaveCount(0);
   await expect(page.getByLabel('Nom de la configuration')).toBeVisible();
   await expect(page.getByLabel('Modèle génératif', { exact: true })).toBeVisible();

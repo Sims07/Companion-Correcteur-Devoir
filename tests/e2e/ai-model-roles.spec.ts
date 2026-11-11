@@ -4,8 +4,7 @@ import { openActiveAssignment } from './helpers/teacher-workspace';
 const settingsKey = 'companion-correcteur:ollama-configuration:v1';
 const profilesKey = 'companion-correcteur:ollama-profiles:v1';
 async function openEvaluator(page: Page) {
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   const editor = page.locator('.evaluation-config-editor');
   if (!await editor.getAttribute('open').then(value => value !== null)) await editor.locator('summary').first().click();
   return editor;

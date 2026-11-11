@@ -61,8 +61,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   const fixtures = panel.getByRole('region', { name: 'Schémas de référence intégrés' });
@@ -98,8 +97,8 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await expect(exportStrip.getByRole('button', { name: /Exporter les schémas testés \(1 passage\)/ })).toBeVisible();
 
   // The user inspects live requests while the benchmark is still running.
-  const navigation = page.getByRole('navigation', { name: 'Navigation des outils IA' });
-  await navigation.getByRole('button', { name: /Suivre et diagnostiquer/ }).click();
+  const navigation = page.getByRole('navigation', { name: 'Navigation principale' });
+  await navigation.getByRole('button', { name: 'Suivi & diagnostic' }).click();
   await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Inspecteur réseau' }).click();
   await expect(exportStrip.getByRole('button', { name: /Exporter les schémas testés \(1 passage\)/ })).toBeVisible();
   const [partialDownload] = await Promise.all([
@@ -111,7 +110,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   };
   expect(partial.format).toBe('companion-scientific-diagram-fixture-report');
   expect(partial.cases.flatMap((entry) => entry.experiments)).toHaveLength(1);
-  await navigation.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await navigation.getByRole('button', { name: 'Évaluer les modèles' }).click();
   releaseSecondRequest();
 
   const results = fixtures.getByRole('region', { name: 'Résultats des schémas scientifiques' });
@@ -167,8 +166,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
 
   // The new journal must restore the automatic protocol reports after a reload.
   await page.reload();
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
@@ -222,8 +220,7 @@ test('paired D/E diagrams test the pointed structure, not just the written label
     return route.fulfill({ status: 404, headers, body: '{}' });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   await panel.getByRole('tab', { name: /Sens des flèches/ }).click();
@@ -349,8 +346,7 @@ test(scenario.model + ' compares Think OFF/ON on E with runtime Ollama capabilit
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   await page.getByRole('group', { name: 'Configurations à exécuter' })

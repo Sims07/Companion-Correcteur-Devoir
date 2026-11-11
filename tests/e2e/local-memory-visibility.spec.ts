@@ -10,15 +10,15 @@ test('teacher correction rules never overlay model evaluation or network diagnos
   await expect(page.getByRole('complementary', { name: 'Règles de correction' })).toBeVisible();
 
   // Keyboard navigation remains possible even while the teacher panel is open.
-  await page.getByRole('button', { name: 'Outils IA' }).focus();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Évaluer les modèles' })).toBeVisible();
   await expect(floatingRules).toBeHidden();
   await expect(page.locator('.memory-panel')).toBeHidden();
 
   // Navigating between evaluation and diagnostics must not restore an overlay.
-  await page.getByRole('navigation', { name: 'Navigation des outils IA' })
-    .getByRole('button', { name: /Suivre et diagnostiquer/i }).click();
+  await page.getByRole('navigation', { name: 'Navigation principale' })
+    .getByRole('button', { name: 'Suivi & diagnostic' }).click();
   await expect(floatingRules).toBeHidden();
 
   await page.setViewportSize({ width: 390, height: 844 });

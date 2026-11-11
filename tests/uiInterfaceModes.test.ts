@@ -92,9 +92,8 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('exposes an independent local observability workspace with privacy-safe trace exploration', () => {
     const text = app();
-    const navigation = source('../src/ui/DeveloperToolsNavigation.tsx');
-    expect(navigation).toContain('Suivre et diagnostiquer');
-    expect(navigation).toContain("aria-current={!evaluating ? 'page' : undefined}");
+    expect(text).toContain('>Suivi & diagnostic</button>');
+    expect(text).toContain("interfaceMode === 'observability' || interfaceMode === 'debug' ? 'page' : undefined");
     expect(text).toContain('<ObservabilityDashboard records={observabilityRecords} storageDiagnosticsService={storageDiagnosticsService} onManageEvaluations=');
     expect(text).toContain('const timingHistoryLimit = 100;');
   });
@@ -177,8 +176,8 @@ describe('teacher and AI diagnostic interface modes', () => {
     const text = app();
     const bootstrap = source('../src/main.tsx');
     const navigation = source('../src/ui/DeveloperToolsNavigation.tsx');
-    expect(text).toContain('>Outils IA</button>');
-    expect(navigation).toContain('Évaluer les modèles');
+    expect(text).toContain('>Évaluer</button>');
+    expect(text).toContain('aria-label="Évaluer les modèles"');
     expect(navigation).toContain('Inspecteur réseau');
     expect(navigation).toContain('aria-label="Détails du suivi"');
     expect(text).toContain("{interfaceMode === 'debug' && <NetworkInspector initialFilter={networkInitialFilter} />}");
@@ -190,15 +189,16 @@ describe('teacher and AI diagnostic interface modes', () => {
 
   it('exposes an accessible switch whose buttons reflect the selected mode', () => {
     const text = app();
-    expect(text).toContain('role="group" aria-label="Mode d’interface"');
-    expect(text).toContain("aria-pressed={interfaceMode === 'teacher'}");
-    expect(text).toContain("aria-pressed={interfaceMode !== 'teacher'}");
+    expect(text).toContain('<nav className="view-switch" aria-label="Navigation principale">');
+    expect(text).toContain("aria-current={interfaceMode === 'teacher' ? 'page' : undefined}");
+    expect(text).toContain("aria-current={interfaceMode === 'diagnostic' ? 'page' : undefined}");
     expect(text).toContain("onClick={() => setInterfaceMode('teacher')}");
-    expect(text).toContain("setInterfaceMode(interfaceMode === 'teacher' ? 'diagnostic' : interfaceMode)");
-    const switcher = text.slice(text.indexOf('<div className="view-switch"'), text.indexOf('</header>', text.indexOf('<div className="view-switch"')));
+    expect(text).toContain("setInterfaceMode('observability'); }}>Suivi & diagnostic</button>");
+    const switcher = text.slice(text.indexOf('<nav className="view-switch"'), text.indexOf('</nav>', text.indexOf('<nav className="view-switch"')));
     expect(switcher).not.toContain('>Inspecteur réseau</button>');
     expect(switcher).not.toContain('>Évaluation des modèles</button>');
-    expect(switcher).toContain('>Outils IA</button>');
+    expect(switcher).toContain('>Évaluer</button>');
+    expect(switcher).toContain('>Suivi & diagnostic</button>');
     expect(switcher).not.toContain('>Schémas scientifiques</button>');
     expect(text).toContain("kind: details.kind ?? 'standard'");
     expect(text).toContain("gradingFlow: 'scientific-diagram-direct'");

@@ -1,25 +1,23 @@
 import { expect, test } from '@playwright/test';
 
-test('AI tools offers two understandable goals, with network debugging on demand', async ({ page }) => {
+test('application offers evaluation and diagnostics as top-level destinations', async ({ page }) => {
   await page.goto('/');
 
-  const primaryNavigation = page.getByRole('group', { name: 'Mode d’interface' });
-  await expect(primaryNavigation.getByRole('button')).toHaveCount(2);
-  await expect(primaryNavigation.getByRole('button', { name: 'Correction' })).toHaveAttribute('aria-pressed', 'true');
+  const primaryNavigation = page.getByRole('navigation', { name: 'Navigation principale' });
+  await expect(primaryNavigation.getByRole('button')).toHaveCount(3);
+  await expect(primaryNavigation.getByRole('button', { name: 'Correction' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('navigation', { name: 'Navigation des outils IA' })).toHaveCount(0);
 
-  await primaryNavigation.getByRole('button', { name: 'Outils IA' }).click();
-  const tools = page.getByRole('navigation', { name: 'Navigation des outils IA' });
-  await expect(tools.getByRole('button')).toHaveCount(2);
-  await expect(tools.getByRole('button', { name: /Évaluation des modèles/ })).toHaveAttribute('aria-current', 'page');
+  await primaryNavigation.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await expect(primaryNavigation.getByRole('button', { name: 'Évaluer les modèles' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('navigation', { name: 'Détails du suivi' })).toHaveCount(0);
-  await expect(page.locator('.developer-tools-support')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Évaluer les modèles' })).toBeVisible();
+  await expect(page.locator('.developer-tools')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Évaluer les modèles' })).toHaveCount(1);
   await expect(page.getByRole('group', { name: 'Type d’évaluation' })).toBeVisible();
-  await expect(page.locator('.developer-tools')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(page.locator('.developer-tools-heading')).toHaveCount(0);
+  await expect(page.locator('.developer-tools-heading, .developer-tools-nav')).toHaveCount(0);
 
-  await tools.getByRole('button', { name: /Suivre et diagnostiquer/ }).click();
+  await primaryNavigation.getByRole('button', { name: 'Suivi & diagnostic' }).click();
+  await expect(primaryNavigation.getByRole('button', { name: 'Suivi & diagnostic' })).toHaveAttribute('aria-current', 'page');
   const details = page.getByRole('navigation', { name: 'Détails du suivi' });
   await expect(details.getByRole('button')).toHaveCount(2);
   await expect(details.getByRole('button', { name: 'Suivi des corrections' })).toHaveAttribute('aria-pressed', 'true');
@@ -28,12 +26,18 @@ test('AI tools offers two understandable goals, with network debugging on demand
 
   await details.getByRole('button', { name: 'Inspecteur réseau' }).click();
   await expect(details.getByRole('button', { name: 'Inspecteur réseau' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(primaryNavigation.getByRole('button', { name: 'Suivi & diagnostic' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
 
-  await tools.getByRole('button', { name: /Évaluation des modèles/ }).click();
+  await primaryNavigation.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await expect(page.getByRole('navigation', { name: 'Détails du suivi' })).toHaveCount(0);
   await primaryNavigation.getByRole('button', { name: 'Correction' }).click();
-  await expect(page.getByRole('navigation', { name: 'Navigation des outils IA' })).toHaveCount(0);
+  await expect(primaryNavigation.getByRole('button', { name: 'Correction' })).toHaveAttribute('aria-current', 'page');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(primaryNavigation.getByRole('button')).toHaveCount(3);
+  expect(await page.evaluate(() =>
+    document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 
 test('support diagnostic can be copied without sharing copy contents or configured endpoint URLs', async ({ page }) => {
@@ -60,8 +64,7 @@ test('support diagnostic can be copied without sharing copy contents or configur
     }]));
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('navigation', { name: 'Navigation des outils IA' }).getByRole('button', { name: /Suivre et diagnostiquer/ }).click();
+  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
   await page.getByText('Aide au diagnostic et partage avec le support').click();
   await page.getByRole('button', { name: 'Copier un diagnostic technique' }).click();
   await expect(page.getByRole('status').getByText(/Diagnostic technique copié/)).toBeVisible();
@@ -78,8 +81,7 @@ test('support diagnostic can be copied without sharing copy contents or configur
 test('the network inspector keeps six aligned columns on desktop and prioritizes intent on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Outils IA' }).click();
-  await page.getByRole('navigation', { name: 'Navigation des outils IA' }).getByRole('button', { name: /Suivre et diagnostiquer/ }).click();
+  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
   await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Inspecteur réseau' }).click();
   const headings = page.locator('.network-request-columns');
   await expect(headings.locator('span')).toHaveCount(6);
