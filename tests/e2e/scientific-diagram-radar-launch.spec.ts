@@ -45,12 +45,16 @@ test('a missing radar axis leads directly to its automatic fixture battery on th
   await expect(nav.getByRole('button', { name: 'Tests' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ })).toHaveAttribute('aria-pressed', 'true');
-  const running = page.getByRole('status', { name: 'Test lancé depuis le radar' });
-  await expect(running).toBeVisible();
-  await expect(running).toContainText('Vision à compléter');
-  await expect(running).toContainText(/Batterie 1\/1|n’a pas terminé|Batteries terminées/);
+  // The global activity is the only running-test status. Radar details return
+  // only after the automatic suite completes or reports an actionable failure.
+  const activity = page.getByRole('status', { name: 'Dernière expérience lancée' });
+  await expect(activity).toBeVisible();
+  await expect(activity).toContainText('Vision à compléter');
+  await expect(activity).toContainText('Schémas scientifiques · qualité graphique A/B/C');
+  await expect(page.getByRole('status', { name: 'Résultat du lancement depuis le radar' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('.diagram-lab-live')).toHaveCount(0);
   // No previously selected unrelated model is invoked by this shortcut.
-  await expect(page.getByRole('group', { name: 'Configurations à exécuter' }).getByText('Vision à compléter')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toContainText('Vision à compléter');
   await nav.getByRole('button', { name: 'Radar des candidats' }).click();
   await expect(page.getByRole('region', { name: 'Radar des candidats scientifiques' })).toBeVisible();
 });
