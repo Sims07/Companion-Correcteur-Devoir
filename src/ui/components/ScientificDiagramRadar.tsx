@@ -188,7 +188,10 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
   const eligible = ranked.filter((c) => grouping !== 'method' ? c.weightedScore !== null
     : partial?.rows.some((row) => row.id === c.id && row.score !== null));
   const missingAxes = examined ? RADAR_AXES.filter((item) => examined.axes[item.id].value === null) : [];
-  const indicative = examined ? observedRadarScore(examined, weights) : null;
+  const primaryScore = activeModel
+    ? (activeModel.complete ? activeModel.weightedScore : observedRadarScore(activeModel, weights)) : null;
+  const comparisonScore = comparedModel
+    ? (comparedModel.complete ? comparedModel.weightedScore : observedRadarScore(comparedModel, weights)) : null;
 
   useEffect(() => {
     try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(weights)); }
@@ -202,11 +205,6 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
   }
 
   return <section className="diagram-radar-workspace" aria-label="Radar des candidats scientifiques">
-    <div className="diagram-radar-intro">
-      <p className="eyebrow">SYNTHÈSE · BATTERIES AUTOMATIQUES</p>
-      <h3>Quel LLM choisir pour les schémas scientifiques ?</h3>
-      <p>Choisissez d’abord un modèle pour retrouver son radar, ses résultats et les tests restants. Les scores portent sur les protocoles enregistrés et leurs méthodes, pas sur une performance universelle du modèle.</p>
-    </div>
     {grouping === 'model' && <section className="diagram-radar-model-overview" aria-label="Bilan du LLM sélectionné">
       <div className="diagram-radar-model-pickers">
         <label>Choisir un LLM
@@ -227,25 +225,26 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
         </label>
       </div>
       {activeModel && <div className="diagram-radar-model-scorecard" aria-live="polite">
-        <div className="diagram-radar-score-number">
-          <span>Note globale · {activeModel.name}</span>
-          <strong>{activeModel.weightedScore === null ? '—' :
-            activeModel.weightedScore.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100'}</strong>
-          <small>{activeModel.complete ? '8/8 caractéristiques mesurées · score pondéré' :
-            'Note indisponible : il reste des tests à effectuer'}</small>
+        <div className="diagram-radar-score-number" aria-label="Résultat du LLM sélectionné">
+          <span>{activeModel.complete ? 'Note globale' : 'Indice partiel'} · {activeModel.name}</span>
+          <strong>{primaryScore === null ? '—' :
+            primaryScore.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100'}</strong>
+          <small>{activeModel.complete
+            ? 'Note pondérée sur les huit caractéristiques.'
+            : primaryScore === null
+              ? 'Aucune mesure disponible. Lancez les tests pour obtenir un premier indice.'
+              : 'Calculé sur les seules caractéristiques mesurées · provisoire, non comparable à une note globale.'}</small>
         </div>
         <div className="diagram-radar-score-coverage">
           <strong>{activeModel.measured} / 8</strong>
           <span>caractéristiques évaluées</span>
-          {indicative !== null && !activeModel.complete && <small>
-            Indice partiel : {indicative.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}/100 · non comparable à une note globale
-          </small>}
         </div>
         {comparedModel && <div className="diagram-radar-score-compare">
-          <span>{comparedModel.name}</span>
-          <strong>{comparedModel.weightedScore === null ? 'Pas de note globale' :
-            comparedModel.weightedScore.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100'}</strong>
-          <small>{comparedModel.measured}/8 caractéristiques</small>
+          <span>{comparedModel.complete ? 'Note globale' : 'Indice partiel'} · {comparedModel.name}</span>
+          <strong>{comparisonScore === null ? '—' :
+            comparisonScore.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100'}</strong>
+          <small>{comparedModel.measured}/8 caractéristiques
+            {!comparedModel.complete && ' · score provisoire'}</small>
         </div>}
       </div>}
       {activeModel && <div className="diagram-radar-remaining" aria-label="Tests restant à faire pour ce LLM">

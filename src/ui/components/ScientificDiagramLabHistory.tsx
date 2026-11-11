@@ -192,7 +192,7 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
   const comparisonRows = selected && comparison && !comparisonIssue ? buildDiagramLabComparison(selected, comparison) : [];
 
   return <section className="diagram-lab-history" aria-label="Campagnes de test scientifiques">
-    <div className="diagram-lab-history-heading">
+    {view === 'campaigns' && <div className="diagram-lab-history-heading">
       <div><p className="eyebrow">CAMPAGNES DE TEST · SCHÉMAS SCIENTIFIQUES</p><h2>Campagnes de test</h2>
         <p>Comparez les performances sur huit caractéristiques ou examinez les preuves de chaque campagne.</p></div>
       <div className="diagram-lab-history-heading-actions">
@@ -206,8 +206,8 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
         <Button variant="secondary" disabled={importBusy} onClick={() => fileInput.current?.click()}>Importer un ancien JSON</Button>
         <Button variant="secondary" onClick={() => setReload((value) => value + 1)}>Actualiser</Button>
       </div>
-    </div>
-    {importNotice && <p role="status" className="diagram-lab-history-import-feedback">{importNotice}</p>}
+    </div>}
+    {view === 'campaigns' && importNotice && <p role="status" className="diagram-lab-history-import-feedback">{importNotice}</p>}
     {(archiveError || loadingError) && <p role="alert" className="diagram-lab-history-warning">
       Sauvegarde locale indisponible : {archiveError || loadingError}. Exportez vos JSON pour conserver les résultats.
     </p>}
