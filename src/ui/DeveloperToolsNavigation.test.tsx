@@ -23,26 +23,18 @@ describe('DeveloperToolsNavigation', () => {
     Reflect.deleteProperty(navigator, 'clipboard');
   });
 
-  it('shows two goal-based choices instead of three numbered technical steps', async () => {
+  it('leaves evaluation navigation entirely to the top application header', async () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
     const onNavigate = vi.fn<(tool: DeveloperTool) => void>();
-    network.records = [{ state: 'error' }, { state: 'success' }];
     await act(async () => {
-      root?.render(<DeveloperToolsNavigation activeTool="diagnostic" traces={[{ outcome: 'error' }] as never} onNavigate={onNavigate} />);
+      root?.render(<DeveloperToolsNavigation activeTool="diagnostic" traces={[]} onNavigate={onNavigate} />);
     });
-    const navigation = container.querySelector('nav[aria-label="Navigation des outils IA"]');
-    const buttons = [...(navigation?.querySelectorAll('button') ?? [])];
-    expect(buttons.map((button) => button.querySelector('strong')?.textContent)).toEqual(['Évaluer', 'Suivi & diagnostic']);
-    expect(buttons[0]?.getAttribute('aria-current')).toBe('page');
-    expect(container.querySelector('.developer-tools-link-index')).toBeNull();
-    expect(container.querySelector('.developer-tools-heading')).toBeNull();
-    expect(container.querySelectorAll('.developer-tools-link small')).toHaveLength(0);
-    expect(container.querySelector('.developer-tools-support')).toBeNull();
-    expect(container.textContent).not.toContain('requête(s) en erreur');
-    await act(async () => { buttons[1]?.click(); });
-    expect(onNavigate).toHaveBeenCalledWith('observability');
+    expect(container.querySelector('.developer-tools')).toBeNull();
+    expect(container.querySelector('nav[aria-label="Navigation des outils IA"]')).toBeNull();
+    expect(container.textContent).toBe('');
+    expect(onNavigate).not.toHaveBeenCalled();
   });
 
   it('only reveals network inspection, errors and support under follow-up diagnostics', async () => {
