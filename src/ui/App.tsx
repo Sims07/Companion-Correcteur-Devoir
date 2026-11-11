@@ -3789,6 +3789,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <Button variant="secondary" className="evaluation-model-brief-manage" onClick={() => setManagingEvaluationProfiles(true)}>Gérer les configurations</Button>
         </div>
         </div>
+        {evaluationJourney === 'custom' && selectedEvaluationProfiles.some((profile) => !isLocalPilotProfile(profile)) &&
+          <p className="evaluation-remote-endpoint-notice" role="status">Une configuration distante est sélectionnée : les contenus de ce test seront envoyés au serveur configuré.</p>}
         <div id="evaluation-diagram-workspace" hidden={evaluationJourney !== 'diagrams'}><ScientificDiagramProtocolPanel
           selectedProfiles={selectedEvaluationProfiles} busy={busy || pilotBusy}
           progress={diagramProtocolProgress}

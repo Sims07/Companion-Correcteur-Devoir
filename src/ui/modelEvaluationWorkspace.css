@@ -1096,3 +1096,11 @@
   .evaluation-workspace-shell .evaluation-model-brief { flex: 1 1 100%; justify-content: flex-start; }
   .evaluation-workspace-shell .evaluation-config-dialog .evaluation-config-fields { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Information contextuelle uniquement lorsqu'un profil distant est effectivement sélectionné. */
+.evaluation-workspace-shell .evaluation-remote-endpoint-notice {
+  margin: var(--ds-space-2) 0 0;
+  color: var(--ds-color-text-muted);
+  font-size: .78rem;
+  line-height: 1.45;
+}

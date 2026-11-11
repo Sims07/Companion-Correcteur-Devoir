@@ -56,6 +56,8 @@ describe('aides de confidentialité non répétitives', () => {
     expect(app).not.toContain('Les derniers réglages sont restaurés automatiquement.');
     expect(app).not.toContain('transmis uniquement au serveur configuré');
     expect(app).toContain('<option value="ollama">Ollama local</option>');
+    expect(app).toContain("selectedEvaluationProfiles.some((profile) => !isLocalPilotProfile(profile))");
+    expect(app).toContain('Une configuration distante est sélectionnée : les contenus de ce test');
     expect(app).not.toContain('Aucun service cloud n’est utilisé');
     expect(app).not.toContain('Les pages sont préparées dans le navigateur. Elles sont transmises uniquement');
     expect(app).not.toContain('Données locales</span>');

@@ -18,16 +18,20 @@ test('evaluation does not add a permanent provider/privacy banner regardless of 
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   const notice = page.locator('.evaluation-provider-indicator, .evaluation-page-header');
+  const remoteNotice = page.locator('.evaluation-remote-endpoint-notice');
   await expect(notice).toHaveCount(0);
+  await expect(remoteNotice).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Gérer les configurations' }).click();
   const configurations = page.getByRole('dialog', { name: 'Gérer les configurations IA' });
   await configurations.getByRole('checkbox', { name: /Profil serveur distant/ }).check();
   await expect(notice).toHaveCount(0);
+  await expect(remoteNotice).toContainText('les contenus de ce test seront envoyés');
   await configurations.getByRole('checkbox', { name: /Local témoin/ }).check();
   await expect(notice).toHaveCount(0);
   await configurations.getByRole('checkbox', { name: /Profil serveur distant/ }).uncheck();
   await expect(notice).toHaveCount(0);
+  await expect(remoteNotice).toHaveCount(0);
 });
 
 test('personal tests use a compact type switch, never a numbered sequence', async ({ page }) => {
