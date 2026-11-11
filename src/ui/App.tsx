@@ -59,7 +59,7 @@ import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision 
 import { buildLocalDecisionBenchmark } from '../domain/localDecisionBenchmark.ts';
 import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluationScores, visualChoiceLabels } from '../domain/visualDecisionEvaluation.ts';
 import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
-import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, isLoopbackPilotEndpoint, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
+import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, summarizePilotResult, isLocalPilotConfiguration, isLocalPilotProfile, isLoopbackPilotEndpoint, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import { BiologyTeacherRadar } from './components/BiologyTeacherRadar.tsx';
 import { biologyRadarObservations, loadBiologyRadarHistory, mergeBiologyRadarHistory, saveBiologyRadarHistory } from '../domain/biologyTeacherRadar.ts';
