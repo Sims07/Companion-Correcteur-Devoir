@@ -15,7 +15,15 @@ export const RADAR_AXES = [
 
 export type RadarAxisId = typeof RADAR_AXES[number]['id'];
 export type RadarWeights = Record<RadarAxisId, number>;
-export type RadarGrouping = 'profile' | 'method';
+export type RadarGrouping = 'model' | 'profile' | 'method';
+
+/** A saved configuration is used only to list models before their first test.
+ * Evaluation results are still built exclusively from archived measurements. */
+export interface RadarModelConfiguration {
+  id: string;
+  name: string;
+  configuration: { visionModel: string; analysisModel: string };
+}
 
 export const RADAR_PRESETS = {
   scientific: { graphics: 1, arrows: 3, biology: 3, relations: 3, robustness: 3, stability: 2, coverage: 1, speed: 1 },
@@ -333,25 +341,38 @@ function makeCandidateAxes(batteries: Map<DiagramLabProtocol, Battery>): Record<
   return { graphics, arrows: arrowScore, biology, relations, robustness, stability, coverage, speed };
 }
 
-export function buildDiagramLabRadar(entries: readonly DiagramLabArchiveEntry[], grouping: RadarGrouping = 'profile'): RadarCandidate[] {
+export function buildDiagramLabRadar(
+  entries: readonly DiagramLabArchiveEntry[],
+  grouping: RadarGrouping = 'profile',
+  savedProfiles: readonly RadarModelConfiguration[] = [],
+): RadarCandidate[] {
   const candidates = new Map<string, CandidateDraft>();
   for (const entry of [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
     if (entry.state !== 'finished' || entry.protocol === 'personal') continue;
     const rows = flatten(entry);
     const participant = new Map<string, Reading[]>();
     for (const row of rows) {
-      const key = grouping === 'method' ? row.profileId + '\u0000' + row.method + '\u0000' + row.variant : row.profileId;
+      // The same model can be used by several saved profiles in one campaign.
+      // Keep their series separate when validating completeness, otherwise
+      // duplicate repetitions would incorrectly invalidate a whole battery.
+      const modelName = row.model.trim();
+      if (grouping === 'model' && !modelName) continue;
+      const key = grouping === 'model' ? modelName + '\u0000' + row.profileId
+        : grouping === 'method' ? row.profileId + '\u0000' + row.method + '\u0000' + row.variant
+          : row.profileId;
       const participantRows = participant.get(key) ?? [];
       participantRows.push(row);
       participant.set(key, participantRows);
     }
-    for (const [key, participantRows] of participant) {
+    for (const [participantKey, participantRows] of participant) {
       const full = completeReadings(participantRows, entry.protocol, entry.plannedRepetitions);
       const first = participantRows[0];
       if (!first) continue;
+      const key = grouping === 'model' ? first.model.trim() : participantKey;
       let candidate = candidates.get(key);
       if (!candidate) {
-        candidate = { id: key, profileId: first.profileId, name: first.profileName,
+        candidate = { id: key, profileId: first.profileId,
+          name: grouping === 'model' ? key : first.profileName,
           updatedAt: entry.createdAt, methods: new Set<string>(), models: new Set<string>(),
           batteries: new Map<DiagramLabProtocol, Battery>() };
         candidates.set(key, candidate);
@@ -365,6 +386,21 @@ export function buildDiagramLabRadar(entries: readonly DiagramLabArchiveEntry[],
       }
     }
   }
+  if (grouping === 'model') {
+    // Show configured models even when they have never run an experiment.
+    // Empty candidates stay unscored; they never borrow a different model's evidence.
+    for (const profile of savedProfiles) {
+      for (const model of [profile.configuration.analysisModel, profile.configuration.visionModel]) {
+        const id = model.trim();
+        if (!id || candidates.has(id)) continue;
+        candidates.set(id, {
+          id, name: id, profileId: profile.id, updatedAt: profile.name,
+          methods: new Set<string>(), models: new Set([id]),
+          batteries: new Map<DiagramLabProtocol, Battery>(),
+        });
+      }
+    }
+  }
   return [...candidates.values()].map((candidate) => {
     const axes = makeCandidateAxes(candidate.batteries);
     const measured = RADAR_AXES.filter((axis) => axes[axis.id].value !== null).length;
@@ -372,9 +408,22 @@ export function buildDiagramLabRadar(entries: readonly DiagramLabArchiveEntry[],
       id: candidate.id, profileId: candidate.profileId,
       name: grouping === 'method' ? candidate.name + ' · ' + [...candidate.methods].join(', ') : candidate.name,
       methods: [...candidate.methods].sort(), models: [...candidate.models].sort(),
-      axes, measured, complete: measured === RADAR_AXES.length, updatedAt: candidate.updatedAt,
+      axes, measured, complete: measured === RADAR_AXES.length,
+      updatedAt: candidate.batteries.size ? candidate.updatedAt : '',
     };
   }).sort((a, b) => b.measured - a.measured || a.name.localeCompare(b.name, 'fr'));
+}
+
+
+/** A provisional indicator is intentionally NOT a global rating or a rank.
+ * It uses only measured axes, without treating missing tests as zeros. */
+export function observedRadarScore(candidate: RadarCandidate, weights: RadarWeights): number | null {
+  if (!validRadarWeights(weights)) return null;
+  const observed = RADAR_AXES.filter((axis) => weights[axis.id] > 0 && candidate.axes[axis.id].value !== null);
+  const total = observed.reduce((sum, axis) => sum + weights[axis.id], 0);
+  if (total === 0) return null;
+  return limited(observed.reduce((sum, axis) =>
+    sum + candidate.axes[axis.id].value! * weights[axis.id], 0) / total);
 }
 
 export function validRadarWeights(value: unknown): value is RadarWeights {
