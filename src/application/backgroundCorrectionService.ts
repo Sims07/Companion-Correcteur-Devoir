@@ -287,7 +287,6 @@ export function createBackgroundCorrectionService(
           if (current.gradingFlow === 'scientific-diagram-direct') {
             // A scientific diagram assignment uses the same one-pass vision
             // engine as the laboratory, never OCR or double analysis.
-            
             current = { ...current, phase: 'grading', activeCriterionId: null, updatedAt: new Date().toISOString() };
             await persist(current);
             // Use the exact direct-image provider contract. There is no OCR

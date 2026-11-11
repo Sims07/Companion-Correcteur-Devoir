@@ -38,7 +38,7 @@ describe('parcours sans bandeaux de consentement ou de confidentialité répéti
     (endpoint) => {
       const markup = diagramPanel(endpoint);
       expect(markup).toContain('Corriger directement l’image');
-      expect(markup).toContain('Configurer l’IA');
+      expect(markup).toContain('Configuration IA');
       expect(markup).not.toContain('Serveur non local');
       expect(markup).not.toContain('J’autorise');
       expect(markup).not.toContain('diagram-teacher-remote');
