@@ -275,7 +275,12 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
       <div className="diagram-radar-visual">
         {ranked.length ? <>
           <RadarPlot candidates={selected} onAxis={setAxis} />
-          <div className="diagram-radar-legend" role="group" aria-label="Candidats affichés sur le radar">
+          {grouping === 'model' ? <div className="diagram-radar-legend diagram-radar-legend-selected" aria-label="Modèles affichés sur le radar">
+            {selected.map((candidate, index) => <div className="diagram-radar-legend-item" key={candidate.id}>
+              <span className="diagram-radar-legend-dot" aria-hidden="true" style={{ background: PALETTE[index] }} />
+              <span><strong>{candidate.name}</strong><small>{candidate.measured}/8 axes · {candidate.complete ? 'note complète' : 'mesures partielles'}</small></span>
+            </div>)}
+          </div> : <div className="diagram-radar-legend" role="group" aria-label="Candidats affichés sur le radar">
             {ranked.map((candidate) => {
               const ix = selected.findIndex((c) => c.id === candidate.id);
               return <label key={candidate.id} className="diagram-radar-legend-item">
@@ -286,12 +291,14 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
                 <span><strong>{candidate.name}</strong><small>{candidate.measured}/8 axes · {candidate.complete ? 'profil mesuré' : 'profil incomplet'}</small></span>
               </label>;
             })}
-          </div>
-          <p className="diagram-radar-footnote">Maximum quatre candidats superposés. Contour continu : huit axes disponibles ; pointillés : mesures partielles. Une répétition unique ne permet pas de mesurer la stabilité.</p>
-        </> : <p className="diagram-radar-empty">Aucune campagne scientifique exploitable. Lancez une batterie automatique, puis revenez ici : les résultats enregistrés seront évalués sans nouvel appel IA.</p>}
+          </div>}
+          <p className="diagram-radar-footnote">{grouping === 'model'
+            ? 'La comparaison facultative superpose deux LLM. Contour fermé : note globale calculable ; courbes ouvertes : essais manquants. Une méthode utilisant deux modèles mesure leur chaîne, pas le LLM seul.'
+            : 'Maximum quatre candidats superposés. Contour continu : huit axes disponibles ; pointillés : mesures partielles. Une répétition unique ne permet pas de mesurer la stabilité.'}</p>
+        </> : <p className="diagram-radar-empty">Aucun LLM enregistré ou mesuré. Enregistrez une configuration IA pour choisir son modèle, puis lancez une batterie automatique.</p>}
       </div>
       <aside className="diagram-radar-inspector" aria-label="Explication des scores">
-        <h4>Lire les huit caractéristiques</h4>
+        <h4>{grouping === 'model' && activeModel ? 'Détails · ' + activeModel.name : 'Lire les huit caractéristiques'}</h4>
         <div className="diagram-radar-axis-buttons" role="group" aria-label="Axe à examiner">
           {RADAR_AXES.map((item) => <button type="button" key={item.id} aria-pressed={axis === item.id}
             onClick={() => setAxis(item.id)}>{item.label}
@@ -301,12 +308,12 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
         <div className="diagram-radar-evidence">
           <h4>{RADAR_AXES.find((item) => item.id === axis)?.label}</h4>
           <p>{RADAR_AXES.find((item) => item.id === axis)?.detail}</p>
-          <label>Afficher les preuves de
+          {grouping !== 'model' && <label>Afficher les preuves de
             <DesignSystemSelect value={examined?.id ?? ''} disabled={!ranked.length} onChange={(event) => setFocus(event.currentTarget.value)}>
               {ranked.length ? ranked.map((candidate) =>
                 <option value={candidate.id} key={candidate.id}>{candidate.name}</option>) : <option value="">Aucun candidat</option>}
             </DesignSystemSelect>
-          </label>
+          </label>}
           {evidence && <><strong className="diagram-radar-axis-score">
             {evidence.value === null ? 'Non mesuré' : evidence.value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100'}
           </strong>
@@ -314,13 +321,15 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
           {evidence.value === null && examined && <div className="diagram-radar-next-test">
             {missingPlan ? <>
               <strong>Compléter cet axe</strong>
-              <p>{radarPlanDescription(missingPlan.steps)} sur le profil {examined.name}. Les schémas sont déjà intégrés.</p>
+              <p>{radarPlanDescription(missingPlan.steps)} · configuration {missingPlan.profileName}. Les schémas sont déjà intégrés.</p>
               <Button disabled={busy || !profileAvailable} onClick={() => onRunMissing(missingPlan)}>
                 {missingPlan.steps.length > 1 ? 'Lancer les batteries manquantes' : 'Lancer le test manquant'}
               </Button>
-              {!profileAvailable && <p role="status">Le profil d’origine n’existe plus dans les configurations IA. Recréez-le avant de relancer ce test.</p>}
+              {!profileAvailable && <p role="status">La configuration correspondante n’est plus disponible. Enregistrez un profil compatible avec le LLM sélectionné.</p>}
               {busy && <p role="status">Une évaluation est déjà en cours. Terminez-la ou arrêtez-la avant d’en lancer une autre.</p>}
-            </> : <p>Cette mesure ne peut pas être attribuée à cette méthode : la lecture indépendante du graphe et la notation sont deux algorithmes distincts. Passez en vue « Par profil IA » pour lancer les batteries adaptées.</p>}
+            </> : <p>{grouping === 'model'
+              ? 'Aucune configuration enregistrée ne peut exécuter cette batterie avec ce LLM. Vérifiez les modèles Vision et Analyse du profil IA.'
+              : 'Cette mesure ne peut pas être attribuée à cette méthode : la lecture indépendante du graphe et la notation sont deux algorithmes distincts. Passez en vue « Par profil IA » pour lancer les batteries adaptées.'}</p>}
           </div>}
           {evidence.evidence.map((source, index) =>
             <div key={source.reportId + index} className="diagram-radar-source">
@@ -333,23 +342,45 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
       </aside>
     </div>
     <section className="diagram-radar-ranking" aria-label="Classement des candidats">
-      <div className="diagram-radar-ranking-heading"><div><h4>Classement et couverture des tests</h4>
-        <p>{grouping === 'profile'
-          ? 'Le classement global exige huit axes mesurés : aucun score inventé sur une batterie manquante.'
-          : 'Classement exploratoire uniquement sur les mêmes axes disponibles pour toutes les méthodes sélectionnées, jamais un score global sur huit.'}</p></div>
+      <div className="diagram-radar-ranking-heading"><div><h4>{grouping === 'model' ? 'Comparer les notes des LLM' : 'Classement et couverture des tests'}</h4>
+        <p>{grouping === 'model'
+          ? 'Note globale /100 uniquement avec les huit axes. Les indices partiels restent visibles pour suivre les progrès, sans entrer dans le classement.'
+          : grouping === 'profile'
+            ? 'Le classement global exige huit axes mesurés : aucun score inventé sur une batterie manquante.'
+            : 'Classement exploratoire uniquement sur les mêmes axes disponibles pour toutes les méthodes sélectionnées, jamais un score global sur huit.'}</p></div>
         <strong>{eligible.length} candidat(s) classable(s){partial ? ' · ' + partial.weightedAxes.length + ' axes communs' : ''}</strong></div>
       <div className="pilot-evaluation-table-scroll"><table className="pilot-evaluation-table">
-        <thead><tr><th>Rang</th><th>Profil ou méthode</th><th>Score pondéré</th><th>Axes disponibles</th><th>Dernière campagne</th></tr></thead>
-        <tbody>{ranked.map((candidate) => <tr key={candidate.id}>
+        <thead><tr><th>Rang</th><th>{grouping === 'model' ? 'LLM' : 'Profil ou méthode'}</th><th>{grouping === 'model' ? 'Note globale /100' : 'Score pondéré'}</th><th>Axes disponibles</th><th>{grouping === 'model' ? 'Tests manquants' : 'Dernière campagne'}</th>{grouping === 'model' && <th>Radar</th>}</tr></thead>
+        <tbody>{ranked.map((candidate) => <tr key={candidate.id}
+          className={grouping === 'model' && candidate.id === activeModel?.id ? 'is-selected-llm' : undefined}>
           <td>{!eligible.some((c) => c.id === candidate.id) ? '—' : eligible.findIndex((c) => c.id === candidate.id) + 1}</td>
-          <th scope="row">{candidate.name}<small className="diagram-radar-model-list">{candidate.models.join(' · ') || 'Modèle non précisé'}</small></th>
+          <th scope="row">{candidate.name}
+            {grouping !== 'model' && <small className="diagram-radar-model-list">{candidate.models.join(' · ') || 'Modèle non précisé'}</small>}
+          </th>
           <td><strong>{(() => {
-            const score = grouping === 'method' ? partial?.rows.find((row) => row.id === candidate.id)?.score ?? null : candidate.weightedScore;
-            return score === null ? 'Non classé' : score.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + '/100' + (grouping === 'method' ? ' · partiel' : '');
-          })()}</strong></td>
-          <td>{candidate.measured} / 8</td><td>{dateLabel(candidate.updatedAt)}</td>
+            const score = grouping === 'method'
+              ? partial?.rows.find((row) => row.id === candidate.id)?.score ?? null : candidate.weightedScore;
+            return score === null ? '—' : score.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + '/100'
+              + (grouping === 'method' ? ' · partiel' : '');
+          })()}</strong>
+            {grouping === 'model' && !candidate.complete && <small className="diagram-radar-model-list">
+              {(() => { const value = observedRadarScore(candidate, weights);
+                return value === null ? 'Aucune mesure' : 'Indice partiel : ' + value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + '/100';
+              })()}
+            </small>}
+          </td>
+          <td>{candidate.measured} / 8</td>
+          <td>{grouping === 'model' ? (8 - candidate.measured) + ' à compléter' :
+            candidate.updatedAt ? dateLabel(candidate.updatedAt) : '—'}</td>
+          {grouping === 'model' && <td><Button variant="secondary" onClick={() => {
+            setModelId(candidate.id); setComparisonModelId(''); setAxis(RADAR_AXES.find((item) =>
+              candidate.axes[item.id].value === null)?.id ?? 'arrows');
+          }}>Voir le radar</Button></td>}
         </tr>)}</tbody>
       </table></div>
+      {grouping === 'model' && <p className="diagram-radar-footnote">
+        Une note complète utilise les mêmes huit critères et les pondérations choisies. Les différences de méthodes, de consignes et de modèles Vision associés peuvent influer sur un même LLM : utilisez les vues détaillées pour interpréter le classement.
+      </p>}
       {grouping === 'profile' && ranked.some((item) => item.methods.length > 1) &&
         <p className="diagram-radar-footnote">Certains profils utilisent plusieurs méthodes ou variantes de consigne. Leurs observations sont agrégées par attendu, sans moyenner les pourcentages. Passez en vue « profil + méthode » pour isoler les stratégies ; les axes absents ne sont pas reconstitués à partir d’un autre parcours.</p>}
       {grouping === 'method' &&
