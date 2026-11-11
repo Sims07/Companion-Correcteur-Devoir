@@ -101,8 +101,8 @@ describe('teacher and AI diagnostic interface modes', () => {
   it('offers a sequential independent evaluation for saved model configurations', () => {
     const text = app();
     expect(text).toContain('Configurations à évaluer');
-    expect(text).toContain('Configurations à exécuter');
-    expect(text).toContain('Sélectionner 1 à 3 modèles');
+    expect(source('../src/ui/components/EvaluationProfilesDialog.tsx')).toContain('Configurations à exécuter');
+    expect(source('../src/ui/components/EvaluationProfilesDialog.tsx')).toContain('Sélectionnez jusqu’à trois configurations');
     expect(text).toContain('selectedProfiles.length < 1');
     expect(text).toContain('selectedEvaluationProfileIds.length < 1');
     expect(text).toContain('Comparer les modèles Vision');
@@ -133,20 +133,20 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Sans correction de référence');
   });
 
-  it('presents saved model configurations as responsive, accessible design-system cards', () => {
+  it('moves saved model configuration management into an accessible dialog', () => {
     const text = app();
-    const styles = source('../src/ui/styles.css');
-    expect(text).toContain('className="evaluation-profile-options"');
-    expect(text).toContain("className={`evaluation-profile-option ${selected ? 'is-selected' : ''} ${disabled && !selected ? 'is-disabled' : ''}`}");
-    expect(text).toContain('className="evaluation-profile-models"');
-    expect(text).toContain('aria-live="polite">{selectedEvaluationProfileIds.length} / 3');
-    expect(text).toContain('aria-describedby="evaluation-profile-selection-help"');
-    expect(text).toContain('className="evaluation-profile-selection-mark" aria-hidden="true"');
-    expect(styles).toContain('.evaluation-profile-option.is-selected');
-    expect(styles).toContain('.evaluation-profile-option:focus-within');
-    expect(styles).toContain('.evaluation-profile-option.is-disabled');
-    expect(styles).toContain('@media (max-width: 640px)');
-    expect(styles).toContain('@media (prefers-reduced-motion: reduce)');
+    const styles = source('../src/ui/modelEvaluationWorkspace.css');
+    const dialog = source('../src/ui/components/EvaluationProfilesDialog.tsx');
+    expect(text).toContain('className="evaluation-model-brief"');
+    expect(text).toContain('<EvaluationProfilesDialog');
+    expect(text).not.toContain('className="evaluation-profile-options"');
+    expect(text).not.toContain('className="evaluation-selection-block"');
+    expect(text).toContain('className="evaluation-config-dialog"');
+    expect(dialog).toContain('aria-label="Configurations à exécuter"');
+    expect(dialog).toContain('maxSelection = 3');
+    expect(dialog).toContain('onManageDeletion');
+    expect(styles).toContain('.evaluation-model-brief-manage.ds-button');
+    expect(source('../src/ui/components/EvaluationProfilesDialog.css')).toContain('@media (max-width: 540px)');
   });
 
   it('shows which saved configuration is active and which phase a long evaluation is running', () => {
@@ -391,7 +391,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('Comparer les modèles d’analyse');
     expect(text).toContain('Évaluer cette configuration');
     expect(text).toContain('Debug des appels IA locaux');
-    expect(evaluation).toContain('className="evaluation-model-selector"');
+    expect(evaluation).toContain('className="evaluation-model-brief"');
     expect(evaluation).not.toContain('Lancer la correction');
     expect(text).not.toContain('diagnostic-experiment-setup');
   });
