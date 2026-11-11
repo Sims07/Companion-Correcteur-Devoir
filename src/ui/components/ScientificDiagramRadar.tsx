@@ -180,12 +180,72 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
   return <section className="diagram-radar-workspace" aria-label="Radar des candidats scientifiques">
     <div className="diagram-radar-intro">
       <p className="eyebrow">SYNTHÈSE · BATTERIES AUTOMATIQUES</p>
-      <h3>Radar des candidats</h3>
-      <p>Comparez les compétences réellement mesurées sur les dessins de référence. Les axes sont calculés sur 100, mais <strong>un test absent reste non mesuré</strong> : il ne réduit pas artificiellement le polygone et n’attribue pas de rang.</p>
+      <h3>Quel LLM choisir pour les schémas scientifiques ?</h3>
+      <p>Choisissez d’abord un modèle pour retrouver son radar, ses résultats et les tests restants. Les scores portent sur les protocoles enregistrés et leurs méthodes, pas sur une performance universelle du modèle.</p>
     </div>
+    {grouping === 'model' && <section className="diagram-radar-model-overview" aria-label="Bilan du LLM sélectionné">
+      <div className="diagram-radar-model-pickers">
+        <label>Choisir un LLM
+          <DesignSystemSelect aria-label="Choisir un LLM" value={activeModel?.id ?? ''} disabled={!ranked.length}
+            onChange={(event) => { setModelId(event.currentTarget.value); setComparisonModelId(''); }}>
+            {ranked.length ? [...ranked].sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+              .map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)
+              : <option value="">Aucun modèle configuré ou testé</option>}
+          </DesignSystemSelect>
+        </label>
+        <label>Comparer avec un autre LLM (facultatif)
+          <DesignSystemSelect aria-label="Comparer avec un autre LLM" value={comparedModel?.id ?? ''}
+            disabled={ranked.length < 2 || !activeModel} onChange={(event) => setComparisonModelId(event.currentTarget.value)}>
+            <option value="">Aucun · afficher un seul modèle</option>
+            {ranked.filter((candidate) => candidate.id !== activeModel?.id)
+              .map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
+          </DesignSystemSelect>
+        </label>
+      </div>
+      {activeModel && <div className="diagram-radar-model-scorecard" aria-live="polite">
+        <div className="diagram-radar-score-number">
+          <span>Note globale · {activeModel.name}</span>
+          <strong>{activeModel.weightedScore === null ? '—' :
+            activeModel.weightedScore.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100'}</strong>
+          <small>{activeModel.complete ? '8/8 caractéristiques mesurées · score pondéré' :
+            'Note indisponible : il reste des tests à effectuer'}</small>
+        </div>
+        <div className="diagram-radar-score-coverage">
+          <strong>{activeModel.measured} / 8</strong>
+          <span>caractéristiques évaluées</span>
+          {indicative !== null && !activeModel.complete && <small>
+            Indice partiel : {indicative.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}/100 · non comparable à une note globale
+          </small>}
+        </div>
+        {comparedModel && <div className="diagram-radar-score-compare">
+          <span>{comparedModel.name}</span>
+          <strong>{comparedModel.weightedScore === null ? 'Pas de note globale' :
+            comparedModel.weightedScore.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100'}</strong>
+          <small>{comparedModel.measured}/8 caractéristiques</small>
+        </div>}
+      </div>}
+      {activeModel && <div className="diagram-radar-remaining" aria-label="Tests restant à faire pour ce LLM">
+        <div><h4>{missingAxes.length ? 'Caractéristiques à compléter' : 'Toutes les caractéristiques sont mesurées'}</h4>
+          <p>{missingAxes.length
+            ? missingAxes.length + ' caractéristique(s) non évaluée(s) · lancez directement une batterie disponible.'
+            : 'Les huit axes sont alimentés par les campagnes locales enregistrées.'}</p></div>
+        {missingAxes.length > 0 && <div className="diagram-radar-remaining-list">
+          {missingAxes.map((item) => {
+            const plan = planFor(activeModel, item.id);
+            return <div key={item.id} className="diagram-radar-remaining-item">
+              <button type="button" onClick={() => setAxis(item.id)}>{item.label}</button>
+              {plan && profileIds.includes(plan.profileId)
+                ? <Button variant="secondary" disabled={busy} onClick={() => onRunMissing(plan)}>Lancer</Button>
+                : <small>Profil compatible requis</small>}
+            </div>;
+          })}
+        </div>}
+      </div>}
+    </section>}
     <div className="diagram-radar-toolbar">
       <label>Regrouper les candidats
-        <DesignSystemSelect value={grouping} onChange={(event) => { setGrouping(event.currentTarget.value as RadarGrouping); setPicked(null); setFocus(''); }}>
+        <DesignSystemSelect value={grouping} onChange={(event) => { setGrouping(event.currentTarget.value as RadarGrouping); setPicked(null); setFocus(''); setComparisonModelId(''); }}>
+          <option value="model">Par LLM · vue principale</option>
           <option value="profile">Par profil IA · bilan consolidé</option>
           <option value="method">Par profil + méthode + consigne · diagnostic</option>
         </DesignSystemSelect>
