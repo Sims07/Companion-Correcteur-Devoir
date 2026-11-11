@@ -78,6 +78,24 @@ describe('launch missing radar tests', () => {
     expect(planRadarModelEvaluation(complete)).toBeNull();
   });
 
+  it('reproduces qwen3.5:4b at 6/8: graphics and stability run together on A/B/C three times', () => {
+    const qwen = candidate({ arrows: 50, biology: 72, relations: 80,
+      robustness: 75, coverage: 98, speed: 62 });
+    const plan = planRadarModelEvaluation(qwen);
+    expect(plan?.steps.map((step) => [step.protocol, step.repetitions]))
+      .toEqual([['reference', 3]]);
+    expect(plan?.steps.some((step) => step.protocol === 'arrows')).toBe(false);
+    // If all graphic passages become usable, no separate D/E repetition is needed.
+    expect(plan?.steps[0]).toMatchObject({ protocol: 'reference', repetitions: 3 });
+  });
+
+  it('repeats missing D/E arrows to obtain stability when graphics is already measured', () => {
+    const qwen = candidate({ graphics: 90, biology: 72, relations: 80,
+      robustness: 75, coverage: 98, speed: 62 });
+    expect(planRadarModelEvaluation(qwen)?.steps.map((step) => [step.protocol, step.repetitions]))
+      .toEqual([['arrows', 3]]);
+  });
+
   it('plans only the extra repeat series when stability is the sole gap', () => {
     const allExceptStability = Object.fromEntries(RADAR_AXES.filter((axis) =>
       axis.id !== 'stability').map((axis) => [axis.id, 90])) as Record<RadarAxisId, number>;
