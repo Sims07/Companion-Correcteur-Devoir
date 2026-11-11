@@ -32,7 +32,7 @@ export function buildDirectDiagramPointRepairPrompt(
   return [
     'Tu assistes un professeur de biologie. Tu as déjà examiné les images de ce schéma.',
     'UNE SEULE VALEUR DE POINTS EST INVALIDE. Ne réévalue pas les autres sous-critères et ne fournis pas une nouvelle correction complète.',
-    `Sous-critère à corriger : ${issue.criterionTitle} / ${issue.subcriterionTitle} (identifiant ${issue.criterionId}${issue.subcriterionId ? ` / ${issue.subcriterionId}` : ''}).`,
+    `Sous-critère à corriger : ${issue.criterionTitle} / ${issue.subcriterionTitle} (champ ${issue.criterionId}${issue.subcriterionId ? `.subcriteria.${issue.subcriterionId}` : ''}.points).`,
     `Valeur initiale invalide : ${originalValue}. Barème réel autorisé : 0 à ${issue.maximum} point(s), bornes incluses.`,
     `Observation initiale du modèle, à VÉRIFIER SUR L'IMAGE : ${issue.originalEvidence || 'aucune preuve disponible'}.`,
     'Conserve la distinction : absent ou incorrect = points: 0 ; complètement satisfait = points égaux au maximum EXACT du barème (si le maximum vaut 0.33, réponds 0.33 et jamais 1).',
