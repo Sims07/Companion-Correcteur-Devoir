@@ -26,7 +26,6 @@
 }
 .diagram-teacher-remote p, .diagram-teacher-notice p { margin:0 0 10px; font-size:.85rem; }
 .diagram-teacher-notice .ds-button { margin-left:10px; }
-.diagram-teacher-local { margin:12px 0; color:var(--ds-color-text-muted); font-size:.82rem; }
 .diagram-teacher-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; }
 .diagram-teacher-error, .diagram-teacher-message {
   padding:12px 14px; margin:14px 0 0; border:1px solid var(--ds-color-border);
