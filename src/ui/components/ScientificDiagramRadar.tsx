@@ -171,7 +171,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
         config.analysisModel.trim() === config.visionModel.trim()
           ? 'direct-image-generative' : 'vision-then-analysis';
     return {
-      ...plan, profileId: matching.id, profileName: matching.name,
+      ...plan, profileId: matching.id, profileName: matching.name, modelId: candidate.id,
       steps: plan.steps.map((step) => ({
         ...step, method: step.protocol === 'graph' ? step.method : method,
       })),

@@ -49,12 +49,12 @@ test('a missing radar axis leads directly to its automatic fixture battery on th
   await expect(nav.getByRole('button', { name: 'Tests' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ })).toHaveAttribute('aria-pressed', 'true');
-  const running = page.getByRole('status', { name: 'Test lancé depuis le radar' });
+  const running = page.getByRole('status', { name: 'Dernière expérience lancée' });
   await expect(running).toBeVisible();
   await expect(running).toContainText('Autre configuration');
-  await expect(running).toContainText(/Batterie 1\/1|n’a pas terminé|Batteries terminées/);
+  await expect(running).toContainText('Schémas scientifiques · qualité graphique A/B/C');
   // No previously selected unrelated model is invoked by this shortcut.
-  await expect(page.getByRole('group', { name: 'Configurations à exécuter' }).getByText('Autre configuration')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toContainText('Autre configuration');
   await nav.getByRole('button', { name: 'Radar des candidats' }).click();
   await expect(page.getByRole('region', { name: 'Radar des candidats scientifiques' }).getByLabel('Choisir un LLM'))
     .toHaveValue('another:4b');
@@ -83,9 +83,8 @@ test('evaluating a new model launches the four required batteries from one actio
   await expect(radar.getByText(/4 batteries de test à enchaîner automatiquement/)).toBeVisible();
   await radar.getByRole('button', { name: 'Évaluer le modèle' }).click();
   await expect(nav.getByRole('button', { name: 'Tests' })).toHaveAttribute('aria-current', 'page');
-  const running = page.getByRole('status', { name: 'Test lancé depuis le radar' });
+  const running = page.getByRole('status', { name: 'Dernière expérience lancée' });
   await expect(running).toBeVisible();
-  await expect(running).toContainText(/Batterie 1\/4|n’a pas terminé|Batteries terminées/);
-  await expect(page.getByRole('group', { name: 'Configurations à exécuter' })
-    .getByText('Nouveau modèle')).toBeVisible();
+  await expect(running).toContainText('Schémas scientifiques');
+  await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toContainText('Nouveau modèle');
 });

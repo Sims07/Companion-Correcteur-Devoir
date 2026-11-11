@@ -1,3 +1,4 @@
+import { chooseEvaluationModel } from './helpers/evaluation-models';
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC } from '../../src/domain/scientificDiagramFixtures';
@@ -37,7 +38,7 @@ test('Qwen direct diagram repairs missing evidence and exports all 19 decisions 
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
-  await page.getByRole('group', { name: 'Configurations à exécuter' }).locator('label.evaluation-profile-option').first().click();
+  await chooseEvaluationModel(page);
   await panel.getByRole('combobox', { name: 'Méthode de correction scientifique à tester' }).selectOption('direct-image-generative');
   await panel.getByRole('button', { name: 'Tester les 3 schémas en un clic' }).click();
   const results = panel.getByRole('region', { name: 'Résultats des schémas scientifiques' });
@@ -104,8 +105,7 @@ test('a scientific diagram protocol accepts a photo, rubric, teacher decisions a
   await expect(panel.getByText('1 attendu', { exact: false })).toBeVisible();
   await expect(panel.getByRole('combobox', { name: 'Référence : Deux structures' })).toHaveValue('');
 
-  const choices = page.getByRole('group', { name: 'Configurations à exécuter' });
-  await choices.locator('label.evaluation-profile-option').first().click();
+  await chooseEvaluationModel(page);
   await expect(panel.getByText('System One image directe', { exact: false })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Tester le schéma en un clic' })).toBeEnabled();
 });
@@ -131,8 +131,7 @@ test('the scientific-diagram lab exposes an explicit multimodal comparison indep
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   const method = panel.getByRole('combobox', { name: 'Méthode de correction scientifique à tester' });
   await expect(method).toHaveValue('compare');
-  const choices = page.getByRole('group', { name: 'Configurations à exécuter' });
-  await choices.locator('label.evaluation-profile-option').first().click();
+  await chooseEvaluationModel(page);
   await expect(panel.getByRole('tab', { name: /Qualité graphique/ })).toHaveAttribute('aria-selected', 'true');
   // The advanced personal-copy workflow remains intact but is intentionally collapsed.
   await panel.locator('details.diagram-lab-legacy > summary').click();

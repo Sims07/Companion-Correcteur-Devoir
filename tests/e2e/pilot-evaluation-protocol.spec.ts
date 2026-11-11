@@ -1,3 +1,4 @@
+import { setEvaluationModelChecked } from './helpers/evaluation-models';
 import { expect, test } from '@playwright/test';
 
 test('the guided biology protocol reuses the evaluator selection without creating fixed presets', async ({ page }) => {
@@ -24,7 +25,6 @@ test('the guided biology protocol reuses the evaluator selection without creatin
 
   const panel = page.getByRole('region', { name: 'Protocole de test guidé' });
   await panel.getByRole('button', { name: 'Vision et parallélisme', exact: true }).click();
-  const choices = page.getByRole('group', { name: 'Configurations à exécuter' });
   const assignmentsBefore = await page.evaluate(() => localStorage.getItem('companion-correcteur:assignments:v1'));
 
   await panel.getByRole('button', { name: 'Préparer le protocole en un clic' }).click();
@@ -38,7 +38,7 @@ test('the guided biology protocol reuses the evaluator selection without creatin
   await expect(panel.getByRole('button', { name: 'Lancer les 3 lectures (Vision seule)' })).toBeDisabled();
   await expect(panel.getByText(/Sélectionnez au moins une configuration dans/)).toBeVisible();
 
-  await choices.locator('label.evaluation-profile-option').nth(0).click();
+  await setEvaluationModelChecked(page, 'Ma configuration locale', true);
   await expect(panel.getByText('Ma configuration locale', { exact: false })).toBeVisible();
   await expect(panel.getByText('1 profil(s) sélectionné(s)', { exact: false })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
@@ -60,18 +60,18 @@ test('the guided biology protocol reuses the evaluator selection without creatin
 
   // Preparing again must not reset the evaluator selection or overwrite saved model settings.
   await panel.getByRole('button', { name: 'Réinitialiser le protocole' }).click();
-  await expect(choices.getByRole('checkbox').nth(0)).toBeChecked();
+  await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toContainText('Ma configuration locale');
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
   await expect(panel.getByRole('button', { name: 'Lancer les 3 lectures (Vision seule)' })).toBeDisabled();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('companion-correcteur:ollama-profiles:v1') ?? '[]'))).toEqual(profiles);
 
   // A configured OpenAI-compatible provider is allowed in the guided analysis protocol;
   // only the CPU concurrency experiment remains specific to native local Ollama.
-  await choices.locator('label.evaluation-profile-option').nth(1).click();
+  await setEvaluationModelChecked(page, 'Ma configuration distante', true);
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
   await expect(panel.getByRole('button', { name: 'Comparer 1, 2 et 4 appels parallèles' })).toBeDisabled();
   await expect(panel.getByText(/Configuration\(s\) incompatible\(s\)/)).toHaveCount(0);
-  await choices.locator('label.evaluation-profile-option').nth(1).click();
+  await setEvaluationModelChecked(page, 'Ma configuration distante', false);
   await expect(panel.getByRole('button', { name: 'Lancer les 3 analyses (sans image)' })).toBeEnabled();
 
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Ma copie/ }).click();

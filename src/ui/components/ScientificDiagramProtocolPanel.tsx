@@ -152,13 +152,14 @@ export interface ScientificDiagramProtocolPanelProps {
   onAutoRequestConsumed?: (id: number) => void;
   onOpenRadar?: () => void;
   onAutoBusyChange?: (busy: boolean) => void;
+  onAutoEvaluationFinished?: (request: RadarMissingTestRequest) => Promise<string>;
 }
 
 export function ScientificDiagramProtocolPanel({
   selectedProfiles, busy, progress, onPrepareImages, onRun, onRunFixtures, onStop,
   report, fixtureReport, sensitivityReport, blindGraphReport,
   onClearReport, onClearFixtureReport, onClearSensitivityReport, onClearBlindGraphReport,
-  onRunSensitivity, onRunBlindGraph, autoRequest, onAutoRequestConsumed, onOpenRadar, onAutoBusyChange,
+  onRunSensitivity, onRunBlindGraph, autoRequest, onAutoRequestConsumed, onOpenRadar, onAutoBusyChange, onAutoEvaluationFinished,
 }: ScientificDiagramProtocolPanelProps) {
   const [rubric, setRubric] = useState<Rubric>(() => structuredClone(SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC));
   const [context, setContext] = useState('');
@@ -180,6 +181,7 @@ export function ScientificDiagramProtocolPanel({
   const [activeProtocol, setActiveProtocol] = useState<'reference' | 'arrows' | 'semantic' | 'graph'>('reference');
   const autoClaimed = useRef<number | null>(null);
   const [radarAutoStatus, setRadarAutoStatus] = useState('');
+  const [autoSequenceRunning, setAutoSequenceRunning] = useState(false);
   const targets = rubric.criteria.flatMap((criterion) =>
     getRubricSubcriteria(criterion).map((item) => ({ criterion, item, key: diagramTargetKey(criterion.id, item.id) })));
   const validation = validateRubric(rubric);
@@ -316,6 +318,7 @@ export function ScientificDiagramProtocolPanel({
       return;
     }
     setRadarAutoStatus('Lancement depuis le radar : ' + radarPlanDescription(autoRequest.steps) + '.');
+    setAutoSequenceRunning(true);
     onAutoBusyChange?.(true);
     void (async () => {
       try {
@@ -340,8 +343,15 @@ export function ScientificDiagramProtocolPanel({
           return;
         }
       }
-      setRadarAutoStatus('Batteries terminées pour ' + profile.name + '. Sauvegarde automatique en cours : retournez au radar pour consulter les mesures.');
+      const result = onAutoEvaluationFinished
+        ? await onAutoEvaluationFinished(autoRequest)
+        : 'Batteries terminées pour ' + profile.name + '. Consultez le radar pour vérifier les mesures.';
+      setRadarAutoStatus(result);
+      } catch (cause) {
+        setRadarAutoStatus('Vérification du radar impossible pour ' + profile.name + ' : ' +
+          (cause instanceof Error ? cause.message : String(cause)) + '. Consultez les campagnes enregistrées.');
       } finally {
+        setAutoSequenceRunning(false);
         onAutoBusyChange?.(false);
       }
     })();
@@ -429,15 +439,9 @@ export function ScientificDiagramProtocolPanel({
   }
 
   return <section className="pilot-evaluation-panel diagram-protocol-panel" aria-label="Protocole schémas scientifiques">
-    <div className="pilot-evaluation-head">
-      <div>
-        <p className="eyebrow">LABORATOIRE · PROTOCOLES AUTOMATIQUES</p>
-        <h3>Schémas scientifiques · batteries de tests</h3>
-        <p>Choisissez une batterie et lancez-la. Les images et références sont déjà prêtes.</p>
-      </div>
-    </div>
-    {radarAutoStatus && <div className="diagram-lab-live" role="status" aria-label="Test lancé depuis le radar">
-      <strong>Compléter le radar</strong><span>{radarAutoStatus}</span>
+    <h3 className="evaluation-visually-hidden">Schémas scientifiques · batteries de tests</h3>
+    {radarAutoStatus && !autoSequenceRunning && <div className="diagram-radar-return-note" role="status" aria-label="Résultat du lancement depuis le radar">
+      <span>{radarAutoStatus}</span>
       {onOpenRadar && <Button variant="secondary" disabled={busy || fixtureLoading || sensitivityLoading || blindGraphLoading} onClick={onOpenRadar}>Revenir au radar</Button>}
     </div>}
     <div className="diagram-lab-catalog" role="tablist" aria-label="Protocoles automatiques des schémas scientifiques">
@@ -453,11 +457,8 @@ export function ScientificDiagramProtocolPanel({
           <strong>{title}</strong><small>{number} · {count}</small><span className="diagram-lab-catalog-description">{subtitle}</span>
         </button>)}
     </div>
-    {busy && <div className="diagram-lab-live" role="status">
-      <strong>En cours · {({ reference: 'Qualité graphique A/B/C', arrows: 'Sens des flèches D/E', semantic: 'Compréhension biologique S0–S5', graph: 'Graphe des relations S0–S5' } as const)[activeProtocol]}</strong><span>{progress || 'Préparation du modèle…'}</span>
-      <Button variant="secondary" onClick={onStop}>Arrêter après l’appel en cours</Button>
-    </div>}
-    <p className="diagram-lab-protocol-summary" role="status">{({ reference: '3 schémas · présentation, légendes et justesse', arrows: '2 schémas · témoin D et flèches inversées E', semantic: '6 variantes · erreurs biologiques et faux rejets', graph: '6 schémas · relations sans barème' } as const)[activeProtocol]} · {selectedProfiles.length} configuration(s) sélectionnée(s)</p>
+
+    <p className="diagram-lab-protocol-summary" role="status">{({ reference: '3 schémas · présentation, légendes et justesse', arrows: '2 schémas · témoin D et flèches inversées E', semantic: '6 variantes · erreurs biologiques et faux rejets', graph: '6 schémas · relations sans barème' } as const)[activeProtocol]}</p>
     {activeProtocol !== 'graph' && <div className="diagram-fixture-run-controls diagram-lab-method">
       <label htmlFor="diagram-method-selection">Méthode de correction scientifique à tester</label>
       <DesignSystemSelect id="diagram-method-selection" value={methodSelection} disabled={busy || fixtureLoading || uploading}

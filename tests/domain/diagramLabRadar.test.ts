@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../src/domain/diagramLabHistory.ts';
+import { radarEvaluationOutcome } from '../../src/domain/diagramLabRadarLaunch.ts';
 import { DIAGRAM_SENSITIVITY_CASES } from '../../src/domain/scientificDiagramSensitivity.ts';
 import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../src/domain/scientificDiagramFixtures.ts';
 import { buildDiagramLabRadar, compareRadarCommonAxes, observedRadarScore, RADAR_PRESETS, rankDiagramLabRadar, validRadarWeights } from '../../src/domain/diagramLabRadar.ts';
@@ -80,6 +81,35 @@ describe('scientific benchmark 8-axis radar', () => {
     expect(result.axes.graphics.value).toBe(100);
     expect(result.axes.graphics.evidence[0]?.reportId).toBe(data[0]!.id);
   });
+  it('preserves a valid three-pass stability report when a newer single-pass battery is recorded', () => {
+    const repeated = sample('arrows', '2026-11-11T09:00:00Z', 3);
+    const recent = sample('arrows', '2026-11-11T10:00:00Z', 1);
+    const model = buildDiagramLabRadar([recent, repeated], 'model')[0]!;
+    expect(model.axes.arrows.evidence[0]?.reportId).toBe(recent.id);
+    expect(model.axes.stability.value).toBe(100);
+    expect(model.axes.stability.evidence[0]?.reportId).toBe(repeated.id);
+  });
+
+  it('fills the exact two remaining batteries: A/B/C once and D/E three times', () => {
+    const all = complete();
+    const measured = [all[2]!, all[3]!,
+      sample('reference', '2026-11-11T13:00:00Z', 1),
+      sample('arrows', '2026-11-11T13:01:00Z', 3)];
+    const result = radarEvaluationOutcome(measured, 'qwen:4b');
+    expect(result).toMatchObject({ measured: 8, complete: true, missing: [] });
+  });
+
+  it('checks real archived measurements after a complete auto-run, not simply API success', () => {
+    expect(radarEvaluationOutcome([], 'qwen:4b')).toMatchObject({ measured: 0, complete: false });
+    const incomplete = radarEvaluationOutcome(complete(), 'qwen:4b');
+    expect(incomplete).toMatchObject({ measured: 7, complete: false });
+    expect(incomplete.missing.map((axis) => axis.id)).toEqual(['stability']);
+    const full = radarEvaluationOutcome(complete(3), 'qwen:4b');
+    expect(full).toMatchObject({ measured: 8, complete: true, missing: [] });
+    const unrelated = radarEvaluationOutcome(complete(3), 'other:4b');
+    expect(unrelated).toMatchObject({ measured: 0, complete: false });
+  });
+
   it('compares methods only on common observed axes, refusing a weak three-axis ranking', () => {
     const candidates = buildDiagramLabRadar(complete(3), 'method');
     const methods = candidates.filter((candidate) => !candidate.methods.some((method) => method.startsWith('blind-graph')));

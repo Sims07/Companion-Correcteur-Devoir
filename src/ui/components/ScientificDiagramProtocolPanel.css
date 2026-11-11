@@ -168,3 +168,78 @@
 .diagram-protocol-fixtures > .pilot-evaluation-report { margin-top: var(--ds-space-3); }
 @media (max-width: 920px) { .diagram-lab-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .diagram-lab-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); } .diagram-lab-catalog button { min-height: 46px; } .diagram-lab-catalog button strong { font-size: .75rem; } .diagram-lab-catalog button small { font-size: .65rem; } .diagram-fixture-grid { grid-template-columns: minmax(0,1fr); } .diagram-lab-live { position: static; } }
+
+
+/* The test controls themselves are the main content: remove nested method/status cards. */
+.evaluation-workspace-shell .diagram-protocol-panel { gap: var(--ds-space-2); padding: 0; }
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-catalog { margin: 0; }
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-protocol-summary {
+  font-size: .75rem;
+  line-height: 1.45;
+  margin: 0;
+}
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-2) var(--ds-space-3);
+  padding: 0;
+  margin: 0 0 var(--ds-space-2);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method > label { flex: 0 0 auto; font-size: .78rem; }
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method > select {
+  flex: 1 1 240px;
+  width: auto;
+  min-width: 220px;
+  max-width: 560px;
+}
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method > details { flex: 0 0 auto; }
+.evaluation-workspace-shell .diagram-radar-return-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-2);
+  color: var(--ds-color-text-muted);
+  font-size: .76rem;
+  line-height: 1.45;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.evaluation-workspace-shell .diagram-radar-return-note > span { flex: 1 1 280px; }
+@media (max-width: 650px) {
+  .evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method > label { flex-basis: 100%; }
+  .evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method > select {
+    min-width: 0; max-width: 100%; flex-basis: 100%;
+  }
+  .evaluation-workspace-shell .diagram-protocol-panel .diagram-lab-method > details { flex-basis: 100%; }
+}
+
+/* The scientific workspace is a grid within two other grids. All tracks must
+ * shrink below their intrinsic text/select widths on narrow screens; otherwise
+ * the whole page grows beyond the viewport (390px -> 529px). */
+.evaluation-workspace-shell .diagram-protocol-panel,
+.evaluation-workspace-shell .diagram-protocol-panel > *,
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-protocol-fixtures,
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-fixture-run-controls,
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-fixture-grid {
+  min-width: 0;
+  max-width: 100%;
+}
+.evaluation-workspace-shell .diagram-protocol-panel,
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-protocol-fixtures,
+.evaluation-workspace-shell .diagram-protocol-panel .diagram-fixture-run-controls {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (max-width: 560px) {
+  .evaluation-workspace-shell .diagram-protocol-panel .diagram-fixture-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .evaluation-workspace-shell .diagram-protocol-panel :is(.diagram-lab-catalog, .diagram-lab-method, .diagram-lab-legacy) {
+    min-width: 0;
+    max-width: 100%;
+  }
+}

@@ -10,8 +10,8 @@ test('evaluation navigates directly between tests and local results without arti
   await expect(navigation.getByRole('button', { name: 'Exécution', exact: true })).toBeHidden();
   await expect(navigation.getByRole('button', { name: 'Résultats', exact: true })).toBeHidden();
   await expect(navigation.getByRole('button', { name: 'Campagnes de test', exact: true })).toBeVisible();
-  await expect(page.locator('.evaluation-model-selector summary')).toBeVisible();
-  await expect(page.getByText('Aucune configuration enregistrée.')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toBeVisible();
+  await expect(page.getByText('Aucun modèle sélectionné')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Préparer le barème de correction' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Ajouter une copie' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Évaluer cette configuration' })).toBeDisabled();
@@ -26,10 +26,10 @@ test('evaluation navigates directly between tests and local results without arti
 test('Debug remains a dedicated network inspector, separate from evaluation', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await expect(page.locator('.evaluation-model-selector summary')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toBeVisible();
 
   await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
   await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Inspecteur réseau' }).click();
   await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
-  await expect(page.locator('.evaluation-model-selector')).toHaveCount(0);
+  await expect(page.locator('.evaluation-model-brief')).toHaveCount(0);
 });

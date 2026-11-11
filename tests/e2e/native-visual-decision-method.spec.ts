@@ -31,6 +31,9 @@ test('third method persists and sends diagram + all typed questions to Clef thro
 
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('button', { name: 'Gérer les configurations' }).click();
+  await page.getByRole('dialog', { name: 'Gérer les configurations IA' })
+    .getByRole('button', { name: 'Modifier les réglages courants' }).click();
   await page.locator('#evaluation-profile-name').fill('Clef Vision + Décision');
   await page.locator('#evaluation-decision-model').fill('clef-flash');
   await page.locator('#evaluation-correction-method').selectOption('decision');
@@ -46,9 +49,7 @@ test('third method persists and sends diagram + all typed questions to Clef thro
   }, profilesKey);
   expect(saved).toMatchObject({ configuration: { correctionMethod: 'visual-decision', visionModel: '' } });
 
-  await page.getByRole('group', { name: 'Configurations à exécuter' })
-    .locator('label.evaluation-profile-option').filter({ hasText: 'Clef Vision + Décision' })
-    .locator('input[type="checkbox"]').check();
+  await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toContainText('Clef Vision + Décision');
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const fixtures = page.getByRole('region', { name: 'Schémas de référence intégrés' });
   await fixtures.getByRole('button', { name: 'Tester ce schéma' }).first().click();
@@ -65,8 +66,10 @@ test('third method persists and sends diagram + all typed questions to Clef thro
 
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await page.getByText('Créer ou modifier une configuration IA', { exact: true }).click();
-  await page.locator('#evaluation-profile-select').selectOption(saved!.id);
+  await page.getByRole('button', { name: 'Gérer les configurations' }).click();
+  await page.getByRole('dialog', { name: 'Gérer les configurations IA' })
+    .getByRole('button', { name: 'Modifier', exact: true }).click();
+  await expect(page.locator('#evaluation-profile-select')).toHaveValue(saved!.id);
   await expect(page.locator('#evaluation-correction-method')).toHaveValue('decision');
   await page.getByText('Options de décision sur image', { exact: true }).click();
   await expect(page.getByLabel('Envoyer directement les images au décisionnel')).toBeChecked();
@@ -75,15 +78,16 @@ test('third method persists and sends diagram + all typed questions to Clef thro
 test('TEV1 configured as direct image decision is blocked visibly before running the scientific diagram benchmark', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('button', { name: 'Gérer les configurations' }).click();
+  await page.getByRole('dialog', { name: 'Gérer les configurations IA' })
+    .getByRole('button', { name: 'Modifier les réglages courants' }).click();
   await page.locator('#evaluation-profile-name').fill('TEV1 visual incompatible');
   await page.locator('#evaluation-decision-model').fill('tev1:4b');
   await page.locator('#evaluation-correction-method').selectOption('decision');
   await page.getByText('Options de décision sur image', { exact: true }).click();
   await page.getByLabel('Envoyer directement les images au décisionnel').check();
   await page.getByRole('button', { name: 'Enregistrer la configuration' }).click();
-  await page.getByRole('group', { name: 'Configurations à exécuter' })
-    .locator('label.evaluation-profile-option').filter({ hasText: 'TEV1 visual incompatible' })
-    .locator('input[type="checkbox"]').check();
+  await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toContainText('TEV1 visual incompatible');
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const fixtures = page.getByRole('region', { name: 'Schémas de référence intégrés' });
   await expect(fixtures.getByText(/TEV1 ne prend pas en charge les images via System One/).first()).toBeVisible();

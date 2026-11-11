@@ -1,3 +1,4 @@
+import { chooseEvaluationModel } from './helpers/evaluation-models';
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -73,8 +74,7 @@ test('semantic sensitivity suite sends the same independent rubric with six pixe
   await expect(suite.locator('.diagram-fixture-card')).toHaveCount(6);
   await expect(suite.getByText('À arbitrer', { exact: true })).toBeVisible();
   await expect(suite.getByRole('button', { name: 'Tester les 6 variantes sémantiques' })).toBeDisabled();
-  await page.getByRole('group', { name: 'Configurations à exécuter' })
-    .locator('label.evaluation-profile-option').first().click();
+  await chooseEvaluationModel(page);
   await suite.getByRole('combobox', { name: 'Stratégie de vérification visuelle' }).selectOption('compare');
   await suite.getByRole('button', { name: 'Tester les 6 variantes sémantiques' }).click();
   await expect.poll(() => requests.length, { timeout: 90_000 }).toBe(12);

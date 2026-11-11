@@ -1035,3 +1035,85 @@
 .evaluation-workspace-shell .evaluation-journey-picker {
   margin-bottom: var(--ds-space-2);
 }
+
+
+/* Test-first evaluation: no configuration card is rendered in the work area. */
+.evaluation-workspace-shell .evaluation-workbench-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--ds-space-2) var(--ds-space-4);
+  margin: 0 0 var(--ds-space-3);
+  min-width: 0;
+}
+.evaluation-workspace-shell .evaluation-workbench-controls .evaluation-journey-picker {
+  margin: 0;
+  flex: 0 1 auto;
+}
+.evaluation-workspace-shell .evaluation-model-brief {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  flex: 1 1 250px;
+  gap: var(--ds-space-2);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: .77rem;
+  line-height: 1.45;
+}
+.evaluation-workspace-shell .evaluation-model-brief-name {
+  flex: 0 0 auto;
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .evaluation-model-brief-selected {
+  color: var(--ds-color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 23ch;
+  font-weight: 650;
+}
+.evaluation-workspace-shell .evaluation-model-brief-manage.ds-button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 4px 8px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--ds-color-brand-700);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  box-shadow: none;
+  font-size: .75rem;
+}
+.evaluation-workspace-shell .evaluation-model-brief-manage.ds-button:hover:not(:disabled) {
+  background: var(--ds-color-surface-subtle);
+  border-color: var(--ds-color-border);
+}
+.evaluation-workspace-shell .evaluation-config-dialog .evaluation-config-editor {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.evaluation-workspace-shell .evaluation-config-dialog .evaluation-config-editor-heading {
+  margin: 0 0 var(--ds-space-3);
+}
+.evaluation-workspace-shell .evaluation-config-dialog .evaluation-config-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ds-space-3);
+}
+.evaluation-workspace-shell .evaluation-config-dialog .evaluation-config-editor :is(input, select) {
+  max-width: 100%;
+  min-width: 0;
+}
+@media (max-width: 700px) {
+  .evaluation-workspace-shell .evaluation-workbench-controls { align-items: flex-start; }
+  .evaluation-workspace-shell .evaluation-model-brief { flex: 1 1 100%; justify-content: flex-start; }
+  .evaluation-workspace-shell .evaluation-config-dialog .evaluation-config-fields { grid-template-columns: minmax(0, 1fr); }
+}
