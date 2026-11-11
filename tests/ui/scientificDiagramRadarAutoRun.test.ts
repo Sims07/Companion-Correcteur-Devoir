@@ -71,10 +71,10 @@ describe('scientific automatic protocol runner invoked from radar', () => {
         { ...plan.steps[0]!, protocol: 'arrows', repetitions: 3 },
       ],
     };
-    const onRunFixtures = vi.fn(async (batch: { cases: { id: string }[] }) => {
+    const onRunFixtures = vi.fn(async (batch: { cases: { id: string }[]; repetitions: number }) => {
       events.push(batch.cases[0]?.id ?? '');
       return { cases: batch.cases.map(({ id }) => ({
-        caseId: id, experiments: [{ status: 'success' }],
+        caseId: id, experiments: Array.from({ length: batch.repetitions }, () => ({ status: 'success' })),
       })) } as unknown as ReturnType<typeof buildScientificDiagramFixtureReport>;
     });
     const onAutoEvaluationFinished = vi.fn(async (completed: RadarMissingTestRequest) => {
