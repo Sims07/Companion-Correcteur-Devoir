@@ -98,17 +98,17 @@ test('qwen-like 6/8 radar targets A/B/C x3 to fill graphics and stability in one
     configuration: { ...defaultAiModelConfiguration, visionModel: model,
       analysisModel: model, generativeModel: model, correctionMethod: 'generative' },
   };
-  const makeRuns = (id: string, observations: Record<string, string>, graph = false) => [{
+  const makeRuns = (observations: Record<string, string>) => [{
     profileId: profile.id, profileName: profile.name, model, repetition: 1, status: 'success',
     method: 'direct-image-generative', durationMs: 2000,
-    observations: graph ? observations : Object.entries(observations).map(([key, choice]) => ({ key, choice })),
+    observations: Object.entries(observations).map(([key, choice]) => ({ key, choice })),
   }];
   const arrows = {
     format: 'companion-scientific-diagram-fixture-report', createdAt: '2026-11-11T14:39:00Z',
     plannedRepetitions: 1, localOnly: true, cases: (['D', 'E'] as const).map((id) => ({
       caseId: id, label: id, gold: { [SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET]: id === 'D' ? 'present' : 'absent' },
       // E was incorrectly accepted, leading to the 50/100 arrow score seen in the screenshot.
-      experiments: makeRuns(id, { [SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET]: 'present' }),
+      experiments: makeRuns({ [SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET]: 'present' }),
       summaries: [],
     })),
   };
@@ -118,7 +118,7 @@ test('qwen-like 6/8 radar targets A/B/C x3 to fill graphics and stability in one
     promptModes: ['standard'], statistics: [],
     cases: DIAGRAM_SENSITIVITY_CASES.map((item) => ({
       caseId: item.id, label: item.label, promptMode: 'standard',
-      experiments: makeRuns(item.id, item.gold),
+      experiments: makeRuns(item.gold),
     })),
   };
   const entries = [
