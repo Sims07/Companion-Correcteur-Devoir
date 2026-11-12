@@ -150,32 +150,3 @@
   .evaluation-workspace-shell .evaluation-scenario-picker { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr); }
   .evaluation-workspace-shell .evaluation-scenario-picker button { width: 100%; }
 }
-
-/* Radar-launched biology campaigns display their progress before any manual protocol controls. */
-.evaluation-workspace-shell .pilot-evaluation-auto-run {
-  display: grid;
-  gap: var(--ds-space-2);
-  padding: var(--ds-space-4);
-  border: 1px solid var(--ds-color-border);
-  border-radius: var(--ds-radius-lg, 12px);
-  background: var(--ds-color-surface, #fff);
-}
-.evaluation-workspace-shell .pilot-evaluation-auto-run-heading {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--ds-space-2);
-}
-.evaluation-workspace-shell .pilot-evaluation-auto-run-heading strong {
-  font-size: 1rem;
-}
-.evaluation-workspace-shell .pilot-evaluation-auto-run-heading span,
-.evaluation-workspace-shell .pilot-evaluation-auto-run small {
-  color: var(--ds-color-text-muted);
-}
-.evaluation-workspace-shell .pilot-evaluation-auto-run progress {
-  width: 100%;
-  height: 11px;
-  accent-color: var(--ds-color-brand-700);
-}

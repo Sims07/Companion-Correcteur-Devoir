@@ -30,9 +30,18 @@ test('a biology evaluation launched from the radar replaces the previous custom 
   await start.click();
 
   await expect(navigation.getByRole('button', { name: 'Tests' })).toHaveAttribute('aria-current', 'page');
-  await expect(families.getByRole('button', { name: 'Biologie' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#evaluation-configurations')).toHaveAttribute('data-journey', 'biology');
   await expect(page.getByRole('region', { name: 'Protocole de test guidé' })).toBeVisible();
   await expect(page.getByRole('group', { name: 'Type d’évaluation' })).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Transcription à noter' })).toBeHidden();
-  await expect(page.getByRole('region', { name: 'Protocole variante B par question' })).toBeVisible();
+  const running = page.getByRole('region', { name: 'Avancement automatique de la biologie' });
+  await expect(running.or(page.getByRole('region', { name: 'Protocole variante B par question' }))).toBeVisible();
+  // The family picker is deliberately replaced by the live monitor while a call runs.
+  if (await running.isVisible()) {
+    await expect(page.getByRole('group', { name: 'Parcours de test' })).toHaveCount(0);
+    await expect(running.getByRole('progressbar', { name: 'Progression de l’étape biologique' })).toBeVisible();
+    await expect(running.getByRole('button', { name: 'Arrêter après l’appel en cours' })).toBeVisible();
+  } else {
+    await expect(families.getByRole('button', { name: 'Biologie' })).toHaveAttribute('aria-pressed', 'true');
+  }
 });

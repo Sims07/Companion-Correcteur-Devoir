@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
+import { BiologyRunMonitor } from './BiologyRunMonitor.tsx';
 import { Button } from '../design-system/components/Button.tsx';
 import type { PilotConcurrencyRun } from '../../application/pilotCriterionConcurrency.ts';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
@@ -58,22 +59,17 @@ export function PilotEvaluationPanel({
   const visionIssue = pilotSelectionIssue(selectedProfiles, 'vision');
   const analysisIssue = pilotSelectionIssue(selectedProfiles, 'analysis');
   const integratedIssue = pilotSelectionIssue(selectedProfiles, 'integrated');
+  const showRunMonitor = busy && (scenario === 'contracts' || scenario === 'repeatability');
   return <section className="pilot-evaluation-panel" aria-label="Protocole de test guidé">
     <h3 className="evaluation-visually-hidden">Tests de référence en biologie</h3>
-    {automaticRun && <section className="pilot-evaluation-auto-run" aria-label="Avancement automatique de la biologie" role="status">
-      <div className="pilot-evaluation-auto-run-heading">
-        <strong>Évaluation automatique du radar</strong>
-        <span>{scenario === 'repeatability' ? 'Robustesse · pièges D/E/F/G' : 'Comparaison du barème · copies A/B/C'}</span>
-      </div>
-      <progress aria-label="Progression de l’étape biologique"
-        value={scenario === 'repeatability' ? repeatabilityProgress?.completed ?? 0 : contractRuns.length}
-        max={scenario === 'repeatability' ? repeatabilityProgress?.total ?? 12 : QUESTION_CONTRACT_CASES.length * 2 * Math.max(1, selectedProfiles.length)} />
-      <p>{scenario === 'repeatability'
-        ? `${repeatabilityProgress?.completed ?? 0} / ${repeatabilityProgress?.total ?? 12} séries terminées`
-        : `${contractRuns.length} / ${QUESTION_CONTRACT_CASES.length * 2 * Math.max(1, selectedProfiles.length)} évaluations terminées`}
-        {currentCase ? ` · copie ${currentCase} en cours` : ''}</p>
-      <small>Les réponses de référence sont déjà intégrées au protocole : aucune transcription à saisir.</small>
-    </section>}
+    {showRunMonitor && <BiologyRunMonitor
+      scenario={scenario === 'repeatability' ? 'repeatability' : 'contracts'}
+      automaticRun={automaticRun} currentCase={currentCase} message={message}
+      profiles={selectedProfiles} contractRuns={contractRuns} repeatabilityRuns={repeatabilityRuns}
+      repeatabilityPlanned={repeatabilityPlanned} repeatabilitySuite={repeatabilitySuite}
+      repeatabilityProgress={repeatabilityProgress} onStop={onStop}
+    />}
+    {!showRunMonitor && <>
     {scenario === 'copies' && <div className="pilot-evaluation-prepare">
       <button type="button" className="secondary-button" disabled={busy} onClick={onPrepare}>{enabled ? 'Réinitialiser le protocole' : 'Préparer le protocole en un clic'}</button>
     </div>}
@@ -185,7 +181,8 @@ export function PilotEvaluationPanel({
       </div>}
     </section>
     {(message || currentCase) && <p className="pilot-evaluation-message" role="status">{currentCase ? `Copie ${currentCase} en cours · ` : ''}{message}</p>}
-    <div id="evaluation-biology-copy-launch" hidden={scenario !== 'copies'}>
+    </>}
+    <div id="evaluation-biology-copy-launch" hidden={scenario !== 'copies' || showRunMonitor}>
     {enabled && <>
       <div className="pilot-evaluation-cases">
         {PILOT_CASES.map((testCase) => <article className="pilot-evaluation-case" key={testCase.id}>

@@ -34,8 +34,10 @@ describe('biological radar campaign in the test workspace', () => {
     const html = renderToStaticMarkup(<PilotEvaluationPanel {...props} automaticRun selectedScenario="repeatability" />);
     expect(html).toContain('Avancement automatique de la biologie');
     expect(html).toContain('Robustesse · pièges D/E/F/G');
-    expect(html).toContain('5 / 12 séries terminées');
-    expect(html).toContain('copie E en cours');
+    expect(html).toContain('5 <span>/ 12</span>');
+    expect(html).toContain('étapes terminées');
+    expect(html).toContain('Copie E · passage 1/3');
+    expect(html).toContain('Copie E');
     expect(html).toContain('aucune transcription à saisir');
     const progress = html.match(/<progress[^>]+>/)?.[0];
     expect(progress).toContain('value="5"');
@@ -43,15 +45,19 @@ describe('biological radar campaign in the test workspace', () => {
   });
 
   it('keeps manual tests unchanged when no radar campaign is active', () => {
-    const html = renderToStaticMarkup(<PilotEvaluationPanel {...props} automaticRun={false} selectedScenario="contracts" />);
+    const html = renderToStaticMarkup(<PilotEvaluationPanel {...props} busy={false} automaticRun={false} selectedScenario="contracts" />);
     expect(html).not.toContain('Avancement automatique de la biologie');
     expect(html).toContain('Comparer standard et variante B en un clic');
+    expect(html).toContain('Objectif du protocole de biologie');
   });
 
   it('labels the contract stage separately from robustness', () => {
     const html = renderToStaticMarkup(<PilotEvaluationPanel {...props} automaticRun selectedScenario="contracts" />);
     expect(html).toContain('Comparaison du barème · copies A/B/C');
-    expect(html).toContain('0 / 6 évaluations terminées');
+    expect(html).toContain('0 <span>/ 6</span>');
+    expect(html).toContain('étapes terminées');
     expect(html).not.toContain('Robustesse · pièges D/E/F/G');
+    expect(html).not.toContain('Comparer standard et variante B en un clic');
+    expect(html).not.toContain('Objectif du protocole de biologie');
   });
 });
