@@ -2103,6 +2103,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const campaignId = activity.journey === 'biology' ? (crypto.randomUUID?.() ?? 'biology-' + Date.now()) : undefined;
     if (campaignId) biologyCampaign.current = campaignId;
     setEvaluationActivity({ ...activity, status: 'running' });
+    // A launch from the radar must show the matching test, not the previous personal-copy form.
+    if (activity.journey === 'biology') {
+      setEvaluationJourney('biology');
+      setEvaluationWorkspaceStep('configuration');
+      setBiologyRadarOpen(false);
+      setEvaluationBiologyScenario(activity.scenario ?? 'contracts');
+    }
     if (activity.journey === 'diagrams') setDiagramProtocolProgress('Préparation des schémas et des modèles…');
     if (activity.journey === 'biology') setPilotMessage('Préparation du protocole…');
     try {
@@ -2157,10 +2164,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   function showEvaluationActivity() {
     if (!evaluationActivity) return;
-    if (evaluationActivity.campaignId && evaluationActivity.journey === 'biology') { showCampaigns({ domain: 'biology', ids: [evaluationActivity.campaignId] }); return; }
+    if (evaluationActivity.campaignId && evaluationActivity.status !== 'running' && evaluationActivity.journey === 'biology') { showCampaigns({ domain: 'biology', ids: [evaluationActivity.campaignId] }); return; }
     setBiologyRadarOpen(false);
     setEvaluationJourney(evaluationActivity.journey);
-    if (evaluationActivity.scenario) setEvaluationBiologyScenario(evaluationActivity.scenario);
+    // Keep the live stage selected by the active runner; the initial scenario can differ from it.
+    if (evaluationActivity.journey === 'biology' && evaluationActivity.status !== 'running' && evaluationActivity.scenario) {
+      setEvaluationBiologyScenario(evaluationActivity.scenario);
+    }
     if (evaluationActivity.journey === 'diagrams') setDiagramLabView('protocols');
     setEvaluationWorkspaceStep(evaluationActivity.journey === 'custom'
       ? evaluationActivity.status === 'running' ? 'execution' : 'results'
@@ -2246,6 +2256,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     evaluationCancelledRef.current = false;
     pilotMemoryErrorRef.current = null;
     setPilotContractRuns([]);
+    setEvaluationBiologyScenario('contracts');
     let resolvedContractCases = 0;
     setPilotBusy(true);
     setEvaluationStageMode('analysis');
@@ -2300,6 +2311,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     evaluationCancelledRef.current = false;
     pilotMemoryErrorRef.current = null;
     setPilotRepeatabilityRuns([]);
+    setEvaluationBiologyScenario('repeatability');
     let resolvedCases = 0;
     setPilotRepeatabilityPlanned(repetitions);
     setPilotRepeatabilitySuite(suite);
@@ -2748,10 +2760,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const profile = aiModelProfiles.find((item) => item.id === profileId);
     if (!profile || busy || pilotBusy) return;
     setSelectedEvaluationProfileIds([profileId]);
-    setEvaluationJourney('biology');
     void followEvaluation({
       title: 'Biologie · évaluation complète du modèle',
-      journey: 'biology', scenario: 'contracts', targetId: 'evaluation-biology-radar', profiles: profile.name,
+      journey: 'biology', scenario: baseline ? 'contracts' : 'repeatability',
+      targetId: baseline ? 'evaluation-biology-contract-launch' : 'evaluation-biology-repeatability-launch',
+      profiles: profile.name,
     }, async () => {
       const baselineComplete = !baseline || await runPilotQuestionContractBenchmark([profile]);
       if (pilotStopRef.current || evaluationCancelledRef.current) return 0;
@@ -3975,6 +3988,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div id="evaluation-biology-workspace" hidden={evaluationJourney !== 'biology'}><PilotEvaluationPanel
           selectedScenario={evaluationBiologyScenario} onSelectScenario={setEvaluationBiologyScenario}
           enabled={pilotEnabled} busy={pilotBusy} uploadingCase={pilotUploadingCase} currentCase={pilotCurrentCase}
+          automaticRun={evaluationActivity?.status === 'running' && evaluationActivity.title === 'Biologie · évaluation complète du modèle'}
           message={pilotMessage} runs={pilotRuns} contractRuns={pilotContractRuns}
           repeatabilityRuns={pilotRepeatabilityRuns} repeatabilityPlanned={pilotRepeatabilityPlanned} repeatabilitySuite={pilotRepeatabilitySuite}
           repeatabilityProgress={pilotRepeatabilityProgress} concurrencyRuns={pilotConcurrencyRuns}

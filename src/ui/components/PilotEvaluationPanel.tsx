@@ -16,6 +16,7 @@ interface PilotEvaluationPanelProps {
   onSelectScenario?: (scenario: BiologyScenario) => void;
   enabled: boolean;
   busy: boolean;
+  automaticRun?: boolean;
   uploadingCase: string | null;
   currentCase: string | null;
   message: string;
@@ -40,7 +41,7 @@ interface PilotEvaluationPanelProps {
 }
 
 export function PilotEvaluationPanel({
-  selectedScenario, onSelectScenario, enabled, busy, uploadingCase, currentCase, message, imageCounts, runs, contractRuns, repeatabilityRuns, repeatabilityPlanned, repeatabilitySuite, repeatabilityProgress, concurrencyRuns, selectedProfiles,
+  selectedScenario, onSelectScenario, enabled, busy, automaticRun = false, uploadingCase, currentCase, message, imageCounts, runs, contractRuns, repeatabilityRuns, repeatabilityPlanned, repeatabilitySuite, repeatabilityProgress, concurrencyRuns, selectedProfiles,
   onPrepare, onUpload, onRun, onRunConcurrency, onRunContracts, onRunRepeatability, onStop, onExport, onCopy,
 }: PilotEvaluationPanelProps) {
   const [localScenario, setLocalScenario] = useState<BiologyScenario>('contracts');
@@ -59,6 +60,20 @@ export function PilotEvaluationPanel({
   const integratedIssue = pilotSelectionIssue(selectedProfiles, 'integrated');
   return <section className="pilot-evaluation-panel" aria-label="Protocole de test guidé">
     <h3 className="evaluation-visually-hidden">Tests de référence en biologie</h3>
+    {automaticRun && <section className="pilot-evaluation-auto-run" aria-label="Avancement automatique de la biologie" role="status">
+      <div className="pilot-evaluation-auto-run-heading">
+        <strong>Évaluation automatique du radar</strong>
+        <span>{scenario === 'repeatability' ? 'Robustesse · pièges D/E/F/G' : 'Comparaison du barème · copies A/B/C'}</span>
+      </div>
+      <progress aria-label="Progression de l’étape biologique"
+        value={scenario === 'repeatability' ? repeatabilityProgress?.completed ?? 0 : contractRuns.length}
+        max={scenario === 'repeatability' ? repeatabilityProgress?.total ?? 12 : QUESTION_CONTRACT_CASES.length * 2 * Math.max(1, selectedProfiles.length)} />
+      <p>{scenario === 'repeatability'
+        ? `${repeatabilityProgress?.completed ?? 0} / ${repeatabilityProgress?.total ?? 12} séries terminées`
+        : `${contractRuns.length} / ${QUESTION_CONTRACT_CASES.length * 2 * Math.max(1, selectedProfiles.length)} évaluations terminées`}
+        {currentCase ? ` · copie ${currentCase} en cours` : ''}</p>
+      <small>Les réponses de référence sont déjà intégrées au protocole : aucune transcription à saisir.</small>
+    </section>}
     {scenario === 'copies' && <div className="pilot-evaluation-prepare">
       <button type="button" className="secondary-button" disabled={busy} onClick={onPrepare}>{enabled ? 'Réinitialiser le protocole' : 'Préparer le protocole en un clic'}</button>
     </div>}
