@@ -3932,6 +3932,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               : evaluationActivity.status === 'completed' ? 'Voir les résultats' : 'Consulter ce test'}
           </button>
           {evaluationActivity.status === 'running' && <Button variant="secondary" onClick={evaluationActivity.journey === 'custom' ? cancelModelEvaluation : stopPilotProtocol}>Arrêter après l’appel en cours</Button>}
+          {evaluationActivity.status !== 'running' && <button type="button" className="evaluation-activity-dismiss" aria-label="Masquer le bandeau" title="Masquer le bandeau" onClick={() => setEvaluationActivity(null)}>×</button>}
           {evaluationActivity.status === 'failed' && <EvaluationIssueButton makeReport={() => buildEvaluationIssueReport({
             journey: evaluationActivity.journey, status: evaluationActivity.status,
             model: evaluationActivity.profiles, campaignId: evaluationActivity.campaignId,
