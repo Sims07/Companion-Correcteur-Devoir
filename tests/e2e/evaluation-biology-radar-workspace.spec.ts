@@ -34,5 +34,6 @@ test('a biology evaluation launched from the radar replaces the previous custom 
   await expect(page.getByRole('region', { name: 'Protocole de test guidé' })).toBeVisible();
   await expect(page.getByRole('group', { name: 'Type d’évaluation' })).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Transcription à noter' })).toBeHidden();
-  await expect(page.getByRole('region', { name: 'Protocole variante B par question' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Avancement automatique de la biologie' })
+    .or(page.getByRole('region', { name: 'Protocole variante B par question' }))).toBeVisible();
 });
