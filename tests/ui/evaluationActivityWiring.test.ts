@@ -14,6 +14,15 @@ describe('persistent evaluation activity deep links', () => {
     expect(app).toContain('setEvaluationActivity({ ...activity, status:');
   });
 
+  it('offers an accessible dismissal only after a test stops, without clearing archived results', () => {
+    expect(app).toContain("evaluationActivity.status !== 'running' && <button");
+    expect(app).toContain('aria-label="Masquer le bandeau"');
+    expect(app).toContain('onClick={() => setEvaluationActivity(null)}');
+    // Every newly launched activity appears again, whether the last one was dismissed or not.
+    expect(app).toContain("setEvaluationActivity({ ...activity, status: 'running' });");
+    expect(app).not.toContain('onClick={() => setDiagramFixtureReport(null)}');
+  });
+
   it('connects each scientific protocol to an actual report or launch target', () => {
     for (const suffix of ['fixture', 'sensitivity', 'graph', 'personal']) {
       const id = 'evaluation-diagram-' + suffix + '-results';

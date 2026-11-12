@@ -986,6 +986,26 @@
   white-space: nowrap;
   font-size: .76rem;
 }
+.evaluation-workspace-shell .evaluation-activity-dismiss {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--ds-color-text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.evaluation-workspace-shell .evaluation-activity-dismiss:hover,
+.evaluation-workspace-shell .evaluation-activity-dismiss:focus-visible {
+  color: var(--ds-color-text);
+  border-color: var(--ds-color-progress-border);
+}
 .evaluation-workspace-shell .evaluation-activity-hint {
   display: none; /* Repeated disabled states already indicate this in the test area. */
 }
