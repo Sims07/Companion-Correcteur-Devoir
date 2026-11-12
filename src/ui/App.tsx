@@ -68,6 +68,7 @@ import { isNativeDecisionModel, isVisualDecisionModel } from '../domain/systemOn
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, summarizePilotResult, isLocalPilotConfiguration, isLocalPilotProfile, isLoopbackPilotEndpoint, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import { BiologyTeacherRadar } from './components/BiologyTeacherRadar.tsx';
+import { describeAiConnectionFailure } from '../domain/aiConnectionDiagnostic.ts';
 import { biologyRadarObservations, loadBiologyRadarHistory, mergeBiologyRadarHistory, saveBiologyRadarHistory } from '../domain/biologyTeacherRadar.ts';
 import type { DiagramThinkSetting } from '../ports/correctionWorkspace.ts';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
@@ -1382,7 +1383,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   async function connectOllama() {
     setBusy(true);
     setError('');
-    setConnectionMessage('');
+    setConnectionTone('info');
+    setConnectionMessage('Test de connexion en cours… Vérification du serveur IA.');
     try {
       if (apiCompatible) {
         await service.checkReady({ endpoint, apiCompatible, apiKey, visionModel, analysisModel });
@@ -1399,7 +1401,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setConnectionTone(models.length ? 'success' : 'warning');
       setConnectionMessage(models.length ? `Connexion réussie · ${models.length} modèle(s) disponible(s). Choisissez votre modèle génératif et, si besoin, un modèle décisionnel.` : 'Connexion réussie, mais aucun modèle installé. Installez un modèle compatible avec les images et un modèle pour l’analyse.');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Connexion à Ollama impossible.');
+      setConnectionTone('error');
+      setConnectionMessage(describeAiConnectionFailure(cause, endpoint, window.location.protocol));
     } finally {
       setBusy(false);
     }
@@ -3920,7 +3923,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <label className="analysis-thinking-option" htmlFor="ai-criterion-by-criterion"><input id="ai-criterion-by-criterion" type="checkbox" checked={criterionByCriterion} disabled={correctionMethod !== 'generative'} onChange={(event) => setCriterionByCriterion(event.target.checked)} /><span><strong>Analyser critère par critère</strong><small>Un appel séquentiel par critère, avec affichage progressif. Désactivez cette option pour envoyer tout le barème dans un seul appel et comparer les deux approches.</small></span></label>
         </details>
         {apiCompatible && <ModelPreloadPanel endpoint={endpoint} apiKey={apiKey} busy={busy} loadModel={loadOnDemandModel} />}
-        <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : apiCompatible ? 'Tester la connexion' : 'Tester la connexion et détecter les modèles'}</button>
+        <button type="button" className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : apiCompatible ? 'Tester la connexion' : 'Tester la connexion et détecter les modèles'}</button>
         {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
         <p className="hint">Aucun basculement automatique vers un autre fournisseur n’est effectué.</p>
         <div className="settings-actions"><button type="button" className="primary-button" onClick={() => setShowAiSettings(false)}>Terminé, revenir au devoir</button></div>
@@ -4125,7 +4128,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             <input id="ollama-analysis-thinking" type="checkbox" checked={analysisThinking} onChange={(event) => setAnalysisThinking(event.target.checked)} />
             <span><strong>Activer le mode thinking pour l’analyse</strong><small>Désactivé par défaut. Peut améliorer le raisonnement, mais allonger fortement le temps de correction et ne fonctionne pas avec tous les modèles.</small></span>
           </label>
-          <button className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
+          <button type="button" className="secondary-button full-button" disabled={busy} onClick={() => void connectOllama()}>{busy ? 'Connexion…' : 'Tester la connexion et lister les modèles'}</button>
           {connectionMessage && <StatusNotice tone={connectionTone}>{connectionMessage}</StatusNotice>}
           <p className="hint">Le modèle de lecture doit accepter les images ; le modèle d’analyse peut être textuel. Si le navigateur bloque la connexion, configurez les origines CORS d’Ollama pour votre adresse locale.</p></article>
           <div className="debug-run-actions"><button type="button" className="primary-button" disabled={busy || !images.length || !gradingModelsReady || !validation.valid || !subjectReady || Boolean(diagramIssue)} onClick={() => { if (isScientificDiagramAssignment) void queueCurrentCopy(); else void gradeCopies(); }}>{busy ? 'Diagnostic local en cours…' : 'Lancer le diagnostic avancé'}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>

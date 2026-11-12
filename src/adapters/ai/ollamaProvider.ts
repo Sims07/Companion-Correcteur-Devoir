@@ -280,10 +280,23 @@ export async function prewarmOllamaModel(settings: OllamaSettings, model: string
 }
 
 export async function listOllamaModels(endpoint: string, fetchImpl: typeof fetch = currentFetch): Promise<OllamaModel[]> {
-  const response = await fetchImpl(`${normalizedEndpoint(endpoint)}/api/tags`, annotateNetworkRequest({}, 'Lister les modèles disponibles', 'Serveur Ollama configuré'));
-  if (!response.ok) throw new Error(`Connexion Ollama impossible (HTTP ${response.status}). Vérifiez Ollama et ses autorisations CORS.`);
-  const data = await response.json() as OllamaTagsResponse;
-  return (data.models ?? []).map((model) => model.name).filter((name): name is string => Boolean(name)).map((name) => ({ name }));
+  // The browser may leave a local-network permission request pending, particularly
+  // when an HTTPS PWA tries to contact localhost. Never leave the button spinning forever.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const response = await fetchImpl(`${normalizedEndpoint(endpoint)}/api/tags`, annotateNetworkRequest({ signal: controller.signal }, 'Lister les modèles disponibles', 'Serveur Ollama configuré'));
+    if (!response.ok) throw new Error(`Connexion Ollama impossible (HTTP ${response.status}). Vérifiez Ollama et ses autorisations CORS.`);
+    const data = await response.json() as OllamaTagsResponse;
+    return (data.models ?? []).map((model) => model.name).filter((name): name is string => Boolean(name)).map((name) => ({ name }));
+  } catch (cause) {
+    if (controller.signal.aborted) {
+      throw new Error('Le test a dépassé 15 secondes. Le navigateur attend peut-être une autorisation d’accès au réseau local, ou Ollama ne répond pas.');
+    }
+    throw cause;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Browser-side adapter: sends requests only to the endpoint explicitly configured by the teacher. */
