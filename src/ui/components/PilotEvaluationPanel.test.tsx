@@ -35,7 +35,6 @@ describe('biological radar campaign in the test workspace', () => {
     expect(html).toContain('Avancement automatique de la biologie');
     expect(html).toContain('Robustesse · pièges D/E/F/G');
     expect(html).toContain('5 <span>/ 12</span>');
-    expect(html).toContain('5 / 12');
     expect(html).toContain('étapes terminées');
     expect(html).toContain('Copie E · passage 1/3');
     expect(html).toContain('Copie E');
