@@ -52,6 +52,7 @@ describe('PWA application shell', () => {
     const cachedResponse = new Response('offline shell');
     const networkResponse = new Response('live');
     let networkCalls = 0;
+    let offline = false;
     const cachesMock = {
       open: async () => ({ addAll: async (urls: string[]) => { cachedUrls = urls; } }),
       match: async (url: string) => cachedUrls.includes(url) ? cachedResponse : undefined,
@@ -66,7 +67,7 @@ describe('PWA application shell', () => {
       clients: { claim: async () => {} },
     };
     runInNewContext(script, { self, caches: cachesMock, URL, Set, Response,
-      fetch: async () => { networkCalls++; return networkResponse; } });
+      fetch: async () => { networkCalls++; if (offline) throw new Error('offline'); return networkResponse; } });
     let installPromise: Promise<unknown> | undefined;
     handlers.install({ waitUntil: (promise: Promise<unknown>) => { installPromise = promise; } });
     await installPromise;
@@ -90,6 +91,8 @@ describe('PWA application shell', () => {
     // Online navigation is network-first; the page HTML is never stored by fetch handling.
     expect(await request(scope, 'navigate')).toBe(networkResponse);
     expect(networkCalls).toBe(1);
+    offline = true;
+    expect(await request(scope, 'navigate')).toBe(cachedResponse);
   });
 
   it('revisions the offline cache when an HTML deployment changes', () => {
@@ -97,6 +100,9 @@ describe('PWA application shell', () => {
     const first = generate();
     expect(generate()).toBe(first);
     writeFileSync(join(directory, 'index.html'), '<html>new deployment</html>');
-    expect(generate()).not.toBe(first);
+    const second = generate();
+    expect(second).not.toBe(first);
+    writeFileSync(join(directory, 'icons/icon-192.png'), 'updated icon');
+    expect(generate()).not.toBe(second);
   });
 });

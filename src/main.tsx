@@ -1,5 +1,5 @@
-import './pwa/registerServiceWorker.ts';
 import './instrumentation.ts';
+import './pwa/registerServiceWorker.ts';
 import { prepareQuestionContracts } from './adapters/ai/contractPreparation.ts';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
