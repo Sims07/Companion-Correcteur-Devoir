@@ -12,6 +12,33 @@ const report = buildBlindVisualObservationReport(DIAGRAM_SENSITIVITY_CASES.map((
   observations: { ...item.gold }, arrowCount: 2, containmentCount: 1,
 })), 1, '2026-11-10T12:00:00Z');
 
+test('the dashboard starts scientific batteries directly for a generative model with no separate Vision model', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate((configuration) => {
+    localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
+      id: 'gemma-no-vision', name: 'Gemma directe', mode: 'single',
+      updatedAt: '2026-11-12T10:00:00Z',
+      configuration: { ...configuration, visionModel: '', analysisModel: 'gemma4:e4b',
+        generativeModel: 'gemma4:e4b', correctionMethod: 'generative' },
+    }]));
+  }, defaultAiModelConfiguration);
+  await page.reload();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  const dashboard = page.getByRole('region', { name: 'Tableau de bord des radars' });
+  await dashboard.getByLabel('Choisir un LLM').selectOption('gemma4:e4b');
+  await dashboard.getByRole('article', { name: 'Schémas scientifiques' })
+    .getByRole('button', { name: 'Évaluer en schémas scientifiques' }).click();
+
+  const nav = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
+  await expect(nav.getByRole('button', { name: 'Tests', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toContainText('Gemma directe');
+  // This status must be present while fixtures are being prepared or tested,
+  // not only after a long-running Ollama call has returned.
+  await expect(page.getByRole('status', { name: 'Suivi du lancement depuis le radar' })).toBeVisible();
+  await expect(page.getByRole('status', { name: 'Dernière expérience lancée' }))
+    .toContainText('Schémas scientifiques · qualité graphique A/B/C');
+});
+
 test('a missing radar axis leads directly to its automatic fixture battery on the same saved profile', async ({ page }) => {
   await page.goto('/');
   const entry = summarizeDiagramLabReport(report, 'finished');
