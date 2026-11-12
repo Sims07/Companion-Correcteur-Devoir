@@ -21,7 +21,7 @@ export function buildIncrementalCriterionPrompt(
   // Small local models evaluate one criterion at a time. Avoid repeating
   // instructions for non-existent subcriteria across 10+ calls per copy.
   const subcriteriaRule = criterion.subcriteria?.length
-    ? 'SOUS-CRITÈRES : retourne chaque subcriterionId une seule fois, points et evidence. La somme des sous-critères doit correspondre exactement aux points du critère ; recalcule le total avant de répondre. Les points partiels ne suivent pas une règle automatique de 50 %. Pour un attendu absent ou incorrect, attribue 0, sans inventer de pénalité. evidence peut décrire l’absence pour un sous-critère à zéro ; pour les points positifs, cite une preuve présente dans la réponse étudiante. N’invente aucun sous-critère.'
+    ? 'SOUS-CRITÈRES : Pour chaque sous-critère, juge l’affirmation qui s’y rapporte. Une erreur dans la même phrase affecte un autre attendu uniquement si elle le contredit. Retourne chaque subcriterionId une seule fois, points et evidence. La somme des sous-critères doit correspondre exactement aux points du critère ; recalcule le total avant de répondre. Les points partiels ne suivent pas une règle automatique de 50 %. Pour un attendu absent ou incorrect, attribue 0, sans inventer de pénalité. evidence peut décrire l’absence pour un sous-critère à zéro ; pour les points positifs, cite une preuve présente dans la réponse étudiante. N’invente aucun sous-critère.'
     : 'Aucun sous-critère défini : omets subcriteria.';
   const scoringRule = criterion.maxPoints < 0
     ? 'NOTATION : un malus explicite peut être négatif, uniquement si le professeur a défini un critère de malus ; respecte les limites négatives du barème.'

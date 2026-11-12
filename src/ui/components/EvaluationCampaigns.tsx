@@ -203,7 +203,10 @@ export function EvaluationCampaigns({
                     <tbody>{selected.observations.map((o) => (
                       <tr key={o.id}>
                         <td>{o.model} · {o.profile}</td>
-                        <td>{o.protocol} · {o.method}</td>
+                        <td>{o.protocol} · {o.method}{o.prompts?.map((prompt) =>
+                          prompt.promptId === 'grading.incremental' && prompt.promptVersion != null && (
+                            <small key={JSON.stringify(prompt)}> · Correction par critère v{prompt.promptVersion}</small>
+                          ))}</td>
                         <td>{o.caseId}</td>
                         <td>{o.referenceScore}/10</td>
                         <td>{o.score ?? '—'}/10</td>

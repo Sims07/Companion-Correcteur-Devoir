@@ -13,6 +13,7 @@ describe('compact criterion grading prompts', () => {
     });
     expect(prompt).toContain('"id":"mitosis"');
     expect(prompt).toContain('Des chromosomes se séparent');
+    expect(prompt).not.toContain('Une erreur dans la même phrase');
     expect(prompt).toContain('pageNumber');
     expect(prompt).not.toContain('ANCRE_VISUELLE');
     expect(prompt).not.toContain('locationBox');
