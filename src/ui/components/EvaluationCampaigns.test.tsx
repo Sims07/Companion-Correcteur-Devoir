@@ -43,6 +43,13 @@ describe('campaign result status and support actions', () => {
     expect(html).toContain('aria-pressed="true"');
   });
 
+  it('shows the recorded grading revision only when the observation contains it', () => {
+    const item = observation('F', 7);
+    expect(render([item])).not.toContain('Correction par critère v');
+    expect(render([{ ...item, prompts: [{ model: item.model, stage: 'analysis', promptId: 'grading.incremental', promptVersion: 3 }] }]))
+      .toContain('Correction par critère v3');
+  });
+
   it('never offers an error report for a campaign still running', () => {
     const entry = {
       id: 'diagram-run', protocol: 'reference', createdAt: '2026-11-12T10:00:00Z',
