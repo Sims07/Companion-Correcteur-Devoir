@@ -447,9 +447,9 @@ export function ScientificDiagramProtocolPanel({
 
   return <section className="pilot-evaluation-panel diagram-protocol-panel" aria-label="Protocole schémas scientifiques">
     <h3 className="evaluation-visually-hidden">Schémas scientifiques · batteries de tests</h3>
-    {radarAutoStatus && !autoSequenceRunning && <div className="diagram-radar-return-note" role="status" aria-label="Résultat du lancement depuis le radar">
+    {radarAutoStatus && <div className="diagram-radar-return-note" role="status" aria-live="polite" aria-label="Suivi du lancement depuis le radar">
       <span>{radarAutoStatus}</span>
-      {onOpenRadar && <Button variant="secondary" disabled={busy || fixtureLoading || sensitivityLoading || blindGraphLoading} onClick={onOpenRadar}>Revenir au radar</Button>}
+      {!autoSequenceRunning && onOpenRadar && <Button variant="secondary" disabled={busy || fixtureLoading || sensitivityLoading || blindGraphLoading} onClick={onOpenRadar}>Revenir au radar</Button>}
     </div>}
     <div className="diagram-lab-catalog" role="tablist" aria-label="Protocoles automatiques des schémas scientifiques">
       {([
