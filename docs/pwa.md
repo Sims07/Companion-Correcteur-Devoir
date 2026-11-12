@@ -14,3 +14,31 @@ restent indisponibles si son serveur n'est pas joignable.
 La portée du service worker, le manifeste et les icônes suivent automatiquement
 le chemin de déploiement de GitHub Pages (`/Companion-Correcteur-Devoir/`).
 Chaque nouvelle compilation renouvelle la version du cache.
+
+## Transférer le stockage de localhost vers la PWA
+
+Les origines localhost et GitHub Pages ne partagent ni localStorage ni IndexedDB.
+Dans **Évaluer les modèles → Suivi & diagnostic → Occupation du stockage local → Sauvegarde et transfert** :
+
+1. Depuis la version locale lancée avec npm run dev, cliquez **Télécharger ma sauvegarde**.
+2. Dans la PWA publiée, ouvrez le même écran, sélectionnez le JSON puis **Restaurer la sauvegarde**.
+3. Rechargez l’application pour afficher les devoirs, les évaluations et les réglages restaurés.
+
+La sauvegarde inclut tous les sept magasins IndexedDB (copies, corrections, mémoire,
+évaluations, campagnes, transcriptions et traces) et les clés localStorage
+préfixées par companion- ou companion:. Le fichier contient aussi les images
+archivées et peut comporter des informations sensibles : conservez-le localement,
+comme les copies d’origine. Aucune requête au serveur n’est effectuée pour
+sauvegarder ou restaurer.
+
+**Mode par défaut : fusion.** Les enregistrements IndexedDB déjà présents sont
+conservés, les devoirs/profils portant de nouveaux identifiants sont ajoutés aux
+listes existantes. Les autres réglages déjà présents ne changent pas. Pour
+retrouver la configuration de l’ancienne application dans une PWA neuve,
+cochez « Mettre à jour les éléments de même identifiant » : cela met à jour les
+clés et les enregistrements correspondants sans supprimer les données absentes
+du fichier. Une confirmation explicite est demandée.
+
+Conservez le fichier et les données de localhost tant que la restauration n’est
+pas contrôlée (devoirs, historiques et réglages). Le fichier est un instantané
+à la date d’export : il ne synchronise pas automatiquement les deux origines.
