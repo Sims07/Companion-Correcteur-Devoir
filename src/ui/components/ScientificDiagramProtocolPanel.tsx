@@ -186,6 +186,7 @@ export function ScientificDiagramProtocolPanel({
     onStop();
   }
   const [radarAutoStatus, setRadarAutoStatus] = useState('');
+  const [diagnosticCopyMessage, setDiagnosticCopyMessage] = useState('');
   const [autoSequenceRunning, setAutoSequenceRunning] = useState(false);
   const targets = rubric.criteria.flatMap((criterion) =>
     getRubricSubcriteria(criterion).map((item) => ({ criterion, item, key: diagramTargetKey(criterion.id, item.id) })));
@@ -314,9 +315,11 @@ export function ScientificDiagramProtocolPanel({
       step.protocol === 'graph' ? blindGraphProfileIssue(profile) : diagramMethodIssue(profile, step.method))
       .find((reason): reason is string => Boolean(reason));
     if (issue) {
-      setRadarAutoStatus('Lancement impossible pour ' + profile.name + ' : ' + issue);
+      setDiagnosticCopyMessage('');
+      setRadarAutoStatus('Lancement impossible pour ' + profile.name + '. Cause : ' + issue);
       return;
     }
+    setDiagnosticCopyMessage('');
     setRadarAutoStatus('Lancement depuis le radar : ' + radarPlanDescription(autoRequest.steps) + '.');
     setAutoSequenceRunning(true);
     onAutoBusyChange?.(true);
@@ -449,6 +452,12 @@ export function ScientificDiagramProtocolPanel({
     <h3 className="evaluation-visually-hidden">Schémas scientifiques · batteries de tests</h3>
     {radarAutoStatus && <div className="diagram-radar-return-note" role="status" aria-live="polite" aria-label="Suivi du lancement depuis le radar">
       <span>{radarAutoStatus}</span>
+      {radarAutoStatus.startsWith('Lancement impossible') && <Button variant="secondary" onClick={() => {
+        void navigator.clipboard.writeText(radarAutoStatus)
+          .then(() => setDiagnosticCopyMessage('Erreur copiée.'))
+          .catch(() => setDiagnosticCopyMessage('Copie impossible : sélectionnez le message ci-dessus.'));
+      }}>Copier l’erreur</Button>}
+      {radarAutoStatus.startsWith('Lancement impossible') && diagnosticCopyMessage && <small>{diagnosticCopyMessage}</small>}
       {!autoSequenceRunning && onOpenRadar && <Button variant="secondary" disabled={busy || fixtureLoading || sensitivityLoading || blindGraphLoading} onClick={onOpenRadar}>Revenir au radar</Button>}
     </div>}
     <div className="diagram-lab-catalog" role="tablist" aria-label="Protocoles automatiques des schémas scientifiques">
