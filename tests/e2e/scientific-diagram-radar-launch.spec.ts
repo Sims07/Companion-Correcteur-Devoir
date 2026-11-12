@@ -12,6 +12,32 @@ const report = buildBlindVisualObservationReport(DIAGRAM_SENSITIVITY_CASES.map((
   observations: { ...item.gold }, arrowCount: 2, containmentCount: 1,
 })), 1, '2026-11-10T12:00:00Z');
 
+test('D1 configured as its own Vision reader is rejected before any unsupported /api/chat call', async ({ page }) => {
+  const chatCalls: string[] = [];
+  await page.route('http://localhost:11434/**', async (route) => {
+    if (new URL(route.request().url()).pathname === '/api/chat') chatCalls.push(route.request().url());
+    await route.fulfill({ status: 400, contentType: 'application/json',
+      body: JSON.stringify({ error: '"d1:3b" does not support chat' }) });
+  });
+  await page.goto('/');
+  await page.evaluate((configuration) => {
+    localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
+      id: 'd1-wrong-reader', name: 'D1', mode: 'single', updatedAt: '2026-11-12T13:00:00Z',
+      configuration: { ...configuration, endpoint: 'http://localhost:11434',
+        analysisModel: 'd1:3b', decisionModel: 'd1:3b', visionModel: 'd1:3b',
+        correctionMethod: 'decision' },
+    }]));
+  }, defaultAiModelConfiguration);
+  await page.reload();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  const scientific = page.getByRole('region', { name: 'Tableau de bord des radars' })
+    .getByRole('article', { name: 'Schémas scientifiques' });
+  await expect(scientific.getByRole('button', { name: 'Évaluer en schémas scientifiques' })).toBeDisabled();
+  await expect(scientific).toContainText('Modèle décisionnel utilisé en Vision');
+  await expect(scientific).toContainText('/api/chat');
+  expect(chatCalls).toEqual([]);
+});
+
 test('the dashboard launches scientific batteries on a configured Ollama LAN host', async ({ page }) => {
   const ollamaRequests: string[] = [];
   await page.route('http://192.168.1.42:11434/**', async (route) => {
