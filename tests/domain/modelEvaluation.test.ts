@@ -34,6 +34,32 @@ describe('runModelEvaluation stage-scoped experiments', () => {
     expect(completed.completedSteps).toBe(1);
   });
 
+  it('discards a success resolved after cancellation and skips the following profile', async () => {
+    const controller = new AbortController();
+    const execute = vi.fn(async () => { controller.abort(); return 'late'; });
+    const onProgress = vi.fn();
+    const outputs = await runModelEvaluation({
+      configurations: [config('one'), config('two')], isCancelled: () => controller.signal.aborted,
+      onProgress, execute,
+    });
+    expect(execute).toHaveBeenCalledOnce();
+    expect(outputs).toHaveLength(1);
+    expect(outputs[0]).toMatchObject({ status: 'cancelled' });
+    expect(outputs[0]).not.toHaveProperty('value');
+    expect(onProgress.mock.calls.at(-1)?.[0]).toMatchObject({ status: 'cancelled', completedSteps: 0 });
+  });
+
+  it('skips model cleanup when the teacher interrupts the sequence', async () => {
+    const controller = new AbortController();
+    const onConfigurationSettled = vi.fn();
+    await runModelEvaluation({
+      configurations: [config('one')], isCancelled: () => controller.signal.aborted,
+      execute: async () => { controller.abort(); throw new DOMException('Interrompu', 'AbortError'); },
+      onConfigurationSettled,
+    });
+    expect(onConfigurationSettled).not.toHaveBeenCalled();
+  });
+
   it('keeps the existing two-stage progress contract for integrated runs', async () => {
     const onProgress = vi.fn();
     await runModelEvaluation({

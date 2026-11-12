@@ -42,6 +42,10 @@ describe('persistent evaluation activity deep links', () => {
     expect(app).toContain("title: 'Évaluation libre · '");
     expect(app).toContain("journey: 'custom', targetId: 'evaluation-results'");
     expect(app).toContain('function cancelModelEvaluation()');
+    expect(app).toContain('evaluationAbortController.current?.abort()');
+    expect(app).toContain('abortController.signal), abortController.signal)');
+    expect(app).toContain('Arrêter maintenant');
+    expect(app).not.toContain('Arrêter après l’appel en cours');
   });
 });
 

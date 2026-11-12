@@ -515,7 +515,7 @@ export function ScientificDiagramProtocolPanel({
             onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS); }}>
             Tester les flèches D/E en un clic
           </Button>}
-          {(busy || fixtureLoading) && <Button variant="secondary" onClick={stopProtocol} disabled={!busy}>Arrêter après l’appel en cours</Button>}
+          {(busy || fixtureLoading) && <Button variant="secondary" onClick={stopProtocol} disabled={!busy}>Arrêter maintenant</Button>}
         </div>
         <details className="diagram-lab-explanation"><summary>Conditions de comparaison</summary><p className="pilot-evaluation-hint">Choisissez 1 à 3 configurations dans la sélection au-dessus. Pour une comparaison équitable, le même barème et les mêmes images sont utilisés à chaque passage, par méthode et par profil. Exécution séquentielle. Un seul passage ne mesure pas la répétabilité.</p></details>
         {profileIssues.map((issue) => <p className="pilot-evaluation-hint" role="status" key={'fixture-' + issue}>{issue}</p>)}
@@ -663,7 +663,7 @@ export function ScientificDiagramProtocolPanel({
       </div>
       <div className="pilot-evaluation-actions">
         <Button disabled={!canRunFixtures} onClick={() => { void runSensitivity(); }}>Tester les 6 variantes sémantiques</Button>
-        {(busy || sensitivityLoading) && <Button variant="secondary" disabled={!busy} onClick={stopProtocol}>Arrêter après l’appel en cours</Button>}
+        {(busy || sensitivityLoading) && <Button variant="secondary" disabled={!busy} onClick={stopProtocol}>Arrêter maintenant</Button>}
         <div className="diagram-fixture-grid diagram-sensitivity-grid">
         {DIAGRAM_SENSITIVITY_CASES.map((testCase) => <article className="diagram-fixture-card" key={testCase.id}>
           <img src={scientificDiagramSensitivityPreviewUrl(testCase.id)} alt={'Relations biologiques — ' + testCase.label} loading="lazy" />
@@ -729,7 +729,7 @@ export function ScientificDiagramProtocolPanel({
         <Button variant="secondary" disabled={!canRunBlindGraph || blindGraphPromptVariant === 'recheck-arrows' || blindGraphPromptVariant === 'recheck-contours'} onClick={() => { void runBlindObservation(true); }}>
           Tester avec agrandissement ciblé
         </Button>
-        {(busy || blindGraphLoading) && <Button variant="secondary" disabled={!busy} onClick={stopProtocol}>Arrêter après l’appel en cours</Button>}
+        {(busy || blindGraphLoading) && <Button variant="secondary" disabled={!busy} onClick={stopProtocol}>Arrêter maintenant</Button>}
         {blindGraphReport && <Button variant="secondary" onClick={downloadBlindGraphReport}>Exporter l’analyse du graphe JSON</Button>}
       </div>
        <details className="diagram-lab-explanation"><summary>Protocole détaillé</summary><p className="pilot-evaluation-hint">Pour comparer avec Qwen 3.5 4B : lancez d'abord « Référence actuelle » (sans agrandissement), puis « Nouvel essai A » et « Nouvel essai B » séparément, avec le même profil et une seule répétition. Chaque méthode exporte son propre JSON. A relit jusqu’à deux flèches, même déclarées certaines ; le recadrage est tenté si Vision fournit une zone, sinon l’image entière est relue et ce repli est compté. B effectue un appel distinct d’inventaire des contours. La correction des devoirs n’est pas affectée.</p>
@@ -842,7 +842,7 @@ export function ScientificDiagramProtocolPanel({
           <option value={3}>3 passages</option><option value={5}>5 passages</option>
         </DesignSystemSelect>
         <Button disabled={!canRun} onClick={() => { void start(); }}>Tester le schéma en un clic</Button>
-        {busy && <Button variant="secondary" onClick={stopProtocol}>Arrêter après l’appel en cours</Button>}
+        {busy && <Button variant="secondary" onClick={stopProtocol}>Arrêter maintenant</Button>}
       </div>
       {(progress || message) && <p role="status" className="pilot-evaluation-message">{message || progress}</p>}
     </div>

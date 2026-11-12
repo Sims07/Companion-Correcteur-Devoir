@@ -12,7 +12,8 @@ describe('Scientific and biology protocol navigation', () => {
     expect(diagram).not.toContain('En cours · {(');
     expect(diagram).not.toContain('className="diagram-lab-live"');
     expect(app).toContain('aria-label="Dernière expérience lancée"');
-    expect(app).toContain('Arrêter après l’appel en cours');
+    expect(app).toContain('Arrêter maintenant');
+    expect(app).toContain('evaluationAbortController.current?.abort()');
     expect(diagram).toContain('className="diagram-lab-protocol-summary"');
     const reference = diagram.indexOf('aria-label="Schémas de référence intégrés"');
     const launch = diagram.indexOf('id="diagram-fixture-repeat-count"', reference);

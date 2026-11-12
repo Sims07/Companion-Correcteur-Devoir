@@ -202,7 +202,7 @@ export function PilotEvaluationPanel({
         <button type="button" className="secondary-button" disabled={busy || uploadingCase !== null || Boolean(visionIssue) || !readyForImages} onClick={() => onRun('vision')}>Lancer les 3 lectures (Vision seule)</button>
         <button type="button" className="primary-button" disabled={busy || uploadingCase !== null || Boolean(analysisIssue)} onClick={() => onRun('analysis')}>Lancer les 3 analyses (sans image)</button>
         <button type="button" className="secondary-button" disabled={busy || uploadingCase !== null || Boolean(integratedIssue) || !readyForImages} onClick={() => onRun('integrated')}>Tester les 3 photos (Vision + analyse)</button>
-        {busy && <button type="button" className="secondary-button" onClick={onStop}>Arrêter après l’appel en cours</button>}
+        {busy && <button type="button" className="secondary-button" onClick={onStop}>Arrêter maintenant</button>}
       </div>
       <section id="evaluation-biology-cpu-launch" className="pilot-evaluation-parallel" aria-label="Benchmark de parallélisme">
         <div>
