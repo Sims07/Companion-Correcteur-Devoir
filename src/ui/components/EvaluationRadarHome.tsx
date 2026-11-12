@@ -70,7 +70,16 @@ export function EvaluationRadarHome({
   const [expanded, setExpanded] = useState<RadarDomain>('diagrams');
   const [variantId, setVariantId] = useState('');
   const variants = biology.filter((c) => c.name === selected);
-  const bio = variants.find((c) => c.id === variantId) ?? variants[0];
+  // The saved configuration is authoritative for the next run. Historical
+  // results from another correction method must not disable or score it.
+  const profile = profiles.find((p) =>
+    p.configuration.analysisModel === selected &&
+    p.configuration.correctionMethod !== 'visual-decision');
+  const activeBio = profile && variants.find((candidate) =>
+    candidate.method === profile.configuration.correctionMethod &&
+    candidate.provider === (profile.configuration.apiCompatible ? 'openai-compatible' : 'ollama'));
+  const bio = variants.find((candidate) => candidate.id === variantId) ??
+    activeBio ?? (profile ? undefined : variants[0]);
   const sci = science.find((c) => c.id === selected);
   const sciences = [sci, ...compared.map((name) => science.find((c) => c.id === name))]
     .filter((candidate): candidate is NonNullable<typeof sci> => candidate !== undefined);
@@ -90,15 +99,6 @@ export function EvaluationRadarHome({
     profile.configuration.correctionMethod === 'decision' &&
     !profile.configuration.apiCompatible &&
     isNativeDecisionModel(profile.configuration.visionModel));
-
-  const profile = profiles.find(
-    (p) =>
-      p.configuration.analysisModel === selected &&
-      p.configuration.correctionMethod !== 'visual-decision' &&
-      (!bio ||
-        (bio.method === p.configuration.correctionMethod &&
-          bio.provider === (p.configuration.apiCompatible ? 'openai-compatible' : 'ollama'))),
-  );
   const score = (value: number | null | undefined) =>
     value == null ? '—' : value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100';
   return (
@@ -247,7 +247,7 @@ export function EvaluationRadarHome({
                 )}
               </div>
               <div className="radar-home-actions">
-                {count < total && (
+                {(scientific ? count < total : true) && (
                   <Button
                     disabled={
                       busy || !(scientific ? plan && profiles.some((p) => p.id === plan.profileId) : profile)
@@ -257,18 +257,19 @@ export function EvaluationRadarHome({
                       else if (!scientific && profile)
                         runBiology(
                           profile.id,
-                          !bio ||
-                            bio.axes.grade === null ||
-                            bio.axes.rubric === null ||
-                            bio.axes.positives === null ||
-                            bio.axes.negatives === null,
-                          !bio || bio.axes.traps === null,
+                          !activeBio || activeBio.measured === total ||
+                            activeBio.axes.grade === null ||
+                            activeBio.axes.rubric === null ||
+                            activeBio.axes.positives === null ||
+                            activeBio.axes.negatives === null,
+                          !activeBio || activeBio.measured === total || activeBio.axes.traps === null,
                         );
                     }}
                   >
-                    {count
-                      ? 'Compléter les tests'
-                      : 'Évaluer en ' + (scientific ? 'schémas scientifiques' : 'biologie')}
+                    {!scientific && activeBio?.measured === total
+                      ? 'Relancer l’évaluation'
+                      : count ? 'Compléter les tests'
+                        : 'Évaluer en ' + (scientific ? 'schémas scientifiques' : 'biologie')}
                   </Button>
                 )}
                 {scientific && !plan && misconfiguredDecisionVision && !busy && (
