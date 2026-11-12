@@ -5,7 +5,7 @@ import { planRadarModelEvaluation, resolveModelProfile } from '../../src/domain/
 function candidate(model: string, measured: RadarAxisId[] = []): RadarRankedCandidate {
   const axes = Object.fromEntries(RADAR_AXES.map((axis) => [axis.id, {
     value: measured.includes(axis.id) ? 80 : null, reason: 'Non mesuré', evidence: [],
-  }])) as RadarRankedCandidate['axes'];
+  }])) as unknown as RadarRankedCandidate['axes'];
   return {
     id: model, profileId: model, name: model, methods: [], models: [model],
     axes, measured: measured.length, complete: false, updatedAt: '', weightedScore: null,
