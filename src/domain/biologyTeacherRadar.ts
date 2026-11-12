@@ -5,11 +5,11 @@ import { buildQuestionContractRepeatabilityReport, type QuestionContractRepeatab
 export type BiologyCorrectionProtocol = 'contract' | 'standard' | 'pilot';
 export type BiologyRadarAxis = 'grade' | 'rubric' | 'positives' | 'negatives' | 'traps';
 export const BIOLOGY_RADAR_AXES: readonly { id: BiologyRadarAxis; label: string; detail: string; weight: number }[] = [
-  { id: 'grade', label: 'Justesse de la note', detail: 'Écart moyen avec la note de référence du professeur sur A/B/C, seulement si les dix sous-critères sont évalués.', weight: 40 },
+  { id: 'grade', label: 'Justesse de la note', detail: 'Fidélité à la note du professeur sur A/B/C. Une copie sans note exploitable pénalise la fiabilité du modèle, sans attribuer de zéro à l’étudiant.', weight: 40 },
   { id: 'rubric', label: 'Respect du barème', detail: 'Décisions identiques à celles du professeur pour les dix sous-critères de chaque copie A/B/C.', weight: 25 },
   { id: 'positives', label: 'Bonnes réponses reconnues', detail: 'Points attribués aux notions effectivement présentes dans les réponses A/B/C.', weight: 15 },
   { id: 'negatives', label: 'Erreurs détectées', detail: 'Points non attribués lorsque la réponse attendue est absente ou fausse dans A/B/C.', weight: 15 },
-  { id: 'traps', label: 'Cas pièges', detail: 'Accord avec le barème sur D/E/F/G : négations, synonymes, contradictions et énoncé imprimé.', weight: 5 },
+  { id: 'traps', label: 'Cas pièges', detail: 'Accord avec le barème sur les 3 dernières répétitions de D/E/F/G. Une décision non tranchée diminue la fiabilité, sans devenir un zéro de copie.', weight: 5 },
 ];
 
 export interface BiologyRadarObservation {
@@ -114,13 +114,19 @@ export interface BiologyRadarCandidate {
   partialScore: number | null;
   gradeDifference: number | null;
   observations: BiologyRadarObservation[];
+  /** Missing model decisions reduce benchmark reliability, never the student's grade. */
+  unresolvedDecisions: number;
 }
 
-// An undecidable criterion is not a teacher-verified zero: only fully resolved cases enter an axis.
+// A completed test with undecided subcriteria is still a measurement of model reliability.
+// Such decisions do not become zero marks for a student; they simply cannot count as
+// correct benchmark decisions. Actual transport/format failures remain unmeasured.
 const valid = (item: BiologyRadarObservation) => item.status === 'success' &&
-  item.decisions.length === 10 && item.decisions.every((d) =>
+  item.decisions.length === 10 && new Set(item.decisions.map((d) => d.id)).size === 10 &&
+  item.decisions.every((d) =>
     d && typeof d.id === 'string' && (d.expected === 0 || d.expected === 1) &&
-    typeof d.awarded === 'number' && Number.isFinite(d.awarded) && d.awarded >= 0 && d.awarded <= 1);
+    (d.awarded === null || (typeof d.awarded === 'number' &&
+      Number.isFinite(d.awarded) && d.awarded >= 0 && d.awarded <= 1)));
 
 const round = (n: number) => Math.round(n * 10) / 10;
 const accuracy = (items: BiologyRadarObservation[]) => {
@@ -149,20 +155,30 @@ export function buildBiologyRadar(history: readonly BiologyRadarObservation[], p
       if (!latestByCase.has(entry.caseId) && valid(entry)) latestByCase.set(entry.caseId, entry);
     }
     const baseline = BASELINE_IDS.map((caseId) => latestByCase.get(caseId)).filter((item): item is BiologyRadarObservation => !!item);
-    const traps = STRESS_IDS.map((caseId) => latestByCase.get(caseId)).filter((item): item is BiologyRadarObservation => !!item);
+    // The stress protocol runs each case three times. Count all three most recent
+    // attempts per case, rather than cherry-picking the best (or last) response.
+    const trapGroups = STRESS_IDS.map((caseId) =>
+      newest.filter((entry) => entry.caseId === caseId && valid(entry)).slice(0, 3));
+    const traps = trapGroups.flat();
     const ready = baseline.length === BASELINE_IDS.length;
-    const grades = ready && baseline.every((item) => item.score !== null &&
-      item.decisions.every((decision) => decision.awarded !== null) &&
-      item.score! >= 0 && item.score! <= 10);
+    const grades = ready && baseline.every((item) =>
+      item.score !== null && item.score >= 0 && item.score <= 10 &&
+      item.decisions.every((decision) => decision.awarded !== null));
     const gradeDifference = grades
       ? round(baseline.reduce((sum, item) => sum + Math.abs(item.score! - item.referenceScore), 0) / baseline.length)
       : null;
+    // If the model cannot produce a complete grade, its grade-quality axis is
+    // penalized. Do not pass a fabricated 0/10 back into the student evaluation.
+    const gradeQuality = ready ? round(100 * baseline.reduce((sum, item) =>
+      sum + (item.score !== null && item.score >= 0 && item.score <= 10 &&
+        item.decisions.every((decision) => decision.awarded !== null)
+        ? Math.max(0, 1 - Math.abs(item.score - item.referenceScore) / 10) : 0), 0) / baseline.length) : null;
     const axes: Record<BiologyRadarAxis, number | null> = {
-      grade: gradeDifference === null ? null : round(100 * (1 - gradeDifference / 10)),
+      grade: gradeQuality,
       rubric: ready ? accuracy(baseline) : null,
       positives: ready ? axisFraction(baseline, 1) : null,
       negatives: ready ? axisFraction(baseline, 0) : null,
-      traps: traps.length === STRESS_IDS.length ? accuracy(traps) : null,
+      traps: trapGroups.every((runs) => runs.length > 0) ? accuracy(traps) : null,
     };
     const available = BIOLOGY_RADAR_AXES.filter((axis) => axes[axis.id] !== null);
     const weighted = available.reduce((sum, axis) => sum + axes[axis.id]! * axis.weight, 0);
@@ -174,6 +190,8 @@ export function buildBiologyRadar(history: readonly BiologyRadarObservation[], p
       partialScore: weightSum ? round(weighted / weightSum) : null,
       gradeDifference,
       observations: [...latestByCase.values()],
+      unresolvedDecisions: [...baseline, ...traps].reduce((sum, item) =>
+        sum + item.decisions.filter((decision) => decision.awarded === null).length, 0),
     };
   });
   return result.sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || a.name.localeCompare(b.name));
