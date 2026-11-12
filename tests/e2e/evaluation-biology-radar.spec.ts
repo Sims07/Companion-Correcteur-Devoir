@@ -52,10 +52,15 @@ test('a notification reopens its biological campaign after another run and a rel
   await page.getByRole('button', { name: /Notifications,/ }).click();
   await page.getByRole('button', { name: /^Ancienne campagne terminée/ }).click();
   const list = page.getByRole('region', { name: 'Campagnes d’évaluation' });
-  await expect(list.getByText(/copie A · professeur 8\/10 · modèle 1\/10/)).toBeVisible();
-  await expect(list.locator('summary')).toHaveCount(1);
+  await expect(list.getByRole('heading', { name: 'Historique des évaluations' })).toBeVisible();
+  await expect(list.locator('.campaign-index-item')).toHaveCount(1);
+  await expect(list.getByRole('heading', { name: 'Notes par copie' })).toBeVisible();
+  await expect(list.locator('.campaign-index-detail')).toContainText('LLM ancien');
+  await expect(list.locator('.campaign-index-detail')).toContainText('1/10');
   await list.getByRole('button', { name: 'Toutes les campagnes' }).click();
-  await expect(list.locator('summary')).toHaveCount(2);
+  await expect(list.locator('.campaign-index-item')).toHaveCount(2);
+  await list.getByRole('button', { name: /LLM récent/ }).click();
+  await expect(list.locator('.campaign-index-detail')).toContainText('2/10');
 });
 
 

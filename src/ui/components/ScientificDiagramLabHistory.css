@@ -93,3 +93,6 @@
   .diagram-lab-readiness-stat span { font-size: .7rem; }
   .diagram-lab-readiness-action > button { width: 100%; }
 }
+
+.diagram-lab-history-back { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-3); }
+.diagram-lab-history-back span { color: var(--ds-color-text-muted); font-size: .83rem; }

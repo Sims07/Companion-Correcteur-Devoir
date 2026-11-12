@@ -2,6 +2,7 @@ import { Button } from '../design-system/index.ts';
 import { countedUsableBiologyGrades, buildEvaluationIssueReport } from '../../domain/evaluationIssueReport.ts';
 import { EvaluationIssueButton } from './EvaluationIssueButton.tsx';
 import { useMemo, useState } from 'react';
+import './EvaluationCampaigns.css';
 import type { BiologyRadarObservation } from '../../domain/biologyTeacherRadar.ts';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
 import { diagramCampaignModels } from '../../domain/diagramLabRadar.ts';
@@ -34,6 +35,7 @@ export function EvaluationCampaigns({
   const [domain, setDomain] = useState(filter.domain ?? '');
   const [model, setModel] = useState(filter.model ?? '');
   const [ids, setIds] = useState(filter.ids);
+  const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const rows = useMemo(() => {
     const science = diagrams.map((entry) => ({
       id: entry.id,
@@ -110,84 +112,119 @@ export function EvaluationCampaigns({
         ('campaign' in r && r.campaign && ids.includes(r.campaign)) ||
         r.observations.some((o) => ids.includes(o.id))),
   );
+  const selected = visible.find((row) => row.domain + ':' + row.id === selectedCampaign) ?? visible[0];
+  const uniqueModels = new Set(rows.flatMap((row) => row.models)).size;
+  const partialCount = rows.filter((row) => row.status === 'Incomplète' || row.status === 'Résultats partiels').length;
+
   return (
     <section className="campaign-index" aria-label="Campagnes d’évaluation">
-      <h2>Campagnes</h2>
-      <header>
+      <div className="campaign-index-heading">
+        <div>
+          <p className="eyebrow">HISTORIQUE · TOUS LES DOMAINES</p>
+          <h2>Historique des évaluations</h2>
+          <p>Retrouvez vos tests de biologie, de schémas scientifiques et sur copies. Sélectionnez une campagne pour consulter son bilan.</p>
+        </div>
+        <div className="campaign-index-actions">
+          <Button variant="secondary" onClick={() => onDiagram()}>Archives scientifiques</Button>
+          <Button variant="secondary" onClick={() => onCustom()}>Comparer les essais sur copie</Button>
+        </div>
+      </div>
+      <div className="campaign-index-stats" aria-label="Résumé de l’historique">
+        <div><strong>{rows.length}</strong><span>Campagnes conservées</span></div>
+        <div><strong>{uniqueModels}</strong><span>Modèles rencontrés</span></div>
+        <div><strong>{partialCount}</strong><span>Résultats à examiner</span></div>
+      </div>
+      <div className="campaign-index-filters">
         <label>
           Domaine
-          <select
-            value={domain}
-            onChange={(e) => {
-              setDomain(e.target.value);
-              setIds(undefined);
-            }}
-          >
+          <select value={domain} onChange={(e) => { setDomain(e.target.value); setIds(undefined); setSelectedCampaign(null); }}>
             <option value="">Tous les domaines</option>
-            {Object.entries(domainLabels).map(([id, name]) => (
-              <option value={id} key={id}>
-                {name}
-              </option>
-            ))}
+            {Object.entries(domainLabels).map(([id, name]) => <option value={id} key={id}>{name}</option>)}
           </select>
         </label>
         <label>
           Modèle
-          <select
-            value={model}
-            onChange={(e) => {
-              setModel(e.target.value);
-              setIds(undefined);
-            }}
-          >
+          <select value={model} onChange={(e) => { setModel(e.target.value); setIds(undefined); setSelectedCampaign(null); }}>
             <option value="">Tous les modèles</option>
             {[...new Set([...rows.flatMap((r) => r.models), model].filter(Boolean))].sort().map((name) => (
               <option key={name}>{name}</option>
             ))}
           </select>
         </label>
-        {ids && (
-          <Button variant="secondary"
-            onClick={() => {
-              setIds(undefined);
-              setDomain('');
-              setModel('');
-            }}
-          >
-            Toutes les campagnes
-          </Button>
-        )}
-        <Button variant="secondary" onClick={() => onDiagram()}>Archives scientifiques</Button>
-        <Button variant="secondary" onClick={() => onCustom()}>Comparer les essais sur copie</Button>
-      </header>
-      {!visible.length && <p>Aucune campagne pour cette sélection.</p>}
-      {visible.map((row) => (
-        <details key={row.domain + row.id} open={ids?.length === 1 || undefined}>
-          <summary>
-            {new Date(row.date).toLocaleString('fr-FR')} · {domainLabels[row.domain]} ·{' '}
-            <b>{row.models.join(', ')}</b> · {row.title} · {row.status}
-          </summary>
-          {row.detail && <p>{row.detail}</p>}
-          {(row.status === 'Incomplète' || row.status === 'Résultats partiels') && <EvaluationIssueButton makeReport={() => buildEvaluationIssueReport({
-            journey: row.domain, status: row.status, model: row.models.join(', '),
-            campaignId: row.id, observations: row.observations, stats: row.stats,
-          })} />}
-          {row.observations.length ? (
-            <ul>
-              {row.observations.map((o) => (
-                <li key={o.id}>
-                  {o.model} · {o.profile} · {o.method} · {o.protocol} · copie {o.caseId} · professeur{' '}
-                  {o.referenceScore}/10 · modèle {o.score ?? '—'}/10
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <Button variant="secondary" onClick={() => (row.domain === 'diagrams' ? onDiagram(row.id) : onCustom(row.id))}>
-              Ouvrir le résultat
-            </Button>
-          )}
-        </details>
-      ))}
+        {ids && <Button variant="secondary" onClick={() => {
+          setIds(undefined);
+          setDomain('');
+          setModel('');
+          setSelectedCampaign(null);
+        }}>Toutes les campagnes</Button>}
+        <span className="campaign-index-count">{visible.length} campagne(s) affichée(s)</span>
+      </div>
+
+      {visible.length === 0 ? <p className="campaign-index-empty">Aucune campagne pour cette sélection. Modifiez les filtres pour retrouver vos résultats.</p> :
+        <div className="campaign-index-layout">
+          <div className="campaign-index-list" role="group" aria-label="Campagnes enregistrées">
+            {visible.map((row) => (
+              <button key={row.domain + row.id} type="button" className="campaign-index-item"
+                aria-pressed={selected?.domain === row.domain && selected.id === row.id}
+                onClick={() => setSelectedCampaign(row.domain + ':' + row.id)}>
+                <strong>{row.title}</strong>
+                <small>{new Date(row.date).toLocaleString('fr-FR')} · {domainLabels[row.domain]}</small>
+                <span>{row.models.join(' · ') || 'Modèle non renseigné'}</span>
+                <small>{row.detail} · {row.status}</small>
+              </button>
+            ))}
+          </div>
+          {selected && <article className="campaign-index-detail" key={selected.domain + selected.id}>
+            <div className="campaign-index-detail-head">
+              <div>
+                <p className="eyebrow">RÉSULTAT ENREGISTRÉ · {domainLabels[selected.domain].toLocaleUpperCase('fr-FR')}</p>
+                <h3>{selected.title}</h3>
+                <p>{new Date(selected.date).toLocaleString('fr-FR')} · {selected.models.join(', ') || 'Modèle non renseigné'}</p>
+              </div>
+              <span className={'campaign-index-status ' + (selected.status === 'Terminée' ? 'is-complete' : '')}>{selected.status}</span>
+            </div>
+            <div className="campaign-index-detail-stats">
+              <div><strong>{selected.stats.successful}</strong><span>Résultats exploitables</span></div>
+              <div><strong>{selected.stats.total}</strong><span>Résultats enregistrés</span></div>
+            </div>
+            <p className="campaign-index-detail-summary">{selected.detail}</p>
+            {(selected.status === 'Incomplète' || selected.status === 'Résultats partiels') && (
+              <EvaluationIssueButton makeReport={() => buildEvaluationIssueReport({
+                journey: selected.domain, status: selected.status, model: selected.models.join(', '),
+                campaignId: selected.id, observations: selected.observations, stats: selected.stats,
+              })} />
+            )}
+            {selected.observations.length ? (
+              <div className="campaign-index-observations">
+                <h4>Notes par copie</h4>
+                <div className="campaign-index-table-scroll">
+                  <table>
+                    <thead><tr><th>Modèle</th><th>Protocole / méthode</th><th>Copie</th><th>Professeur</th><th>Modèle</th></tr></thead>
+                    <tbody>{selected.observations.map((o) => (
+                      <tr key={o.id}>
+                        <td>{o.model} · {o.profile}</td>
+                        <td>{o.protocol} · {o.method}</td>
+                        <td>{o.caseId}</td>
+                        <td>{o.referenceScore}/10</td>
+                        <td>{o.score ?? '—'}/10</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </div>
+            ) : selected.domain === 'diagrams' ? (
+              <div className="campaign-index-detail-action">
+                <p>Consultez les mesures par schéma, les décisions et la comparaison avec les essais précédents.</p>
+                <Button variant="secondary" onClick={() => onDiagram(selected.id)}>Analyser ce rapport scientifique</Button>
+              </div>
+            ) : (
+              <div className="campaign-index-detail-action">
+                <p>Retrouvez les résultats détaillés de cette évaluation sur copie.</p>
+                <Button variant="secondary" onClick={() => onCustom(selected.id)}>Ouvrir le résultat</Button>
+              </div>
+            )}
+          </article>}
+        </div>}
     </section>
   );
 }

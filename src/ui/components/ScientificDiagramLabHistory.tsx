@@ -134,11 +134,12 @@ function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
   </div>;
 }
 
-export function ScientificDiagramLabHistory({ initialReportId, revision, archiveError, repository, view, onViewChange, profileIds, profiles = [], busy, onRunMissing }: {
+export function ScientificDiagramLabHistory({ initialReportId, revision, archiveError, repository, view, onViewChange, profileIds, profiles = [], busy, onRunMissing, onBack }: {
   initialReportId?: string; revision: number; archiveError?: string; repository: DiagramLabArchiveRepository;
   view: 'campaigns' | 'radar'; onViewChange: (view: 'campaigns' | 'radar') => void;
   profileIds: readonly string[]; profiles?: readonly RadarModelConfiguration[]; busy: boolean;
   onRunMissing: (request: Omit<RadarMissingTestRequest, 'id'>) => void;
+  onBack?: () => void;
 }) {
   const [entries, setEntries] = useState<DiagramLabArchiveEntry[]>([]);
   const [loadingError, setLoadingError] = useState('');
@@ -192,6 +193,7 @@ export function ScientificDiagramLabHistory({ initialReportId, revision, archive
   const comparisonRows = selected && comparison && !comparisonIssue ? buildDiagramLabComparison(selected, comparison) : [];
 
   return <section className="diagram-lab-history" aria-label="Campagnes de test scientifiques">
+    {view === 'campaigns' && onBack && <div className="diagram-lab-history-back"><Button variant="secondary" onClick={onBack}>← Retour aux campagnes</Button><span>Historique des évaluations / Schémas scientifiques</span></div>}
     {view === 'campaigns' && <div className="diagram-lab-history-heading">
       <div><p className="eyebrow">CAMPAGNES DE TEST · SCHÉMAS SCIENTIFIQUES</p><h2>Campagnes de test</h2>
         <p>Comparez les performances sur huit caractéristiques ou examinez les preuves de chaque campagne.</p></div>
