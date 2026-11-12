@@ -15,7 +15,7 @@ test('configuration button calls Ollama /api/tags and shows the discovered model
   let calls = 0;
   await page.route('http://localhost:11434/api/tags', async (route) => {
     calls += 1;
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+    await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({
       models: [{ name: 'test-vision:4b' }, { name: 'test-decision:3b' }],
     }) });
   });
