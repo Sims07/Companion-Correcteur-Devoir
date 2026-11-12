@@ -58,8 +58,9 @@ test('exports data from localhost and restores it without overwriting unrelated 
     buffer: Buffer.from(JSON.stringify(exported)),
   });
   await expect(panel.getByText('transfert.json')).toBeVisible();
+  await expect(panel.getByText(/Sur une nouvelle PWA/)).toBeVisible();
   await panel.getByRole('button', { name: 'Restaurer la sauvegarde' }).click();
-  await expect(panel.getByText(/Restauration terminée/)).toBeVisible();
+  await expect(panel.getByText(/Restauration terminée : 1 enregistrement/)).toBeVisible();
   const result = await page.evaluate(async () => {
     const req = indexedDB.open('companion-correcteur-devoir', 6);
     const db = await new Promise<IDBDatabase>((resolve) => { req.onsuccess = () => resolve(req.result); });

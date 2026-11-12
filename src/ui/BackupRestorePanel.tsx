@@ -71,10 +71,14 @@ export function BackupRestorePanel({ onRestored }: Props) {
     try {
       const result = await restoreLocalBackup(selected, mode);
       setRestored(true);
+      const restoredRecords = mode === 'update'
+        ? result.recordsUpdated + ' enregistrement(s) ajouté(s) ou mis à jour'
+        : result.recordsImported + ' enregistrement(s) ajouté(s), ' + result.recordsPreserved + ' conflit(s) conservé(s)';
       setMessage(
-        'Restauration terminée : ' + result.recordsImported + ' nouvel(le)(s) ou conservé(e)(s) sous le mode mise à jour, '
-        + result.recordsPreserved + ' déjà présent(e)(s) préservé(e)(s), '
-        + result.settingsImported + ' réglage(s) importé(s). Rechargez la page pour retrouver vos données.',
+        'Restauration terminée : ' + restoredRecords + '. '
+        + result.settingsImported + ' réglage(s) importé(s) ou mis à jour, '
+        + result.settingsPreserved + ' réglage(s) déjà présent(s) conservé(s). '
+        + 'Rechargez l’application pour retrouver vos données.',
       );
       onRestored?.();
     } catch (cause) {
@@ -103,6 +107,7 @@ export function BackupRestorePanel({ onRestored }: Props) {
         <span>Créée le {new Date(preview.createdAt).toLocaleString('fr-FR')} · {preview.recordCount} enregistrement(s) · {preview.settingCount} réglage(s)</span>
         <span>Copies, corrections, évaluations, radars, campagnes et configuration, selon les données effectivement enregistrées.</span>
       </div>}
+      {preview && <p className="backup-restore-guidance">Sur une nouvelle PWA, cochez « Mettre à jour » pour reprendre aussi votre devoir par défaut et vos réglages IA de localhost. Les données absentes du fichier ne seront jamais supprimées.</p>}
       {preview && <label className="backup-restore-mode">
         <input type="checkbox" checked={mode === 'update'} disabled={working}
           onChange={(event) => setMode(event.target.checked ? 'update' : 'merge')} />

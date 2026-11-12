@@ -12,3 +12,5 @@
 .backup-restore-mode input { margin-top:.2em; }
 .backup-restore-actions { display:flex; flex-wrap:wrap; gap:var(--ds-space-3,12px); }
 @media (max-width:540px) { .backup-restore-heading,.backup-restore-actions { align-items:stretch; flex-direction:column; } }
+
+.backup-restore-guidance { margin:0; color:var(--ds-color-text-muted); font-size:.82rem; line-height:1.45; }
