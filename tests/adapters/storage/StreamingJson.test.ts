@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { Blob } from 'node:buffer';
 import { StreamingJsonParser, parseJsonBlobInChunks } from '../../../src/adapters/storage/streamingJson.ts';
 
 describe('streaming JSON reader for Chromium PWA backups', () => {
