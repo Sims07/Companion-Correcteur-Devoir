@@ -3933,9 +3933,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </div>
       </section>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && (evaluationJourney !== 'biology' || !biologyRadarOpen) && <section id="evaluation-configurations" className="panel evaluation-config-workspace" data-journey={evaluationJourney} aria-labelledby="evaluation-config-title">
+        <h2 id="evaluation-config-title" className="evaluation-visually-hidden">Configurations à évaluer</h2>
         {!showingBiologyRunMonitor && <div className="evaluation-workbench-controls">
         <EvaluationJourneyPicker value={evaluationJourney} disabled={busy || pilotBusy} onChange={(journey) => { try { localStorage.setItem('companion:evaluation-test-family', journey); } catch { /* Session only */ } setEvaluationJourney(journey); if (journey === 'diagrams') setDiagramLabView('protocols'); }} />
-        <h2 id="evaluation-config-title" className="evaluation-visually-hidden">Configurations à évaluer</h2>
         <div className="evaluation-model-brief" role="group" aria-label="Modèles sélectionnés pour les tests">
           <span className="evaluation-model-brief-name">Modèle{selectedEvaluationProfiles.length > 1 ? 's' : ''}</span>
           <strong className="evaluation-model-brief-selected">{selectedEvaluationProfiles.length ? selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') : 'Aucun modèle sélectionné'}</strong>
