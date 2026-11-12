@@ -1,4 +1,4 @@
-import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from './scientificDiagramFixtures.ts';
+import { SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from './scientificDiagramFixtures.ts';
 import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS } from './scientificDiagramSensitivity.ts';
 import { diagramLabProtocolLabels, type DiagramLabArchiveEntry, type DiagramLabProtocol } from './diagramLabHistory.ts';
 
@@ -184,7 +184,17 @@ function goldAccuracy(battery: Battery, key?: string): Fraction | null {
     const matchingCase = battery.entry.report.format === 'companion-scientific-diagram-fixture-report'
       ? battery.entry.report.cases.find((c) => c.caseId === run.caseId) : null;
     if (!matchingCase) continue;
-    for (const [target, gold] of Object.entries(matchingCase.gold)) {
+    // The reference photographs and 19 rubric targets did not change: a corrected
+    // ground truth must apply to stored visual decisions too. Never rewrite the
+    // archived report itself, and never regrade a report with a different rubric.
+    const currentReference = battery.entry.protocol === 'reference'
+      ? SCIENTIFIC_DIAGRAM_FIXTURES.find((item) => item.id === run.caseId) : undefined;
+    const sameTargets = currentReference
+      && Object.keys(currentReference.gold).length === Object.keys(matchingCase.gold).length
+      && Object.keys(currentReference.gold).every((target) =>
+        Object.prototype.hasOwnProperty.call(matchingCase.gold, target));
+    const referenceGold = sameTargets ? currentReference.gold : matchingCase.gold;
+    for (const [target, gold] of Object.entries(referenceGold)) {
       if (key && target !== key) continue;
       if (gold !== 'present' && gold !== 'absent' && gold !== 'partial') continue;
       labelled++;
