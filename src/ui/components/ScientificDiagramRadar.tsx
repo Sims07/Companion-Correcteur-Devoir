@@ -39,9 +39,10 @@ function pointsString(fraction: number) {
 }
 
 /** No polygon is drawn for an incomplete candidate: an absent axis is not 0%. */
-export function RadarPlot({ candidates, onAxis }: {
+export function RadarPlot({ candidates, onAxis, colors }: {
   candidates: RadarRankedCandidate[];
   onAxis?: (axis: RadarAxisId) => void;
+  colors?: Record<string, string>;
 }) {
   return <svg viewBox="0 0 700 570" className="diagram-radar-svg" role="img"
       aria-label={'Comparaison radar sur huit caractéristiques pour ' + candidates.map((c) => c.name).join(', ')}>
@@ -62,7 +63,7 @@ export function RadarPlot({ candidates, onAxis }: {
     {[25, 50, 75, 100].map((n) =>
       <text key={n} x={358} y={285 - 198 * n / 100} fontSize="10" fill="var(--ds-color-text-muted)">{n}</text>)}
     {candidates.map((candidate, ci) => {
-      const color = RADAR_COMPARISON_COLORS[ci % RADAR_COMPARISON_COLORS.length]!;
+      const color = colors?.[candidate.id] ?? RADAR_COMPARISON_COLORS[ci % RADAR_COMPARISON_COLORS.length]!;
       const values = RADAR_AXES.map((axis) => candidate.axes[axis.id].value);
       const coordinates = values.map((n, i) => n === null ? null : point(i, n / 100));
       if (candidate.complete) return <g key={candidate.id} data-radar-model={candidate.id}>
