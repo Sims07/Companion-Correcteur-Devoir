@@ -7,6 +7,7 @@ import { NotificationCenter } from './components/NotificationCenter.tsx';
 import { pushAppNotification, type AppNotification } from '../domain/appNotifications.ts';
 import { EvaluationJourneyPicker } from './components/EvaluationJourneyPicker.tsx';
 import { resolveEvaluationActivityOutcome } from '../domain/evaluationActivityStatus.ts';
+import { awaitOrAbort } from '../domain/awaitOrAbort.ts';
 import { ContractPreparationPanel } from './components/ContractPreparationPanel.tsx';
 import { QuestionContractEditor, QuestionScopePreview } from './components/QuestionContractEditor.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -603,6 +604,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const visibleEvaluationHistoryRecords = savedModelEvaluations.filter((record) => evaluationHistoryStageFilter === 'all' || getModelEvaluationStage(record) === evaluationHistoryStageFilter);
   const selectedEvaluationHistoryRecords = visibleEvaluationHistoryRecords.filter((record) => selectedEvaluationHistoryIds.includes(record.id));
   const evaluationCancelledRef = useRef(false);
+  const evaluationAbortController = useRef<AbortController | null>(null);
   useEffect(() => { void (evaluationService.listSummaries?.() ?? evaluationService.list()).then(setSavedModelEvaluations).catch(() => setError('Impossible de lire l’historique local des évaluations.')); }, [evaluationService]);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [correctionMode, setCorrectionMode] = useState<'integrated' | 'separate'>(() => readActiveAssignmentProfile().correctionMode);
@@ -1844,7 +1846,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (runStage === 'analysis' && !runTranscription?.trim()) { setError('Pour évaluer l’analyse seule, lancez d’abord une lecture Vision et vérifiez sa transcription.'); return; }
     if (runStage !== 'analysis' && !runImages.length) { setError('Importez une copie avant de lancer une évaluation Vision.'); return; }
     if (runStage === 'integrated' && runCorrectionMode === 'separate' && !runSubjectImages.length && !runSubjectTranscription) { setError('Importez le sujet de référence pour ce mode de correction.'); return; }
-    evaluationCancelledRef.current = false;
+    if (!options) evaluationCancelledRef.current = false;
+    const abortController = options ? (evaluationAbortController.current ?? new AbortController()) : new AbortController();
+    evaluationAbortController.current = abortController;
+    if (evaluationCancelledRef.current || abortController.signal.aborted) return;
     setModelEvaluationResults([]);
     setSuggestedEvaluationComparisonIds(null);
     setEvaluationArchiveStatus('idle');
@@ -1893,19 +1898,24 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         directVisualDecision: directProfiles(profile),
         directGenerativeVision: directGenerativeProfiles(profile),
       })),
-      isCancelled: () => evaluationCancelledRef.current,
-      onProgress: setEvaluationProgress,
+      isCancelled: () => evaluationCancelledRef.current || abortController.signal.aborted,
+      onProgress: (progress) => {
+        if (evaluationAbortController.current === abortController) setEvaluationProgress({
+          ...progress, status: abortController.signal.aborted ? 'cancelled' : progress.status,
+        });
+      },
       ...(options ? { onConfigurationSettled: async (configuration: ModelEvaluationConfiguration) => {
         // A remote OpenAI-compatible API or nonlocal Ollama does not expose a safe local unload endpoint.
-        if (!isLocalPilotConfiguration(configuration) || options?.retainModelAfterRun) return;
+        if (abortController.signal.aborted || !isLocalPilotConfiguration(configuration) || options?.retainModelAfterRun) return;
         setPilotMessage('Libération de la mémoire Ollama après « ' + configuration.name + ' »…');
         try {
           if (!releasePilotModels) throw new Error('Gestionnaire de mémoire Ollama indisponible.');
-          const released = await releasePilotModels(configuration, runStage);
+          const released = await awaitOrAbort(() => releasePilotModels(configuration, runStage), abortController.signal);
           setPilotMessage(released.length
             ? 'Mémoire libérée : ' + released.join(', ') + '. Préparation du profil suivant.'
             : 'Aucun modèle de « ' + configuration.name + ' » encore chargé ; suite du protocole.');
         } catch (cause) {
+          if (abortController.signal.aborted) return;
           const reason = cause instanceof Error ? cause.message : String(cause);
           pilotMemoryErrorRef.current = 'Échec de libération de la mémoire après « ' + configuration.name
             + ' » : ' + reason + ' Arrêt de précaution avant de charger un autre modèle. Vérifiez « ollama ps ».';
@@ -1928,8 +1938,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             + ' » ne prend pas en charge le chat (/api/chat). Configurez un modèle Vision distinct pour lire les images.');
         }
         if (runStage !== 'vision' && !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle d’analyse pour cette expérience.');
-        if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.directGenerativeVision) await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.visionModel });
-        if (runStage !== 'vision') await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.analysisModel });
+        if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.directGenerativeVision) await awaitOrAbort(() => service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.visionModel }, abortController.signal), abortController.signal);
+        if (runStage !== 'vision') await awaitOrAbort(() => service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.analysisModel }, abortController.signal), abortController.signal);
         let extractedTranscription = '';
         let raw = '';
         const startedAt = Date.now();
@@ -1951,7 +1961,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         });
         setStreamedOutput('');
         try {
-          raw = await provider.generate({
+          raw = await awaitOrAbort(() => provider.generate({
             question: buildAssignmentContext({ title: runTitle, description: runDescription, educationLevel: runLevel, question: runQuestion }),
             rubric: rubricAsJson(runRubric),
             ...(runStage === 'analysis' ? { transcription: runTranscription ?? '' } : {}),
@@ -1960,13 +1970,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             ...(configuration.directGenerativeVision ? { directGenerativeVision: true } : {}),
             images: runStage === 'analysis' ? [] : structuredClone(runImages),
             ...(runStage !== 'vision' && runCorrectionMode === 'separate' ? { subjectImages: structuredClone(runSubjectImages), ...(runSubjectTranscription ? { subjectTranscription: runSubjectTranscription } : {}) } : {}),
-          }, (chunk) => { streamedOutput += chunk; setStreamedOutput((current) => current + chunk); }, (stage) => {
+          }, (chunk) => { if (abortController.signal.aborted) return; streamedOutput += chunk; setStreamedOutput((current) => current + chunk); }, (stage) => {
+            if (abortController.signal.aborted) return;
             const now = Date.now();
             if (stage === 'grading') { if (analysisStartedAt === null) { readingMs = configuration.directVisualDecision || configuration.directGenerativeVision ? 0 : Math.max(0, now - startedAt); analysisStartedAt = configuration.directVisualDecision || configuration.directGenerativeVision ? startedAt : now; } onStage('analysis'); setEvaluationStage('grading'); setAnalysisStage('grading'); setStreamedOutput(''); }
             else { onStage('reading'); setEvaluationStage('reading'); setAnalysisStage('reading'); }
           }, (text, kind) => {
-            if (kind !== 'subject') extractedTranscription = text;
-          }, (result) => measuredRuns.push(result));
+            if (!abortController.signal.aborted && kind !== 'subject') extractedTranscription = text;
+          }, (result) => { if (!abortController.signal.aborted) measuredRuns.push(result); }, undefined, undefined, undefined, abortController.signal), abortController.signal);
         } catch (cause) {
           const failedAt = Date.now();
           if (runStage === 'vision' && analysisStartedAt === null) readingMs = Math.max(0, failedAt - startedAt);
@@ -2015,7 +2026,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         return { transcription: extractedTranscription, raw, score, proposal: parsedProposal, readingMs, analysisMs, readingTokens, analysisTokens, readingTokensPerSecond, analysisTokensPerSecond, tokens, diagnosticRuns: measuredRuns, elapsedMs: finishedAt - startedAt };
       },
     });
-    setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: 'running' } : current);
+    setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: abortController.signal.aborted ? 'cancelled' : 'running' } : current);
     setEvaluationStage('saving');
     if (runStage === 'vision' && !options) {
       const firstReadableResult = outputs.find((output) => output.status === 'success' && output.value?.transcription.trim());
@@ -2090,7 +2101,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       if (previousComparable) setSuggestedEvaluationComparisonIds([previousComparable.id, savedRecord.id]);
       await persistModelEvaluationRecord(savedRecord);
     }
-    setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: evaluationCancelledRef.current ? 'cancelled' : 'completed' } : current);
+    setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: abortController.signal.aborted ? 'cancelled' : 'completed' } : current);
+    if (evaluationAbortController.current === abortController) evaluationAbortController.current = null;
     setEvaluationStage('completed');
     setIsAnalyzing(false);
     setBusy(false);
@@ -2098,14 +2110,21 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   function cancelModelEvaluation() {
+    // Abort the active Ollama/OpenAI request, not only the next evaluation step.
     evaluationCancelledRef.current = true;
-    setError('Annulation demandée : l’appel en cours sera laissé se terminer avant l’arrêt de la séquence.');
+    evaluationAbortController.current?.abort();
+    setEvaluationProgress((current) => current?.status === 'running'
+      ? { ...current, status: 'cancelled', currentConfiguration: null, currentStage: null } : current);
     setEvaluationActivity((current) => current?.status === 'running'
-      ? { ...current, error: 'Arrêt demandé · fin de l’appel en cours' } : current);
+      ? { ...current, status: 'cancelled', error: 'Arrêt immédiat demandé. Requête IA annulée.' } : current);
+    setPilotMessage('Interruption demandée. Les résultats déjà terminés restent disponibles.');
+    setDiagramProtocolProgress('Interruption demandée. Les résultats terminés sont conservés.');
+    setError('');
   }
 
   async function followEvaluation<T>(activity: Omit<EvaluationActivity, 'status'>, execute: () => Promise<T>): Promise<T> {
     pilotStopRef.current = false;
+    evaluationAbortController.current = new AbortController();
     evaluationCancelledRef.current = false;
     const campaignId = activity.journey === 'biology' ? (crypto.randomUUID?.() ?? 'biology-' + Date.now()) : undefined;
     if (campaignId) biologyCampaign.current = campaignId;
@@ -2225,6 +2244,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       return;
     }
     pilotStopRef.current = false;
+    evaluationAbortController.current = new AbortController();
     pilotMemoryErrorRef.current = null;
     setPilotBusy(true);
     setEvaluationStageMode(stage);
@@ -2260,6 +2280,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (issue) { setPilotMessage(issue); return; }
     if (profiles.some(isLocalPilotProfile) && !releasePilotModels) { setPilotMessage('Gestionnaire de mémoire Ollama indisponible : comparaison bloquée pour protéger la RAM.'); return; }
     pilotStopRef.current = false;
+    evaluationAbortController.current = new AbortController();
     evaluationCancelledRef.current = false;
     pilotMemoryErrorRef.current = null;
     setPilotContractRuns([]);
@@ -2315,6 +2336,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const steps = questionContractRepeatabilitySteps(repetitions, suite);
     // Snapshot the selected profiles once: edits to saved settings cannot change a running campaign.
     pilotStopRef.current = false;
+    evaluationAbortController.current = new AbortController();
     evaluationCancelledRef.current = false;
     pilotMemoryErrorRef.current = null;
     setPilotRepeatabilityRuns([]);
@@ -2378,6 +2400,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const testCase = PILOT_CASES.find((item) => item.id === caseId);
     if (!testCase) return;
     pilotStopRef.current = false;
+    evaluationAbortController.current = new AbortController();
     pilotMemoryErrorRef.current = null;
     setPilotBusy(true);
     setPilotCurrentCase(caseId);
@@ -2393,13 +2416,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           correctionMethod: config.correctionMethod,
         };
         try {
-          await service.checkReady({
+          await awaitOrAbort(() => service.checkReady({
             endpoint: config.endpoint, apiCompatible: false, model: config.analysisModel,
-          });
+          }, evaluationAbortController.current?.signal), evaluationAbortController.current!.signal);
           setPilotMessage('Préchauffage local de « ' + profile.name + ' » (non chronométré)…');
           const samples = await runPilotCriterionConcurrency({
             testCase, warmup: true,
-            isStopped: () => pilotStopRef.current,
+            isStopped: () => pilotStopRef.current || evaluationAbortController.current?.signal.aborted === true,
             onProgress: (level, done, total) => setPilotMessage(
               profile.name + ' · ' + level + ' requête(s) simultanée(s) · ' + done + '/' + total + ' critère(s) terminés.'),
             executeCriterion: async (criterion) => {
@@ -2414,14 +2437,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               const criterionRubric = { title: PILOT_RUBRIC.title, criteria: [criterion] };
               const diagnosticRuns: DiagnosticModelResult[] = [];
               const started = performance.now();
-              const raw = await provider.generate({
+              const raw = await awaitOrAbort(() => provider.generate({
                 question: buildAssignmentContext({
                   title: PILOT_TITLE, description: '', educationLevel: 'Université', question: PILOT_QUESTION,
                 }),
                 rubric: rubricAsJson(criterionRubric),
                 transcription: testCase.transcription,
                 images: [],
-              }, undefined, undefined, undefined, (trace) => diagnosticRuns.push(trace));
+              }, undefined, undefined, undefined, (trace) => diagnosticRuns.push(trace), undefined, undefined, undefined, evaluationAbortController.current?.signal), evaluationAbortController.current!.signal);
               const elapsedMs = performance.now() - started;
               const proposal = parseGradingProposal(raw, criterionRubric,
                 config.correctionMethod === 'generative' ? testCase.transcription : undefined);
@@ -2500,6 +2523,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     }
     const runs: Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; promptMode?: DiagramSensitivityPromptMode }> = [];
     pilotStopRef.current = false;
+    evaluationAbortController.current = new AbortController();
     evaluationCancelledRef.current = false;
     pilotMemoryErrorRef.current = null;
     setPilotBusy(true);
@@ -2516,10 +2540,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           if (methods.includes('direct-image-generative-thinking')) {
             setDiagramProtocolProgress('Vérification Think · ' + profile.name + '…');
             if (!service.detectDiagramThinking) throw new Error('Vérification Think indisponible dans le service Ollama local.');
-            thinkSetting = await service.detectDiagramThinking(
+            thinkSetting = await awaitOrAbort(() => service.detectDiagramThinking!(
               profile.configuration.endpoint, profile.configuration.analysisModel,
               methodSelection === 'compare-thinking',
-            );
+            ), evaluationAbortController.current!.signal);
           }
           for (const method of methods) {
             for (const testCase of cases) {
@@ -2690,6 +2714,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const controller = new AbortController();
     blindGraphAbortRef.current = controller;
     pilotStopRef.current = false;
+    evaluationAbortController.current = new AbortController();
     setPilotBusy(true);
     try {
       for (const { profile, model } of choices) {
@@ -3936,7 +3961,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             {evaluationActivity.status === 'running' ? 'Suivre ce test'
               : evaluationActivity.status === 'completed' ? 'Voir les résultats' : 'Consulter ce test'}
           </button>
-          {evaluationActivity.status === 'running' && <Button variant="secondary" onClick={evaluationActivity.journey === 'custom' ? cancelModelEvaluation : stopPilotProtocol}>Arrêter après l’appel en cours</Button>}
+          {evaluationActivity.status === 'running' && <Button variant="secondary" onClick={evaluationActivity.journey === 'custom' ? cancelModelEvaluation : stopPilotProtocol}>Arrêter maintenant</Button>}
           {evaluationActivity.status !== 'running' && <button type="button" className="evaluation-activity-dismiss" aria-label="Masquer le bandeau" title="Masquer le bandeau" onClick={() => setEvaluationActivity(null)}>×</button>}
           {evaluationActivity.status === 'failed' && <EvaluationIssueButton makeReport={() => buildEvaluationIssueReport({
             journey: evaluationActivity.journey, status: evaluationActivity.status,
@@ -4743,7 +4768,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             journey: 'custom', targetId: 'evaluation-results', profiles: selectedEvaluationProfiles.map((profile) => profile.name).join(' · '),
           }, () => startModelEvaluation()); }}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button>{busy && <button type="button" className="secondary-button" onClick={cancelModelEvaluation}>Annuler après l’appel en cours</button>}</div>}
                 {evaluationWorkspaceStep === 'execution' && evaluationProgress && <section className="evaluation-progress" aria-labelledby="evaluation-progress-title" aria-live="polite">
-          <div className="evaluation-progress-heading"><div><p className="eyebrow">SUIVI DE L’EXPÉRIENCE</p><h3 id="evaluation-progress-title">{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation interrompue' : 'Évaluation en cours'}</h3><p>{evaluationProgress.status === 'completed' ? 'Toutes les configurations ont été traitées.' : evaluationProgress.status === 'cancelled' ? 'La séquence a été arrêtée après l’appel en cours.' : evaluationProgress.currentConfiguration ? 'La configuration active est indiquée ci-dessous.' : 'Préparation de la prochaine configuration…'}</p></div><strong className="evaluation-progress-counter">{evaluationProgress.completedSteps} / {evaluationProgress.totalSteps} étapes terminées</strong></div>
+          <div className="evaluation-progress-heading"><div><p className="eyebrow">SUIVI DE L’EXPÉRIENCE</p><h3 id="evaluation-progress-title">{evaluationProgress.status === 'completed' ? 'Évaluation terminée' : evaluationProgress.status === 'cancelled' ? 'Évaluation interrompue' : 'Évaluation en cours'}</h3><p>{evaluationProgress.status === 'completed' ? 'Toutes les configurations ont été traitées.' : evaluationProgress.status === 'cancelled' ? 'La requête en cours a été annulée.' : evaluationProgress.currentConfiguration ? 'La configuration active est indiquée ci-dessous.' : 'Préparation de la prochaine configuration…'}</p></div><strong className="evaluation-progress-counter">{evaluationProgress.completedSteps} / {evaluationProgress.totalSteps} étapes terminées</strong></div>
           <div className="evaluation-progress-track" role="progressbar" aria-label="Étapes de traitement terminées" aria-valuemin={0} aria-valuemax={evaluationProgress.totalSteps} aria-valuenow={evaluationProgress.completedSteps}><span style={{ width: (evaluationProgress.completedSteps / Math.max(1, evaluationProgress.totalSteps) * 100) + '%' }} /></div>
           <ol className="evaluation-configuration-steps" aria-label="Progression par configuration">{selectedEvaluationProfiles.map((profile, index) => { const active = evaluationProgress.currentConfiguration?.id === profile.id; const complete = index < evaluationProgress.completed || (evaluationProgress.status === 'completed' && index < evaluationProgress.total); const result = modelEvaluationResults.find((item) => item.profileId === profile.id); const failed = complete && result?.status === 'failed'; return <li key={profile.id} className={`evaluation-configuration-step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''} ${failed ? 'has-failed' : ''}`}><span className="evaluation-configuration-step-index" aria-hidden="true">{complete ? (failed ? '!' : '✓') : index + 1}</span><div><strong>{profile.name}</strong><span>{active ? (evaluationProgress.currentStage === 'analysis' ? (evaluationVisualDirect && profile.configuration.correctionMethod === 'decision' && isVisualDecisionModel(profile.configuration.analysisModel) ? 'En cours maintenant · décision visuelle directe' : 'En cours maintenant · analyse · lecture terminée') : evaluationProgress.currentStage === 'reading' ? 'En cours maintenant · lecture' : 'En cours maintenant · préparation') : complete ? (failed ? 'Échec — voir le détail' : 'Terminé') : 'En attente'}</span><small>{evaluationStageMode === 'integrated' && evaluationVisualDirect && profile.configuration.correctionMethod === 'decision' && isVisualDecisionModel(profile.configuration.analysisModel) ? 'Image → System One direct · ' + profile.configuration.analysisModel : (profile.configuration.visionModel || 'Vision non définie') + ' → ' + (profile.configuration.analysisModel || 'Analyse non définie')}</small></div>{active && <span className="evaluation-active-pill">EN COURS</span>}</li>; })}</ol>
           {evaluationProgress.status === 'running' && <div className="evaluation-phase-panel"><strong>{evaluationStage === 'preparing' ? '1. Préparation des modèles' : evaluationStage === 'reading' ? '2. Lecture des images et extraction du texte' : evaluationStage === 'grading' ? (evaluationProgress.currentConfiguration?.directVisualDecision ? 'Décision sur la preuve visuelle (sans OCR)' : '3. Analyse de la copie et attribution des notes') : evaluationStage === 'parsing' ? '4. Structuration et vérification du résultat' : evaluationStage === 'saving' ? '5. Enregistrement de l’expérience' : 'Initialisation'}</strong><p>{evaluationStage === 'preparing' ? 'Vérification de la disponibilité des modèles Ollama avant de commencer cette configuration.' : evaluationStage === 'reading' ? 'Le modèle Vision traite les images originales de la copie.' : evaluationStage === 'grading' ? (evaluationProgress.currentConfiguration?.directVisualDecision ? 'D1/D3 évalue directement les images selon les attendus du barème. Les décisions restent provisoires.' : 'Le modèle d’analyse confronte la transcription au barème et prépare les notes.') : evaluationStage === 'parsing' ? 'La réponse est convertie en critères, notes et justifications exploitables.' : evaluationStage === 'saving' ? 'Les résultats, les images et le barème sont enregistrés dans l’historique local.' : 'Mise en place de la séquence de test.'}</p></div>}

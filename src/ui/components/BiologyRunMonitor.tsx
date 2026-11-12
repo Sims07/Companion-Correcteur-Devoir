@@ -116,7 +116,7 @@ export function BiologyRunMonitor({
     </ol>
     <footer className="biology-run-footer">
       <p>Les réponses de référence sont intégrées : aucune transcription à saisir. Vous pouvez consulter les résultats détaillés une fois la campagne terminée.</p>
-      <button type="button" className="secondary-button" onClick={onStop}>Arrêter après l’appel en cours</button>
+      <button type="button" className="secondary-button" onClick={onStop}>Arrêter maintenant</button>
     </footer>
   </section>;
 }

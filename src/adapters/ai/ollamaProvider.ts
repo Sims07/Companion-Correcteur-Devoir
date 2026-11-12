@@ -197,6 +197,7 @@ function normalizedEndpoint(endpoint: string): string {
 export async function checkOllamaReady(
   settings: OllamaSettings,
   fetchImpl: typeof fetch = currentFetch,
+  signal?: AbortSignal,
 ): Promise<void> {
   const endpoint = normalizedEndpoint(settings.endpoint);
   const model = settings.model?.trim() || settings.visionModel?.trim() || settings.analysisModel?.trim() || '';
@@ -210,6 +211,7 @@ export async function checkOllamaReady(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model, stream: false, messages: [{ role: 'user', content: MODEL_READINESS_PROBE_PROMPT }] }),
+        ...(signal ? { signal } : {}),
       }, 'Vérifier la disponibilité du modèle', `Modèle ${model}`));
     } catch {
       throw new Error('Serveur compatible OpenAI injoignable. Vérifiez son adresse et sa disponibilité.');
@@ -220,7 +222,7 @@ export async function checkOllamaReady(
 
   let tagsResponse: Response;
   try {
-    tagsResponse = await fetchImpl(`${endpoint}/api/tags`, annotateNetworkRequest({}, 'Vérifier la disponibilité du modèle', `Recherche du modèle ${model}`));
+    tagsResponse = await fetchImpl(`${endpoint}/api/tags`, annotateNetworkRequest(signal ? { signal } : {}, 'Vérifier la disponibilité du modèle', `Recherche du modèle ${model}`));
   } catch {
     throw new Error('Serveur Ollama injoignable. Vérifiez qu’Ollama est démarré et que son adresse est correcte.');
   }
@@ -236,6 +238,7 @@ export async function checkOllamaReady(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model }),
+      ...(signal ? { signal } : {}),
     }, 'Vérifier la disponibilité du modèle', `Vérification des métadonnées de ${model}`));
   } catch {
     throw new Error(`Le modèle « ${model} » est installé, mais Ollama ne répond pas à /api/show.`);

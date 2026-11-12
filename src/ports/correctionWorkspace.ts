@@ -40,7 +40,7 @@ export type DiagramThinkSetting = true | string;
 /** Outbound ports required by the correction workspace. */
 export interface OllamaGateway {
   prepareQuestionContracts?(rubric: Rubric, sources: ContractSources, settings: OllamaSettings, onProgress?: (message: string) => void, signal?: AbortSignal): Promise<ContractPreparation>;
-  checkReady(settings: OllamaSettings): Promise<void>;
+  checkReady(settings: OllamaSettings, signal?: AbortSignal): Promise<void>;
   /** Optional local Ollama model-metadata probe for scientific diagram experiments. */
   detectDiagramThinking?(endpoint: string, model: string, requireThinkOff?: boolean): Promise<DiagramThinkSetting>;
   /** Laboratory-only: blind pixel observation via selected provider; no grading rubric in this request. */
