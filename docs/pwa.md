@@ -78,3 +78,21 @@ Ne pas publier le port 11434 sur Internet ni utiliser un proxy cloud pour
 contourner ces protections : les copies doivent rester locales. Sur Safari,
 une alternative est l'application locale démarrée via `npm run dev`, ou un
 reverse-proxy HTTPS de confiance sur le Mac.
+
+
+### Plusieurs PWA sur le même domaine GitHub Pages
+
+Le manifeste donne à Compagnon un identifiant stable et **propre à son
+répertoire** : `/Companion-Correcteur-Devoir/`. Ne jamais utiliser `id: "."`
+sur GitHub Pages : Chrome résout ce champ depuis l'origine
+`https://sims07.github.io/`, ce qui provoque un conflit d'identité avec
+d'autres PWA installées sur le même domaine (par exemple Saveurs & Notes).
+
+Le `start_url` et le `scope` restent relatifs au fichier manifeste et
+limités à `/Companion-Correcteur-Devoir/`.
+
+Pour une installation Chrome déjà affectée, conserver les données et les
+sauvegardes existantes. Une fois le nouveau manifeste déployé, installer
+**Compagnon Correcteur** comme application distincte depuis Chrome. Si
+Saveurs & Notes continue à proposer l'ouverture des liens Compagnon, vérifier
+son installation d'origine ; ne supprimer aucune donnée de site sans sauvegarde.
