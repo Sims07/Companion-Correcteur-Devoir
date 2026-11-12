@@ -31,7 +31,7 @@ it('keeps one biology objective visible, preserves repetition choices and leaves
   expect(button('Comparer les méthodes')).toBeUndefined();
   expect(container.querySelector('[aria-label="Suivi du test biologique"]')).not.toBeNull();
   expect(container.querySelector('[aria-label="Progression de l’étape biologique"]')).not.toBeNull();
-  await act(async () => button('Arrêter après l’appel en cours').click());
+  await act(async () => button('Arrêter maintenant').click());
   expect(onStop).toHaveBeenCalledOnce();
   await act(async () => root.render(createElement(PilotEvaluationPanel, { ...props, busy: false })));
   expect(button('Comparer les méthodes')).toBeDefined();

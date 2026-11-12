@@ -165,7 +165,7 @@ describe('teacher and AI diagnostic interface modes', () => {
     expect(text).toContain('evaluationStage === \'grading\'');
     expect(text).toContain('evaluationStage === \'parsing\'');
     expect(text).toContain('evaluationStage === \'saving\'');
-    expect(text).toContain('setEvaluationProgress((current) => current ? { ...current, completed: outputs.length, currentConfiguration: null, status: \'running\' } : current)');
+    expect(text).toContain("status: abortController.signal.aborted ? 'cancelled' : 'running'");
     expect(styles).toContain('.evaluation-configuration-step.is-active');
     expect(styles).toContain('.evaluation-configuration-step.is-complete');
     expect(styles).toContain('.evaluation-phase-panel');
