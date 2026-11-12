@@ -120,7 +120,7 @@ describe('lecture graphe visuel sans barème', () => {
     expect(() => parseObservedVisualGraph(JSON.stringify({ ...graph(), arrows: [{ first: '', second: 'B', tip: 'first' }] }))).toThrow('arrows[0].first');
     expect(() => parseObservedVisualGraph(JSON.stringify({ ...graph(), labels: [''] }))).toThrow('labels[0]');
   });
-  it('accepts explicit OpenAI-compatible Vision profiles, not remote Ollama or missing Vision models', () => {
+  it('accepts the explicitly configured Ollama server (including LAN) or an OpenAI-compatible API', () => {
     const profile: AiModelProfile = {
       id: 'cloud', name: 'OpenAI Vision', mode: 'single', updatedAt: '2026-11-09',
       configuration: { ...defaultAiModelConfiguration, endpoint: 'https://ai.zaup.org/v1/chat/completions',
@@ -131,6 +131,20 @@ describe('lecture graphe visuel sans barème', () => {
     expect(canObserveBlindGraph({ ...profile, configuration: { ...profile.configuration, endpoint: 'http://remote.example/v1/chat/completions' } })).toBe(false);
     expect(canObserveBlindGraph({ ...profile, configuration: { ...profile.configuration, visionModel: '', analysisModel: '' } })).toBe(false);
     expect(canObserveBlindGraph({ ...profile, configuration: { ...profile.configuration, endpoint: 'http://localhost:11434', apiCompatible: false, apiKey: '' } })).toBe(true);
+    const lanOllama = { ...profile, configuration: {
+      ...profile.configuration, endpoint: 'http://192.168.1.42:11434', apiCompatible: false, apiKey: '',
+    } };
+    expect(canObserveBlindGraph(lanOllama)).toBe(true);
+    expect(blindGraphProfileIssue(lanOllama)).toBeNull();
+    expect(canObserveBlindGraph({ ...lanOllama, configuration: {
+      ...lanOllama.configuration, endpoint: 'https://ollama.home.example',
+    } })).toBe(true);
+    expect(blindGraphProfileIssue({ ...lanOllama, configuration: {
+      ...lanOllama.configuration, endpoint: 'http://192.168.1.42:11434/api/chat',
+    } })).toContain('adresse racine');
+    expect(canObserveBlindGraph({ ...lanOllama, configuration: {
+      ...lanOllama.configuration, endpoint: 'http://me:secret@192.168.1.42:11434',
+    } })).toBe(false);
   });
 
   it('runs any saved generative Vision model even when correction mode is decision-only', () => {

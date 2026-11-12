@@ -224,6 +224,39 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     await act(async () => root.unmount());
   });
 
+  it('explains an invalid graph endpoint and copies the launch error in one click', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { clipboard: { writeText } }));
+    const invalidProfile: AiModelProfile = {
+      ...profile, configuration: { ...profile.configuration, endpoint: 'http://192.168.1.42:11434/api/chat' },
+    };
+    const invalidRequest: RadarMissingTestRequest = {
+      ...plan, id: 123,
+      steps: [{ ...plan.steps[0]!, protocol: 'graph', method: 'compare' }],
+    };
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    const invoked = vi.fn();
+    await act(async () => root.render(createElement(ScientificDiagramProtocolPanel, {
+      selectedProfiles: [invalidProfile], busy: false, progress: '', onPrepareImages: vi.fn(),
+      onRun: vi.fn(), onRunFixtures: invoked, onRunSensitivity: invoked, onRunBlindGraph: invoked,
+      onStop: vi.fn(), report: null, fixtureReport: null, sensitivityReport: null, blindGraphReport: null,
+      onClearReport: vi.fn(), onClearFixtureReport: vi.fn(), onClearSensitivityReport: vi.fn(),
+      onClearBlindGraphReport: vi.fn(), autoRequest: invalidRequest, onAutoRequestConsumed: vi.fn(),
+    })));
+    const feedback = container.querySelector('[aria-label="Suivi du lancement depuis le radar"]');
+    expect(feedback?.textContent).toContain('Cause :');
+    expect(feedback?.textContent).toContain('adresse racine');
+    const copy = [...container.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Copier l’erreur'));
+    expect(copy).toBeDefined();
+    await act(async () => (copy as HTMLButtonElement).click());
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('adresse racine'));
+    expect(feedback?.textContent).toContain('Erreur copiée.');
+    expect(invoked).not.toHaveBeenCalled();
+    await act(async () => root.unmount());
+  });
+
   it('waits for exact profile selection, never calls a different configured model', async () => {
     const container = document.createElement('div');
     const root = createRoot(container);

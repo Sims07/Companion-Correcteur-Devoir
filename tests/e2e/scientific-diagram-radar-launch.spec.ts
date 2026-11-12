@@ -12,13 +12,30 @@ const report = buildBlindVisualObservationReport(DIAGRAM_SENSITIVITY_CASES.map((
   observations: { ...item.gold }, arrowCount: 2, containmentCount: 1,
 })), 1, '2026-11-10T12:00:00Z');
 
-test('the dashboard starts scientific batteries directly for a generative model with no separate Vision model', async ({ page }) => {
+test('the dashboard launches scientific batteries on a configured Ollama LAN host', async ({ page }) => {
+  const ollamaRequests: string[] = [];
+  await page.route('http://192.168.1.42:11434/**', async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*',
+      'access-control-allow-methods': 'GET,POST,OPTIONS', 'content-type': 'application/json' };
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers });
+      return;
+    }
+    ollamaRequests.push(path);
+    await route.fulfill({ status: 200, headers, body: JSON.stringify(path === '/api/tags'
+      ? { models: [{ name: 'gemma4:e4b', model: 'gemma4:e4b' }] }
+      : path === '/api/show'
+        ? { model_info: {}, capabilities: ['completion', 'vision'] }
+        : { message: { content: '{"summary":"essai","criteria":[]}' }, done: true, done_reason: 'stop' }) });
+  });
   await page.goto('/');
   await page.evaluate((configuration) => {
     localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
       id: 'gemma-no-vision', name: 'Gemma directe', mode: 'single',
       updatedAt: '2026-11-12T10:00:00Z',
-      configuration: { ...configuration, visionModel: '', analysisModel: 'gemma4:e4b',
+      configuration: { ...configuration, endpoint: 'http://192.168.1.42:11434',
+        apiCompatible: false, visionModel: '', analysisModel: 'gemma4:e4b',
         generativeModel: 'gemma4:e4b', correctionMethod: 'generative' },
     }]));
   }, defaultAiModelConfiguration);
@@ -37,6 +54,10 @@ test('the dashboard starts scientific batteries directly for a generative model 
   await expect(page.getByRole('status', { name: 'Suivi du lancement depuis le radar' })).toBeVisible();
   await expect(page.getByRole('status', { name: 'Dernière expérience lancée' }))
     .toContainText('Schémas scientifiques · qualité graphique A/B/C');
+  // The former graph-only localhost check aborted before any Ollama request.
+  await expect.poll(() => ollamaRequests.includes('/api/chat'), { timeout: 30_000 }).toBe(true);
+  await expect(page.getByRole('status', { name: 'Suivi du lancement depuis le radar' }))
+    .not.toContainText('Lancement impossible');
 });
 
 test('a missing radar axis leads directly to its automatic fixture battery on the same saved profile', async ({ page }) => {
