@@ -82,3 +82,69 @@ test('exports data from localhost and restores it without overwriting unrelated 
   await panel.getByRole('button', { name: 'Recharger l’application' }).click();
   await expect(page.getByRole('button', { name: 'Évaluer les modèles' })).toBeVisible();
 });
+
+
+test('a backup restores both biology radar scores when the destination PWA has initialized an empty history', async ({ page }) => {
+  const key = 'companion:biology-teacher-radar:v1';
+  await page.goto('/');
+  await page.evaluate((key) => {
+    const rows = ['biology-alpha', 'biology-beta'].flatMap((model) =>
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((caseId) => ({
+        id: model + ':' + caseId, campaignId: 'migration-' + model,
+        model, profileId: model, profile: model,
+        provider: 'ollama', method: 'generative', protocol: 'contract', caseId,
+        recordedAt: '2026-11-12T19:00:00Z', status: 'success',
+        score: 5, referenceScore: 5,
+        decisions: Array.from({ length: 10 }, (_, i) => ({
+          id: 'biology-criterion-' + i, expected: i < 5 ? 1 : 0, awarded: i < 5 ? 1 : 0,
+        })),
+      })));
+    localStorage.setItem(key, JSON.stringify(rows));
+  }, key);
+  await page.reload();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  const home = page.getByRole('region', { name: 'Tableau de bord des radars' });
+  await home.getByLabel('Choisir un LLM').selectOption('biology-alpha');
+  await expect(home.getByRole('article', { name: 'Biologie' }).locator('.radar-home-score')).toHaveText('100 / 100');
+
+  await openCustomTests(page);
+  await page.getByRole('navigation', { name: 'Navigation principale' })
+    .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+  const panel = page.getByRole('region', { name: 'Occupation du stockage local' });
+  const downloaded = page.waitForEvent('download');
+  await panel.getByRole('button', { name: 'Télécharger ma sauvegarde' }).click();
+  const file = await downloaded;
+  const backup = JSON.parse(await readFile(await file.path(), 'utf8'));
+  expect(JSON.parse(backup.localStorage[key])).toHaveLength(14);
+
+  // New origin: the already mounted App has persisted [] before opening the importer.
+  await page.evaluate((key) => localStorage.setItem(key, '[]'), key);
+  await page.reload();
+  expect(await page.evaluate((key) => localStorage.getItem(key), key)).toBe('[]');
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
+  await page.getByRole('navigation', { name: 'Navigation principale' })
+    .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+  const restoredPanel = page.getByRole('region', { name: 'Occupation du stockage local' });
+  await restoredPanel.locator('#backup-restore-file').setInputFiles({
+    name: 'backup-with-biology.json', mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(backup)),
+  });
+  await expect(restoredPanel.getByText(/Radar Biologie : 14 observation/)).toBeVisible();
+  await restoredPanel.getByRole('button', { name: 'Restaurer la sauvegarde' }).click();
+  await expect(restoredPanel.getByText(/Restauration terminée/)).toBeVisible();
+  expect(JSON.parse((await page.evaluate((key) => localStorage.getItem(key), key))!)).toHaveLength(14);
+  await restoredPanel.getByRole('button', { name: 'Recharger l’application' }).click();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  const radars = page.getByRole('region', { name: 'Tableau de bord des radars' });
+  const biography = radars.getByRole('article', { name: 'Biologie' });
+  for (const model of ['biology-alpha', 'biology-beta']) {
+    await radars.getByLabel('Choisir un LLM').selectOption(model);
+    await expect(biography.locator('.radar-home-score')).toHaveText('100 / 100');
+    await expect(biography).toContainText('5/5 axes');
+  }
+  const nav = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
+  await nav.getByRole('button', { name: 'Campagnes' }).click();
+  const campaigns = page.getByRole('region', { name: 'Campagnes d’évaluation' });
+  await expect(campaigns.locator('.campaign-index-item')).toHaveCount(2);
+});

@@ -164,4 +164,80 @@ describe('portable local backup (localhost to PWA)', () => {
     expect(settings.getItem('companion-correcteur:first')).toBeNull();
     expect(settings.getItem('companion-correcteur:second')).toBeNull();
   });
+
+  it('restores all biology radar axes from an existing backup even when a fresh PWA has saved []', async () => {
+    const key = 'companion:biology-teacher-radar:v1';
+    const observations = ['qwen:4b', 'gemma:4b'].flatMap((model) =>
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((caseId) => ({
+        id: model + ':' + caseId, profileId: model, profile: model, model,
+        provider: 'ollama', method: 'generative', protocol: 'contract',
+        caseId, recordedAt: '2026-11-11T12:00:00Z', status: 'success',
+        score: 10, referenceScore: 10,
+        decisions: Array.from({ length: 10 }, (_, index) => ({ id: 'q' + index, expected: 1, awarded: 1 })),
+      })));
+    settings.setItem(key, JSON.stringify(observations));
+    const saved = parseLocalBackup(JSON.stringify(await createLocalBackup(settings)));
+    expect(saved.localStorage[key]).toContain('qwen:4b');
+    expect(summarizeLocalBackup(saved).biologyObservationCount).toBe(14);
+
+    settings.clear();
+    // Simulate the App mount in a fresh PWA before the user imports.
+    settings.setItem(key, '[]');
+    expect((await restoreLocalBackup(saved, 'merge', settings)).settingsImported).toBe(1);
+    const imported = JSON.parse(settings.getItem(key)!);
+    expect(imported).toHaveLength(14);
+    const { buildBiologyRadar } = await import('../../../src/domain/biologyTeacherRadar.ts');
+    const radars = buildBiologyRadar(imported, 'contract');
+    expect(radars).toHaveLength(2);
+    expect(radars.map((r) => r.score)).toEqual([100, 100]);
+    expect(radars.every((r) => r.measured === 5)).toBe(true);
+    // Reimporting exactly the same backup must not duplicate history.
+    await restoreLocalBackup(saved, 'merge', settings);
+    expect(JSON.parse(settings.getItem(key)!)).toHaveLength(14);
+  });
+
+  it('merges biology history by stable ID and respects merge/update conflicts without losing target-only tests', async () => {
+    const key = 'companion:biology-teacher-radar:v1';
+    const fromSource = [
+      { id: 'same', model: 'qwen', caseId: 'A', protocol: 'contract', recordedAt: '2026-11-12', decisions: [], score: 8 },
+      { id: 'new', model: 'qwen', caseId: 'B', protocol: 'contract', recordedAt: '2026-11-12', decisions: [], score: 10 },
+    ];
+    settings.setItem(key, JSON.stringify(fromSource));
+    const saved = await createLocalBackup(settings);
+    const targetOnly = { id: 'target-only', model: 'local', caseId: 'C', decisions: [] };
+    settings.setItem(key, JSON.stringify([{ ...fromSource[0], score: 6 }, targetOnly]));
+    await restoreLocalBackup(saved, 'merge', settings);
+    expect(JSON.parse(settings.getItem(key)!)).toEqual([
+      { ...fromSource[0], score: 6 }, targetOnly, fromSource[1],
+    ]);
+    await restoreLocalBackup(saved, 'update', settings);
+    expect(JSON.parse(settings.getItem(key)!)).toEqual([
+      fromSource[0], targetOnly, fromSource[1],
+    ]);
+  });
+
+  it('restores notification and assignment collections without losing destination-only entries on update', async () => {
+    const notificationKey = 'companion-correcteur:notifications:v1';
+    const assignmentsKey = 'companion-correcteur:assignments:v1';
+    settings.setItem(notificationKey, JSON.stringify([{ id: 'old', title: 'Notification sauvegardée' }]));
+    settings.setItem(assignmentsKey, JSON.stringify([{ id: 'old', title: 'Devoir sauvegardé' }]));
+    const saved = await createLocalBackup(settings);
+    settings.setItem(notificationKey, JSON.stringify([{ id: 'new', title: 'Notification récente' }]));
+    settings.setItem(assignmentsKey, JSON.stringify([{ id: 'new', title: 'Devoir récent' }]));
+    await restoreLocalBackup(saved, 'update', settings);
+    expect(JSON.parse(settings.getItem(notificationKey)!)).toEqual([
+      { id: 'new', title: 'Notification récente' }, { id: 'old', title: 'Notification sauvegardée' },
+    ]);
+    expect(JSON.parse(settings.getItem(assignmentsKey)!)).toEqual([
+      { id: 'new', title: 'Devoir récent' }, { id: 'old', title: 'Devoir sauvegardé' },
+    ]);
+  });
+
+  it('reports zero biology observations when the original file never contained the history', async () => {
+    const original = await createLocalBackup(settings);
+    expect(summarizeLocalBackup(original).biologyObservationCount).toBe(0);
+    original.localStorage['companion:biology-teacher-radar:v1'] = '[]';
+    expect(summarizeLocalBackup(original).biologyObservationCount).toBe(0);
+  });
+
 });

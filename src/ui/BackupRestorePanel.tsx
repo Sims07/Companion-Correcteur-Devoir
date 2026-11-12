@@ -36,7 +36,8 @@ export function BackupRestorePanel({ onRestored }: Props) {
         window.setTimeout(() => URL.revokeObjectURL(link), 10_000);
       }
       const summary = summarizeLocalBackup(backup);
-      setMessage('Sauvegarde téléchargée : ' + summary.recordCount + ' enregistrement(s) et ' + summary.settingCount + ' réglage(s).');
+      setMessage('Sauvegarde téléchargée : ' + summary.recordCount + ' enregistrement(s), '
+        + summary.settingCount + ' réglage(s), ' + summary.biologyObservationCount + ' observation(s) Biologie.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible de sauvegarder les données.');
     } finally { setWorking(false); }
@@ -105,8 +106,13 @@ export function BackupRestorePanel({ onRestored }: Props) {
       {preview && <div className="backup-restore-preview" role="status">
         <strong>{fileName}</strong>
         <span>Créée le {new Date(preview.createdAt).toLocaleString('fr-FR')} · {preview.recordCount} enregistrement(s) · {preview.settingCount} réglage(s)</span>
+        <span><strong>Radar Biologie : {preview.biologyObservationCount} observation(s) dans ce fichier.</strong></span>
         <span>Copies, corrections, évaluations, radars, campagnes et configuration, selon les données effectivement enregistrées.</span>
       </div>}
+      {preview && preview.biologyObservationCount === 0 && <p className="storage-usage-notice is-warning" role="status">
+        Ce fichier ne contient pas d’observations du radar Biologie. Si tes résultats existent encore sur localhost,
+        refais une sauvegarde depuis cette installation avant de réessayer.
+      </p>}
       {preview && <p className="backup-restore-guidance">Sur une nouvelle PWA, cochez « Mettre à jour » pour reprendre aussi votre devoir par défaut et vos réglages IA de localhost. Les données absentes du fichier ne seront jamais supprimées.</p>}
       {preview && <label className="backup-restore-mode">
         <input type="checkbox" checked={mode === 'update'} disabled={working}
