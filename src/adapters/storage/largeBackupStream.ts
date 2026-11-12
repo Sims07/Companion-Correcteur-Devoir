@@ -272,7 +272,7 @@ export async function inspectLargeBackup(file: Blob, progress?: Progress): Promi
 }
 
 function blankStores(): LocalBackup['indexedDb']['stores'] {
-  return Object.fromEntries(STORES.map((store) => [store, []])) as LocalBackup['indexedDb']['stores'];
+  return Object.fromEntries(STORES.map((store) => [store, []])) as unknown as LocalBackup['indexedDb']['stores'];
 }
 
 export async function restoreLargeBackup(
