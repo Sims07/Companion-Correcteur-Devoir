@@ -24,8 +24,8 @@ describe('campaign result status and support actions', () => {
     expect(html).toContain('Résultats partiels');
     expect(html).toContain('1/2 notes exploitables');
     expect(html).toContain('Partager le diagnostic');
-    expect(html).toContain('modèle 0/10'); // a real zero remains a valid grade
-    expect(html).toContain('modèle —/10');
+    expect(html).toContain('>0/10<'); // a real zero remains a valid grade
+    expect(html).toContain('>—/10<');
   });
 
   it('recognizes zero as a valid grade and does not show an error action for complete campaigns', () => {
@@ -33,6 +33,14 @@ describe('campaign result status and support actions', () => {
     expect(html).toContain('Terminée');
     expect(html).toContain('1/1 notes exploitables');
     expect(html).not.toContain('Partager le diagnostic');
+  });
+
+  it('presents a unified history with a selected report and filters', () => {
+    const html = render([observation('G', 0)]);
+    expect(html).toContain('Historique des évaluations');
+    expect(html).toContain('Campagnes enregistrées');
+    expect(html).toContain('Notes par copie');
+    expect(html).toContain('aria-pressed="true"');
   });
 
   it('never offers an error report for a campaign still running', () => {

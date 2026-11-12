@@ -26,8 +26,11 @@ test('radar opens on LLM selection and score, while archive tools stay with camp
   await navigation.getByRole('button', { name: 'Campagnes' }).click();
   await page.getByRole('button', { name: 'Archives scientifiques' }).click();
   await expect(page.getByRole('heading', { name: 'Campagnes de test' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Retour aux campagnes/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Importer un ancien JSON' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Actualiser', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /Retour aux campagnes/ }).click();
+  await expect(page.getByRole('heading', { name: 'Historique des évaluations' })).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await navigation.getByRole('button', { name: 'Radars' }).click();
