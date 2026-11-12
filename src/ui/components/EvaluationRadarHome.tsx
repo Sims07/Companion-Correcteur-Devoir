@@ -12,8 +12,10 @@ import {
   resolveModelProfile,
   type RadarMissingTestRequest,
 } from '../../domain/diagramLabRadarLaunch.ts';
-import { buildBiologyRadar, type BiologyRadarObservation } from '../../domain/biologyTeacherRadar.ts';
+import { buildBiologyRadar, type BiologyRadarCandidate, type BiologyRadarObservation } from '../../domain/biologyTeacherRadar.ts';
 import { BiologyRadarPlot } from './BiologyTeacherRadar.tsx';
+import { BiologyRadarComparisonPlot } from './BiologyRadarComparisonPlot.tsx';
+import { RADAR_COMPARISON_COLORS } from './RadarComparisonPalette.ts';
 import { RadarPlot, restoredWeights } from './ScientificDiagramRadar.tsx';
 import './EvaluationRadarHome.css';
 
@@ -53,11 +55,34 @@ export function EvaluationRadarHome({
   const models = [...new Set([...science.map((c) => c.id), ...history.map((o) => o.model)])].sort();
   const selected = models.includes(model) ? model : (science[0]?.id ?? models[0] ?? '');
   const [comparison, setComparison] = useState(false);
+  const [comparedModels, setComparedModels] = useState<string[]>([]);
+  const availableComparisons = models.filter((name) => name !== selected);
+  const compared = comparison
+    ? comparedModels.filter((name) => name !== selected && models.includes(name)).slice(0, 3)
+    : [];
+  const seriesColors = Object.fromEntries([selected, ...compared].map((name, index) =>
+    [name, RADAR_COMPARISON_COLORS[index % RADAR_COMPARISON_COLORS.length]!]));
+  const measuredFor = (name: string) =>
+    (science.find((candidate) => candidate.id === name)?.measured ?? 0) / 8 +
+    Math.max(0, ...biology.filter((candidate) => candidate.name === name)
+      .map((candidate) => candidate.measured / 5));
   const [expanded, setExpanded] = useState<RadarDomain>('diagrams');
   const [variantId, setVariantId] = useState('');
   const variants = biology.filter((c) => c.name === selected);
   const bio = variants.find((c) => c.id === variantId) ?? variants[0];
   const sci = science.find((c) => c.id === selected);
+  const sciences = [sci, ...compared.map((name) => science.find((c) => c.id === name))]
+    .filter((candidate): candidate is NonNullable<typeof sci> => candidate !== undefined);
+  // All biological results here use the same "contract by question" benchmark.
+  // When a model has several provider/method variants, prefer the one with the
+  // most measured axes, and use matching setup as a tie-breaker.
+  const comparedBiology = (name: string): BiologyRadarCandidate | undefined =>
+    biology.filter((candidate) => candidate.name === name).sort((a, b) =>
+      b.measured - a.measured ||
+      Number(b.method === bio?.method && b.provider === bio?.provider) -
+        Number(a.method === bio?.method && a.provider === bio?.provider))[0];
+  const biologies = [bio, ...compared.map(comparedBiology)]
+    .filter((candidate): candidate is BiologyRadarCandidate => candidate !== undefined);
   const plan = sci && resolveModelProfile(profiles, 'model', sci, planRadarModelEvaluation(sci));
   const profile = profiles.find(
     (p) =>
@@ -74,7 +99,14 @@ export function EvaluationRadarHome({
       <header>
         <label>
           Choisir un LLM
-          <select value={selected} disabled={!models.length} onChange={(e) => choose(e.target.value)}>
+          <select value={selected} disabled={!models.length} onChange={(event) => {
+            const next = event.target.value;
+            if (comparison && comparedModels.includes(next) && selected !== next) {
+              // Promoting a compared LLM to primary should not silently lose the overlay.
+              setComparedModels([...comparedModels.filter((name) => name !== next && name !== selected), selected].slice(0, 3));
+            }
+            choose(next);
+          }}>
             {!models.length && <option value="">Aucun modèle configuré ou testé</option>}
             {models.map((name) => (
               <option key={name}>{name}</option>
@@ -82,43 +114,49 @@ export function EvaluationRadarHome({
           </select>
         </label>
         {models.length > 1 && (
-          <Button variant="secondary" aria-expanded={comparison} onClick={() => setComparison(!comparison)}>
-            Comparer les LLM
+          <Button variant="secondary" aria-expanded={comparison} onClick={() => {
+            if (comparison) { setComparison(false); return; }
+            if (!comparedModels.some((name) => name !== selected && models.includes(name))) {
+              // Open on an actual measured candidate instead of an empty overlay.
+              const preferred = [...availableComparisons].sort((a, b) => measuredFor(b) - measuredFor(a))[0];
+              if (preferred) setComparedModels([preferred]);
+            }
+            setComparison(true);
+          }}>
+            {comparison ? 'Masquer la comparaison' : 'Comparer les LLM'}
           </Button>
         )}
         <Button variant="secondary" onClick={manage}>Gérer les configurations</Button>
       </header>
       {comparison && (
-        <div className="radar-comparison">
-          <table>
-            <caption>Notes complètes par domaine</caption>
-            <thead>
-              <tr>
-                <th>LLM</th>
-                <th>Schémas scientifiques</th>
-                <th>Biologie · contrat par question</th>
-              </tr>
-            </thead>
-            <tbody>
-              {models.map((name) => (
-                <tr key={name}>
-                  <th>
-                    <Button variant="secondary" onClick={() => choose(name)}>{name}</Button>
-                  </th>
-                  <td>{score(science.find((c) => c.id === name)?.weightedScore)}</td>
-                  <td>
-                    {biology
-                      .filter((c) => c.name === name)
-                      .map((c) => (
-                        <div key={c.id}>
-                          {score(c.score)} · {c.provider} · {c.method}
-                        </div>
-                      ))}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="radar-home-compare-controls" role="group" aria-label="Modèles à superposer">
+          <span>Comparer sur les deux radars</span>
+          <div className="radar-home-compare-chips">
+            {compared.map((name) => (
+              <span className="radar-home-compare-chip" key={name}>
+                {name}
+                <button type="button" aria-label={'Retirer ' + name + ' de la comparaison'}
+                  onClick={() => setComparedModels(compared.filter((candidate) => candidate !== name))}>
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+          {compared.length < 3 && (
+            <label>
+              Ajouter un LLM
+              <select aria-label="Ajouter un LLM à la comparaison" value=""
+                onChange={(event) => {
+                  if (event.target.value && !compared.includes(event.target.value)) {
+                    setComparedModels([...compared, event.target.value]);
+                  }
+                }}>
+                <option value="">Choisir un modèle…</option>
+                {availableComparisons.filter((name) => !compared.includes(name))
+                  .map((name) => <option key={name} value={name}>{name}</option>)}
+              </select>
+            </label>
+          )}
         </div>
       )}
       <div className="radar-home-pair">
@@ -169,9 +207,36 @@ export function EvaluationRadarHome({
               </div>
               <div className="radar-home-plot">
                 {scientific ? (
-                  <RadarPlot candidates={sci ? [sci] : []} />
+                  <RadarPlot candidates={comparison ? sciences : sci ? [sci] : []} colors={comparison ? seriesColors : undefined} />
+                ) : comparison ? (
+                  <BiologyRadarComparisonPlot candidates={biologies} colors={seriesColors} />
                 ) : (
                   <BiologyRadarPlot candidate={bio} />
+                )}
+                {comparison && (
+                  <div className="radar-home-legend" aria-label={'Modèles comparés en ' + domainLabels[domain]}>
+                    {(scientific ? sciences.map((candidate) => ({
+                      id: candidate.id, name: candidate.name, measured: candidate.measured,
+                      value: candidate.complete ? candidate.weightedScore : observedRadarScore(candidate, weights),
+                      context: '',
+                    })) : biologies.map((candidate) => ({
+                      id: candidate.id, name: candidate.name, measured: candidate.measured,
+                      value: candidate.score ?? candidate.partialScore,
+                      context: candidate.provider + ' · ' + candidate.method,
+                    }))).map((candidate, index) => (
+                      <div key={candidate.id} className="radar-home-legend-item">
+                        <span className="radar-home-legend-color" aria-hidden="true"
+                          style={{ background: seriesColors[candidate.name] ?? RADAR_COMPARISON_COLORS[index % RADAR_COMPARISON_COLORS.length] }} />
+                        <div>
+                          <strong>{candidate.name}</strong>
+                          {candidate.context && <small>{candidate.context}</small>}
+                          <span>{candidate.measured ? score(candidate.value) : 'Non évalué'}</span>
+                          <small>{candidate.measured === total ? 'Note globale'
+                            : 'Indice partiel · ' + candidate.measured + '/' + total + ' axes'}</small>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
               <div className="radar-home-actions">

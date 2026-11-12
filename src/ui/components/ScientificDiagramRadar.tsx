@@ -6,8 +6,8 @@ import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import { resolveModelProfile, planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
 import { Button } from '../design-system/index.ts';
 import './ScientificDiagramRadar.css';
+import { RADAR_COMPARISON_COLORS } from './RadarComparisonPalette.ts';
 
-const PALETTE = ['#b4563d', '#287a8d', '#7556a8', '#688148'];
 const STORAGE_KEY = 'companion:scientific-lab-radar-weights:v1';
 const MODEL_STORAGE_KEY = 'companion:scientific-lab-radar-model:v1';
 
@@ -39,9 +39,10 @@ function pointsString(fraction: number) {
 }
 
 /** No polygon is drawn for an incomplete candidate: an absent axis is not 0%. */
-export function RadarPlot({ candidates, onAxis }: {
+export function RadarPlot({ candidates, onAxis, colors }: {
   candidates: RadarRankedCandidate[];
   onAxis?: (axis: RadarAxisId) => void;
+  colors?: Record<string, string>;
 }) {
   return <svg viewBox="0 0 700 570" className="diagram-radar-svg" role="img"
       aria-label={'Comparaison radar sur huit caractéristiques pour ' + candidates.map((c) => c.name).join(', ')}>
@@ -62,15 +63,15 @@ export function RadarPlot({ candidates, onAxis }: {
     {[25, 50, 75, 100].map((n) =>
       <text key={n} x={358} y={285 - 198 * n / 100} fontSize="10" fill="var(--ds-color-text-muted)">{n}</text>)}
     {candidates.map((candidate, ci) => {
-      const color = PALETTE[ci % PALETTE.length]!;
+      const color = colors?.[candidate.id] ?? RADAR_COMPARISON_COLORS[ci % RADAR_COMPARISON_COLORS.length]!;
       const values = RADAR_AXES.map((axis) => candidate.axes[axis.id].value);
       const coordinates = values.map((n, i) => n === null ? null : point(i, n / 100));
-      if (candidate.complete) return <g key={candidate.id}>
+      if (candidate.complete) return <g key={candidate.id} data-radar-model={candidate.id}>
         <polygon points={coordinates.map((xy) => xy!.join(',')).join(' ')} fill={color} fillOpacity=".12"
           stroke={color} strokeWidth="2.8" strokeLinejoin="round" />
         {coordinates.map((xy, i) => <circle key={i} cx={xy![0]} cy={xy![1]} r="3" fill={color} />)}
       </g>;
-      return <g key={candidate.id}>
+      return <g key={candidate.id} data-radar-model={candidate.id}>
         {coordinates.map((xy, i) => {
           const next = coordinates[(i + 1) % coordinates.length];
           return xy && next
@@ -289,7 +290,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
           <RadarPlot candidates={selected} onAxis={setAxis} />
           {grouping === 'model' ? <div className="diagram-radar-legend diagram-radar-legend-selected" aria-label="Modèles affichés sur le radar">
             {selected.map((candidate, index) => <div className="diagram-radar-legend-item" key={candidate.id}>
-              <span className="diagram-radar-legend-dot" aria-hidden="true" style={{ background: PALETTE[index] }} />
+              <span className="diagram-radar-legend-dot" aria-hidden="true" style={{ background: RADAR_COMPARISON_COLORS[index] }} />
               <span><strong>{candidate.name}</strong><small>{candidate.measured}/8 axes · {candidate.complete ? 'note complète' : 'mesures partielles'}</small></span>
             </div>)}
           </div> : <div className="diagram-radar-legend" role="group" aria-label="Candidats affichés sur le radar">
@@ -299,7 +300,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
                 <input type="checkbox" checked={ix >= 0} disabled={ix === -1 && selected.length >= 4}
                   onChange={() => toggle(candidate.id)} />
                 <span aria-hidden="true" className="diagram-radar-legend-dot"
-                  style={{ background: ix >= 0 ? PALETTE[ix] : 'var(--ds-color-border-strong)' }} />
+                  style={{ background: ix >= 0 ? RADAR_COMPARISON_COLORS[ix] : 'var(--ds-color-border-strong)' }} />
                 <span><strong>{candidate.name}</strong><small>{candidate.measured}/8 axes · {candidate.complete ? 'profil mesuré' : 'profil incomplet'}</small></span>
               </label>;
             })}
