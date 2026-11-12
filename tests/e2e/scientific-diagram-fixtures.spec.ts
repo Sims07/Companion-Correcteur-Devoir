@@ -167,7 +167,9 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     expect(req.imageCount).toBe(1);
     expect(req.questions.length).toBeGreaterThanOrEqual(19);
     expect(req.state).not.toContain('10/10');
+    expect(req.state).not.toContain('9.84/10');
     expect(req.state).not.toContain('7.36/10');
+    expect(req.state).not.toContain('0.66/10');
     expect(req.state).not.toContain('0/10');
   }
 
