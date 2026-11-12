@@ -1,0 +1,190 @@
+/* During a running biology experiment, monitoring replaces the disabled setup form. */
+.evaluation-workspace-shell .biology-run-monitor {
+  display: grid;
+  gap: clamp(16px, 2vw, 24px);
+  padding: clamp(20px, 2.7vw, 32px);
+  background: var(--ds-color-surface);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  color: var(--ds-color-text);
+}
+.evaluation-workspace-shell .biology-run-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 30px;
+}
+.evaluation-workspace-shell .biology-run-intro { display: grid; gap: 6px; flex: 1 1 290px; }
+.evaluation-workspace-shell .biology-run-eyebrow {
+  font-size: .73rem;
+  font-weight: 750;
+  letter-spacing: .1em;
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .biology-run-intro h3 {
+  font-size: clamp(1.28rem, 2.2vw, 1.8rem);
+  font-weight: 730;
+  line-height: 1.25;
+  color: var(--ds-color-text);
+}
+.evaluation-workspace-shell .biology-run-intro > p:last-child {
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--ds-color-text);
+}
+.evaluation-workspace-shell .biology-run-tally {
+  display: grid;
+  gap: 2px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.evaluation-workspace-shell .biology-run-tally strong {
+  font-size: clamp(2.1rem, 4vw, 3.1rem);
+  line-height: 1;
+  letter-spacing: -.045em;
+}
+.evaluation-workspace-shell .biology-run-tally strong span {
+  font-size: .58em;
+  font-weight: 550;
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .biology-run-tally > span {
+  font-size: .82rem;
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .biology-run-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.evaluation-workspace-shell .biology-run-progress progress {
+  width: 100%;
+  flex: 1;
+  height: 14px;
+  border-radius: 8px;
+  overflow: hidden;
+  accent-color: var(--ds-color-brand-700);
+}
+.evaluation-workspace-shell .biology-run-progress > span {
+  flex: 0 0 52px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+  color: var(--ds-color-text);
+}
+.evaluation-workspace-shell .biology-run-current {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+  background: var(--ds-color-surface-subtle);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+}
+.evaluation-workspace-shell .biology-run-current > div { display: grid; gap: 5px; }
+.evaluation-workspace-shell .biology-run-current strong { font-size: 1rem; color: var(--ds-color-text); }
+.evaluation-workspace-shell .biology-run-current p { font-size: .87rem; line-height: 1.55; }
+.evaluation-workspace-shell .biology-run-activity-dot {
+  margin-top: 6px;
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border-radius: 50%;
+  background: var(--ds-color-brand-700);
+  box-shadow: 0 0 0 4px var(--ds-color-brand-100);
+}
+.evaluation-workspace-shell .biology-run-case-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px 20px;
+}
+.evaluation-workspace-shell .biology-run-case-heading h4 {
+  font-size: 1.05rem;
+  font-weight: 730;
+}
+.evaluation-workspace-shell .biology-run-case-heading small {
+  color: var(--ds-color-text-muted);
+  font-size: .78rem;
+}
+.evaluation-workspace-shell .biology-run-cases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 12px;
+}
+.evaluation-workspace-shell .biology-run-case {
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+}
+.evaluation-workspace-shell .biology-run-case.is-active {
+  border-color: var(--ds-color-brand-700);
+  box-shadow: inset 0 0 0 1px var(--ds-color-brand-700);
+}
+.evaluation-workspace-shell .biology-run-case-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.evaluation-workspace-shell .biology-run-case-top > div { display: grid; gap: 3px; }
+.evaluation-workspace-shell .biology-run-case-top strong { font-size: 1rem; }
+.evaluation-workspace-shell .biology-run-case-top > div span {
+  font-size: .8rem;
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .biology-run-case-state {
+  font-size: .75rem;
+  font-weight: 700;
+  color: var(--ds-color-text);
+}
+.evaluation-workspace-shell .biology-run-case-results {
+  display: grid;
+  gap: 12px;
+}
+.evaluation-workspace-shell .biology-run-case-results > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  border-top: 1px solid var(--ds-color-border);
+  padding-top: 10px;
+}
+.evaluation-workspace-shell .biology-run-case-results small {
+  font-size: .76rem;
+  color: var(--ds-color-text-muted);
+}
+.evaluation-workspace-shell .biology-run-case-results strong {
+  font-size: .85rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.evaluation-workspace-shell .biology-run-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  border-top: 1px solid var(--ds-color-border);
+  padding-top: 17px;
+}
+.evaluation-workspace-shell .biology-run-footer p {
+  max-width: 680px;
+  font-size: .82rem;
+}
+.evaluation-workspace-shell .biology-run-footer button { flex-shrink: 0; }
+@media (max-width: 600px) {
+  .evaluation-workspace-shell .biology-run-tally { text-align: left; }
+  .evaluation-workspace-shell .biology-run-cases { grid-template-columns: minmax(0, 1fr); }
+  .evaluation-workspace-shell .biology-run-footer button { width: 100%; }
+}
