@@ -1,6 +1,7 @@
 import { currentFetch } from './currentFetch.ts';
 import type { ModelEvaluationConfiguration } from '../../domain/modelEvaluation.ts';
 import { isNativeDecisionModel } from '../../domain/systemOneDecision.ts';
+import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 
 /** Only the guided local protocol is authorized to unload models automatically.
  * Never send lifecycle commands to a cloud endpoint or another machine. */
@@ -32,9 +33,9 @@ function modelNames(configuration: ModelEvaluationConfiguration, stage: 'vision'
 }
 
 async function runningModels(origin: string, fetchImpl: typeof fetch): Promise<Set<string>> {
-  const response = await fetchImpl(origin + '/api/ps', {
+  const response = await fetchImpl(origin + '/api/ps', annotateNetworkRequest({
     method: 'GET', signal: AbortSignal.timeout(20000),
-  });
+  }, 'Vérifier les modèles chargés', 'Libération de mémoire Ollama'));
   if (!response.ok) throw new Error('Lecture des modèles en mémoire impossible (HTTP ' + response.status + ').');
   const payload: unknown = await response.json();
   if (!payload || typeof payload !== 'object' || !('models' in payload)
@@ -53,7 +54,7 @@ async function runningModels(origin: string, fetchImpl: typeof fetch): Promise<S
  * This housekeeping query contains no user input, rubric, or copy content. */
 async function issueUnload(origin: string, model: string, fetchImpl: typeof fetch): Promise<void> {
   if (isNativeDecisionModel(model)) {
-    const response = await fetchImpl(origin + '/v1/systemone', {
+    const response = await fetchImpl(origin + '/v1/systemone', annotateNetworkRequest({
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model,
@@ -68,7 +69,7 @@ async function issueUnload(origin: string, model: string, fetchImpl: typeof fetc
         keep_alive: 0,
       }),
       signal: AbortSignal.timeout(20000),
-    });
+    }, 'Libérer le modèle décisionnel', 'System One · ' + model));
     if (!response.ok) {
       throw new Error('Ollama System One a refusé de décharger « ' + model +
         ' » (HTTP ' + response.status + '). Vérifiez la compatibilité de /v1/systemone.');
@@ -82,11 +83,11 @@ async function issueUnload(origin: string, model: string, fetchImpl: typeof fetc
   ];
   let lastStatus: number | null = null;
   for (const attempt of attempts) {
-    const response = await fetchImpl(origin + attempt.path, {
+    const response = await fetchImpl(origin + attempt.path, annotateNetworkRequest({
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(attempt.body),
       signal: AbortSignal.timeout(20000),
-    });
+    }, 'Libérer le modèle en mémoire', 'Modèle ' + model));
     if (response.ok) return;
     lastStatus = response.status;
   }
