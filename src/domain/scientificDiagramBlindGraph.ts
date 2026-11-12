@@ -1,5 +1,4 @@
 import type { AiModelProfile } from './aiModelProfiles.ts';
-import { isLocalPilotProfile } from './pilotEvaluationProtocol.ts';
 import {
   DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS,
   summarizeDiagramSensitivity, type DiagramSensitivityCaseId,
@@ -298,12 +297,14 @@ export function blindGraphProfileIssue(profile: AiModelProfile): string | null {
     if (url.username || url.password || url.hash) {
       return 'Profil « ' + profile.name + ' » : retirez les identifiants et fragments de l’adresse du serveur.';
     }
-    if (isLocalPilotProfile(profile)) {
-      return !url.search && (url.pathname === '/' || url.pathname === '')
-        ? null : 'Profil « ' + profile.name + ' » : utilisez l’adresse racine de votre Ollama local.';
-    }
     if (!config.apiCompatible) {
-      return 'Profil « ' + profile.name + ' » : choisissez un Ollama local direct ou le fournisseur API compatible OpenAI.';
+      // A teacher may run Ollama on another machine of the same network.
+      // Use the explicit saved provider/endpoint rather than forcing localhost.
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        return 'Profil « ' + profile.name + ' » : l’adresse Ollama doit commencer par http:// ou https://.';
+      }
+      return !url.search && (url.pathname === '/' || url.pathname === '')
+        ? null : 'Profil « ' + profile.name + ' » : utilisez l’adresse racine du serveur Ollama, sans /api/chat ni paramètres.';
     }
     const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
     return url.protocol === 'https:' || (loopback && url.protocol === 'http:')
@@ -313,7 +314,7 @@ export function blindGraphProfileIssue(profile: AiModelProfile): string | null {
   }
 }
 
-/** Only an explicit local Ollama or OpenAI-compatible Vision profile is eligible. */
+/** The saved Ollama (including a LAN host) or OpenAI-compatible Vision profile is eligible. */
 export function canObserveBlindGraph(profile: AiModelProfile): boolean {
   return blindGraphProfileIssue(profile) === null;
 }
