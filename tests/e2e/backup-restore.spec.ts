@@ -148,3 +148,63 @@ test('a backup restores both biology radar scores when the destination PWA has i
   const campaigns = page.getByRole('region', { name: 'Campagnes d’évaluation' });
   await expect(campaigns.locator('.campaign-index-item')).toHaveCount(2);
 });
+
+
+test('Chromium imports a large real JSON backup without constructing a whole-file string', async ({ page }) => {
+  test.setTimeout(120_000);
+  const names = [
+    'local-memory', 'local-corrections', 'model-evaluations', 'diagnostic-history',
+    'diagram-lab-archive', 'background-corrections', 'background-transcriptions',
+  ];
+  const stores = Object.fromEntries(names.map((name) => [name, [] as Record<string, unknown>[]]));
+  stores['local-corrections'].push({
+    id: 'chrome-large-copy', title: 'Copie importée depuis Safari 😄',
+    images: [{ base64: 'A'.repeat(17 * 1024 * 1024) }],
+  });
+  const data = {
+    format: 'companion-correcteur-local-backup', version: 1,
+    createdAt: '2026-11-12T19:00:00.000Z',
+    localStorage: { 'companion-correcteur:assignment-title:v1': 'Sauvegarde originale Mac' },
+    indexedDb: { name: 'companion-correcteur-devoir', version: 6, stores },
+  };
+  const buffer = Buffer.from(JSON.stringify(data));
+  expect(buffer.byteLength).toBeGreaterThan(16 * 1024 * 1024);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
+  await page.getByRole('navigation', { name: 'Navigation principale' })
+    .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+  const panel = page.getByRole('region', { name: 'Occupation du stockage local' });
+  await panel.locator('#backup-restore-file').setInputFiles({
+    name: 'mac-safari-original-20mb.json', mimeType: 'application/json', buffer,
+  });
+  await expect(panel.getByText('mac-safari-original-20mb.json')).toBeVisible({ timeout: 60_000 });
+  await expect(panel.getByText(/1 enregistrement/).first()).toBeVisible();
+  // The freshly launched app initializes a default assignment title. The
+  // explicit Update mode replaces it with the backup's original settings.
+  await panel.getByLabel(/Mettre à jour les éléments de même identifiant/).check();
+  page.once('dialog', (dialog) => void dialog.accept());
+  await panel.getByRole('button', { name: 'Restaurer la sauvegarde' }).click();
+  await expect(panel.getByText(/Restauration terminée/)).toBeVisible({ timeout: 60_000 });
+  const restored = await page.evaluate(async () => {
+    const req = indexedDB.open('companion-correcteur-devoir', 6);
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    const data = await new Promise<{ found: boolean; size: number }>((resolve, reject) => {
+      const tx = db.transaction('local-corrections', 'readonly');
+      const get = tx.objectStore('local-corrections').get('chrome-large-copy');
+      get.onsuccess = () => resolve({
+        found: !!get.result,
+        size: get.result?.images?.[0]?.base64?.length ?? 0,
+      });
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    return { ...data, title: localStorage.getItem('companion-correcteur:assignment-title:v1') };
+  });
+  expect(restored).toEqual({
+    found: true, size: 17 * 1024 * 1024, title: 'Sauvegarde originale Mac',
+  });
+});

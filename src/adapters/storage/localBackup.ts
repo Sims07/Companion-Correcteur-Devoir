@@ -86,7 +86,12 @@ export function validateLocalBackup(value: unknown): LocalBackup {
 export function parseLocalBackup(text: string): LocalBackup {
   let data: unknown;
   try { data = JSON.parse(text); }
-  catch { throw new Error('Le fichier JSON est illisible.'); }
+  catch (cause) {
+    if (cause instanceof SyntaxError) throw new Error('Le fichier JSON est illisible.');
+    // Chrome/V8 can throw a non-SyntaxError on memory or string size limits.
+    // These failures do not mean the backup is corrupted.
+    throw new Error('Le navigateur manque de mémoire pour lire cette sauvegarde. Utilisez la lecture progressive.');
+  }
   return validateLocalBackup(data);
 }
 
