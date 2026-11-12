@@ -57,3 +57,47 @@ test('a notification reopens its biological campaign after another run and a rel
   await list.getByRole('button', { name: 'Toutes les campagnes' }).click();
   await expect(list.locator('summary')).toHaveCount(2);
 });
+
+
+test('comparison overlays LLMs on both radar cards instead of pushing charts below a table', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const rows = ['alpha:4b', 'beta:4b'].flatMap((model) =>
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((caseId) => ({
+        id: model + ':' + caseId, campaignId: model, model, profileId: model, profile: model,
+        provider: 'ollama', method: 'generative', protocol: 'contract', caseId,
+        recordedAt: '2026-11-12T08:00:00Z', status: 'success',
+        score: model === 'alpha:4b' ? 8 : 6, referenceScore: 8,
+        decisions: Array.from({ length: 10 }, (_, i) => {
+          const expected = caseId === 'A' ? 1 : caseId === 'B' ? 0 : i < 5 ? 1 : 0;
+          return { id: 'q' + i, expected, awarded: model === 'beta:4b' && i === 0 ? 1 - expected : expected };
+        }),
+      })));
+    localStorage.setItem('companion:biology-teacher-radar:v1', JSON.stringify(rows));
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  const home = page.getByRole('region', { name: 'Tableau de bord des radars' });
+  await home.getByLabel('Choisir un LLM').selectOption('alpha:4b');
+  await home.getByRole('button', { name: 'Comparer les LLM' }).click();
+
+  const biology = home.getByRole('article', { name: 'Biologie' });
+  const science = home.getByRole('article', { name: 'Schémas scientifiques' });
+  await expect(home.getByRole('group', { name: 'Modèles à superposer' })).toContainText('beta:4b');
+  await expect(biology.locator('[data-radar-model]')).toHaveCount(2);
+  await expect(biology.locator('[data-radar-model] polygon')).toHaveCount(2);
+  await expect(biology.locator('.radar-home-legend-item')).toHaveCount(2);
+  await expect(science.getByRole('img')).toBeVisible();
+  await expect(home.locator('.radar-comparison table')).toHaveCount(0);
+  await page.screenshot({ path: 'test-results/radars-comparison-desktop.png', fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await biology.getByRole('button', { name: 'Afficher le graphique' }).click();
+  await expect(biology.getByRole('img')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/radars-comparison-mobile.png', fullPage: true });
+
+  await home.getByRole('button', { name: 'Masquer la comparaison' }).click();
+  await expect(home.locator('.radar-home-legend')).toHaveCount(0);
+  await expect(biology.getByRole('img')).toBeVisible();
+});
