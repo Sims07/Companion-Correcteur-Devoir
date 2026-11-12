@@ -1028,7 +1028,7 @@
 }
 .evaluation-workspace-shell .evaluation-workbench-controls .evaluation-journey-picker {
   margin: 0;
-  flex: 0 1 auto;
+  flex: 1 0 100%;
 }
 .evaluation-workspace-shell .evaluation-model-brief {
   display: inline-flex;
@@ -1097,3 +1097,6 @@
   .evaluation-workspace-shell .evaluation-config-dialog .evaluation-config-fields { grid-template-columns: minmax(0, 1fr); }
 }
 
+
+.evaluation-workbench-controls .evaluation-journey-picker .evaluation-journey-options { width: 100%; }
+.evaluation-workbench-controls .evaluation-journey-options button { flex: 1; align-items: center; }

@@ -22,3 +22,8 @@ export async function setEvaluationModelChecked(page: Page, name: string, checke
   else await checkbox.uncheck();
   await dialog.getByRole('button', { name: 'Terminer' }).click();
 }
+
+export async function openCustomTests(page: Page) {
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+}

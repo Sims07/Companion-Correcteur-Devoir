@@ -1,10 +1,10 @@
+import { openCustomTests } from './helpers/evaluation-models.ts';
 import { expect, test } from '@playwright/test';
 
 test('the model laboratory exposes independent Vision and Analysis experiments', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
-  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+  await openCustomTests(page);
 
   const stagePicker = page.getByRole('group', { name: 'Type d’évaluation' });
   await expect(stagePicker).toBeVisible();
@@ -24,8 +24,7 @@ test('the model laboratory exposes independent Vision and Analysis experiments',
 test('the history lets teachers filter Vision, Analysis and full-pipeline experiments before any run exists', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
-  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+  await openCustomTests(page);
   await page.getByRole('button', { name: 'Campagnes' }).click();
   await page.getByRole('button', { name: 'Comparer les essais sur copie' }).click();
 

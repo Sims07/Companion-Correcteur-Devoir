@@ -1,10 +1,10 @@
+import { openCustomTests } from './helpers/evaluation-models.ts';
 import { expect, test } from '@playwright/test';
 
 test('each test journey shows its own preparation and preserves custom input across switches', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
-  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+  await openCustomTests(page);
   const journeys = page.getByRole('group', { name: 'Parcours de test' });
   await page.getByRole('group', { name: 'Type d’évaluation' }).getByRole('button', { name: /Analyse seule/ }).click();
   const transcription = page.getByRole('textbox', { name: 'Transcription de référence pour l’évaluation de l’analyse' });

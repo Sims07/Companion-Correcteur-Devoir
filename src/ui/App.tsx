@@ -522,12 +522,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [pilotConcurrencyRuns, setPilotConcurrencyRuns] = useState<PilotConcurrencyRun[]>([]);
   const [biologyRadarHistory, setBiologyRadarHistory] = useState(loadBiologyRadarHistory);
   useEffect(() => {
+    const campaignByDate = new Map([...pilotRuns, ...pilotContractRuns, ...pilotRepeatabilityRuns].map(({ record }) => [record.completedAt, record.campaignId]));
     const observations = biologyRadarObservations(pilotRuns, pilotContractRuns, pilotRepeatabilityRuns,
       pilotRepeatabilityPlanned, pilotRepeatabilitySuite);
     if (!observations.length) return;
     setBiologyRadarHistory((existing) => {
       const ids = new Set(existing.map((observation) => observation.id));
-      const additions = observations.filter((observation) => !ids.has(observation.id)).map(o => ({ ...o, campaignId: biologyCampaign.current }));
+      const additions = observations.filter((observation) => !ids.has(observation.id)).map(o => ({ ...o, campaignId: campaignByDate.get(o.recordedAt) }));
       return additions.length ? mergeBiologyRadarHistory(existing, additions) : existing;
     });
   }, [pilotRuns, pilotContractRuns, pilotRepeatabilityRuns, pilotRepeatabilityPlanned, pilotRepeatabilitySuite]);
@@ -1816,6 +1817,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   }
 
   async function startModelEvaluation(options?: PilotRunOptions): Promise<ModelEvaluationRecord | undefined> {
+    const campaignId = options && !options.diagram ? biologyCampaign.current : undefined;
     const runStage = options?.stage ?? evaluationStageMode;
     const runRubric = options?.diagram?.rubric ?? (options?.contractVariant ? questionContractRubric(options.contractVariant) : options ? PILOT_RUBRIC : rubric);
     const runValidation = validateRubric(runRubric);
@@ -2039,6 +2041,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       id: 'evaluation-' + Date.now() + (options ? '-' + options.pilotCase.id + '-' + runStage + (options.contractVariant ? '-' + options.contractVariant : '') : ''),
       completedAt: new Date().toISOString(),
       assignmentId: runAssignmentId,
+      campaignId,
       assignmentTitle: runTitle.trim() || 'Devoir sans titre',
       question: runQuestion,
       rubricSnapshot: structuredClone(runRubric),
@@ -2097,7 +2100,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   async function followEvaluation<T>(activity: Omit<EvaluationActivity, 'status'>, execute: () => Promise<T>): Promise<T> {
     pilotStopRef.current = false;
     evaluationCancelledRef.current = false;
-    const campaignId = activity.journey === 'biology' ? crypto.randomUUID() : undefined;
+    const campaignId = activity.journey === 'biology' ? (crypto.randomUUID?.() ?? 'biology-' + Date.now()) : undefined;
     if (campaignId) biologyCampaign.current = campaignId;
     setEvaluationActivity({ ...activity, status: 'running' });
     if (activity.journey === 'diagrams') setDiagramProtocolProgress('Préparation des schémas et des modèles…');
@@ -2745,6 +2748,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const profile = aiModelProfiles.find((item) => item.id === profileId);
     if (!profile || busy || pilotBusy) return;
     setSelectedEvaluationProfileIds([profileId]);
+    setEvaluationJourney('biology');
     void followEvaluation({
       title: 'Biologie · évaluation complète du modèle',
       journey: 'biology', scenario: 'contracts', targetId: 'evaluation-biology-radar', profiles: profile.name,
@@ -4680,7 +4684,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <EvaluationCampaigns key={JSON.stringify(campaignFilter)} filter={campaignFilter}
           diagrams={dashboardEntries} biology={biologyRadarHistory} records={savedModelEvaluations}
           onDiagram={id => { setReportId(id); setEvaluationJourney('diagrams'); setDiagramLabView('history'); setEvaluationWorkspaceStep('configuration'); }}
-          onCustom={id => { setEvaluationJourney('custom'); setSelectedEvaluationHistoryIds(id ? [id] : []); setEvaluationHistoryStageFilter('all'); setEvaluationWorkspaceStep('history'); }} />}
+          onCustom={id => { setEvaluationJourney('custom'); const record = savedModelEvaluations.find(item => item.id === id); if (record) { openModelEvaluationHistoryRecord(record); return; } setSelectedEvaluationHistoryIds([]); setEvaluationHistoryStageFilter('all'); setEvaluationWorkspaceStep('history'); }} />}
       {interfaceMode === 'diagnostic' && ['dashboard','campaigns'].includes(evaluationWorkspaceStep) && diagramHistoryError && <p role="alert">{diagramHistoryError}</p>}
       {interfaceMode === 'diagnostic' && evaluationJourney === 'biology' && biologyRadarOpen && evaluationWorkspaceStep === 'configuration' &&
         <div id="evaluation-biology-radar"><BiologyTeacherRadar

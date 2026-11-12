@@ -68,7 +68,6 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
 
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
-  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
@@ -106,7 +105,6 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
-  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
     .getByRole('button', { name: 'Radars' }).click();
   await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
@@ -121,7 +119,6 @@ test('radar is reachable from the general evaluation notebook without a previous
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
-  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   const nav = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   await nav.getByRole('button', { name: 'Campagnes' }).click();
   await page.getByRole('button', { name: 'Archives scientifiques' }).click();

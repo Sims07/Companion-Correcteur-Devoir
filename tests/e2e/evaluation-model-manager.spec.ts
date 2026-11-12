@@ -1,3 +1,4 @@
+import { openCustomTests } from './helpers/evaluation-models.ts';
 import { expect, test } from '@playwright/test';
 
 const profileSettings = {
@@ -19,8 +20,7 @@ test('evaluation presents one discreet model choice and moves all management to 
   await page.addInitScript((saved) => localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify(saved)), profiles);
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
-  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+  await openCustomTests(page);
 
   await expect(page.locator('.evaluation-config-workspace .evaluation-config-editor')).toHaveCount(0);
   await expect(page.locator('.evaluation-selection-block, .evaluation-model-selector')).toHaveCount(0);

@@ -32,3 +32,28 @@ test('evaluation opens on both radars and keeps the chosen LLM across tests and 
   await page.setViewportSize({width:1440,height:900});
   await page.screenshot({path:'test-results/radars-desktop.png', fullPage:true});
 });
+
+test('a notification reopens its biological campaign after another run and a reload', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const date = new Date().toISOString();
+    const histories = ['ancien', 'récent'].map((name, index) => ({
+      campaignId: name, id: 'obs-' + name, model: 'LLM ' + name, profile: name, profileId: name,
+      method: 'generative', provider: 'ollama', protocol: 'contract', caseId: 'A', recordedAt: date,
+      status: 'success', score: index + 1, referenceScore: 8, decisions: [],
+    }));
+    localStorage.setItem('companion:biology-teacher-radar:v1', JSON.stringify(histories));
+    localStorage.setItem('companion-correcteur:notifications:v1', JSON.stringify([{
+      id: 'old-result', campaignId: 'ancien', title: 'Ancienne campagne terminée', message: 'Biologie',
+      createdAt: date, kind: 'success', target: 'evaluation', journey: 'biology', read: false,
+    }]));
+  });
+  await page.reload();
+  await page.getByRole('button', { name: /Notifications,/ }).click();
+  await page.getByRole('button', { name: /^Ancienne campagne terminée/ }).click();
+  const list = page.getByRole('region', { name: 'Campagnes d’évaluation' });
+  await expect(list.getByText(/copie A · professeur 8\/10 · modèle 1\/10/)).toBeVisible();
+  await expect(list.locator('summary')).toHaveCount(1);
+  await list.getByRole('button', { name: 'Toutes les campagnes' }).click();
+  await expect(list.locator('summary')).toHaveCount(2);
+});

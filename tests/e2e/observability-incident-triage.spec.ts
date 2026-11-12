@@ -1,3 +1,4 @@
+import { openCustomTests } from './helpers/evaluation-models.ts';
 import { expect, test } from '@playwright/test';
 
 test('failed AI execution leads to its trace and separately to filtered network errors', async ({ page }) => {
@@ -42,8 +43,7 @@ test('failed AI execution leads to its trace and separately to filtered network 
 
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
-  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+  await openCustomTests(page);
   await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
   const incidents = page.getByRole('region', { name: 'Incidents à examiner' });
   await expect(incidents.getByText('Barème de dépannage')).toBeVisible();

@@ -1,6 +1,6 @@
 import type { BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
 import type { DiagramMethodSelection } from './scientificDiagramProtocol.ts';
-import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarGrouping } from './diagramLabRadar.ts';
+import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarModelConfiguration, type RadarRankedCandidate, type RadarGrouping } from './diagramLabRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
 
 export type RadarTestProtocol = 'reference' | 'arrows' | 'semantic' | 'graph';
@@ -183,4 +183,30 @@ export function radarEvaluationOutcome(entries: readonly DiagramLabArchiveEntry[
       reason: diagnoseUnmeasuredRadarAxis(entries, modelId, axis.id),
     }));
   return { measured: candidate?.measured ?? 0, complete: candidate?.complete ?? false, missing };
+}
+
+export function resolveModelProfile(profiles: readonly RadarModelConfiguration[], grouping: RadarGrouping, candidate: RadarRankedCandidate, plan: Omit<RadarMissingTestRequest, 'id'> | null) {
+  if (!plan || grouping !== 'model') return plan;
+  if (!profiles.length) return plan; // Compatibility with historical archives and older embeds.
+  const matching = profiles.find((profile) => {
+    const needsGrading = plan.steps.some((step) => step.protocol !== 'graph');
+    const needsGraph = plan.steps.some((step) => step.protocol === 'graph');
+    const cfg = profile.configuration;
+    const graphModel = cfg.visionModel.trim() || cfg.generativeModel?.trim() || (cfg.correctionMethod === 'generative' ? cfg.analysisModel.trim() : '');
+    return (!needsGrading || cfg.analysisModel.trim() === candidate.id)
+      && (!needsGraph || graphModel === candidate.id);
+  });
+  if (!matching) return null;
+  const config = matching.configuration;
+  const method: DiagramMethodSelection = config.correctionMethod === 'visual-decision'
+    ? 'direct-image-systemone'
+    : config.correctionMethod === 'generative' &&
+      config.analysisModel.trim() === config.visionModel.trim()
+        ? 'direct-image-generative' : 'vision-then-analysis';
+  return {
+    ...plan, profileId: matching.id, profileName: matching.name, modelId: candidate.id,
+    steps: plan.steps.map((step) => ({
+      ...step, method: step.protocol === 'graph' ? step.method : method,
+    })),
+  };
 }

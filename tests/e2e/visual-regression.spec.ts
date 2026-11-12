@@ -1,3 +1,4 @@
+import { openCustomTests } from './helpers/evaluation-models.ts';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
 const viewports = [
@@ -83,8 +84,7 @@ test.describe('visual regression contracts', () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto('/');
       await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-      await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
-      await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+      await openCustomTests(page);
 
       await expect(page.getByRole('heading', { name: 'Évaluer les modèles' })).toBeVisible();
       await expect(page.locator('.evaluation-workspace-shell')).toBeVisible();
@@ -109,8 +109,7 @@ test.describe('visual regression contracts', () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto('/');
       await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-      await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
-      await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+      await openCustomTests(page);
       await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
 
       await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
@@ -127,8 +126,7 @@ test.describe('visual regression contracts', () => {
     await page.goto('/');
 
     await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-    await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
-    await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+    await openCustomTests(page);
     await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
     await expect(page.locator('.observability-kpi').first()).toBeVisible();
 

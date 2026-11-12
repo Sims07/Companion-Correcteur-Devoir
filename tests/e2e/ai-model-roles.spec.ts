@@ -1,3 +1,4 @@
+import { openCustomTests } from './helpers/evaluation-models.ts';
 import { expect, test, type Page } from '@playwright/test';
 import { openActiveAssignment } from './helpers/teacher-workspace';
 
@@ -5,8 +6,7 @@ const settingsKey = 'companion-correcteur:ollama-configuration:v1';
 const profilesKey = 'companion-correcteur:ollama-profiles:v1';
 async function openEvaluator(page: Page) {
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
-  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+  await openCustomTests(page);
   await page.getByRole('button', { name: 'Gérer les configurations' }).click();
   await page.getByRole('dialog', { name: 'Gérer les configurations IA' })
     .getByRole('button', { name: 'Modifier les réglages courants' }).click();

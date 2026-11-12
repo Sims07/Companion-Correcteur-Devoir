@@ -3,8 +3,7 @@ import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
 import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, rankDiagramLabRadar, observedRadarScore, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
   type RadarAxisId, type RadarGrouping, type RadarModelConfiguration, type RadarRankedCandidate, type RadarWeights } from '../../domain/diagramLabRadar.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
-import type { DiagramMethodSelection } from '../../domain/scientificDiagramProtocol.ts';
-import { planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
+import { resolveModelProfile, planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
 import { Button } from '../design-system/index.ts';
 import './ScientificDiagramRadar.css';
 
@@ -95,32 +94,6 @@ export function RadarPlot({ candidates, onAxis }: {
     })}
   </svg>;
 }
-
-export function resolveModelProfile(profiles: readonly RadarModelConfiguration[], grouping: RadarGrouping, candidate: RadarRankedCandidate, plan: Omit<RadarMissingTestRequest, 'id'> | null) {
-    if (!plan || grouping !== 'model') return plan;
-    if (!profiles.length) return plan; // Compatibility with historical archives and older embeds.
-    const matching = profiles.find((profile) => {
-      const needsGrading = plan.steps.some((step) => step.protocol !== 'graph');
-      const needsGraph = plan.steps.some((step) => step.protocol === 'graph');
-      const cfg = profile.configuration;
-      const graphModel = cfg.visionModel.trim() || cfg.generativeModel?.trim() || (cfg.correctionMethod === 'generative' ? cfg.analysisModel.trim() : '');
-      return (!needsGrading || cfg.analysisModel.trim() === candidate.id)
-        && (!needsGraph || graphModel === candidate.id);
-    });
-    if (!matching) return null;
-    const config = profiles.find((profile) => profile.id === matching.id)?.configuration;
-    const method: DiagramMethodSelection = config?.correctionMethod === 'visual-decision'
-      ? 'direct-image-systemone'
-      : config?.correctionMethod === 'generative' &&
-        config.analysisModel.trim() === config.visionModel.trim()
-          ? 'direct-image-generative' : 'vision-then-analysis';
-    return {
-      ...plan, profileId: matching.id, profileName: matching.name, modelId: candidate.id,
-      steps: plan.steps.map((step) => ({
-        ...step, method: step.protocol === 'graph' ? step.method : method,
-      })),
-    };
-  }
 
 export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, profileIds, profiles = [], busy }: {
   entries: DiagramLabArchiveEntry[];

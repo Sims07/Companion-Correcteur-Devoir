@@ -1,10 +1,10 @@
+import { openCustomTests } from './helpers/evaluation-models.ts';
 import { expect, test } from '@playwright/test';
 
 test('evaluation navigates directly between tests and local results without artificial numbered steps', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
-  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+  await openCustomTests(page);
 
   const navigation = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   await expect(navigation).toBeVisible();
@@ -29,8 +29,7 @@ test('evaluation navigates directly between tests and local results without arti
 test('Debug remains a dedicated network inspector, separate from evaluation', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
-  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+  await openCustomTests(page);
   await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toBeVisible();
 
   await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
