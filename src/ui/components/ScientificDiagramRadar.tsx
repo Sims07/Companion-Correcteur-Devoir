@@ -12,12 +12,12 @@ const PALETTE = ['#b4563d', '#287a8d', '#7556a8', '#688148'];
 const STORAGE_KEY = 'companion:scientific-lab-radar-weights:v1';
 const MODEL_STORAGE_KEY = 'companion:scientific-lab-radar-model:v1';
 
-function restoredModelId() {
+export function restoredModelId() {
   try { return window.localStorage.getItem(MODEL_STORAGE_KEY) ?? ''; }
   catch { return ''; }
 }
 
-function restoredWeights(): RadarWeights {
+export function restoredWeights(): RadarWeights {
   try {
     const parsed: unknown = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || 'null');
     if (validRadarWeights(parsed)) return parsed;
@@ -40,9 +40,9 @@ function pointsString(fraction: number) {
 }
 
 /** No polygon is drawn for an incomplete candidate: an absent axis is not 0%. */
-function RadarPlot({ candidates, onAxis }: {
+export function RadarPlot({ candidates, onAxis }: {
   candidates: RadarRankedCandidate[];
-  onAxis: (axis: RadarAxisId) => void;
+  onAxis?: (axis: RadarAxisId) => void;
 }) {
   return <svg viewBox="0 0 700 570" className="diagram-radar-svg" role="img"
       aria-label={'Comparaison radar sur huit caractéristiques pour ' + candidates.map((c) => c.name).join(', ')}>
@@ -84,7 +84,7 @@ function RadarPlot({ candidates, onAxis }: {
           : null)}
       </g>;
     })}
-    {RADAR_AXES.map((axis, i) => {
+    {onAxis && RADAR_AXES.map((axis, i) => {
       const [x,y] = point(i, 1.25);
       return <g key={axis.id} className="diagram-radar-axis-hit" role="button" tabIndex={0}
         aria-label={'Inspecter ' + axis.label}
@@ -95,6 +95,32 @@ function RadarPlot({ candidates, onAxis }: {
     })}
   </svg>;
 }
+
+export function resolveModelProfile(profiles: readonly RadarModelConfiguration[], grouping: RadarGrouping, candidate: RadarRankedCandidate, plan: Omit<RadarMissingTestRequest, 'id'> | null) {
+    if (!plan || grouping !== 'model') return plan;
+    if (!profiles.length) return plan; // Compatibility with historical archives and older embeds.
+    const matching = profiles.find((profile) => {
+      const needsGrading = plan.steps.some((step) => step.protocol !== 'graph');
+      const needsGraph = plan.steps.some((step) => step.protocol === 'graph');
+      const cfg = profile.configuration;
+      const graphModel = cfg.visionModel.trim() || cfg.generativeModel?.trim() || (cfg.correctionMethod === 'generative' ? cfg.analysisModel.trim() : '');
+      return (!needsGrading || cfg.analysisModel.trim() === candidate.id)
+        && (!needsGraph || graphModel === candidate.id);
+    });
+    if (!matching) return null;
+    const config = profiles.find((profile) => profile.id === matching.id)?.configuration;
+    const method: DiagramMethodSelection = config?.correctionMethod === 'visual-decision'
+      ? 'direct-image-systemone'
+      : config?.correctionMethod === 'generative' &&
+        config.analysisModel.trim() === config.visionModel.trim()
+          ? 'direct-image-generative' : 'vision-then-analysis';
+    return {
+      ...plan, profileId: matching.id, profileName: matching.name, modelId: candidate.id,
+      steps: plan.steps.map((step) => ({
+        ...step, method: step.protocol === 'graph' ? step.method : method,
+      })),
+    };
+  }
 
 export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, profileIds, profiles = [], busy }: {
   entries: DiagramLabArchiveEntry[];
@@ -152,35 +178,10 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
   /** A model may be saved in several profiles. Launch with an actual profile
    * that uses the selected LLM for EACH requested protocol, never a random
    * saved profile sharing its display label. */
-  function resolveModelProfile(candidate: RadarRankedCandidate, plan: Omit<RadarMissingTestRequest, 'id'> | null) {
-    if (!plan || grouping !== 'model') return plan;
-    if (!profiles.length) return plan; // Compatibility with historical archives and older embeds.
-    const matching = profiles.find((profile) => {
-      const needsGrading = plan.steps.some((step) => step.protocol !== 'graph');
-      const needsGraph = plan.steps.some((step) => step.protocol === 'graph');
-      const cfg = profile.configuration;
-      const graphModel = cfg.visionModel.trim() || cfg.generativeModel?.trim() || (cfg.correctionMethod === 'generative' ? cfg.analysisModel.trim() : '');
-      return (!needsGrading || cfg.analysisModel.trim() === candidate.id)
-        && (!needsGraph || graphModel === candidate.id);
-    });
-    if (!matching) return null;
-    const config = profiles.find((profile) => profile.id === matching.id)?.configuration;
-    const method: DiagramMethodSelection = config?.correctionMethod === 'visual-decision'
-      ? 'direct-image-systemone'
-      : config?.correctionMethod === 'generative' &&
-        config.analysisModel.trim() === config.visionModel.trim()
-          ? 'direct-image-generative' : 'vision-then-analysis';
-    return {
-      ...plan, profileId: matching.id, profileName: matching.name, modelId: candidate.id,
-      steps: plan.steps.map((step) => ({
-        ...step, method: step.protocol === 'graph' ? step.method : method,
-      })),
-    };
-  }
   function planFor(candidate: RadarRankedCandidate, target: RadarAxisId) {
-    return resolveModelProfile(candidate, planMissingRadarAxis(candidate, target, grouping));
+    return resolveModelProfile(profiles, grouping, candidate, planMissingRadarAxis(candidate, target, grouping));
   }
-  const completePlan = activeModel ? resolveModelProfile(activeModel, planRadarModelEvaluation(activeModel)) : null;
+  const completePlan = activeModel ? resolveModelProfile(profiles, grouping, activeModel, planRadarModelEvaluation(activeModel)) : null;
   const missingPlan = examined ? planFor(examined, axis) : null;
   const profileAvailable = examined ? (grouping === 'model' && profiles.length
     ? Boolean(missingPlan && profileIds.includes(missingPlan.profileId))

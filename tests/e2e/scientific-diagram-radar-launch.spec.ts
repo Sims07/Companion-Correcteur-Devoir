@@ -39,8 +39,11 @@ test('a missing radar axis leads directly to its automatic fixture battery on th
   }, { entry, profile, alternateProfile });
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   const nav = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
-  await nav.getByRole('button', { name: 'Radar des candidats' }).click();
+  await nav.getByRole('button', { name: 'Radars' }).click();
+  await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   const radar = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await radar.getByLabel('Choisir un LLM').selectOption('another:4b');
   await radar.getByRole('group', { name: 'Axe à examiner' }).getByRole('button', { name: /Qualité graphique/ }).click();
@@ -57,12 +60,16 @@ test('a missing radar axis leads directly to its automatic fixture battery on th
   await expect(running).toContainText('Schémas scientifiques · qualité graphique A/B/C');
   // No previously selected unrelated model is invoked by this shortcut.
   await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toContainText('Autre configuration');
-  await nav.getByRole('button', { name: 'Radar des candidats' }).click();
+  await nav.getByRole('button', { name: 'Radars' }).click();
+  await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   await expect(page.getByRole('region', { name: 'Radar des candidats scientifiques' }).getByLabel('Choisir un LLM'))
     .toHaveValue('another:4b');
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Radar des candidats' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Radars' }).click();
+  await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   await expect(page.getByRole('region', { name: 'Radar des candidats scientifiques' }).getByLabel('Choisir un LLM'))
     .toHaveValue('another:4b');
 });
@@ -78,8 +85,11 @@ test('evaluating a new model launches the four required batteries from one actio
   }, defaultAiModelConfiguration);
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   const nav = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
-  await nav.getByRole('button', { name: 'Radar des candidats' }).click();
+  await nav.getByRole('button', { name: 'Radars' }).click();
+  await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   const radar = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await radar.getByLabel('Choisir un LLM').selectOption('fresh:4b');
   await expect(radar.getByText(/4 batteries de test à enchaîner automatiquement/)).toBeVisible();
@@ -149,8 +159,11 @@ test('qwen-like 6/8 radar targets A/B/C x3 to fill graphics and stability in one
   }, { entries, profile });
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   const nav = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
-  await nav.getByRole('button', { name: 'Radar des candidats' }).click();
+  await nav.getByRole('button', { name: 'Radars' }).click();
+  await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   const radar = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await radar.getByLabel('Choisir un LLM').selectOption(model);
   await expect(radar.getByText(/2 caractéristique\(s\) à mesurer sur huit/)).toBeVisible();

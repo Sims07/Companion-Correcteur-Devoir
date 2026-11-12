@@ -109,18 +109,18 @@ describe('Diagnostic IA — comparaison graphique des essais conservés', () => 
 
 describe('Évaluation des modèles — navigation par espace', () => {
   it('provides task-centered views without misleading numbered steps', () => {
-    expect(appSource).toContain("useState<'configuration' | 'execution' | 'results' | 'history'>('configuration')");
+    expect(appSource).toContain("useState<'configuration' | 'execution' | 'results' | 'history' | 'dashboard' | 'campaigns'>('dashboard')");
     expect(appSource).toContain('Espaces de l’évaluation');
-    expect(appSource).toContain('Campagnes de test');
+    expect(appSource).toContain('<strong>Campagnes</strong>');
     expect(appSource).toContain('aria-label="Espaces de l’évaluation"');
-    expect(appSource).toContain("diagramLabView === 'history' ? 'page' : undefined");
+    expect(appSource).toContain("campaignsOpen ? 'page' : undefined");
   });
 
   it('keeps configuration and rubric preparation out of execution and history views', () => {
     expect(appSource).toContain("evaluationJourney !== 'diagrams' || diagramLabView === 'protocols'");
     expect(appSource).toContain("<ScientificDiagramLabHistory repository={diagramArchive}");
     expect(appSource).toContain("(interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && evaluationJourney === 'custom')");
-    expect(appSource).toContain("evaluationWorkspaceStep !== 'configuration' && <section id=\"evaluation-results\"");
+    expect(appSource).toContain("['execution', 'results', 'history'].includes(evaluationWorkspaceStep) && <section id=\"evaluation-results\"");
   });
 
   it('separates live execution, result comparison and historical analysis visually', () => {

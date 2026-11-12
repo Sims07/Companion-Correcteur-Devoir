@@ -1,30 +1,34 @@
 import { expect, test } from '@playwright/test';
+import { defaultAiModelConfiguration } from '../../src/domain/aiModelProfiles.ts';
 
-test('biology has its own radar and returns to the existing test battery', async ({ page }) => {
+test('evaluation opens on both radars and keeps the chosen LLM across tests and reload', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  const navigation = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
-  await navigation.getByRole('button', { name: 'Radar des candidats' }).click();
-  const picker = page.getByRole('group', { name: 'Choix du radar' });
-  const diagrams = picker.getByRole('button', { name: 'Schémas scientifiques' });
-  const biology = picker.getByRole('button', { name: 'Biologie' });
-  const scientificRadar = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
-  await expect(diagrams).toHaveAttribute('aria-pressed', 'true');
-  await expect(scientificRadar).toBeVisible();
-  await biology.click();
-  await expect(biology).toHaveAttribute('aria-pressed', 'true');
-  const radar = page.getByRole('region', { name: 'Radar de correction biologique' });
-  await expect(radar).toBeVisible();
-  await expect(radar.getByLabel('Protocole du radar biologique')).toBeVisible();
-  await expect(scientificRadar).toHaveCount(0);
-  await diagrams.click();
-  await expect(scientificRadar).toBeVisible();
-  await expect(radar).toHaveCount(0);
-  await biology.click();
-  await navigation.getByRole('button', { name: 'Tests' }).click();
-  await expect(page.getByRole('region', { name: 'Protocole de test guidé' })).toBeVisible();
+  await page.evaluate(cfg => localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify(
+    ['alpha', 'beta'].map(name => ({ id: name, name, mode: 'single', updatedAt: new Date().toISOString(),
+      configuration: { ...cfg, analysisModel: name, visionModel: name } })))), defaultAiModelConfiguration);
+  await page.reload();
+  const open = page.getByRole('button', { name: 'Évaluer les modèles' });
+  await open.click();
+  const home = page.getByRole('region', { name: 'Tableau de bord des radars' });
+  const nav = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
+  await expect(nav.getByRole('button', { name: 'Radars' })).toHaveAttribute('aria-current','page');
+  await home.getByLabel('Choisir un LLM').selectOption('beta');
+  await expect(home.getByText('À évaluer', { exact: true })).toHaveCount(2);
+  await expect(home.getByRole('img')).toHaveCount(2);
+  await nav.getByRole('button', { name: 'Tests' }).click();
+  await expect(page.getByRole('group', { name: 'Modèles sélectionnés pour les tests' })).toContainText('beta');
+  await nav.getByRole('button', { name: 'Campagnes' }).click();
+  await expect(page.getByRole('region', { name: 'Campagnes d’évaluation' })).toBeVisible();
+  await page.reload();
+  await open.click();
+  await expect(home.getByLabel('Choisir un LLM')).toHaveValue('beta');
   await page.setViewportSize({ width: 390, height: 844 });
-  await navigation.getByRole('button', { name: 'Radar des candidats' }).click();
-  await expect(radar).toBeVisible();
+  const bio = home.getByRole('article', { name: 'Biologie' });
+  await bio.getByRole('button', { name: 'Afficher le graphique' }).click();
+  await expect(bio.getByRole('img')).toBeVisible();
+  await expect(home.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('img')).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({path:'test-results/radars-mobile.png', fullPage:true});
+  await page.setViewportSize({width:1440,height:900});
+  await page.screenshot({path:'test-results/radars-desktop.png', fullPage:true});
 });

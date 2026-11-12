@@ -3,6 +3,8 @@ import { expect, test } from '@playwright/test';
 test('the model laboratory exposes independent Vision and Analysis experiments', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
 
   const stagePicker = page.getByRole('group', { name: 'Type d’évaluation' });
   await expect(stagePicker).toBeVisible();
@@ -22,7 +24,10 @@ test('the model laboratory exposes independent Vision and Analysis experiments',
 test('the history lets teachers filter Vision, Analysis and full-pipeline experiments before any run exists', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await page.getByRole('button', { name: 'Campagnes de test' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+  await page.getByRole('button', { name: 'Campagnes' }).click();
+  await page.getByRole('button', { name: 'Comparer les essais sur copie' }).click();
 
   const filters = page.getByRole('group', { name: 'Filtrer les expériences par type' });
   await expect(filters).toBeVisible();

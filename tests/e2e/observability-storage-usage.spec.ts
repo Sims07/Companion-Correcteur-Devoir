@@ -29,6 +29,8 @@ test('shows origin quota and IndexedDB categories without exposing student copie
   });
 
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
   await expect(page.getByRole('heading', { name: 'Observabilité' })).toBeVisible();
   const panel = page.getByRole('region', { name: 'Occupation du stockage local' });

@@ -1,3 +1,6 @@
+import { EvaluationRadarHome } from './components/EvaluationRadarHome.tsx';
+import { restoredModelId } from './components/ScientificDiagramRadar.tsx';
+import { EvaluationCampaigns, type CampaignFilter } from './components/EvaluationCampaigns.tsx';
 import { NotificationCenter } from './components/NotificationCenter.tsx';
 import { pushAppNotification, type AppNotification } from '../domain/appNotifications.ts';
 import { EvaluationJourneyPicker } from './components/EvaluationJourneyPicker.tsx';
@@ -67,7 +70,7 @@ import type { DiagramThinkSetting } from '../ports/correctionWorkspace.ts';
 import { ScientificDiagramProtocolPanel, downloadScientificDiagramJson, type DiagramProtocolRequest } from './components/ScientificDiagramProtocolPanel.tsx';
 import { ScientificDiagramLabHistory } from './components/ScientificDiagramLabHistory.tsx';
 import type { RadarMissingTestRequest } from '../domain/diagramLabRadarLaunch.ts';
-import { type DiagramLabReport } from '../domain/diagramLabHistory.ts';
+import { type DiagramLabReport, type DiagramLabArchiveEntry } from '../domain/diagramLabHistory.ts';
 import { createDiagramLabArchiveWriter } from '../application/diagramLabArchiveWriter.ts';
 import { radarEvaluationOutcome, RADAR_TEST_PROTOCOL_NAMES } from '../domain/diagramLabRadarLaunch.ts';
 import type { DiagramLabArchiveRepository } from '../ports/diagramLabArchiveRepository.ts';
@@ -113,6 +116,7 @@ type EvaluationActivity = {
   journey: 'custom' | 'diagrams' | 'biology';
   targetId: string;
   profiles: string;
+  campaignId?: string;
   scenario?: 'contracts' | 'repeatability' | 'copies';
   status: 'running' | 'completed' | 'cancelled' | 'failed';
   error?: string;
@@ -467,18 +471,37 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationHistoryStageFilter, setEvaluationHistoryStageFilter] = useState<EvaluationStageMode | 'all'>('all');
   const [evaluationEditorOpen, setEvaluationEditorOpen] = useState(false);
   const [evaluationBiologyScenario, setEvaluationBiologyScenario] = useState<'contracts' | 'repeatability' | 'copies'>('contracts');
-  const [lastRadar, setLastRadar] = useState<'diagrams' | 'biology'>('diagrams');
+  const [dashboardModel, setDashboardModel] = useState(restoredModelId);
+  const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>({});
+  const [reportId, setReportId] = useState<string>();
+  const biologyCampaign = useRef<string | undefined>(undefined);
+  function selectDashboardModel(model: string) {
+    setDashboardModel(model);
+    const profile = aiModelProfiles.find(p => p.configuration.analysisModel === model) ?? aiModelProfiles.find(p => p.configuration.visionModel === model);
+    if (profile) setSelectedEvaluationProfileIds([profile.id]);
+    try { localStorage.setItem('companion:scientific-lab-radar-model:v1', model); } catch { /* Session selection remains available. */ }
+  }
+  function showCampaigns(filter: CampaignFilter) {
+    setCampaignFilter(filter);
+    setEvaluationWorkspaceStep('campaigns');
+  }
   const [biologyRadarOpen, setBiologyRadarOpen] = useState(false);
-  const [evaluationJourney, setEvaluationJourney] = useState<'custom' | 'diagrams' | 'biology'>('custom');
+  const [evaluationJourney, setEvaluationJourney] = useState<'custom' | 'diagrams' | 'biology'>(() => {
+    try { const saved = localStorage.getItem('companion:evaluation-test-family'); return saved === 'biology' || saved === 'custom' ? saved : 'diagrams'; } catch { return 'diagrams'; }
+  });
   const [diagramLabView, setDiagramLabView] = useState<'protocols' | 'history' | 'radar'>('protocols');
   const [radarAutoRequest, setRadarAutoRequest] = useState<RadarMissingTestRequest | null>(null);
   const radarAutoSequence = useRef(0);
   const [radarAutoBusy, setRadarAutoBusy] = useState(false);
-  const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history'>('configuration');
+  const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history' | 'dashboard' | 'campaigns'>('dashboard');
   const radarOpen = evaluationWorkspaceStep === 'configuration' && (evaluationJourney === 'biology' ? biologyRadarOpen : evaluationJourney === 'diagrams' && diagramLabView === 'radar');
 
+  const dashboardOpen = radarOpen || evaluationWorkspaceStep === 'dashboard';
+  const campaignsOpen = evaluationWorkspaceStep === 'campaigns' || evaluationWorkspaceStep === 'history' ||
+    (evaluationWorkspaceStep === 'configuration' && evaluationJourney === 'diagrams' && diagramLabView === 'history');
+
   function openCandidateRadar(kind: 'diagrams' | 'biology') {
-    setLastRadar(kind);
+
     setEvaluationWorkspaceStep('configuration');
     setEvaluationJourney(kind);
     setBiologyRadarOpen(kind === 'biology');
@@ -504,7 +527,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (!observations.length) return;
     setBiologyRadarHistory((existing) => {
       const ids = new Set(existing.map((observation) => observation.id));
-      const additions = observations.filter((observation) => !ids.has(observation.id));
+      const additions = observations.filter((observation) => !ids.has(observation.id)).map(o => ({ ...o, campaignId: biologyCampaign.current }));
       return additions.length ? mergeBiologyRadarHistory(existing, additions) : existing;
     });
   }, [pilotRuns, pilotContractRuns, pilotRepeatabilityRuns, pilotRepeatabilityPlanned, pilotRepeatabilitySuite]);
@@ -526,6 +549,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [diagramFixtureReport, setDiagramFixtureReport] = useState<ReturnType<typeof buildScientificDiagramFixtureReport> | null>(null);
   const [diagramSensitivityReport, setDiagramSensitivityReport] = useState<ReturnType<typeof buildScientificDiagramSensitivityReport> | null>(null);
   const [diagramBlindGraphReport, setDiagramBlindGraphReport] = useState<ReturnType<typeof buildBlindVisualObservationReport> | null>(null);
+  const [dashboardEntries, setDashboardEntries] = useState<DiagramLabArchiveEntry[]>([]);
   const [diagramHistoryRevision, setDiagramHistoryRevision] = useState(0);
   const [diagramHistoryError, setDiagramHistoryError] = useState('');
   const diagramArchiveWriter = useMemo(() => createDiagramLabArchiveWriter(diagramArchive), [diagramArchive]);
@@ -596,6 +620,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [selectedSeriesPreviewJob, setSelectedSeriesPreviewJob] = useState<BackgroundCorrectionJob | null>(null);
   const [queuedViewerFullJob, setQueuedViewerFullJob] = useState<BackgroundCorrectionJob | null>(null);
   const [interfaceMode, setInterfaceMode] = useState<'teacher' | 'diagnostic' | 'debug' | 'observability'>('teacher');
+  useEffect(() => {
+    if (interfaceMode !== 'diagnostic' || !['dashboard', 'campaigns'].includes(evaluationWorkspaceStep)) return;
+    let active = true;
+    void diagramArchive.list().then(rows => { if (active) setDashboardEntries(rows); })
+      .catch(cause => { if (active) setDiagramHistoryError(String(cause)); });
+    return () => { active = false; };
+  }, [interfaceMode, evaluationWorkspaceStep, diagramArchive, diagramHistoryRevision]);
+
   useEffect(() => {
     if (interfaceMode !== 'diagnostic' || !evaluationJumpTarget) return;
     const frame = window.requestAnimationFrame(() => {
@@ -2065,6 +2097,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   async function followEvaluation<T>(activity: Omit<EvaluationActivity, 'status'>, execute: () => Promise<T>): Promise<T> {
     pilotStopRef.current = false;
     evaluationCancelledRef.current = false;
+    const campaignId = activity.journey === 'biology' ? crypto.randomUUID() : undefined;
+    if (campaignId) biologyCampaign.current = campaignId;
     setEvaluationActivity({ ...activity, status: 'running' });
     if (activity.journey === 'diagrams') setDiagramProtocolProgress('Préparation des schémas et des modèles…');
     if (activity.journey === 'biology') setPilotMessage('Préparation du protocole…');
@@ -2074,13 +2108,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         journey: activity.journey, interrupted: evaluationCancelledRef.current || pilotStopRef.current,
         pilotMemoryError: pilotMemoryErrorRef.current, pilotMessage: pilotMessageRef.current, outcome,
       });
+      const campaignResult = campaignId ?? (outcome && typeof outcome === 'object' &&
+        'format' in outcome && 'createdAt' in outcome ? String(outcome.format) + ':' + outcome.createdAt :
+        outcome && typeof outcome === 'object' && 'id' in outcome ? String(outcome.id) : undefined);
       setEvaluationActivity((current) => current?.title === activity.title
-        ? { ...current, ...result } : current);
+        ? { ...current, ...result, campaignId: campaignResult } : current);
       pushAppNotification({
         title: result.status === 'completed' ? 'Test terminé' : result.status === 'cancelled' ? 'Test interrompu' : 'Test en échec',
         message: activity.title + ' · ' + activity.profiles + (result.error ? ' · ' + result.error.slice(0, 180) : ''),
         kind: result.status === 'completed' ? 'success' : result.status === 'cancelled' ? 'warning' : 'error',
-        target: 'evaluation', journey: activity.journey, targetId: activity.targetId,
+        target: 'evaluation', journey: activity.journey, targetId: activity.targetId, campaignId: campaignResult,
       });
       return outcome;
     } catch (cause) {
@@ -2100,6 +2137,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setShowAiSettings(false);
       setShowAssignmentsHome(false);
       setInterfaceMode('diagnostic');
+      if (item.campaignId) { showCampaigns({ domain: item.journey, ids: [item.campaignId] }); return; }
+      setBiologyRadarOpen(false);
       setEvaluationJourney(item.journey ?? 'custom');
       if (item.journey === 'diagrams') setDiagramLabView('protocols');
       setEvaluationWorkspaceStep(item.journey === 'custom' ? 'results' : 'configuration');
@@ -2115,6 +2154,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   function showEvaluationActivity() {
     if (!evaluationActivity) return;
+    if (evaluationActivity.campaignId && evaluationActivity.journey === 'biology') { showCampaigns({ domain: 'biology', ids: [evaluationActivity.campaignId] }); return; }
+    setBiologyRadarOpen(false);
     setEvaluationJourney(evaluationActivity.journey);
     if (evaluationActivity.scenario) setEvaluationBiologyScenario(evaluationActivity.scenario);
     if (evaluationActivity.journey === 'diagrams') setDiagramLabView('protocols');
@@ -2691,7 +2732,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     cancelModelEvaluation();
   }
 
-  function evaluateBiologyModel(profileId: string) {
+  function runRadarPlan(planned: Omit<RadarMissingTestRequest, 'id'>) {
+    if (busy || pilotBusy || radarAutoBusy || !aiModelProfiles.some((profile) => profile.id === planned.profileId)) return;
+    setSelectedEvaluationProfileIds([planned.profileId]);
+    setRadarAutoRequest({ ...planned, id: ++radarAutoSequence.current });
+    setEvaluationJourney('diagrams');
+    setEvaluationWorkspaceStep('configuration');
+    setDiagramLabView('protocols');
+  }
+
+  function evaluateBiologyModel(profileId: string, baseline = true, traps = true) {
     const profile = aiModelProfiles.find((item) => item.id === profileId);
     if (!profile || busy || pilotBusy) return;
     setSelectedEvaluationProfileIds([profileId]);
@@ -2699,11 +2749,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       title: 'Biologie · évaluation complète du modèle',
       journey: 'biology', scenario: 'contracts', targetId: 'evaluation-biology-radar', profiles: profile.name,
     }, async () => {
-      const baselineComplete = await runPilotQuestionContractBenchmark([profile]);
+      const baselineComplete = !baseline || await runPilotQuestionContractBenchmark([profile]);
       if (pilotStopRef.current || evaluationCancelledRef.current) return 0;
       // Run the stress battery even when A/B/C was only partially resolved.
       // This keeps independently measurable axes available in the radar.
-      const trapsComplete = await runPilotRepeatabilityBenchmark(3, 'stress', [profile]);
+      const trapsComplete = !traps || await runPilotRepeatabilityBenchmark(3, 'stress', [profile]);
       return baselineComplete && trapsComplete ? 1 : 0;
     });
   }
@@ -3683,7 +3733,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <button type="button" className={interfaceMode === 'diagnostic' ? 'view-switch-button active' : 'view-switch-button'}
             aria-current={interfaceMode === 'diagnostic' ? 'page' : undefined}
             aria-label="Évaluer les modèles" title="Évaluer les modèles"
-            onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('diagnostic'); }}>Évaluer</button>
+            onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('diagnostic'); setEvaluationWorkspaceStep('dashboard'); setDashboardModel(restoredModelId()); }}>Évaluer</button>
           <button type="button" className={interfaceMode === 'observability' || interfaceMode === 'debug' ? 'view-switch-button active' : 'view-switch-button'}
             aria-current={interfaceMode === 'observability' || interfaceMode === 'debug' ? 'page' : undefined}
             onClick={() => { setShowAiSettings(false); setShowAssignmentsHome(false); setInterfaceMode('observability'); }}>Suivi & diagnostic</button>
@@ -3828,11 +3878,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       {interfaceMode === 'observability' && <ObservabilityDashboard records={observabilityRecords} storageDiagnosticsService={storageDiagnosticsService} onManageEvaluations={() => { setInterfaceMode('diagnostic'); setEvaluationWorkspaceStep('history'); }} onInspectNetworkErrors={() => { setNetworkInitialFilter('error'); setInterfaceMode('debug'); }} benchmarkRows={buildLocalDecisionBenchmark(timingHistory)} />}
       {interfaceMode === 'diagnostic' && <h2 id="evaluation-page-title" className="evaluation-visually-hidden">Évaluer les modèles</h2>}
       {interfaceMode === 'diagnostic' && <nav className="evaluation-step-nav" data-journey={evaluationJourney} aria-label="Espaces de l’évaluation">
+        <button type="button" className={dashboardOpen ? 'is-active' : ''} aria-current={dashboardOpen ? 'page' : undefined} onClick={() => { setDashboardModel(restoredModelId()); setEvaluationWorkspaceStep('dashboard'); }}><strong>Radars</strong></button>
         <button type="button" className={evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && (evaluationJourney !== 'biology' || !biologyRadarOpen) ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && (evaluationJourney !== 'biology' || !biologyRadarOpen) ? 'page' : undefined} onClick={() => { setEvaluationWorkspaceStep('configuration'); setDiagramLabView('protocols'); setBiologyRadarOpen(false); }}><strong>Tests</strong></button>
         <button type="button" hidden={evaluationJourney !== 'custom' || (!busy && evaluationWorkspaceStep !== 'execution')} className={evaluationWorkspaceStep === 'execution' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'execution' ? 'page' : undefined} onClick={() => setEvaluationWorkspaceStep('execution')}><strong>Exécution</strong></button>
         <button type="button" hidden={evaluationJourney !== 'custom' || (!modelEvaluationResults.length && evaluationWorkspaceStep !== 'results')} className={evaluationWorkspaceStep === 'results' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'results' ? 'page' : undefined} onClick={() => setEvaluationWorkspaceStep('results')}><strong>Résultats</strong></button>
-        <button type="button" className={evaluationJourney === 'diagrams' ? (diagramLabView === 'history' ? 'is-active' : '') : (evaluationWorkspaceStep === 'history' ? 'is-active' : '')} aria-current={evaluationJourney === 'diagrams' ? (diagramLabView === 'history' ? 'page' : undefined) : (evaluationWorkspaceStep === 'history' ? 'page' : undefined)} onClick={() => { if (evaluationJourney === 'diagrams') { setEvaluationWorkspaceStep('configuration'); setDiagramLabView('history'); } else setEvaluationWorkspaceStep('history'); }}><strong>Campagnes de test</strong></button>
-        <button type="button" className={radarOpen ? 'is-active' : ''} aria-current={radarOpen ? 'page' : undefined} onClick={() => openCandidateRadar(lastRadar)}><strong>Radar des candidats</strong></button>
+        <button type="button" className={campaignsOpen ? 'is-active' : ''} aria-current={campaignsOpen ? 'page' : undefined} onClick={() => showCampaigns({})}><strong>Campagnes</strong></button>
       </nav>}
       {interfaceMode === 'diagnostic' && evaluationActivity && <section className={`evaluation-activity-banner is-${evaluationActivity.status}`}
         role="status" aria-live="polite" aria-label="Dernière expérience lancée">
@@ -3866,7 +3916,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       </section>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && (evaluationJourney !== 'biology' || !biologyRadarOpen) && <section id="evaluation-configurations" className="panel evaluation-config-workspace" data-journey={evaluationJourney} aria-labelledby="evaluation-config-title">
         <div className="evaluation-workbench-controls">
-        <EvaluationJourneyPicker value={evaluationJourney} disabled={busy || pilotBusy} onChange={(journey) => { setEvaluationJourney(journey); if (journey === 'diagrams') setDiagramLabView('protocols'); }} />
+        <EvaluationJourneyPicker value={evaluationJourney} disabled={busy || pilotBusy} onChange={(journey) => { try { localStorage.setItem('companion:evaluation-test-family', journey); } catch { /* Session only */ } setEvaluationJourney(journey); if (journey === 'diagrams') setDiagramLabView('protocols'); }} />
         <h2 id="evaluation-config-title" className="evaluation-visually-hidden">Configurations à évaluer</h2>
         <div className="evaluation-model-brief" role="group" aria-label="Modèles sélectionnés pour les tests">
           <span className="evaluation-model-brief-name">Modèle{selectedEvaluationProfiles.length > 1 ? 's' : ''}</span>
@@ -4620,19 +4670,21 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="evaluation-launch-intro"><p className="eyebrow">PRÊT POUR L’EXPÉRIENCE ?</p><h2>Lancer l’évaluation</h2><p>{!validation.valid ? 'Vérifiez le barème pour continuer.' : !selectedEvaluationProfileIds.length ? 'Sélectionnez au moins une configuration.' : evaluationStageMode !== 'analysis' && !images.length ? 'Ajoutez les pages de la copie à évaluer.' : evaluationStageMode === 'analysis' && !transcription?.trim() ? 'Renseignez la transcription de référence.' : 'Votre jeu d’essai est prêt. Les configurations seront évaluées l’une après l’autre.'}</p></div>
         <div className="evaluation-run-actions evaluation-config-launch"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>Le lancement passera à l’espace Exécution pour afficher la progression en direct.</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => { setEvaluationWorkspaceStep('execution'); void startModelEvaluation(); }}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button></div>
       </section>}
-      {interfaceMode === 'diagnostic' && radarOpen && (
-        <div className="evaluation-journey-options" role="group" aria-label="Choix du radar">
-          <button type="button" aria-pressed={evaluationJourney === 'diagrams'} onClick={() => openCandidateRadar('diagrams')}>
-            <strong>Schémas scientifiques</strong>
-          </button>
-          <button type="button" aria-pressed={evaluationJourney === 'biology'} onClick={() => openCandidateRadar('biology')}>
-            <strong>Biologie</strong>
-          </button>
-        </div>
-      )}
+      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'dashboard' &&
+        <EvaluationRadarHome entries={dashboardEntries} history={biologyRadarHistory} profiles={aiModelProfiles}
+          model={dashboardModel} choose={selectDashboardModel} busy={busy || pilotBusy || radarAutoBusy}
+          manage={() => setManagingEvaluationProfiles(true)} details={(domain, model) => { selectDashboardModel(model); openCandidateRadar(domain); }}
+          campaigns={(domain, model, ids) => showCampaigns({ domain, model, ids })}
+          runScience={runRadarPlan} runBiology={evaluateBiologyModel} />}
+      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'campaigns' &&
+        <EvaluationCampaigns key={JSON.stringify(campaignFilter)} filter={campaignFilter}
+          diagrams={dashboardEntries} biology={biologyRadarHistory} records={savedModelEvaluations}
+          onDiagram={id => { setReportId(id); setEvaluationJourney('diagrams'); setDiagramLabView('history'); setEvaluationWorkspaceStep('configuration'); }}
+          onCustom={id => { setEvaluationJourney('custom'); setSelectedEvaluationHistoryIds(id ? [id] : []); setEvaluationHistoryStageFilter('all'); setEvaluationWorkspaceStep('history'); }} />}
+      {interfaceMode === 'diagnostic' && ['dashboard','campaigns'].includes(evaluationWorkspaceStep) && diagramHistoryError && <p role="alert">{diagramHistoryError}</p>}
       {interfaceMode === 'diagnostic' && evaluationJourney === 'biology' && biologyRadarOpen && evaluationWorkspaceStep === 'configuration' &&
         <div id="evaluation-biology-radar"><BiologyTeacherRadar
-          history={biologyRadarHistory} profiles={aiModelProfiles} busy={busy || pilotBusy}
+          initialModel={dashboardModel} onModelChange={selectDashboardModel} history={biologyRadarHistory} profiles={aiModelProfiles} busy={busy || pilotBusy}
           onEvaluate={evaluateBiologyModel}
           onShowTests={(scenario) => {
             setEvaluationBiologyScenario(scenario);
@@ -4642,15 +4694,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <ScientificDiagramLabHistory repository={diagramArchive} revision={diagramHistoryRevision} archiveError={diagramHistoryError}
           view={diagramLabView === 'radar' ? 'radar' : 'campaigns'} onViewChange={(view) => { if (view === 'radar') openCandidateRadar('diagrams'); else setDiagramLabView('history'); }}
           profileIds={aiModelProfiles.map((profile) => profile.id)} profiles={aiModelProfiles} busy={busy || pilotBusy || radarAutoBusy}
-          onRunMissing={(planned) => {
-            if (busy || pilotBusy || radarAutoBusy || !aiModelProfiles.some((profile) => profile.id === planned.profileId)) return;
-            setSelectedEvaluationProfileIds([planned.profileId]);
-            setRadarAutoRequest({ ...planned, id: ++radarAutoSequence.current });
-            setEvaluationJourney('diagrams');
-            setEvaluationWorkspaceStep('configuration');
-            setDiagramLabView('protocols');
-          }} />}
-      {interfaceMode === 'diagnostic' && evaluationWorkspaceStep !== 'configuration' && <section id="evaluation-results" data-evaluation-step={evaluationWorkspaceStep} className="panel evaluation-results-workspace" aria-labelledby="evaluation-results-title">
+          initialReportId={reportId} onRunMissing={runRadarPlan} />}
+      {interfaceMode === 'diagnostic' && ['execution', 'results', 'history'].includes(evaluationWorkspaceStep) && <section id="evaluation-results" data-evaluation-step={evaluationWorkspaceStep} className="panel evaluation-results-workspace" aria-labelledby="evaluation-results-title">
         <div className="evaluation-section-heading"><div><p className="eyebrow">{evaluationWorkspaceStep === 'execution' ? 'ÉTAPE 2 · EXÉCUTION' : evaluationWorkspaceStep === 'results' ? 'ÉTAPE 3 · RÉSULTATS' : 'ÉTAPE 4 · ANALYSE & HISTORIQUE'}</p><h2 id="evaluation-results-title">{evaluationWorkspaceStep === 'execution' ? 'Exécution de l’expérience' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Résultats de la lecture Vision' : evaluationStageMode === 'analysis' ? 'Résultats de l’analyse' : 'Résultats du parcours complet') : 'Analyser et comparer les expériences'}</h2><p>{evaluationWorkspaceStep === 'execution' ? 'Suivez la progression des modèles et le détail de chaque étape de traitement.' : evaluationWorkspaceStep === 'results' ? (evaluationStageMode === 'vision' ? 'Examinez les transcriptions produites et les performances des modèles de lecture.' : evaluationStageMode === 'analysis' ? 'Examinez les notes proposées, les justifications et les écarts entre modèles à partir de la même transcription.' : 'Examinez successivement la transcription, la notation et les performances des deux étapes.') : 'Retrouvez les essais précédents et comparez leurs performances grâce aux indicateurs graphiques.'}</p></div><span className="evaluation-step-chip">{evaluationWorkspaceStep === 'history' ? savedModelEvaluations.length + ' essai(s)' : modelEvaluationResults.length + ' résultat(s)'}</span></div>
         {evaluationWorkspaceStep === 'results' && evaluationArchiveStatus !== 'idle' && <div className={`evaluation-archive-feedback is-${evaluationArchiveStatus}`} role={evaluationArchiveStatus === 'failed' ? 'alert' : 'status'}>
           <div><strong>{evaluationArchiveStatus === 'saving' ? 'Enregistrement dans l’historique…' : evaluationArchiveStatus === 'saved' ? 'Résultats enregistrés' : evaluationArchiveStatus === 'without-images' ? 'Résultats enregistrés sans les images' : 'Historique non enregistré'}</strong>

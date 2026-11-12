@@ -62,6 +62,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
 
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   const fixtures = panel.getByRole('region', { name: 'Schémas de référence intégrés' });
@@ -90,7 +91,8 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await expect(page.locator('.diagram-lab-live')).toHaveCount(0);
   await expect(activity.getByRole('button', { name: 'Suivre ce test' })).toBeVisible();
   const testViews = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
-  await testViews.getByRole('button', { name: 'Campagnes de test' }).click();
+  await testViews.getByRole('button', { name: 'Campagnes' }).click();
+  await page.getByRole('button', { name: 'Archives scientifiques' }).click();
   await expect(activity).toBeVisible();
   await activity.getByRole('button', { name: 'Suivre ce test' }).click();
   await expect(fixtures).toBeVisible();
@@ -115,6 +117,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   expect(partial.format).toBe('companion-scientific-diagram-fixture-report');
   expect(partial.cases.flatMap((entry) => entry.experiments)).toHaveLength(1);
   await navigation.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
   releaseSecondRequest();
 
   const results = fixtures.getByRole('region', { name: 'Résultats des schémas scientifiques' });
@@ -147,7 +150,8 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
     .flatMap((summary) => summary.decisions)
     .every((decision) => !decision.stable
       && decision.stableAndResolved === null && decision.correctEveryTime === null)).toBe(true);
-  await page.getByRole('button', { name: /Campagnes de test/ }).click();
+  await page.getByRole('button', { name: /Campagnes/ }).click();
+  await page.getByRole('button', { name: 'Archives scientifiques' }).click();
   const journal = page.getByRole('region', { name: 'Campagnes de test scientifiques' });
   await expect(journal.getByRole('group', { name: 'Campagnes enregistrées' })
     .getByRole('button', { name: /Qualité graphique · A\/B\/C/ }).first()).toBeVisible();
@@ -171,10 +175,12 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   // The new journal must restore the automatic protocol reports after a reload.
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
-    .getByRole('button', { name: /Campagnes de test/ }).click();
+    .getByRole('button', { name: /Campagnes/ }).click();
+  await page.getByRole('button', { name: 'Archives scientifiques' }).click();
   const reopened = page.getByRole('region', { name: 'Campagnes de test scientifiques' });
   await expect(reopened.getByRole('group', { name: 'Campagnes enregistrées' }).getByRole('button')).toHaveCount(2);
   await expect(reopened.getByText('D1 test image').first()).toBeVisible();
@@ -225,6 +231,7 @@ test('paired D/E diagrams test the pointed structure, not just the written label
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   await panel.getByRole('tab', { name: /Sens des flèches/ }).click();
@@ -353,6 +360,7 @@ test(scenario.model + ' compares Think OFF/ON on E with runtime Ollama capabilit
 
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
   await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: /Schémas scientifiques/ }).click();
   const panel = page.getByRole('region', { name: 'Protocole schémas scientifiques' });
   await page.getByRole('button', { name: 'Gérer les configurations' }).click();

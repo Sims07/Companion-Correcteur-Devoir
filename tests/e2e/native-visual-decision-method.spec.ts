@@ -31,6 +31,8 @@ test('third method persists and sends diagram + all typed questions to Clef thro
 
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   await page.getByRole('button', { name: 'Gérer les configurations' }).click();
   await page.getByRole('dialog', { name: 'Gérer les configurations IA' })
     .getByRole('button', { name: 'Modifier les réglages courants' }).click();
@@ -66,6 +68,8 @@ test('third method persists and sends diagram + all typed questions to Clef thro
 
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   await page.getByRole('button', { name: 'Gérer les configurations' }).click();
   await page.getByRole('dialog', { name: 'Gérer les configurations IA' })
     .getByRole('button', { name: 'Modifier', exact: true }).click();
@@ -78,6 +82,8 @@ test('third method persists and sends diagram + all typed questions to Clef thro
 test('TEV1 configured as direct image decision is blocked visibly before running the scientific diagram benchmark', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   await page.getByRole('button', { name: 'Gérer les configurations' }).click();
   await page.getByRole('dialog', { name: 'Gérer les configurations IA' })
     .getByRole('button', { name: 'Modifier les réglages courants' }).click();

@@ -67,10 +67,13 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   }, inputs);
 
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
-    .getByRole('button', { name: 'Campagnes de test' }).click();
+    .getByRole('button', { name: 'Campagnes' }).click();
+  await page.getByRole('button', { name: 'Archives scientifiques' }).click();
 
   const journal = page.getByRole('region', { name: 'Campagnes de test scientifiques' });
   const recordedCampaigns = journal.getByRole('group', { name: 'Campagnes enregistrées' }).getByRole('button');
@@ -82,7 +85,7 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   await expect(overview.getByText(/candidats avec huit axes/)).toBeVisible();
   await overview.getByRole('button', { name: 'Voir le radar à huit axes' }).click();
   await expect(page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
-    .getByRole('button', { name: 'Radar des candidats' })).toHaveAttribute('aria-current', 'page');
+    .getByRole('button', { name: 'Radars' })).toHaveAttribute('aria-current', 'page');
   const radar = journal.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await expect(radar.getByRole('img', { name: /Comparaison radar/ })).toBeVisible();
   await expect(radar.getByRole('region', { name: 'Classement des candidats' }).getByText('2 candidat(s) classable(s)')).toBeVisible();
@@ -102,8 +105,11 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
 
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
-    .getByRole('button', { name: 'Radar des candidats' }).click();
+    .getByRole('button', { name: 'Radars' }).click();
+  await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   const reopened = page.getByRole('region', { name: 'Radar des candidats scientifiques' });
   await expect(reopened.getByRole('region', { name: 'Classement des candidats' }).getByText('2 candidat(s) classable(s)')).toBeVisible();
   await expect(reopened.getByLabel('Priorité du classement')).toHaveValue('balanced');
@@ -114,19 +120,25 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
 test('radar is reachable from the general evaluation notebook without a previous science campaign', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   const nav = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
-  await nav.getByRole('button', { name: 'Campagnes de test' }).click();
-  await expect(nav.getByRole('button', { name: 'Campagnes de test' })).toHaveAttribute('aria-current', 'page');
-  await nav.getByRole('button', { name: 'Radar des candidats' }).click();
+  await nav.getByRole('button', { name: 'Campagnes' }).click();
+  await page.getByRole('button', { name: 'Archives scientifiques' }).click();
+  await expect(nav.getByRole('button', { name: 'Campagnes' })).toHaveAttribute('aria-current', 'page');
+  await nav.getByRole('button', { name: 'Radars' }).click();
+  await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   const journal = page.getByRole('region', { name: 'Campagnes de test scientifiques' });
   await expect(journal.getByRole('region', { name: 'Radar des candidats scientifiques' })).toBeVisible();
-  await expect(nav.getByRole('button', { name: 'Radar des candidats' })).toHaveAttribute('aria-current', 'page');
+  await expect(nav.getByRole('button', { name: 'Radars' })).toHaveAttribute('aria-current', 'page');
   await expect(journal.getByRole('tab', { name: /Radar des candidats/ })).toHaveCount(0);
   await nav.getByRole('button', { name: 'Tests' }).click();
   await expect(page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ })).toHaveAttribute('aria-pressed', 'true');
-  await nav.getByRole('button', { name: 'Campagnes de test' }).click();
+  await nav.getByRole('button', { name: 'Campagnes' }).click();
+  await page.getByRole('button', { name: 'Archives scientifiques' }).click();
   await expect(journal.getByText('Aucun résultat pour ce filtre')).toBeVisible();
-  await nav.getByRole('button', { name: 'Radar des candidats' }).click();
+  await nav.getByRole('button', { name: 'Radars' }).click();
+  await page.getByRole('article', { name: 'Schémas scientifiques' }).getByRole('button', { name: 'Détail du radar' }).click();
   await expect(journal.getByRole('region', { name: 'Radar des candidats scientifiques' })).toBeVisible();
 });

@@ -17,6 +17,8 @@ test('evaluation does not add a permanent provider/privacy banner regardless of 
   ])), configuration);
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   const notice = page.locator('.evaluation-provider-indicator, .evaluation-page-header');
   const remoteNotice = page.locator('.evaluation-remote-endpoint-notice');
   await expect(notice).toHaveCount(0);
@@ -37,6 +39,8 @@ test('evaluation does not add a permanent provider/privacy banner regardless of 
 test('personal tests use a compact type switch, never a numbered sequence', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   const picker = page.getByRole('group', { name: 'Type d’évaluation' });
   const options = picker.getByRole('button');
   await expect(options).toHaveCount(3);

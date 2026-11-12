@@ -46,7 +46,10 @@ test('two compact local evaluations remain comparable after a page reload withou
 
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await page.getByRole('button', { name: /Campagnes de test/ }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
+  await page.getByRole('button', { name: /Campagnes/ }).click();
+  await page.getByRole('button', { name: 'Comparer les essais sur copie' }).click();
 
   const comparisons = page.getByRole('group', { name: 'Expériences à comparer' });
   await expect(comparisons.getByRole('checkbox')).toHaveCount(2);

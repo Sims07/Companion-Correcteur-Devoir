@@ -9,6 +9,8 @@ test('application offers evaluation and diagnostics as top-level destinations', 
   await expect(page.getByRole('navigation', { name: 'Navigation des outils IA' })).toHaveCount(0);
 
   await primaryNavigation.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   await expect(primaryNavigation.getByRole('button', { name: 'Évaluer les modèles' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('navigation', { name: 'Détails du suivi' })).toHaveCount(0);
   await expect(page.locator('.developer-tools')).toHaveCount(0);
@@ -30,6 +32,8 @@ test('application offers evaluation and diagnostics as top-level destinations', 
   await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
 
   await primaryNavigation.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   await expect(page.getByRole('navigation', { name: 'Détails du suivi' })).toHaveCount(0);
   await primaryNavigation.getByRole('button', { name: 'Correction' }).click();
   await expect(primaryNavigation.getByRole('button', { name: 'Correction' })).toHaveAttribute('aria-current', 'page');

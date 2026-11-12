@@ -3,6 +3,8 @@ import { expect, test } from '@playwright/test';
 test('each test journey shows its own preparation and preserves custom input across switches', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   const journeys = page.getByRole('group', { name: 'Parcours de test' });
   await page.getByRole('group', { name: 'Type d’évaluation' }).getByRole('button', { name: /Analyse seule/ }).click();
   const transcription = page.getByRole('textbox', { name: 'Transcription de référence pour l’évaluation de l’analyse' });
@@ -24,7 +26,7 @@ test('each test journey shows its own preparation and preserves custom input acr
   await page.getByRole('button', { name: 'Vérifier la répétabilité', exact: true }).click();
   await expect(page.getByLabel('Nombre de passages')).toHaveValue('5');
   await page.screenshot({ path: 'test-results/evaluation-repeatability-desktop.png', fullPage: true });
-  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: /Campagnes de test/ }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: /Campagnes/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: /Tests/ }).click();
   await expect(page.getByRole('button', { name: 'Vérifier la répétabilité', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await journeys.getByRole('button', { name: /Ma copie/ }).click();

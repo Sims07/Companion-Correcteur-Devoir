@@ -25,6 +25,8 @@ async function expectFullWidthSubnavigation(navigation: Locator, count: number) 
 test('Biologie and Ma copie test selectors fill their row like scientific diagram protocols', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
 
   const journeys = page.getByRole('group', { name: 'Parcours de test' });
 

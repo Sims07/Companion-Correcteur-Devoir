@@ -3,6 +3,8 @@ import { expect, test } from '@playwright/test';
 test('evaluation starts with one compact workspace rather than stacked cards', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
 
   await expect(page.getByRole('heading', { name: 'Évaluer les modèles' })).toBeVisible();
   await expect(page.locator('.developer-tools-heading, .evaluation-config-workspace > .evaluation-stage-guidance')).toHaveCount(0);
@@ -12,7 +14,7 @@ test('evaluation starts with one compact workspace rather than stacked cards', a
 
   const views = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   await expect(views.getByRole('button')).toHaveCount(3);
-  await expect(views.getByRole('button', { name: 'Radar des candidats' })).toBeVisible();
+  await expect(views.getByRole('button', { name: 'Radars' })).toBeVisible();
   const families = page.getByRole('group', { name: 'Parcours de test' });
   await expect(families.getByRole('button')).toHaveCount(3);
   await expect(page.locator('.evaluation-journey-options button span, .evaluation-journey-options button small')).toHaveCount(0);
@@ -29,8 +31,8 @@ test('evaluation starts with one compact workspace rather than stacked cards', a
 
   await families.getByRole('button', { name: 'Schémas scientifiques' }).click();
   await expect(page.getByRole('region', { name: 'Protocole schémas scientifiques', exact: true })).toBeVisible();
-  await views.getByRole('button', { name: 'Campagnes de test' }).click();
-  await expect(views.getByRole('button', { name: 'Campagnes de test' })).toHaveAttribute('aria-current', 'page');
+  await views.getByRole('button', { name: 'Campagnes' }).click();
+  await expect(views.getByRole('button', { name: 'Campagnes' })).toHaveAttribute('aria-current', 'page');
   await views.getByRole('button', { name: 'Tests' }).click();
   await expect(families.getByRole('button', { name: 'Schémas scientifiques' })).toHaveAttribute('aria-pressed', 'true');
   await families.getByRole('button', { name: 'Biologie' }).click();

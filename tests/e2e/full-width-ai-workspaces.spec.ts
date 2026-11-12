@@ -10,6 +10,8 @@ test('Correction, Évaluer and Suivi & diagnostic use the same full-width page f
   expect(teacherHeader?.width).toBeGreaterThanOrEqual(1679);
 
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   const evalShell = page.locator('main.evaluation-workspace-shell');
   await expect(evalShell).toHaveCSS('max-width', 'none');
   const evalBox = await evalShell.boundingBox();
@@ -40,6 +42,8 @@ test('Évaluer and Suivi keep an accessible gutter without horizontal scrolling 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
+  await page.getByRole('group', { name: 'Parcours de test' }).getByRole('button', { name: 'Ma copie' }).click();
   const evaluation = page.locator('main.evaluation-workspace-shell');
   await expect(evaluation).toHaveCSS('max-width', 'none');
   const evalHeader = await evaluation.locator(':scope > .topbar').boundingBox();
