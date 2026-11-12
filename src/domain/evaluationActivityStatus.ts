@@ -15,6 +15,7 @@ export interface EvaluationActivityOutcome {
  * provider errors, transcriptions, prompts or the contents of a student's copy. */
 const diagramFailureLabels: Record<string, string> = {
   'model-unavailable': 'Modèle absent sur le serveur Ollama',
+  'unsupported-chat': 'Modèle décisionnel utilisé en Vision : /api/chat non pris en charge',
   connection: 'Connexion au serveur impossible',
   'system-one-unavailable': 'API System One indisponible ou refusée (vérifier /v1/systemone et le modèle décisionnel)',
   'generation-limit': 'Limite de génération atteinte',
