@@ -172,8 +172,10 @@ describe('portable local backup (localhost to PWA)', () => {
         id: model + ':' + caseId, profileId: model, profile: model, model,
         provider: 'ollama', method: 'generative', protocol: 'contract',
         caseId, recordedAt: '2026-11-11T12:00:00Z', status: 'success',
-        score: 10, referenceScore: 10,
-        decisions: Array.from({ length: 10 }, (_, index) => ({ id: 'q' + index, expected: 1, awarded: 1 })),
+        score: 5, referenceScore: 5,
+        decisions: Array.from({ length: 10 }, (_, index) => ({
+          id: 'q' + index, expected: index < 5 ? 1 : 0, awarded: index < 5 ? 1 : 0,
+        })),
       })));
     settings.setItem(key, JSON.stringify(observations));
     const saved = parseLocalBackup(JSON.stringify(await createLocalBackup(settings)));
