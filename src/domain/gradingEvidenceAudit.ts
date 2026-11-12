@@ -95,6 +95,24 @@ function findCitation(transcription: string, evidence: string): { excerpt: strin
   return first < 0 ? null : { excerpt: clean, at: first };
 }
 
+/**
+ * Teacher-authored question IDs may establish the subject of an answer which
+ * begins directly with "Dans le chloroplaste..." rather than repeating the
+ * question. Scope only when explicit numbered question AND answer delimiters
+ * exist. Never include another question or its printed statement as proof.
+ */
+function studentAnswerForQuestion(transcription: string, questionId: string): string | null {
+  const headings = [...transcription.matchAll(/^[ \t]*Question[ \t]+([0-9]+)[ \t]*$/gim)];
+  const matches = headings.filter((heading) => heading[1] === questionId);
+  if (matches.length !== 1) return null;
+  const heading = matches[0]!;
+  const next = headings.find((item) => item.index > heading.index);
+  const section = transcription.slice(heading.index + heading[0].length, next?.index ?? transcription.length);
+  const answer = /(?:^|\r?\n)[ \t]*(?:\*\*)?r[eé]ponse(?:[ \t]+de[ \t]+l['’](?:[eé]tudiant|[eé]l[eè]ve))?(?:\*\*)?[ \t]*:[ \t]*(?:\r?\n|$)/i.exec(section);
+  if (!answer) return null;
+  return section.slice(answer.index + answer[0].length).trim();
+}
+
 function parentConcept(criterion: RubricCriterion): string[] {
   // Parent headings like "Respiration : besoins" identify the subject of a
   // relationship. Headings without this explicit split are not treated as
@@ -189,18 +207,21 @@ export function auditGradingEvidence(
   proposal: GradingProposal, rubric: Rubric, transcription: string,
 ): GradingProposal {
   if (!transcription.trim()) return proposal;
-  const studentText = studentAnswerForEvidence(transcription);
   const questions = [...proposal.questionsForTeacher];
   const criteria = proposal.criteria.map((item) => {
     const teacherCriterion = rubric.criteria.find((candidate) => candidate.id === item.criterionId);
     if (!teacherCriterion || teacherCriterion.analysisMode === 'scientific-diagram') return item;
     const defined = getRubricSubcriteria(teacherCriterion);
     if (!defined.length || !item.subcriteria) return item;
+    const questionId = teacherCriterion.correctionContract?.question?.id;
+    const scopedAnswer = questionId ? studentAnswerForQuestion(transcription, questionId) : null;
+    const studentText = scopedAnswer ?? studentAnswerForEvidence(transcription);
+    const verifiedQuestionScope = scopedAnswer !== null;
     const evidenceQuestions: string[] = [];
     const subcriteria = item.subcriteria.map((sub) => {
       const expected = defined.find((entry) => entry.id === sub.subcriterionId);
       if (!expected || sub.points <= 0 || sub.assessmentStatus === 'not-evaluated') return sub;
-      const evidenceStatus = inspectPositiveEvidence(studentText, sub.evidence, teacherCriterion, expected);
+      const evidenceStatus = inspectPositiveEvidence(studentText, sub.evidence, teacherCriterion, expected, verifiedQuestionScope);
       if (evidenceStatus === 'located') return { ...sub, evidenceStatus };
       const question = 'Vérifiez la preuve de « ' + teacherCriterion.title + ' / ' + expected.title
         + ' » : citation absente, non littérale ou ne démontrant pas clairement l’attendu.';
