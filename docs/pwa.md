@@ -56,3 +56,25 @@ Si le fichier affiche **0 observation**, les résultats n'y figurent pas :
 retournez sur le localhost d'origine (même navigateur et port), vérifiez le
 radar, puis exportez une nouvelle sauvegarde. Ne supprimez pas les données
 localhost tant que le radar n'a pas été restauré.
+
+### Connexion de la PWA HTTPS à Ollama sur Mac
+
+Depuis GitHub Pages, le site est en HTTPS tandis qu'Ollama local répond par
+défaut sur `http://127.0.0.1:11434`. La configuration
+`OLLAMA_ORIGINS=https://sims07.github.io` permet à Ollama d'accepter l'origine
+du site, **mais ne peut pas contourner les restrictions du navigateur**.
+Sur Safari, le contenu mixte HTTPS → HTTP localhost peut être bloqué
+avant toute requête visible dans Réseau. Chrome et Edge disposent d'autorisations
+d'accès au réseau local : utiliser la PWA dans l'un d'eux et accepter
+l'autorisation demandée si elle apparaît.
+
+Le bouton **Tester la connexion et détecter les modèles** affiche maintenant
+un état de progression et, en cas d'échec, un diagnostic directement sous le
+bouton (y compris dans la fenêtre de configuration des évaluations).
+Une réponse HTTP 403/404 est distinguée d'un échec réseau, et une requête
+restée en attente expire après 15 secondes.
+
+Ne pas publier le port 11434 sur Internet ni utiliser un proxy cloud pour
+contourner ces protections : les copies doivent rester locales. Sur Safari,
+une alternative est l'application locale démarrée via `npm run dev`, ou un
+reverse-proxy HTTPS de confiance sur le Mac.
