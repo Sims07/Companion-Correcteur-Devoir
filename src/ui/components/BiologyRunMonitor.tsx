@@ -1,4 +1,5 @@
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
+import './BiologyRunMonitor.css';
 import { QUESTION_CONTRACT_CASES } from '../../domain/questionContractPilot.ts';
 import type { QuestionContractRun } from '../../domain/questionContractPilot.ts';
 import { repeatabilitySuiteCases, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from '../../domain/questionContractRepeatability.ts';
