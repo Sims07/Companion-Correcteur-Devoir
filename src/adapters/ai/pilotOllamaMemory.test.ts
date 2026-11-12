@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { unloadPilotOllamaModels } from './pilotOllamaMemory.ts';
 import type { ModelEvaluationConfiguration } from '../../domain/modelEvaluation.ts';
+import { getNetworkRequestMetadata } from '../../ports/networkRequestMetadata.ts';
 
 const config = (overrides: Partial<ModelEvaluationConfiguration> = {}): ModelEvaluationConfiguration => ({
   id: 'qwen', name: 'Pilote Qwen', endpoint: 'http://localhost:11434',
@@ -10,12 +11,12 @@ const config = (overrides: Partial<ModelEvaluationConfiguration> = {}): ModelEva
 
 function memoryServer(initial: string[], failedGenerate = false, neverUnloads = false) {
   const loaded = new Set(initial);
-  const requests: Array<{ path: string; method: string; body: Record<string, unknown> | null }> = [];
+  const requests: Array<{ path: string; method: string; body: Record<string, unknown> | null; intent?: string }> = [];
   const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (request, init) => {
     const path = new URL(String(request)).pathname;
     const method = init?.method ?? 'GET';
     const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : null;
-    requests.push({ path, method, body });
+    requests.push({ path, method, body, intent: getNetworkRequestMetadata(init)?.intent });
     if (path === '/api/ps') {
       return new Response(JSON.stringify({ models: [...loaded].map((name) => ({ name, model: name })) }), { status: 200 });
     }
@@ -83,6 +84,8 @@ describe('pilot-only Ollama RAM cleanup', () => {
       '/api/ps', '/v1/systemone', '/api/ps',
     ]);
     expect(server.requests[1]?.body).toMatchObject({ model, keep_alive: 0 });
+    expect(server.requests[1]?.intent).toBe('Libérer le modèle décisionnel');
+    expect(server.requests[0]?.intent).toBe('Vérifier les modèles chargés');
     expect(JSON.stringify(server.requests[1]?.body)).not.toMatch(/https?:|photo|transcription|barème/i);
   });
 
