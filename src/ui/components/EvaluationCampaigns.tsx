@@ -44,7 +44,7 @@ export function EvaluationCampaigns({
       status:
         entry.state === 'running'
           ? 'En cours'
-          : entry.experimentCount === entry.successfulCount
+          : entry.experimentCount > 0 && entry.experimentCount === entry.successfulCount
             ? 'Terminée'
             : 'Incomplète',
       detail: entry.successfulCount + '/' + entry.experimentCount + ' passages réussis',
@@ -94,7 +94,7 @@ export function EvaluationCampaigns({
           ),
         ],
         title: r.assignmentTitle,
-        status: r.results.every((v) => v.status === 'success') ? 'Terminée' : 'Incomplète',
+        status: r.results.length > 0 && r.results.every((v) => v.status === 'success') ? 'Terminée' : 'Incomplète',
         detail: r.results.length + ' résultat(s)',
         observations: [] as BiologyRadarObservation[],
         stats: { successful: r.results.filter((v) => v.status === 'success').length, total: r.results.length },
@@ -168,7 +168,7 @@ export function EvaluationCampaigns({
             <b>{row.models.join(', ')}</b> · {row.title} · {row.status}
           </summary>
           {row.detail && <p>{row.detail}</p>}
-          {row.status !== 'Terminée' && <EvaluationIssueButton makeReport={() => buildEvaluationIssueReport({
+          {(row.status === 'Incomplète' || row.status === 'Résultats partiels') && <EvaluationIssueButton makeReport={() => buildEvaluationIssueReport({
             journey: row.domain, status: row.status, model: row.models.join(', '),
             campaignId: row.id, observations: row.observations, stats: row.stats,
           })} />}
