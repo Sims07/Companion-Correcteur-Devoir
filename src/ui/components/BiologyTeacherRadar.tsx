@@ -135,7 +135,7 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
           </div>
         </div>
         {selected.unresolvedDecisions > 0 && <p role="status" className="biology-radar-reliability-note">
-          {selected.unresolvedDecisions} décision(s) restée(s) à vérifier pendant les tests.
+          {selected.unresolvedDecisions} {selected.unresolvedDecisions === 1 ? 'décision non tranchée' : 'décisions non tranchées'} pendant les tests.
           Elles diminuent l’indice de fiabilité du LLM mais ne deviennent pas des zéros dans les copies.
         </p>}
         <div className="biology-radar-actions">
