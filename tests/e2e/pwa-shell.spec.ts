@@ -5,7 +5,7 @@ test('publishes an installable manifest and icons while keeping the teacher app 
   await expect(page.locator('#root')).toBeVisible();
 
   const manifestHref = await page.locator('link[rel="manifest"]').getAttribute('href');
-  expect(manifestHref).toBe('/manifest.webmanifest');
+  expect(manifestHref).toMatch(/^(?:\/Companion-Correcteur-Devoir)?\/manifest\.webmanifest$/);
   const response = await request.get(manifestHref!);
   expect(response.ok()).toBe(true);
   const manifest = await response.json() as {
