@@ -91,7 +91,7 @@ export function BiologyRunMonitor({
               <strong>Copie {testCase.id}</strong>
               <span>Note attendue : {testCase.referenceScore}/10</span>
             </div>
-            <span className="biology-run-case-state">{complete ? 'Traitée' : isActive ? 'En cours' : related.length ? 'Partielle' : 'À venir'}</span>
+            <span className="biology-run-case-state">{complete ? 'Appels terminés' : isActive ? 'En cours' : related.length ? 'Partielle' : 'À venir'}</span>
           </div>
           {contracts ? <div className="biology-run-case-results">
             {(['standard', 'contract'] as const).map((variant) => {
