@@ -2167,8 +2167,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     if (evaluationActivity.campaignId && evaluationActivity.status !== 'running' && evaluationActivity.journey === 'biology') { showCampaigns({ domain: 'biology', ids: [evaluationActivity.campaignId] }); return; }
     setBiologyRadarOpen(false);
     setEvaluationJourney(evaluationActivity.journey);
-    if (evaluationActivity.journey === 'biology') {
-      setEvaluationBiologyScenario(evaluationActivity.status === 'running' && pilotRepeatabilityProgress ? 'repeatability' : evaluationActivity.scenario ?? 'contracts');
+    // Keep the live stage selected by the active runner; the initial scenario can differ from it.
+    if (evaluationActivity.journey === 'biology' && evaluationActivity.status !== 'running' && evaluationActivity.scenario) {
+      setEvaluationBiologyScenario(evaluationActivity.scenario);
     }
     if (evaluationActivity.journey === 'diagrams') setDiagramLabView('protocols');
     setEvaluationWorkspaceStep(evaluationActivity.journey === 'custom'
