@@ -16,13 +16,13 @@ test('the dashboard launches scientific batteries on a configured Ollama LAN hos
   const ollamaRequests: string[] = [];
   await page.route('http://192.168.1.42:11434/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
-    ollamaRequests.push(path);
     const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*',
       'access-control-allow-methods': 'GET,POST,OPTIONS', 'content-type': 'application/json' };
     if (route.request().method() === 'OPTIONS') {
       await route.fulfill({ status: 204, headers });
       return;
     }
+    ollamaRequests.push(path);
     await route.fulfill({ status: 200, headers, body: JSON.stringify(path === '/api/tags'
       ? { models: [{ name: 'gemma4:e4b', model: 'gemma4:e4b' }] }
       : path === '/api/show'
