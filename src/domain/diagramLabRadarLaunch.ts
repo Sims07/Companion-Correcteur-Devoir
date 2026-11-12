@@ -188,16 +188,30 @@ export function radarEvaluationOutcome(entries: readonly DiagramLabArchiveEntry[
 export function resolveModelProfile(profiles: readonly RadarModelConfiguration[], grouping: RadarGrouping, candidate: RadarRankedCandidate, plan: Omit<RadarMissingTestRequest, 'id'> | null) {
   if (!plan || grouping !== 'model') return plan;
   if (!profiles.length) return plan; // Compatibility with historical archives and older embeds.
-  const matching = profiles.find((profile) => {
-    const needsGrading = plan.steps.some((step) => step.protocol !== 'graph');
-    const needsGraph = plan.steps.some((step) => step.protocol === 'graph');
+  const needsGrading = plan.steps.some((step) => step.protocol !== 'graph');
+  const needsGraph = plan.steps.some((step) => step.protocol === 'graph');
+  const graphModelFor = (profile: RadarModelConfiguration) => {
     const cfg = profile.configuration;
-    const graphModel = cfg.visionModel.trim() || cfg.generativeModel?.trim() || (cfg.correctionMethod === 'generative' ? cfg.analysisModel.trim() : '');
-    return (!needsGrading || cfg.analysisModel.trim() === candidate.id)
-      && (!needsGraph || graphModel === candidate.id);
-  });
+    return cfg.visionModel.trim() || cfg.generativeModel?.trim() ||
+      (cfg.correctionMethod === 'generative' ? cfg.analysisModel.trim() : '');
+  };
+  const canGrade = (profile: RadarModelConfiguration) =>
+    !needsGrading || (profile.configuration.analysisModel.trim() === candidate.id &&
+      // Text-only System One needs an actual Vision stage before grading.
+      (profile.configuration.correctionMethod !== 'decision' || Boolean(profile.configuration.visionModel.trim())));
+
+  // Prefer a single profile able to measure every missing axis. A decision LLM
+  // can grade a Vision transcription without itself being a graph-reading model:
+  // in that case run the grading tests, never attribute the Vision LLM's graph
+  // observations to the decision LLM.
+  const matching = profiles.find((profile) => canGrade(profile) &&
+    (!needsGraph || graphModelFor(profile) === candidate.id)) ??
+    (needsGrading ? profiles.find((profile) => canGrade(profile)) : undefined);
   if (!matching) return null;
   const config = matching.configuration;
+  const steps = plan.steps.filter((step) =>
+    step.protocol !== 'graph' || graphModelFor(matching) === candidate.id);
+  if (!steps.length) return null;
   const method: DiagramMethodSelection = config.correctionMethod === 'visual-decision'
     ? 'direct-image-systemone'
     : config.correctionMethod === 'generative' &&
@@ -205,7 +219,7 @@ export function resolveModelProfile(profiles: readonly RadarModelConfiguration[]
         ? 'direct-image-generative' : 'vision-then-analysis';
   return {
     ...plan, profileId: matching.id, profileName: matching.name, modelId: candidate.id,
-    steps: plan.steps.map((step) => ({
+    steps: steps.map((step) => ({
       ...step, method: step.protocol === 'graph' ? step.method : method,
     })),
   };
