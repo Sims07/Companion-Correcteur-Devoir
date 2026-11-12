@@ -25,6 +25,7 @@ export interface BackupSummary {
   settingCount: number;
   recordCount: number;
   storeCounts: Record<string, number>;
+  biologyObservationCount: number;
 }
 export interface RestoreSummary {
   settingsImported: number;
@@ -89,6 +90,16 @@ export function parseLocalBackup(text: string): LocalBackup {
   return validateLocalBackup(data);
 }
 
+function countBiologyObservations(text: string | undefined): number {
+  if (!text) return 0;
+  try {
+    const records: unknown = JSON.parse(text);
+    return Array.isArray(records) ? records.filter((item) =>
+      isObject(item) && typeof item.id === 'string' && typeof item.model === 'string' &&
+      typeof item.caseId === 'string' && Array.isArray(item.decisions)).length : 0;
+  } catch { return 0; }
+}
+
 export function summarizeLocalBackup(backup: LocalBackup): BackupSummary {
   const storeCounts: Record<string, number> = {};
   for (const store of STORES) storeCounts[store] = backup.indexedDb.stores[store].length;
@@ -97,6 +108,7 @@ export function summarizeLocalBackup(backup: LocalBackup): BackupSummary {
     settingCount: Object.keys(backup.localStorage).length,
     recordCount: Object.values(storeCounts).reduce((total, count) => total + count, 0),
     storeCounts,
+    biologyObservationCount: countBiologyObservations(backup.localStorage[BIOLOGY_RADAR_KEY]),
   };
 }
 
@@ -130,23 +142,31 @@ export async function createLocalBackup(storage: StorageAccess = window.localSto
   } finally { database.close(); }
 }
 
+/** Lists written on PWA startup (notably the biology radar history, as []) must
+ * not block the data from a previous localhost installation. */
+const BIOLOGY_RADAR_KEY = 'companion:biology-teacher-radar:v1';
 const MERGEABLE_ARRAY_KEYS = new Set([
   'companion-correcteur:assignments:v1',
   'companion-correcteur:ollama-profiles:v1',
+  'companion-correcteur:notifications:v1',
+  'companion-correcteur:timing-history:v1',
+  BIOLOGY_RADAR_KEY,
 ]);
 
-function mergeCollection(current: string, incoming: string): string | null {
+function mergeCollection(current: string, incoming: string, replaceMatching = false): string | null {
   try {
     const existing: unknown = JSON.parse(current);
     const proposed: unknown = JSON.parse(incoming);
     if (!Array.isArray(existing) || !Array.isArray(proposed) ||
         ![...existing, ...proposed].every((item) => isObject(item) && typeof item.id === 'string')) return null;
-    const ids = new Set<string>(existing.map((item: { id: string }) => item.id));
-    const merged = [...existing];
+    const byId = new Map((existing as Array<{ id: string }>).map((item) => [item.id, item]));
     for (const item of proposed as Array<{ id: string }>) {
-      if (!ids.has(item.id)) { merged.push(item); ids.add(item.id); }
+      // Default mode keeps conflicts already in the destination.
+      // Explicit update replaces matching IDs without removing destination-only IDs.
+      if (replaceMatching || !byId.has(item.id)) byId.set(item.id, item);
     }
-    return merged.length === existing.length ? null : JSON.stringify(merged);
+    const merged = [...byId.values()];
+    return JSON.stringify(merged) === JSON.stringify(existing) ? null : JSON.stringify(merged);
   } catch { return null; }
 }
 
@@ -171,10 +191,11 @@ export async function restoreLocalBackup(
     }
     for (const [key, value] of Object.entries(backup.localStorage)) {
       const current = storage.getItem(key);
-      let next: string | null = current === null || mode === 'update' ? value : null;
-      if (next === null && current !== null && MERGEABLE_ARRAY_KEYS.has(key)) {
-        next = mergeCollection(current, value);
-      }
+      // Collection keys are merged even when the PWA has initialized them to
+      // an empty array. A full-string overwrite would lose later observations.
+      const next: string | null = current === null ? value
+        : MERGEABLE_ARRAY_KEYS.has(key) ? mergeCollection(current, value, mode === 'update')
+          : mode === 'update' ? value : null;
       if (next !== null && next !== current) {
         previous.set(key, current);
         changes.set(key, next);

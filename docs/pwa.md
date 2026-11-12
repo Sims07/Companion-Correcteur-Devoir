@@ -32,8 +32,9 @@ comme les copies d’origine. Aucune requête au serveur n’est effectuée pour
 sauvegarder ou restaurer.
 
 **Mode par défaut : fusion.** Les enregistrements IndexedDB déjà présents sont
-conservés, les devoirs/profils portant de nouveaux identifiants sont ajoutés aux
-listes existantes. Les autres réglages déjà présents ne changent pas. Pour
+conservés, les devoirs/profils et historiques Biologie portant de nouveaux
+identifiants sont ajoutés aux listes existantes (même si la PWA a initialisé
+le radar biologique à vide). Les autres réglages déjà présents ne changent pas. Pour
 retrouver la configuration de l’ancienne application dans une PWA neuve,
 cochez « Mettre à jour les éléments de même identifiant » : cela met à jour les
 clés et les enregistrements correspondants sans supprimer les données absentes
@@ -42,3 +43,16 @@ du fichier. Une confirmation explicite est demandée.
 Conservez le fichier et les données de localhost tant que la restauration n’est
 pas contrôlée (devoirs, historiques et réglages). Le fichier est un instantané
 à la date d’export : il ne synchronise pas automatiquement les deux origines.
+
+### Radar Biologie vide après un import antérieur
+
+Avant cette correction, le mode fusion ignorait `companion:biology-teacher-radar:v1`
+si la PWA avait déjà créé cette clé avec `[]`. Les résultats sont bien contenus
+dans l'ancien fichier s'il affiche désormais **Radar Biologie : N observation(s)**,
+avec N supérieur à zéro. **Réimportez ce même fichier en mode fusion** puis
+rechargez l'application : aucune relance de batterie IA n'est nécessaire.
+
+Si le fichier affiche **0 observation**, les résultats n'y figurent pas :
+retournez sur le localhost d'origine (même navigateur et port), vérifiez le
+radar, puis exportez une nouvelle sauvegarde. Ne supprimez pas les données
+localhost tant que le radar n'a pas été restauré.
