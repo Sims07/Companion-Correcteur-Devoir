@@ -58,6 +58,9 @@ test('Qwen direct diagram repairs missing evidence and exports all 19 decisions 
   expect(runs[0].diagnostics.repairCalls).toBe(1);
   expect(payloads).toHaveLength(4);
   expect(payloads.every(p => p.model === 'qwen3.5:4b' && p.messages[0].images.length === 1)).toBe(true);
+  // A subsequent run brings back the activity banner, without reloading the app.
+  await panel.getByRole('button', { name: 'Tester les 3 schémas en un clic' }).click();
+  await expect(page.getByRole('status', { name: 'Dernière expérience lancée' })).toBeVisible();
 });
 
 test('a scientific diagram protocol accepts a photo, rubric, teacher decisions and saved models', async ({ page }) => {
