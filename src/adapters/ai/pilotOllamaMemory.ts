@@ -1,5 +1,6 @@
 import { currentFetch } from './currentFetch.ts';
 import type { ModelEvaluationConfiguration } from '../../domain/modelEvaluation.ts';
+import { isNativeDecisionModel } from '../../domain/systemOneDecision.ts';
 
 /** Only the guided local protocol is authorized to unload models automatically.
  * Never send lifecycle commands to a cloud endpoint or another machine. */
@@ -47,9 +48,34 @@ async function runningModels(origin: string, fetchImpl: typeof fetch): Promise<S
   }));
 }
 
+/** Native System One models reject /api/chat (and may reject /api/generate).
+ * Their supported endpoint accepts keep_alive=0, which unloads on completion.
+ * This housekeeping query contains no user input, rubric, or copy content. */
 async function issueUnload(origin: string, model: string, fetchImpl: typeof fetch): Promise<void> {
-  // The native API handles unloading without prompting the model or allocating
-  // another context. /api/chat is an alternate Ollama lifecycle endpoint.
+  if (isNativeDecisionModel(model)) {
+    const response = await fetchImpl(origin + '/v1/systemone', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        state: 'Vérification technique locale pour libérer le modèle.',
+        questions: {
+          release: {
+            type: 'noul',
+            instructions: 'Le texte mentionne-t-il un modèle ?',
+            criteria: { true: 'Le texte le mentionne.', false: 'Le texte ne le mentionne pas.' },
+          },
+        },
+        keep_alive: 0,
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!response.ok) {
+      throw new Error('Ollama System One a refusé de décharger « ' + model +
+        ' » (HTTP ' + response.status + '). Vérifiez la compatibilité de /v1/systemone.');
+    }
+    return;
+  }
+  // Chat-compatible models can be unloaded without generating tokens.
   const attempts = [
     { path: '/api/generate', body: { model, prompt: '', keep_alive: 0, stream: false } },
     { path: '/api/chat', body: { model, messages: [], keep_alive: 0, stream: false } },
