@@ -35,7 +35,19 @@ describe('one-click decision model radar planning', () => {
     },
   );
 
-  it('keeps a compatible direct-image D1 evaluation distinct from the TEV1 text route', () => {
+  it('never sends D1 to Ollama Chat as the Vision reader, and prefers a valid saved reader', () => {
+    const selected = candidate('d1:3b');
+    const plan = planRadarModelEvaluation(selected);
+    const wrong = profiles('d1:3b', 'decision', 'd1:3b')[0]!;
+    const correct = { ...profiles('d1:3b', 'decision', 'qwen3.5:4b')[0]!, id: 'd1-with-qwen-reader' };
+    expect(resolveModelProfile([wrong], 'model', selected, plan)).toBeNull();
+    const resolved = resolveModelProfile([wrong, correct], 'model', selected, plan);
+    expect(resolved?.profileId).toBe('d1-with-qwen-reader');
+    expect(resolved?.steps.every((step) => step.method === 'vision-then-analysis')).toBe(true);
+    expect(resolved?.steps.some((step) => step.protocol === 'graph')).toBe(false);
+  });
+
+    it('keeps a compatible direct-image D1 evaluation distinct from the TEV1 text route', () => {
     const selected = candidate('d1:3b');
     const plan = resolveModelProfile(profiles('d1:3b', 'visual-decision'), 'model', selected, planRadarModelEvaluation(selected));
     expect(plan?.steps.map((step) => step.method)).toEqual([
