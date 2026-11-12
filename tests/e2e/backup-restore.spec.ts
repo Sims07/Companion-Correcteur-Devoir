@@ -180,6 +180,10 @@ test('Chromium imports a large real JSON backup without constructing a whole-fil
   });
   await expect(panel.getByText('mac-safari-original-20mb.json')).toBeVisible({ timeout: 60_000 });
   await expect(panel.getByText(/1 enregistrement/).first()).toBeVisible();
+  // The freshly launched app initializes a default assignment title. The
+  // explicit Update mode replaces it with the backup's original settings.
+  await panel.getByLabel(/Mettre à jour les éléments de même identifiant/).check();
+  page.once('dialog', (dialog) => void dialog.accept());
   await panel.getByRole('button', { name: 'Restaurer la sauvegarde' }).click();
   await expect(panel.getByText(/Restauration terminée/)).toBeVisible({ timeout: 60_000 });
   const restored = await page.evaluate(async () => {
