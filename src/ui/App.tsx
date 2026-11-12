@@ -1,6 +1,8 @@
 import { EvaluationRadarHome } from './components/EvaluationRadarHome.tsx';
 import { restoredModelId } from './components/ScientificDiagramRadar.tsx';
 import { EvaluationCampaigns, type CampaignFilter } from './components/EvaluationCampaigns.tsx';
+import { EvaluationIssueButton } from './components/EvaluationIssueButton.tsx';
+import { buildEvaluationIssueReport } from '../domain/evaluationIssueReport.ts';
 import { NotificationCenter } from './components/NotificationCenter.tsx';
 import { pushAppNotification, type AppNotification } from '../domain/appNotifications.ts';
 import { EvaluationJourneyPicker } from './components/EvaluationJourneyPicker.tsx';
@@ -3930,6 +3932,13 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               : evaluationActivity.status === 'completed' ? 'Voir les résultats' : 'Consulter ce test'}
           </button>
           {evaluationActivity.status === 'running' && <Button variant="secondary" onClick={evaluationActivity.journey === 'custom' ? cancelModelEvaluation : stopPilotProtocol}>Arrêter après l’appel en cours</Button>}
+          {evaluationActivity.status === 'failed' && <EvaluationIssueButton makeReport={() => buildEvaluationIssueReport({
+            journey: evaluationActivity.journey, status: evaluationActivity.status,
+            model: evaluationActivity.profiles, campaignId: evaluationActivity.campaignId,
+            message: evaluationActivity.error,
+            observations: evaluationActivity.campaignId
+              ? biologyRadarHistory.filter((item) => item.campaignId === evaluationActivity.campaignId) : [],
+          })} />}
         </div>
       </section>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && (evaluationJourney !== 'biology' || !biologyRadarOpen) && <section id="evaluation-configurations" className="panel evaluation-config-workspace" data-journey={evaluationJourney} aria-labelledby="evaluation-config-title">
