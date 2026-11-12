@@ -71,7 +71,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   await fixtures.getByText('Voir le détail de la référence provisoire', { exact: true }).first().click();
   await expect(fixtures.getByText(/ne précise ni l’organe ni l’organisme/)).toBeVisible();
   await expect(fixtures.getByText('7.36/10 attendu', { exact: true })).toBeVisible();
-  await fixtures.getByText('Voir le détail de la référence provisoire', { exact: true }).click();
+  await fixtures.getByText('Voir le détail de la référence provisoire', { exact: true }).nth(1).click();
   await expect(fixtures.getByText(/Des prolongements de paroi sont visibles/)).toBeVisible();
   await expect(fixtures.getByText('0.66/10 attendu', { exact: true })).toBeVisible();
   await fixtures.getByText('Voir le détail de la référence provisoire', { exact: true }).last().click();
