@@ -9,6 +9,7 @@ export function createDiagramLabArchiveWriter(repository: DiagramLabArchiveRepos
 
   function save(report: DiagramLabReport, state: DiagramLabArchiveEntry['state']): Promise<void> {
     const entry = summarizeDiagramLabReport(report, state);
+    entry.revision = import.meta.env.VITE_EVALUATION_REVISION;
     const task = pending.catch(() => undefined).then(async () => {
       if (entry.state === 'running' && completed.has(entry.id)) return;
       await repository.save(entry);

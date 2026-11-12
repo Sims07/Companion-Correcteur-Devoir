@@ -20,6 +20,7 @@ export const diagramLabProtocolLabels: Record<DiagramLabProtocol, string> = {
 };
 
 export interface DiagramLabArchiveEntry {
+  revision?: string | null;
   id: string;
   protocol: DiagramLabProtocol;
   createdAt: string;
