@@ -2,7 +2,10 @@ import { BIOLOGY_RADAR_AXES, type BiologyRadarCandidate } from '../../domain/bio
 import { RADAR_COMPARISON_COLORS } from './RadarComparisonPalette.ts';
 
 /** Draw multiple results from the same biological protocol without filling missing axes with zeroes. */
-export function BiologyRadarComparisonPlot({ candidates }: { candidates: BiologyRadarCandidate[] }) {
+export function BiologyRadarComparisonPlot({ candidates, colors }: {
+  candidates: BiologyRadarCandidate[];
+  colors?: Record<string, string>;
+}) {
   const vertex = (index: number, value: number): [number, number] => {
     const angle = 2 * Math.PI * index / BIOLOGY_RADAR_AXES.length - Math.PI / 2;
     return [260 + 112 * value * Math.cos(angle), 157 + 112 * value * Math.sin(angle)];
@@ -28,7 +31,7 @@ export function BiologyRadarComparisonPlot({ candidates }: { candidates: Biology
       </g>;
     })}
     {candidates.map((candidate, candidateIndex) => {
-      const color = RADAR_COMPARISON_COLORS[candidateIndex % RADAR_COMPARISON_COLORS.length]!;
+      const color = colors?.[candidate.name] ?? RADAR_COMPARISON_COLORS[candidateIndex % RADAR_COMPARISON_COLORS.length]!;
       const values = BIOLOGY_RADAR_AXES.map((axis) => candidate.axes[axis.id]);
       const coordinates = values.map((value, index) => value === null ? null : vertex(index, value / 100));
       const complete = values.every((value) => value !== null);
