@@ -147,7 +147,20 @@ describe('lecture graphe visuel sans barème', () => {
     } })).toBe(false);
   });
 
-  it('runs any saved generative Vision model even when correction mode is decision-only', () => {
+  it('refuses a native decision model as a blind graph image reader', () => {
+    const candidate: AiModelProfile = {
+      id: 'd1-graph', name: 'D1', mode: 'single', updatedAt: '',
+      configuration: { ...defaultAiModelConfiguration, visionModel: 'd1:3b',
+        analysisModel: 'd1:3b', correctionMethod: 'decision' },
+    };
+    expect(canObserveBlindGraph(candidate)).toBe(false);
+    expect(blindGraphProfileIssue(candidate)).toContain('/api/chat');
+    expect(canObserveBlindGraph({ ...candidate, configuration: {
+      ...candidate.configuration, visionModel: 'qwen3.5:4b',
+    } })).toBe(true);
+  });
+
+    it('runs any saved generative Vision model even when correction mode is decision-only', () => {
     const profile: AiModelProfile = {
       id: 'bonsai', name: 'Bonsai test', mode: 'single', updatedAt: '2026-11-10',
       configuration: { ...defaultAiModelConfiguration, correctionMethod: 'decision',
