@@ -19,6 +19,12 @@ function memoryServer(initial: string[], failedGenerate = false, neverUnloads = 
     if (path === '/api/ps') {
       return new Response(JSON.stringify({ models: [...loaded].map((name) => ({ name, model: name })) }), { status: 200 });
     }
+    if (path === '/v1/systemone') {
+      expect(body?.keep_alive).toBe(0);
+      expect(body?.questions).toMatchObject({ release: { type: 'noul' } });
+      if (!neverUnloads) loaded.delete(String(body?.model));
+      return new Response(JSON.stringify({ answers: { release: { noul: 0.8 } } }), { status: 200 });
+    }
     if (path === '/api/generate' && failedGenerate) return new Response('not available', { status: 400 });
     if (path === '/api/generate' || path === '/api/chat') {
       if (!neverUnloads) loaded.delete(String(body?.model));
@@ -69,14 +75,39 @@ describe('pilot-only Ollama RAM cleanup', () => {
     expect([...direct.loaded]).toEqual(['qwen3.5:4b']);
   });
 
-  it('supports Ollama /api/chat unload when /api/generate refuses a native decision model', async () => {
-    const server = memoryServer(['tev1:4b'], true);
-    const released = await unloadPilotOllamaModels(config({ analysisModel: 'tev1:4b' }), 'analysis', server.fetchMock);
-    expect(released).toEqual(['tev1:4b']);
+  it.each(['d1:3b', 'tev1:4b'])('unloads %s through native System One keep_alive, never Chat', async (model) => {
+    const server = memoryServer([model], true);
+    const released = await unloadPilotOllamaModels(config({ analysisModel: model }), 'analysis', server.fetchMock);
+    expect(released).toEqual([model]);
+    expect(server.requests.map((request) => request.path)).toEqual([
+      '/api/ps', '/v1/systemone', '/api/ps',
+    ]);
+    expect(server.requests[1]?.body).toMatchObject({ model, keep_alive: 0 });
+    expect(JSON.stringify(server.requests[1]?.body)).not.toMatch(/https?:|photo|transcription|barème/i);
+  });
+
+  it('keeps /api/chat as a lifecycle fallback only for chat-compatible models', async () => {
+    const server = memoryServer(['qwen3.5:4b'], true);
+    expect(await unloadPilotOllamaModels(config(), 'analysis', server.fetchMock)).toEqual(['qwen3.5:4b']);
     expect(server.requests.map((request) => request.path)).toEqual([
       '/api/ps', '/api/generate', '/api/chat', '/api/ps',
     ]);
-    expect(server.requests[2]?.body).toEqual({ model: 'tev1:4b', messages: [], keep_alive: 0, stream: false });
+  });
+
+  it('never falls back to Chat for D1 even when System One unload is refused', async () => {
+    const calls: string[] = [];
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      calls.push(path);
+      if (path === '/api/ps') return new Response(JSON.stringify({
+        models: [{ name: 'd1:3b' }],
+      }), { status: 200 });
+      if (path === '/v1/systemone') return new Response('System One failed', { status: 400 });
+      throw new Error('Unexpected API: ' + path);
+    });
+    await expect(unloadPilotOllamaModels(config({ analysisModel: 'd1:3b' }), 'analysis', fetchImpl))
+      .rejects.toThrow(/System One.*HTTP 400/);
+    expect(calls).toEqual(['/api/ps', '/v1/systemone']);
   });
 
   it('does not assume an accepted HTTP status actually released the model', async () => {
