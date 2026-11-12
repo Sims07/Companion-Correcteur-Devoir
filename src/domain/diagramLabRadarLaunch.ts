@@ -1,4 +1,5 @@
 import type { BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
+import { isNativeDecisionModel, isVisualDecisionModel } from './systemOneDecision.ts';
 import type { DiagramMethodSelection } from './scientificDiagramProtocol.ts';
 import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarModelConfiguration, type RadarRankedCandidate, type RadarGrouping } from './diagramLabRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
@@ -192,13 +193,26 @@ export function resolveModelProfile(profiles: readonly RadarModelConfiguration[]
   const needsGraph = plan.steps.some((step) => step.protocol === 'graph');
   const graphModelFor = (profile: RadarModelConfiguration) => {
     const cfg = profile.configuration;
-    return cfg.visionModel.trim() || cfg.generativeModel?.trim() ||
+    const raw = cfg.visionModel.trim() || cfg.generativeModel?.trim() ||
       (cfg.correctionMethod === 'generative' ? cfg.analysisModel.trim() : '');
+    // A native decision model does not own image-to-graph observations.
+    return !cfg.apiCompatible && isNativeDecisionModel(raw) ? '' : raw;
   };
-  const canGrade = (profile: RadarModelConfiguration) =>
-    !needsGrading || (profile.configuration.analysisModel.trim() === candidate.id &&
-      // Text-only System One needs an actual Vision stage before grading.
-      (profile.configuration.correctionMethod !== 'decision' || Boolean(profile.configuration.visionModel.trim())));
+  const canGrade = (profile: RadarModelConfiguration) => {
+    const cfg = profile.configuration;
+    if (!needsGrading) return true;
+    if (cfg.analysisModel.trim() !== candidate.id) return false;
+    if (cfg.correctionMethod === 'visual-decision') {
+      return !cfg.apiCompatible && isVisualDecisionModel(cfg.analysisModel);
+    }
+    if (cfg.correctionMethod === 'decision' && cfg.apiCompatible) return false;
+    const directGenerative = cfg.correctionMethod === 'generative' &&
+      (!cfg.visionModel.trim() || cfg.analysisModel.trim() === cfg.visionModel.trim());
+    if (directGenerative) return true;
+    // Never route D1/TEV1 as the OCR model via Ollama Chat.
+    return Boolean(cfg.visionModel.trim()) &&
+      (cfg.apiCompatible || !isNativeDecisionModel(cfg.visionModel));
+  };
 
   // Prefer a single profile able to measure every missing axis. A decision LLM
   // can grade a Vision transcription without itself being a graph-reading model:
