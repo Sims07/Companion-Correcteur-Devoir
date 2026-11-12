@@ -212,10 +212,13 @@ export function resolveModelProfile(profiles: readonly RadarModelConfiguration[]
   const steps = plan.steps.filter((step) =>
     step.protocol !== 'graph' || graphModelFor(matching) === candidate.id);
   if (!steps.length) return null;
+  // A generative model can examine the scientific fixtures directly when
+  // the saved profile has no separate Vision model. Never prepare an impossible
+  // Vision → analysis run: the UI previously navigated to Tests then stopped.
   const method: DiagramMethodSelection = config.correctionMethod === 'visual-decision'
     ? 'direct-image-systemone'
     : config.correctionMethod === 'generative' &&
-      config.analysisModel.trim() === config.visionModel.trim()
+      (!config.visionModel.trim() || config.analysisModel.trim() === config.visionModel.trim())
         ? 'direct-image-generative' : 'vision-then-analysis';
   return {
     ...plan, profileId: matching.id, profileName: matching.name, modelId: candidate.id,
