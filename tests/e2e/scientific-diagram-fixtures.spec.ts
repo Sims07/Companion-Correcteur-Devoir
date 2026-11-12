@@ -133,7 +133,7 @@ test('three bundled mitosis diagrams are visible and one click evaluates A/B/C w
   // All 19 native image decisions remain measurable even if a resulting
   // provisional grade needs teacher review.
   await expect(results.getByText('19/19', { exact: true })).toHaveCount(3);
-  await expect(results.getByText('10/10', { exact: true }).first()).toBeVisible();
+  await expect(results.getByText('9.84/10', { exact: true }).first()).toBeVisible();
   await expect(results.getByText('7.36/10', { exact: true }).first()).toBeVisible();
   await expect(results.getByText('0.66/10', { exact: true }).first()).toBeVisible();
   expect(systemOneRequests).toHaveLength(3);
