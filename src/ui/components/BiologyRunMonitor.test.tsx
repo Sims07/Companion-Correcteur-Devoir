@@ -45,7 +45,7 @@ describe('live biology monitor', () => {
       ]} />);
     expect(html).toContain('À vérifier');
     expect(html).toContain('Copie A');
-    expect(html).toContain('Traitée');
+    expect(html).toContain('Appels terminés');
     expect(html).not.toContain('0/10</strong>');
   });
 
