@@ -1,3 +1,4 @@
+import { evaluationPromptReferences } from './evaluationPromptReferences.ts';
 import type { AiModelProfile } from './aiModelProfiles.ts';
 import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
 import { getRubricSubcriteria, validateRubric, type Rubric } from './rubric.ts';
@@ -327,6 +328,7 @@ export function buildScientificDiagramProtocolReport(
       : null,
     durationMs: result.elapsedMs, readingMs: result.readingMs, analysisMs: result.analysisMs,
     tokens: result.tokens, score: result.score,
+    ...(result.diagnosticRuns?.length ? { prompts: evaluationPromptReferences(result.diagnosticRuns) } : {}),
     diagnostics: diagramAnalysisDiagnostics(result),
     scoreStatus: result.status !== 'success' ? 'execution-failed' as const
       : result.score !== null ? 'scored' as const

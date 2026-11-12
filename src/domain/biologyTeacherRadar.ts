@@ -1,3 +1,4 @@
+import { evaluationPromptReferences } from './evaluationPromptReferences.ts';
 import { buildPilotReport, type PilotRun } from './pilotEvaluationProtocol.ts';
 import { buildQuestionContractReport, type QuestionContractRun } from './questionContractPilot.ts';
 import { buildQuestionContractRepeatabilityReport, type QuestionContractRepeatabilityRun, type RepeatabilityCount, type RepeatabilitySuite } from './questionContractRepeatability.ts';
@@ -14,6 +15,10 @@ export const BIOLOGY_RADAR_AXES: readonly { id: BiologyRadarAxis; label: string;
 
 export interface BiologyRadarObservation {
   campaignId?: string;
+  revision?: string | null;
+  prompts?: ReturnType<typeof evaluationPromptReferences>;
+  durationMs?: number;
+  repetition?: number;
   id: string;
   profileId: string;
   profile: string;
@@ -34,7 +39,7 @@ const BASELINE_IDS = ['A', 'B', 'C'] as const;
 const STRESS_IDS = ['D', 'E', 'F', 'G'] as const;
 
 function makeObservation(input: Omit<BiologyRadarObservation, 'id'>, identity: string): BiologyRadarObservation {
-  return { ...input, id: [identity, input.profileId, input.model, input.provider, input.method, input.protocol, input.caseId, input.recordedAt].join('|') };
+  return { ...input, revision: import.meta.env.VITE_EVALUATION_REVISION, id: [identity, input.profileId, input.model, input.provider, input.method, input.protocol, input.caseId, input.recordedAt].join('|') };
 }
 function decisionsFrom(benchmark: { subcriteria: readonly { id: string; expected: 0 | 1; awarded: number | null }[] } | null) {
   return benchmark?.subcriteria.map((item) => ({ id: item.id, expected: item.expected, awarded: item.awarded })) ?? [];
@@ -58,6 +63,7 @@ export function biologyRadarObservations(
       provider: result.provider, method: result.method, protocol: 'pilot',
       caseId: experiment.caseId, recordedAt: experiment.completedAt, status: result.status,
       score: result.score, referenceScore: experiment.modelResults.find((item) => item.profile === result.profile)?.referenceScore ?? 0,
+      prompts: evaluationPromptReferences(result.traces), durationMs: result.durationMs.total,
       decisions: decisionsFrom(result.benchmark),
     }, 'pilot:' + experiment.stage)));
   const fromContract = contract.experiments.map((experiment) => makeObservation({
@@ -65,6 +71,7 @@ export function biologyRadarObservations(
     provider: experiment.provider, method: experiment.method, protocol: experiment.variant,
     caseId: experiment.caseId, recordedAt: experiment.completedAt, status: experiment.status,
     score: experiment.score, referenceScore: experiment.referenceScore,
+    prompts: evaluationPromptReferences(experiment.traces), durationMs: experiment.durationMs,
     decisions: decisionsFrom(experiment.benchmark),
   }, 'question-contract'));
   const fromRepeated = repeatability.experiments.map((experiment) => makeObservation({
@@ -72,7 +79,9 @@ export function biologyRadarObservations(
     provider: experiment.provider, method: experiment.method, protocol: 'contract',
     caseId: experiment.caseId, recordedAt: experiment.completedAt, status: experiment.status,
     score: experiment.score, referenceScore: experiment.referenceScore,
+    prompts: evaluationPromptReferences(experiment.traces), durationMs: experiment.durationMs,
     decisions: decisionsFrom(experiment.benchmark),
+    repetition: experiment.repetition,
   }, 'repeatability:' + repeatability.suite + ':' + experiment.repetition));
   return [...fromPilot, ...fromContract, ...fromRepeated].filter((item) => item.model.trim().length > 0);
 }

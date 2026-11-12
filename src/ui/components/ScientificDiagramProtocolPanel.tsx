@@ -1,3 +1,4 @@
+import { downloadJson as downloadScientificDiagramJson } from '../downloadJson.ts';
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { useEffect, useRef, useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
@@ -38,18 +39,7 @@ type FixtureReport = ReturnType<typeof buildScientificDiagramFixtureReport>;
 type SensitivityReport = ReturnType<typeof buildScientificDiagramSensitivityReport>;
 type BlindGraphReport = ReturnType<typeof buildBlindVisualObservationReport>;
 
-/** Export remains available from the AI tools even when this panel is unmounted. */
-export function downloadScientificDiagramJson(report: DiagramReport | FixtureReport | SensitivityReport | BlindGraphReport, filename: string) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json;charset=utf-8' }));
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  // Safari may need the object URL to survive the current click task.
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+export { downloadScientificDiagramJson };
 
 const fixtureImageUrls: Record<ScientificDiagramFixtureId, string> = {
   A: cleanDiagramUrl, B: intermediateDiagramUrl, C: poorDiagramUrl,

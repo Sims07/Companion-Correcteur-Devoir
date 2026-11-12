@@ -1,3 +1,5 @@
+import { buildRadarAnalysisExport, isRadarBenchmark } from '../../domain/radarAnalysisExport.ts';
+import { downloadJson } from '../downloadJson.ts';
 import { Button } from '../design-system/index.ts';
 import { useMemo, useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
@@ -134,6 +136,12 @@ export function EvaluationRadarHome({
           </Button>
         )}
         <Button variant="secondary" onClick={manage}>Gérer les configurations</Button>
+        <Button variant="secondary" disabled={!history.length && !entries.some(isRadarBenchmark)}
+          onClick={() => {
+            const date = new Date().toISOString();
+            downloadJson(buildRadarAnalysisExport(entries, history, weights, date),
+              'companion-radars-' + date.replace(/:/g, '-') + '.json');
+          }}>Exporter tous les résultats</Button>
       </header>
       {comparison && (
         <div className="radar-home-compare-controls" role="group" aria-label="Modèles à superposer">

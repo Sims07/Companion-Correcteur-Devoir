@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { resolveBasePath } from './scripts/pagesBase.ts';
@@ -8,6 +9,10 @@ declare const process: {
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    'import.meta.env.VITE_EVALUATION_REVISION': JSON.stringify(process.env.GITHUB_SHA ||
+      spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout?.trim() || null),
+  },
   // GitHub Pages publishes this project under /Companion-Correcteur-Devoir/.
   // Keep the root path for local development and use the repository path in CI.
   base: resolveBasePath(process.env.GITHUB_ACTIONS === 'true'),
