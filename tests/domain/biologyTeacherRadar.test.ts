@@ -77,10 +77,44 @@ describe('biology radar scored against teacher-keyed references', () => {
     unresolved[2] = observation('C', { score: 5,
       decisions: observation('C').decisions.map((d, index) => index === 0 ? { ...d, awarded: null } : d) });
     const partial = buildBiologyRadar(unresolved, 'contract')[0]!;
-    expect(partial.axes.grade).toBeNull();
-    expect(partial.axes.rubric).toBeNull();
-    expect(partial.axes.positives).toBeNull();
-    expect(partial.score).toBeNull();
+    expect(partial.axes.grade).toBeLessThan(100);
+    expect(partial.axes.rubric).toBeLessThan(100);
+    expect(partial.axes.positives).toBeLessThan(100);
+    expect(partial.unresolvedDecisions).toBe(1);
+    expect(partial.measured).toBe(5);
+    expect(partial.score).not.toBeNull();
+  });
+
+  it('scores a finished E/F stress campaign despite unresolved decisions without inventing student zeros', () => {
+    const repetitions = ['D','E','F','G'].flatMap((id) => [1, 2, 3].map((repeat) => {
+      const item = observation(id);
+      item.id = id + ':' + repeat;
+      item.recordedAt = '2026-11-11T11:0' + repeat + ':00Z';
+      if (id === 'E') {
+        // In the supplied 4B run, 7, 6, 7 decisions required review.
+        const correct = [3, 4, 3][repeat - 1]!;
+        item.decisions = item.decisions.map((decision, index) => ({
+          ...decision, awarded: index < correct ? 1 : null,
+        }));
+        item.score = null; // not a 0/10 on the student's copy
+      }
+      if (id === 'F') {
+        const falseNegatives = [3, 4, 3][repeat - 1]!;
+        let count = 0;
+        item.decisions = item.decisions.map((decision) => {
+          if (decision.expected === 1 && count++ < falseNegatives) return { ...decision, awarded: 0 };
+          return decision;
+        });
+        item.score = item.decisions.reduce((total, decision) => total + (decision.awarded ?? 0), 0);
+      }
+      return item;
+    }));
+    const result = buildBiologyRadar([...baseline(), ...repetitions], 'contract')[0]!;
+    expect(result.axes.traps).toBe(71.7); // 86 correct of 120 decisions
+    expect(result.unresolvedDecisions).toBe(20);
+    expect(result.measured).toBe(5);
+    expect(result.score).not.toBeNull();
+    expect(result.observations.find((item) => item.caseId === 'E')?.score).toBeNull();
   });
 
   it('isolates the standard and contract protocols and uses the newest usable case', () => {
@@ -103,7 +137,9 @@ describe('biology radar scored against teacher-keyed references', () => {
     }));
     expect(buildBiologyRadar([...cases, ...second], 'contract')).toHaveLength(2);
     const decision = buildBiologyRadar([...cases, ...second], 'contract').find((item) => item.method === 'decision')!;
-    expect(decision.axes.grade).toBeNull();
+    expect(decision.axes.grade).toBe(0);
+    expect(decision.unresolvedDecisions).toBe(70);
+    expect(decision.score).toBe(0);
   });
 
   it('keeps historical summaries without duplicates or student text', () => {
