@@ -1,4 +1,5 @@
 import { openDatabase } from './indexedDbMemory.ts';
+import { parseJsonBlobInChunks } from './streamingJson.ts';
 
 // This format is deliberately independent of the page URL. Browsers isolate
 // localhost and GitHub Pages, so a local file is the transfer boundary.
@@ -93,6 +94,29 @@ export function parseLocalBackup(text: string): LocalBackup {
     throw new Error('Le navigateur manque de mémoire pour lire cette sauvegarde. Utilisez la lecture progressive.');
   }
   return validateLocalBackup(data);
+}
+
+/** Safari can parse very large monolithic strings, but Chrome/V8 rejects
+ * strings exceeding roughly 512 Mi characters. Large backups must be decoded
+ * incrementally to avoid that engine limit and preserve the exact JSON data.
+ * Parsing and validation finish before any change to localStorage or IndexedDB. */
+export async function readLocalBackupFile(
+  file: File,
+  onProgress?: (readBytes: number, totalBytes: number) => void,
+): Promise<LocalBackup> {
+  if (file.size <= 16 * 1024 * 1024) return parseLocalBackup(await file.text());
+  let parsed: unknown;
+  try {
+    parsed = await parseJsonBlobInChunks(file, onProgress);
+  } catch (cause) {
+    if (cause instanceof SyntaxError) throw new Error('Le fichier JSON est illisible.');
+    if (cause instanceof RangeError) {
+      throw new Error('Mémoire insuffisante pour lire la sauvegarde : ' + cause.message);
+    }
+    throw new Error('Lecture de la sauvegarde impossible : ' +
+      (cause instanceof Error ? cause.message : String(cause)));
+  }
+  return validateLocalBackup(parsed);
 }
 
 function countBiologyObservations(text: string | undefined): number {

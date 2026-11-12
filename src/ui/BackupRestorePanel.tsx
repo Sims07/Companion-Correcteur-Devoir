@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import {
-  createLocalBackup, parseLocalBackup, restoreLocalBackup, summarizeLocalBackup,
+  createLocalBackup, readLocalBackupFile, restoreLocalBackup, summarizeLocalBackup,
   type LocalBackup, type RestoreMode,
 } from '../adapters/storage/localBackup.ts';
 import {
@@ -69,7 +69,17 @@ export function BackupRestorePanel({ onRestored }: Props) {
         setLargeFile(file);
         setLargeInspection(inspection);
       } else {
-        const backup = parseLocalBackup(await file.text());
+        const largeFile = file.size > 16 * 1024 * 1024;
+      let lastPercent = -5;
+      if (largeFile) setMessage('Lecture de la sauvegarde volumineuse : 0 %');
+      const backup = await readLocalBackupFile(file, (readBytes, totalBytes) => {
+        const percent = Math.floor((readBytes / totalBytes) * 100);
+        if (percent >= lastPercent + 5 || percent === 100) {
+          lastPercent = percent;
+          setMessage('Lecture de la sauvegarde volumineuse : ' + percent + ' %');
+        }
+      });
+      setMessage('');
         setSelected(backup);
       }
       setFileName(file.name);

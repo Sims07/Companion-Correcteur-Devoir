@@ -208,3 +208,45 @@ test('Chromium imports a large real JSON backup without constructing a whole-fil
     found: true, size: 17 * 1024 * 1024, title: 'Sauvegarde originale Mac',
   });
 });
+
+test('Chromium imports a large locally exported backup without a monolithic string', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
+  await page.getByRole('navigation', { name: 'Navigation principale' })
+    .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+  const panel = page.getByRole('region', { name: 'Occupation du stockage local' });
+  const bigImage = 'A'.repeat(1024 * 1024);
+  const json = JSON.stringify({
+    format: 'companion-correcteur-local-backup',
+    version: 1,
+    createdAt: '2026-11-12T21:00:00.000Z',
+    localStorage: { 'companion-correcteur:assignment-title:v1': 'Import massif Chrome' },
+    indexedDb: {
+      name: 'companion-correcteur-devoir',
+      version: 6,
+      stores: {
+        'local-memory': [],
+        'local-corrections': Array.from({ length: 18 }, (_, index) => ({
+          id: 'copy-' + index, image: bigImage,
+        })),
+        'model-evaluations': [],
+        'diagnostic-history': [],
+        'diagram-lab-archive': [],
+        'background-corrections': [],
+        'background-transcriptions': [],
+      },
+    },
+  });
+  expect(json.length).toBeGreaterThan(16 * 1024 * 1024);
+  await panel.locator('#backup-restore-file').setInputFiles({
+    name: 'large-chromium-backup.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(json),
+  });
+  await expect(panel.getByText('large-chromium-backup.json')).toBeVisible({ timeout: 60_000 });
+  await expect(panel.getByText(/18 enregistrement\(s\)/)).toBeVisible();
+  await panel.getByRole('button', { name: 'Restaurer la sauvegarde' }).click();
+  await expect(panel.getByText(/Restauration terminée : 18 enregistrement/))
+    .toBeVisible({ timeout: 60_000 });
+});
