@@ -22,14 +22,15 @@ export interface BlindGraphLocalRequest {
   prepareZoom?: (image: ImageInput, bounds: ObservedArrowBounds) => Promise<ImageInput | null>;
 }
 
-/** Direct Ollama mode never falls back to a remote server or API proxy. */
+/** Direct Ollama mode uses the saved host as-is (loopback or network).
+ * Never silently substitute an API-compatible service or another host. */
 export function blindGraphLocalUrl(endpoint: string): string {
   let url: URL;
   try { url = new URL(endpoint); }
-  catch { throw new Error('Adresse Ollama locale invalide.'); }
-  if (url.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+  catch { throw new Error('Adresse Ollama invalide.'); }
+  if (!['http:', 'https:'].includes(url.protocol) || !url.hostname
     || url.username || url.password || url.search || url.hash || (url.pathname !== '/' && url.pathname !== '')) {
-    throw new Error('L’extraction du graphe n’accepte qu’un Ollama local direct, sans proxy distant.');
+    throw new Error('Adresse Ollama invalide : indiquez la racine du serveur, sans chemin, paramètres ni identifiants.');
   }
   return new URL('/api/chat', url.origin).toString();
 }
