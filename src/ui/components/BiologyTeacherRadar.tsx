@@ -95,7 +95,7 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
     candidates.push({
       id: item.id, name: item.model, provider: item.provider, method: item.method,
       protocol, axes: { grade: null, rubric: null, positives: null, negatives: null, traps: null },
-      measured: 0, score: null, partialScore: null, gradeDifference: null, observations: [],
+      measured: 0, score: null, partialScore: null, gradeDifference: null, observations: [], unresolvedDecisions: 0,
     });
   }
   const selected = candidates.find((item) => item.id === selectedId) ?? candidates.find((item) => item.name === initialModel) ?? candidates[0];
@@ -134,6 +134,10 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
             <span>Caractéristiques mesurées</span>
           </div>
         </div>
+        {selected.unresolvedDecisions > 0 && <p role="status" className="biology-radar-reliability-note">
+          {selected.unresolvedDecisions} décision(s) restée(s) à vérifier pendant les tests.
+          Elles diminuent l’indice de fiabilité du LLM mais ne deviennent pas des zéros dans les copies.
+        </p>}
         <div className="biology-radar-actions">
           <button type="button" className="primary-button" disabled={busy || !matchingProfile || protocol !== 'contract'}
             onClick={() => { if (matchingProfile) onEvaluate(matchingProfile.profileId); }}>Évaluer le modèle</button>
@@ -148,7 +152,7 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
       <div className="biology-radar-layout">
         <div className="biology-radar-visual">
           <BiologyRadarPlot candidate={selected} />
-          <p>Une caractéristique absente n’est ni une erreur ni un zéro : le radar reste partiel tant que sa batterie n’a pas été validée.</p>
+          <p>Un axe absent indique une batterie non exploitable ou non lancée. Un test exécuté avec des décisions incertaines est noté en fiabilité, sans inventer de note de copie.</p>
         </div>
         <div className="biology-radar-details">
           <h3>Accord avec la correction de référence</h3>
@@ -174,7 +178,7 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
             const item = scores.find((observation) => observation.caseId === caseId);
             return <tr key={caseId}><th scope="row">{caseId}</th>
               <td>{item ? item.referenceScore + '/10' : '—'}</td>
-              <td>{item?.score !== null && item?.score !== undefined ? item.score + '/10' : '—'}</td>
+              <td>{item?.score !== null && item?.score !== undefined ? item.score + '/10' : item ? 'À vérifier' : '—'}</td>
               <td>{item ? item.decisions.filter((decision) => decision.awarded !== null && decision.awarded === decision.expected).length + '/10' : '—'}</td>
             </tr>;
           })}</tbody>
@@ -190,7 +194,7 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
           <th scope="row">{index + 1}</th><td>{item.name} · {item.method}</td>
           <td>{item.score}</td><td>{item.gradeDifference} pt / 10</td>
         </tr>)}</tbody>
-      </table></div> : <p>Aucun classement définitif : il faut les copies A/B/C et les quatre cas pièges pour chaque modèle.</p>}
+      </table></div> : <p>Aucun classement définitif : il faut au moins une exécution exploitable des copies A/B/C et des quatre cas pièges pour chaque modèle.</p>}
     </section>
   </section>;
 }
