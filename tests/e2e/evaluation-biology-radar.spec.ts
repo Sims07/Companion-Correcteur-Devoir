@@ -91,6 +91,11 @@ test('comparison overlays LLMs on both radar cards instead of pushing charts bel
   await expect(home.locator('.radar-comparison table')).toHaveCount(0);
   await page.screenshot({ path: 'test-results/radars-comparison-desktop.png', fullPage: true });
 
+  // Selecting the compared model as primary swaps roles rather than clearing the overlay.
+  await home.getByLabel('Choisir un LLM').selectOption('beta:4b');
+  await expect(home.getByRole('group', { name: 'Modèles à superposer' })).toContainText('alpha:4b');
+  await expect(biology.locator('[data-radar-model]')).toHaveCount(2);
+
   await page.setViewportSize({ width: 390, height: 844 });
   await biology.getByRole('button', { name: 'Afficher le graphique' }).click();
   await expect(biology.getByRole('img')).toBeVisible();
