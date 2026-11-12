@@ -467,6 +467,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [evaluationHistoryStageFilter, setEvaluationHistoryStageFilter] = useState<EvaluationStageMode | 'all'>('all');
   const [evaluationEditorOpen, setEvaluationEditorOpen] = useState(false);
   const [evaluationBiologyScenario, setEvaluationBiologyScenario] = useState<'contracts' | 'repeatability' | 'copies'>('contracts');
+  const [lastRadar, setLastRadar] = useState<'diagrams' | 'biology'>('diagrams');
   const [biologyRadarOpen, setBiologyRadarOpen] = useState(false);
   const [evaluationJourney, setEvaluationJourney] = useState<'custom' | 'diagrams' | 'biology'>('custom');
   const [diagramLabView, setDiagramLabView] = useState<'protocols' | 'history' | 'radar'>('protocols');
@@ -474,6 +475,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const radarAutoSequence = useRef(0);
   const [radarAutoBusy, setRadarAutoBusy] = useState(false);
   const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history'>('configuration');
+  const radarOpen = evaluationWorkspaceStep === 'configuration' && (evaluationJourney === 'biology' ? biologyRadarOpen : evaluationJourney === 'diagrams' && diagramLabView === 'radar');
+
+  function openCandidateRadar(kind: 'diagrams' | 'biology') {
+    setLastRadar(kind);
+    setEvaluationWorkspaceStep('configuration');
+    setEvaluationJourney(kind);
+    setBiologyRadarOpen(kind === 'biology');
+    setDiagramLabView(kind === 'diagrams' ? 'radar' : 'protocols');
+  }
+
   const [evaluationActivity, setEvaluationActivity] = useState<EvaluationActivity | null>(null);
   const [evaluationJumpTarget, setEvaluationJumpTarget] = useState<string | null>(null);
   const [evaluationStageMode, setEvaluationStageMode] = useState<EvaluationStageMode>('integrated');
@@ -3821,7 +3832,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <button type="button" hidden={evaluationJourney !== 'custom' || (!busy && evaluationWorkspaceStep !== 'execution')} className={evaluationWorkspaceStep === 'execution' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'execution' ? 'page' : undefined} onClick={() => setEvaluationWorkspaceStep('execution')}><strong>Exécution</strong></button>
         <button type="button" hidden={evaluationJourney !== 'custom' || (!modelEvaluationResults.length && evaluationWorkspaceStep !== 'results')} className={evaluationWorkspaceStep === 'results' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'results' ? 'page' : undefined} onClick={() => setEvaluationWorkspaceStep('results')}><strong>Résultats</strong></button>
         <button type="button" className={evaluationJourney === 'diagrams' ? (diagramLabView === 'history' ? 'is-active' : '') : (evaluationWorkspaceStep === 'history' ? 'is-active' : '')} aria-current={evaluationJourney === 'diagrams' ? (diagramLabView === 'history' ? 'page' : undefined) : (evaluationWorkspaceStep === 'history' ? 'page' : undefined)} onClick={() => { if (evaluationJourney === 'diagrams') { setEvaluationWorkspaceStep('configuration'); setDiagramLabView('history'); } else setEvaluationWorkspaceStep('history'); }}><strong>Campagnes de test</strong></button>
-        <button type="button" className={evaluationWorkspaceStep === 'configuration' && (evaluationJourney === 'biology' ? biologyRadarOpen : evaluationJourney === 'diagrams' && diagramLabView === 'radar') ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'configuration' && (evaluationJourney === 'biology' ? biologyRadarOpen : evaluationJourney === 'diagrams' && diagramLabView === 'radar') ? 'page' : undefined} onClick={() => { setEvaluationWorkspaceStep('configuration'); if (evaluationJourney === 'biology') setBiologyRadarOpen(true); else { setEvaluationJourney('diagrams'); setDiagramLabView('radar'); } }}><strong>Radar des candidats</strong></button>
+        <button type="button" className={radarOpen ? 'is-active' : ''} aria-current={radarOpen ? 'page' : undefined} onClick={() => openCandidateRadar(lastRadar)}><strong>Radar des candidats</strong></button>
       </nav>}
       {interfaceMode === 'diagnostic' && evaluationActivity && <section className={`evaluation-activity-banner is-${evaluationActivity.status}`}
         role="status" aria-live="polite" aria-label="Dernière expérience lancée">
@@ -3904,7 +3915,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
               outcome.missing.map((axis) => axis.label + ' (' + axis.reason + ')').join(' ; ') +
               '. Consultez les campagnes pour comprendre les échecs ou les décisions indéterminées.';
           }}
-          onOpenRadar={() => setDiagramLabView('radar')}
+          onOpenRadar={() => openCandidateRadar('diagrams')}
         />
         </div>
         <div id="evaluation-biology-workspace" hidden={evaluationJourney !== 'biology'}><PilotEvaluationPanel
@@ -4609,6 +4620,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <div className="evaluation-launch-intro"><p className="eyebrow">PRÊT POUR L’EXPÉRIENCE ?</p><h2>Lancer l’évaluation</h2><p>{!validation.valid ? 'Vérifiez le barème pour continuer.' : !selectedEvaluationProfileIds.length ? 'Sélectionnez au moins une configuration.' : evaluationStageMode !== 'analysis' && !images.length ? 'Ajoutez les pages de la copie à évaluer.' : evaluationStageMode === 'analysis' && !transcription?.trim() ? 'Renseignez la transcription de référence.' : 'Votre jeu d’essai est prêt. Les configurations seront évaluées l’une après l’autre.'}</p></div>
         <div className="evaluation-run-actions evaluation-config-launch"><div><strong>{selectedEvaluationProfileIds.length} configuration(s) sélectionnée(s)</strong><p>Le lancement passera à l’espace Exécution pour afficher la progression en direct.</p></div><button type="button" className="primary-button" disabled={busy || selectedEvaluationProfileIds.length < 1 || (evaluationStageMode === 'analysis' ? !transcription?.trim() : !images.length) || !validation.valid} onClick={() => { setEvaluationWorkspaceStep('execution'); void startModelEvaluation(); }}>{busy ? 'Évaluation locale en cours…' : evaluationStageMode === 'vision' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles Vision' : 'Évaluer le modèle Vision') : evaluationStageMode === 'analysis' ? (selectedEvaluationProfileIds.length > 1 ? 'Comparer les modèles d’analyse' : 'Évaluer le modèle d’analyse') : (selectedEvaluationProfileIds.length > 1 ? 'Comparer les configurations' : 'Évaluer cette configuration')}</button></div>
       </section>}
+      {interfaceMode === 'diagnostic' && radarOpen && (
+        <div className="evaluation-journey-options" role="group" aria-label="Choix du radar">
+          <button type="button" aria-pressed={evaluationJourney === 'diagrams'} onClick={() => openCandidateRadar('diagrams')}>
+            <strong>Schémas scientifiques</strong>
+          </button>
+          <button type="button" aria-pressed={evaluationJourney === 'biology'} onClick={() => openCandidateRadar('biology')}>
+            <strong>Biologie</strong>
+          </button>
+        </div>
+      )}
       {interfaceMode === 'diagnostic' && evaluationJourney === 'biology' && biologyRadarOpen && evaluationWorkspaceStep === 'configuration' &&
         <div id="evaluation-biology-radar"><BiologyTeacherRadar
           history={biologyRadarHistory} profiles={aiModelProfiles} busy={busy || pilotBusy}
@@ -4619,7 +4640,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           }} /></div>}
       {interfaceMode === 'diagnostic' && evaluationJourney === 'diagrams' && diagramLabView !== 'protocols' && evaluationWorkspaceStep === 'configuration' &&
         <ScientificDiagramLabHistory repository={diagramArchive} revision={diagramHistoryRevision} archiveError={diagramHistoryError}
-          view={diagramLabView === 'radar' ? 'radar' : 'campaigns'} onViewChange={(view) => setDiagramLabView(view === 'radar' ? 'radar' : 'history')}
+          view={diagramLabView === 'radar' ? 'radar' : 'campaigns'} onViewChange={(view) => { if (view === 'radar') openCandidateRadar('diagrams'); else setDiagramLabView('history'); }}
           profileIds={aiModelProfiles.map((profile) => profile.id)} profiles={aiModelProfiles} busy={busy || pilotBusy || radarAutoBusy}
           onRunMissing={(planned) => {
             if (busy || pilotBusy || radarAutoBusy || !aiModelProfiles.some((profile) => profile.id === planned.profileId)) return;
