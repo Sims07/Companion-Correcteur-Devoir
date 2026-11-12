@@ -1,6 +1,7 @@
 import { Button } from '../design-system/index.ts';
 import { useMemo, useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
+import { isNativeDecisionModel } from '../../domain/systemOneDecision.ts';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
 import {
   buildDiagramLabRadar,
@@ -84,6 +85,12 @@ export function EvaluationRadarHome({
   const biologies = [bio, ...compared.map(comparedBiology)]
     .filter((candidate): candidate is BiologyRadarCandidate => candidate !== undefined);
   const plan = sci && resolveModelProfile(profiles, 'model', sci, planRadarModelEvaluation(sci));
+  const misconfiguredDecisionVision = profiles.some((profile) =>
+    profile.configuration.analysisModel === selected &&
+    profile.configuration.correctionMethod === 'decision' &&
+    !profile.configuration.apiCompatible &&
+    isNativeDecisionModel(profile.configuration.visionModel));
+
   const profile = profiles.find(
     (p) =>
       p.configuration.analysisModel === selected &&
@@ -263,6 +270,9 @@ export function EvaluationRadarHome({
                       ? 'Compléter les tests'
                       : 'Évaluer en ' + (scientific ? 'schémas scientifiques' : 'biologie')}
                   </Button>
+                )}
+                {scientific && !plan && misconfiguredDecisionVision && !busy && (
+                  <small role="alert">Modèle décisionnel utilisé en Vision : ce modèle ne prend pas en charge /api/chat. Choisissez un lecteur Vision génératif dans « Gérer les configurations ».</small>
                 )}
                 {ids.length > 0 && (
                   <Button variant="secondary" onClick={() => campaigns(domain, selected, ids)}>Voir les campagnes</Button>
