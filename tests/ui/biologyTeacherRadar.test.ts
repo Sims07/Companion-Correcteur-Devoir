@@ -45,6 +45,33 @@ describe('biology teacher radar UI', () => {
     mount.remove();
   });
 
+  it('displays a finished radar and an explicit uncertainty warning after the E/F traps', async () => {
+    const stressed: BiologyRadarObservation[] = ['D', 'E', 'F', 'G'].map((caseId) => ({
+      ...records[0]!,
+      id: 'stress:' + caseId, caseId, referenceScore: caseId === 'E' ? 10 : caseId === 'F' ? 7 : 0,
+      score: caseId === 'E' ? null : caseId === 'F' ? 4 : 0,
+      decisions: Array.from({ length: 10 }, (_, index) => {
+        const expected = caseId === 'E' ? 1 : caseId === 'F' && index < 7 ? 1 : 0;
+        const awarded = caseId === 'E' ? index < 7 ? null : 1 : caseId === 'F' && index < 4 ? 1 : 0;
+        return { id: 'p' + index, expected: expected as 0 | 1, awarded };
+      }),
+    }));
+    const mount = document.createElement('div');
+    document.body.append(mount);
+    const root = createRoot(mount);
+    await act(async () => root.render(createElement(BiologyTeacherRadar,
+      { history: [...records, ...stressed], profiles, busy: false, onEvaluate: vi.fn(), onShowTests: vi.fn() })));
+    const headline = mount.querySelector('[aria-label="Résultat biologique du LLM"]')!;
+    expect(headline.textContent).toContain('5 / 5');
+    expect(headline.textContent).not.toContain('Indice partiel');
+    expect(mount.textContent).toContain('7 décision(s) restée(s) à vérifier');
+    expect(mount.textContent).toContain('À vérifier');
+    expect(mount.querySelector('.biology-radar-missing')).toBeNull();
+    expect(mount.querySelector('[aria-label="Classement de correction biologique"]')?.textContent).toContain('qwen:4b');
+    await act(async () => root.unmount());
+    mount.remove();
+  });
+
   it('never labels a configured but untested model as evaluated', async () => {
     const mount = document.createElement('div');
     document.body.append(mount);
