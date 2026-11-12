@@ -3736,7 +3736,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     ? [...allBackgroundJobs].filter((job) => job.assignmentId === activeAssignmentId && job.status === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0] ?? null
     : null;
   const activeQueueCopy = processingCopy ?? preparingCopy;
-
+  const showingBiologyRunMonitor = interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' &&
+    evaluationJourney === 'biology' && !biologyRadarOpen && pilotBusy && evaluationBiologyScenario !== 'copies';
 
   return (
     <main className={interfaceMode === 'teacher' ? `app-shell teacher-flow-shell${showAssignmentsHome ? ' teacher-assignments-home' : ''}` : interfaceMode === 'diagnostic' ? 'app-shell evaluation-workspace-shell ai-tools-view' : 'app-shell ai-tools-view'}>
@@ -3901,7 +3902,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         <button type="button" hidden={evaluationJourney !== 'custom' || (!modelEvaluationResults.length && evaluationWorkspaceStep !== 'results')} className={evaluationWorkspaceStep === 'results' ? 'is-active' : ''} aria-current={evaluationWorkspaceStep === 'results' ? 'page' : undefined} onClick={() => setEvaluationWorkspaceStep('results')}><strong>Résultats</strong></button>
         <button type="button" className={campaignsOpen ? 'is-active' : ''} aria-current={campaignsOpen ? 'page' : undefined} onClick={() => showCampaigns({})}><strong>Campagnes</strong></button>
       </nav>}
-      {interfaceMode === 'diagnostic' && evaluationActivity && <section className={`evaluation-activity-banner is-${evaluationActivity.status}`}
+      {interfaceMode === 'diagnostic' && evaluationActivity && !showingBiologyRunMonitor && <section className={`evaluation-activity-banner is-${evaluationActivity.status}`}
         role="status" aria-live="polite" aria-label="Dernière expérience lancée">
         <div className="evaluation-activity-main">
           <span className="evaluation-activity-state">
@@ -3932,7 +3933,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         </div>
       </section>}
       {interfaceMode === 'diagnostic' && evaluationWorkspaceStep === 'configuration' && (evaluationJourney !== 'diagrams' || diagramLabView === 'protocols') && (evaluationJourney !== 'biology' || !biologyRadarOpen) && <section id="evaluation-configurations" className="panel evaluation-config-workspace" data-journey={evaluationJourney} aria-labelledby="evaluation-config-title">
-        <div className="evaluation-workbench-controls">
+        {!showingBiologyRunMonitor && <div className="evaluation-workbench-controls">
         <EvaluationJourneyPicker value={evaluationJourney} disabled={busy || pilotBusy} onChange={(journey) => { try { localStorage.setItem('companion:evaluation-test-family', journey); } catch { /* Session only */ } setEvaluationJourney(journey); if (journey === 'diagrams') setDiagramLabView('protocols'); }} />
         <h2 id="evaluation-config-title" className="evaluation-visually-hidden">Configurations à évaluer</h2>
         <div className="evaluation-model-brief" role="group" aria-label="Modèles sélectionnés pour les tests">
@@ -3940,7 +3941,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <strong className="evaluation-model-brief-selected">{selectedEvaluationProfiles.length ? selectedEvaluationProfiles.map((profile) => profile.name).join(' · ') : 'Aucun modèle sélectionné'}</strong>
           <Button variant="secondary" className="evaluation-model-brief-manage" onClick={() => setManagingEvaluationProfiles(true)}>Gérer les configurations</Button>
         </div>
-        </div>
+        </div>}
         <div id="evaluation-diagram-workspace" hidden={evaluationJourney !== 'diagrams'}><ScientificDiagramProtocolPanel
           selectedProfiles={selectedEvaluationProfiles} busy={busy || pilotBusy}
           progress={diagramProtocolProgress}
