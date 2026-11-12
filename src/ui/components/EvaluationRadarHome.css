@@ -101,3 +101,101 @@
   .radar-home header { gap: 8px; }
   .radar-home .radar-mobile-toggle { padding: 4px 8px; }
 }
+
+/* Keep the model comparison compact so both charts stay above the fold. */
+.radar-home-compare-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--ds-color-surface-subtle);
+  border: 1px solid var(--ds-color-border);
+  border-radius: 10px;
+}
+.radar-home-compare-controls > span {
+  font-weight: 600;
+  font-size: .86rem;
+}
+.radar-home-compare-chips {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: 6px;
+}
+.radar-home-compare-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 4px 6px 4px 10px;
+  background: var(--ds-color-surface);
+  border: 1px solid var(--ds-color-border);
+  border-radius: 999px;
+  font-size: .8rem;
+}
+.radar-home-compare-chip button {
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ds-color-text);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 1px 5px;
+}
+.radar-home-compare-chip button:hover,
+.radar-home-compare-chip button:focus-visible {
+  background: var(--ds-color-surface-subtle);
+  outline: 1px solid var(--ds-color-border-strong);
+}
+.radar-home-compare-controls label {
+  display: grid;
+  gap: 2px;
+  flex: 0 1 220px;
+  font-size: .78rem;
+}
+.radar-home-compare-controls select {
+  min-width: 0;
+  max-width: 100%;
+}
+.radar-home-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 6px;
+}
+.radar-home-legend-item {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  font-size: .83rem;
+}
+.radar-home-legend-color {
+  display: inline-block;
+  flex: 0 0 13px;
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+  margin-top: 3px;
+}
+.radar-home-legend-item > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.radar-home-legend-item strong {
+  font-weight: 650;
+}
+.radar-home-legend-item small {
+  color: var(--ds-color-text-muted);
+  font-size: .73rem;
+}
+@media (max-width: 720px) {
+  .radar-home-legend { grid-template-columns: minmax(0, 1fr); }
+  .radar-home-compare-controls label { flex: 1 1 190px; }
+}
