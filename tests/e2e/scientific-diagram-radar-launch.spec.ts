@@ -76,8 +76,11 @@ test('D1 radar evaluation unloads the native model without calling unsupported C
   const science = page.getByRole('region', { name: 'Tableau de bord des radars' })
     .getByRole('article', { name: 'Schémas scientifiques' });
   await science.getByRole('button', { name: 'Évaluer en schémas scientifiques' }).click();
-  await expect.poll(() => requests.some((req) => req.path === '/v1/systemone'
-    && req.model === 'd1:3b' && req.keepAlive === 0), { timeout: 30_000 }).toBe(true);
+  // Two successful memory cleanups prove the sequence continued into the
+  // next scientific fixture instead of being cancelled after the first D1 run.
+  await expect.poll(() => requests.filter((req) => req.path === '/v1/systemone'
+    && req.model === 'd1:3b' && req.keepAlive === 0).length, { timeout: 30_000 })
+    .toBeGreaterThanOrEqual(2);
   expect(requests.filter((req) => req.path === '/api/chat' && req.model === 'd1:3b')).toEqual([]);
 });
 
