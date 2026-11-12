@@ -57,7 +57,7 @@ test('D1 radar evaluation unloads the native model without calling unsupported C
       await route.fulfill({ status: 200, headers, body: JSON.stringify({
         model: 'qwen3.5:4b', message: { content: 'Cellule végétale, noyau, ADN, mitose.' },
         done: true, done_reason: 'stop',
-      }) + '\\n' }); return;
+      }) + '\n' }); return;
     }
     await route.fulfill({ status: 400, headers, body: JSON.stringify({ error: 'unsupported call' }) });
   });
