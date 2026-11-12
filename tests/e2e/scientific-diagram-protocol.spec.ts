@@ -44,6 +44,12 @@ test('Qwen direct diagram repairs missing evidence and exports all 19 decisions 
   await panel.getByRole('button', { name: 'Tester les 3 schémas en un clic' }).click();
   const results = panel.getByRole('region', { name: 'Résultats des schémas scientifiques' });
   await expect(results.locator('tbody tr')).toHaveCount(3);
+  const activity = page.getByRole('status', { name: 'Dernière expérience lancée' });
+  await expect(activity).toContainText('TEST TERMINÉ');
+  await activity.getByRole('button', { name: 'Masquer le bandeau' }).click();
+  await expect(activity).toHaveCount(0);
+  // Closing the sticky banner must not erase the completed fixture results.
+  await expect(results.locator('tbody tr')).toHaveCount(3);
   const [download] = await Promise.all([page.waitForEvent('download'), results.getByRole('button', { name: 'Exporter le rapport JSON' }).click()]);
   const report = JSON.parse(await readFile(await download.path(), 'utf8'));
   const runs = report.cases.flatMap((c: { experiments: unknown[] }) => c.experiments);
