@@ -1,4 +1,5 @@
 import type { AiModelProfile } from './aiModelProfiles.ts';
+import { isNativeDecisionModel } from './systemOneDecision.ts';
 import {
   DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS,
   summarizeDiagramSensitivity, type DiagramSensitivityCaseId,
@@ -289,6 +290,10 @@ export function blindGraphVisionModel(profile: AiModelProfile): string {
 /** A disabled experiment must explain precisely what the teacher can fix. */
 export function blindGraphProfileIssue(profile: AiModelProfile): string | null {
   const config = profile.configuration;
+  if (!config.apiCompatible && isNativeDecisionModel(blindGraphVisionModel(profile))) {
+    return 'Le graphe nécessite un modèle Vision génératif. Le modèle décisionnel « '
+      + blindGraphVisionModel(profile) + ' » ne prend pas en charge /api/chat.';
+  }
   if (!blindGraphVisionModel(profile)) {
     return 'Profil « ' + profile.name + ' » : aucun modèle Vision. Définissez un modèle génératif avec vision ou un modèle de lecture des images.';
   }
