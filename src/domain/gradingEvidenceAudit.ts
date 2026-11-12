@@ -73,6 +73,23 @@ export function studentAnswerForEvidence(transcription: string): string {
   return marker ? transcription.slice(marker.index + marker[0].length).trim() : transcription;
 }
 
+/**
+ * When the teacher identified a question, inspect only that question's student
+ * answer. The scope is trusted only with explicit question AND answer markers:
+ * printed questions and answers to another question must not supply evidence.
+ */
+function questionAnswerForEvidence(transcription: string, questionId: string): string | null {
+  const headings = [...transcription.matchAll(/(?:^|\r?\n)\s*Question\s+(\d+)\b[^\r\n]*(?:\r?\n|$)/gi)];
+  const index = headings.findIndex((heading) => heading[1] === questionId);
+  if (index < 0) return null;
+  const heading = headings[index]!;
+  const start = heading.index! + heading[0].length;
+  const end = headings[index + 1]?.index ?? transcription.length;
+  const section = transcription.slice(start, end);
+  const answer = studentAnswerForEvidence(section);
+  return answer !== section && answer.length > 0 ? answer : null;
+}
+
 function findCitation(transcription: string, evidence: string): { excerpt: string; at: number } | null {
   const clean = normalizeEvidenceText(evidence);
   const source = normalizeEvidenceText(transcription);
@@ -197,10 +214,15 @@ export function auditGradingEvidence(
     const defined = getRubricSubcriteria(teacherCriterion);
     if (!defined.length || !item.subcriteria) return item;
     const evidenceQuestions: string[] = [];
+    const questionAnswer = teacherCriterion.correctionContract?.question?.id
+      ? questionAnswerForEvidence(transcription, teacherCriterion.correctionContract.question.id)
+      : null;
+    const evidenceSource = questionAnswer ?? studentText;
+    const verifiedQuestionScope = questionAnswer !== null;
     const subcriteria = item.subcriteria.map((sub) => {
       const expected = defined.find((entry) => entry.id === sub.subcriterionId);
       if (!expected || sub.points <= 0 || sub.assessmentStatus === 'not-evaluated') return sub;
-      const evidenceStatus = inspectPositiveEvidence(studentText, sub.evidence, teacherCriterion, expected);
+      const evidenceStatus = inspectPositiveEvidence(evidenceSource, sub.evidence, teacherCriterion, expected, verifiedQuestionScope);
       if (evidenceStatus === 'located') return { ...sub, evidenceStatus };
       const question = 'Vérifiez la preuve de « ' + teacherCriterion.title + ' / ' + expected.title
         + ' » : citation absente, non littérale ou ne démontrant pas clairement l’attendu.';
