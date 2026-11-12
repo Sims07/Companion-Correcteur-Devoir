@@ -27,9 +27,15 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     })));
     const container = document.createElement('div');
     const root = createRoot(container);
-    const onRunFixtures = vi.fn(async (request: { cases: { id: string }[] }) => ({
-      cases: request.cases.map(({ id }) => ({ caseId: id, experiments: [{ status: 'success' }] })),
-    } as unknown as ReturnType<typeof buildScientificDiagramFixtureReport>));
+    let releaseFixture!: () => void;
+    const fixtureFinished = new Promise<void>((resolve) => { releaseFixture = resolve; });
+    const onRunFixtures = vi.fn(async (request: { cases: { id: string }[] }) => {
+      // Simulate a long local inference to verify immediate progress is visible.
+      await fixtureFinished;
+      return {
+        cases: request.cases.map(({ id }) => ({ caseId: id, experiments: [{ status: 'success' }] })),
+      } as unknown as ReturnType<typeof buildScientificDiagramFixtureReport>;
+    });
     const onPrepareImages = vi.fn(async (files: File[]) => files.map((file) => ({
       fileName: file.name, base64: 'ZmFrZQ==', mimeType: file.type,
     })));
@@ -51,6 +57,9 @@ describe('scientific automatic protocol runner invoked from radar', () => {
     expect(consumed).toHaveBeenCalledOnce();
     expect(consumed).toHaveBeenCalledWith(42);
     expect(busyChange).toHaveBeenCalledWith(true);
+    expect(container.querySelector('[aria-label="Suivi du lancement depuis le radar"]')?.textContent)
+      .toContain('Batterie 1/1');
+    await act(async () => { releaseFixture(); });
     await vi.waitFor(() => expect(busyChange).toHaveBeenLastCalledWith(false));
     expect(container.textContent).toContain('Batteries terminées');
     await act(async () => root.render(createElement(ScientificDiagramProtocolPanel, props)));

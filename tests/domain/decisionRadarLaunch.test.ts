@@ -44,6 +44,19 @@ describe('one-click decision model radar planning', () => {
     expect(plan?.steps.some((step) => step.protocol === 'graph')).toBe(false);
   });
 
+  it('launches a generative scientific model without a separate Vision model in direct-image mode', () => {
+    const selected = candidate('gemma4:e4b');
+    const plan = resolveModelProfile(
+      profiles('gemma4:e4b', 'generative', ''),
+      'model', selected, planRadarModelEvaluation(selected),
+    );
+    expect(plan?.profileId).toBe('profile-gemma4:e4b');
+    expect(plan?.steps.map((step) => step.protocol)).toEqual(['reference', 'arrows', 'semantic', 'graph']);
+    expect(plan?.steps.filter((step) => step.protocol !== 'graph').every(
+      (step) => step.method === 'direct-image-generative',
+    )).toBe(true);
+  });
+
   it('does not present a text decision model without Vision as runnable', () => {
     const selected = candidate('tev1:4b');
     expect(resolveModelProfile(profiles('tev1:4b', 'decision', ''), 'model', selected, planRadarModelEvaluation(selected))).toBeNull();
