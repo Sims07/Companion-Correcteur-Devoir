@@ -41,7 +41,9 @@ test('D1 radar evaluation unloads the native model without calling unsupported C
       }) }); return;
     }
     if (path === '/v1/systemone') {
+      // Normal decisions reload D1; only the explicit cleanup removes it.
       if (body.keep_alive === 0) loaded.delete('d1:3b');
+      else loaded.add('d1:3b');
       const answers = Object.fromEntries(Object.entries(body.questions ?? {}).map(([id, question]) => {
         const choice = Object.keys(question.criteria ?? {})[0] ?? 'present';
         return [id, question.type === 'noul' ? { noul: 0.9 }
@@ -54,6 +56,7 @@ test('D1 radar evaluation unloads the native model without calling unsupported C
       await route.fulfill({ status: 200, headers, body: JSON.stringify({ done: true }) }); return;
     }
     if (path === '/api/chat' && body.model === 'qwen3.5:4b') {
+      loaded.add('qwen3.5:4b');
       await route.fulfill({ status: 200, headers, body: JSON.stringify({
         model: 'qwen3.5:4b', message: { content: 'Cellule végétale, noyau, ADN, mitose.' },
         done: true, done_reason: 'stop',
