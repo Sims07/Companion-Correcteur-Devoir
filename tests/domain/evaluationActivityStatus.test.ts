@@ -15,7 +15,30 @@ describe('evaluation activity status', () => {
       .toMatchObject({ status: 'failed', error: expect.stringContaining('1/2 passages réussis') });
   });
 
-  it('does not claim an all-uncertain model response measured a scientific axis', () => {
+  it('labels a D1/System One failure accurately without leaking technical payloads', () => {
+    const report = { format: 'companion-scientific-diagram-fixture-report', cases: [
+      { experiments: [
+        { status: 'failed', failureCategory: 'system-one-unavailable', error: 'https://private/key' },
+        { status: 'failed', failureCategory: 'system-one-unavailable', error: 'private response' },
+        { status: 'failed', failureCategory: 'model-unavailable' },
+      ] },
+    ] };
+    const result = resolveEvaluationActivityOutcome({ ...base, outcome: report });
+    expect(result.status).toBe('failed');
+    expect(result.error).toContain('0/3 passages réussis');
+    expect(result.error).toContain('API System One');
+    expect(result.error).toContain('Modèle absent');
+    expect(result.error).not.toMatch(/interrompus|https:|private/i);
+  });
+
+  it('distinguishes failed runs from actual cancellation', () => {
+    const report = { format: 'companion-scientific-diagram-fixture-report', cases: [
+      { experiments: [{ status: 'aborted', errorCategory: 'cancelled' }] },
+    ] };
+    expect(resolveEvaluationActivityOutcome({ ...base, outcome: report }).error).toContain('1 annulé(s)');
+  });
+
+    it('does not claim an all-uncertain model response measured a scientific axis', () => {
     const report = { format: 'companion-scientific-diagram-fixture-report', cases: [
       { experiments: [{ status: 'success', observations: [{ choice: 'uncertain' }] }] },
     ] };
