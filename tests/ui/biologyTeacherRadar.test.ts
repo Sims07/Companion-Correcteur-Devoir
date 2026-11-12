@@ -64,7 +64,7 @@ describe('biology teacher radar UI', () => {
     const headline = mount.querySelector('[aria-label="Résultat biologique du LLM"]')!;
     expect(headline.textContent).toContain('5 / 5');
     expect(headline.textContent).not.toContain('Indice partiel');
-    expect(mount.textContent).toContain('7 décision(s) restée(s) à vérifier');
+    expect(mount.textContent).toContain('7 décisions non tranchées');
     expect(mount.textContent).toContain('À vérifier');
     expect(mount.querySelector('.biology-radar-missing')).toBeNull();
     expect(mount.querySelector('[aria-label="Classement de correction biologique"]')?.textContent).toContain('qwen:4b');
