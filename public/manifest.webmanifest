@@ -1,0 +1,26 @@
+{
+  "name": "Compagnon Correcteur de Devoirs",
+  "short_name": "Compagnon",
+  "description": "Assistant de correction de copies et de schémas scientifiques.",
+  "lang": "fr",
+  "id": ".",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#f6f8f4",
+  "theme_color": "#183f49",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
