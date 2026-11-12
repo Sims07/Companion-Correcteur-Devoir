@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StorageDiagnosticsService } from '../application/storageDiagnosticsService.ts';
 import { formatStorageBytes, storageOccupancyPercent, type StorageDiagnosticsSnapshot } from '../domain/storageDiagnostics.ts';
 import './storageUsagePanel.css';
+import { BackupRestorePanel } from './BackupRestorePanel.tsx';
 
 interface Props {
   service?: StorageDiagnosticsService;
@@ -96,5 +97,6 @@ export function StorageUsagePanel({ service, onManageEvaluations }: Props) {
       <small className="storage-usage-updated">Dernière mesure : {new Date(snapshot.measuredAt).toLocaleString('fr-FR')}</small>
     </>}
     {!snapshot && loading && <p className="storage-usage-notice is-loading" role="status">Lecture des catégories IndexedDB sur cet appareil…</p>}
+    <BackupRestorePanel onRestored={() => void refresh()} />
   </section>;
 }
