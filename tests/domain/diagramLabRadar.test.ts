@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../src/domain/diagramLabHistory.ts';
 import { radarEvaluationOutcome } from '../../src/domain/diagramLabRadarLaunch.ts';
 import { DIAGRAM_SENSITIVITY_CASES } from '../../src/domain/scientificDiagramSensitivity.ts';
-import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../src/domain/scientificDiagramFixtures.ts';
+import { SCIENTIFIC_DIAGRAM_FIXTURES, SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../src/domain/scientificDiagramFixtures.ts';
 import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, observedRadarScore, RADAR_PRESETS, rankDiagramLabRadar, validRadarWeights } from '../../src/domain/diagramLabRadar.ts';
 
 function sample(protocol: Exclude<DiagramLabProtocol, 'personal'>, createdAt: string, repetitions = 1): DiagramLabArchiveEntry {
@@ -60,6 +60,31 @@ describe('scientific benchmark 8-axis radar', () => {
     expect(rankDiagramLabRadar([candidate], RADAR_PRESETS.balanced)[0]?.weightedScore).toBe(93.8);
     expect(candidate.axes.biology.evidence[0]?.protocol).toBe('semantic');
   });
+  it('regrades legacy A/B/C decisions against the current 19-target reference without rewriting archives', () => {
+    const legacy = structuredClone(sample('reference', '2026-11-11T12:00:00Z'));
+    const cases = (legacy.report as unknown as { cases: Array<{
+      caseId: string; gold: Record<string, string>;
+      experiments: Array<{ observations: Array<{ key: string; choice: string }> }>;
+    }> }).cases;
+    for (const item of cases) {
+      const current = SCIENTIFIC_DIAGRAM_FIXTURES.find((fixture) => fixture.id === item.caseId)!;
+      item.gold = { ...current.gold };
+      if (item.caseId === 'A') item.gold['title::title-subject'] = 'present';
+      if (item.caseId === 'C') item.gold['title::title-emphasis'] = 'absent';
+      // Simulate visual decisions already matching the reviewed truth, but saved
+      // with a stale reference v5: the archive itself must remain immutable.
+      item.experiments[0]!.observations = Object.entries(current.gold)
+        .map(([key, choice]) => ({ key, choice }));
+    }
+    const before = JSON.stringify(legacy);
+    const radar = buildDiagramLabRadar([legacy])[0]!;
+    expect(radar.axes.graphics.value).toBe(100);
+    expect(radar.axes.graphics.evidence[0]).toMatchObject({ observed: 57, total: 57 });
+    expect(JSON.stringify(legacy)).toBe(before);
+    expect(cases[0]!.gold['title::title-subject']).toBe('present');
+    expect(cases[2]!.gold['title::title-emphasis']).toBe('absent');
+  });
+
   it('does not mistake unfinished graphs, unobserved mutations or failed results for a zero', () => {
     const data = complete();
     const graph = data[3]!;
