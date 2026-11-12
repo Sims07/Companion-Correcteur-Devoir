@@ -72,6 +72,7 @@ test('opens the observability workspace and explores a trace without exposing co
   await page.reload();
 
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+
   await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
   await expect(page.getByRole('button', { name: 'Suivi & diagnostic' })).toHaveAttribute('aria-current', 'page');
 

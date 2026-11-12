@@ -1,3 +1,4 @@
+import { openCustomTests } from './helpers/evaluation-models.ts';
 import { expect, test } from '@playwright/test';
 import { openActiveAssignment } from './helpers/teacher-workspace';
 
@@ -85,6 +86,7 @@ test('the teacher journey starts with Copies, keeps advanced options collapsed a
   await expect(page.getByRole('heading', { name: 'Ajouter des copies' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
   await expect(page.getByRole('tablist', { name: 'Sections du devoir' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Gérer les configurations' }).click();
   await page.getByRole('dialog', { name: 'Gérer les configurations IA' })

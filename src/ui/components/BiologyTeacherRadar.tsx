@@ -22,14 +22,14 @@ function savedSelection(): { protocol: BiologyCorrectionProtocol; selectedId: st
   } catch { return { protocol: 'contract', selectedId: '' }; }
 }
 
-function RadarPlot({ candidate }: { candidate: BiologyRadarCandidate }) {
+export function BiologyRadarPlot({ candidate }: { candidate?: BiologyRadarCandidate }) {
   const vertex = (index: number, value: number) => {
     const angle = 2 * Math.PI * index / BIOLOGY_RADAR_AXES.length - Math.PI / 2;
     return [260 + 112 * value * Math.cos(angle), 157 + 112 * value * Math.sin(angle)];
   };
   const polygon = (values: number[]) => values.map((value, index) => vertex(index, value).join(',')).join(' ');
   return <svg viewBox="0 0 520 330" role="img" className="biology-radar-plot"
-    aria-label={'Radar de fidélité biologique pour ' + candidate.name + ' ; ' + candidate.measured + ' axes sur 5'}>
+    aria-label={'Radar de fidélité biologique pour ' + (candidate?.name ?? 'modèle à évaluer') + ' ; ' + (candidate?.measured ?? 0) + ' axes sur 5'}>
     {[0.25, 0.5, 0.75, 1].map((level) =>
       <polygon key={level} points={polygon(BIOLOGY_RADAR_AXES.map(() => level))}
         fill="none" stroke="currentColor" strokeOpacity=".17" />)}
@@ -42,14 +42,14 @@ function RadarPlot({ candidate }: { candidate: BiologyRadarCandidate }) {
           fontSize="12">{['Note professeur', 'Barème', 'Bonnes réponses', 'Erreurs', 'Cas pièges'][i]}</text>
       </g>;
     })}
-    {candidate.measured === BIOLOGY_RADAR_AXES.length
+    {candidate?.measured === BIOLOGY_RADAR_AXES.length
       ? <polygon points={polygon(BIOLOGY_RADAR_AXES.map((axis) => axis.id).map((id) => candidate.axes[id]! / 100))}
           fill="var(--ds-color-brand-100)" fillOpacity=".75" stroke="var(--ds-color-brand-700)" strokeWidth="2.5"
           strokeLinejoin="round" />
       : BIOLOGY_RADAR_AXES.map((axis, i) => {
           const next = BIOLOGY_RADAR_AXES[(i + 1) % BIOLOGY_RADAR_AXES.length]!;
-          const value = candidate.axes[axis.id];
-          const nextValue = candidate.axes[next.id];
+          const value = candidate?.axes[axis.id] ?? null;
+          const nextValue = candidate?.axes[next.id] ?? null;
           if (value === null || nextValue === null) return null;
           const [x1, y1] = vertex(i, value / 100);
           const [x2, y2] = vertex((i + 1) % BIOLOGY_RADAR_AXES.length, nextValue / 100);
@@ -57,7 +57,7 @@ function RadarPlot({ candidate }: { candidate: BiologyRadarCandidate }) {
             stroke="var(--ds-color-brand-700)" strokeWidth="2.5" />;
         })}
     {BIOLOGY_RADAR_AXES.map((axis, i) => {
-      const value = candidate.axes[axis.id];
+      const value = candidate?.axes[axis.id] ?? null;
       if (value === null) return null;
       const [x, y] = vertex(i, value / 100);
       return <circle key={axis.id} cx={x} cy={y} r="4" fill="var(--ds-color-brand-700)" />;
@@ -65,16 +65,18 @@ function RadarPlot({ candidate }: { candidate: BiologyRadarCandidate }) {
   </svg>;
 }
 
-export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onShowTests }: {
+export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onShowTests, initialModel, onModelChange }: {
   history: readonly BiologyRadarObservation[];
   profiles: readonly AiModelProfile[];
   busy: boolean;
+  initialModel?: string;
+  onModelChange?: (model: string) => void;
   onEvaluate: (profileId: string) => void;
   onShowTests: (scenario: 'contracts' | 'repeatability' | 'copies') => void;
 }) {
   const [initialSelection] = useState(savedSelection);
   const [protocol, setProtocol] = useState<BiologyCorrectionProtocol>(initialSelection.protocol);
-  const [selectedId, setSelectedId] = useState(initialSelection.selectedId);
+  const [selectedId, setSelectedId] = useState(initialModel ? '' : initialSelection.selectedId);
   useEffect(() => {
     try { window.localStorage.setItem(SELECTION_KEY, JSON.stringify({ protocol, selectedId })); }
     catch { /* Selection remains available in the current session. */ }
@@ -96,7 +98,7 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
       measured: 0, score: null, partialScore: null, gradeDifference: null, observations: [],
     });
   }
-  const selected = candidates.find((item) => item.id === selectedId) ?? candidates[0];
+  const selected = candidates.find((item) => item.id === selectedId) ?? candidates.find((item) => item.name === initialModel) ?? candidates[0];
   const matchingProfile = configured.find((item) => item.id === selected?.id);
   const available = measured.filter((item) => item.score !== null);
   const missing = BIOLOGY_RADAR_AXES.filter((axis) => selected?.axes[axis.id] === null);
@@ -105,7 +107,7 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
     <div className="biology-radar-overview">
       <div className="biology-radar-pickers">
         <label>Choisir un LLM
-          <select aria-label="Choisir un LLM biologique" value={selected?.id ?? ''} onChange={(event) => setSelectedId(event.target.value)}>
+          <select aria-label="Choisir un LLM biologique" value={selected?.id ?? ''} onChange={(event) => { setSelectedId(event.target.value); const item = candidates.find((c) => c.id === event.target.value); if (item) onModelChange?.(item.name); }}>
             {!candidates.length && <option value="">Aucun modèle configuré ou testé</option>}
             {candidates.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.method === 'decision' ? 'Décisionnel' : 'Génératif'}{item.provider === 'openai-compatible' ? ' · API' : ''}</option>)}
           </select>
@@ -145,7 +147,7 @@ export function BiologyTeacherRadar({ history, profiles, busy, onEvaluate, onSho
     {selected && <>
       <div className="biology-radar-layout">
         <div className="biology-radar-visual">
-          <RadarPlot candidate={selected} />
+          <BiologyRadarPlot candidate={selected} />
           <p>Une caractéristique absente n’est ni une erreur ni un zéro : le radar reste partiel tant que sa batterie n’a pas été validée.</p>
         </div>
         <div className="biology-radar-details">

@@ -13,6 +13,7 @@ export const BIOLOGY_RADAR_AXES: readonly { id: BiologyRadarAxis; label: string;
 ];
 
 export interface BiologyRadarObservation {
+  campaignId?: string;
   id: string;
   profileId: string;
   profile: string;

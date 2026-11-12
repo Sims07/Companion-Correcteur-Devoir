@@ -8,6 +8,7 @@ export type AppNotification = {
   target?: 'evaluation' | 'correction' | 'diagnostic';
   journey?: 'custom' | 'diagrams' | 'biology';
   targetId?: string;
+  campaignId?: string;
   read: boolean;
 };
 

@@ -209,6 +209,7 @@ export interface ModelEvaluationResultSnapshot {
 }
 
 export interface ModelEvaluationRecord {
+  campaignId?: string;
   id: string;
   completedAt: string;
   assignmentId: string;

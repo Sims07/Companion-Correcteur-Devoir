@@ -5,10 +5,12 @@ test('an existing exported scientific diagram report is readable tomorrow withou
   const report = buildBlindVisualObservationReport([], 1, '2026-11-09T09:00:00.000Z', 'isolated-arrows-outside');
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
-    .getByRole('button', { name: /Campagnes de test/ }).click();
+    .getByRole('button', { name: /Campagnes/ }).click();
+  await page.getByRole('button', { name: 'Archives scientifiques' }).click();
 
   const journal = page.getByRole('region', { name: 'Campagnes de test scientifiques' });
   await expect(journal.getByText('Aucun résultat pour ce filtre')).toBeVisible();
@@ -25,10 +27,12 @@ test('an existing exported scientific diagram report is readable tomorrow withou
 
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await page.getByRole('navigation', { name: 'Espaces de l’évaluation' }).getByRole('button', { name: 'Tests', exact: true }).click();
   await page.getByRole('group', { name: 'Parcours de test' })
     .getByRole('button', { name: /Schémas scientifiques/ }).click();
   await page.getByRole('navigation', { name: 'Espaces de l’évaluation' })
-    .getByRole('button', { name: /Campagnes de test/ }).click();
+    .getByRole('button', { name: /Campagnes/ }).click();
+  await page.getByRole('button', { name: 'Archives scientifiques' }).click();
   const restored = page.getByRole('region', { name: 'Campagnes de test scientifiques' });
   await expect(restored.getByRole('group', { name: 'Campagnes enregistrées' })
     .getByRole('button', { name: /Graphe des relations/ })).toBeVisible();

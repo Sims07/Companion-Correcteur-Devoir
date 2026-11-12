@@ -134,8 +134,8 @@ function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
   </div>;
 }
 
-export function ScientificDiagramLabHistory({ revision, archiveError, repository, view, onViewChange, profileIds, profiles = [], busy, onRunMissing }: {
-  revision: number; archiveError?: string; repository: DiagramLabArchiveRepository;
+export function ScientificDiagramLabHistory({ initialReportId, revision, archiveError, repository, view, onViewChange, profileIds, profiles = [], busy, onRunMissing }: {
+  initialReportId?: string; revision: number; archiveError?: string; repository: DiagramLabArchiveRepository;
   view: 'campaigns' | 'radar'; onViewChange: (view: 'campaigns' | 'radar') => void;
   profileIds: readonly string[]; profiles?: readonly RadarModelConfiguration[]; busy: boolean;
   onRunMissing: (request: Omit<RadarMissingTestRequest, 'id'>) => void;
@@ -144,7 +144,7 @@ export function ScientificDiagramLabHistory({ revision, archiveError, repository
   const [loadingError, setLoadingError] = useState('');
   const [protocolFilter, setProtocolFilter] = useState<DiagramLabProtocol | 'all'>('all');
   const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialReportId ?? null);
   const [comparisonId, setComparisonId] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const fileInput = useRef<HTMLInputElement>(null);

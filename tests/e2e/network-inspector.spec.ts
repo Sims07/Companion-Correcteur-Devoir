@@ -1,3 +1,4 @@
+import { openCustomTests } from './helpers/evaluation-models.ts';
 import { expect, test } from '@playwright/test';
 
 test('Debug exposes live HTTP requests and their response details', async ({ page }) => {
@@ -30,6 +31,7 @@ test('Debug exposes live HTTP requests and their response details', async ({ pag
   });
 
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
   await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Suivi & diagnostic' }).click();
   await page.getByRole('navigation', { name: 'Détails du suivi' }).getByRole('button', { name: 'Inspecteur réseau' }).click();
   await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();

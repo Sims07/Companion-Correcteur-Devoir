@@ -112,6 +112,12 @@ function fromFraction(battery: Battery | null, label: string, fraction: Fraction
     evidence: [evidence(battery, label, fraction.n, fraction.d)] };
 }
 
+export function diagramCampaignModels(entry: DiagramLabArchiveEntry): string[] {
+  const runs = entry.report.format === 'companion-scientific-diagram-protocol'
+    ? entry.report.experiments : flatten(entry);
+  return [...new Set(runs.map(run => run.model?.trim()).filter(Boolean))];
+}
+
 function flatten(entry: DiagramLabArchiveEntry): Reading[] {
   const report = entry.report;
   if (report.format === 'companion-scientific-diagram-protocol') return [];

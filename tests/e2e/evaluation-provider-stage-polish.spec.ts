@@ -1,3 +1,4 @@
+import { openCustomTests } from './helpers/evaluation-models.ts';
 import { expect, test } from '@playwright/test';
 
 test('evaluation does not add a permanent provider/privacy banner regardless of selected configuration', async ({ page }) => {
@@ -17,6 +18,7 @@ test('evaluation does not add a permanent provider/privacy banner regardless of 
   ])), configuration);
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
   const notice = page.locator('.evaluation-provider-indicator, .evaluation-page-header');
   const remoteNotice = page.locator('.evaluation-remote-endpoint-notice');
   await expect(notice).toHaveCount(0);
@@ -37,6 +39,7 @@ test('evaluation does not add a permanent provider/privacy banner regardless of 
 test('personal tests use a compact type switch, never a numbered sequence', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
   const picker = page.getByRole('group', { name: 'Type d’évaluation' });
   const options = picker.getByRole('button');
   await expect(options).toHaveCount(3);

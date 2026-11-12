@@ -1,3 +1,4 @@
+import { openCustomTests } from './helpers/evaluation-models.ts';
 import { expect, test } from '@playwright/test';
 
 test('two compact local evaluations remain comparable after a page reload without their image payloads', async ({ page }) => {
@@ -46,7 +47,9 @@ test('two compact local evaluations remain comparable after a page reload withou
 
   await page.reload();
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
-  await page.getByRole('button', { name: /Campagnes de test/ }).click();
+  await openCustomTests(page);
+  await page.getByRole('button', { name: /Campagnes/ }).click();
+  await page.getByRole('button', { name: 'Comparer les essais sur copie' }).click();
 
   const comparisons = page.getByRole('group', { name: 'Expériences à comparer' });
   await expect(comparisons.getByRole('checkbox')).toHaveCount(2);

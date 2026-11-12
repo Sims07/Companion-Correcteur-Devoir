@@ -97,3 +97,24 @@ describe('biology teacher radar UI', () => {
   });
 
 });
+
+it('the dashboard runs only missing traps and links the reference copies for the chosen LLM', async () => {
+  const { EvaluationRadarHome } = await import('../../src/ui/components/EvaluationRadarHome.tsx');
+  const rootNode = document.createElement('div');
+  const root = createRoot(rootNode);
+  const runBiology = vi.fn();
+  const campaigns = vi.fn();
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries: [], history: records, profiles, model: 'qwen:4b', choose: vi.fn(), busy: false,
+    manage: vi.fn(), details: vi.fn(), campaigns, runScience: vi.fn(), runBiology,
+  })));
+  const card = rootNode.querySelector('article[aria-label="Biologie"]')!;
+  expect(card.textContent).toContain('4/5 axes');
+  expect(card.textContent).toContain('100 / 100');
+  const action = (text: string) => [...card.querySelectorAll('button')].find(button => button.textContent === text)!;
+  action('Compléter les tests').click();
+  expect(runBiology).toHaveBeenCalledWith('qwen', false, true);
+  action('Voir les campagnes').click();
+  expect(campaigns).toHaveBeenCalledWith('biology', 'qwen:4b', expect.arrayContaining(records.map(r => r.id)));
+  await act(async () => root.unmount());
+});

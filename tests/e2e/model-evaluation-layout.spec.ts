@@ -1,8 +1,10 @@
+import { openCustomTests } from './helpers/evaluation-models.ts';
 import { expect, test, type Page } from '@playwright/test';
 
 test('evaluation uses unobtrusive view navigation without fake numbered steps', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
 
   const navigation = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   await expect(navigation.getByRole('button', { name: 'Tests' })).toHaveAttribute('aria-current', 'page');
@@ -23,8 +25,9 @@ test('evaluation uses unobtrusive view navigation without fake numbered steps', 
     return { isSelection, notError, light: selected.minHeight === '38px' };
   })).toEqual({ isSelection: true, notError: true, light: true });
 
-  await navigation.getByRole('button', { name: 'Campagnes de test' }).click();
-  await expect(navigation.getByRole('button', { name: 'Campagnes de test' })).toHaveAttribute('aria-current', 'page');
+  await navigation.getByRole('button', { name: 'Campagnes' }).click();
+  await page.getByRole('button', { name: 'Comparer les essais sur copie' }).click();
+  await expect(navigation.getByRole('button', { name: 'Campagnes' })).toHaveAttribute('aria-current', 'page');
 });
 
 async function expectUnifiedEvaluationCanvas(page: Page): Promise<void> {
@@ -70,17 +73,19 @@ async function expectUnifiedEvaluationCanvas(page: Page): Promise<void> {
 test('model evaluation uses one aligned, non-floating canvas from profiles to launch', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
 
   const navigation = page.getByRole('navigation', { name: 'Espaces de l’évaluation' });
   await expect(navigation.getByRole('button')).toHaveCount(3);
-  await expect(navigation.getByRole('button', { name: 'Radar des candidats' })).toBeVisible();
+  await expect(navigation.getByRole('button', { name: 'Radars' })).toBeVisible();
 
   for (const width of [1440, 1100, 900, 768, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await expectUnifiedEvaluationCanvas(page);
   }
 
-  await navigation.getByRole('button', { name: /Campagnes de test/ }).click();
+  await navigation.getByRole('button', { name: /Campagnes/ }).click();
+  await page.getByRole('button', { name: 'Comparer les essais sur copie' }).click();
   await expect(page.locator('.evaluation-results-workspace')).toHaveAttribute('data-evaluation-step', 'history');
   const historicalLayout = await page.evaluate(() => {
     const nav = document.querySelector('.evaluation-step-nav')!.getBoundingClientRect();
@@ -95,6 +100,7 @@ test('model evaluation uses one aligned, non-floating canvas from profiles to la
 test('analysis-only experiment asks for a transcription instead of an irrelevant copy upload', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
   await page.getByRole('group', { name: 'Type d’évaluation' }).getByRole('button', { name: /Analyse seule/ }).click();
 
   await expect(page.getByRole('heading', { name: 'Transcription à noter' })).toBeVisible();
@@ -112,6 +118,7 @@ test('analysis-only experiment asks for a transcription instead of an irrelevant
 test('semantic Atelier B statuses agree across network, evaluation archive and storage', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
   await page.evaluate(() => {
     const fixture = document.createElement('section');
     fixture.className = 'ai-tools-view evaluation-workspace-shell technical-status-fixture';

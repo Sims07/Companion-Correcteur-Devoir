@@ -1,3 +1,4 @@
+import { openCustomTests } from './helpers/evaluation-models.ts';
 import { expect, test } from '@playwright/test';
 
 test('application offers evaluation and diagnostics as top-level destinations', async ({ page }) => {
@@ -9,6 +10,7 @@ test('application offers evaluation and diagnostics as top-level destinations', 
   await expect(page.getByRole('navigation', { name: 'Navigation des outils IA' })).toHaveCount(0);
 
   await primaryNavigation.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
   await expect(primaryNavigation.getByRole('button', { name: 'Évaluer les modèles' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('navigation', { name: 'Détails du suivi' })).toHaveCount(0);
   await expect(page.locator('.developer-tools')).toHaveCount(0);
@@ -30,6 +32,7 @@ test('application offers evaluation and diagnostics as top-level destinations', 
   await expect(page.getByRole('heading', { name: 'Inspecteur réseau' })).toBeVisible();
 
   await primaryNavigation.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
   await expect(page.getByRole('navigation', { name: 'Détails du suivi' })).toHaveCount(0);
   await primaryNavigation.getByRole('button', { name: 'Correction' }).click();
   await expect(primaryNavigation.getByRole('button', { name: 'Correction' })).toHaveAttribute('aria-current', 'page');
