@@ -28,7 +28,10 @@ function identifier(value: string | undefined): string {
 }
 
 function simpleId(value: string | undefined): string {
-  return value && /^[A-Za-z0-9:_-]{1,100}$/.test(value) ? value : 'non communiqué';
+  if (value && /^[A-Za-z0-9:_-]{1,100}$/.test(value)) return value;
+  // Exact scientific archive format, not arbitrary user-supplied identifiers.
+  if (value && /^companion-scientific-diagram-[a-z-]+:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return value;
+  return 'non communiqué';
 }
 
 function caseId(value: string): string {
@@ -50,11 +53,18 @@ function failureCategory(message?: string): string {
   if (/aucun résultat exploitable/i.test(message)) return 'Aucun résultat exploitable';
   if (/aucune décision scientifique exploitable/i.test(message)) return 'Aucune décision scientifique exploitable';
   if (/aucun passage scientifique enregistré/i.test(message)) return 'Aucun passage enregistré';
+  if (/Modèle décisionnel utilisé en Vision|ne prend pas en charge le chat/i.test(message)) return 'Modèle décisionnel incompatible avec la lecture Vision';
+  if (/API System One indisponible|API System One refusée/i.test(message)) return 'API System One indisponible ou incompatible';
+  if (/Modèle absent sur le serveur Ollama/i.test(message)) return 'Modèle non installé';
+  if (/Connexion au serveur impossible|Erreur réseau/i.test(message)) return 'Connexion au serveur impossible';
+  if (/Réponse du modèle incomplète ou invalide|Observation visuelle invalide/i.test(message)) return 'Résultat IA invalide';
   if (/\bJSON\b|parsing|parse error/i.test(message)) return 'Réponse JSON non exploitable';
   if (/timeout|délai dépassé|expiration/i.test(message)) return 'Délai dépassé';
   if (/\bHTTP\s*[45][0-9]{2}\b/i.test(message)) return 'Erreur HTTP';
+  // An unsuccessful batch may mention "échoués ou interrompus" without
+  // the teacher ever cancelling it. Never mistake that for a real stop.
+  if (/passages réussis|essais échoués/i.test(message)) return 'Certains passages ont échoué';
   if (/interrompu|arrêt demandé/i.test(message)) return 'Exécution interrompue';
-  if (/passages réussis/i.test(message)) return 'Certains passages ont échoué';
   return 'Échec de traitement (détails bruts non inclus)';
 }
 
@@ -76,6 +86,12 @@ export function buildEvaluationIssueReport(input: EvaluationIssueReportInput): s
   ];
   if (input.stats) {
     lines.push('Résultats exploitables : ' + input.stats.successful + '/' + input.stats.total);
+  } else if (input.journey === 'diagrams') {
+    // Copy only bounded numeric counters from the generated failure summary.
+    const counts = input.message?.match(/^(\d{1,5})\/(\d{1,5}) passages réussis\./);
+    if (counts && Number(counts[1]) <= Number(counts[2])) {
+      lines.push('Passages scientifiques réussis : ' + counts[1] + '/' + counts[2]);
+    }
   }
   if (observations.length) {
     lines.push('Notes exploitables : ' + countedUsableBiologyGrades(observations) + '/' + observations.length);
