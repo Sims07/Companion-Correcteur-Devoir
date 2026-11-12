@@ -35,6 +35,17 @@ describe('PWA application shell', () => {
     expect(manifest.display).toBe('standalone');
     expect(manifest.start_url).toBe('.');
     expect(manifest.scope).toBe('.');
+    // Chrome resolves "id" against the origin, NOT the manifest directory.
+    // The old "." resolved to https://sims07.github.io/ and caused Chrome to
+    // replace the installed Saveurs & Notes app with Compagnon's manifest.
+    const origin = 'https://sims07.github.io';
+    const launchUrl = new URL(manifest.start_url, origin + '/Companion-Correcteur-Devoir/');
+    const appId = new URL(manifest.id, launchUrl.origin + '/');
+    expect(appId.href).toBe(origin + '/Companion-Correcteur-Devoir/');
+    expect(appId.href).not.toBe(origin + '/');
+    expect(appId.href).not.toBe(origin + '/cooking-note/');
+    expect(new URL(manifest.scope, origin + '/Companion-Correcteur-Devoir/').href)
+      .toBe(origin + '/Companion-Correcteur-Devoir/');
     expect(manifest.icons.map((icon: { sizes: string }) => icon.sizes)).toEqual(['192x192', '512x512']);
   });
 

@@ -3,7 +3,7 @@
   "short_name": "Compagnon",
   "description": "Assistant de correction de copies et de schémas scientifiques.",
   "lang": "fr",
-  "id": ".",
+  "id": "/Companion-Correcteur-Devoir/",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
