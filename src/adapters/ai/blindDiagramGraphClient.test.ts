@@ -15,10 +15,9 @@ describe('client graphe visuel indépendant', () => {
     expect(auditBlindGraphImage({ base64: 'invalid', mimeType: 'image/png' }).pngSignatureValid).toBe(false);
     expect(JSON.stringify(auditBlindGraphImage({ base64, mimeType: 'image/png' }))).not.toContain(base64);
   });
-  it('rejects remote, credentialled and proxied URLs before sending image bytes', async () => {
+  it('rejects malformed, credentialled and proxied Ollama URLs before sending image bytes', async () => {
     const forbidden = [
-      'https://localhost:11434', 'http://ollama.example:11434',
-      'https://ai.zaup.org/v1/chat/completions', 'http://10.1.2.3:11434',
+      'https://ai.zaup.org/v1/chat/completions',
       'http://me:pass@localhost:11434', 'http://localhost:11434/v1',
       'http://localhost:11434/?proxy=cloud', 'file:///tmp/ollama',
     ];
@@ -30,6 +29,29 @@ describe('client graphe visuel indépendant', () => {
     }
     expect(transport).not.toHaveBeenCalled();
     expect(blindGraphLocalUrl('http://127.0.0.1:11434')).toBe('http://127.0.0.1:11434/api/chat');
+    expect(blindGraphLocalUrl('http://192.168.1.42:11434')).toBe('http://192.168.1.42:11434/api/chat');
+    expect(blindGraphLocalUrl('https://ollama.home.example')).toBe('https://ollama.home.example/api/chat');
+  });
+
+  it('sends the same blind graph request to a user-configured Ollama LAN host', async () => {
+    const network = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe('http://192.168.1.42:11434/api/chat');
+      const body = JSON.parse(String(init?.body)) as { model: string; messages: Array<{ images?: string[] }> };
+      expect(body.model).toBe('gemma4:e4b');
+      expect(body.messages[1]?.images).toEqual(['LOCAL_PIXELS']);
+      return new Response(JSON.stringify({
+        message: { content: JSON.stringify({
+          labels: ['ADN', 'ARN'], arrows: [{ first: 'ADN', second: 'ARN', tip: 'second' }],
+          containment: [], arrowsComplete: true,
+        }) },
+      }), { status: 200 });
+    });
+    const result = await extractBlindVisualGraph({
+      endpoint: 'http://192.168.1.42:11434', model: 'gemma4:e4b',
+      image: { base64: 'LOCAL_PIXELS', mimeType: 'image/png' },
+    }, network);
+    expect(network).toHaveBeenCalledOnce();
+    expect(result.labels).toEqual(['ADN', 'ARN']);
   });
 
   it('sends only blind generic instructions and one local image, not the rubric or known answers', async () => {
@@ -189,7 +211,7 @@ describe('client graphe visuel indépendant', () => {
     await expect(extractBlindVisualGraph({
       endpoint: 'https://ai.zaup.org/v1/chat/completions', model: 'vision-27b',
       image: { base64: 'PRIVATE_PNG', mimeType: 'image/png' },
-    }, transport)).rejects.toThrow(/local/);
+    }, transport)).rejects.toThrow(/Ollama|racine/);
     expect(transport).not.toHaveBeenCalled();
   });
 
