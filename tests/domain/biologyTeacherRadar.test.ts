@@ -92,9 +92,10 @@ describe('biology radar scored against teacher-keyed references', () => {
       item.recordedAt = '2026-11-11T11:0' + repeat + ':00Z';
       if (id === 'E') {
         // In the supplied 4B run, 7, 6, 7 decisions required review.
-        const correct = [3, 4, 3][repeat - 1]!;
+        const correct = [3, 2, 1][repeat - 1]!;
+        const unresolved = [7, 6, 7][repeat - 1]!;
         item.decisions = item.decisions.map((decision, index) => ({
-          ...decision, awarded: index < correct ? 1 : null,
+          ...decision, awarded: index < correct ? 1 : index < correct + unresolved ? null : 0,
         }));
         item.score = null; // not a 0/10 on the student's copy
       }
