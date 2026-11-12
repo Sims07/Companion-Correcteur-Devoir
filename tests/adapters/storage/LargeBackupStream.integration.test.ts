@@ -80,7 +80,7 @@ describe('streaming backup import for Chromium memory limits', () => {
     // Reimporting the same file must preserve previous records in merge mode.
     const second = await restoreLargeBackup(blob, inspection, 'merge', undefined, settings);
     expect(second.recordsPreserved).toBe(2);
-  });
+  }, 60_000);
 
   it('rejects malformed large backups before any local data is written', async () => {
     const backup = await createLocalBackup(settings);

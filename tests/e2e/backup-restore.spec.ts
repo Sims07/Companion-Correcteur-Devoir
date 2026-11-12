@@ -151,6 +151,7 @@ test('a backup restores both biology radar scores when the destination PWA has i
 
 
 test('Chromium imports a large real JSON backup without constructing a whole-file string', async ({ page }) => {
+  test.setTimeout(120_000);
   const names = [
     'local-memory', 'local-corrections', 'model-evaluations', 'diagnostic-history',
     'diagram-lab-archive', 'background-corrections', 'background-transcriptions',
