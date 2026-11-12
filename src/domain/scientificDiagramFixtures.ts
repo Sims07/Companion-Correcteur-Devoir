@@ -83,14 +83,21 @@ const middlePointsBySubcriterion: Record<string, number> = {
   'understanding-other-two': 0.50,
 };
 
-/** Recalibrated after user feedback identified horizontal writing in the
- * actual poor-quality C drawing (2026-11-11). The text « cellule ? » is
- * incomplete but its orientation is a separate, objectively visible rubric
- * criterion worth 0.33 point. Do not infer credit for any other criterion. */
+/** Re-reviewed against the bundled photographs on 2026-11-12, independently
+ * from model output. A's title names a plant cell and a section, but omits
+ * organ and organism, so the complete-title criterion only earns partial credit.
+ * C's « cellule ? » is incomplete yet visibly horizontal AND underlined.
+ * More subjective drawing and legend criteria remain at zero pending teacher review. */
+const excellentPointsBySubcriterion: Record<string, number> = Object.fromEntries(
+  SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap(criterion =>
+    getRubricSubcriteria(criterion).map(sub => [
+      sub.id, sub.id === 'title-subject' ? 0.17 : sub.maxPoints,
+    ])),
+);
 const poorPointsBySubcriterion: Record<string, number> = Object.fromEntries(
   SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap(criterion =>
     getRubricSubcriteria(criterion).map(sub => [
-      sub.id, sub.id === 'title-horizontal' ? sub.maxPoints : 0,
+      sub.id, sub.id === 'title-horizontal' || sub.id === 'title-emphasis' ? sub.maxPoints : 0,
     ])),
 );
 
@@ -157,10 +164,17 @@ const POINTER_LABELS = [
 
 /** Generated scenarios, not a teacher-certified dataset. */
 export const SCIENTIFIC_DIAGRAM_FIXTURES: readonly ScientificDiagramFixtureCase[] = [
-  makeCase('A', 'A — soigné', 'Schéma de mitose végétale clair, titré et légendé, avec les quatre étapes.', 10),
+  { ...makeCase('A', 'A — soigné', 'Quatre étapes bien représentées, titre sans organe ni organisme explicités.', excellentPointsBySubcriterion),
+    referenceReview: { status: 'provisional-visual-review', reviewedOn: '2026-11-12',
+      notes: { 'title-subject': 'Le titre « Mitose dans une cellule végétale (coupe longitudinale) » décrit le type de cellule et la coupe, mais ne précise ni l’organe ni l’organisme exigés par cet attendu complet. Crédit partiel comme pour B.' } } },
   { ...makeCase('B', 'B — intermédiaire', 'Quatre étapes reconnaissables, composition lisible ; traits irréguliers, titre incomplet et légendes imparfaitement alignées.', middlePointsBySubcriterion),
     referenceReview: { status: 'provisional-visual-review', reviewedOn: '2026-11-08', notes: middleReviewNotes } },
-  makeCase('C', 'C — insuffisant', 'Une seule cellule confuse, sans déroulé de la mitose ; « cellule ? » reste un titre incomplet mais écrit horizontalement (0,33 point).', poorPointsBySubcriterion),
+  { ...makeCase('C', 'C — insuffisant', 'Une seule cellule confuse, sans déroulé de la mitose ; « cellule ? » est horizontal et souligné.', poorPointsBySubcriterion),
+    referenceReview: { status: 'provisional-visual-review', reviewedOn: '2026-11-12',
+      notes: {
+        'title-horizontal': 'Le texte « cellule ? » est écrit horizontalement : ce critère de forme est acquis malgré un titre scientifiquement incomplet.',
+        'title-emphasis': 'Un trait de soulignement est visible sous « cellule ? ». Le critère accepte un titre souligné indépendamment de son contenu.',
+      } } },
   { ...makeCase('D', 'D — témoin, flèches justes', 'Mêmes quatre phases, mêmes mots et même barème que E ; flèches correctes, mais légendes non alignées en colonne.', pointerControlPoints),
     layoutObservation: POINTER_LAYOUT_OBSERVATION,
     labelPointerChallenge: {
@@ -206,8 +220,8 @@ export function buildScientificDiagramFixtureReport(
   });
   return {
     format: 'companion-scientific-diagram-fixture-report' as const,
-    version: 5,
-    protocolId: 'scientific-diagram-generated-a-b-c-plus-label-pointers-v5',
+    version: 6,
+    protocolId: 'scientific-diagram-generated-a-b-c-plus-label-pointers-v6',
     createdAt,
     plannedRepetitions,
     rubric: structuredClone(SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC),
@@ -215,7 +229,7 @@ export function buildScientificDiagramFixtureReport(
     localOnly: runs.every(({ record }) => record.configurations.every((config) => {
       try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(config.endpoint).hostname); } catch { return false; }
     })),
-    limitations: 'Cinq dessins synthétiques (A/B/C et paire contrôlée D/E), références PROVISOIRES non validées par un enseignant. A=10/10, B=7,36/10, C=0,33/10, D=9,34/10, E=8,66/10. Pour C, l’orientation horizontale du titre « cellule ? » vaut 0,33/0,33 malgré son contenu insuffisant ; les 18 autres attendus restent à zéro. La référence C a été recalibrée le 11 novembre 2026 à la suite d’une observation de l’utilisateur. Les anciens exports de version 4 conservent leur référence initiale à 0/10 et ne sont pas recalculés. D et E perdent chacun 0,66 point au critère « Légendes alignées en colonne », car leurs légendes sont en lignes. Les deux images ne diffèrent que par quatre destinations de flèches : seul le critère « Légendes : structures visibles et flèches correctes » (0,68 point) change entre D et E. Ces pénalités suivent le barème du pilote, mais les autres critères et les notes totales restent des références provisoires à confirmer par un enseignant. Les exports antérieurs de version 3 ne sont pas recalibrés automatiquement. Les images, clés, endpoints et réponses brutes ne sont jamais exportés.',
+    limitations: 'Cinq dessins synthétiques (A/B/C et paire contrôlée D/E), références PROVISOIRES non validées par un enseignant. A=9,84/10, B=7,36/10, C=0,66/10, D=9,34/10, E=8,66/10. Revue du 12 novembre 2026 : A perd 0,16 point au titre incomplet (cellule végétale et coupe indiquées, mais organe et organisme absents) ; C gagne 0,33 point au titre souligné, en plus de son orientation horizontale déjà reconnue le 11 novembre. Le contenu « cellule ? » reste insuffisant et ne valide pas le sujet du titre. Les autres appréciations de C, notamment la qualité des légendes, restent à arbitrer par un enseignant. Les anciens rapports et archives conservent leurs références d’origine pour traçabilité ; le radar recalcule la justesse A/B/C sur les décisions sauvegardées en utilisant la référence v6 lorsque les 19 critères sont identiques. D et E perdent chacun 0,66 point au critère « Légendes alignées en colonne », car leurs légendes sont en lignes. Les deux images ne diffèrent que par quatre destinations de flèches : seul le critère « Légendes : structures visibles et flèches correctes » (0,68 point) change entre D et E. Ces pénalités suivent le barème du pilote, mais les notes totales restent des références provisoires à confirmer par un enseignant. Les images, clés, endpoints et réponses brutes ne sont jamais exportés.',
     cases,
   };
 }

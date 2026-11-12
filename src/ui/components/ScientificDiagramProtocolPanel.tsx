@@ -534,7 +534,7 @@ export function ScientificDiagramProtocolPanel({
             {fixture.referenceReview && <details>
               <summary>Voir le détail de la référence provisoire</summary>
               <p>Revue visuelle du {fixture.referenceReview.reviewedOn} — à valider par un enseignant. Les points partiels restent des appréciations.</p>
-              <ul>{SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap(criterion => (criterion.subcriteria ?? []).map(sub =>
+              <ul>{SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC.criteria.flatMap(criterion => (criterion.subcriteria ?? []).filter(sub => Boolean(fixture.referenceReview?.notes[sub.id])).map(sub =>
                 <li key={sub.id}><strong>{sub.title} : {fixture.referencePoints[criterion.id + '::' + sub.id]}/{sub.maxPoints}</strong> — {fixture.referenceReview?.notes[sub.id]}</li>
               ))}</ul>
             </details>}

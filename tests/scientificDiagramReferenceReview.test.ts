@@ -30,9 +30,9 @@ describe('reviewed B reference, independent of model predictions', () => {
   });
   it('versions the revised ground truth and exports its provisional rationale', () => {
     const report = buildScientificDiagramFixtureReport([], 1, '2026-11-08');
-    expect(report.version).toBe(5);
-    expect(report.protocolId).toBe('scientific-diagram-generated-a-b-c-plus-label-pointers-v5');
-    expect(report.cases.map(c => c.referenceScore)).toEqual([10, 7.36, 0.33, 9.34, 8.66]);
+    expect(report.version).toBe(6);
+    expect(report.protocolId).toBe('scientific-diagram-generated-a-b-c-plus-label-pointers-v6');
+    expect(report.cases.map(c => c.referenceScore)).toEqual([9.84, 7.36, 0.66, 9.34, 8.66]);
     expect(report.cases[1].referenceReview?.status).toBe('provisional-visual-review');
     expect(report.limitations).not.toContain('5/10');
   });
