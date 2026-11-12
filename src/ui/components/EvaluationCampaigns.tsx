@@ -1,7 +1,8 @@
+import { Button } from '../design-system/index.ts';
 import { useMemo, useState } from 'react';
 import type { BiologyRadarObservation } from '../../domain/biologyTeacherRadar.ts';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
-import { buildDiagramLabRadar } from '../../domain/diagramLabRadar.ts';
+import { diagramCampaignModels } from '../../domain/diagramLabRadar.ts';
 import type { ModelEvaluationRecord } from '../../domain/modelEvaluation.ts';
 import { PILOT_PROTOCOL_ID } from '../../domain/pilotEvaluationProtocol.ts';
 import { QUESTION_CONTRACT_PROTOCOL_ID } from '../../domain/questionContractPilot.ts';
@@ -36,7 +37,7 @@ export function EvaluationCampaigns({
       id: entry.id,
       domain: 'diagrams' as const,
       date: entry.createdAt,
-      models: buildDiagramLabRadar([entry], 'model').map((c) => c.id),
+      models: diagramCampaignModels(entry),
       title: entry.title,
       status:
         entry.state === 'running'
@@ -141,7 +142,7 @@ export function EvaluationCampaigns({
           </select>
         </label>
         {ids && (
-          <button
+          <Button variant="secondary"
             onClick={() => {
               setIds(undefined);
               setDomain('');
@@ -149,10 +150,10 @@ export function EvaluationCampaigns({
             }}
           >
             Toutes les campagnes
-          </button>
+          </Button>
         )}
-        <button onClick={() => onDiagram()}>Archives scientifiques</button>
-        <button onClick={() => onCustom()}>Comparer les essais sur copie</button>
+        <Button variant="secondary" onClick={() => onDiagram()}>Archives scientifiques</Button>
+        <Button variant="secondary" onClick={() => onCustom()}>Comparer les essais sur copie</Button>
       </header>
       {!visible.length && <p>Aucune campagne pour cette sélection.</p>}
       {visible.map((row) => (
@@ -172,9 +173,9 @@ export function EvaluationCampaigns({
               ))}
             </ul>
           ) : (
-            <button onClick={() => (row.domain === 'diagrams' ? onDiagram(row.id) : onCustom(row.id))}>
+            <Button variant="secondary" onClick={() => (row.domain === 'diagrams' ? onDiagram(row.id) : onCustom(row.id))}>
               Ouvrir le résultat
-            </button>
+            </Button>
           )}
         </details>
       ))}

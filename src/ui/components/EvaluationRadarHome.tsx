@@ -1,3 +1,4 @@
+import { Button } from '../design-system/index.ts';
 import { useMemo, useState } from 'react';
 import type { AiModelProfile } from '../../domain/aiModelProfiles.ts';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
@@ -81,11 +82,11 @@ export function EvaluationRadarHome({
           </select>
         </label>
         {models.length > 1 && (
-          <button aria-expanded={comparison} onClick={() => setComparison(!comparison)}>
+          <Button variant="secondary" aria-expanded={comparison} onClick={() => setComparison(!comparison)}>
             Comparer les LLM
-          </button>
+          </Button>
         )}
-        <button onClick={manage}>Gérer les configurations</button>
+        <Button variant="secondary" onClick={manage}>Gérer les configurations</Button>
       </header>
       {comparison && (
         <div className="radar-comparison">
@@ -102,7 +103,7 @@ export function EvaluationRadarHome({
               {models.map((name) => (
                 <tr key={name}>
                   <th>
-                    <button onClick={() => choose(name)}>{name}</button>
+                    <Button variant="secondary" onClick={() => choose(name)}>{name}</Button>
                   </th>
                   <td>{score(science.find((c) => c.id === name)?.weightedScore)}</td>
                   <td>
@@ -158,13 +159,13 @@ export function EvaluationRadarHome({
                     </select>
                   </label>
                 )}
-                <button
+                <Button variant="secondary"
                   className="radar-mobile-toggle"
                   aria-expanded={expanded === domain}
                   onClick={() => setExpanded(domain)}
                 >
                   Afficher le graphique
-                </button>
+                </Button>
               </div>
               <div className="radar-home-plot">
                 {scientific ? (
@@ -173,10 +174,9 @@ export function EvaluationRadarHome({
                   <BiologyRadarPlot candidate={bio} />
                 )}
               </div>
-              <footer>
+              <div className="radar-home-actions">
                 {count < total && (
-                  <button
-                    className="primary-button"
+                  <Button
                     disabled={
                       busy || !(scientific ? plan && profiles.some((p) => p.id === plan.profileId) : profile)
                     }
@@ -197,13 +197,13 @@ export function EvaluationRadarHome({
                     {count
                       ? 'Compléter les tests'
                       : 'Évaluer en ' + (scientific ? 'schémas scientifiques' : 'biologie')}
-                  </button>
+                  </Button>
                 )}
                 {ids.length > 0 && (
-                  <button onClick={() => campaigns(domain, selected, ids)}>Voir les campagnes</button>
+                  <Button variant="secondary" onClick={() => campaigns(domain, selected, ids)}>Voir les campagnes</Button>
                 )}
-                <button onClick={() => details(domain, selected)}>Détail du radar</button>
-              </footer>
+                <Button variant="secondary" onClick={() => details(domain, selected)}>Détail du radar</Button>
+              </div>
             </article>
           );
         })}

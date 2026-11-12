@@ -478,7 +478,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   function selectDashboardModel(model: string) {
     setDashboardModel(model);
     const profile = aiModelProfiles.find(p => p.configuration.analysisModel === model) ?? aiModelProfiles.find(p => p.configuration.visionModel === model);
-    if (profile) setSelectedEvaluationProfileIds([profile.id]);
+    setSelectedEvaluationProfileIds(profile ? [profile.id] : []);
     try { localStorage.setItem('companion:scientific-lab-radar-model:v1', model); } catch { /* Session selection remains available. */ }
   }
   function showCampaigns(filter: CampaignFilter) {
