@@ -1,4 +1,6 @@
 import { Button } from '../design-system/index.ts';
+import { countedUsableBiologyGrades, buildEvaluationIssueReport } from '../../domain/evaluationIssueReport.ts';
+import { EvaluationIssueButton } from './EvaluationIssueButton.tsx';
 import { useMemo, useState } from 'react';
 import type { BiologyRadarObservation } from '../../domain/biologyTeacherRadar.ts';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
@@ -47,6 +49,7 @@ export function EvaluationCampaigns({
             : 'Incomplète',
       detail: entry.successfulCount + '/' + entry.experimentCount + ' passages réussis',
       observations: [] as BiologyRadarObservation[],
+      stats: { successful: entry.successfulCount, total: entry.experimentCount },
     }));
     const groups = new Map<string, BiologyRadarObservation[]>();
     for (const o of biology) {
@@ -64,9 +67,10 @@ export function EvaluationCampaigns({
         .at(-1)!,
       models: [...new Set(observations.map((o) => o.model))],
       title: 'Correction biologique',
-      status: observations.every((o) => o.status === 'success') ? 'Terminée' : 'Incomplète',
-      detail: '',
+      status: countedUsableBiologyGrades(observations) === observations.length ? 'Terminée' : 'Résultats partiels',
+      detail: countedUsableBiologyGrades(observations) + '/' + observations.length + ' notes exploitables',
       observations,
+      stats: { successful: countedUsableBiologyGrades(observations), total: observations.length },
     }));
     const coveredDates = new Set(biology.map((o) => o.recordedAt));
     const isPilot = (record: ModelEvaluationRecord) =>
@@ -93,6 +97,7 @@ export function EvaluationCampaigns({
         status: r.results.every((v) => v.status === 'success') ? 'Terminée' : 'Incomplète',
         detail: r.results.length + ' résultat(s)',
         observations: [] as BiologyRadarObservation[],
+        stats: { successful: r.results.filter((v) => v.status === 'success').length, total: r.results.length },
       }));
     return [...science, ...bio, ...custom].sort((a, b) => b.date.localeCompare(a.date));
   }, [diagrams, biology, records]);
@@ -163,6 +168,10 @@ export function EvaluationCampaigns({
             <b>{row.models.join(', ')}</b> · {row.title} · {row.status}
           </summary>
           {row.detail && <p>{row.detail}</p>}
+          {row.status !== 'Terminée' && <EvaluationIssueButton makeReport={() => buildEvaluationIssueReport({
+            journey: row.domain, status: row.status, model: row.models.join(', '),
+            campaignId: row.id, observations: row.observations, stats: row.stats,
+          })} />}
           {row.observations.length ? (
             <ul>
               {row.observations.map((o) => (
