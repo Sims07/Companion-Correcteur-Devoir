@@ -60,6 +60,8 @@ export function EvaluationRadarHome({
   const compared = comparison
     ? comparedModels.filter((name) => name !== selected && models.includes(name)).slice(0, 3)
     : [];
+  const seriesColors = Object.fromEntries([selected, ...compared].map((name, index) =>
+    [name, RADAR_COMPARISON_COLORS[index % RADAR_COMPARISON_COLORS.length]!]));
   const measuredFor = (name: string) =>
     (science.find((candidate) => candidate.id === name)?.measured ?? 0) / 8 +
     Math.max(0, ...biology.filter((candidate) => candidate.name === name)
@@ -205,9 +207,9 @@ export function EvaluationRadarHome({
               </div>
               <div className="radar-home-plot">
                 {scientific ? (
-                  <RadarPlot candidates={comparison ? sciences : sci ? [sci] : []} />
+                  <RadarPlot candidates={comparison ? sciences : sci ? [sci] : []} colors={comparison ? seriesColors : undefined} />
                 ) : comparison ? (
-                  <BiologyRadarComparisonPlot candidates={biologies} />
+                  <BiologyRadarComparisonPlot candidates={biologies} colors={seriesColors} />
                 ) : (
                   <BiologyRadarPlot candidate={bio} />
                 )}
@@ -224,7 +226,7 @@ export function EvaluationRadarHome({
                     }))).map((candidate, index) => (
                       <div key={candidate.id} className="radar-home-legend-item">
                         <span className="radar-home-legend-color" aria-hidden="true"
-                          style={{ background: RADAR_COMPARISON_COLORS[index % RADAR_COMPARISON_COLORS.length] }} />
+                          style={{ background: seriesColors[candidate.name] ?? RADAR_COMPARISON_COLORS[index % RADAR_COMPARISON_COLORS.length] }} />
                         <div>
                           <strong>{candidate.name}</strong>
                           {candidate.context && <small>{candidate.context}</small>}
