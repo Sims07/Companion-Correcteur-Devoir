@@ -1,3 +1,4 @@
+import './pwa/registerServiceWorker.ts';
 import './instrumentation.ts';
 import { prepareQuestionContracts } from './adapters/ai/contractPreparation.ts';
 import React from 'react';
