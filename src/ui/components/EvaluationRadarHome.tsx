@@ -97,7 +97,14 @@ export function EvaluationRadarHome({
       <header>
         <label>
           Choisir un LLM
-          <select value={selected} disabled={!models.length} onChange={(e) => choose(e.target.value)}>
+          <select value={selected} disabled={!models.length} onChange={(event) => {
+            const next = event.target.value;
+            if (comparison && comparedModels.includes(next) && selected !== next) {
+              // Promoting a compared LLM to primary should not silently lose the overlay.
+              setComparedModels([...comparedModels.filter((name) => name !== next && name !== selected), selected].slice(0, 3));
+            }
+            choose(next);
+          }}>
             {!models.length && <option value="">Aucun modèle configuré ou testé</option>}
             {models.map((name) => (
               <option key={name}>{name}</option>
