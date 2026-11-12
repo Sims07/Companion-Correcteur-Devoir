@@ -63,7 +63,7 @@ import { defaultCopyOverviewFilter, toCopyOverviewStatus, type CopyOverviewFilte
 import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision } from '../domain/teacherAnnotations.ts';
 import { buildLocalDecisionBenchmark } from '../domain/localDecisionBenchmark.ts';
 import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluationScores, visualChoiceLabels } from '../domain/visualDecisionEvaluation.ts';
-import { isVisualDecisionModel } from '../domain/systemOneDecision.ts';
+import { isNativeDecisionModel, isVisualDecisionModel } from '../domain/systemOneDecision.ts';
 import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, summarizePilotResult, isLocalPilotConfiguration, isLocalPilotProfile, isLoopbackPilotEndpoint, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import { BiologyTeacherRadar } from './components/BiologyTeacherRadar.tsx';
@@ -1922,6 +1922,11 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             : 'Le modèle choisi ne prend pas en charge les décisions directes sur images dans System One.');
         }
         if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.directGenerativeVision && !configuration.visionModel.trim()) throw new Error('Le profil doit définir un modèle de vision pour cette expérience.');
+        if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.directGenerativeVision
+          && !configuration.apiCompatible && isNativeDecisionModel(configuration.visionModel)) {
+          throw new Error('Modèle décisionnel utilisé en Vision : « ' + configuration.visionModel
+            + ' » ne prend pas en charge le chat (/api/chat). Configurez un modèle Vision distinct pour lire les images.');
+        }
         if (runStage !== 'vision' && !configuration.analysisModel.trim()) throw new Error('Le profil doit définir un modèle d’analyse pour cette expérience.');
         if (runStage !== 'analysis' && !configuration.directVisualDecision && !configuration.directGenerativeVision) await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.visionModel });
         if (runStage !== 'vision') await service.checkReady({ endpoint: configuration.endpoint, apiCompatible: configuration.apiCompatible, apiKey: configuration.apiKey, model: configuration.analysisModel });

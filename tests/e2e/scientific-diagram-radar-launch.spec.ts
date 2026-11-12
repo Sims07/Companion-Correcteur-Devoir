@@ -12,6 +12,107 @@ const report = buildBlindVisualObservationReport(DIAGRAM_SENSITIVITY_CASES.map((
   observations: { ...item.gold }, arrowCount: 2, containmentCount: 1,
 })), 1, '2026-11-10T12:00:00Z');
 
+test('D1 radar evaluation unloads the native model without calling unsupported Chat', async ({ page }) => {
+  const requests: Array<{ path: string; model: string; keepAlive?: unknown }> = [];
+  const loaded = new Set(['d1:3b', 'qwen3.5:4b']);
+  await page.route('http://localhost:11434/**', async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    const body = request.method() === 'POST' ? JSON.parse(request.postData() || '{}') as {
+      model?: string; keep_alive?: unknown; questions?: Record<string, { type?: string; criteria?: Record<string, string> }>;
+    } : {};
+    const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*',
+      'access-control-allow-methods': 'GET,POST,OPTIONS', 'content-type': 'application/json' };
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers }); return;
+    }
+    requests.push({ path, model: body.model ?? '', keepAlive: body.keep_alive });
+    if (path === '/api/tags') {
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({ models: [
+        { name: 'd1:3b' }, { name: 'qwen3.5:4b' },
+      ] }) }); return;
+    }
+    if (path === '/api/show') {
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({ capabilities: ['completion', 'vision'] }) }); return;
+    }
+    if (path === '/api/ps') {
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({
+        models: [...loaded].map((name) => ({ name })),
+      }) }); return;
+    }
+    if (path === '/v1/systemone') {
+      // Normal decisions reload D1; only the explicit cleanup removes it.
+      if (body.keep_alive === 0) loaded.delete('d1:3b');
+      else loaded.add('d1:3b');
+      const answers = Object.fromEntries(Object.entries(body.questions ?? {}).map(([id, question]) => {
+        const choice = Object.keys(question.criteria ?? {})[0] ?? 'present';
+        return [id, question.type === 'noul' ? { noul: 0.9 }
+          : { type: 'choice', choice, probabilities: { [choice]: 1 }, confidence: 1 }];
+      }));
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({ answers }) }); return;
+    }
+    if (path === '/api/generate') {
+      if (body.keep_alive === 0) loaded.delete(body.model ?? '');
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({ done: true }) }); return;
+    }
+    if (path === '/api/chat' && body.model === 'qwen3.5:4b') {
+      loaded.add('qwen3.5:4b');
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({
+        model: 'qwen3.5:4b', message: { content: 'Cellule végétale, noyau, ADN, mitose.' },
+        done: true, done_reason: 'stop',
+      }) + '\n' }); return;
+    }
+    await route.fulfill({ status: 400, headers, body: JSON.stringify({ error: 'unsupported call' }) });
+  });
+  await page.goto('/');
+  await page.evaluate((configuration) => {
+    localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
+      id: 'd1-with-vision', name: 'D1 avec Vision', mode: 'single',
+      updatedAt: '2026-11-12T13:00:00Z',
+      configuration: { ...configuration, endpoint: 'http://localhost:11434',
+        visionModel: 'qwen3.5:4b', analysisModel: 'd1:3b', decisionModel: 'd1:3b',
+        correctionMethod: 'decision' },
+    }]));
+  }, defaultAiModelConfiguration);
+  await page.reload();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  const science = page.getByRole('region', { name: 'Tableau de bord des radars' })
+    .getByRole('article', { name: 'Schémas scientifiques' });
+  await science.getByRole('button', { name: 'Évaluer en schémas scientifiques' }).click();
+  // Two successful memory cleanups prove the sequence continued into the
+  // next scientific fixture instead of being cancelled after the first D1 run.
+  await expect.poll(() => requests.filter((req) => req.path === '/v1/systemone'
+    && req.model === 'd1:3b' && req.keepAlive === 0).length, { timeout: 30_000 })
+    .toBeGreaterThanOrEqual(2);
+  expect(requests.filter((req) => req.path === '/api/chat' && req.model === 'd1:3b')).toEqual([]);
+});
+
+test('D1 configured as its own Vision reader is rejected before any unsupported /api/chat call', async ({ page }) => {
+  const chatCalls: string[] = [];
+  await page.route('http://localhost:11434/**', async (route) => {
+    if (new URL(route.request().url()).pathname === '/api/chat') chatCalls.push(route.request().url());
+    await route.fulfill({ status: 400, contentType: 'application/json',
+      body: JSON.stringify({ error: '"d1:3b" does not support chat' }) });
+  });
+  await page.goto('/');
+  await page.evaluate((configuration) => {
+    localStorage.setItem('companion-correcteur:ollama-profiles:v1', JSON.stringify([{
+      id: 'd1-wrong-reader', name: 'D1', mode: 'single', updatedAt: '2026-11-12T13:00:00Z',
+      configuration: { ...configuration, endpoint: 'http://localhost:11434',
+        analysisModel: 'd1:3b', decisionModel: 'd1:3b', visionModel: 'd1:3b',
+        correctionMethod: 'decision' },
+    }]));
+  }, defaultAiModelConfiguration);
+  await page.reload();
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  const scientific = page.getByRole('region', { name: 'Tableau de bord des radars' })
+    .getByRole('article', { name: 'Schémas scientifiques' });
+  await expect(scientific.getByRole('button', { name: 'Évaluer en schémas scientifiques' })).toBeDisabled();
+  await expect(scientific).toContainText('Modèle décisionnel utilisé en Vision');
+  await expect(scientific).toContainText('/api/chat');
+  expect(chatCalls).toEqual([]);
+});
+
 test('the dashboard launches scientific batteries on a configured Ollama LAN host', async ({ page }) => {
   const ollamaRequests: string[] = [];
   await page.route('http://192.168.1.42:11434/**', async (route) => {

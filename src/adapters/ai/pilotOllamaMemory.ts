@@ -1,5 +1,7 @@
 import { currentFetch } from './currentFetch.ts';
 import type { ModelEvaluationConfiguration } from '../../domain/modelEvaluation.ts';
+import { isNativeDecisionModel } from '../../domain/systemOneDecision.ts';
+import { annotateNetworkRequest } from '../../ports/networkRequestMetadata.ts';
 
 /** Only the guided local protocol is authorized to unload models automatically.
  * Never send lifecycle commands to a cloud endpoint or another machine. */
@@ -31,9 +33,9 @@ function modelNames(configuration: ModelEvaluationConfiguration, stage: 'vision'
 }
 
 async function runningModels(origin: string, fetchImpl: typeof fetch): Promise<Set<string>> {
-  const response = await fetchImpl(origin + '/api/ps', {
+  const response = await fetchImpl(origin + '/api/ps', annotateNetworkRequest({
     method: 'GET', signal: AbortSignal.timeout(20000),
-  });
+  }, 'Vérifier les modèles chargés', 'Libération de mémoire Ollama'));
   if (!response.ok) throw new Error('Lecture des modèles en mémoire impossible (HTTP ' + response.status + ').');
   const payload: unknown = await response.json();
   if (!payload || typeof payload !== 'object' || !('models' in payload)
@@ -47,20 +49,45 @@ async function runningModels(origin: string, fetchImpl: typeof fetch): Promise<S
   }));
 }
 
+/** Native System One models reject /api/chat (and may reject /api/generate).
+ * Their supported endpoint accepts keep_alive=0, which unloads on completion.
+ * This housekeeping query contains no user input, rubric, or copy content. */
 async function issueUnload(origin: string, model: string, fetchImpl: typeof fetch): Promise<void> {
-  // The native API handles unloading without prompting the model or allocating
-  // another context. /api/chat is an alternate Ollama lifecycle endpoint.
+  if (isNativeDecisionModel(model)) {
+    const response = await fetchImpl(origin + '/v1/systemone', annotateNetworkRequest({
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        state: 'Vérification technique locale pour libérer le modèle.',
+        questions: {
+          release: {
+            type: 'noul',
+            instructions: 'Le texte mentionne-t-il un modèle ?',
+            criteria: { true: 'Le texte le mentionne.', false: 'Le texte ne le mentionne pas.' },
+          },
+        },
+        keep_alive: 0,
+      }),
+      signal: AbortSignal.timeout(20000),
+    }, 'Libérer le modèle décisionnel', 'System One · ' + model));
+    if (!response.ok) {
+      throw new Error('Ollama System One a refusé de décharger « ' + model +
+        ' » (HTTP ' + response.status + '). Vérifiez la compatibilité de /v1/systemone.');
+    }
+    return;
+  }
+  // Chat-compatible models can be unloaded without generating tokens.
   const attempts = [
     { path: '/api/generate', body: { model, prompt: '', keep_alive: 0, stream: false } },
     { path: '/api/chat', body: { model, messages: [], keep_alive: 0, stream: false } },
   ];
   let lastStatus: number | null = null;
   for (const attempt of attempts) {
-    const response = await fetchImpl(origin + attempt.path, {
+    const response = await fetchImpl(origin + attempt.path, annotateNetworkRequest({
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(attempt.body),
       signal: AbortSignal.timeout(20000),
-    });
+    }, 'Libérer le modèle en mémoire', 'Modèle ' + model));
     if (response.ok) return;
     lastStatus = response.status;
   }

@@ -54,5 +54,32 @@ describe('decision models on the unchanged radar dashboard', () => {
       await act(async () => root.unmount());
       node.remove();
     }
+  });  it('explains why a D1-as-Vision setup cannot launch instead of triggering HTTP 400 repeatedly', async () => {
+    const wrong: AiModelProfile = { ...profiles[0]!, configuration: {
+      ...profiles[0]!.configuration, visionModel: 'd1:3b',
+    } };
+    const node = document.createElement('div');
+    document.body.append(node);
+    const root = createRoot(node);
+    const runScience = vi.fn();
+    try {
+      await act(async () => root.render(createElement(EvaluationRadarHome, {
+        entries: [], history: [], profiles: [wrong], model: 'd1:3b', choose: vi.fn(),
+        busy: false, manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(),
+        runScience, runBiology: vi.fn(),
+      })));
+      const article = node.querySelector('article[aria-label="Schémas scientifiques"]')!;
+      const launch = [...article.querySelectorAll('button')].find((button) =>
+        button.textContent?.includes('Évaluer en schémas scientifiques')) as HTMLButtonElement;
+      expect(launch.disabled).toBe(true);
+      expect(article.textContent).toContain('Modèle décisionnel utilisé en Vision');
+      expect(article.textContent).toContain('/api/chat');
+      await act(async () => launch.click());
+      expect(runScience).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => root.unmount());
+      node.remove();
+    }
   });
+
 });

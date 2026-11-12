@@ -46,7 +46,30 @@ describe('evaluation issue report', () => {
     expect(report).toContain('Échec de traitement');
   });
 
-  it('classifies JSON parsing errors without exporting the raw model answer', () => {
+  it('does not label an all-failed D1 radar test as a teacher interruption', () => {
+    const report = buildEvaluationIssueReport({
+      journey: 'diagrams', status: 'failed', model: 'D1',
+      campaignId: 'companion-scientific-diagram-fixture-report:2026-11-12T13:08:41.154Z',
+      message: '0/3 passages réussis. 3 en échec. Causes : API System One indisponible ou refusée : 3.',
+      generatedAt: '2026-11-12T13:08:41.154Z',
+    });
+    expect(report).toContain('Type de problème : API System One indisponible ou incompatible');
+    expect(report).toContain('Passages scientifiques réussis : 0/3');
+    expect(report).toContain('Campagne : companion-scientific-diagram-fixture-report:2026-11-12T13:08:41.154Z');
+    expect(report).not.toContain('Type de problème : Exécution interrompue');
+  });
+
+  it('keeps a failed-or-aborted batch distinct from an explicit stop', () => {
+    expect(buildEvaluationIssueReport({
+      journey: 'diagrams', status: 'failed',
+      message: '0/3 passages réussis. Le protocole contient des essais échoués ou interrompus.',
+    })).toContain('Type de problème : Certains passages ont échoué');
+    expect(buildEvaluationIssueReport({
+      journey: 'diagrams', status: 'failed', message: 'Traitement interrompu par l’enseignant.',
+    })).toContain('Type de problème : Exécution interrompue');
+  });
+
+    it('classifies JSON parsing errors without exporting the raw model answer', () => {
     expect(buildEvaluationIssueReport({
       journey: 'custom', status: 'failed', message: 'Unexpected JSON response: PRIVATE PAYLOAD',
     })).toContain('Type de problème : Réponse JSON non exploitable');

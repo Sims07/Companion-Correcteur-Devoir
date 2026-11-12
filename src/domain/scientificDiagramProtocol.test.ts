@@ -145,7 +145,24 @@ describe('protocole de schémas scientifiques', () => {
     expect(selectDiagramMethods(withoutVision, 'compare')).toEqual(['direct-image-systemone']);
   });
 
-  it('sépare les mesures des méthodes du même profil sans exporter de secret', () => {
+  it('rejects decision-only models as OCR readers before making an /api/chat request', () => {
+    const d1Reader = { ...profile('d1:3b'), configuration: {
+      ...profile('d1:3b').configuration, visionModel: 'd1:3b',
+    } };
+    expect(selectDiagramMethods(d1Reader, 'compare')).toEqual(['direct-image-systemone']);
+    expect(selectDiagramMethods(d1Reader, 'vision-then-analysis')).toEqual([]);
+    expect(diagramMethodIssue(d1Reader, 'vision-then-analysis')).toContain('/api/chat');
+    expect(diagramFailureCategory('Ollama HTTP 400 : "d1:3b" does not support chat')).toBe('unsupported-chat');
+    expect(diagramFailureCategory(diagramMethodIssue(d1Reader, 'vision-then-analysis')!)).toBe('unsupported-chat');
+
+    const tevReader = { ...profile('tev1:4b'), configuration: {
+      ...profile('tev1:4b').configuration, visionModel: 'tev1:4b',
+    } };
+    expect(selectDiagramMethods(tevReader, 'vision-then-analysis')).toEqual([]);
+    expect(diagramMethodIssue(tevReader, 'vision-then-analysis')).toContain('Vision');
+  });
+
+    it('sépare les mesures des méthodes du même profil sans exporter de secret', () => {
     const twoStep = { ...record({ ...result(), directVisualDecision: false, diagnosticRuns: [] }),
       configurations: [{ ...record().configurations[0]!, directVisualDecision: false }] };
     const directGenerative = { ...record({ ...result(), directVisualDecision: false, diagnosticRuns: [] }),

@@ -1,7 +1,7 @@
 import type { AiModelProfile } from './aiModelProfiles.ts';
 import type { ModelEvaluationRecord, ModelEvaluationResultSnapshot } from './modelEvaluation.ts';
 import { getRubricSubcriteria, validateRubric, type Rubric } from './rubric.ts';
-import { isVisualDecisionModel } from './systemOneDecision.ts';
+import { isNativeDecisionModel, isVisualDecisionModel } from './systemOneDecision.ts';
 import { extractSystemOneDecisions, type VisualChoice } from './visualDecisionEvaluation.ts';
 import { isSupportedPilotProfile, isLoopbackPilotEndpoint } from './pilotEvaluationProtocol.ts';
 
@@ -70,7 +70,9 @@ export function availableDiagramMethods(profile: AiModelProfile): DiagramMethod[
   if (!isSupportedPilotProfile(profile) || !config.analysisModel.trim()) return [];
   if (config.apiCompatible && config.correctionMethod !== 'generative') return [];
   const methods: DiagramMethod[] = [];
-  if (config.visionModel.trim()) methods.push('vision-then-analysis');
+  if (config.visionModel.trim() && (config.apiCompatible || !isNativeDecisionModel(config.visionModel))) {
+    methods.push('vision-then-analysis');
+  }
   if (config.correctionMethod === 'generative') methods.push('direct-image-generative');
   if (!config.apiCompatible && (config.correctionMethod === 'decision' || config.correctionMethod === 'visual-decision')
       && isVisualDecisionModel(config.analysisModel)) methods.push('direct-image-systemone');
@@ -101,6 +103,11 @@ export function selectDiagramMethods(profile: AiModelProfile, selection: Diagram
 export function diagramMethodIssue(profile: AiModelProfile, selection: DiagramMethodSelection): string | null {
   if (!isSupportedPilotProfile(profile)) return 'Adresse de serveur invalide : ' + profile.name;
   if (!profile.configuration.analysisModel.trim()) return 'Modèle d’analyse manquant : ' + profile.name;
+  if (selection === 'vision-then-analysis' && !profile.configuration.apiCompatible
+    && isNativeDecisionModel(profile.configuration.visionModel)) {
+    return 'Modèle décisionnel utilisé en Vision : « ' + profile.configuration.visionModel
+      + ' » ne prend pas en charge le chat (/api/chat). Choisissez un modèle Vision génératif pour lire les images, puis D1 pour les décisions System One.';
+  }
   if (selectDiagramMethods(profile, selection).length) return null;
   // Preserve the actionable incompatibility explanation if an obsolete or
   // misconfigured profile explicitly requests image-based System One.
@@ -243,7 +250,7 @@ export function diagramObservations(result: ModelEvaluationResultSnapshot, rubri
 /** Only export a fixed failure category: original errors may contain URLs,
  * identifiers, network payloads or credentials from a provider exception. */
 export type DiagramFailureCategory = 'model-unavailable' | 'connection' | 'system-one-unavailable'
-  | 'generation-limit' | 'invalid-or-incomplete-output' | 'timeout' | 'other';
+  | 'unsupported-chat' | 'generation-limit' | 'invalid-or-incomplete-output' | 'timeout' | 'other';
 
 /** The diagnostic export contains ONLY a predefined category, never the
  * exception text itself (which could contain a private endpoint or token).
@@ -252,6 +259,7 @@ export function diagramFailureCategory(error?: string): DiagramFailureCategory |
   if (!error) return null;
   if (/n.est pas install.|not installed|unknown model|model not found|ollama pull/i.test(error)) return 'model-unavailable';
   if (/injoignable|failed to fetch|networkerror|econnrefused|cors|connection refused/i.test(error)) return 'connection';
+  if (/does not support chat|ne prend pas en charge le chat|modèle décisionnel utilisé en vision/i.test(error)) return 'unsupported-chat';
   if (/system one|systemone/i.test(error)) return 'system-one-unavailable';
   if (/done_reason=length|limite de g.n.ration|maximum output tokens|num_predict/i.test(error)) return 'generation-limit';
   if (/\[diagram-output:/.test(error)) return 'invalid-or-incomplete-output';
