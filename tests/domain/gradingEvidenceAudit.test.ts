@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseGradingProposal } from '../../src/domain/grading.ts';
 import { normalizeEvidenceText } from '../../src/domain/gradingEvidenceAudit.ts';
 import { PILOT_CASES, PILOT_RUBRIC } from '../../src/domain/pilotEvaluationProtocol.ts';
+import { questionContractRubric, QUESTION_CONTRACT_STRESS_CASES, QUESTION_CONTRACT_CASES } from '../../src/domain/questionContractPilot.ts';
 import type { RubricCriterion } from '../../src/domain/rubric.ts';
 
 const criterion = (id: string) => PILOT_RUBRIC.criteria.find((entry) => entry.id === id)!;
@@ -110,6 +111,48 @@ describe('grounding of positive marks in student answer', () => {
       p5: { points: 1, evidence: 'Une citation' }, p6: { points: 1, evidence: 'Autre citation' },
     });
     expect(noSource.scoreIncomplete).toBeUndefined();
+  });
+
+  it('accepts literal equivalents in a numbered answer without requiring the subject to be repeated', () => {
+    const rubric = questionContractRubric('contract');
+    const source = QUESTION_CONTRACT_STRESS_CASES.find((item) => item.id === 'E')!.transcription;
+    const q1 = gradeOne(rubric.criteria[0]!, {
+      p1: { points: 1, evidence: 'Dans le chloroplaste' },
+      p2: { points: 1, evidence: 'le rayonnement lumineux apporte l’énergie' },
+    }, source);
+    expect(q1.scoreIncomplete).toBeUndefined();
+    expect(q1.criteria[0]!.subcriteria!.map((sub) => sub.evidenceStatus)).toEqual(['located', 'located']);
+
+    const q2 = gradeOne(rubric.criteria[3]!, {
+      p7: { points: 1, evidence: 'Dans la mitochondrie' },
+      p8: { points: 1, evidence: 'consomme de l’O₂' },
+    }, source);
+    expect(q2.scoreIncomplete).toBeUndefined();
+    expect(q2.criteria[0]!.subcriteria!.map((sub) => sub.evidenceStatus)).toEqual(['located', 'located']);
+  });
+
+  it('does not credit an answer supplied under the wrong numbered question', () => {
+    const rubric = questionContractRubric('contract');
+    const source = QUESTION_CONTRACT_CASES.find((item) => item.id === 'B')!.transcription;
+    const proposal = gradeOne(rubric.criteria[2]!, {
+      p5: { points: 1, evidence: 'produit des sucres' },
+      p6: { points: 1, evidence: 'libère du dioxygène' },
+    }, source);
+    expect(proposal.scoreIncomplete).toBe(true);
+    expect(proposal.criteria[0]!.subcriteria!.map((sub) => sub.evidenceStatus)).toEqual(['needs-review', 'needs-review']);
+  });
+
+  it('excludes the printed statement before a numbered answer in stress case G', () => {
+    const rubric = questionContractRubric('contract');
+    const source = QUESTION_CONTRACT_STRESS_CASES.find((item) => item.id === 'G')!.transcription;
+    const proposal = gradeOne(rubric.criteria[0]!, {
+      p1: { points: 1, evidence: 'photosynthèse dans les chloroplastes' },
+      p2: { points: 0, evidence: 'Pas de réponse' },
+    }, source);
+    expect(proposal.scoreIncomplete).toBe(true);
+    expect(proposal.criteria[0]!.subcriteria![0]).toMatchObject({
+      evidenceStatus: 'needs-review', assessmentStatus: 'not-evaluated',
+    });
   });
 
   it('uses a generic teacher-authored rubric instead of benchmark-specific biology constants', () => {
