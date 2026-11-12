@@ -23,7 +23,7 @@ describe('campaign result status and support actions', () => {
     expect(html).toContain('Résultats partiels');
     expect(html).toContain('1/2 notes exploitables');
     expect(html).toContain('Partager le diagnostic');
-    expect(html).not.toContain('modèle 0/10</li>'); // the missing grade remains a dash
+    expect(html).toContain('modèle 0/10'); // a real zero remains a valid grade
     expect(html).toContain('modèle —/10');
   });
 
