@@ -98,3 +98,27 @@ it('overlays real scientific and biological scores with consistent colors, and n
   await act(async () => root.unmount());
   node.remove();
 });
+
+
+it('keeps the same color for an LLM even when the primary has no result in one domain', async () => {
+  const node = document.createElement('div');
+  document.body.append(node);
+  const root = createRoot(node);
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries, history, profiles, model: 'gamma:4b', choose: vi.fn(), busy: false,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience: vi.fn(), runBiology: vi.fn(),
+  })));
+  const compare = [...node.querySelectorAll('button')].find((button) =>
+    button.textContent?.trim() === 'Comparer les LLM')!;
+  await act(async () => (compare as HTMLButtonElement).click());
+  const science = node.querySelector('article[aria-label="Schémas scientifiques"]')!;
+  const biology = node.querySelector('article[aria-label="Biologie"]')!;
+  expect(node.querySelector('.radar-home-compare-chip')?.textContent).toContain('alpha:4b');
+  expect(biology.querySelectorAll('[data-radar-model]')).toHaveLength(1);
+  expect(biology.querySelector('[data-radar-model] polygon')?.getAttribute('stroke')).toBe('#287a8d');
+  expect(science.querySelector('[data-radar-model="alpha:4b"] circle')?.getAttribute('fill')).toBe('#287a8d');
+  const swatch = biology.querySelector<HTMLElement>('.radar-home-legend-color');
+  expect(swatch?.style.backgroundColor).toBe('rgb(40, 122, 141)');
+  await act(async () => root.unmount());
+  node.remove();
+});
