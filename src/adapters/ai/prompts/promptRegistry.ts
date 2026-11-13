@@ -15,7 +15,7 @@ export const PROMPT_REVISIONS = {
   'rubric.structuring': 1,
   'grading.full': 1,
   'grading.full-repair': 1,
-  'grading.incremental': 4,
+  'grading.incremental': 5,
   'grading.incremental-repair': 1,
   'grading.arbitration': 1,
   'grading.arbitration-repair': 1,

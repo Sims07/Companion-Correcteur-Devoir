@@ -10,6 +10,10 @@ describe('stable prompt metadata', () => {
     expect(promptTrace('vision.copy-transcription').promptId).not.toBe(promptTrace('grading.incremental').promptId);
   });
 
+  it('identifies runs after restoring the earlier incremental instructions', () => {
+    expect(promptTrace('grading.incremental')).toEqual({ promptId: 'grading.incremental', promptVersion: 5 });
+  });
+
   it('always publishes a positive integer revision, without copies or user data in its registry', () => {
     expect(Object.keys(PROMPT_REVISIONS).length).toBeGreaterThan(12);
     expect(Object.values(PROMPT_REVISIONS).every((version) => Number.isInteger(version) && version > 0)).toBe(true);
