@@ -1,3 +1,4 @@
+import { arrowContext } from '../image/arrowContext.ts';
 import { questionGroups, scopedCriterionInput } from '../../domain/questionContract.ts';
 import { promptTrace, type PromptId } from './prompts/promptRegistry.ts';
 import { MODEL_READINESS_PROBE_PROMPT } from './prompts/modelProbePrompt.ts';
@@ -683,6 +684,7 @@ export function createOllamaProvider(
       }
 
       if (directGenerativeVision) {
+        const hints = await arrowContext(request.images ?? [], request.pageNumbers, signal);
         // Experimental scientific-diagram route. No OCR, no implicit switch
         // to another model. A single full-rubric request may be retried once
         // for invalid JSON, just as in the classic grading path.
@@ -703,9 +705,9 @@ export function createOllamaProvider(
             const targetedRepair = attempt === 1 ? singlePointRepair : null;
             // Transport errors/abort are not JSON failures: never retry those here.
             const raw = await sendStream(analysisModel,
-              targetedRepair
+              (targetedRepair
                 ? buildDirectDiagramPointRepairPrompt(request, targetedRepair.issue)
-                : buildDirectDiagramPrompt(request, repairReason),
+                : buildDirectDiagramPrompt(request, repairReason)) + hints,
               (request.images ?? []).map(providerImage), onChunk,
               targetedRepair ? directDiagramPointRepairSchema(targetedRepair.issue.maximum) : schema,
               settings.thinkingLevel ?? settings.thinking ?? false,
@@ -733,7 +735,7 @@ export function createOllamaProvider(
             }
           }
         }
-        return sendGradingWithRepair(analysisModel, buildPrompt(), (request.images ?? []).map(providerImage), onChunk,
+        return sendGradingWithRepair(analysisModel, buildPrompt() + hints, (request.images ?? []).map(providerImage), onChunk,
           { kind: 'model', stage: 'analysis', intent: 'Noter le schéma directement depuis ses images' });
       }
 
@@ -1000,12 +1002,14 @@ export function createOllamaProvider(
           onProgress?.({ type: 'criterion', criterionIndex: index + 1, criterionTotal: criteria.length, status: 'started' });
         }
         try {
+          const visualHints = directVisualDecision && criteria.some(c => c.analysisMode === 'scientific-diagram')
+            ? await arrowContext(request.images ?? [], request.pageNumbers, signal) : '';
           for (const group of scopedGroups ?? [{ criteria, transcription: transcription ?? '', question: request.question }]) {
             if (signal?.aborted) throw new DOMException('Traitement arrêté', 'AbortError');
             const prepared = prepareSystemOneRubric({
               ...group,
               ...(subjectTranscription && !group.criteria.some(c => c.correctionContract?.question) ? { subjectTranscription } : {}),
-              ...(directVisualDecision ? { visualEvidence: true } : {}),
+              ...(directVisualDecision ? { visualEvidence: true, visualHints } : {}),
             });
             const result = await requestSystemOneDecision({
               endpoint, model: analysisModel, prepared, fetchImpl,

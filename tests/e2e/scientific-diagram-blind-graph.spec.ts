@@ -212,6 +212,10 @@ test('blind graph observer supports an explicitly selected OpenAI-compatible Vis
   await expect(start).toBeEnabled();
   await start.click();
   await expect.poll(() => requests.length, { timeout: 90_000 }).toBe(6);
+  const hintsSent = requests.map(body => JSON.stringify(body.messages).match(/vers (gauche|droite|haut|bas)/g));
+  expect(hintsSent[0]).toEqual(['vers droite', 'vers droite']);
+  expect(hintsSent[1]).toEqual(['vers gauche', 'vers droite']);
+  expect(hintsSent[5]).toEqual(['vers droite']);
   for (const body of requests) {
     expect((body.response_format as { type?: string })?.type).toBe('json_schema');
     expect(body.model).toBe('vision-27b');

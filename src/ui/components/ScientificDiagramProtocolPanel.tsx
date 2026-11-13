@@ -165,7 +165,7 @@ export function ScientificDiagramProtocolPanel({
   const [sensitivityLoading, setSensitivityLoading] = useState(false);
   const [blindGraphLoading, setBlindGraphLoading] = useState(false);
   const [blindGraphMessage, setBlindGraphMessage] = useState('');
-  const [blindGraphPromptVariant, setBlindGraphPromptVariant] = useState<BlindGraphPromptVariant>('baseline');
+  const [blindGraphPromptVariant, setBlindGraphPromptVariant] = useState<BlindGraphPromptVariant>('pixel-arrows');
   const [sensitivityMessage, setSensitivityMessage] = useState('');
   const [sensitivityPromptSelection, setSensitivityPromptSelection] = useState<'standard' | 'guided' | 'compare'>('standard');
   const [methodSelection, setMethodSelection] = useState<DiagramMethodSelection>('compare');
@@ -695,12 +695,13 @@ export function ScientificDiagramProtocolPanel({
       <h4>Observer un graphe de relations avant le barème</h4>
       <LocalArrowExperiment />
       <p>Ce protocole évite d’injecter la réponse scientifique attendue dans la consigne de lecture.</p>
-      <p className="pilot-evaluation-hint">Le modèle Vision voit uniquement les PNG et une consigne générique de description : noms dessinés, extrémités/pointe des flèches, inclusion des structures. Il ne reçoit ni la consigne de biologie, ni le barème, ni les trois attendus. Le logiciel compare ensuite le graphe extrait aux références S0–S5. Aucune correction de copie n’est modifiée.</p>
+      <p className="pilot-evaluation-hint">Le modèle Vision reçoit le dessin et, en lecture assistée, les positions et directions des pointes détectées. Il vérifie sur l’image les éléments suivants : noms dessinés, extrémités/pointe des flèches, inclusion des structures. Il ne reçoit ni la consigne de biologie, ni le barème, ni les trois attendus. Le logiciel compare ensuite le graphe extrait aux références S0–S5. Aucune correction de copie n’est modifiée.</p>
       <div className="diagram-fixture-run-controls">
         <label htmlFor="diagram-blind-prompt-variant">Consigne de lecture du graphe</label>
         <DesignSystemSelect id="diagram-blind-prompt-variant"
           value={blindGraphPromptVariant} disabled={busy || blindGraphLoading}
           onChange={(event) => setBlindGraphPromptVariant(event.currentTarget.value as BlindGraphPromptVariant)}>
+          <option value="pixel-arrows">Lecture avec les pointes détectées dans l’image</option>
           <option value="baseline">Référence actuelle — lecture standard</option>
           <option value="isolated-arrows-outside">Ancienne expérimentation — consigne renforcée (sans gain observé)</option>
           <option value="recheck-arrows">Nouvel essai A — relire chaque flèche séparément</option>
@@ -742,6 +743,7 @@ export function ScientificDiagramProtocolPanel({
         <p>Consigne utilisée : <strong>{({
           baseline: 'Référence actuelle',
           'isolated-arrows-outside': 'Ancienne consigne renforcée',
+          'pixel-arrows': 'Lecture avec les pointes détectées dans l’image',
           'recheck-arrows': 'Nouvel essai A — seconde lecture des flèches',
           'recheck-contours': 'Nouvel essai B — seconde lecture des contours',
         } as Record<BlindGraphPromptVariant, string>)[blindGraphReport.promptVariant]}</strong>.</p>

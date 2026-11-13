@@ -25,7 +25,7 @@ describe('launch missing radar tests', () => {
     }]);
     expect(planMissingRadarAxis(candidate(), 'arrows', 'profile')?.steps[0]?.protocol).toBe('arrows');
     expect(planMissingRadarAxis(candidate(), 'biology', 'profile')?.steps[0]?.protocol).toBe('semantic');
-    expect(planMissingRadarAxis(candidate(), 'relations', 'profile')?.steps[0]?.protocol).toBe('graph');
+    expect(planMissingRadarAxis(candidate(), 'relations', 'profile')?.steps[0]).toMatchObject({ protocol: 'graph', graphVariant: 'pixel-arrows' });
     expect(radarPlanDescription(ref.steps)).toBe('Qualité graphique A/B/C · 1 passage');
   });
 

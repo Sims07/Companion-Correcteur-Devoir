@@ -1,3 +1,4 @@
+import { arrowContext } from '../image/arrowContext.ts';
 import { promptTrace } from './prompts/promptRegistry.ts';
 import { classificationPrompt, buildScientificDiagramPrompt, buildScientificDiagramRepairPrompt, buildConciseScientificDiagramPrompt } from './prompts/scientificDiagramPrompts.ts';
 export { buildScientificDiagramPrompt } from './prompts/scientificDiagramPrompts.ts';
@@ -235,12 +236,13 @@ export function createOpenAiScientificDiagramAnalyzer(fetchImpl: typeof fetch = 
       const startedAt = Date.now();
       let lastRequestStartedAt = startedAt;
       let raw = '';
-      let prompt = buildScientificDiagramPrompt(request);
+      const hints = await arrowContext(request.images, request.pageNumbers, request.signal);
+      let prompt = buildScientificDiagramPrompt(request) + hints;
 
       const send = async (promptOverride?: string, scopedRequest: ScientificDiagramAnalysisRequest = request) => {
         const schema = buildScientificDiagramJsonSchema(scopedRequest);
         lastRequestStartedAt = Date.now();
-        prompt = promptOverride ?? buildScientificDiagramPrompt(scopedRequest);
+        prompt = (promptOverride ?? buildScientificDiagramPrompt(scopedRequest)) + hints;
         const payload = {
           model: request.model,
           stream: false,
