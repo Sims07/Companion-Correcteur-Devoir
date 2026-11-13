@@ -107,3 +107,7 @@ The shared UI foundations are documented in [`docs/design-system.md`](docs/desig
 - Contract tests run as part of `npm test`.
 
 New forms should use `Field`, `TextInput`, `TextArea`, `Checkbox` and `Button`. Existing native selects keep native keyboard and assistive-technology semantics; their closed control is styled consistently, while the operating-system option popup remains browser-controlled.
+
+## Safari HTTPS et Ollama local (macOS)
+
+Le [lanceur macOS prêt à double-cliquer](tools/ollama-https-mac/README.md) permet à la PWA HTTPS d'utiliser un Ollama local avec un certificat de confiance et un CORS limité, sans envoyer les copies à un service cloud.
