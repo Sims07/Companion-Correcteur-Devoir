@@ -1,0 +1,26 @@
+name: Ollama HTTPS launcher (Mac)
+on:
+  pull_request:
+    paths:
+      - 'tools/ollama-https-mac/**'
+      - '.github/workflows/ollama-https-mac.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/ollama-https-mac/**'
+      - '.github/workflows/ollama-https-mac.yml'
+jobs:
+  https-proxy:
+    name: HTTPS proxy / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test TLS, CORS, Ollama streaming and one-click launcher
+        run: python3 -W error::ResourceWarning -m unittest discover -s tools/ollama-https-mac -p 'test_*.py' -v
