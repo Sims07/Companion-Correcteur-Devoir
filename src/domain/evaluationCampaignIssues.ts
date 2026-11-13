@@ -36,7 +36,7 @@ function safeName(value: unknown): string {
   if (typeof value !== 'string') return 'non communiqué';
   const trimmed = value.trim();
   return trimmed.length > 0 && trimmed.length <= 80 &&
-    /^[A-Za-zÀ-ÿ0-9 ._:+/-]+$/.test(trimmed) &&
+    /^[A-Za-zÀ-ÿ0-9 ._:+-]+$/.test(trimmed) &&
     !/https?:|\\|\/\/|@/i.test(trimmed) ? trimmed : 'non communiqué';
 }
 function safeCase(value: unknown): string {
