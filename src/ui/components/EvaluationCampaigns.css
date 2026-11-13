@@ -40,3 +40,10 @@
 .campaign-index-empty { padding: var(--ds-space-5); border: 1px dashed var(--ds-color-border); border-radius: var(--ds-radius-md); }
 @media (max-width: 980px) { .campaign-index-layout { grid-template-columns: minmax(0,1fr); } .campaign-index-list { display: flex; overflow-x: auto; overflow-y: hidden; max-height: none; } .campaign-index-item { min-width: min(260px,80vw); } }
 @media (max-width: 560px) { .campaign-index-stats { gap: var(--ds-space-2); } .campaign-index-stats strong { font-size: 1.05rem; } .campaign-index-actions > button { flex: 1 1 auto; } .campaign-index-count { margin-left: 0; } .campaign-index-detail { padding: var(--ds-space-3); } }
+
+.campaign-index-issues { display: grid; gap: var(--ds-space-2); min-width: 0; padding: var(--ds-space-3); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-sm); }
+.campaign-index-issues strong { font-size: .88rem; }
+.campaign-index-issues ul { margin: 0; padding-left: var(--ds-space-5); max-height: 13rem; overflow: auto; }
+.campaign-index-issues li { font-size: .8rem; overflow-wrap: anywhere; margin-bottom: var(--ds-space-2); }
+.campaign-index-issues small, .campaign-index-issues p { font-size: .77rem; color: var(--ds-color-text-muted); margin: 0; }
+.campaign-index-issues .evaluation-issue-report { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
