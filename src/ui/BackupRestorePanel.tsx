@@ -10,6 +10,7 @@ import {
   inspectLargeBackupInWorker, restoreLargeBackupInWorker,
   type LargeBackupProgress,
 } from '../adapters/storage/largeBackupWorkerClient.ts';
+import { describeLargeBackupFailure } from '../adapters/storage/largeBackupError.ts';
 import './backupRestorePanel.css';
 
 const IMPORT_MARKER = 'companion:backup-import-in-progress:v1';
@@ -174,7 +175,7 @@ export function BackupRestorePanel({ onRestored }: Props) {
       onRestored?.();
     } catch (cause) {
       const explanation = cause instanceof Error && cause.message.trim()
-        ? cause.message : 'La restauration a été interrompue sans explication du navigateur.';
+        ? cause.message : describeLargeBackupFailure(cause);
       setError(explanation);
       setMessage(
         (settingsRecovered ? 'Les réglages et historiques Biologie ont été récupérés. ' : '') +
