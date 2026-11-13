@@ -13,7 +13,7 @@ export interface DetectedArrow {
 // Sample the width across a thin leader. A few gaps or intersections are
 // normal in pencil drawings, but both a broadened head and a long shaft
 // must be visible before we supply a direction.
-function hasPencilHead(ink: Uint8Array, tip: number, stride: number, cross: number): boolean {
+function hasPencilHead(ink: Uint8Array, tip: number, stride: number, cross: number, longProbe: boolean): boolean {
   function span(back: number, radius: number) {
     const center = tip - back * stride;
     let left = radius + 1, right = -radius - 1;
@@ -25,28 +25,51 @@ function hasPencilHead(ink: Uint8Array, tip: number, stride: number, cross: numb
     }
     return { left, right, width: Math.max(0, right - left + 1) };
   }
-  const clearAhead = [4, 7, 10].filter(distance => {
-    const center = tip + distance * stride;
-    return !ink[center] && !ink[center - cross] && !ink[center + cross];
-  }).length;
-  if (clearAhead < 2 || span(0, 5).width > 4 || span(2, 6).width < 2) return false;
+  const tipWidth = span(0, 5).width;
+  if (tipWidth > 4 || span(2, 6).width < 2) return false;
   let wideRows = 0;
   for (let back = 3; back <= 9; back++) {
     const row = span(back, 8);
     if (row.left <= -2 && row.right >= 2 && row.width >= 6 && row.width <= 14 && ink[tip - back * stride]) wideRows++;
   }
-  if (wideRows < 3) return false;
-  const hasNeck = [9, 10, 11, 12, 13].some(back => {
-    const { width } = span(back, 6);
-    return width >= 1 && width <= 3;
-  });
-  if (!hasNeck) return false;
+  if (wideRows < 3 || ![9, 10, 11, 12, 13].some(back => {
+    const neck = span(back, 6);
+    return neck.width >= 1 && neck.width <= 3;
+  })) return false;
+  const clearAhead = [4, 7, 10].filter(distance => {
+    const center = tip + distance * stride;
+    return !ink[center] && !ink[center - cross] && !ink[center + cross];
+  }).length;
   let narrowRows = 0;
   for (let back = 14; back <= 54; back += 4) {
     const row = span(back, 8);
     if (row.width >= 1 && row.width <= 4 && Math.abs(row.left + row.right) <= 2 + back * 0.22) narrowRows++;
   }
-  return narrowRows >= 10;
+  // Follow the shaft on a few shallow slopes. A stroke that continues
+  // through the supposed tip is likely an intersection inside the drawing.
+  function hits(start: number, end: number, slope: number) {
+    let count = 0;
+    for (let back = start; back <= end; back += 2) {
+      const center = tip - back * stride + Math.round(slope * back) * cross;
+      if (ink[center] || ink[center - cross] || ink[center + cross]) count++;
+    }
+    return count;
+  }
+  const slopes = [0, -0.06, 0.06, -0.12, 0.12];
+  if (longProbe && slopes.some(slope => hits(-32, -6, slope) >= 12)) return false;
+  if (clearAhead >= 2 && narrowRows >= 10) return true;
+  if (!longProbe || narrowRows < 8) return false;
+  for (const slope of slopes) {
+    if (hits(14, 54, slope) >= 20 && hits(-24, -6, slope) <= 3 && hits(56, 84, slope) >= 13) {
+      // Look for a broad head over several adjacent rows. An isolated
+      // intersection of the shaft with an outline can imitate a triangle.
+      if ([4, 5, 6, 7, 8].filter(back => {
+        const center = tip - back * stride;
+        return ink[center - cross] && ink[center] && ink[center + cross];
+      }).length >= 4) return true;
+    }
+  }
+  return false;
 }
 
 /** Look for a widening filled head followed by a thinner, continuous shaft.
@@ -72,7 +95,9 @@ export function detectArrowDirections({ width, height, data }: Pick<ImageData, '
             x >= 10 && x < width - 10 && y >= 10 && y < height - 10 &&
             x - dx * 54 >= 10 && x - dx * 54 < width - 10 &&
             y - dy * 54 >= 10 && y - dy * 54 < height - 10 &&
-            hasPencilHead(pencil, tip, stride, cross)) {
+            hasPencilHead(pencil, tip, stride, cross,
+              x + dx * 32 >= 10 && x + dx * 32 < width - 10 && y + dy * 32 >= 10 && y + dy * 32 < height - 10 &&
+              x - dx * 84 >= 12 && x - dx * 84 < width - 12 && y - dy * 84 >= 12 && y - dy * 84 < height - 12)) {
           candidates.push({ x, y, direction, size: 10 });
         }
         if (!ink[tip] || ink[tip + 3 * cross] || ink[tip - 3 * cross]) continue;
