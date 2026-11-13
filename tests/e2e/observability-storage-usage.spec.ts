@@ -55,3 +55,29 @@ test('shows origin quota and IndexedDB categories without exposing student copie
   await panel.getByRole('button', { name: 'Gérer les évaluations enregistrées' }).click();
   await expect(page.getByRole('heading', { name: 'Historique & comparaison graphique' })).toBeVisible();
 });
+
+test('offers a Safari-compatible persistence request and confirms the granted protection', async ({ page }) => {
+  await page.addInitScript(() => {
+    let protectedStorage = false;
+    Object.defineProperty(navigator, 'storage', {
+      configurable: true,
+      value: {
+        estimate: async () => ({ usage: 1024, quota: 102400 }),
+        persisted: async () => protectedStorage,
+        persist: async () => { protectedStorage = true; return true; },
+      },
+    });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
+  await page.getByRole('navigation', { name: 'Navigation principale' })
+    .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+  const panel = page.getByRole('region', { name: 'Occupation du stockage local' });
+  await expect(panel.getByText('Stockage non protégé')).toBeVisible();
+  await expect(panel.getByText(/Le navigateur peut supprimer les évaluations/)).toBeVisible();
+  await panel.getByRole('button', { name: 'Protéger mon stockage' }).click();
+  await expect(panel.getByText(/Protection accordée pour cette installation/)).toBeVisible();
+  await expect(panel.getByText('Stockage persistant')).toBeVisible();
+  await expect(panel.getByText('Stockage non protégé')).toHaveCount(0);
+});
