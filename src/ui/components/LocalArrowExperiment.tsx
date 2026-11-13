@@ -16,10 +16,12 @@ async function readDirections(name: string, url: string, degrees = 0): Promise<R
   context.fillStyle = '#ad235b';
   context.lineWidth = 2;
   context.font = 'bold 16px sans-serif';
-  arrows.forEach(({ x, y }, index) => {
+  arrows.forEach(({ x, y, tentative }, index) => {
+    context.setLineDash(tentative ? [3, 3] : []);
     context.beginPath();
     context.arc(x, y, 10, 0, 2 * Math.PI);
     context.stroke();
+    context.setLineDash([]);
     context.fillText(String(index + 1), Math.max(0, x - 10), Math.max(16, y - 13));
   });
   return { name, arrows, preview: canvas.toDataURL('image/png') };
@@ -56,7 +58,7 @@ export function LocalArrowExperiment() {
   }
   return <details>
     <summary>Détecter le sens des flèches sans modèle IA</summary>
-    <p>Sur les flèches horizontales et verticales à pointe pleine, les cercles numérotés indiquent les pointes détectées. Un trait sans détection reste à vérifier.</p>
+    <p>Sur les flèches horizontales et verticales à pointe pleine, les cercles numérotés indiquent les pointes détectées. Un cercle en pointillés signale une pointe incertaine (notamment sur un contour) à vérifier. Un trait sans détection reste à vérifier.</p>
     <Button disabled={busy} onClick={() => void run()}>Tester les six schémas en local</Button>
     <label> Essayer une image <input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={event => {
       const file = event.currentTarget.files?.[0];
@@ -75,7 +77,7 @@ export function LocalArrowExperiment() {
     <div className="diagram-fixture-grid">
       {readings.map(({ name, preview, arrows }) => <figure className="diagram-fixture-card" key={name}>
         <img src={preview} alt={'Pointes repérées sur ' + name} />
-        <figcaption><strong>{name}</strong> — {arrows.map((arrow, index) => (index + 1) + ' vers ' + ({ droite: 'la droite', gauche: 'la gauche', haut: 'le haut', bas: 'le bas' }[arrow.direction])).join(', ') || 'Aucune pointe détectée'}</figcaption>
+        <figcaption><strong>{name}</strong> — {arrows.map((arrow, index) => (index + 1) + ' vers ' + ({ droite: 'la droite', gauche: 'la gauche', haut: 'le haut', bas: 'le bas' }[arrow.direction]) + (arrow.tentative ? ' (à vérifier)' : '')).join(', ') || 'Aucune pointe détectée'}</figcaption>
       </figure>)}
     </div>
   </details>;

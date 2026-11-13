@@ -27,8 +27,8 @@ export async function readArrowPixels(url: string, clockwiseDegrees = 0) {
 }
 
 export function describeArrowTips(arrows: DetectedArrow[], width: number, height: number, page: number) {
-  return arrows.slice(0, 12).map(({ x, y, direction }) =>
-    `page ${page}, x=${Math.round(x * 100 / width)} %, y=${Math.round(y * 100 / height)} %, vers ${direction}`);
+  return arrows.slice(0, 24).map(({ x, y, direction, tentative }) =>
+    `page ${page}, x=${Math.round(x * 100 / width)} %, y=${Math.round(y * 100 / height)} %, vers ${direction}${tentative ? ' (pointe incertaine)' : ''}`);
 }
 
 /** Optional visual evidence, always derived from the same bytes sent to Vision. */
