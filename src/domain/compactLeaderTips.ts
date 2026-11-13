@@ -70,7 +70,23 @@ export function detectCompactLeaderTips(pencil: Uint8Array, width: number, heigh
             if (!pencil[(y - 1) * width + xx] && !pencil[y * width + xx] &&
                 !pencil[(y + 1) * width + xx]) clearAhead++;
           }
-          // An intersection with the cell wall/nucleus may hide the open
+          // A line running *through* the alleged tip is not an arrow,
+          // even if a crossing produces a convincing small V. Unlike a
+          // short intersecting contour, a continuing leader stays thin
+          // and connected for several centimetres in raster space.
+          const continuingStroke = slopes.some(aheadSlope => {
+            let hits = 0;
+            for (let ahead = 8; ahead <= 32; ahead += 2) {
+              const xx = x + dx * ahead;
+              const yy = y + Math.round(aheadSlope * ahead);
+              if (pencil[yy * width + xx] ||
+                  pencil[(yy - 1) * width + xx] ||
+                  pencil[(yy + 1) * width + xx]) hits++;
+            }
+            return hits >= 11;
+          });
+          if (continuingStroke) continue;
+          // An intersection with another short stroke may hide the open
           // space in front of the tip. Keep that case as a possible arrow,
           // never as a certain head.
           const tentative = clearAhead < 2;
