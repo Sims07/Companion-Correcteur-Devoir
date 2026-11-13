@@ -53,15 +53,13 @@ export function detectCompactLeaderTips(pencil: Uint8Array, width: number, heigh
             if (back >= 24 && back <= 72 && back % 8 === 0 &&
                 (at(back, -4) || at(back, 4))) tailWide++;
           }
-          if (first < 7 || second < 6 || first + second < 15 || tailWide > 3) continue;
+          if (first < 6 || second < 5 || first + second < 13 || tailWide > 5) continue;
           let left = 0, right = 0, core = 0;
           for (let back = 2; back <= 11; back++) {
             core += Number(Boolean(centered(back)));
             left += Number(Boolean(at(back, -2) || at(back, -3) || at(back, -4)));
             right += Number(Boolean(at(back, 2) || at(back, 3) || at(back, 4)));
           }
-          // A blunt rectangular collision is not a tapered arrowhead.
-          if (at(1, -3) || at(1, 3) || at(2, -3) || at(2, 3)) continue;
           if (core < 6 || left < 3 || right < 3) continue;
 
           let clearAhead = 0;
@@ -90,7 +88,15 @@ export function detectCompactLeaderTips(pencil: Uint8Array, width: number, heigh
           // space in front of the tip. Keep that case as a possible arrow,
           // never as a certain head.
           const tentative = clearAhead < 2;
-          if (tentative && (left < 5 || right < 5 || first + second < 17)) continue;
+          if (tentative && (left < 5 || right < 5 || first + second < 16)) continue;
+          // A continuing pencil stroke is not an arrowhead. Unlike a broad
+          // cell or nucleus outline, a real extension stays narrow ahead.
+          let forwardHits = 0, forwardWide = 0;
+          for (let ahead = 6; ahead <= 34; ahead += 2) {
+            forwardHits += Number(Boolean(centered(-ahead)));
+            forwardWide += Number(Boolean(at(-ahead, -3) || at(-ahead, 3)));
+          }
+          if (forwardHits >= 11 && forwardWide <= 3) continue;
           const score = first + second + Math.min(left, right) + clearAhead * 2;
           if (!best || score > best.score) best = {
             x, y, direction: dx === -1 ? 'gauche' : 'droite', tentative, score,
