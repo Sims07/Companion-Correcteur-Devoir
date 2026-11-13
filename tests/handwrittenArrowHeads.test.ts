@@ -20,7 +20,7 @@ function manuscriptHead(options: {
   }
   for (let back = 0; back <= shaftLength; back++) {
     const x = tipX + backDirection * back;
-    const radius = head && back >= 3 && back < 9 ? Math.floor(back * 0.62) : 0;
+    const radius = head && back >= 2 && back < 9 ? Math.floor(back * 0.62) : 0;
     for (let side = -radius; side <= radius; side++) mark(x, tipY + side);
   }
   if (overlap) {
