@@ -77,6 +77,7 @@ import type { RadarMissingTestRequest } from '../domain/diagramLabRadarLaunch.ts
 import { type DiagramLabReport, type DiagramLabArchiveEntry } from '../domain/diagramLabHistory.ts';
 import { createDiagramLabArchiveWriter } from '../application/diagramLabArchiveWriter.ts';
 import { radarEvaluationOutcome, RADAR_TEST_PROTOCOL_NAMES } from '../domain/diagramLabRadarLaunch.ts';
+import { shouldRetryInvalidDiagramRecord } from '../domain/diagramRunRecovery.ts';
 import type { DiagramLabArchiveRepository } from '../ports/diagramLabArchiveRepository.ts';
 import { initialAssignmentRubric, type AssignmentKind } from '../domain/assignmentKind.ts';
 import { buildDiagramReview } from '../domain/diagramTeacherReview.ts';
@@ -2510,6 +2511,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     rubric: Rubric, context: string, cases: readonly DiagramCaseInput[], repetitions: DiagramProtocolCount,
     methodSelection: DiagramMethodSelection,
     onCompleted?: (runs: readonly { caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord; promptMode?: DiagramSensitivityPromptMode }[]) => void,
+    retryInvalidOnce = false,
   ): Promise<Array<{ caseId: DiagramCaseInput['id']; repetition: number; record: ModelEvaluationRecord }>> {
     if (busy || pilotBusy) throw new Error('Une évaluation est déjà en cours.');
     const profiles = selectPilotProfiles(aiModelProfiles, selectedEvaluationProfileIds);
@@ -2552,8 +2554,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                 if (pilotStopRef.current || evaluationCancelledRef.current) break;
                 setDiagramProtocolProgress('Schéma ' + testCase.id + ' · ' + profile.name + ' · passage '
                   + repetition + '/' + repetitions + ' · ' + method);
-                const record = await startModelEvaluation({
-                  pilotCase: PILOT_CASES[0]!, stage: 'integrated', profiles: [profile],
+                const evaluationRequest = {
+                  pilotCase: PILOT_CASES[0]!, stage: 'integrated' as const, profiles: [profile],
                   caseImages: testCase.images, retainModelAfterRun: true,
                   diagram: {
                     rubric,
@@ -2565,10 +2567,27 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
                     method,
                     ...(method === 'direct-image-generative-thinking' ? { thinkSetting } : {}),
                   },
-                });
+                };
+                const record = await startModelEvaluation(evaluationRequest);
                 if (record) {
+                  // Persist the first answer immediately, even when invalid.
+                  // A browser closing during its targeted retry must not discard it.
                   runs.push({ caseId: testCase.id, repetition, record, ...(testCase.promptMode ? { promptMode: testCase.promptMode } : {}) });
-                  onCompleted?.(runs);
+                  onCompleted?.([...runs]);
+                  if (retryInvalidOnce && shouldRetryInvalidDiagramRecord(record)
+                    && !pilotStopRef.current && !evaluationCancelledRef.current) {
+                    setDiagramProtocolProgress('Schéma ' + testCase.id + ' · ' + profile.name +
+                      ' · reprise ciblée du passage ' + repetition + '/' + repetitions + ' après sortie invalide');
+                    // A single extra attempt, never a restart of the entire battery.
+                    // The initial error remains in observability and the local
+                    // checkpoint until a replacement result is available.
+                    const retried = await startModelEvaluation(evaluationRequest);
+                    if (retried && !pilotStopRef.current && !evaluationCancelledRef.current) {
+                      runs[runs.length - 1] = { caseId: testCase.id, repetition, record: retried,
+                        ...(testCase.promptMode ? { promptMode: testCase.promptMode } : {}) };
+                      onCompleted?.([...runs]);
+                    }
+                  }
                 }
                 if (pilotStopRef.current || evaluationCancelledRef.current) break;
               }
@@ -2641,7 +2660,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const runs = await executeScientificDiagramCases(
       SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC, SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT,
       request.cases, request.repetitions, request.methodSelection,
-      (completed) => setDiagramFixtureReport(build(completed)),
+      (completed) => setDiagramFixtureReport(build(completed)), true,
     );
     const report = build(runs);
     setDiagramFixtureReport(report);
@@ -2670,7 +2689,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const runs = await executeScientificDiagramCases(
       DIAGRAM_SENSITIVITY_RUBRIC, DIAGRAM_SENSITIVITY_CONTEXT,
       request.cases, request.repetitions, request.methodSelection,
-      (completed) => setDiagramSensitivityReport(build(completed)),
+      (completed) => setDiagramSensitivityReport(build(completed)), true,
     );
     const report = build(runs);
     setDiagramSensitivityReport(report);
