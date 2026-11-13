@@ -149,11 +149,13 @@ export function biologyCampaignIssues(observations: readonly BiologyRadarObserva
 
 /** Include failed configurations and configurations never reached, not raw logs. */
 export function customCampaignIssues(record: ModelEvaluationRecord): string[] {
-  const issues = record.results.filter((result) => result.status !== 'success').map((result) =>
-    'Profil ' + safeName(record.configurations.find((c) => c.id === result.profileId)?.name) +
-    ' · modèle ' + safeName(record.configurations.find((c) => c.id === result.profileId)?.analysisModel) +
-    ' · étape ' + (record.stage === 'vision' ? 'lecture' : record.stage === 'analysis' ? 'analyse' : 'lecture + analyse') +
-    ' · ' + status(result.status) + (result.status === 'failed' ? ' · ' + failureCategory(result.error) : ''));
+  const issues = record.results.filter((result) => result.status !== 'success').map((result) => {
+    const configuration = record.configurations.find((c) => c.id === result.profileId);
+    return 'Profil ' + safeName(configuration?.name) +
+      ' · modèle ' + safeName(record.stage === 'vision' ? configuration?.visionModel : configuration?.analysisModel) +
+      ' · étape ' + (record.stage === 'vision' ? 'lecture' : record.stage === 'analysis' ? 'analyse' : 'lecture + analyse') +
+      ' · ' + status(result.status) + (result.status === 'failed' ? ' · ' + failureCategory(result.error) : '');
+  });
   for (const configuration of record.configurations) {
     if (!record.results.some((result) => result.profileId === configuration.id)) {
       issues.push('Profil ' + safeName(configuration.name) + ' · modèle ' +
