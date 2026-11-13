@@ -1,3 +1,5 @@
+import { detectCompactLeaderTips } from './compactLeaderTips.ts';
+
 // Coordinates refer to the raster, with y increasing downwards.
 const orientations = [
   { direction: 'droite', dx: 1, dy: 0 }, { direction: 'gauche', dx: -1, dy: 0 },
@@ -8,6 +10,8 @@ export interface DetectedArrow {
   x: number;
   y: number;
   direction: typeof orientations[number]['direction'];
+  /** A small head touching another ink stroke: check the arrow visually. */
+  tentative?: boolean;
 }
 
 // Sample the width across a thin leader. A few gaps or intersections are
@@ -149,5 +153,11 @@ export function detectArrowDirections({ width, height, data }: Pick<ImageData, '
     if (!distinct.some(other => other.direction === candidate.direction &&
       Math.hypot(other.x - candidate.x, other.y - candidate.y) < candidate.size)) distinct.push(candidate);
   }
-  return distinct.map(({ x, y, direction }) => ({ x, y, direction }));
+  const primary: DetectedArrow[] = distinct.map(({ x, y, direction }) => ({ x, y, direction }));
+  const compact = detectCompactLeaderTips(pencil, width, height);
+  // The strong filled-head detector takes precedence when both methods find
+  // the same point. Keep a single circle and preserve original results.
+  return [...primary, ...compact.filter(candidate => !primary.some(other =>
+    Math.hypot(other.x - candidate.x, other.y - candidate.y) < 24))
+    .map(({ x, y, direction, tentative }) => ({ x, y, direction, ...(tentative ? { tentative: true } : {}) }))];
 }
