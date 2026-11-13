@@ -38,7 +38,7 @@ describe('faint manuscript legend arrows', () => {
     'detects a compact faint head pointing %s even when original ink threshold rejects it', direction => {
       const image = manuscriptHead({ direction, shade: 217 });
       const found = detectArrowDirections(image);
-      expect(found.some(head => head.direction === direction &&
+      expect(found.some(head => head.direction === direction && head.tentative &&
         Math.hypot(head.x - image.tipX, head.y - image.tipY) <= 4)).toBe(true);
     },
   );
