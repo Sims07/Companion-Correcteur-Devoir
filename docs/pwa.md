@@ -96,3 +96,25 @@ sauvegardes existantes. Une fois le nouveau manifeste déployé, installer
 **Compagnon Correcteur** comme application distincte depuis Chrome. Si
 Saveurs & Notes continue à proposer l'ouverture des liens Compagnon, vérifier
 son installation d'origine ; ne supprimer aucune donnée de site sans sauvegarde.
+
+## Conservation des résultats sur Safari (Mac)
+
+Une app web créée via **Safari → Ajouter au Dock** conserve ses propres données,
+distinctes des onglets Safari, même pour la même adresse. Rouvrez donc toujours
+**la même icône d'application** pour retrouver l'historique de cette installation ;
+ouvrir la même URL dans un onglet Safari ne permet pas d'accéder aux archives de la PWA.
+
+Dans **Évaluer les modèles → Suivi & diagnostic → Occupation du stockage local**,
+vérifiez **Protection contre l'éviction**. Si le statut est **Stockage standard**,
+cliquez **Protéger mon stockage**. Le navigateur peut accorder ou refuser la demande
+`navigator.storage.persist()`. En cas de refus, le risque d'éviction subsiste.
+La protection ne récupère aucune archive déjà disparue et ne protège pas des
+effacements manuels ou de toute défaillance locale.
+
+Après une campagne importante, utilisez **Télécharger ma sauvegarde** et conservez
+le JSON sur le Mac (idéalement dans un répertoire sauvegardé). Les photos de copies
+restent sur l'appareil, sans transfert cloud. Vérifiez les données avant toute
+désinstallation, remise à zéro ou réimportation.
+
+Références : [Apple — apps web Safari sur Mac](https://support.apple.com/fr-fr/104996)
+et [WebKit — politique de stockage et persistance](https://webkit.org/blog/14403/updates-to-storage-policy/).
