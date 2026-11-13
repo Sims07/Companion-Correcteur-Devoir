@@ -15,7 +15,7 @@ export interface DetectedArrow {
 // Sample the width across a thin leader. A few gaps or intersections are
 // normal in pencil drawings, but both a broadened head and a long shaft
 // must be visible before we supply a direction.
-function hasPencilHead(ink: Uint8Array, tip: number, stride: number, cross: number, longProbe: boolean, touching = false): boolean {
+function hasPencilHead(ink: Uint8Array, tip: number, stride: number, cross: number, longProbe: boolean, touching = false, strict = false): boolean {
   function span(back: number, radius: number) {
     const center = tip - back * stride;
     let left = radius + 1, right = -radius - 1;
@@ -28,7 +28,7 @@ function hasPencilHead(ink: Uint8Array, tip: number, stride: number, cross: numb
     return { left, right, width: Math.max(0, right - left + 1) };
   }
   const tipWidth = span(0, 5).width;
-  if ((touching ? (tipWidth < 7 || tipWidth > 14) : tipWidth > 6) || span(2, 6).width < 2) return false;
+  if ((touching ? (tipWidth < 7 || tipWidth > 14) : tipWidth > (strict ? 4 : 6)) || span(2, 6).width < 2) return false;
   let wideRows = 0;
   for (let back = 3; back <= 9; back++) {
     const row = span(back, 8);
@@ -71,10 +71,10 @@ function hasPencilHead(ink: Uint8Array, tip: number, stride: number, cross: numb
     return slopes.some(slope => hits(14, 54, slope) >= 20 && hits(56, 84, slope) >= 13);
   }
   if (longProbe && slopes.some(slope => hits(-32, -6, slope) >= 12)) return false;
-  if (clearAhead >= 2 && narrowRows >= 8) return true;
-  if (!longProbe || narrowRows < 6) return false;
+  if (clearAhead >= 2 && narrowRows >= (strict ? 10 : 8)) return true;
+  if (!longProbe || narrowRows < (strict ? 8 : 6)) return false;
   for (const slope of slopes) {
-    if (hits(14, 54, slope) >= 20 && hits(-24, -6, slope) <= 6 && hits(56, 84, slope) >= 13) {
+    if (hits(14, 54, slope) >= 20 && hits(-24, -6, slope) <= (strict ? 3 : 6) && hits(56, 84, slope) >= 13) {
       // Look for a broad head over several adjacent rows. An isolated
       // intersection of the shaft with an outline can imitate a triangle.
       if ([4, 5, 6, 7, 8].filter(back => {
@@ -115,10 +115,17 @@ export function detectArrowDirections({ width, height, data }: Pick<ImageData, '
             y + dy * 32 >= 10 && y + dy * 32 < height - 10 &&
             x - dx * 84 >= 12 && x - dx * 84 < width - 12 &&
             y - dy * 84 >= 12 && y - dy * 84 < height - 12;
-          const confirmed = !faintPencil[tip + stride] &&
+          // Preserve the proven original detector as high-confidence. Points
+          // recovered by the softer contrast/shape thresholds remain hints.
+          const strong = pencil[tip] && !pencil[tip + stride] &&
+            hasPencilHead(pencil, tip, stride, cross, longProbe, false, true);
+          const relaxed = !faintPencil[tip + stride] &&
             (hasPencilHead(pencil, tip, stride, cross, longProbe) ||
              hasPencilHead(faintPencil, tip, stride, cross, longProbe));
-          if (confirmed) candidates.push({ x, y, direction, size: 10 });
+          if (strong || relaxed) {
+            candidates.push({ x, y, direction, size: 10,
+              ...(strong ? {} : { tentative: true }) });
+          }
           else if (dy === 0 && longProbe &&
                    hasPencilHead(faintPencil, tip, stride, cross, longProbe, true)) {
             candidates.push({ x, y, direction, size: 23, tentative: true });
