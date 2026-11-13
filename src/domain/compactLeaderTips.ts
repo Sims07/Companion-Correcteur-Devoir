@@ -60,6 +60,10 @@ export function detectCompactLeaderTips(pencil: Uint8Array, width: number, heigh
             left += Number(Boolean(at(back, -2) || at(back, -3) || at(back, -4)));
             right += Number(Boolean(at(back, 2) || at(back, 3) || at(back, 4)));
           }
+          // At the very tip of an open V the mark must still be narrow.
+          // The broad, abrupt edge of a crossed rectangle can otherwise
+          // score higher than the real tip and hide it during deduplication.
+          if (at(1, -3) || at(1, 3) || at(2, -3) || at(2, 3)) continue;
           if (core < 6 || left < 3 || right < 3) continue;
 
           let clearAhead = 0;
