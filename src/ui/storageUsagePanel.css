@@ -38,3 +38,7 @@
 @media (prefers-reduced-motion:reduce) {
  .storage-quota-track > span,.storage-breakdown-track > span { transition:none; }
 }
+
+.storage-persistence-notice { display:flex; flex-direction:column; align-items:flex-start; gap:var(--ds-space-2,8px); }
+.storage-persistence-notice p { margin:0; line-height:1.5; }
+.storage-persistence-notice small { color:var(--ds-color-text-muted); }

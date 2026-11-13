@@ -3,6 +3,7 @@ import type { StorageDiagnosticsService } from '../application/storageDiagnostic
 import { formatStorageBytes, storageOccupancyPercent, type StorageDiagnosticsSnapshot } from '../domain/storageDiagnostics.ts';
 import './storageUsagePanel.css';
 import { BackupRestorePanel } from './BackupRestorePanel.tsx';
+import { requestPersistentStorage } from '../adapters/storage/storagePersistence.ts';
 
 interface Props {
   service?: StorageDiagnosticsService;
@@ -13,6 +14,8 @@ export function StorageUsagePanel({ service, onManageEvaluations }: Props) {
   const [snapshot, setSnapshot] = useState<StorageDiagnosticsSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [protecting, setProtecting] = useState(false);
+  const [protectionMessage, setProtectionMessage] = useState('');
   const refresh = useCallback(async () => {
     if (!service) return;
     setLoading(true);
@@ -31,6 +34,22 @@ export function StorageUsagePanel({ service, onManageEvaluations }: Props) {
   }, [service, refresh]);
   const occupancy = snapshot ? storageOccupancyPercent(snapshot.originUsageBytes, snapshot.originQuotaBytes) : null;
   const storedBytes = useMemo(() => snapshot?.stores.reduce((sum, store) => sum + store.logicalBytes, 0) ?? 0, [snapshot]);
+
+  async function protectStorage() {
+    setProtecting(true);
+    setProtectionMessage('');
+    try {
+      const outcome = await requestPersistentStorage();
+      setProtectionMessage(outcome === 'granted'
+        ? 'Protection accordée pour cette installation. Une sauvegarde externe reste recommandée.'
+        : outcome === 'denied'
+          ? 'Safari ou le navigateur n’a pas accordé la protection. Téléchargez régulièrement une sauvegarde locale.'
+          : 'La demande de protection n’est pas disponible dans ce navigateur. Téléchargez régulièrement une sauvegarde locale.');
+      await refresh();
+    } catch {
+      setProtectionMessage('La demande de protection a échoué. Les archives ne sont pas modifiées ; sauvegardez-les dans un fichier.');
+    } finally { setProtecting(false); }
+  }
 
   function exportInventory() {
     if (!snapshot) return;
@@ -87,12 +106,22 @@ export function StorageUsagePanel({ service, onManageEvaluations }: Props) {
         </div> : <p className="storage-usage-notice">Aucune catégorie mesurée, ou base IndexedDB inaccessible.</p>}
         <p>Les tailles par catégorie sont des <strong>ordres de grandeur calculés sur les valeurs</strong> (chaînes UTF-16). Elles ne doivent pas être additionnées au quota réel, ni confondues avec la taille physique sur disque.</p>
       </div>
+      {snapshot.persistent === false && <div className="storage-usage-notice is-warning storage-persistence-notice">
+        <strong>Stockage non protégé</strong>
+        <p>Le navigateur peut supprimer les évaluations et les copies enregistrées localement en cas de pression sur l’espace disque. Une PWA Safari ajoutée au Dock possède aussi un stockage distinct des onglets Safari.</p>
+        <button type="button" className="secondary-button" disabled={protecting} onClick={() => void protectStorage()}>
+          {protecting ? 'Protection en cours…' : 'Protéger mon stockage'}
+        </button>
+        <small>La protection dépend de Safari et ne remplace jamais une sauvegarde téléchargée.</small>
+      </div>}
+      {snapshot.persistent === null && <p className="storage-usage-notice is-warning">La protection contre l’effacement automatique n’a pas pu être vérifiée. Conservez une sauvegarde externe.</p>}
+      {protectionMessage && <p className="storage-usage-notice" role="status">{protectionMessage}</p>}
       {occupancy !== null && occupancy >= 80 && <p className="storage-usage-notice is-warning" role="status">L’occupation approche du quota annoncé : pensez à vérifier vos archives locales et l’espace disque disponible.</p>}
       {snapshot.warnings.length > 0 && <ul className="storage-usage-warnings">{snapshot.warnings.map((message, index) => <li key={index}>{message}</li>)}</ul>}
       <div className="storage-usage-actions">
         {onManageEvaluations && <button type="button" className="secondary-button" onClick={onManageEvaluations}>Gérer les évaluations enregistrées</button>}
         <button type="button" className="text-button" onClick={exportInventory}>Exporter l’inventaire (sans copies)</button>
-        <span>Aucune donnée n’est effacée automatiquement.</span>
+        <span>L’application ne purge pas ces données ; le navigateur peut toutefois les supprimer.</span>
       </div>
       <small className="storage-usage-updated">Dernière mesure : {new Date(snapshot.measuredAt).toLocaleString('fr-FR')}</small>
     </>}
