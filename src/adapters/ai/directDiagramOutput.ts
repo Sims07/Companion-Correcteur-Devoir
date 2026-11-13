@@ -67,9 +67,9 @@ export interface DirectDiagramPointRepair {
   originalEvidence: string;
 }
 
-export function findSingleInvalidDiagramPoint(
+export function findInvalidDiagramPoints(
   raw: string, criteria: RubricCriterion[],
-): DirectDiagramPointRepair | null {
+): DirectDiagramPointRepair[] | null {
   let parsed: unknown;
   try { parsed = parseModelJson(raw); } catch { return null; }
   if (!record(parsed) || !record(parsed.criteria)) return null;
@@ -98,7 +98,88 @@ export function findSingleInvalidDiagramPoint(
       }
     }
   }
-  return invalid.length === 1 ? invalid[0]! : null;
+  if (!invalid.length) return null;
+  // A targeted repair is safe only if all other fields already form a valid
+  // complete grading response. Do not hide unrelated schema failures.
+  try {
+    const provisional = structuredClone(parsed) as Record<string, unknown>;
+    const provisionalCriteria = provisional.criteria as Record<string, Record<string, unknown>>;
+    for (const issue of invalid) {
+      const criterion = provisionalCriteria[issue.criterionId];
+      const leaf = issue.subcriterionId
+        ? (criterion.subcriteria as Record<string, Record<string, unknown>>)[issue.subcriterionId]
+        : criterion;
+      leaf.points = 0; // Validation only; never used as the actual student's score.
+    }
+    parseDirectDiagramOutput(JSON.stringify(provisional), criteria);
+  } catch { return null; }
+  return invalid;
+}
+
+export function findSingleInvalidDiagramPoint(
+  raw: string, criteria: RubricCriterion[],
+): DirectDiagramPointRepair | null {
+  const issues = findInvalidDiagramPoints(raw, criteria);
+  return issues?.length === 1 ? issues[0]! : null;
+}
+
+/** Safe diagnostic markers encode only rubric IDs, finite point values and
+ * simple types. No model response, evidence, prompt or student data. */
+export function diagramInvalidPointMarkers(issues: DirectDiagramPointRepair[]): string {
+  return issues.slice(0, 20).flatMap(issue => {
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(issue.criterionId)
+      || (issue.subcriterionId && !/^[a-zA-Z0-9_-]{1,64}$/.test(issue.subcriterionId))
+      || !Number.isFinite(issue.maximum) || issue.maximum < 0 || issue.maximum > 10000) return [];
+    const value = issue.originalValue;
+    const received = typeof value === 'number'
+      ? Number.isFinite(value) && Math.abs(value) <= 1000000 ? String(value) : 'out-of-range'
+      : value === null ? 'null' : typeof value;
+    return [`[diagram-point:${issue.criterionId}/${issue.subcriterionId ?? '-'}:${issue.maximum}:${received}]`];
+  }).join(' ');
+}
+
+/** Multiple invalid marks are repaired in one narrowly scoped model call.
+ * The remaining valid marks and their evidence cannot be rewritten. */
+export function directDiagramPointsRepairSchema(issues: DirectDiagramPointRepair[]) {
+  return object({ corrections: object(Object.fromEntries(issues.map((issue, index) => [
+    'item' + (index + 1), object({
+      points: { type: 'number', minimum: 0, maximum: issue.maximum },
+      evidence: { type: 'string' },
+    }),
+  ]))) });
+}
+
+export function applyDirectDiagramPointsRepair(
+  originalRaw: string, repairRaw: string, issues: DirectDiagramPointRepair[],
+  criteria: RubricCriterion[],
+): string {
+  if (issues.length < 2) fail('invalid-shape');
+  let initial: unknown, corrected: unknown;
+  try {
+    initial = parseModelJson(originalRaw);
+    corrected = parseModelJson(repairRaw);
+  } catch { fail('invalid-json'); }
+  if (!record(initial) || !record(initial.criteria) || !record(corrected)) fail('invalid-shape');
+  exactKeys(corrected, ['corrections']);
+  exactKeys(corrected.corrections, issues.map((_, index) => 'item' + (index + 1)));
+  const values = corrected.corrections;
+  const originalCriteria = initial.criteria;
+  for (const [index, issue] of issues.entries()) {
+    const value = values['item' + (index + 1)];
+    exactKeys(value, ['points', 'evidence']);
+    const location = issue.criterionId + (issue.subcriterionId ? '.subcriteria.' + issue.subcriterionId : '') + '.points';
+    const revisedPoints = points(value.points, issue.maximum, location);
+    const revisedEvidence = evidence(value.evidence);
+    const criterion = originalCriteria[issue.criterionId];
+    if (!record(criterion)) fail('invalid-shape');
+    const leaf = issue.subcriterionId
+      ? record(criterion.subcriteria) ? criterion.subcriteria[issue.subcriterionId] : null
+      : criterion;
+    if (!record(leaf)) fail('invalid-shape');
+    leaf.points = revisedPoints;
+    leaf.evidence = revisedEvidence;
+  }
+  return parseDirectDiagramOutput(JSON.stringify(initial), criteria);
 }
 
 export function directDiagramPointRepairSchema(maximum: number) {

@@ -42,3 +42,22 @@ export function buildDirectDiagramPointRepairPrompt(
     `CONSIGNE : ${request.question}`,
   ].join('\n\n');
 }
+
+/** Ask for only the invalid rubric leaves, never a second full grading pass. */
+export function buildDirectDiagramPointsRepairPrompt(
+  request: GradingRequest, issues: DirectDiagramPointRepair[],
+): string {
+  return [
+    'Tu assistes un professeur de biologie. Plusieurs valeurs de points sont invalides dans ta correction précédente.',
+    'Corrige UNIQUEMENT les sous-critères listés ci-dessous après vérification de la même image. Les autres notes ne doivent pas changer.',
+    ...issues.map((issue, index) => {
+      const value = typeof issue.originalValue === 'number' || issue.originalValue === null
+        ? JSON.stringify(issue.originalValue) : typeof issue.originalValue;
+      return `item${index + 1} : ${issue.criterionTitle} / ${issue.subcriterionTitle} (${issue.criterionId}${issue.subcriterionId ? '.subcriteria.' + issue.subcriterionId : ''}.points). Valeur invalide : ${value}. Intervalle : 0 à ${issue.maximum}. Observation initiale à vérifier : ${issue.originalEvidence || 'aucune'}.`;
+    }),
+    'Chaque item doit contenir exactement points (nombre JSON entre 0 et le maximum indiqué) et evidence (observation visuelle courte non vide).',
+    'Critère absent ou incorrect = 0 ; entièrement satisfait = maximum EXACT, jamais une valeur binaire 1 quand le maximum est inférieur à 1. Le partiel exige une preuve visible.',
+    'Réponds uniquement en JSON sous la forme { "corrections": { "item1": { "points": 0, "evidence": "constat" }, "item2": { "points": 0, "evidence": "constat" } } }, avec tous les items demandés et aucun autre.',
+    `CONSIGNE : ${request.question}`,
+  ].join('\n\n');
+}

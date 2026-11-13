@@ -589,6 +589,10 @@ export function ScientificDiagramProtocolPanel({
                             ? ', ' + experiment.diagnostics.generationLimitHits + ' arrêt(s) sur limite' : '')
                           + (experiment.diagnostics.generationBudgetTokens
                             ? ', plafond ' + experiment.diagnostics.generationBudgetTokens + ' tokens/appel' : '')
+                          + (experiment.diagnostics.invalidPoints?.length
+                            ? ' · notes rejetées : ' + experiment.diagnostics.invalidPoints
+                              .map((point) => point.path + ' = ' + String(point.received) + ' (maximum ' + point.maximum + ')').join('; ')
+                            : '')
                         ).join(' · ')}
                     </small>}
                 </td>

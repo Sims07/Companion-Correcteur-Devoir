@@ -173,19 +173,75 @@ describe('compact direct diagram output', () => {
     expect(first.criteria.title.subcriteria.position.points).toBe(1);
   });
 
-  it('uses a full-rubric retry if more than one point is invalid', async () => {
+  it('repairs multiple invalid marks together without a second full-rubric grading', async () => {
     const original = answer();
     original.criteria.title.subcriteria.position.points = 1;
     original.criteria.title.subcriteria.content.points = -1;
     expect(findSingleInvalidDiagramPoint(JSON.stringify(original), criteria)).toBeNull();
     const fetchMock = vi.fn().mockResolvedValueOnce(stream(JSON.stringify(original)))
-      .mockResolvedValueOnce(stream(JSON.stringify(answer())));
+      .mockResolvedValueOnce(stream(JSON.stringify({ corrections: {
+        item1: { points: 0, evidence: 'Titre incorrectement placé' },
+        item2: { points: 0.34, evidence: 'Sujet précis' },
+      } })));
     const result = await createOllamaProvider({ endpoint: 'http://localhost:11434',
       analysisModel: 'qwen3.5:4b', correctionMethod: 'generative' }, fetchMock).generate(request);
-    expect(JSON.parse(result).finalScore).toBe(0.67);
+    expect(JSON.parse(result).criteria[0].subcriteria.map((item: {points: number}) => item.points)).toEqual([0, 0.34]);
+    expect(JSON.parse(result).finalScore).toBe(0.34);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     const repairRequest = JSON.parse(fetchMock.mock.calls[1]![1].body);
-    expect(repairRequest.format.properties.criteria).toBeDefined();
-    expect(repairRequest.messages[0].content).toContain('JSON COMPLET');
+    expect(repairRequest.format.properties.criteria).toBeUndefined();
+    expect(Object.keys(repairRequest.format.properties.corrections.properties)).toEqual(['item1', 'item2']);
+    expect(repairRequest.messages[0].content).toContain('UNIQUEMENT');
+    expect(repairRequest.messages[0].content).toContain('Position');
+    expect(repairRequest.messages[0].images).toEqual(['aW1hZ2U=']);
+  });
+
+  it('never changes valid scores when two other notes need repair', async () => {
+    const rubric = SCIENTIFIC_DIAGRAM_FIXTURE_RUBRIC;
+    const initial = { criteria: Object.fromEntries(rubric.criteria.map((criterion) => [
+      criterion.id, { evidence: 'Observation visuelle', confidence: 'high', questionForTeacher: '',
+        subcriteria: Object.fromEntries(criterion.subcriteria!.map((sub) => [
+          sub.id, { points: sub.id === 'title-horizontal' || sub.id === 'title-centered' ? 1 : 0,
+            evidence: sub.id === 'title-horizontal' ? 'Titre horizontal' : 'Attendu absent' },
+        ])) },
+    ])) };
+    const fetchMock = vi.fn().mockResolvedValueOnce(stream(JSON.stringify(initial)))
+      .mockResolvedValueOnce(stream(JSON.stringify({ corrections: {
+        item1: { points: 0, evidence: 'Pas centré' },
+        item2: { points: 0.33, evidence: 'Titre horizontal lisible' },
+      } })));
+    const result = JSON.parse(await createOllamaProvider({ endpoint: 'http://localhost:11434',
+      analysisModel: 'qwen3.5:4b', correctionMethod: 'generative' }, fetchMock).generate({
+        ...request, rubric: JSON.stringify(rubric),
+      }));
+    const leaves = result.criteria.flatMap((c: {subcriteria: {subcriterionId:string;points:number}[]}) => c.subcriteria);
+    expect(leaves.filter((s: {points:number}) => s.points > 0)).toEqual([
+      { subcriterionId: 'title-horizontal', points: 0.33, evidence: 'Titre horizontal lisible' },
+    ]);
+    expect(result.finalScore).toBe(0.33);
+  });
+
+  it('exports the rejected criterion and value after an unsuccessful targeted repair, without raw errors', async () => {
+    const bad = answer();
+    bad.criteria.title.subcriteria.position.points = 1;
+    const mock = vi.fn().mockResolvedValueOnce(stream(JSON.stringify(bad)))
+      .mockResolvedValueOnce(stream(JSON.stringify({ points: 1, evidence: 'Reste invalide' })));
+    let reportedError = '';
+    try {
+      await createOllamaProvider({ endpoint: 'http://localhost:11434', analysisModel: 'qwen3.5:4b',
+        correctionMethod: 'generative' }, mock).generate(request);
+    } catch (e) {
+      reportedError = String(e instanceof Error ? e.message : e);
+    }
+    const diagnostics = diagramAnalysisDiagnostics({ error: reportedError });
+    expect(diagnostics.invalidPoints).toEqual([{
+      path: 'title.subcriteria.position.points', maximum: 0.66, received: 1,
+    }]);
+    expect(diagnostics.outputFailure).toBe('invalid-points');
+    expect(JSON.stringify(diagnostics)).not.toContain('Reste invalide');
+    expect(diagramAnalysisDiagnostics({
+      error: 'private@example.fr [diagram-point:private@key/position:0.66:1]',
+    }).invalidPoints).toBeUndefined();
   });
 
   it('rejects an attempted patch containing additional scores or empty evidence', () => {

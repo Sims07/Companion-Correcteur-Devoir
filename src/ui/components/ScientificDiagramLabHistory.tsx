@@ -105,6 +105,13 @@ function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
           <img src={fixturePreviews[item.caseId]} alt={'Schéma de référence ' + item.caseId} loading="lazy" />
           <h4>{item.label} · note attendue {item.referenceScore}/10</h4>
         </div>
+        {item.experiments.some((run) => run.diagnostics?.invalidPoints?.length) && <div className="diagram-protocol-diagnostic">
+          <strong>Notes rejetées par le barème</strong>
+          <ul>{item.experiments.flatMap((run, index) => (run.diagnostics?.invalidPoints ?? [])
+            .map((point) => <li key={index + '-' + point.path}>
+              Passage {index + 1} · {point.path} : reçu {String(point.received)}, maximum {point.maximum}
+            </li>))}</ul>
+        </div>}
         {item.summaries.map((summary) => <div key={summary.profileId + summary.method}>
           <h5>{summary.profileName} · {diagramMethodLabels[summary.method]}</h5>
           <div className="pilot-evaluation-table-scroll"><table className="pilot-evaluation-table">
