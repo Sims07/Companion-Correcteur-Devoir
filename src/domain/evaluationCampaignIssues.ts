@@ -99,8 +99,11 @@ export function diagramCampaignIssues(entry: DiagramLabArchiveEntry): string[] {
       if (run.status !== 'success') {
         issues.push(label + ' · ' + status(run.status) + ' · ' +
           cause(run.failureCategory ?? run.errorCategory) + diagnostics(run.diagnostics));
-      } else if (run.scoreStatus === 'invalid-or-incomplete-proposal') {
-        issues.push(label + ' · proposition de notation incomplète' + diagnostics(run.diagnostics));
+      } else if (run.scoreStatus === 'invalid-or-incomplete-proposal' ||
+        run.scoreStatus === 'teacher-review-required') {
+        issues.push(label + (run.scoreStatus === 'teacher-review-required'
+          ? ' · note à vérifier par un enseignant'
+          : ' · proposition de notation incomplète') + diagnostics(run.diagnostics));
       }
     }
   }
