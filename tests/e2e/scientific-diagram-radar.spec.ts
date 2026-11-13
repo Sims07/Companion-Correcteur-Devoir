@@ -100,6 +100,12 @@ test('benchmark radar ranks complete scientific candidates and reveals the origi
   await radar.getByRole('group', { name: 'Axe à examiner' }).getByRole('button', { name: 'Sens des flèches' }).click();
   await expect(radar.getByText('Correspondance sur D/E').first()).toBeVisible();
   await radar.getByRole('button', { name: 'Consulter la campagne' }).first().click();
+  console.log('RADAR_ARCHIVE_NAV_DIAGNOSTIC', await page.evaluate(() => ({
+    workspace: document.querySelector('.diagram-lab-history')?.getAttribute('aria-label') ?? null,
+    labText: document.querySelector('.diagram-lab-history')?.textContent?.slice(0, 1100) ?? null,
+    mainText: document.querySelector('#evaluation-workspace')?.textContent?.slice(0, 700) ?? null,
+    currentNavigation: [...document.querySelectorAll('[aria-current="page"]')].map((element) => element.textContent?.trim()),
+  })));
   await expect(journal.getByRole('group', { name: 'Campagnes enregistrées' }).getByRole('button', { name: /Sens des flèches/ })).toBeVisible();
 
   await page.reload();
