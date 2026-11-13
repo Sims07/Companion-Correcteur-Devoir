@@ -18,13 +18,14 @@ describe('evaluation issue report', () => {
     const report = buildEvaluationIssueReport({
       journey: 'biology', status: 'Résultats partiels', model: 'gemma4:e4b',
       campaignId: 'biology-123', message: 'Aucun résultat exploitable pour cette tentative.',
-      observations: [observation(null), observation(0, { caseId: 'G' })],
+      observations: [observation(null, { decisions: [{ id: 'p4', expected: 1, awarded: null }] }), observation(0, { caseId: 'G' })],
       stats: { successful: 1, total: 2 }, generatedAt: '2026-11-12T10:00:00Z',
     });
     expect(report).toContain('Notes exploitables : 1/2');
     expect(report).toContain('F · réussi · note : absente');
     expect(report).toContain('G · réussi · note : 0/10');
-    expect(report).toContain('Aucun résultat exploitable');
+    expect(report).toContain('Notes partiellement disponibles');
+    expect(report).toContain('indéterminés : p4');
     expect(report).toContain('Campagne : biology-123');
   });
 

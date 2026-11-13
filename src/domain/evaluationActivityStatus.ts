@@ -1,5 +1,5 @@
 export type EvaluationActivityJourney = 'custom' | 'diagrams' | 'biology';
-export type EvaluationActivityStatus = 'running' | 'completed' | 'cancelled' | 'failed';
+export type EvaluationActivityStatus = 'running' | 'completed' | 'partial' | 'cancelled' | 'failed';
 
 export interface EvaluationActivityOutcome {
   journey: EvaluationActivityJourney;
@@ -75,6 +75,14 @@ export function resolveEvaluationActivityOutcome(value: EvaluationActivityOutcom
   const pilotMessageError = value.journey === 'biology' &&
     /^(Erreur|Échec|Gestionnaire|Le benchmark|Ajoutez|Sélectionnez|Essai «.+ interrompu)/i.test(value.pilotMessage)
       ? value.pilotMessage : '';
+  const batch = value.outcome;
+  if (value.journey === 'biology' && !value.pilotMemoryError && !pilotMessageError &&
+      batch && typeof batch === 'object' && 'usable' in batch && typeof batch.usable === 'number' &&
+      'planned' in batch && typeof batch.planned === 'number') {
+    if (batch.usable === 0) return { status: 'failed', error: 'Aucun résultat exploitable pour cette tentative.' };
+    if (batch.usable < batch.planned) return { status: 'partial', error: batch.usable + '/' + batch.planned + ' notes exploitables.' };
+    return { status: 'completed' };
+  }
   const diagramIssue = value.journey === 'diagrams' ? diagramReportIssue(value.outcome) : null;
   const failed = Boolean(value.pilotMemoryError || pilotMessageError || diagramIssue ||
     (value.journey === 'custom' && value.outcome === undefined) ||

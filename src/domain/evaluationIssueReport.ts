@@ -41,7 +41,7 @@ function caseId(value: string): string {
 function status(value: string): string {
   const known: Record<string, string> = {
     success: 'réussi', failed: 'échec', error: 'échec', cancelled: 'interrompu',
-    running: 'en cours', completed: 'terminé', 'Terminée': 'terminée',
+    partial: 'résultats partiels', running: 'en cours', completed: 'terminé', 'Terminée': 'terminée',
     'Incomplète': 'incomplète', 'Résultats partiels': 'résultats partiels',
   };
   return known[value] ?? 'non déterminé';
@@ -82,7 +82,8 @@ export function buildEvaluationIssueReport(input: EvaluationIssueReportInput): s
     'État : ' + status(input.status),
     'Modèle : ' + identifier(input.model),
     'Campagne : ' + simpleId(input.campaignId),
-    'Type de problème : ' + failureCategory(input.message),
+    'Type de problème : ' + (input.journey === 'biology' && (input.status === 'partial' || input.status === 'Résultats partiels')
+      ? 'Notes partiellement disponibles' : failureCategory(input.message)),
   ];
   if (input.stats) {
     lines.push('Résultats exploitables : ' + input.stats.successful + '/' + input.stats.total);
@@ -101,10 +102,12 @@ export function buildEvaluationIssueReport(input: EvaluationIssueReportInput): s
         ? String(observation.score) + '/10' : 'absente';
       const decided = observation.decisions.filter((decision) =>
         typeof decision.awarded === 'number' && Number.isFinite(decision.awarded)).length;
+      const unresolved = observation.decisions.filter((d) => d.awarded === null && /^p(?:[1-9]|10)$/.test(d.id)).map((d) => d.id);
       lines.push('- ' + caseId(observation.caseId) +
         ' · ' + status(observation.status) +
         ' · note : ' + score +
         ' · décisions : ' + decided + '/' + observation.decisions.length +
+        (unresolved.length ? ' · indéterminés : ' + unresolved.join(', ') : '') +
         ' · protocole : ' + identifier(observation.protocol) +
         ' · méthode : ' + identifier(observation.method) +
         ' · modèle : ' + identifier(observation.model));
