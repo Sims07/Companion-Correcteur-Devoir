@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { detectArrowDirections, type DetectedArrow } from '../../domain/arrowDirections.ts';
+import type { DetectedArrow } from '../../domain/arrowDirections.ts';
 import { DIAGRAM_SENSITIVITY_CASE_IDS, scientificDiagramSensitivityPreviewUrl } from '../../domain/scientificDiagramSensitivity.ts';
+import { readArrowPixels } from '../../adapters/image/arrowContext.ts';
 import { Button } from '../design-system/index.ts';
 
 interface Reading {
@@ -10,20 +11,7 @@ interface Reading {
 }
 
 async function readDirections(name: string, url: string): Promise<Reading> {
-  const image = new Image();
-  image.src = url;
-  await image.decode();
-  const scale = Math.min(1, 1100 / Math.max(image.naturalWidth, image.naturalHeight));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Lecture des pixels impossible.');
-  context.fillStyle = 'white';
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
-  const arrows = detectArrowDirections(context.getImageData(0, 0, canvas.width, canvas.height))
-    .sort((a, b) => a.x - b.x || a.y - b.y);
+  const { canvas, context, arrows } = await readArrowPixels(url);
   context.strokeStyle = '#ad235b';
   context.fillStyle = '#ad235b';
   context.lineWidth = 2;

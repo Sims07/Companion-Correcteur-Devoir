@@ -1,4 +1,4 @@
-import type { BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
+import { BLIND_GRAPH_PROMPT_VARIANTS, type BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
 import { isNativeDecisionModel, isVisualDecisionModel } from './systemOneDecision.ts';
 import type { DiagramMethodSelection } from './scientificDiagramProtocol.ts';
 import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarModelConfiguration, type RadarRankedCandidate, type RadarGrouping } from './diagramLabRadar.ts';
@@ -51,8 +51,8 @@ export function planMissingRadarAxis(
   const promptMode = (grouping === 'method' ? variant[1] : null) === 'guided' ? 'guided' : 'standard';
   const graphVariant = (grouping === 'method' ? variant[1] : null) ?? '';
   const graphConfig: BlindGraphPromptVariant =
-    ['baseline', 'isolated-arrows-outside', 'recheck-arrows', 'recheck-contours'].includes(graphVariant)
-      ? graphVariant as BlindGraphPromptVariant : 'baseline';
+    BLIND_GRAPH_PROMPT_VARIANTS.some(value => value === graphVariant)
+      ? graphVariant as BlindGraphPromptVariant : 'pixel-arrows';
   const zoom = methodName === 'blind-graph-zoom';
 
   let protocols: RadarTestProtocol[];
@@ -104,7 +104,7 @@ export function planMissingRadarAxis(
     steps: protocols.map((protocol) => ({
       protocol, repetitions: axis === 'stability' ? 3 : 1,
       method: gradingMethod, promptMode,
-      graphVariant: graphConfig, zoom,
+      graphVariant: protocol === 'graph' ? graphConfig : 'baseline', zoom,
     })),
   };
 }

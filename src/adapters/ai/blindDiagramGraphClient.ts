@@ -1,3 +1,4 @@
+import { arrowContext } from '../image/arrowContext.ts';
 import type { ImageInput } from '../../domain/imageInput.ts';
 import {
   blindVisualObservationPrompt, BLIND_VISUAL_OBSERVATION_SCHEMA,
@@ -124,6 +125,7 @@ export async function extractBlindVisualGraph(
   if (request.signal?.aborted) throw new DOMException('Traitement interrompu.', 'AbortError');
   // A malformed graph is not a judgment: retry once with a targeted format reminder.
   // Transport failures and cancellations are never retried here.
+  const hints = request.promptVariant === 'pixel-arrows' ? await arrowContext([request.image], undefined, request.signal) : '';
   const imageAudit = auditBlindGraphImage(request.image);
   let previousValidationError: string | undefined;
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -143,7 +145,7 @@ export async function extractBlindVisualGraph(
         messages: [
           { role: 'system', content: blindVisualObservationPrompt(request.promptVariant) +
             ((request.zoomUncertainArrows || request.promptVariant === 'recheck-arrows') ? '\n' + BLIND_VISUAL_ZOOM_LOCALIZATION_HINT : '') },
-          { role: 'user', content: instruction, images: [compatible ? `data:${request.image.mimeType};base64,${request.image.base64}` : request.image.base64] },
+          { role: 'user', content: instruction + hints, images: [compatible ? `data:${request.image.mimeType};base64,${request.image.base64}` : request.image.base64] },
         ],
         stream: false, format: (request.zoomUncertainArrows || request.promptVariant === 'recheck-arrows') ? BLIND_VISUAL_OBSERVATION_ZOOM_SCHEMA : BLIND_VISUAL_OBSERVATION_SCHEMA, think: false, keep_alive: 0,
         options: { temperature: 0, num_predict: 768, num_ctx: 2048 },

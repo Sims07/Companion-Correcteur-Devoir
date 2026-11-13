@@ -44,10 +44,10 @@ async function createDiagramAssignment(page: Page, title = 'Mitose · L1') {
   return diagram;
 }
 
-async function addCopies(page: Page, names: string[]) {
+async function addCopies(page: Page, names: string[], buffers: Buffer[] = []) {
   await page.locator('.copy-overview-heading').getByRole('button', { name: /Ajouter des copies/ }).click();
-  await page.locator('#teacher-copy-intake-files').setInputFiles(names.map((name) => ({
-    name, mimeType: 'image/png', buffer: onePixelPng,
+  await page.locator('#teacher-copy-intake-files').setInputFiles(names.map((name, index) => ({
+    name, mimeType: 'image/png', buffer: buffers[index] ?? onePixelPng,
   })));
   await expect(page.locator('.copy-overview-grid .correction-series-card')).toHaveCount(names.length);
 }
@@ -99,12 +99,24 @@ test('a diagram devoir has the normal library, several copies, review rail and l
   await card.getByRole('button', { name: /Reprendre le devoir|Ouvrir le devoir/ }).click();
   await expect(page.getByRole('heading', { name: 'Suivi des copies' })).toBeVisible();
 
-  await addCopies(page, ['étudiant-a.png', 'étudiant-b.png']);
+  const arrowPng = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 200; canvas.height = 100;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = 'white'; ctx.fillRect(0, 0, 200, 100);
+    ctx.fillStyle = 'black'; ctx.fillRect(40, 48, 102, 4);
+    ctx.beginPath(); ctx.moveTo(162, 50); ctx.lineTo(138, 38); ctx.lineTo(138, 62); ctx.fill();
+    return canvas.toDataURL('image/png').split(',')[1]!;
+  });
+  await addCopies(page, ['étudiant-a.png', 'étudiant-b.png'], [Buffer.from(arrowPng, 'base64')]);
   await expect(page.getByRole('button', { name: /En attente/ })).toContainText('2');
   await expect(requests).toHaveLength(0);
   await page.locator('.copy-overview-heading').getByRole('button', { name: /Démarrer les corrections/ }).click();
   await expect(page.locator('.copy-overview-grid .correction-series-card.is-to-review')).toHaveCount(2, { timeout: 30000 });
   expect(requests).toHaveLength(2);
+  const hints = requests.map(payload => String(payload.messages[0].content)).filter(prompt => prompt.includes('Pointes possibles'));
+  expect(hints).toHaveLength(1);
+  expect(hints[0]).toMatch(/page 1, x=\d+ %, y=\d+ %, vers droite/);
   expect(requests.every((payload) => payload.model === 'qwen3.5:4b')).toBe(true);
   expect(requests.every((payload) => payload.messages?.[0]?.images?.length === 1)).toBe(true);
 
