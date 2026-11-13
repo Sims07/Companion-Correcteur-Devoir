@@ -1,5 +1,6 @@
 import { inspectLargeBackup, restoreLargeBackup, type LargeBackupInspection } from './largeBackupStream.ts';
 import type { RestoreMode, RestoreSummary } from './localBackup.ts';
+import { describeLargeBackupFailure, largeBackupStorageEstimate } from './largeBackupError.ts';
 
 type Request =
   | { action: 'inspect'; file: File }
@@ -13,11 +14,6 @@ type Reply =
 
 function post(message: Reply): void {
   (self as unknown as { postMessage: (message: Reply) => void }).postMessage(message);
-}
-
-function safeMessage(cause: unknown): string {
-  if (cause instanceof Error) return cause.message;
-  return 'Erreur inconnue pendant le traitement de la sauvegarde.';
 }
 
 async function handle(request: Request): Promise<void> {
@@ -54,7 +50,11 @@ async function handle(request: Request): Promise<void> {
     }
     post({ kind: 'restored', result, changes });
   } catch (cause) {
-    post({ kind: 'failed', message: safeMessage(cause), partialRecords });
+    const causeName = cause && typeof cause === 'object' && 'name' in cause
+      ? String(cause.name) : '';
+    const quota = ['QuotaExceededError', 'UnknownError'].includes(causeName)
+      ? await largeBackupStorageEstimate() : '';
+    post({ kind: 'failed', message: describeLargeBackupFailure(cause) + quota, partialRecords });
   }
 }
 

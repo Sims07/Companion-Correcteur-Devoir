@@ -6,7 +6,8 @@ import {
 /** A large backup must not be decoded as one string then parsed as one object.
  * Base64-encoded pages can make an exported backup hundreds of megabytes. */
 export const LARGE_BACKUP_THRESHOLD = 16 * 1024 * 1024;
-const MAX_BATCH_CHARS = 8 * 1024 * 1024;
+// Smaller commits lower the memory pressure of 660 MB base64 image archives.
+const MAX_BATCH_CHARS = 2 * 1024 * 1024;
 const DB_NAME = 'companion-correcteur-devoir';
 const BIOLOGY_KEY = 'companion:biology-teacher-radar:v1';
 const STORES = [
@@ -18,6 +19,7 @@ type Store = typeof STORES[number];
 export type LargeBackupInspection = {
   summary: BackupSummary;
   databaseVersion: number;
+  settings?: Record<string, string>;
 };
 type Progress = (percent: number) => void;
 type RecordHandler = (store: Store, record: Record<string, unknown>, approxChars: number) => Promise<void>;
@@ -268,11 +270,31 @@ async function scanBackup(file: Blob, onRecord?: RecordHandler, progress?: Progr
 }
 
 export async function inspectLargeBackup(file: Blob, progress?: Progress): Promise<LargeBackupInspection> {
-  return (await scanBackup(file, undefined, progress)).inspection;
+  const { inspection, settings } = await scanBackup(file, undefined, progress);
+  return { ...inspection, settings };
 }
 
 function blankStores(): LocalBackup['indexedDb']['stores'] {
   return Object.fromEntries(STORES.map((store) => [store, []])) as unknown as LocalBackup['indexedDb']['stores'];
+}
+
+/** Apply small localStorage settings before transferring hundreds of MB of copy photos.
+ * This makes radars and model profiles recoverable even if IndexedDB reaches its quota. */
+export async function restoreInspectedBackupSettings(
+  inspection: LargeBackupInspection, mode: RestoreMode,
+  storage?: Pick<Storage, 'length' | 'key' | 'getItem' | 'setItem' | 'removeItem'>,
+): Promise<RestoreSummary> {
+  if (!inspection.settings) {
+    throw new Error('Les réglages de cette sauvegarde n’ont pas été analysés.');
+  }
+  const backup: LocalBackup = {
+    format: LOCAL_BACKUP_FORMAT,
+    version: LOCAL_BACKUP_VERSION,
+    createdAt: inspection.summary.createdAt,
+    localStorage: inspection.settings,
+    indexedDb: { name: DB_NAME, version: inspection.databaseVersion, stores: blankStores() },
+  };
+  return restoreLocalBackup(backup, mode, storage ?? window.localStorage);
 }
 
 export async function restoreLargeBackup(

@@ -6,7 +6,7 @@ import {
   createLocalBackup, type LocalBackup,
 } from '../../../src/adapters/storage/localBackup.ts';
 import {
-  inspectLargeBackup, restoreLargeBackup,
+  inspectLargeBackup, restoreLargeBackup, restoreInspectedBackupSettings,
 } from '../../../src/adapters/storage/largeBackupStream.ts';
 
 class MemoryStorage {
@@ -80,6 +80,29 @@ describe('streaming backup import for Chromium memory limits', () => {
     // Reimporting the same file must preserve previous records in merge mode.
     const second = await restoreLargeBackup(blob, inspection, 'merge', undefined, settings);
     expect(second.recordsPreserved).toBe(2);
+  }, 60_000);
+
+  it('recovers settings and biology observations before starting large image writes', async () => {
+    const backup = await createLocalBackup(settings);
+    const historyKey = 'companion:biology-teacher-radar:v1';
+    backup.localStorage[historyKey] = JSON.stringify([
+      { id: 'bio-1', model: 'local', caseId: 'A', decisions: [{ awarded: 1 }] },
+    ]);
+    backup.localStorage['companion-correcteur:assignment-title:v1'] = 'Biologie retrouvée';
+    backup.indexedDb.stores['local-corrections'] = [
+      { id: 'copy-after-settings', image: largeImage },
+      { id: 'copy-also-after-settings', image: largeImage },
+    ];
+    const inspection = await inspectLargeBackup(toBlob(backup));
+    expect(inspection.settings?.[historyKey]).toBe(backup.localStorage[historyKey]);
+    // No copy has been written by the scanning pass.
+    expect(await record('copy-after-settings')).toBeUndefined();
+    const recovered = await restoreInspectedBackupSettings(inspection, 'merge', settings);
+    // Settings are available while large images are still untouched.
+    expect(recovered.recordsImported).toBe(0);
+    expect(recovered.settingsImported).toBeGreaterThan(0);
+    expect(settings.getItem(historyKey)).toContain('bio-1');
+    expect(await record('copy-after-settings')).toBeUndefined();
   }, 60_000);
 
   it('rejects malformed large backups before any local data is written', async () => {

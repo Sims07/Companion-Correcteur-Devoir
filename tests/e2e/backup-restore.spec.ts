@@ -300,3 +300,74 @@ test('a browser reload after an interrupted bulk import shows a persistent warni
   await expect(panel.getByRole('alert')).toContainText('interrompue pendant restauration vers 50 %');
   await expect(panel.getByRole('alert')).toContainText('12 enregistrement(s)');
 });
+
+test('Chrome shows a storage error even when IndexedDB reports an empty message and keeps the recovered radar', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
+  await page.getByRole('navigation', { name: 'Navigation principale' })
+    .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+
+  // Simulate the observed 660 MB scenario: the inspection has succeeded and
+  // 78 transactions were committed when Chrome rejects the next image batch.
+  // No private backup file or actual disk exhaustion is needed in CI.
+  await page.evaluate(() => {
+    const radarKey = 'companion:biology-teacher-radar:v1';
+    const settings = {
+      [radarKey]: JSON.stringify([{
+        id: 'restored-biology-observation', model: 'D1', caseId: 'A', decisions: [{ awarded: 1 }],
+      }]),
+      'companion-correcteur:assignment-title:v1': 'Devoir retrouvé',
+    };
+    class MockBackupWorker {
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onerror: ((event: ErrorEvent) => void) | null = null;
+      onmessageerror: ((event: MessageEvent) => void) | null = null;
+      terminate() {}
+      postMessage(request: { action: string }) {
+        setTimeout(() => {
+          if (request.action === 'inspect') {
+            this.onmessage?.({ data: {
+              kind: 'inspected', inspection: {
+                summary: {
+                  createdAt: '2026-11-12T19:00:00.000Z',
+                  recordCount: 494, settingCount: 2, biologyObservationCount: 1,
+                  storeCounts: {
+                    'local-memory': 0, 'local-corrections': 494, 'model-evaluations': 0,
+                    'diagnostic-history': 0, 'diagram-lab-archive': 0,
+                    'background-corrections': 0, 'background-transcriptions': 0,
+                  },
+                }, databaseVersion: 6, settings,
+              },
+            } } as MessageEvent);
+          } else {
+            this.onmessage?.({ data: {
+              kind: 'batch', recordsImported: 78, recordsPreserved: 0, recordsUpdated: 0,
+            } } as MessageEvent);
+            this.onmessage?.({ data: {
+              kind: 'failed',
+              message: 'Stockage Chrome insuffisant (QuotaExceededError).',
+              partialRecords: 78,
+            } } as MessageEvent);
+          }
+        }, 0);
+      }
+    }
+    window.Worker = MockBackupWorker as unknown as typeof Worker;
+  });
+
+  await page.locator('#backup-restore-file').setInputFiles({
+    name: 'sauvegarde-660mo.json', mimeType: 'application/json',
+    buffer: Buffer.alloc(17 * 1024 * 1024),
+  });
+  const panel = page.getByRole('region', { name: 'Occupation du stockage local' });
+  await expect(panel.getByText('sauvegarde-660mo.json')).toBeVisible();
+  await panel.getByRole('button', { name: 'Restaurer la sauvegarde' }).click();
+  await expect(panel.getByText(/QuotaExceededError/)).toBeVisible();
+  await expect(panel.getByText(/78 enregistrement\(s\)/).first()).toBeVisible();
+  await expect(panel.getByText(/réglages et historiques Biologie ont été récupérés/i))
+    .toBeVisible();
+  await expect(panel.getByText(/Restauration terminée/)).toHaveCount(0);
+  expect(await page.evaluate(() =>
+    localStorage.getItem('companion:biology-teacher-radar:v1'))).toContain('restored-biology-observation');
+});
