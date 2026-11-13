@@ -280,7 +280,17 @@ export function diagramAnalysisDiagnostics(
     .find((value) => typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 65536);
   const generated = calls.filter((run) => typeof run.generatedTokens === 'number'
     && Number.isFinite(run.generatedTokens) && run.generatedTokens >= 0);
+  // Only parser-authored, allowlisted markers are exported; raw model
+  // responses and untrusted exception text must not enter reports.
+  const invalidPoints = [...(result.error ?? '').matchAll(
+    /\[diagram-point:([a-zA-Z0-9_-]{1,64})\/([a-zA-Z0-9_-]{1,64}):([0-9]+(?:\.[0-9]+)?):(-?[0-9]+(?:\.[0-9]+)?|null|string|boolean|object|undefined|out-of-range)\]/g,
+  )].slice(0, 20).map((match) => ({
+    path: match[1] + (match[2] === '-' ? '' : '.subcriteria.' + match[2]) + '.points',
+    maximum: Number(match[3]),
+    received: /^-?[0-9]+(?:\.[0-9]+)?$/.test(match[4]!) ? Number(match[4]) : match[4],
+  }));
   return {
+    ...(invalidPoints.length ? { invalidPoints } : {}),
     analysisCalls: calls.length,
     repairCalls: calls.filter((run) => run.promptId === 'grading.full-repair' || run.promptId === 'grading.incremental-repair' || run.promptId === 'diagram.direct-repair').length,
     generationLimitHits: calls.filter((run) => run.doneReason === 'length').length,

@@ -5,8 +5,8 @@ import { MODEL_READINESS_PROBE_PROMPT } from './prompts/modelProbePrompt.ts';
 import { buildArbitrationPrompt, buildArbitrationRepairPrompt, buildIncrementalGradingRepairPrompt, buildGradingRepairPrompt } from './prompts/repairPrompts.ts';
 import { buildSubjectReferencePrompt, buildStudentIdentityFallbackPrompt, buildTeacherAnnotationRepairPrompt, buildRubricPageTranscriptionPrompt } from './prompts/visionPrompts.ts';
 import { buildFullGradingPrompt } from './prompts/fullGradingPrompt.ts';
-import { buildDirectDiagramPrompt, buildDirectDiagramPointRepairPrompt } from './prompts/directDiagramPrompt.ts';
-import { directDiagramSchema, parseDirectDiagramOutput, findSingleInvalidDiagramPoint, directDiagramPointRepairSchema, applyDirectDiagramPointRepair } from './directDiagramOutput.ts';
+import { buildDirectDiagramPrompt, buildDirectDiagramPointRepairPrompt, buildDirectDiagramPointsRepairPrompt } from './prompts/directDiagramPrompt.ts';
+import { directDiagramSchema, parseDirectDiagramOutput, findInvalidDiagramPoints, directDiagramPointRepairSchema, directDiagramPointsRepairSchema, applyDirectDiagramPointRepair, applyDirectDiagramPointsRepair, diagramInvalidPointMarkers } from './directDiagramOutput.ts';
 import { buildTranscriptionPrompt, buildStudentIdentityPrompt, buildTeacherAnnotationPrompt } from './prompts/visionPrompts.ts';
 import { requireCorrectionMethodAvailable } from '../../domain/correctionMethod.ts';
 import { isVisualDecisionModel, prepareSystemOneRubric, scoreSystemOneRubric } from '../../domain/systemOneDecision.ts';
@@ -693,44 +693,51 @@ export function createOllamaProvider(
         if (rubricCriteriaForSchema.length) {
           const schema = directDiagramSchema(rubricCriteriaForSchema);
           let repairReason: string | undefined;
-          let singlePointRepair: {
+          let pointRepair: {
             originalRaw: string;
-            issue: NonNullable<ReturnType<typeof findSingleInvalidDiagramPoint>>;
+            issues: NonNullable<ReturnType<typeof findInvalidDiagramPoints>>;
           } | null = null;
           for (let attempt = 0; attempt < 2; attempt += 1) {
             let doneReason: string | undefined;
-            // A lone out-of-range score can be repaired in isolation. In the
-            // original full-rubric retry, the model could silently regrade all
-            // nineteen decisions, including previously justified zero scores.
-            const targetedRepair = attempt === 1 ? singlePointRepair : null;
-            // Transport errors/abort are not JSON failures: never retry those here.
+            // Only invalid leaves can change; accepted point decisions remain immutable.
+            const targeted = attempt === 1 ? pointRepair : null;
+            const onlyOne = targeted?.issues.length === 1;
             const raw = await sendStream(analysisModel,
-              (targetedRepair
-                ? buildDirectDiagramPointRepairPrompt(request, targetedRepair.issue)
+              (targeted
+                ? onlyOne
+                  ? buildDirectDiagramPointRepairPrompt(request, targeted.issues[0]!)
+                  : buildDirectDiagramPointsRepairPrompt(request, targeted.issues)
                 : buildDirectDiagramPrompt(request, repairReason)) + hints,
               (request.images ?? []).map(providerImage), onChunk,
-              targetedRepair ? directDiagramPointRepairSchema(targetedRepair.issue.maximum) : schema,
+              targeted
+                ? onlyOne
+                  ? directDiagramPointRepairSchema(targeted.issues[0]!.maximum)
+                  : directDiagramPointsRepairSchema(targeted.issues)
+                : schema,
               settings.thinkingLevel ?? settings.thinking ?? false,
               { kind: 'model', stage: 'analysis', temperature: 0,
-                // The extra budget is opt-in: reasoning tokens share the same
-                // num_predict cap with the final answer, even with JSON output.
                 generationTokenLimit: settings.thinking ? 4096 : 2048,
                 promptId: attempt === 0 ? 'diagram.direct-grading' : 'diagram.direct-repair',
                 allowTruncated: true, onDoneReason: reason => { doneReason = reason; },
-                intent: attempt === 0 ? 'Évaluer les attendus du schéma' : 'Réparer les attendus du schéma' });
+                intent: attempt === 0 ? 'Évaluer les attendus du schéma' : 'Réparer uniquement les notes invalides du schéma' });
             try {
               if (doneReason === 'length') throw new Error('Limite de génération atteinte [diagram-output:generation-limit].');
-              return targetedRepair
-                ? applyDirectDiagramPointRepair(targetedRepair.originalRaw, raw, targetedRepair.issue, rubricCriteriaForSchema)
+              return targeted
+                ? onlyOne
+                  ? applyDirectDiagramPointRepair(targeted.originalRaw, raw, targeted.issues[0]!, rubricCriteriaForSchema)
+                  : applyDirectDiagramPointsRepair(targeted.originalRaw, raw, targeted.issues, rubricCriteriaForSchema)
                 : parseDirectDiagramOutput(raw, rubricCriteriaForSchema);
             } catch (cause) {
               if (signal?.aborted) throw cause;
               const reason = cause instanceof Error ? cause.message : 'Sortie schéma invalide.';
-              if (attempt === 1) throw new Error(`Évaluation du schéma inexploitable après réparation : ${reason}`);
+              if (attempt === 1) {
+                const markers = pointRepair ? diagramInvalidPointMarkers(pointRepair.issues) : '';
+                throw new Error(`Évaluation du schéma inexploitable après réparation : ${reason}${markers ? ' ' + markers : ''}`);
+              }
               repairReason = reason;
               if (reason.includes('[diagram-output:invalid-points]')) {
-                const issue = findSingleInvalidDiagramPoint(raw, rubricCriteriaForSchema);
-                if (issue) singlePointRepair = { originalRaw: raw, issue };
+                const issues = findInvalidDiagramPoints(raw, rubricCriteriaForSchema);
+                if (issues) pointRepair = { originalRaw: raw, issues };
               }
             }
           }
