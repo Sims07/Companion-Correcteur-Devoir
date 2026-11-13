@@ -21,7 +21,7 @@ export function detectCompactLeaderTips(pencil: Uint8Array, width: number, heigh
 
   // A direction of -1 means the arrow tip points left; the shaft goes right.
   for (const dx of [-1, 1] as const) {
-    for (let y = 11; y < height - 11; y++) {
+    for (let y = 16; y < height - 16; y++) {
       for (let x = 103; x < width - 103; x++) {
         if (!pencil[y * width + x]) continue;
         const shaftX = -dx;
@@ -60,6 +60,8 @@ export function detectCompactLeaderTips(pencil: Uint8Array, width: number, heigh
             left += Number(Boolean(at(back, -2) || at(back, -3) || at(back, -4)));
             right += Number(Boolean(at(back, 2) || at(back, 3) || at(back, 4)));
           }
+          // A blunt rectangular collision is not a tapered arrowhead.
+          if (at(1, -3) || at(1, 3) || at(2, -3) || at(2, 3)) continue;
           if (core < 6 || left < 3 || right < 3) continue;
 
           let clearAhead = 0;
