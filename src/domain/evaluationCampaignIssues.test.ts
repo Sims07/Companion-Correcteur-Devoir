@@ -52,6 +52,15 @@ describe('targeted campaign issue export', () => {
     expect(finished.every((issue) => issue.includes('non enregistrée'))).toBe(true);
   });
 
+  it('flags a technically successful scientific run that still needs teacher review', () => {
+    const issues = diagramCampaignIssues(archive([
+      { ...good, scoreStatus: 'teacher-review-required' },
+      { ...good, repetition: 2, scoreStatus: 'scored' },
+    ]));
+    expect(issues).toHaveLength(3);
+    expect(issues[0]).toContain('note à vérifier par un enseignant');
+  });
+
   it('reports a finished campaign without any recorded run', () => {
     expect(diagramCampaignIssues(archive([]))).toEqual([
       'Aucun passage enregistré : campagne terminée sans résultat exploitable.',
