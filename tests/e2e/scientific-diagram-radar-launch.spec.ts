@@ -313,7 +313,7 @@ test('qwen-like 6/8 radar targets A/B/C x3 to fill graphics and stability in one
   await radar.getByLabel('Choisir un LLM').selectOption(model);
   await expect(radar.getByText(/2 caractéristique\(s\) à mesurer sur huit/)).toBeVisible();
   await expect(radar.getByText(/1 batterie de test à enchaîner automatiquement · Qualité graphique A\/B\/C · 3 passages/)).toBeVisible();
-  await radar.getByRole('button', { name: 'Évaluer le modèle' }).click();
+  await radar.getByRole('button', { name: 'Compléter les axes manquants' }).click();
   await expect(nav.getByRole('button', { name: 'Tests' })).toHaveAttribute('aria-current', 'page');
   // The compact workspace intentionally hides the radar return note while
   // a long inference is running. Assert the durable navigation and exact

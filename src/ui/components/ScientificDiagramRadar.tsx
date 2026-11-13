@@ -230,12 +230,14 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
         {missingAxes.length > 0 && <>
           <div className="diagram-radar-evaluate">
             <Button disabled={busy || !completePlan || !profileIds.includes(completePlan.profileId)}
-              onClick={() => { if (completePlan) onRunMissing(completePlan); }}>Évaluer le modèle</Button>
+              onClick={() => { if (completePlan) onRunMissing(completePlan); }}>{activeModel.measured ? 'Compléter les axes manquants' : 'Évaluer le modèle'}</Button>
             <p>{completePlan && profileIds.includes(completePlan.profileId)
               ? completePlan.steps.length + ' batterie' + (completePlan.steps.length > 1 ? 's' : '') + ' de test à enchaîner automatiquement · ' +
                 radarPlanDescription(completePlan.steps) + '.'
               : 'Une même configuration doit pouvoir tester ce LLM en Analyse et en Vision pour couvrir les huit caractéristiques.'}
               {' '}Les résultats non exploitables resteront non mesurés.</p>
+            {activeModel.measured > 0 && <p>Les mesures validées restent acquises. Cette action n'enchaîne que les familles de tests nécessaires aux axes absents, sans transformer les échecs en notes nulles.</p>}
+            <p role="status">Axes encore absents : {missingAxes.map((item) => item.label).join(' · ')}.</p>
           </div>
           <details className="diagram-radar-individual-tests">
             <summary>Compléter une caractéristique seulement</summary>
@@ -244,6 +246,7 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
                 const plan = planFor(activeModel, item.id);
                 return <div key={item.id} className="diagram-radar-remaining-item">
                   <button type="button" onClick={() => setAxis(item.id)}>{item.label}</button>
+                  <small>{diagnoseUnmeasuredRadarAxis(entries, activeModel.id, item.id)}</small>
                   {plan && profileIds.includes(plan.profileId)
                     ? <Button variant="secondary" disabled={busy} aria-label={'Lancer le test ' + item.label + ' avec ' + activeModel.name}
                         onClick={() => onRunMissing(plan)}>Lancer</Button>
