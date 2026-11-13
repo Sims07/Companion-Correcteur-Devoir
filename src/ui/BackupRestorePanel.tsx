@@ -4,7 +4,7 @@ import {
   type LocalBackup, type RestoreMode,
 } from '../adapters/storage/localBackup.ts';
 import {
-  LARGE_BACKUP_THRESHOLD, type LargeBackupInspection,
+  LARGE_BACKUP_THRESHOLD, restoreInspectedBackupSettings, type LargeBackupInspection,
 } from '../adapters/storage/largeBackupStream.ts';
 import {
   inspectLargeBackupInWorker, restoreLargeBackupInWorker,
@@ -52,6 +52,7 @@ export function BackupRestorePanel({ onRestored }: Props) {
   const [error, setError] = useState('');
   const [restored, setRestored] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const handledRef = useRef(0);
 
   function progressFor(stageName: Stage): (update: LargeBackupProgress) => void {
     let latestPercent = 0;
@@ -60,7 +61,10 @@ export function BackupRestorePanel({ onRestored }: Props) {
         latestPercent = update.percent;
         setProgress(update.percent);
       }
-      if (update.recordsHandled > 0) setRecordsHandled(update.recordsHandled);
+      if (update.recordsHandled > 0) {
+        handledRef.current = update.recordsHandled;
+        setRecordsHandled(update.recordsHandled);
+      }
       saveStage(stageName, latestPercent, update.recordsHandled);
     };
   }
@@ -98,6 +102,7 @@ export function BackupRestorePanel({ onRestored }: Props) {
     setProgress(null);
     setStage(null);
     setRecordsHandled(0);
+    handledRef.current = 0;
     setInterrupted('');
     clearStage();
     setFileName('');
@@ -138,26 +143,57 @@ export function BackupRestorePanel({ onRestored }: Props) {
     setMessage('');
     setStage('restauration');
     setRecordsHandled(0);
+    handledRef.current = 0;
     setProgress(0);
     saveStage('restauration', 0, 0);
+    let settingsRecovered = false;
+    let settingsResult: Awaited<ReturnType<typeof restoreInspectedBackupSettings>> | null = null;
+    let succeeded = false;
     try {
+      if (largeFile && largeInspection) {
+        // Recover the 16 settings (including biology radar history) independently
+        // of large IndexedDB photo archives and their browser storage limits.
+        settingsResult = await restoreInspectedBackupSettings(largeInspection, mode);
+        settingsRecovered = true;
+        setMessage('Réglages et historiques locaux restaurés. Import des archives en cours…');
+      }
       const result = largeFile && largeInspection
         ? await restoreLargeBackupInWorker(largeFile, largeInspection, mode, progressFor('restauration'))
         : await restoreLocalBackup(selected!, mode);
+      succeeded = true;
       setRestored(true);
       const restoredRecords = mode === 'update'
         ? result.recordsUpdated + ' enregistrement(s) ajouté(s) ou mis à jour'
         : result.recordsImported + ' enregistrement(s) ajouté(s), ' + result.recordsPreserved + ' conflit(s) conservé(s)';
       setMessage(
         'Restauration terminée : ' + restoredRecords + '. '
-        + result.settingsImported + ' réglage(s) importé(s) ou mis à jour, '
-        + result.settingsPreserved + ' réglage(s) déjà présent(s) conservé(s). '
+        + (settingsResult?.settingsImported ?? result.settingsImported) + ' réglage(s) importé(s) ou mis à jour, '
+        + (settingsResult?.settingsPreserved ?? result.settingsPreserved) + ' réglage(s) déjà présent(s) conservé(s). '
         + 'Rechargez l’application pour retrouver vos données.',
       );
       onRestored?.();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Échec de la restauration.');
-    } finally { setWorking(false); setProgress(null); setStage(null); clearStage(); }
+      const explanation = cause instanceof Error && cause.message.trim()
+        ? cause.message : 'La restauration a été interrompue sans explication du navigateur.';
+      setError(explanation);
+      setMessage(
+        (settingsRecovered ? 'Les réglages et historiques Biologie ont été récupérés. ' : '') +
+        (handledRef.current
+          ? handledRef.current + ' enregistrement(s) ont été traités avant l’arrêt. ' : '') +
+        'Les éléments déjà enregistrés sont conservés ; le fichier original n’est pas modifié.',
+      );
+      setInterrupted(
+        'La restauration a échoué. Pour reprendre sans réécrire les enregistrements déjà ' +
+        'présents, laissez la case « Mettre à jour » décochée.',
+      );
+      if (settingsRecovered || handledRef.current > 0) onRestored?.();
+    } finally {
+      setWorking(false);
+      setProgress(null);
+      setStage(null);
+      // Preserve the marker on failure: a later reload can report the interruption.
+      if (succeeded) clearStage();
+    }
   }
 
   const preview = largeInspection?.summary ?? (selected ? summarizeLocalBackup(selected) : null);
@@ -194,6 +230,11 @@ export function BackupRestorePanel({ onRestored }: Props) {
         refais une sauvegarde depuis cette installation avant de réessayer.
       </p>}
       {preview && <p className="backup-restore-guidance">Sur une nouvelle PWA, cochez « Mettre à jour » pour reprendre aussi votre devoir par défaut et vos réglages IA de localhost. Les données absentes du fichier ne seront jamais supprimées.</p>}
+      {largeInspection && <p className="backup-restore-guidance">
+        Sauvegarde volumineuse : les réglages et radars sont restaurés en premier.
+        Pour reprendre un import interrompu, laissez « Mettre à jour » décoché :
+        les enregistrements déjà présents seront conservés sans être réécrits.
+      </p>}
       {preview && <label className="backup-restore-mode">
         <input type="checkbox" checked={mode === 'update'} disabled={working}
           onChange={(event) => setMode(event.target.checked ? 'update' : 'merge')} />
