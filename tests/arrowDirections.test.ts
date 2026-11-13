@@ -61,6 +61,29 @@ describe('thin pencil leaders', () => {
       expect(found[0].direction).toBe(direction);
       expect(Math.hypot(found[0].x - 90, found[0].y - 90)).toBeLessThan(3);
     });
+  it('traces a tilted leader across two outlines and rejects a continuing stroke past the head', () => {
+    const width = 240, tipX = 108, tipY = 64;
+    const data = new Uint8ClampedArray(width * 140 * 4).fill(255);
+    function mark(x: number, y: number) {
+      const pixel = (y * width + x) * 4;
+      data.fill(185, pixel, pixel + 3);
+    }
+    for (let back = 0; back <= 96; back++) {
+      const radius = back < 9 ? Math.floor(back * 0.62) : 0;
+      const y = tipY + Math.round(back * 0.06);
+      for (let side = -radius; side <= radius; side++) mark(tipX + back, y + side);
+    }
+    for (const back of [18, 34]) {
+      for (let side = -9; side <= 9; side++) mark(tipX + back, tipY + side);
+    }
+    const frame = { width, height: 140, data };
+    const found = detectArrowDirections(frame);
+    expect(found).toHaveLength(1);
+    expect(found[0].direction).toBe('gauche');
+    expect(Math.hypot(found[0].x - tipX, found[0].y - tipY)).toBeLessThan(4);
+    for (let ahead = 1; ahead < 40; ahead++) mark(tipX - ahead, tipY - Math.round(ahead * 0.06));
+    expect(detectArrowDirections(frame)).toEqual([]);
+  });
   it('leaves headless pencil lines and detached short marks undecided', () => {
     expect(detectArrowDirections(pencilDrawing(1, 0, false, 72))).toEqual([]);
     expect(detectArrowDirections(pencilDrawing(1, 0, true, 15))).toEqual([]);
