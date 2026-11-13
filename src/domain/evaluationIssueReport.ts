@@ -43,14 +43,14 @@ function caseId(value: string): string {
 function status(value: string): string {
   const known: Record<string, string> = {
     success: 'réussi', failed: 'échec', error: 'échec', cancelled: 'interrompu',
-    partial: 'résultats partiels', running: 'en cours', completed: 'terminé', 'Terminée': 'terminée',
+    partial: 'résultats partiels', running: 'en cours', 'En cours': 'en cours', completed: 'terminé', 'Terminée': 'terminée',
     'Incomplète': 'incomplète', 'Résultats partiels': 'résultats partiels',
   };
   return known[value] ?? 'non déterminé';
 }
 
 /** Never include raw provider errors: they may contain URLs, responses or student content. */
-function failureCategory(message?: string): string {
+export function failureCategory(message?: string): string {
   if (!message) return 'Non précisé';
   if (/aucun résultat exploitable/i.test(message)) return 'Aucun résultat exploitable';
   if (/aucune décision scientifique exploitable/i.test(message)) return 'Aucune décision scientifique exploitable';
