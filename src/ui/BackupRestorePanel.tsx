@@ -4,10 +4,36 @@ import {
   type LocalBackup, type RestoreMode,
 } from '../adapters/storage/localBackup.ts';
 import {
-  LARGE_BACKUP_THRESHOLD, inspectLargeBackup, restoreLargeBackup,
-  type LargeBackupInspection,
+  LARGE_BACKUP_THRESHOLD, type LargeBackupInspection,
 } from '../adapters/storage/largeBackupStream.ts';
+import {
+  inspectLargeBackupInWorker, restoreLargeBackupInWorker,
+  type LargeBackupProgress,
+} from '../adapters/storage/largeBackupWorkerClient.ts';
 import './backupRestorePanel.css';
+
+const IMPORT_MARKER = 'companion:backup-import-in-progress:v1';
+type Stage = 'analyse' | 'restauration';
+function saveStage(stage: Stage, percent: number, records: number): void {
+  try {
+    window.sessionStorage.setItem(IMPORT_MARKER, JSON.stringify({ stage, percent, records }));
+  } catch { /* The import must still run if sessionStorage is unavailable. */ }
+}
+function clearStage(): void {
+  try { window.sessionStorage.removeItem(IMPORT_MARKER); }
+  catch { /* Nonessential diagnostic marker. */ }
+}
+function interruptedImport(): string {
+  try {
+    const value = window.sessionStorage.getItem(IMPORT_MARKER);
+    if (!value) return '';
+    const marker = JSON.parse(value) as { stage: Stage; percent: number; records: number };
+    return 'La tentative précédente a été interrompue pendant ' + marker.stage +
+      ' vers ' + marker.percent + ' %. ' +
+      (marker.records ? marker.records + ' enregistrement(s) pouvaient déjà avoir été restaurés. ' : '') +
+      'Le fichier original reste intact. Vous pouvez réessayer en mode « conserver ».';
+  } catch { return ''; }
+}
 
 type Props = { onRestored?: () => void };
 
@@ -16,6 +42,9 @@ export function BackupRestorePanel({ onRestored }: Props) {
   const [largeFile, setLargeFile] = useState<File | null>(null);
   const [largeInspection, setLargeInspection] = useState<LargeBackupInspection | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
+  const [stage, setStage] = useState<Stage | null>(null);
+  const [recordsHandled, setRecordsHandled] = useState(0);
+  const [interrupted, setInterrupted] = useState(interruptedImport);
   const [fileName, setFileName] = useState('');
   const [mode, setMode] = useState<RestoreMode>('merge');
   const [working, setWorking] = useState(false);
@@ -23,6 +52,18 @@ export function BackupRestorePanel({ onRestored }: Props) {
   const [error, setError] = useState('');
   const [restored, setRestored] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  function progressFor(stageName: Stage): (update: LargeBackupProgress) => void {
+    let latestPercent = 0;
+    return (update) => {
+      if (update.percent >= 0) {
+        latestPercent = update.percent;
+        setProgress(update.percent);
+      }
+      if (update.recordsHandled > 0) setRecordsHandled(update.recordsHandled);
+      saveStage(stageName, latestPercent, update.recordsHandled);
+    };
+  }
 
   async function exportBackup() {
     setWorking(true);
@@ -55,6 +96,10 @@ export function BackupRestorePanel({ onRestored }: Props) {
     setLargeFile(null);
     setLargeInspection(null);
     setProgress(null);
+    setStage(null);
+    setRecordsHandled(0);
+    setInterrupted('');
+    clearStage();
     setFileName('');
     setRestored(false);
     setError('');
@@ -65,9 +110,13 @@ export function BackupRestorePanel({ onRestored }: Props) {
       if (file.size >= LARGE_BACKUP_THRESHOLD) {
         // A 660 MB backup cannot reliably be decoded into a single V8 string.
         // Inspect it progressively, holding no complete backup in memory.
-        const inspection = await inspectLargeBackup(file, setProgress);
+        setStage('analyse');
+        setProgress(0);
+        saveStage('analyse', 0, 0);
+        const inspection = await inspectLargeBackupInWorker(file, progressFor('analyse'));
         setLargeFile(file);
         setLargeInspection(inspection);
+        setMessage('Analyse terminée. Vérifiez le résumé, puis cliquez sur « Restaurer la sauvegarde ».');
       } else {
         const backup = parseLocalBackup(await file.text());
         setSelected(backup);
@@ -76,7 +125,7 @@ export function BackupRestorePanel({ onRestored }: Props) {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Fichier de sauvegarde invalide.');
       if (fileInput.current) fileInput.current.value = '';
-    } finally { setWorking(false); setProgress(null); }
+    } finally { setWorking(false); setProgress(null); setStage(null); clearStage(); }
   }
 
   async function importBackup() {
@@ -87,9 +136,13 @@ export function BackupRestorePanel({ onRestored }: Props) {
     setWorking(true);
     setError('');
     setMessage('');
+    setStage('restauration');
+    setRecordsHandled(0);
+    setProgress(0);
+    saveStage('restauration', 0, 0);
     try {
       const result = largeFile && largeInspection
-        ? await restoreLargeBackup(largeFile, largeInspection, mode, setProgress)
+        ? await restoreLargeBackupInWorker(largeFile, largeInspection, mode, progressFor('restauration'))
         : await restoreLocalBackup(selected!, mode);
       setRestored(true);
       const restoredRecords = mode === 'update'
@@ -104,7 +157,7 @@ export function BackupRestorePanel({ onRestored }: Props) {
       onRestored?.();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Échec de la restauration.');
-    } finally { setWorking(false); setProgress(null); }
+    } finally { setWorking(false); setProgress(null); setStage(null); clearStage(); }
   }
 
   const preview = largeInspection?.summary ?? (selected ? summarizeLocalBackup(selected) : null);
@@ -123,8 +176,12 @@ export function BackupRestorePanel({ onRestored }: Props) {
       <label htmlFor="backup-restore-file"><strong>Restaurer depuis un fichier</strong></label>
       <input id="backup-restore-file" ref={fileInput} type="file" accept=".json,application/json"
         disabled={working} onChange={(event) => void chooseFile(event.target.files?.[0])} />
-      {working && progress !== null && <p role="status">
-        {largeFile || !selected ? 'Analyse progressive du fichier' : 'Restauration'} : {progress} %
+      {interrupted && <p role="alert" className="storage-usage-notice is-warning">{interrupted}</p>}
+      {working && progress !== null && <p role="status" aria-live="polite">
+        {stage === 'analyse' ? 'Analyse du fichier (aucune donnée encore restaurée)' : 'Restauration des données'} :
+        {' '}{progress} %
+        {stage === 'restauration' && recordsHandled > 0
+          ? ' · ' + recordsHandled + ' enregistrement(s) traités' : ''}
       </p>}
       {preview && <div className="backup-restore-preview" role="status">
         <strong>{fileName}</strong>

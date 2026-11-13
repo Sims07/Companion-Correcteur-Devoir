@@ -278,6 +278,7 @@ function blankStores(): LocalBackup['indexedDb']['stores'] {
 export async function restoreLargeBackup(
   file: Blob, inspection: LargeBackupInspection, mode: RestoreMode, progress?: Progress,
   storage?: Pick<Storage, 'length' | 'key' | 'getItem' | 'setItem' | 'removeItem'>,
+  onBatchCommitted?: (total: RestoreSummary) => void,
 ): Promise<RestoreSummary> {
   const targetStorage = storage ?? window.localStorage;
   // Full preflight validation at selection. The second pass retains one small
@@ -299,6 +300,7 @@ export async function restoreLargeBackup(
     total.recordsImported += result.recordsImported;
     total.recordsPreserved += result.recordsPreserved;
     total.recordsUpdated += result.recordsUpdated;
+    onBatchCommitted?.({ ...total });
     stores = blankStores();
     chars = 0;
   };
@@ -308,6 +310,11 @@ export async function restoreLargeBackup(
     if (chars >= MAX_BATCH_CHARS) await flush();
   }, progress);
   await flush();
+  const accounted = mode === 'update' ? total.recordsUpdated : total.recordsImported + total.recordsPreserved;
+  if (accounted !== inspection.summary.recordCount) {
+    throw new Error('Restauration incomplète : ' + accounted + ' sur ' +
+      inspection.summary.recordCount + ' enregistrements. Réessayez sans effacer les données existantes.');
+  }
   const settingsBackup: LocalBackup = {
     format: LOCAL_BACKUP_FORMAT, version: LOCAL_BACKUP_VERSION,
     createdAt: inspection.summary.createdAt, localStorage: parsed.settings,
