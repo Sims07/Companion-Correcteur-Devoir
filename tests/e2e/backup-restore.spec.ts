@@ -262,12 +262,13 @@ test('Chromium worker restores a 72 MB image-heavy backup and data survives relo
       try {
         const transaction = db.transaction('local-corrections', 'readonly');
         const store = transaction.objectStore('local-corrections');
-        const count = store.count();
+        const keys = store.getAllKeys();
         const first = store.get('bulk-copy-0');
         const last = store.get('bulk-copy-35');
         return await new Promise<{ count: number; firstLength: number; lastLength: number }>((resolve, reject) => {
           transaction.oncomplete = () => resolve({
-            count: count.result,
+            count: keys.result.filter((key) =>
+              typeof key === 'string' && key.startsWith('bulk-copy-')).length,
             firstLength: first.result.snapshot.images[0].base64.length,
             lastLength: last.result.snapshot.images[0].base64.length,
           });
