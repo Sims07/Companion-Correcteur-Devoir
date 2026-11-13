@@ -82,10 +82,12 @@ function hasPencilHead(ink: Uint8Array, tip: number, stride: number, cross: numb
 export function detectArrowDirections({ width, height, data }: Pick<ImageData, 'width' | 'height' | 'data'>): DetectedArrow[] {
   const ink = new Uint8Array(width * height);
   const pencil = new Uint8Array(width * height);
+  const faintPencil = new Uint8Array(width * height);
   for (let i = 0; i < ink.length; i++) {
     const p = i * 4;
     const luminance = (data[p] * 3 + data[p + 1] * 6 + data[p + 2]) / 10;
     pencil[i] = (255 - luminance) * data[p + 3] / 255 > 42 ? 1 : 0;
+    faintPencil[i] = (255 - luminance) * data[p + 3] / 255 > 30 ? 1 : 0;
     ink[i] = (255 - luminance) * data[p + 3] / 255 > 92 ? 1 : 0;
   }
   const candidates: (DetectedArrow & { size: number })[] = [];
@@ -154,7 +156,7 @@ export function detectArrowDirections({ width, height, data }: Pick<ImageData, '
       Math.hypot(other.x - candidate.x, other.y - candidate.y) < candidate.size)) distinct.push(candidate);
   }
   const primary: DetectedArrow[] = distinct.map(({ x, y, direction }) => ({ x, y, direction }));
-  const compact = detectCompactLeaderTips(pencil, width, height);
+  const compact = detectCompactLeaderTips(faintPencil, width, height);
   // The strong filled-head detector takes precedence when both methods find
   // the same point. Keep a single circle and preserve original results.
   return [...primary, ...compact.filter(candidate => !primary.some(other =>
