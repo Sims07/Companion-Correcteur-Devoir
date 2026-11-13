@@ -50,7 +50,7 @@ describe('campaign result status and support actions', () => {
       .toContain('Correction par critère v3');
   });
 
-  it('never offers an error report for a campaign still running', () => {
+  it('offers a provisional diagnostic without falsely calling a running campaign failed', () => {
     const entry = {
       id: 'diagram-run', protocol: 'reference', createdAt: '2026-11-12T10:00:00Z',
       title: 'Batterie graphique', state: 'running', experimentCount: 3, successfulCount: 1,
@@ -60,7 +60,8 @@ describe('campaign result status and support actions', () => {
       records={[]} filter={{ domain: 'diagrams' }} onDiagram={() => undefined}
       onCustom={() => undefined} />);
     expect(html).toContain('En cours');
-    expect(html).not.toContain('Partager le diagnostic');
+    expect(html).toContain('Aucun passage encore enregistré');
+    expect(html).toContain('Partager le diagnostic');
   });
 
   it('does not mark an empty archived test as successful', () => {

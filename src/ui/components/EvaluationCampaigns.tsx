@@ -1,5 +1,6 @@
 import { Button } from '../design-system/index.ts';
 import { countedUsableBiologyGrades, buildEvaluationIssueReport } from '../../domain/evaluationIssueReport.ts';
+import { biologyCampaignIssues, customCampaignIssues, diagramCampaignIssues } from '../../domain/evaluationCampaignIssues.ts';
 import { EvaluationIssueButton } from './EvaluationIssueButton.tsx';
 import { useMemo, useState } from 'react';
 import './EvaluationCampaigns.css';
@@ -37,7 +38,9 @@ export function EvaluationCampaigns({
   const [ids, setIds] = useState(filter.ids);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const rows = useMemo(() => {
-    const science = diagrams.map((entry) => ({
+    const science = diagrams.map((entry) => {
+      const issues = diagramCampaignIssues(entry);
+      return {
       id: entry.id,
       domain: 'diagrams' as const,
       date: entry.createdAt,
@@ -46,13 +49,15 @@ export function EvaluationCampaigns({
       status:
         entry.state === 'running'
           ? 'En cours'
-          : entry.experimentCount > 0 && entry.experimentCount === entry.successfulCount
+          : issues.length === 0 && entry.experimentCount > 0 && entry.experimentCount === entry.successfulCount
             ? 'Terminée'
             : 'Incomplète',
       detail: entry.successfulCount + '/' + entry.experimentCount + ' passages réussis',
       observations: [] as BiologyRadarObservation[],
+      issues,
       stats: { successful: entry.successfulCount, total: entry.experimentCount },
-    }));
+    };
+    });
     const groups = new Map<string, BiologyRadarObservation[]>();
     for (const o of biology) {
       const key = o.campaignId ?? o.id;
@@ -72,6 +77,7 @@ export function EvaluationCampaigns({
       status: countedUsableBiologyGrades(observations) === observations.length ? 'Terminée' : 'Résultats partiels',
       detail: countedUsableBiologyGrades(observations) + '/' + observations.length + ' notes exploitables',
       observations,
+      issues: biologyCampaignIssues(observations),
       stats: { successful: countedUsableBiologyGrades(observations), total: observations.length },
     }));
     const coveredDates = new Set(biology.map((o) => o.recordedAt));
@@ -79,7 +85,9 @@ export function EvaluationCampaigns({
       ['pilot-' + PILOT_PROTOCOL_ID, 'pilot-' + QUESTION_CONTRACT_PROTOCOL_ID].includes(record.assignmentId);
     const custom = records
       .filter((r) => !isPilot(r) || !coveredDates.has(r.completedAt))
-      .map((r) => ({
+      .map((r) => {
+        const issues = customCampaignIssues(r);
+        return {
         id: r.id,
         campaign: r.campaignId,
         domain: isPilot(r) ? ('biology' as const) : ('custom' as const),
@@ -96,11 +104,13 @@ export function EvaluationCampaigns({
           ),
         ],
         title: r.assignmentTitle,
-        status: r.results.length > 0 && r.results.every((v) => v.status === 'success') ? 'Terminée' : 'Incomplète',
+        status: r.results.length > 0 && issues.length === 0 ? 'Terminée' : 'Incomplète',
         detail: r.results.length + ' résultat(s)',
         observations: [] as BiologyRadarObservation[],
+        issues,
         stats: { successful: r.results.filter((v) => v.status === 'success').length, total: r.results.length },
-      }));
+      };
+      });
     return [...science, ...bio, ...custom].sort((a, b) => b.date.localeCompare(a.date));
   }, [diagrams, biology, records]);
   const visible = rows.filter(
@@ -188,11 +198,22 @@ export function EvaluationCampaigns({
               <div><strong>{selected.stats.total}</strong><span>Résultats enregistrés</span></div>
             </div>
             <p className="campaign-index-detail-summary">{selected.detail}</p>
-            {(selected.status === 'Incomplète' || selected.status === 'Résultats partiels') && (
-              <EvaluationIssueButton makeReport={() => buildEvaluationIssueReport({
-                journey: selected.domain, status: selected.status, model: selected.models.join(', '),
-                campaignId: selected.id, observations: selected.observations, stats: selected.stats,
-              })} />
+            {(selected.status === 'Incomplète' || selected.status === 'Résultats partiels' || selected.issues.length > 0) && (
+              <div className="campaign-index-issues" aria-label="Anomalies de cette campagne">
+                <strong>{selected.issues.length
+                  ? selected.issues.length + ' passage(s) à signaler'
+                  : 'Campagne incomplète : diagnostic disponible'}</strong>
+                {selected.issues.length > 0 && <ul>
+                  {selected.issues.slice(0, 3).map((issue, index) => <li key={index}>{issue}</li>)}
+                </ul>}
+                {selected.issues.length > 3 && <small>Et {selected.issues.length - 3} autre(s) anomalie(s) dans le rapport.</small>}
+                <p>Partage uniquement des métadonnées de diagnostic, jamais les copies, prompts ou réponses brutes.</p>
+                <EvaluationIssueButton makeReport={() => buildEvaluationIssueReport({
+                  journey: selected.domain, status: selected.status, model: selected.models.join(', '),
+                  campaignId: selected.id, observations: selected.observations, stats: selected.stats,
+                  issues: selected.issues,
+                })} />
+              </div>
             )}
             {selected.observations.length ? (
               <div className="campaign-index-observations">

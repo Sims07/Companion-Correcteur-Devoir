@@ -12,6 +12,8 @@ export interface EvaluationIssueReportInput {
   observations?: readonly ReportObservation[];
   stats?: { successful: number; total: number };
   generatedAt?: string;
+  /** Allowlisted issue descriptions built from archived result metadata, never raw errors. */
+  issues?: readonly string[];
 }
 
 /** Zero is a valid grade; only failed runs and absent/invalid grades are missing. */
@@ -41,14 +43,14 @@ function caseId(value: string): string {
 function status(value: string): string {
   const known: Record<string, string> = {
     success: 'réussi', failed: 'échec', error: 'échec', cancelled: 'interrompu',
-    partial: 'résultats partiels', running: 'en cours', completed: 'terminé', 'Terminée': 'terminée',
+    partial: 'résultats partiels', running: 'en cours', 'En cours': 'en cours', completed: 'terminé', 'Terminée': 'terminée',
     'Incomplète': 'incomplète', 'Résultats partiels': 'résultats partiels',
   };
   return known[value] ?? 'non déterminé';
 }
 
 /** Never include raw provider errors: they may contain URLs, responses or student content. */
-function failureCategory(message?: string): string {
+export function failureCategory(message?: string): string {
   if (!message) return 'Non précisé';
   if (/aucun résultat exploitable/i.test(message)) return 'Aucun résultat exploitable';
   if (/aucune décision scientifique exploitable/i.test(message)) return 'Aucune décision scientifique exploitable';
@@ -112,6 +114,11 @@ export function buildEvaluationIssueReport(input: EvaluationIssueReportInput): s
         ' · méthode : ' + identifier(observation.method) +
         ' · modèle : ' + identifier(observation.model));
     }
+  }
+  if (input.issues?.length) {
+    lines.push('Anomalies ciblées : ' + input.issues.length);
+    for (const issue of input.issues.slice(0, 100)) lines.push('- ' + issue);
+    if (input.issues.length > 100) lines.push('... ' + (input.issues.length - 100) + ' autre(s) anomalie(s) non affichée(s).');
   }
   lines.push('', 'Rapport généré localement. Aucun contenu de copie, identité, réponse, prompt, barème, URL ou erreur brute inclus.');
   return lines.join('\n');
