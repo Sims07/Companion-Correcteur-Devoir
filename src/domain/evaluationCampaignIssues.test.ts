@@ -43,9 +43,13 @@ describe('targeted campaign issue export', () => {
     expect(report).not.toMatch(/PRIVATE ANSWER|student@example|internal\.example|token|https:\/\//);
   });
 
-  it('does not invent missing repetitions for a campaign still running', () => {
-    expect(diagramCampaignIssues(archive([good], 'running'))).toEqual([]);
-    expect(diagramCampaignIssues(archive([good], 'finished'))).toHaveLength(3);
+  it('marks in-progress repetitions as provisional rather than finished failures', () => {
+    const ongoing = diagramCampaignIssues(archive([good], 'running'));
+    expect(ongoing).toHaveLength(3);
+    expect(ongoing.every((issue) => issue.includes('campagne en cours'))).toBe(true);
+    const finished = diagramCampaignIssues(archive([good], 'finished'));
+    expect(finished).toHaveLength(3);
+    expect(finished.every((issue) => issue.includes('non enregistrée'))).toBe(true);
   });
 
   it('reports a finished campaign without any recorded run', () => {
@@ -88,6 +92,7 @@ describe('targeted campaign issue export', () => {
     const issues = customCampaignIssues(record);
     expect(issues).toHaveLength(2);
     expect(issues[0]).toContain('échec');
+    expect(issues[0]).toContain('Échec de traitement');
     expect(issues[1]).toContain('passage non enregistré');
     expect(issues.join(' ')).not.toMatch(/PRIVATE|SECRET|secret\.example/);
   });
