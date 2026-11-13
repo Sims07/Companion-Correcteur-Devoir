@@ -2,11 +2,11 @@ import { EvaluationRadarHome } from './components/EvaluationRadarHome.tsx';
 import { restoredModelId } from './components/ScientificDiagramRadar.tsx';
 import { EvaluationCampaigns, type CampaignFilter } from './components/EvaluationCampaigns.tsx';
 import { EvaluationIssueButton } from './components/EvaluationIssueButton.tsx';
-import { buildEvaluationIssueReport } from '../domain/evaluationIssueReport.ts';
+import { countedUsableBiologyGrades, buildEvaluationIssueReport } from '../domain/evaluationIssueReport.ts';
 import { NotificationCenter } from './components/NotificationCenter.tsx';
 import { pushAppNotification, type AppNotification } from '../domain/appNotifications.ts';
 import { EvaluationJourneyPicker } from './components/EvaluationJourneyPicker.tsx';
-import { resolveEvaluationActivityOutcome } from '../domain/evaluationActivityStatus.ts';
+import { resolveEvaluationActivityOutcome, type EvaluationActivityStatus } from '../domain/evaluationActivityStatus.ts';
 import { awaitOrAbort } from '../domain/awaitOrAbort.ts';
 import { ContractPreparationPanel } from './components/ContractPreparationPanel.tsx';
 import { QuestionContractEditor, QuestionScopePreview } from './components/QuestionContractEditor.tsx';
@@ -65,7 +65,7 @@ import type { TeacherAnnotationReviewCandidate, TeacherAnnotationReviewDecision 
 import { buildLocalDecisionBenchmark } from '../domain/localDecisionBenchmark.ts';
 import { compareVisualDecisions, extractVisualDecisions, summarizeModelEvaluationScores, visualChoiceLabels } from '../domain/visualDecisionEvaluation.ts';
 import { isNativeDecisionModel, isVisualDecisionModel } from '../domain/systemOneDecision.ts';
-import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, summarizePilotResult, isLocalPilotConfiguration, isLocalPilotProfile, isLoopbackPilotEndpoint, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
+import { PILOT_CASES, PILOT_PROTOCOL_ID, PILOT_QUESTION, PILOT_RUBRIC, PILOT_TITLE, buildPilotReport, isLocalPilotConfiguration, isLocalPilotProfile, isLoopbackPilotEndpoint, pilotSelectionIssue, selectPilotProfiles, type PilotCase, type PilotRun } from '../domain/pilotEvaluationProtocol.ts';
 import { PilotEvaluationPanel } from './components/PilotEvaluationPanel.tsx';
 import { BiologyTeacherRadar } from './components/BiologyTeacherRadar.tsx';
 import { describeAiConnectionFailure } from '../domain/aiConnectionDiagnostic.ts';
@@ -122,7 +122,7 @@ type EvaluationActivity = {
   profiles: string;
   campaignId?: string;
   scenario?: 'contracts' | 'repeatability' | 'copies';
-  status: 'running' | 'completed' | 'cancelled' | 'failed';
+  status: EvaluationActivityStatus;
   error?: string;
 };
 
@@ -2153,9 +2153,9 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       setEvaluationActivity((current) => current?.title === activity.title
         ? { ...current, ...result, campaignId: campaignResult } : current);
       pushAppNotification({
-        title: result.status === 'completed' ? 'Test terminé' : result.status === 'cancelled' ? 'Test interrompu' : 'Test en échec',
+        title: result.status === 'completed' ? 'Test terminé' : result.status === 'partial' ? 'Résultats partiels' : result.status === 'cancelled' ? 'Test interrompu' : 'Test en échec',
         message: activity.title + ' · ' + activity.profiles + (result.error ? ' · ' + result.error.slice(0, 180) : ''),
-        kind: result.status === 'completed' ? 'success' : result.status === 'cancelled' ? 'warning' : 'error',
+        kind: result.status === 'completed' ? 'success' : result.status === 'cancelled' || result.status === 'partial' ? 'warning' : 'error',
         target: 'evaluation', journey: activity.journey, targetId: activity.targetId, campaignId: campaignResult,
       });
       return outcome;
@@ -2288,7 +2288,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     pilotMemoryErrorRef.current = null;
     setPilotContractRuns([]);
     setEvaluationBiologyScenario('contracts');
-    let resolvedContractCases = 0;
+    const planned = QUESTION_CONTRACT_CASES.length * 2 * profiles.length;
+    let usable = 0;
     setPilotBusy(true);
     setEvaluationStageMode('analysis');
     setEvaluationVisualDirect(false);
@@ -2305,22 +2306,20 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           });
           if (record) {
             setPilotContractRuns((current) => [...current, { caseId: testCase.id, variant, record }]);
-            if (variant === 'contract') resolvedContractCases += record.results.filter((result) =>
-              result.status === 'success' && result.score !== null &&
-              summarizePilotResult(testCase, result).unresolved === 0).length;
+            usable += countedUsableBiologyGrades(record.results);
           }
           if (pilotStopRef.current || evaluationCancelledRef.current) break;
         }
         if (pilotStopRef.current || evaluationCancelledRef.current) break;
       }
       const complete = !pilotStopRef.current && !evaluationCancelledRef.current &&
-        resolvedContractCases === QUESTION_CONTRACT_CASES.length * profiles.length;
+        usable === planned;
       setPilotMessage(pilotMemoryErrorRef.current ??
         (pilotStopRef.current || evaluationCancelledRef.current
           ? 'Comparaison interrompue : les résultats terminés restent exportables.'
           : complete ? 'Comparaison standard / variante B terminée. Copiez le rapport JSON pour analyser les écarts.'
             : 'Comparaison partielle : des notes ou sous-critères restent indéterminés.'));
-      return complete;
+      return { usable, planned };
     } catch (cause) {
       setPilotMessage('Erreur de comparaison : ' + (cause instanceof Error ? cause.message : String(cause)) +
         '. Les essais terminés restent exportables.');
@@ -2344,7 +2343,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     pilotMemoryErrorRef.current = null;
     setPilotRepeatabilityRuns([]);
     setEvaluationBiologyScenario('repeatability');
-    let resolvedCases = 0;
+    const planned = steps.length * profiles.length;
+    let usable = 0;
     setPilotRepeatabilityPlanned(repetitions);
     setPilotRepeatabilitySuite(suite);
     setPilotRepeatabilityProgress({ completed: 0, total: steps.length });
@@ -2364,21 +2364,19 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         });
         if (record) {
           setPilotRepeatabilityRuns((current) => [...current, { repetition: step.repetition, caseId: step.caseId, record }]);
-          resolvedCases += record.results.filter((result) =>
-            result.status === 'success' && result.score !== null &&
-            summarizePilotResult(testCase, result).unresolved === 0).length;
+          usable += countedUsableBiologyGrades(record.results);
           setPilotRepeatabilityProgress({ completed: index + 1, total: steps.length });
         }
         if (pilotStopRef.current || evaluationCancelledRef.current) break;
       }
       const complete = !pilotStopRef.current && !evaluationCancelledRef.current &&
-        resolvedCases === steps.length * profiles.length;
+        usable === planned;
       setPilotMessage(pilotMemoryErrorRef.current ??
         (pilotStopRef.current || evaluationCancelledRef.current
           ? 'Répétabilité interrompue : les passages terminés restent exportables, sans être présentés comme répétables.'
           : complete ? 'Répétabilité terminée. Comparez les décisions et exportez le rapport JSON pour ChatGPT.'
             : 'Répétabilité partielle : des notes ou sous-critères restent indéterminés.'));
-      return complete;
+      return { usable, planned };
     } catch (cause) {
       setPilotMessage('Erreur de répétabilité : ' + (cause instanceof Error ? cause.message : String(cause)) +
         '. Les passages terminés restent exportables.');
@@ -2801,12 +2799,16 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
       targetId: baseline ? 'evaluation-biology-contract-launch' : 'evaluation-biology-repeatability-launch',
       profiles: profile.name,
     }, async () => {
-      const baselineComplete = !baseline || await runPilotQuestionContractBenchmark([profile]);
+      const comparison = baseline ? await runPilotQuestionContractBenchmark([profile]) : undefined;
       if (pilotStopRef.current || evaluationCancelledRef.current) return 0;
       // Run the stress battery even when A/B/C was only partially resolved.
       // This keeps independently measurable axes available in the radar.
-      const trapsComplete = !traps || await runPilotRepeatabilityBenchmark(3, 'stress', [profile]);
-      return baselineComplete && trapsComplete ? 1 : 0;
+      const stress = traps ? await runPilotRepeatabilityBenchmark(3, 'stress', [profile]) : undefined;
+      return {
+        usable: (comparison?.usable ?? 0) + (stress?.usable ?? 0),
+        planned: (baseline ? QUESTION_CONTRACT_CASES.length * 2 : 0) +
+          (traps ? questionContractRepeatabilitySteps(3, 'stress').length : 0),
+      };
     });
   }
 
@@ -3943,6 +3945,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           <span className="evaluation-activity-state">
             {evaluationActivity.status === 'running' ? 'TEST EN COURS'
               : evaluationActivity.status === 'completed' ? 'TEST TERMINÉ'
+              : evaluationActivity.status === 'partial' ? 'RÉSULTATS PARTIELS'
               : evaluationActivity.status === 'cancelled' ? 'TEST INTERROMPU' : 'TEST EN ÉCHEC'}
           </span>
           <strong>{evaluationActivity.title}</strong>
@@ -3966,7 +3969,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           </button>
           {evaluationActivity.status === 'running' && <Button variant="secondary" onClick={evaluationActivity.journey === 'custom' ? cancelModelEvaluation : stopPilotProtocol}>Arrêter maintenant</Button>}
           {evaluationActivity.status !== 'running' && <button type="button" className="evaluation-activity-dismiss" aria-label="Masquer le bandeau" title="Masquer le bandeau" onClick={() => setEvaluationActivity(null)}>×</button>}
-          {evaluationActivity.status === 'failed' && <EvaluationIssueButton makeReport={() => buildEvaluationIssueReport({
+          {(evaluationActivity.status === 'failed' || evaluationActivity.status === 'partial') && <EvaluationIssueButton makeReport={() => buildEvaluationIssueReport({
             journey: evaluationActivity.journey, status: evaluationActivity.status,
             model: evaluationActivity.profiles, campaignId: evaluationActivity.campaignId,
             message: evaluationActivity.error,

@@ -4,6 +4,11 @@ import { resolveEvaluationActivityOutcome } from '../../src/domain/evaluationAct
 const base = { journey: 'diagrams' as const, interrupted: false, pilotMemoryError: null, pilotMessage: '', outcome: 3 };
 
 describe('evaluation activity status', () => {
+  it.each([[10, 'partial'], [18, 'completed'], [0, 'failed']] as const)('classifies %i usable biology grades out of 18', (usable, status) => {
+    const result = resolveEvaluationActivityOutcome({ ...base, journey: 'biology', outcome: { usable, planned: 18 } });
+    expect(result.status).toBe(status);
+    if (status === 'partial') expect(result.error).toContain('10/18');
+  });
   it('classifies a valid scientific result', () =>
     expect(resolveEvaluationActivityOutcome(base)).toEqual({ status: 'completed' }));
   it('reports an incomplete diagram battery instead of a misleading Test terminé notification', () => {
