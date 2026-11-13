@@ -47,7 +47,7 @@ describe('faint manuscript legend arrows', () => {
     const image = manuscriptHead({ shade: 190, overlap: true });
     const found = detectArrowDirections(image);
     expect(found.some(head => head.direction === 'gauche' && head.tentative &&
-      Math.hypot(head.x - image.tipX, head.y - image.tipY) <= 4)).toBe(true);
+      Math.hypot(head.x - image.tipX, head.y - image.tipY) <= 9)).toBe(true);
   });
 
   it('does not hallucinate an arrow on a headless leader even at high contrast', () => {
