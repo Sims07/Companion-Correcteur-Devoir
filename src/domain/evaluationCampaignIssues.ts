@@ -1,6 +1,7 @@
 import type { BiologyRadarObservation } from './biologyTeacherRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
 import type { ModelEvaluationRecord } from './modelEvaluation.ts';
+import { failureCategory } from './evaluationIssueReport.ts';
 
 /**
  * A compact, allowlisted list of problems to paste into a support conversation.
@@ -106,7 +107,7 @@ export function diagramCampaignIssues(entry: DiagramLabArchiveEntry): string[] {
 
   // An interrupted campaign may have stopped between two repetitions or cases.
   // Infer missing slots ONLY from profiles actually seen in the archived runs.
-  if (entry.state === 'finished' && knownProfiles.size && repetition(report.plannedRepetitions)) {
+  if (knownProfiles.size && repetition(report.plannedRepetitions)) {
     for (const testCase of cases) {
       for (const [key, profile] of knownProfiles) {
         const completed = new Set(testCase.experiments
@@ -119,13 +120,16 @@ export function diagramCampaignIssues(entry: DiagramLabArchiveEntry): string[] {
           if (!completed.has(index)) issues.push(
             (testCase.id === 'essai libre' ? 'Essai libre' : 'Schéma ' + safeCase(testCase.id))
             + ' · répétition ' + index + ' · modèle ' + profile.model
-            + ' · méthode ' + profile.method + ' · non enregistrée');
+            + ' · méthode ' + profile.method + (entry.state === 'running'
+              ? ' · pas encore enregistrée (campagne en cours)' : ' · non enregistrée'));
         }
       }
     }
   }
-  if (!attempts.length && entry.state === 'finished') {
-    issues.push('Aucun passage enregistré : campagne terminée sans résultat exploitable.');
+  if (!attempts.length) {
+    issues.push(entry.state === 'running'
+      ? 'Aucun passage encore enregistré : campagne en cours.'
+      : 'Aucun passage enregistré : campagne terminée sans résultat exploitable.');
   }
   return issues;
 }
@@ -149,7 +153,7 @@ export function customCampaignIssues(record: ModelEvaluationRecord): string[] {
     'Profil ' + safeName(record.configurations.find((c) => c.id === result.profileId)?.name) +
     ' · modèle ' + safeName(record.configurations.find((c) => c.id === result.profileId)?.analysisModel) +
     ' · étape ' + (record.stage === 'vision' ? 'lecture' : record.stage === 'analysis' ? 'analyse' : 'lecture + analyse') +
-    ' · ' + status(result.status));
+    ' · ' + status(result.status) + (result.status === 'failed' ? ' · ' + failureCategory(result.error) : ''));
   for (const configuration of record.configurations) {
     if (!record.results.some((result) => result.profileId === configuration.id)) {
       issues.push('Profil ' + safeName(configuration.name) + ' · modèle ' +
