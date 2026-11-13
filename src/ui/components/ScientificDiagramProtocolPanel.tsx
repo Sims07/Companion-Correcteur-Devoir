@@ -1,3 +1,4 @@
+import { LocalArrowExperiment } from './LocalArrowExperiment.tsx';
 import { downloadJson as downloadScientificDiagramJson } from '../downloadJson.ts';
 import { BlindGraphRunDetails } from './BlindGraphRunDetails.tsx';
 import { useEffect, useRef, useState } from 'react';
@@ -692,6 +693,7 @@ export function ScientificDiagramProtocolPanel({
     </section>}
     {activeProtocol === 'graph' && <section id="evaluation-diagram-graph-launch" className="diagram-protocol-fixtures diagram-sensitivity-section" aria-label="Extraction du graphe de relations">
       <h4>Observer un graphe de relations avant le barème</h4>
+      <LocalArrowExperiment />
       <p>Ce protocole évite d’injecter la réponse scientifique attendue dans la consigne de lecture.</p>
       <p className="pilot-evaluation-hint">Le modèle Vision voit uniquement les PNG et une consigne générique de description : noms dessinés, extrémités/pointe des flèches, inclusion des structures. Il ne reçoit ni la consigne de biologie, ni le barème, ni les trois attendus. Le logiciel compare ensuite le graphe extrait aux références S0–S5. Aucune correction de copie n’est modifiée.</p>
       <div className="diagram-fixture-run-controls">
