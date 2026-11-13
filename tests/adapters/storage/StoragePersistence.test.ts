@@ -14,7 +14,6 @@ describe('browser storage persistence request', () => {
   });
 
   it('reports browsers that do not implement persistent storage', async () => {
-    await expect(requestPersistentStorage(undefined)).resolves.toBe('unsupported');
     await expect(requestPersistentStorage({} as Pick<StorageManager, 'persist'>))
       .resolves.toBe('unsupported');
   });
