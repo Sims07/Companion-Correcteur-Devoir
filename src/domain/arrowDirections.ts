@@ -1,5 +1,3 @@
-import { detectCompactLeaderTips } from './compactLeaderTips.ts';
-
 // Coordinates refer to the raster, with y increasing downwards.
 const orientations = [
   { direction: 'droite', dx: 1, dy: 0 }, { direction: 'gauche', dx: -1, dy: 0 },
@@ -10,14 +8,14 @@ export interface DetectedArrow {
   x: number;
   y: number;
   direction: typeof orientations[number]['direction'];
-  /** A small head touching another ink stroke: check the arrow visually. */
+  /** A tip partially hidden by another scientific stroke. */
   tentative?: boolean;
 }
 
 // Sample the width across a thin leader. A few gaps or intersections are
 // normal in pencil drawings, but both a broadened head and a long shaft
 // must be visible before we supply a direction.
-function hasPencilHead(ink: Uint8Array, tip: number, stride: number, cross: number, longProbe: boolean): boolean {
+function hasPencilHead(ink: Uint8Array, tip: number, stride: number, cross: number, longProbe: boolean, touching = false): boolean {
   function span(back: number, radius: number) {
     const center = tip - back * stride;
     let left = radius + 1, right = -radius - 1;
@@ -30,13 +28,13 @@ function hasPencilHead(ink: Uint8Array, tip: number, stride: number, cross: numb
     return { left, right, width: Math.max(0, right - left + 1) };
   }
   const tipWidth = span(0, 5).width;
-  if (tipWidth > 4 || span(2, 6).width < 2) return false;
+  if ((touching ? (tipWidth < 7 || tipWidth > 14) : tipWidth > 6) || span(2, 6).width < 2) return false;
   let wideRows = 0;
   for (let back = 3; back <= 9; back++) {
     const row = span(back, 8);
     if (row.left <= -2 && row.right >= 2 && row.width >= 6 && row.width <= 14 && ink[tip - back * stride]) wideRows++;
   }
-  if (wideRows < 3 || ![9, 10, 11, 12, 13].some(back => {
+  if (wideRows < (touching ? 4 : 3) || ![9, 10, 11, 12, 13].some(back => {
     const neck = span(back, 6);
     return neck.width >= 1 && neck.width <= 3;
   })) return false;
@@ -60,9 +58,21 @@ function hasPencilHead(ink: Uint8Array, tip: number, stride: number, cross: numb
     return count;
   }
   const slopes = [0, -0.06, 0.06, -0.12, 0.12];
+  if (touching) {
+    // A filled nucleus or wall can cover the leading pixel. To avoid
+    // treating plain intersections as arrowheads, demand a broad obstacle
+    // ahead, an immediately narrowing neck and a long regular shaft.
+    if (!longProbe || narrowRows < 8 ||
+        span(-8, 6).width < 7 || span(-16, 6).width < 7 ||
+        [12, 14, 16, 18, 20].filter(back => {
+          const width = span(back, 6).width;
+          return width >= 1 && width <= 6;
+        }).length < 3) return false;
+    return slopes.some(slope => hits(14, 54, slope) >= 20 && hits(56, 84, slope) >= 13);
+  }
   if (longProbe && slopes.some(slope => hits(-32, -6, slope) >= 12)) return false;
-  if (clearAhead >= 2 && narrowRows >= 10) return true;
-  if (!longProbe || narrowRows < 8) return false;
+  if (clearAhead >= 2 && narrowRows >= 8) return true;
+  if (!longProbe || narrowRows < 6) return false;
   for (const slope of slopes) {
     if (hits(14, 54, slope) >= 20 && hits(-24, -6, slope) <= 3 && hits(56, 84, slope) >= 13) {
       // Look for a broad head over several adjacent rows. An isolated
@@ -97,14 +107,22 @@ export function detectArrowDirections({ width, height, data }: Pick<ImageData, '
     for (let y = 3; y < height - 3; y++) {
       for (let x = 3; x < width - 3; x++) {
         const tip = y * width + x;
-        if (pencil[tip] && !pencil[tip + stride] &&
-            x >= 10 && x < width - 10 && y >= 10 && y < height - 10 &&
-            x - dx * 54 >= 10 && x - dx * 54 < width - 10 &&
-            y - dy * 54 >= 10 && y - dy * 54 < height - 10 &&
-            hasPencilHead(pencil, tip, stride, cross,
-              x + dx * 32 >= 10 && x + dx * 32 < width - 10 && y + dy * 32 >= 10 && y + dy * 32 < height - 10 &&
-              x - dx * 84 >= 12 && x - dx * 84 < width - 12 && y - dy * 84 >= 12 && y - dy * 84 < height - 12)) {
-          candidates.push({ x, y, direction, size: 10 });
+        const inBounds = x >= 10 && x < width - 10 && y >= 10 && y < height - 10 &&
+          x - dx * 54 >= 10 && x - dx * 54 < width - 10 &&
+          y - dy * 54 >= 10 && y - dy * 54 < height - 10;
+        if (pencil[tip] && inBounds) {
+          const longProbe = x + dx * 32 >= 10 && x + dx * 32 < width - 10 &&
+            y + dy * 32 >= 10 && y + dy * 32 < height - 10 &&
+            x - dx * 84 >= 12 && x - dx * 84 < width - 12 &&
+            y - dy * 84 >= 12 && y - dy * 84 < height - 12;
+          const confirmed = !pencil[tip + stride] &&
+            (hasPencilHead(pencil, tip, stride, cross, longProbe) ||
+             hasPencilHead(faintPencil, tip, stride, cross, longProbe));
+          if (confirmed) candidates.push({ x, y, direction, size: 10 });
+          else if (dy === 0 && longProbe &&
+                   hasPencilHead(faintPencil, tip, stride, cross, longProbe, true)) {
+            candidates.push({ x, y, direction, size: 23, tentative: true });
+          }
         }
         if (!ink[tip] || ink[tip + 3 * cross] || ink[tip - 3 * cross]) continue;
         for (const size of [32, 24, 18, 14, 10, 8]) {
@@ -151,15 +169,11 @@ export function detectArrowDirections({ width, height, data }: Pick<ImageData, '
     }
   }
   const distinct: typeof candidates = [];
-  for (const candidate of candidates.sort((a, b) => b.size - a.size)) {
+  for (const candidate of candidates.sort((a, b) =>
+    Number(Boolean(a.tentative)) - Number(Boolean(b.tentative)) || b.size - a.size)) {
     if (!distinct.some(other => other.direction === candidate.direction &&
       Math.hypot(other.x - candidate.x, other.y - candidate.y) < candidate.size)) distinct.push(candidate);
   }
-  const primary: DetectedArrow[] = distinct.map(({ x, y, direction }) => ({ x, y, direction }));
-  const compact = detectCompactLeaderTips(faintPencil, width, height);
-  // The strong filled-head detector takes precedence when both methods find
-  // the same point. Keep a single circle and preserve original results.
-  return [...primary, ...compact.filter(candidate => !primary.some(other =>
-    Math.hypot(other.x - candidate.x, other.y - candidate.y) < 24))
-    .map(({ x, y, direction, tentative }) => ({ x, y, direction, ...(tentative ? { tentative: true } : {}) }))];
+  return distinct.map(({ x, y, direction, tentative }) =>
+    ({ x, y, direction, ...(tentative ? { tentative: true } : {}) }));
 }
