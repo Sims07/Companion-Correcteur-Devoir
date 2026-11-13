@@ -1,19 +1,26 @@
 import { detectArrowDirections, type DetectedArrow } from '../../domain/arrowDirections.ts';
 import type { ImageInput } from '../../domain/imageInput.ts';
 
-export async function readArrowPixels(url: string) {
+export async function readArrowPixels(url: string, clockwiseDegrees = 0) {
   const image = new Image();
   image.src = url;
   await image.decode();
   const scale = Math.min(1, 1100 / Math.max(image.naturalWidth, image.naturalHeight));
   const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const swapAxes = clockwiseDegrees % 180 !== 0;
+  canvas.width = swapAxes ? height : width;
+  canvas.height = swapAxes ? width : height;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Lecture des pixels impossible.');
   context.fillStyle = 'white';
   context.fillRect(0, 0, canvas.width, canvas.height);
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  context.save();
+  context.translate(canvas.width / 2, canvas.height / 2);
+  context.rotate(clockwiseDegrees * Math.PI / 180);
+  context.drawImage(image, -width / 2, -height / 2, width, height);
+  context.restore();
   const arrows = detectArrowDirections(context.getImageData(0, 0, canvas.width, canvas.height))
     .sort((a, b) => a.x - b.x || a.y - b.y);
   return { canvas, context, arrows };

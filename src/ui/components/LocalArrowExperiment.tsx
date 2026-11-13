@@ -10,8 +10,8 @@ interface Reading {
   arrows: DetectedArrow[];
 }
 
-async function readDirections(name: string, url: string): Promise<Reading> {
-  const { canvas, context, arrows } = await readArrowPixels(url);
+async function readDirections(name: string, url: string, degrees = 0): Promise<Reading> {
+  const { canvas, context, arrows } = await readArrowPixels(url, degrees);
   context.strokeStyle = '#ad235b';
   context.fillStyle = '#ad235b';
   context.lineWidth = 2;
@@ -29,19 +29,25 @@ export function LocalArrowExperiment() {
   const [readings, setReadings] = useState<Reading[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  async function run(file?: File) {
+  const [uploaded, setUploaded] = useState<File>();
+  const [rotation, setRotation] = useState(0);
+  async function run(file?: File, degrees = 0) {
     setBusy(true);
     setError('');
-    setReadings([]);
+    if (file !== uploaded || !file) setReadings([]);
     const url = file && URL.createObjectURL(file);
     try {
-      if (file && url) setReadings([await readDirections(file.name, url)]);
+      if (file && url) setReadings([await readDirections(file.name, url, degrees)]);
       else {
         const results: Reading[] = [];
         for (const id of DIAGRAM_SENSITIVITY_CASE_IDS) results.push(await readDirections(id, scientificDiagramSensitivityPreviewUrl(id)));
         setReadings(results);
       }
+      setUploaded(file);
+      setRotation(degrees);
     } catch {
+      setUploaded(undefined);
+      setReadings([]);
       setError('Image illisible. Essaie un fichier PNG ou JPEG.');
     } finally {
       if (url) URL.revokeObjectURL(url);
@@ -57,6 +63,13 @@ export function LocalArrowExperiment() {
       event.currentTarget.value = '';
       if (file) void run(file);
     }} /></label>
+    {uploaded && <div role="group" aria-label="Orientation de l’image importée">
+      <Button variant="secondary" disabled={busy} aria-label="Tourner l’image à gauche de 90 degrés"
+        onClick={() => void run(uploaded, (rotation + 270) % 360)}>↶ 90°</Button>
+      <Button variant="secondary" disabled={busy} aria-label="Tourner l’image à droite de 90 degrés"
+        onClick={() => void run(uploaded, (rotation + 90) % 360)}>↷ 90°</Button>
+      <span> {rotation}°</span>
+    </div>}
     {busy && <p role="status">Lecture des pixels…</p>}
     {error && <p role="alert">{error}</p>}
     <div className="diagram-fixture-grid">
