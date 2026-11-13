@@ -23,6 +23,16 @@ describe('pixel arrow direction', () => {
       expect(result[0].direction).toBe(direction);
       expect(Math.hypot(result[0].x - 45, result[0].y - 45)).toBeLessThan(5);
     });
+  it('rejects isolated ink on either side of a plain leader', () => {
+    const image = raster(1, 0, false, true);
+    for (const [x, dy] of [[36, 2], [33, 4], [31, 5]]) {
+      for (const y of [45 - dy, 45 + dy]) {
+        const offset = (y * image.width + x) * 4;
+        image.data.fill(28, offset, offset + 3);
+      }
+    }
+    expect(detectArrowDirections(image)).toEqual([]);
+  });
   it.each([[true, false], [false, true], [false, false]])('abstains on incomplete geometry', (head, shaft) => {
     expect(detectArrowDirections(raster(1, 0, head, shaft))).toEqual([]);
   });

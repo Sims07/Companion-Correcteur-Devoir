@@ -39,10 +39,22 @@ export function detectArrowDirections({ width, height, data }: Pick<ImageData, '
             ink[tip - Math.round(back * size) * stride + Math.round(side * size) * cross];
           if (![0.25, 0.5, 0.8, 1.1, 1.4, 1.7, 2].every(back => sample(back, 0))) continue;
           const matchesSide = (sign: number) =>
-            sample(0.5, sign * 0.13) && sample(0.8, sign * 0.28) &&
+            sample(0.5, sign * 0.13) && sample(0.65, sign * 0.22) && sample(0.8, sign * 0.28) &&
             !sample(0.25, sign * 0.31) && !sample(0.8, sign * 0.66) &&
             !sample(1.3, sign * 0.28) && !sample(1.7, sign * 0.28);
-          if (matchesSide(-1) && matchesSide(1)) {
+          if (!matchesSide(-1) || !matchesSide(1)) continue;
+          // A chromosome or a thin leader can hit isolated sample points.
+          // Require ink throughout the interior of the proposed triangle.
+          let filled = 0;
+          let sampled = 0;
+          for (let back = 2; back <= size * 0.85; back += 2) {
+            const radius = Math.floor(back * 0.32);
+            for (let side = -radius; side <= radius; side++) {
+              filled += ink[tip - back * stride + side * cross];
+              sampled++;
+            }
+          }
+          if (filled >= sampled * 0.93) {
             candidates.push({ x, y, direction, size });
             break;
           }
