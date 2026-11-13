@@ -1,4 +1,6 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, unlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { openCustomTests } from './helpers/evaluation-models.ts';
 
@@ -207,4 +209,94 @@ test('Chromium imports a large real JSON backup without constructing a whole-fil
   expect(restored).toEqual({
     found: true, size: 17 * 1024 * 1024, title: 'Sauvegarde originale Mac',
   });
+});
+
+test('Chromium worker restores a 72 MB image-heavy backup and data survives reload', async ({ page }) => {
+  test.setTimeout(240_000);
+  const filePath = join(tmpdir(), 'companion-backup-chromium-worker-' + process.pid + '.json');
+  const image = 'A'.repeat(2 * 1024 * 1024);
+  const fileData = JSON.stringify({
+    format: 'companion-correcteur-local-backup',
+    version: 1,
+    createdAt: '2026-11-12T19:00:00.000Z',
+    localStorage: { 'companion-correcteur:bulk-restore-test': 'restored-from-file' },
+    indexedDb: {
+      name: 'companion-correcteur-devoir',
+      version: 6,
+      stores: {
+        'local-memory': [],
+        'local-corrections': Array.from({ length: 36 }, (_, i) => ({
+          id: 'bulk-copy-' + i, snapshot: { images: [{ base64: image }] },
+          updatedAt: '2026-11-12T19:00:00.000Z',
+        })),
+        'model-evaluations': [],
+        'diagnostic-history': [],
+        'diagram-lab-archive': [],
+        'background-corrections': [],
+        'background-transcriptions': [],
+      },
+    },
+  });
+  expect(Buffer.byteLength(fileData)).toBeGreaterThan(70 * 1024 * 1024);
+  try {
+    await writeFile(filePath, fileData);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+    await openCustomTests(page);
+    await page.getByRole('navigation', { name: 'Navigation principale' })
+      .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+    const panel = page.getByRole('region', { name: 'Occupation du stockage local' });
+    await panel.locator('#backup-restore-file').setInputFiles(filePath);
+    await expect(panel.getByText(/Analyse terminée/)).toBeVisible({ timeout: 120_000 });
+    await expect(panel.getByText(/36 enregistrement\(s\)/)).toBeVisible();
+    await panel.getByRole('button', { name: 'Restaurer la sauvegarde' }).click();
+    await expect(panel.getByText(/Restauration terminée : 36 enregistrement/))
+      .toBeVisible({ timeout: 120_000 });
+    await page.reload();
+    const restored = await page.evaluate(async () => {
+      const request = indexedDB.open('companion-correcteur-devoir', 6);
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      try {
+        const transaction = db.transaction('local-corrections', 'readonly');
+        const store = transaction.objectStore('local-corrections');
+        const keys = store.getAllKeys();
+        const first = store.get('bulk-copy-0');
+        const last = store.get('bulk-copy-35');
+        return await new Promise<{ count: number; firstLength: number; lastLength: number }>((resolve, reject) => {
+          transaction.oncomplete = () => resolve({
+            count: keys.result.filter((key) =>
+              typeof key === 'string' && key.startsWith('bulk-copy-')).length,
+            firstLength: first.result.snapshot.images[0].base64.length,
+            lastLength: last.result.snapshot.images[0].base64.length,
+          });
+          transaction.onerror = () => reject(transaction.error);
+        });
+      } finally { db.close(); }
+    });
+    expect(restored).toEqual({
+      count: 36, firstLength: image.length, lastLength: image.length,
+    });
+    expect(await page.evaluate(() =>
+      localStorage.getItem('companion-correcteur:bulk-restore-test'))).toBe('restored-from-file');
+  } finally {
+    await unlink(filePath).catch(() => {});
+  }
+});
+
+test('a browser reload after an interrupted bulk import shows a persistent warning', async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem('companion:backup-import-in-progress:v1',
+      JSON.stringify({ stage: 'restauration', percent: 50, records: 12 }));
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Évaluer les modèles' }).click();
+  await openCustomTests(page);
+  await page.getByRole('navigation', { name: 'Navigation principale' })
+    .getByRole('button', { name: 'Suivi & diagnostic' }).click();
+  const panel = page.getByRole('region', { name: 'Occupation du stockage local' });
+  await expect(panel.getByRole('alert')).toContainText('interrompue pendant restauration vers 50 %');
+  await expect(panel.getByRole('alert')).toContainText('12 enregistrement(s)');
 });
