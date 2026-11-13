@@ -29,7 +29,8 @@ describe('variant B provider boundary', () => {
     expect(payloads).toHaveLength(2);
     payloads.forEach((body, index) => {
       const prompt = JSON.stringify(body.messages);
-      expect(prompt).toContain('Une erreur dans la même phrase affecte un autre attendu uniquement si elle le contredit.');
+      expect(prompt).toContain('SOUS-CRITÈRES : retourne chaque subcriterionId une seule fois, points et evidence.');
+      expect(prompt).not.toContain('Une erreur dans la même phrase');
       expect(body.model).toBe('local');
       expect(prompt).toContain(index === 0 ? 'PREUVE_UNIQUE_A' : 'PREUVE_UNIQUE_B');
       expect(prompt).not.toContain(index === 0 ? 'PREUVE_UNIQUE_B' : 'PREUVE_UNIQUE_A');
