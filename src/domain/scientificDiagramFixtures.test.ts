@@ -317,7 +317,7 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
         layout:'rows' as const,complete:true,
       };
     };
-    const make = (caseId:'D'|'E', swapped:boolean) => {
+    const make = (swapped:boolean) => {
       const base=record();
       return {...base,graphFirst:true,graphVersion:'v2' as const,
         results:[{...base.results[0]!,graphEvidence:{
@@ -326,8 +326,8 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
         }}]};
     };
     const report=buildScientificDiagramFixtureReport([
-      {caseId:'D',repetition:1,record:make('D',false)},
-      {caseId:'E',repetition:1,record:make('E',true)},
+      {caseId:'D',repetition:1,record:make(false)},
+      {caseId:'E',repetition:1,record:make(true)},
     ],1,'2026-11-14');
     expect(report.cases[3]!.experiments[0]!.method).toBe('graph-first-v2');
     expect(report.cases[4]!.experiments[0]!.graphEvidence?.version).toBe('graph-first-v2');
@@ -348,8 +348,8 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
     expect(report.cases[4]!.experiments[0]!.score).toBe(10);
 
     const failure=buildScientificDiagramFixtureReport([
-      {caseId:'D',repetition:1,record:make('D',false)},
-      {caseId:'E',repetition:1,record:make('E',false)},
+      {caseId:'D',repetition:1,record:make(false)},
+      {caseId:'E',repetition:1,record:make(false)},
     ],1,'2026-11-14');
     expect(failure.pairedDiagnostics[0]!.graphV2).toMatchObject({
       status:'missed',controlMatched:6,alteredMatched:2,
