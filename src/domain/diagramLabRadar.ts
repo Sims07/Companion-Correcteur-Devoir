@@ -505,7 +505,7 @@ export function diagnoseGraphRadarMeasurement(
         ? row.caseId + ' : ' + label + ' indécidable' : null;
     if (detail && !blocked.includes(detail)) blocked.push(detail);
   }
-  const prefix = 'Six dessins traités, mais 0/' + (rows.length / 6 * 3) +
+  const prefix = 'Six dessins traités, mais mesure indéterminée : 0/' + (rows.length / 6 * 3) +
     ' mutations comparables. ' + (blocked.length ? blocked.join(' ; ') + '. ' : '');
   return completedSecondReading
     ? { kind: 'exhausted', reportId: entry.id,
