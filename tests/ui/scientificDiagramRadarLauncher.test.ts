@@ -3,7 +3,7 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
 import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS } from '../../src/domain/scientificDiagramSensitivity.ts';
-import { buildBlindVisualObservationReport } from '../../src/domain/scientificDiagramBlindGraph.ts';
+import { buildBlindVisualObservationReport, type BlindVisualObservationRun } from '../../src/domain/scientificDiagramBlindGraph.ts';
 import { summarizeDiagramLabReport } from '../../src/domain/diagramLabHistory.ts';
 import { ScientificDiagramRadar } from '../../src/ui/components/ScientificDiagramRadar.tsx';
 
@@ -45,7 +45,7 @@ describe('one-click radar measurement UI', () => {
     container.remove();
   });
   it('offers a different second graph reading after six completed but inconclusive requests', async () => {
-    const uncertainRuns = runs.map((run) => ({
+    const uncertainRuns: BlindVisualObservationRun[] = runs.map((run) => ({
       ...run,
       observations: {
         ...run.observations,
@@ -55,7 +55,7 @@ describe('one-click radar measurement UI', () => {
         } : {}),
         ...(run.caseId === 'S3' ? { [DIAGRAM_SENSITIVITY_TARGETS.nucleus]: 'uncertain' } : {}),
       },
-    })) as typeof runs;
+    }));
     const first = summarizeDiagramLabReport(
       buildBlindVisualObservationReport(uncertainRuns, 1, '2026-11-14T12:52:32Z'), 'finished');
     const container = document.createElement('div');
