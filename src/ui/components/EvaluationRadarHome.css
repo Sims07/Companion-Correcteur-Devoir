@@ -209,3 +209,4 @@
 .radar-timeline button[aria-pressed=true] { outline: 2px solid currentColor; }
 .radar-timeline table { width: 100%; text-align: left; font-size: .875rem; }
 .radar-timeline p { overflow-wrap: anywhere; }
+.radar-timeline > svg { display: block; width: 100%; max-height: 10rem; color: var(--ds-color-primary, #287a8d); }

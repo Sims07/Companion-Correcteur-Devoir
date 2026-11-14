@@ -126,7 +126,7 @@ export async function extractBlindVisualGraph(
   // A malformed graph is not a judgment: retry once with a targeted format reminder.
   // Transport failures and cancellations are never retried here.
   const hints = request.promptVariant === 'pixel-leaders-v1' ? await arrowContext([request.image], undefined, request.signal, 'leaders-v1')
-    : request.promptVariant === 'pixel-arrows' ? await arrowContext([request.image], undefined, request.signal) : '';
+    : request.promptVariant === 'pixel-arrows' ? await arrowContext([request.image], undefined, request.signal, 'small-tips-v1') : '';
   const imageAudit = auditBlindGraphImage(request.image);
   let previousValidationError: string | undefined;
   for (let attempt = 1; attempt <= 2; attempt++) {
