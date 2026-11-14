@@ -305,6 +305,11 @@ it('keeps four successive scientific methods as four independently selectable ra
   const table = [...node.querySelectorAll<HTMLTableElement>('.method-lab table')]
     .find(candidate => candidate.caption?.textContent === 'Dernier essai de chaque méthode')!;
   expect(table.querySelectorAll('tbody tr')).toHaveLength(4);
+  const gallery = node.querySelectorAll<HTMLButtonElement>('.lab-radar-gallery-card');
+  expect(gallery).toHaveLength(4);
+  expect(node.querySelectorAll('.lab-radar-gallery-card svg[role="img"]')).toHaveLength(4);
+  await act(async () => gallery[3]!.click());
+  expect(gallery[3]!.getAttribute('aria-pressed')).toBe('true');
   for (const method of methods) {
     const { scienceMethods } = await import('../../src/domain/radarTimeline.ts');
     expect(table.textContent).toContain(scienceMethods[method].label);
