@@ -56,8 +56,8 @@ export function EvaluationRadarHome({
   campaigns: (domain: RadarDomain, model: string, ids: string[]) => void;
   runScience: (request: Omit<RadarMissingTestRequest, 'id'>) => void;
   runBiology: (profile: string, baseline: boolean, traps: boolean, variant?: 'standard' | 'contract') => void;
-  runScienceBatch: (requests: Array<Omit<RadarMissingTestRequest, 'id'>>) => void;
-  runBiologyBatch: (profileId: string, methods: BiologyMethod[]) => void;
+  runScienceBatch?: (requests: Array<Omit<RadarMissingTestRequest, 'id'>>) => void;
+  runBiologyBatch?: (profileId: string, methods: BiologyMethod[]) => void;
   initialLab?: RadarDomain | null;
 }) {
   const [weights] = useState(restoredWeights);
@@ -192,12 +192,12 @@ export function EvaluationRadarHome({
       <div className="radar-method-launch-actions">
         <Button disabled={busy || !(scientific ? canLaunchScience(fullPlan) : profile)}
           onClick={() => launchChosen(lab)}>Évaluer avec cette méthode</Button>
-        <Button variant="secondary" disabled={busy || (scientific ? !scienceBatchPlans.length : !missingBiology.length)}
+        <Button variant="secondary" disabled={busy || (scientific ? !runScienceBatch || !scienceBatchPlans.length : !runBiologyBatch || !missingBiology.length)}
           onClick={() => {
-            if (scientific) runScienceBatch(scienceBatchPlans.map(({ method: nextMethod, request }) => ({
+            if (scientific) runScienceBatch?.(scienceBatchPlans.map(({ method: nextMethod, request }) => ({
               ...request, trial: { id: crypto.randomUUID(), method: nextMethod, weights },
             })));
-            else if (profile) runBiologyBatch(profile.id, missingBiology);
+            else if (profile) runBiologyBatch?.(profile.id, missingBiology);
           }}>Évaluer toutes les méthodes restantes ({scientific ? scienceBatchPlans.length : missingBiology.length})</Button>
       </div>
       {scientific && missingScience.length > scienceBatchPlans.length &&
