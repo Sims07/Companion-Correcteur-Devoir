@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ZoomableImage } from './ZoomableImage.tsx';
 import type { DetectedArrow } from '../../domain/arrowDirections.ts';
 import { DIAGRAM_SENSITIVITY_CASE_IDS, scientificDiagramSensitivityPreviewUrl } from '../../domain/scientificDiagramSensitivity.ts';
 import { readArrowPixels } from '../../adapters/image/arrowContext.ts';
@@ -76,7 +77,7 @@ export function LocalArrowExperiment() {
     {error && <p role="alert">{error}</p>}
     <div className="diagram-fixture-grid">
       {readings.map(({ name, preview, arrows }) => <figure className="diagram-fixture-card" key={name}>
-        <img src={preview} alt={'Pointes repérées sur ' + name} />
+        <ZoomableImage src={preview} alt={'Pointes repérées sur ' + name} />
         <figcaption><strong>{name}</strong> — {arrows.map((arrow, index) => (index + 1) + ' vers ' + ({ droite: 'la droite', gauche: 'la gauche', haut: 'le haut', bas: 'le bas' }[arrow.direction]) + (arrow.tentative ? ' (à vérifier)' : '')).join(', ') || 'Aucune pointe détectée'}</figcaption>
       </figure>)}
     </div>
