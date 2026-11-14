@@ -264,3 +264,13 @@
 .trend-key { color:var(--ds-color-text-muted); }
 .trend-selection:not(:empty) { border-top:1px solid var(--ds-color-border-strong); padding-top:1rem; }
 .trend-selection strong { font-size:1.5rem; color:#205b68; }
+.criterion-leaders { margin-top:1.5rem; border-top:1px solid var(--ds-color-border); padding-top:1rem; }
+.criterion-leaders h4 { font-size:1.15rem; margin:0; }
+.criterion-leaders p { margin:.25rem 0 .85rem; color:var(--ds-color-text-muted); }
+.criterion-leaders ul { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr)); list-style:none; padding:0; margin:0; gap:.65rem; }
+.criterion-leaders li { background:var(--ds-color-surface-subtle); border:1px solid var(--ds-color-border); border-radius:.6rem; padding:.8rem 1rem; overflow-wrap:anywhere; }
+.criterion-leader-heading { display:flex; justify-content:space-between; align-items:baseline; gap:.75rem; }
+.criterion-leader-heading h5 { font-size:1rem; margin:0; }
+.criterion-leader-heading strong { color:#205b68; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.criterion-leader-name { margin:.35rem 0; }
+.criterion-leaders small { color:var(--ds-color-text-muted); }
