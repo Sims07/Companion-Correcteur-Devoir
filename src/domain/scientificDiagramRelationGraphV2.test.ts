@@ -68,9 +68,42 @@ describe('graphe de relations scientifiques V2', () => {
     expect(mutate(g => { g.leaders[0]!.tipX=-1; })).toThrow(/incomplètes/);
     expect(mutate(g => { g.leaders[0]!.tipX=1500; })).toThrow(/Coordonnée/);
     expect(mutate(g => { g.leaders[0]!.targetId='unknown'; })).toThrow(/Cible V2/);
-    expect(mutate(g => { g.leaders[0]!.status='uncertain'; })).toThrow(/Cible V2 spéculative/);
+    const speculative = relationGraphExample();
+    speculative.leaders[0] = {labelId:'l1',targetId:'s1',status:'uncertain',tipX:100,tipY:200};
+    const downgraded = parseObservedRelationGraphV2(JSON.stringify(speculative));
+    expect(downgraded.leaders[0]).toMatchObject({status:'uncertain',targetId:'unknown',tipX:-1,tipY:-1});
+    expect(auditRelationGraphV2(downgraded,fixtureRelationExpectationsV2('D')).uncertain).toBe(1);
+    const absent = relationGraphExample();
+    absent.leaders[0] = {labelId:'l1',targetId:'s1',status:'missing',tipX:100,tipY:200};
+    expect(parseObservedRelationGraphV2(JSON.stringify(absent)).leaders[0])
+      .toMatchObject({status:'missing',targetId:'unknown',tipX:-1,tipY:-1});
     expect(() => parseObservedRelationGraphV2('{bad')).toThrow(/JSON/);
     expect(() => parseObservedRelationGraphV2('x'.repeat(24001))).toThrow(/trop long/);
+  });
+
+
+  it('normalise les identifiants numériques et espacés sans inventer de relations', () => {
+    const graph = relationGraphExample();
+    graph.labels[0]!.id = 'label 1';
+    graph.leaders[0]!.labelId = 'label 1';
+    graph.structures[0]!.id = 'structure 1';
+    graph.leaders[0]!.targetId = 'structure 1';
+    const parsed = parseObservedRelationGraphV2(JSON.stringify(graph));
+    expect(parsed.labels[0]!.id).toBe('label_1');
+    expect(parsed.leaders[0]).toMatchObject({labelId:'label_1',targetId:'structure_1'});
+    const raw = JSON.parse(JSON.stringify(relationGraphExample())) as {
+      labels: Array<{id:unknown}>;
+      leaders: Array<{labelId:unknown}>;
+    };
+    raw.labels[0]!.id = 1;
+    raw.leaders[0]!.labelId = 1;
+    expect(parseObservedRelationGraphV2(JSON.stringify(raw)).leaders[0]?.labelId).toBe('1');
+    expect(() => parseObservedRelationGraphV2(JSON.stringify({...graph,
+      labels:[graph.labels[0],{...graph.labels[0]!,id:'label_1'}],
+    }))).toThrow(/dupliqués/);
+    const unsafe = relationGraphExample();
+    unsafe.labels[0]!.id = 'strange/<script>';
+    expect(() => parseObservedRelationGraphV2(JSON.stringify(unsafe))).toThrow(/Identifiant/);
   });
 
   it('évite un faux positif si l’étiquette est dupliquée ou si le graphe n’identifie pas la structure', () => {
