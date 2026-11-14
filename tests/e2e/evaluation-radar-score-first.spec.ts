@@ -49,7 +49,9 @@ test('reopens two dated scores for the same model and selects the older method',
         id: protocol + caseId, campaignId: protocol, profileId: 'q', profile: 'Qwen',
         model: 'qwen:timeline', method: 'generative', provider: 'ollama', protocol, caseId,
         recordedAt: '2026-11-' + (12 + i) + 'T12:00:00Z', status: 'success',
-        referenceScore: 5, score: i ? 3 : 5, decisions: [{id:'a',expected:1,awarded:1},{id:'b',expected:0,awarded:i}],
+        referenceScore: 5, score: i ? 3 : 5, decisions: Array.from({length:10}, (_, n) => ({
+          id:'q'+n, expected:n % 2, awarded:i && n === 0 ? 1 : n % 2,
+        })),
       })));
     localStorage.setItem(key, JSON.stringify(rows));
   }, key);
@@ -60,7 +62,7 @@ test('reopens two dated scores for the same model and selects the older method',
   const bio = home.getByRole('article', {name:'Biologie'});
   await bio.getByRole('button', {name:'Analyse des méthodes'}).click();
   const lab = page.getByRole('region', {name:'Laboratoire des méthodes'});
-  await expect(lab.getByRole('img', {name:'Radars superposés des méthodes sur 100'}).locator('g[data-method]')).toHaveCount(2);
+  await expect(lab.getByRole('img', {name:'Radars superposés des méthodes sur 100'}).locator('g[data-method] polygon')).toHaveCount(2);
   await expect(lab.getByLabel('Méthode A', {exact:true})).not.toHaveValue(await lab.getByLabel('Méthode B', {exact:true}).inputValue());
   await expect(lab.getByRole('img', {name:/Évolution des notes/})).toBeVisible();
   await expect(lab.getByRole('table', {name:'Dernier essai de chaque méthode'}).locator('tbody tr')).toHaveCount(2);
