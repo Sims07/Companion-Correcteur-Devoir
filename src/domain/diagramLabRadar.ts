@@ -440,6 +440,80 @@ export function buildDiagramLabRadar(
 }
 
 
+/** A completed graph battery can be scientifically indeterminate without being an
+ * unfinished test. Keep this distinction explicit and offer a different reading
+ * strategy at most once, never the same six expensive calls on a loop. */
+export interface GraphRadarDiagnostic {
+  kind: 'not-run' | 'measured' | 'retry' | 'exhausted' | 'unusable';
+  message: string;
+  reportId?: string;
+}
+
+export function diagnoseGraphRadarMeasurement(
+  entries: readonly DiagramLabArchiveEntry[], modelId: string,
+): GraphRadarDiagnostic {
+  const sorted = [...entries].filter((entry) =>
+    entry.protocol === 'graph' && entry.state === 'finished' &&
+    entry.report.format === 'companion-scientific-diagram-blind-graph-report')
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  let latest: { entry: DiagramLabArchiveEntry; rows: Reading[] } | null = null;
+  let completedSecondReading = false;
+  for (const entry of sorted) {
+    const modelRows = flatten(entry).filter((run) => run.model.trim() === modelId);
+    for (const profileId of new Set(modelRows.map((run) => run.profileId))) {
+      const complete = completeReadings(
+        modelRows.filter((run) => run.profileId === profileId), 'graph', entry.plannedRepetitions);
+      if (!complete.length) continue;
+      if (complete.some((run) => run.method === 'blind-graph-zoom')) completedSecondReading = true;
+      if (!latest) {
+        // Compare only one homogeneous (method + prompt variant) series.
+        const first = complete[0]!;
+        latest = { entry, rows: complete.filter((run) =>
+          run.method === first.method && run.variant === first.variant) };
+      }
+    }
+  }
+  if (!latest) return { kind: 'not-run', message: 'Aucune batterie de graphe complète enregistrée.' };
+
+  const { entry, rows } = latest;
+  const fractions = sensitivityFractions(rows);
+  if (fractions.mutation.d > 0 && fractions.correct.d > 0) {
+    return { kind: 'measured', message: 'Relations mesurables.', reportId: entry.id };
+  }
+  if (fractions.mutation.d !== 0 || fractions.correct.d === 0) {
+    return { kind: 'unusable',
+      message: 'Batterie terminée, mais preuves insuffisantes pour calculer la note Relations. Consultez la campagne plutôt que de répéter le même test.',
+      reportId: entry.id };
+  }
+
+  const names: Record<string, string> = {
+    [DIAGRAM_SENSITIVITY_TARGETS.transcription]: 'flèche ADN → ARN',
+    [DIAGRAM_SENSITIVITY_TARGETS.translation]: 'flèche ARN → Protéine',
+    [DIAGRAM_SENSITIVITY_TARGETS.nucleus]: 'noyau dans la cellule',
+  };
+  const blocked: string[] = [];
+  const control = new Map(rows.filter((row) => row.caseId === 'S0')
+    .map((row) => [row.repetition, row]));
+  for (const row of rows.filter((run) => ['S1', 'S2', 'S3'].includes(run.caseId))) {
+    const target = DIAGRAM_SENSITIVITY_CASES.find((item) => item.id === row.caseId)?.changedTarget;
+    if (!target) continue;
+    const baseline = control.get(row.repetition)?.observations[target];
+    const observed = row.observations[target];
+    const label = names[target] ?? target;
+    const detail = baseline !== 'present' ? 'S0 : ' + label + ' non confirmée'
+      : observed !== 'present' && observed !== 'absent' && observed !== 'partial'
+        ? row.caseId + ' : ' + label + ' indécidable' : null;
+    if (detail && !blocked.includes(detail)) blocked.push(detail);
+  }
+  const prefix = 'Six dessins traités, mais 0/' + (rows.length / 6 * 3) +
+    ' mutations comparables. ' + (blocked.length ? blocked.join(' ; ') + '. ' : '');
+  return completedSecondReading
+    ? { kind: 'exhausted', reportId: entry.id,
+      message: prefix + 'La seconde lecture ciblée a déjà été effectuée sans lever ce blocage. Aucune relance identique proposée ; choisissez un autre modèle ou consultez la campagne.' }
+    : { kind: 'retry', reportId: entry.id,
+      message: prefix + 'Une seconde lecture ciblée des flèches (zoom si disponible) peut être tentée une seule fois.' };
+}
+
 /** Explain a missing measure from locally archived runs, without inventing
  * a zero or treating a successful network request as a scored decision. */
 export function diagnoseUnmeasuredRadarAxis(
@@ -463,6 +537,11 @@ export function diagnoseUnmeasuredRadarAxis(
       : protocol !== null
         ? 'Aucune campagne ' + diagramLabProtocolLabels[protocol] + ' enregistrée pour ce LLM.'
         : 'Aucune preuve suffisante pour cet axe dans les campagnes enregistrées.';
+  }
+  if (axis === 'relations') {
+    const graphDiagnostic = diagnoseGraphRadarMeasurement(entries, modelId);
+    if (graphDiagnostic.kind === 'retry' || graphDiagnostic.kind === 'exhausted' ||
+      graphDiagnostic.kind === 'unusable') return graphDiagnostic.message;
   }
   const { entry, rows } = relevant;
   const currentProtocol = entry.protocol as Exclude<DiagramLabProtocol, 'personal'>;
