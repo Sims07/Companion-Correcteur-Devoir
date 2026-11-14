@@ -42,6 +42,11 @@ const decisionStates: Record<DiagramDecisionStatus, string> = {
   correct: 'Conforme', incorrect: 'Écart', mixed: 'Résultat variable', unmeasured: 'Non mesuré',
 };
 
+function readableVisualDecision(value: string) {
+  return ({ present: 'Critère respecté', absent: 'Critère non respecté',
+    partial: 'Partiellement respecté', uncertain: 'Incertain' } as Record<string, string>)[value] ?? value;
+}
+
 export function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
   const report = entry.report;
   const [activeCase, setActiveCase] = useState('');
@@ -162,8 +167,8 @@ export function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
                       {item.labelPointerChallenge?.descriptions.join(' ')}
                     </small>}
                   </th>
-                  <td>{decision.reference ?? 'Non renseignée'}</td>
-                  <td>{decision.choices.join(' · ') || 'Aucune décision'}</td>
+                  <td>{decision.reference ? readableVisualDecision(decision.reference) : 'Non renseignée'}</td>
+                  <td>{decision.choices.map(readableVisualDecision).join(' · ') || 'Aucune décision'}</td>
                 </tr>;
               })}</tbody>
             </table></div>
