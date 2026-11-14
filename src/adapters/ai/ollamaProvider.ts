@@ -233,16 +233,43 @@ export async function checkOllamaReady(
   const installed = (tags.models ?? []).some((entry) => expectedNames.has(entry.name?.trim() ?? ''));
   if (!installed) throw new Error(`Le modèle « ${model} » n’est pas installé dans Ollama. Téléchargez-le avec ollama pull ${model}.`);
 
+  // /api/show is metadata-only: it must never hold an entire evaluation hostage.
+  // A separate promise enforces the deadline even when a custom fetch or proxy ignores abort.
+  if (signal?.aborted) throw new DOMException('Traitement interrompu par l’enseignant.', 'AbortError');
+  const showController = new AbortController();
+  let rejectPending!: (error: Error) => void;
+  const stopped = new Promise<never>((_resolve, reject) => { rejectPending = reject; });
+  const relayAbort = () => {
+    showController.abort();
+    rejectPending(new DOMException('Traitement interrompu par l’enseignant.', 'AbortError'));
+  };
+  signal?.addEventListener('abort', relayAbort, { once: true });
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    showController.abort();
+    rejectPending(new Error('Délai de vérification des métadonnées dépassé.'));
+  }, 15_000);
   let showResponse: Response;
   try {
-    showResponse = await fetchImpl(`${endpoint}/api/show`, annotateNetworkRequest({
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model }),
-      ...(signal ? { signal } : {}),
-    }, 'Vérifier la disponibilité du modèle', `Vérification des métadonnées de ${model}`));
+    showResponse = await Promise.race([
+      fetchImpl(`${endpoint}/api/show`, annotateNetworkRequest({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model }),
+        signal: showController.signal,
+      }, 'Vérifier la disponibilité du modèle', `Vérification des métadonnées de ${model}`)),
+      stopped,
+    ]);
   } catch {
+    if (timedOut) {
+      throw new Error(`La vérification des métadonnées du modèle « ${model} » (/api/show) a dépassé 15 secondes. Ollama semble occupé ou bloqué ; vérifiez « ollama ps », puis relancez le test.`);
+    }
+    if (signal?.aborted) throw new DOMException('Traitement interrompu par l’enseignant.', 'AbortError');
     throw new Error(`Le modèle « ${model} » est installé, mais Ollama ne répond pas à /api/show.`);
+  } finally {
+    clearTimeout(timeoutId);
+    signal?.removeEventListener('abort', relayAbort);
   }
   if (!showResponse.ok) throw new Error(`Ollama ne peut pas charger les métadonnées du modèle « ${model} » (HTTP ${showResponse.status}).`);
 }
