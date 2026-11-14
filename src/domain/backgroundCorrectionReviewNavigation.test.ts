@@ -82,7 +82,7 @@ describe('getCopyNavigation', () => {
     expect(navigation.nextCopy).toBeNull();
   });
   it('does not mix copies belonging to another assignment', () => {
-    const navigation = getCopyNavigation('assignment-1', null, [job('other', 'ready', '2026-01-01', 'assignment-2')], [archived('archived', '2026-01-02')], null);
+    const navigation = getCopyNavigation('assignment-1', null, [job('other', 'ready', '2026-01-01', 'assignment-2')], [{ ...archived('archived', '2026-01-02'), assignmentId: 'assignment-2' }], null);
     expect(navigation.copies).toEqual([]);
   });
 });

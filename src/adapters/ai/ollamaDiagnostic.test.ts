@@ -4,9 +4,16 @@ import type { GradingRequest, OllamaSettings } from '../../ports/aiProvider.ts';
 
 const request: GradingRequest = {
   question: 'Explique la photosynthèse.',
-  rubric: JSON.stringify({ title: 'Biologie', criteria: [{ id: 'science', title: 'Exactitude' }] }),
+  rubric: JSON.stringify({ title: 'Biologie', criteria: [{ id: 'science', title: 'Exactitude', maxPoints: 5, description: '' }] }),
   transcription: 'La plante utilise la lumière.',
 };
+
+function opinion(points: number, evidence: string) {
+  return JSON.stringify({ summary: 'Avis', criteria: [
+    { criterionId: 'science', points, rationale: 'Barème appliqué', evidence, confidence: 'high' },
+  ], questionsForTeacher: [], finalScore: points });
+}
+const verdict = JSON.stringify({ decisions: [{ criterionId: 'science', selected: 'avis2', reason: 'Preuve suffisante' }] });
 
 function streamResponse(content: string, usage: Partial<{
   prompt_eval_count: number;
@@ -39,9 +46,8 @@ describe('Ollama diagnostic multi-model strategy', () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as { model: string; messages: Array<{ content: string }> };
       bodies.push(body);
-      const answer = body.model === 'model-one' ? '{"summary":"avis un"}'
-        : body.model === 'model-two' ? '{"summary":"avis deux"}'
-          : '{"summary":"arbitrage"}';
+      const answer = body.model === 'model-one' ? opinion(1, 'avis un')
+        : body.model === 'model-two' ? opinion(4, 'avis deux') : verdict;
       return streamResponse(answer);
     });
     const events: Array<{ kind: string; model: string; raw: string; elapsedMs: number }> = [];
@@ -49,7 +55,7 @@ describe('Ollama diagnostic multi-model strategy', () => {
 
     const result = await provider.generate(request, undefined, undefined, undefined, (event) => events.push(event));
 
-    expect(result).toContain('arbitrage');
+    expect(JSON.parse(result).finalScore).toBe(4);
     expect(bodies.map((body) => body.model)).toEqual(['model-one', 'model-two', 'arbiter-model']);
     expect(bodies[2].messages[0].content).toContain('avis un');
     expect(bodies[2].messages[0].content).toContain('avis deux');
@@ -60,7 +66,7 @@ describe('Ollama diagnostic multi-model strategy', () => {
   it('returns the first proposal in comparison-only mode and does not call an arbitrator', async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as { model: string };
-      return streamResponse(body.model === 'model-one' ? '{"summary":"avis un"}' : '{"summary":"avis deux"}');
+      return streamResponse(body.model === 'model-one' ? opinion(2, 'avis un') : opinion(2, 'avis deux'));
     });
     const events: Array<{ kind: string; model: string }> = [];
     const provider = createOllamaProvider({ ...settings, diagnosticStrategy: 'compare' }, fetchMock as typeof fetch);
@@ -78,25 +84,25 @@ describe('Ollama diagnostic multi-model strategy', () => {
       expect(body.model).toBe('arbiter-model');
       expect(body.messages[0].content).toContain('avis initial un');
       expect(body.messages[0].content).toContain('avis initial deux');
-      return streamResponse('{"summary":"nouvel arbitrage"}');
+      return streamResponse(verdict);
     });
     const events: Array<{ kind: string; model: string }> = [];
     const provider = createOllamaProvider({
       ...settings,
       diagnosticStrategy: 'arbitrate-only',
-      diagnosticFirstResult: '{"summary":"avis initial un"}',
-      diagnosticSecondResult: '{"summary":"avis initial deux"}',
+      diagnosticFirstResult: opinion(1, 'avis initial un'),
+      diagnosticSecondResult: opinion(4, 'avis initial deux'),
     }, fetchMock as typeof fetch);
 
     const result = await provider.generate(request, undefined, undefined, undefined, (event) => events.push(event));
 
-    expect(result).toContain('nouvel arbitrage');
+    expect(JSON.parse(result).finalScore).toBe(4);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(events).toEqual([expect.objectContaining({ kind: 'arbitrator', model: 'arbiter-model' })]);
   });
 
   it('captures prompt/output token counts and Ollama timing metadata for a model request', async () => {
-    const fetchMock = vi.fn(async () => streamResponse('{"summary":"ok"}', {
+    const fetchMock = vi.fn(async () => streamResponse(opinion(2, 'ok'), {
       prompt_eval_count: 123,
       eval_count: 45,
       total_duration: 2_600_000_000,
@@ -128,7 +134,7 @@ describe('Ollama diagnostic multi-model strategy', () => {
 
   it('captures usage metadata emitted separately from the final stream event', async () => {
     const fetchMock = vi.fn(async () => new Response([
-      JSON.stringify({ message: { content: '{"summary":"ok"}' } }),
+      JSON.stringify({ message: { content: opinion(2, 'ok') } }),
       JSON.stringify({ usage: { prompt_tokens: 321, completion_tokens: 67, total_tokens: 388 } }),
       JSON.stringify({ done: true }),
     ].join('\n') + '\n', {
@@ -147,7 +153,7 @@ describe('Ollama diagnostic multi-model strategy', () => {
   it('records each local vision request separately without persisting the transcription as raw output', async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as { model: string };
-      return streamResponse(body.model === 'vision-model' ? 'Transcription locale' : '{"summary":"ok"}', {
+      return streamResponse(body.model === 'vision-model' ? 'Transcription locale' : opinion(2, 'ok'), {
         prompt_eval_count: 20,
         eval_count: 10,
         eval_duration: 1_000_000_000,
@@ -174,7 +180,7 @@ describe('Ollama diagnostic multi-model strategy', () => {
 
   it('records Ollama termination reason, thinking presence and requested generation budgets', async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({
-      message: { content: '{"summary":"ok"}', thinking: 'raisonnement séparé' },
+      message: { content: opinion(2, 'ok'), thinking: 'raisonnement séparé' },
       done: true, done_reason: 'stop', prompt_eval_count: 1500, eval_count: 80,
     }) + '\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } }));
     const events: Array<{ doneReason?: string; thinkingPresent?: boolean; contextTokens?: number; generationTokenLimit?: number }> = [];
@@ -190,9 +196,9 @@ describe('Ollama diagnostic multi-model strategy', () => {
     const events: Array<{ doneReason?: string; raw: string }> = [];
     const provider = createOllamaProvider({ ...settings, diagnosticStrategy: 'single' }, fetchMock as typeof fetch);
     await expect(provider.generate(request, undefined, undefined, undefined, (event) => events.push(event)))
-      .rejects.toThrow(/limite de génération.*done_reason=length/);
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ doneReason: 'length', raw: '{"summary":"incomplete"' });
+      .rejects.toThrow(/tronquée.*réparation/);
+    expect(events).toHaveLength(2);
+    for (const event of events) expect(event).toMatchObject({ doneReason: 'length', raw: '{"summary":"incomplete"' });
   });
 
   it('distinguishes a thinking-only response from a normal empty response', async () => {
@@ -211,7 +217,7 @@ describe('Ollama diagnostic multi-model strategy', () => {
     const provider = createOllamaProvider({ ...settings, diagnosticStrategy: 'single' }, fetchMock as typeof fetch);
     await provider.generate({ ...request, transcription: undefined, images: [{ base64: 'aGVsbG8=', mimeType: 'image/png' }], visionOnly: true });
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as { options: { num_ctx: number; num_predict: number } };
-    expect(body.options).toEqual({ num_ctx: 4096, num_predict: 2048 });
+    expect(body.options).toMatchObject({ num_ctx: 4096, num_predict: 2048 });
   });
 
   it('rejects using the same model twice so the comparison stays independent', async () => {

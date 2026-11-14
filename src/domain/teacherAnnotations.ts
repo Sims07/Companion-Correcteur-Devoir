@@ -1,3 +1,5 @@
+import { parseModelJson } from './modelJson.ts';
+
 export type TeacherAnnotationKind = 'comment' | 'correction' | 'score' | 'mark' | 'unknown';
 export type TeacherAnnotationConfidence = 'low' | 'medium' | 'high';
 export interface TeacherAnnotation { text: string; kind: TeacherAnnotationKind; color: string; location: string; points?: number; confidence: TeacherAnnotationConfidence; }
@@ -21,14 +23,21 @@ export function isDeletionOnlyTranscription(original: string, candidate: string)
 
 export function parseTeacherAnnotationDetection(raw: string): TeacherAnnotationDetection {
   try {
-    const cleaned = raw.trim().replace(/^\x60\x60\x60(?:json)?\s*/i, '').replace(/\s*\x60\x60\x60$/, '');
-    const parsed: unknown = JSON.parse(cleaned);
-    if (typeof parsed !== 'object' || parsed === null || !('annotations' in parsed) || !Array.isArray(parsed.annotations)) return { annotations: [], invalidAnnotationCount: 1 };
+    const parsed = parseModelJson(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { annotations: [], invalidAnnotationCount: 1 };
     const value = parsed as Record<string, unknown>;
-    const rawAnnotations = value.annotations as unknown[];
+    const rawAnnotations = value.annotations ?? value.annotationsProfesseur;
+    const studentTranscription = value.studentTranscription ?? value.transcriptionEtudiant;
+    if (!Array.isArray(rawAnnotations)) return { annotations: [], invalidAnnotationCount: 1 };
     const annotations = rawAnnotations.flatMap((item: unknown): TeacherAnnotation[] => {
       if (typeof item !== 'object' || item === null) return [];
-      const annotation = item as Record<string, unknown>;
+      const entry = item as Record<string, unknown>;
+      const kind = entry.kind ?? entry.type;
+      const annotation = {
+        text: entry.text ?? entry.texte, kind: kind === 'commentaire' ? 'comment' : kind,
+        color: entry.color ?? entry.couleur ?? '', location: entry.location ?? entry.emplacement ?? '',
+        confidence: entry.confidence ?? 'low', points: entry.points,
+      };
       if (typeof annotation.text !== 'string' || !annotation.text.trim()) return [];
       if (!['comment', 'correction', 'score', 'mark', 'unknown'].includes(String(annotation.kind))) return [];
       if (typeof annotation.color !== 'string' || typeof annotation.location !== 'string') return [];
@@ -36,7 +45,7 @@ export function parseTeacherAnnotationDetection(raw: string): TeacherAnnotationD
       if (annotation.points !== undefined && (typeof annotation.points !== 'number' || !Number.isFinite(annotation.points))) return [];
       return [{ text: annotation.text.trim(), kind: annotation.kind as TeacherAnnotationKind, color: annotation.color.trim(), location: annotation.location.trim(), confidence: annotation.confidence as TeacherAnnotationConfidence, ...(typeof annotation.points === 'number' ? { points: annotation.points } : {}) }];
     });
-    return { annotations, invalidAnnotationCount: rawAnnotations.length - annotations.length, ...(typeof value.studentTranscription === 'string' && value.studentTranscription.trim() ? { studentTranscription: value.studentTranscription.trim() } : {}) };
+    return { annotations, invalidAnnotationCount: rawAnnotations.length - annotations.length, ...(typeof studentTranscription === 'string' && studentTranscription.trim() ? { studentTranscription: studentTranscription.trim() } : {}) };
   } catch { return { annotations: [], invalidAnnotationCount: 1 }; }
 }
 export function parseTeacherAnnotations(raw: string): TeacherAnnotation[] { return parseTeacherAnnotationDetection(raw).annotations; }

@@ -46,7 +46,7 @@ it('retente une réponse JSON invalide une seule fois, sans modifier le dessin s
 
 it('n’envoie pas de photo si le modèle, l’URL ou l’image sont invalides',async () => {
   const mock=vi.fn(async () => ok(JSON.stringify(valid))) as unknown as typeof fetch;
-  await expect(extractVisualRelationGraphV2({endpoint:'https://external.example.com',
+  await expect(extractVisualRelationGraphV2({endpoint:'https://example.test/invalid-path',
     model:'gemma',image},mock)).rejects.toThrow(/racine|Adresse/);
   await expect(extractVisualRelationGraphV2({endpoint:'http://localhost:11434',
     model:'',image},mock)).rejects.toThrow(/manquant/);

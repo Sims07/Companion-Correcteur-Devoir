@@ -173,9 +173,10 @@ describe('Ollama readiness without loading models', () => {
       visionOnly: true,
     });
 
+    const timeout = expect(grading).rejects.toThrow('ollama ps');
     await requestStarted;
     await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
-    await expect(grading).rejects.toThrow('ollama ps');
+    await timeout;
   });
 
   it('clears the five-minute cold-start deadline when response headers arrive even if streaming takes longer', async () => {
@@ -290,7 +291,7 @@ describe('Ollama incremental grading with teacher-defined subcriteria', () => {
     ],
   };
 
-  it('retries an incoherent subcriterion sum and constrains each subcriterion ID and maximum', async () => {
+  it('uses the sum of evidenced subcriteria and constrains each subcriterion ID and maximum', async () => {
     let call = 0;
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       call += 1;
@@ -320,7 +321,7 @@ describe('Ollama incremental grading with teacher-defined subcriteria', () => {
       rubric: JSON.stringify(rubric),
       transcription: 'Membrane et noyau visibles.',
     });
-    expect(call).toBe(2);
+    expect(call).toBe(1);
     expect(JSON.parse(result).criteria[0].points).toBe(1);
   });
 

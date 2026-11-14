@@ -38,6 +38,7 @@ function streamAsOllama(response: Response): Response {
   const encoder = new TextEncoder();
   let buffer = '';
   let dataLines: string[] = [];
+  let emittedDone = false;
 
   const body = new ReadableStream<Uint8Array>({
     async pull(controller) {
@@ -47,6 +48,8 @@ function streamAsOllama(response: Response): Response {
         dataLines = [];
         if (!payload) return false;
         if (payload === '[DONE]') {
+          if (emittedDone) return false;
+          emittedDone = true;
           controller.enqueue(encoder.encode(JSON.stringify({ done: true }) + '\n'));
           return true;
         }
@@ -67,6 +70,7 @@ function streamAsOllama(response: Response): Response {
             : Array.isArray(deltaContent)
               ? deltaContent.filter((part) => part.type === 'text' && typeof part.text === 'string').map((part) => part.text).join('')
               : '';
+          if (choice?.finish_reason) emittedDone = true;
           const converted = {
             ...(chunk ? { message: { content: chunk } } : {}),
             ...(choice?.finish_reason ? { done_reason: choice.finish_reason, done: true } : {}),
@@ -132,9 +136,8 @@ function safeRequestPreview(body: Record<string, unknown>): string {
         const imageUrl = (part as { image_url?: { url?: string } }).image_url?.url ?? '';
         const mimeType = imageUrl.match(/^data:([^;,]+)/)?.[1] ?? 'image/unknown';
         const base64 = imageUrl.split(',', 2)[1] ?? '';
-        (part as { image_url: { url: string } }).image_url = {
-          url: `[IMAGE REDACTED · ${mimeType} · environ ${Math.floor(base64.length * 3 / 4)} octets]`,
-        };
+        (part as { image_url: { url: string } }).image_url.url =
+          `[IMAGE REDACTED · ${mimeType} · environ ${Math.floor(base64.length * 3 / 4)} octets]`;
       }
     }
   }

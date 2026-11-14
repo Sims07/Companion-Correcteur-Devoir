@@ -38,7 +38,7 @@ describe('navigation de l’espace enseignant', () => {
     expect(html).toContain('aria-selected="true"');
     expect(html).toContain('Copies');
     expect(html).toContain('Barème');
-    expect(html).toContain('Réglages de l’IA locale');
+    expect(html).toContain('Réglages IA');
     expect(html).not.toContain('Étapes du devoir');
   });
 
@@ -58,7 +58,7 @@ describe('navigation de l’espace enseignant', () => {
       ...callbacks,
     }));
 
-    expect(html).toContain('IA locale à configurer');
+    expect(html).toContain('Configurer l’IA');
     expect(html).toContain('aria-label="Navigation entre les copies"');
     expect(html).toContain('Réduire la liste des copies');
     expect(html).toContain('aria-current="page"');

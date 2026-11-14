@@ -67,7 +67,7 @@ function createHarness(method: 'decision' | 'generative', analysisModel: string)
 describe('background correction: native decision batching', () => {
   it.each([
     { method: 'decision' as const, model: 'd3:4b', expectedCalls: 1, expectedRubricSizes: [2] },
-    { method: 'decision' as const, model: 'qwen3.5:4b', expectedCalls: 2, expectedRubricSizes: [1, 1] },
+    { method: 'decision' as const, model: 'qwen3.5:4b', expectedCalls: 1, expectedRubricSizes: [2] },
     { method: 'generative' as const, model: 'qwen3.5:4b', expectedCalls: 2, expectedRubricSizes: [1, 1] },
   ])('keeps $method results and per-criterion entries with $model', async ({ method, model, expectedCalls, expectedRubricSizes }) => {
     const { service, job, generate, settings } = createHarness(method, model);

@@ -242,7 +242,7 @@ function assessCriterion(
     ? value.confidence
     : 0;
   let requiresTeacherReview = typeof value.requiresTeacherReview === 'boolean' ? value.requiresTeacherReview : true;
-  if (evidence === 'Preuve non fournie par le modèle' || hasElementWarnings || criterionScoreInvalid || criterionScoreMismatch) requiresTeacherReview = true;
+  if (confidence === 0 || evidence === 'Preuve non fournie par le modèle' || hasElementWarnings || criterionScoreInvalid || criterionScoreMismatch) requiresTeacherReview = true;
 
   if (elements?.some((element) => ['partial', 'absent', 'uncertain'].includes(element.status))) requiresTeacherReview = true;
   if (elements?.some((element) => element.evidence === 'Preuve non fournie par le modèle')) requiresTeacherReview = true;

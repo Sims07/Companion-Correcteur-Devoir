@@ -1,3 +1,5 @@
+import { parseModelJson } from './modelJson.ts';
+
 export type ArbitrationSelection = 'avis1' | 'avis2';
 
 export interface ArbitrationDecision {
@@ -15,26 +17,32 @@ export function parseArbitrationDecisions(
 ): ArbitrationDecision[] {
   let parsed: unknown;
   try {
-    const cleaned = raw.trim().replace(/^\x60\x60\x60(?:json)?\s*/i, '').replace(/\s*\x60\x60\x60$/, '');
-    parsed = JSON.parse(cleaned);
+    parsed = parseModelJson(raw);
   } catch {
     throw new Error('La réponse du juge n’est pas un JSON de décisions valide.');
   }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !('decisions' in parsed) || !Array.isArray(parsed.decisions)) {
-    throw new Error('La réponse du juge doit contenir un tableau decisions exploitable.');
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Le juge doit retourner un objet JSON exploitable.');
   }
-  const decisions: ArbitrationDecision[] = parsed.decisions.map((item: unknown) => {
+  const root = parsed as Record<string, unknown>;
+  const entries = root.decisions ?? root.arbitrages;
+  if (!Array.isArray(entries)) throw new Error('La réponse du juge doit contenir un tableau decisions exploitable.');
+  const decisions: ArbitrationDecision[] = entries.map((item: unknown) => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error('Une décision du juge est invalide.');
     const decision = item as Record<string, unknown>;
-    if (typeof decision.criterionId !== 'string' || (decision.selected !== 'avis1' && decision.selected !== 'avis2') || typeof decision.reason !== 'string' || !decision.reason.trim()) {
-      throw new Error('Chaque décision du juge doit préciser criterionId, selected (avis1/avis2) et reason.');
+    const criterionId = decision.criterionId ?? decision.idCritere;
+    const choice = decision.selected ?? decision.choix;
+    const selected = choice === '1' ? 'avis1' : choice === '2' ? 'avis2' : choice;
+    const reason = decision.reason ?? decision.raison ?? '';
+    if (typeof criterionId !== 'string' || (selected !== 'avis1' && selected !== 'avis2') || typeof reason !== 'string') {
+      throw new Error('Chaque décision du juge doit préciser criterionId et selected (avis1/avis2).');
     }
-    const first = firstCriteria.find((criterion) => criterion.criterionId === decision.criterionId);
-    const second = secondCriteria.find((criterion) => criterion.criterionId === decision.criterionId);
-    if (!first || !second) throw new Error(`Le juge a retourné un critère inconnu : ${decision.criterionId}.`);
-    const selectedPoints = decision.selected === 'avis1' ? first.points : second.points;
-    if (!Number.isFinite(selectedPoints)) throw new Error(`La note choisie pour ${decision.criterionId} est invalide.`);
-    return { criterionId: decision.criterionId, selected: decision.selected, reason: decision.reason.trim() };
+    const first = firstCriteria.find((criterion) => criterion.criterionId === criterionId);
+    const second = secondCriteria.find((criterion) => criterion.criterionId === criterionId);
+    if (!first || !second) throw new Error(`Le juge a retourné un critère inconnu : ${criterionId}.`);
+    const selectedPoints = selected === 'avis1' ? first.points : second.points;
+    if (!Number.isFinite(selectedPoints)) throw new Error(`La note choisie pour ${criterionId} est invalide.`);
+    return { criterionId, selected, reason: reason.trim() };
   });
   const actualIds = decisions.map((decision) => decision.criterionId);
   if (new Set(actualIds).size !== actualIds.length) throw new Error('Le juge a retourné plusieurs décisions pour le même critère.');

@@ -51,7 +51,7 @@ describe('scientific rubric routing', () => {
     const explicitlyMarkedRubric: Rubric = { ...rubric, criteria: rubric.criteria.map((criterion) => criterion.id === 'diagram' ? { ...criterion, analysisMode: 'scientific-diagram' } : criterion) };
     const result = mergeScientificDiagramCriteria(explicitlyMarkedRubric, textProposal, diagramAnalysis);
     expect(result.criteria).toEqual([
-      expect.objectContaining({ criterionId: 'diagram', points: 7, confidence: 'high', evidence: expect.stringContaining('Page 2') }),
+      expect.objectContaining({ criterionId: 'diagram', points: 7, confidence: 'high', scientificDiagramPages: [2] }),
       expect.objectContaining({ criterionId: 'text', points: 9, evidence: 'La transcription explique le mécanisme.' }),
     ]);
     expect(result.finalScore).toBe(16);
@@ -85,7 +85,7 @@ describe('scientific rubric routing', () => {
     });
     expect(result.scoreIncomplete).toBe(true);
     expect(result.questionsForTeacher).toContain('Évaluations page par page : la moyenne des notes constitue une proposition à vérifier par l’enseignant.');
-    expect(result.questionsForTeacher).not.toContain('Ancien format d’analyse par schéma : vérifier la note.');
+    expect(result.questionsForTeacher).not.toContain('Ancien format d’analyse par schéma : vérifier les résultats.');
   });
 
   it('keeps legacy per-diagram evidence readable without manufacturing a page average', () => {
@@ -98,7 +98,7 @@ describe('scientific rubric routing', () => {
     });
     expect(result.criteria[0]).toMatchObject({ points: 0, assessmentStatus: 'not-evaluated', confidence: 'low', questionForTeacher: expect.any(String) });
     expect(result.questionsForTeacher).toContain('Un schéma est partiellement illisible.');
-    expect(result.questionsForTeacher).toContain('Ancien format d’analyse par schéma : vérifier la note.');
+    expect(result.questionsForTeacher).toContain('Ancien format d’analyse par schéma : vérifier les résultats.');
   });
 
   it('uses one global score for a criterion spanning several diagrams without averaging per-diagram scores', () => {
@@ -231,7 +231,7 @@ describe('scientific rubric routing', () => {
     expect(result.criteria[0]).toMatchObject({ points: 0, confidence: 'low', evidence: expect.stringContaining('Pages concernées') });
     expect(result.criteria[0].evidence).toContain('4');
     expect(result.questionsForTeacher).toContain('Analyse des schémas indisponible.');
-    expect(result.questionsForTeacher).not.toContain('Ancien format d’analyse par schéma : vérifier la note.');
+    expect(result.questionsForTeacher).not.toContain('Ancien format d’analyse par schéma : vérifier les résultats.');
   });
 
   it('propagates expected element statuses, points, evidence and source pages to teacher review', () => {

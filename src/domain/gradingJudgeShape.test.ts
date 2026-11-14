@@ -33,8 +33,8 @@ describe('parseGradingProposal judge shapes', () => {
       finalScore: 7,
       summary: 'Arbitrage',
       criterionScores: {
-        knowledge: { points: 4 },
-        reasoning: { points: 3 },
+        knowledge: { points: 4, evidence: 'Réponse exacte' },
+        reasoning: { points: 3, evidence: 'Lien expliqué' },
       },
       questionsForTeacher: [],
     }), rubric);
