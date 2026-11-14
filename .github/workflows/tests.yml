@@ -21,9 +21,10 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm run typecheck
+      - run: python3 scripts/check_test_discovery.py
       - run: npm test
-      - name: Test local prompt-cache benchmark protocol (stdlib only)
-        run: python3 -m unittest discover -s scripts -p 'test_benchmark_prompt_cache.py'
+      - name: Test Python tools (stdlib only)
+        run: python3 -m unittest discover -s tests/python -p 'test_*.py'
       - run: npm run test:coverage
       - run: npm run test:coverage:core
       - name: Recalculate coverage badge

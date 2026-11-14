@@ -6,10 +6,7 @@ const vitestConfig = readFileSync(new URL('../vite.config.ts', import.meta.url),
 const pagesWorkflow = readFileSync(new URL('../.github/workflows/deploy-pages.yml', import.meta.url), 'utf8');
 
 describe('CI coverage badge and Pages publication', () => {
-  it('executes colocated tests and rejects line coverage below 80%', () => {
-    expect(vitestConfig).toContain("'src/**/*.test.ts'");
-    expect(vitestConfig).toContain("'src/**/*.test.tsx'");
-    expect(vitestConfig).toContain("'tests/**/*.test.tsx'");
+  it('rejects line coverage below 80%', () => {
     expect(vitestConfig).toMatch(/thresholds:\s*\{\s*lines:\s*80\s*\}/);
     expect(testsWorkflow).toContain('npm run test:coverage');
     expect(testsWorkflow).toContain('npm run test:coverage:core');

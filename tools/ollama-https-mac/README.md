@@ -37,7 +37,7 @@ Le proxy transmet les routes `/api/*` et `/v1/*`, notamment les flux de réponse
 Sur une machine avec Python 3 et OpenSSL :
 
 ```bash
-python3 -m unittest discover -s tools/ollama-https-mac -p 'test_*.py' -v
+python3 -m unittest discover -s tests/python -p 'test_ollama_https.py' -v
 ```
 
 Les tests utilisent un faux Ollama et un certificat temporaire : ils vérifient CORS, HTTPS, API native et OpenAI, flux, erreurs et absence de clé privée dans le code distribué.
