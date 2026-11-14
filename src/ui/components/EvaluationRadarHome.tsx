@@ -10,6 +10,7 @@ import { isNativeDecisionModel } from '../../domain/systemOneDecision.ts';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
 import {
   buildDiagramLabRadar,
+  diagnoseGraphRadarMeasurement,
   observedRadarScore,
   rankDiagramLabRadar,
 } from '../../domain/diagramLabRadar.ts';
@@ -100,7 +101,9 @@ export function EvaluationRadarHome({
         Number(a.method === bio?.method && a.provider === bio?.provider))[0];
   const biologies = [bio, ...compared.map(comparedBiology)]
     .filter((candidate): candidate is BiologyRadarCandidate => candidate !== undefined);
-  const plan = sci && resolveModelProfile(profiles, 'model', sci, planRadarModelEvaluation(sci));
+  const graphDiagnostic = sci?.axes.relations.value === null
+    ? diagnoseGraphRadarMeasurement(entries, selected) : null;
+  const plan = sci && resolveModelProfile(profiles, 'model', sci, planRadarModelEvaluation(sci, entries));
   const misconfiguredDecisionVision = profiles.some((profile) =>
     profile.configuration.analysisModel === selected &&
     profile.configuration.correctionMethod === 'decision' &&
@@ -322,8 +325,15 @@ export function EvaluationRadarHome({
                   </div>
                 )}
               </div>
+              {scientific && graphDiagnostic &&
+                ['retry', 'exhausted', 'unusable'].includes(graphDiagnostic.kind) && (
+                  <p className="radar-home-graph-status" role="status">
+                    <strong>Relations · tests terminés, mesure indéterminée.</strong>{' '}
+                    {graphDiagnostic.message}
+                  </p>
+                )}
               <div className="radar-home-actions">
-                {(scientific ? count < total || explicitMethod.diagrams : true) && (
+                {(scientific ? (explicitMethod.diagrams || (count < total && (Boolean(plan) || misconfiguredDecisionVision))) : true) && (
                   <Button
                     disabled={
                       busy || !(scientific ? canLaunchScience(chosenSciencePlan) : profile)
@@ -347,6 +357,8 @@ export function EvaluationRadarHome({
                   >
                     {explicitMethod[domain] ? 'Évaluer · ' + (scientific ? scienceMethods[method].label : bioMethod === 'contract' ? 'Contrats par question' : 'Barème standard') : !scientific && activeBio?.measured === total
                       ? 'Relancer l’évaluation'
+                      : scientific && plan?.steps.length === 1 && plan.steps[0]?.protocol === 'graph' && plan.steps[0]?.zoom
+                        ? 'Seconde lecture ciblée'
                       : count ? 'Compléter les tests'
                         : 'Évaluer en ' + (scientific ? 'schémas scientifiques' : 'biologie')}
                   </Button>

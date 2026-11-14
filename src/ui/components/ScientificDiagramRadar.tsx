@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { DiagramLabArchiveEntry } from '../../domain/diagramLabHistory.ts';
-import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, rankDiagramLabRadar, observedRadarScore, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
+import { buildDiagramLabRadar, diagnoseGraphRadarMeasurement, diagnoseUnmeasuredRadarAxis, compareRadarCommonAxes, rankDiagramLabRadar, observedRadarScore, RADAR_AXES, RADAR_PRESETS, validRadarWeights,
   type RadarAxisId, type RadarGrouping, type RadarModelConfiguration, type RadarRankedCandidate, type RadarWeights } from '../../domain/diagramLabRadar.ts';
 import { DesignSystemSelect } from './DesignSystemSelect.tsx';
 import { resolveModelProfile, planMissingRadarAxis, planRadarModelEvaluation, radarPlanDescription, type RadarMissingTestRequest } from '../../domain/diagramLabRadarLaunch.ts';
@@ -153,9 +153,9 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
    * that uses the selected LLM for EACH requested protocol, never a random
    * saved profile sharing its display label. */
   function planFor(candidate: RadarRankedCandidate, target: RadarAxisId) {
-    return resolveModelProfile(profiles, grouping, candidate, planMissingRadarAxis(candidate, target, grouping));
+    return resolveModelProfile(profiles, grouping, candidate, planMissingRadarAxis(candidate, target, grouping, entries));
   }
-  const completePlan = activeModel ? resolveModelProfile(profiles, grouping, activeModel, planRadarModelEvaluation(activeModel)) : null;
+  const completePlan = activeModel ? resolveModelProfile(profiles, grouping, activeModel, planRadarModelEvaluation(activeModel, entries)) : null;
   const missingPlan = examined ? planFor(examined, axis) : null;
   const profileAvailable = examined ? (grouping === 'model' && profiles.length
     ? Boolean(missingPlan && profileIds.includes(missingPlan.profileId))
@@ -163,6 +163,8 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
   const eligible = ranked.filter((c) => grouping !== 'method' ? c.weightedScore !== null
     : partial?.rows.some((row) => row.id === c.id && row.score !== null));
   const missingAxes = examined ? RADAR_AXES.filter((item) => examined.axes[item.id].value === null) : [];
+  const graphDiagnostic = grouping === 'model' && examined?.axes.relations.value === null
+    ? diagnoseGraphRadarMeasurement(entries, examined.id) : null;
   const primaryScore = activeModel
     ? (activeModel.complete ? activeModel.weightedScore : observedRadarScore(activeModel, weights)) : null;
   const comparisonScore = comparedModel
@@ -225,19 +227,27 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
       {activeModel && <div className="diagram-radar-remaining" aria-label="Tests restant à faire pour ce LLM">
         <div><h4>{missingAxes.length ? 'Évaluation du modèle' : 'Toutes les caractéristiques sont mesurées'}</h4>
           <p>{missingAxes.length
-            ? missingAxes.length + ' caractéristique(s) à mesurer sur huit.'
+            ? missingAxes.length + ' caractéristique(s) ' +
+              (graphDiagnostic && ['retry', 'exhausted', 'unusable'].includes(graphDiagnostic.kind)
+                ? 'sans note' : 'à mesurer') + ' sur huit.'
             : 'Les huit axes sont alimentés par les campagnes de test enregistrées.'}</p></div>
         {missingAxes.length > 0 && <>
           <div className="diagram-radar-evaluate">
-            <Button disabled={busy || !completePlan || !profileIds.includes(completePlan.profileId)}
-              onClick={() => { if (completePlan) onRunMissing(completePlan); }}>{activeModel.measured ? 'Compléter les axes manquants' : 'Évaluer le modèle'}</Button>
+            {completePlan && <Button disabled={busy || !profileIds.includes(completePlan.profileId)}
+              onClick={() => onRunMissing(completePlan)}>
+              {completePlan.steps.length === 1 && completePlan.steps[0]?.protocol === 'graph' && completePlan.steps[0]?.zoom
+                ? 'Seconde lecture ciblée' : activeModel.measured ? 'Compléter les axes manquants' : 'Évaluer le modèle'}
+            </Button>}
             <p>{completePlan && profileIds.includes(completePlan.profileId)
               ? completePlan.steps.length + ' batterie' + (completePlan.steps.length > 1 ? 's' : '') + ' de test à enchaîner automatiquement · ' +
                 radarPlanDescription(completePlan.steps) + '.'
-              : 'Une même configuration doit pouvoir tester ce LLM en Analyse et en Vision pour couvrir les huit caractéristiques.'}
+              : graphDiagnostic?.kind === 'exhausted' ? 'Le graphe a déjà été relu : aucune relance identique proposée.'
+                : 'Une même configuration doit pouvoir tester ce LLM en Analyse et en Vision pour couvrir les huit caractéristiques.'}
               {' '}Les résultats non exploitables resteront non mesurés.</p>
             {activeModel.measured > 0 && <p>Les mesures validées restent acquises. Cette action n'enchaîne que les familles de tests nécessaires aux axes absents, sans transformer les échecs en notes nulles.</p>}
-            <p role="status">Axes encore absents : {missingAxes.map((item) => item.label).join(' · ')}.</p>
+            <p role="status">Axes sans note : {missingAxes.map((item) => item.label).join(' · ')}.</p>
+            {graphDiagnostic && ['retry', 'exhausted', 'unusable'].includes(graphDiagnostic.kind) &&
+              <p role="status"><strong>Relations : tests terminés, mesure indéterminée.</strong> {graphDiagnostic.message}</p>}
           </div>
           <details className="diagram-radar-individual-tests">
             <summary>Compléter une caractéristique seulement</summary>
@@ -249,8 +259,9 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
                   <small>{diagnoseUnmeasuredRadarAxis(entries, activeModel.id, item.id)}</small>
                   {plan && profileIds.includes(plan.profileId)
                     ? <Button variant="secondary" disabled={busy} aria-label={'Lancer le test ' + item.label + ' avec ' + activeModel.name}
-                        onClick={() => onRunMissing(plan)}>Lancer</Button>
-                    : <small>Profil compatible requis</small>}
+                        onClick={() => onRunMissing(plan)}>{plan.steps[0]?.protocol === 'graph' && plan.steps[0]?.zoom ? 'Seconde lecture' : 'Lancer'}</Button>
+                    : <small>{item.id === 'relations' && graphDiagnostic?.kind === 'exhausted'
+                        ? 'Lecture ciblée déjà tentée · pas de relance automatique' : 'Profil compatible requis'}</small>}
                 </div>;
               })}
             </div>
@@ -318,7 +329,9 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
         <div className="diagram-radar-axis-buttons" role="group" aria-label="Axe à examiner">
           {RADAR_AXES.map((item) => <button type="button" key={item.id} aria-pressed={axis === item.id}
             onClick={() => setAxis(item.id)}>{item.label}
-              {examined?.axes[item.id].value === null && <small>À mesurer</small>}
+              {examined?.axes[item.id].value === null && <small>{item.id === 'relations' &&
+                graphDiagnostic && ['retry', 'exhausted', 'unusable'].includes(graphDiagnostic.kind)
+                  ? 'Indéterminé' : 'À mesurer'}</small>}
             </button>)}
         </div>
         <div className="diagram-radar-evidence">
@@ -341,14 +354,22 @@ export function ScientificDiagramRadar({ entries, onOpenReport, onRunMissing, pr
               <strong>Compléter cet axe</strong>
               <p>{radarPlanDescription(missingPlan.steps)} · configuration {missingPlan.profileName}. Les schémas sont déjà intégrés.</p>
               <Button disabled={busy || !profileAvailable} onClick={() => onRunMissing(missingPlan)}>
-                {missingPlan.steps.length > 1 ? 'Lancer les batteries manquantes' : 'Lancer le test manquant'}
+                {missingPlan.steps[0]?.protocol === 'graph' && missingPlan.steps[0]?.zoom
+                  ? 'Seconde lecture ciblée' : missingPlan.steps.length > 1
+                    ? 'Lancer les batteries manquantes' : 'Lancer le test manquant'}
               </Button>
               {!profileAvailable && <p role="status">La configuration correspondante n’est plus disponible. Enregistrez un profil compatible avec le LLM sélectionné.</p>}
               {busy && <p role="status">Une évaluation est déjà en cours. Terminez-la ou arrêtez-la avant d’en lancer une autre.</p>}
-            </> : <p>{grouping === 'model'
-              ? 'Aucune configuration enregistrée ne peut exécuter cette batterie avec ce LLM. Vérifiez les modèles Vision et Analyse du profil IA.'
+            </> : <p>{grouping === 'model' && graphDiagnostic?.kind === 'exhausted'
+              ? 'La seconde lecture a déjà été exécutée. Aucune relance automatique identique : consultez le résultat ou changez de modèle Vision.'
+              : grouping === 'model'
+                ? 'Aucune configuration enregistrée ne peut exécuter cette batterie avec ce LLM. Vérifiez les modèles Vision et Analyse du profil IA.'
               : 'Cette mesure ne peut pas être attribuée à cette méthode : la lecture indépendante du graphe et la notation sont deux algorithmes distincts. Passez en vue « Par profil IA » pour lancer les batteries adaptées.'}</p>}
           </div>}
+          {axis === 'relations' && graphDiagnostic?.reportId && evidence.value === null &&
+            <Button variant="secondary" onClick={() => onOpenReport(graphDiagnostic.reportId!)}>
+              Voir les résultats du graphe
+            </Button>}
           {evidence.evidence.map((source, index) =>
             <div key={source.reportId + index} className="diagram-radar-source">
               <strong>{source.detail}</strong>
