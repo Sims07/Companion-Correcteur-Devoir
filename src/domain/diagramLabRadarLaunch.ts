@@ -1,7 +1,7 @@
 import { BLIND_GRAPH_PROMPT_VARIANTS, type BlindGraphPromptVariant } from './scientificDiagramBlindGraph.ts';
 import { isNativeDecisionModel, isVisualDecisionModel } from './systemOneDecision.ts';
 import type { DiagramMethodSelection } from './scientificDiagramProtocol.ts';
-import { buildDiagramLabRadar, diagnoseUnmeasuredRadarAxis, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarModelConfiguration, type RadarRankedCandidate, type RadarGrouping } from './diagramLabRadar.ts';
+import { buildDiagramLabRadar, diagnoseGraphRadarMeasurement, diagnoseUnmeasuredRadarAxis, RADAR_AXES, type RadarAxisId, type RadarCandidate, type RadarModelConfiguration, type RadarRankedCandidate, type RadarGrouping } from './diagramLabRadar.ts';
 import type { DiagramLabArchiveEntry } from './diagramLabHistory.ts';
 
 export type RadarTestProtocol = 'reference' | 'arrows' | 'semantic' | 'graph';
@@ -36,6 +36,7 @@ export function planMissingRadarAxis(
   candidate: RadarCandidate,
   axis: RadarAxisId,
   grouping: RadarGrouping,
+  entries: readonly DiagramLabArchiveEntry[] = [],
 ): Omit<RadarMissingTestRequest, 'id'> | null {
   if (candidate.axes[axis].value !== null) return null;
 
@@ -55,6 +56,7 @@ export function planMissingRadarAxis(
     BLIND_GRAPH_PROMPT_VARIANTS.some(value => value === graphVariant)
       ? graphVariant as BlindGraphPromptVariant : 'pixel-arrows';
   const zoom = methodName === 'blind-graph-zoom';
+  const graphRecovery = grouping === 'model' ? diagnoseGraphRadarMeasurement(entries, candidate.id) : null;
 
   let protocols: RadarTestProtocol[];
   switch (axis) {
@@ -91,6 +93,14 @@ export function planMissingRadarAxis(
       break;
   }
 
+  // A finished six-image graph cannot be 'completed' by silently repeating
+  // exactly the same model, method and pixels. Only a different second
+  // reading is proposed, and only once; other missing axes remain runnable.
+  if (graphRecovery?.kind === 'exhausted' || graphRecovery?.kind === 'unusable') {
+    protocols = protocols.filter((protocol) => protocol !== 'graph');
+  }
+  if (!protocols.length) return null;
+
   if (grouping === 'method') {
     // An independent graph runner cannot manufacture grading evidence, nor
     // can a grading method be credited with another algorithm's graph results.
@@ -105,7 +115,8 @@ export function planMissingRadarAxis(
     steps: protocols.map((protocol) => ({
       protocol, repetitions: axis === 'stability' ? 3 : 1,
       method: gradingMethod, promptMode,
-      graphVariant: protocol === 'graph' ? graphConfig : 'baseline', zoom,
+      graphVariant: protocol === 'graph' ? graphConfig : 'baseline',
+      zoom: protocol === 'graph' ? zoom || graphRecovery?.kind === 'retry' : zoom,
     })),
   };
 }
@@ -126,6 +137,7 @@ export function radarPlanDescription(steps: readonly RadarTestStep[]) {
  * Missing/invalid observations remain missing after the campaign. */
 export function planRadarModelEvaluation(
   candidate: RadarCandidate,
+  entries: readonly DiagramLabArchiveEntry[] = [],
 ): Omit<RadarMissingTestRequest, 'id'> | null {
   const missing = RADAR_AXES.filter((axis) => candidate.axes[axis.id].value === null);
   if (!missing.length) return null;
@@ -139,7 +151,7 @@ export function planRadarModelEvaluation(
   // stability (e.g. D/E x3 alongside A/B/C x1), wasting tests and leaving
   // the radar incomplete if the first battery failed.
   for (const axis of missing.filter((item) => item.id !== 'stability')) {
-    const plan = planMissingRadarAxis(candidate, axis.id, 'model');
+    const plan = planMissingRadarAxis(candidate, axis.id, 'model', entries);
     if (!plan) continue;
     for (const step of plan.steps) {
       const previous = steps.get(step.protocol);
@@ -152,7 +164,7 @@ export function planRadarModelEvaluation(
     // repeat selected by the stability planner instead of tripling six cases.
     let repeatedProtocol: RadarTestProtocol | undefined = (['reference', 'arrows'] as const).find((protocol) => steps.has(protocol));
     if (!repeatedProtocol) {
-      const repeat = planMissingRadarAxis(candidate, 'stability', 'model')?.steps[0];
+      const repeat = planMissingRadarAxis(candidate, 'stability', 'model', entries)?.steps[0];
       if (repeat) {
         const previous = steps.get(repeat.protocol);
         if (!previous || repeat.repetitions > previous.repetitions) steps.set(repeat.protocol, repeat);
