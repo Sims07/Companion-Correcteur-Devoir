@@ -365,6 +365,42 @@ describe('protocole de schémas scientifiques', () => {
     expect(report.summaries[0]?.decisions.every((decision) => !decision.stable)).toBe(true);
   });
 
+  it('exporte points, statut de preuve et arbitrage sans divulguer un texte de copie dans le protocole ordinaire', () => {
+    const initial = result();
+    const populated: ModelEvaluationResultSnapshot = {
+      ...initial, directVisualDecision: false, diagnosticRuns: [], score: 0.33,
+      proposal: {
+        summary: '', finalScore: 0.33, questionsForTeacher: [],
+        criteria: [{
+          criterionId: 'drawing', points: 0.33, rationale: '', evidence: 'PRIVATE_CRITERION_EVIDENCE',
+          confidence: 'low', questionForTeacher: 'PRIVATE_TEACHER_QUESTION',
+          subcriteria: [{
+            subcriterionId: 'drawing-page', title: 'Occupe toute la page', maxPoints: 0.66,
+            points: 0.33, evidence: 'PRIVATE_STUDENT_EVIDENCE', evidenceStatus: 'needs-review',
+            questionForTeacher: 'PRIVATE_REVIEW_TEXT',
+          }],
+        }],
+      },
+    };
+    const output = buildScientificDiagramProtocolReport(
+      [{ repetition: 1, record: record(populated) }], SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC,
+      {}, 1, '2026-11-14', 1,
+    );
+    expect(output.experiments[0]!.observations[0]).toMatchObject({
+      choice: 'partial', awardedPoints: 0.33, maxPoints: 0.66,
+      evidenceState: 'needs-review', modelConfidence: 'low', teacherReviewRequested: true,
+    });
+    expect(output.experiments[0]!.observations[1]).toMatchObject({
+      choice: 'uncertain', awardedPoints: null, evidenceState: 'unavailable',
+    });
+    expect(JSON.stringify(output)).not.toMatch(/PRIVATE_STUDENT_EVIDENCE|PRIVATE_CRITERION_EVIDENCE|PRIVATE_REVIEW_TEXT|PRIVATE_TEACHER_QUESTION/);
+    const synthetic = diagramObservations(populated, SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC,
+      { syntheticFixtureEvidence: true });
+    // A synthetic experiment still refuses an excerpt that resembles private data.
+    expect(synthetic[0]!.syntheticEvidenceExcerpt).toBeUndefined();
+    expect(synthetic[0]!.evidenceState).toBe('needs-review');
+  });
+
   it('distingue un échec avant analyse sans exporter ses éventuels secrets', () => {
     const failed: ModelEvaluationResultSnapshot = {
       ...result('failed'), error: 'https://PRIVATE_ENDPOINT?apiKey=PRIVATE_API_KEY',
