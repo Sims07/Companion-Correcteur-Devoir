@@ -17,13 +17,13 @@ describe('ZoomableImage', () => {
       await act(async () => root.render(<ZoomableImage src="data:image/png;base64,QUJD" alt="Schéma E" />));
       expect(host.querySelectorAll('img')).toHaveLength(1);
       await act(async () => host.querySelector('button')!.click());
-      expect(host.querySelector('[aria-label="Visualiseur : Schéma E"]')).not.toBeNull();
-      expect(host.querySelectorAll('img')).toHaveLength(2);
-      expect([...host.querySelectorAll('img')].every((img) => img.src === 'data:image/png;base64,QUJD')).toBe(true);
-      await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Zoomer"]')!.click());
-      await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Tourner à droite de 90 degrés"]')!.click());
-      expect(host.querySelector<HTMLImageElement>('.zoomable-image-stage img')?.style.transform).toContain('rotate(90deg) scale(1.25)');
-      await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Fermer le visualiseur"]')!.click());
+      expect(document.body.querySelector('[aria-label="Visualiseur : Schéma E"]')).not.toBeNull();
+      expect(document.body.querySelectorAll('img')).toHaveLength(2);
+      expect([...document.body.querySelectorAll('img')].every((img) => img.src === 'data:image/png;base64,QUJD')).toBe(true);
+      await act(async () => document.body.querySelector<HTMLButtonElement>('[aria-label="Zoomer"]')!.click());
+      await act(async () => document.body.querySelector<HTMLButtonElement>('[aria-label="Tourner à droite de 90 degrés"]')!.click());
+      expect(document.body.querySelector<HTMLImageElement>('.zoomable-image-stage img')?.style.transform).toContain('rotate(90deg) scale(1.25)');
+      await act(async () => document.body.querySelector<HTMLButtonElement>('[aria-label="Fermer le visualiseur"]')!.click());
       expect(host.querySelectorAll('img')).toHaveLength(1);
     } finally { await act(async () => root.unmount()); host.remove(); }
   });
