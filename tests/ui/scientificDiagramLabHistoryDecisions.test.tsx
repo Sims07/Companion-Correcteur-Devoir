@@ -37,6 +37,8 @@ describe('scientific diagram fixture history', () => {
     const html = renderToStaticMarkup(<ReportDetails entry={entry} />);
     expect(html).toContain('17/19 critères conformes');
     expect(html).toContain('2 écart(s)');
+    expect(html).toContain('Critère non respecté');
+    expect(html).toContain('Critère respecté');
     expect(html.match(/Statut : Conforme/g)).toHaveLength(17);
     expect(html.match(/Statut : Écart/g)).toHaveLength(2);
     expect(html).toContain('Alignées en colonne');
