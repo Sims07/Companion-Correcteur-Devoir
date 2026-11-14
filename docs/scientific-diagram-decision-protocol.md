@@ -149,7 +149,7 @@ L'export JSON conserve les scores, les choix et la configuration des essais. Il 
   points attendus et proposés), décisions non résolues, demandes d'arbitrage, preuves manquantes et
   indicateur `allPresentPattern` (tous les critères répondus « présent »). Un indicateur n'est
   jamais une preuve du comportement interne du modèle.
-- `pairedDiagnostics[]` : rapproche D et E par profil, méthode et répétition ; il indique
+- `pairedDiagnostics[]` : rapproche D et E par profil, modèle réel, méthode et répétition ; il indique
   `detected` seulement si D est reconnu « présent » et E « absent » pour la cible
   `legends::legends-visible`. Les deux essais manquants/indécis donnent `inconclusive`,
   jamais un succès ou un échec scientifique inventé. L'écart attendu de notes vaut 0,68 point ;
