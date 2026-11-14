@@ -2,7 +2,7 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
-import { DIAGRAM_SENSITIVITY_CASES } from '../../src/domain/scientificDiagramSensitivity.ts';
+import { DIAGRAM_SENSITIVITY_CASES, DIAGRAM_SENSITIVITY_TARGETS } from '../../src/domain/scientificDiagramSensitivity.ts';
 import { buildBlindVisualObservationReport } from '../../src/domain/scientificDiagramBlindGraph.ts';
 import { summarizeDiagramLabReport } from '../../src/domain/diagramLabHistory.ts';
 import { ScientificDiagramRadar } from '../../src/ui/components/ScientificDiagramRadar.tsx';
@@ -44,6 +44,54 @@ describe('one-click radar measurement UI', () => {
     await act(async () => root.unmount());
     container.remove();
   });
+  it('offers a different second graph reading after six completed but inconclusive requests', async () => {
+    const uncertainRuns = runs.map((run) => ({
+      ...run,
+      observations: {
+        ...run.observations,
+        ...(run.caseId === 'S0' ? {
+          [DIAGRAM_SENSITIVITY_TARGETS.transcription]: 'uncertain',
+          [DIAGRAM_SENSITIVITY_TARGETS.translation]: 'uncertain',
+        } : {}),
+        ...(run.caseId === 'S3' ? { [DIAGRAM_SENSITIVITY_TARGETS.nucleus]: 'uncertain' } : {}),
+      },
+    })) as typeof runs;
+    const first = summarizeDiagramLabReport(
+      buildBlindVisualObservationReport(uncertainRuns, 1, '2026-11-14T12:52:32Z'), 'finished');
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    const onRunMissing = vi.fn();
+    await act(async () => root.render(createElement(ScientificDiagramRadar, {
+      entries: [first], onOpenReport: vi.fn(), onRunMissing,
+      profileIds: ['existing-profile'], busy: false,
+    })));
+    const axis = [...container.querySelectorAll<HTMLButtonElement>('.diagram-radar-axis-buttons button')]
+      .find((button) => button.textContent?.includes('Lecture des relations'))!;
+    await act(async () => axis.click());
+    expect(container.textContent).toContain('tests terminés, mesure indéterminée');
+    expect(container.textContent).toContain('0/3 mutations comparables');
+    const retry = [...container.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.trim() === 'Seconde lecture ciblée')!;
+    expect(retry).toBeTruthy();
+    await act(async () => retry.click());
+    expect(onRunMissing).toHaveBeenCalledWith(expect.objectContaining({
+      axis: 'relations',
+      steps: [expect.objectContaining({ protocol: 'graph', zoom: true })],
+    }));
+
+    const second = summarizeDiagramLabReport(
+      buildBlindVisualObservationReport(uncertainRuns.map((run) => ({ ...run, zoom: true })),
+        1, '2026-11-14T13:52:32Z'), 'finished');
+    await act(async () => root.render(createElement(ScientificDiagramRadar, {
+      entries: [second, first], onOpenReport: vi.fn(), onRunMissing,
+      profileIds: ['existing-profile'], busy: false,
+    })));
+    expect(container.textContent).toContain('déjà été effectuée');
+    expect([...container.querySelectorAll<HTMLButtonElement>('button')]
+      .some((button) => button.textContent?.trim() === 'Seconde lecture ciblée')).toBe(false);
+    await act(async () => root.unmount());
+  });
+
   it('does not offer an active launch for a deleted profile or during another run', async () => {
     const first = await renderRadar([]);
     await act(async () => [...first.container.querySelectorAll('button')]
