@@ -105,6 +105,10 @@ export function RadarTimeline({points, model, domainLabel, children, onBack, onE
         <label>Essai sélectionné<select value={current.id} onChange={e => setSelected(e.target.value)}>{options(filtered)}</select></label>
         <p>{current.protocolLabel} · {coverage(current)} · {current.reconstructed ? 'Indice reconstitué' : 'Indice enregistré'} · Révision {current.revision?.slice(0,8) ?? 'inconnue'}</p>
         <div className="lab-criteria">{measured(current).map(a => <span key={a}>{a} <strong>{format(current.axes[a])}/100</strong></span>)}</div>
+        {current.batteryEngines?.length ? <details open><summary>Moteurs réellement utilisés par batterie</summary>
+          <ul>{current.batteryEngines.map((battery, index) =>
+            <li key={index}><strong>{battery.protocol}</strong> : {battery.engine}</li>)}</ul>
+        </details> : null}
         <details><summary>Prompts et consignes de l’essai sélectionné</summary><p>{current.prompts.join(' · ') || 'Référence inconnue'}</p>{current.instructions?.map((s,i) => <p key={i}>{s}</p>)}</details>
         {(current.scienceMethod || current.biologyMethod) && <Button variant="secondary" onClick={() => selectMethod(current)}>Choisir cette méthode pour le prochain essai</Button>}
       </section>}
