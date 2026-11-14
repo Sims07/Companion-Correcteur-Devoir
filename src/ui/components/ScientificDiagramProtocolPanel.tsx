@@ -508,7 +508,7 @@ export function ScientificDiagramProtocolPanel({
           {activeProtocol === 'arrows' && <Button variant="secondary" disabled={!canRunFixtures}
             onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS); }}>
             Tester les flèches D/E en un clic
-          </Button>
+          </Button>}
           {activeProtocol === 'arrows' && <Button variant="secondary"
             disabled={busy || fixtureLoading || !selectedProfiles.length
               || selectedProfiles.some((profile) => !!diagramMethodIssue(profile, 'graph-first-v2'))}
@@ -516,7 +516,7 @@ export function ScientificDiagramProtocolPanel({
               setMethodSelection('graph-first-v2');
               void runPreparedFixtures(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS,
                 {method:'graph-first-v2',repetitions:1});
-            }}>Tester D/E avec graphe V2</Button>}}
+            }}>Tester D/E avec graphe V2</Button>}
           {(busy || fixtureLoading) && <Button variant="secondary" onClick={stopProtocol} disabled={!busy}>Arrêter maintenant</Button>}
         </div>
         <details className="diagram-lab-explanation"><summary>Conditions de comparaison</summary><p className="pilot-evaluation-hint">Choisissez 1 à 3 configurations dans la sélection au-dessus. Pour une comparaison équitable, le même barème et les mêmes images sont utilisés à chaque passage, par méthode et par profil. Exécution séquentielle. Un seul passage ne mesure pas la répétabilité.</p></details>
