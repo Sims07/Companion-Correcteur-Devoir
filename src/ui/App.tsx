@@ -1,6 +1,8 @@
 import { extractDiagramGraphEvidence, extractDiagramGraphEvidenceV2, graphGradingContext } from '../application/diagramGraphEvidence.ts';
 import { biologyPoints, campaignGroups } from '../domain/radarTimeline.ts';
 import { EvaluationRadarHome } from './components/EvaluationRadarHome.tsx';
+import { RadarBatteryContext } from './components/RadarBatteryContext.tsx';
+import { describeRadarBattery, type RadarBatteryExecution } from '../domain/radarBatteryExecution.ts';
 import { restoredModelId } from './components/ScientificDiagramRadar.tsx';
 import { EvaluationCampaigns, type CampaignFilter } from './components/EvaluationCampaigns.tsx';
 import { EvaluationIssueButton } from './components/EvaluationIssueButton.tsx';
@@ -127,6 +129,7 @@ type EvaluationActivity = {
   scenario?: 'contracts' | 'repeatability' | 'copies';
   status: EvaluationActivityStatus;
   error?: string;
+  radarBattery?: RadarBatteryExecution;
 };
 
 interface PilotRunOptions {
@@ -500,6 +503,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
   const [radarAutoRequest, setRadarAutoRequest] = useState<RadarMissingTestRequest | null>(null);
   const radarAutoSequence = useRef(0);
   const [radarAutoBusy, setRadarAutoBusy] = useState(false);
+  const [radarBattery, setRadarBattery] = useState<RadarBatteryExecution | null>(null);
+  const radarBatteryRef = useRef<RadarBatteryExecution | null>(null);
   const [evaluationWorkspaceStep, setEvaluationWorkspaceStep] = useState<'configuration' | 'execution' | 'results' | 'history' | 'dashboard' | 'campaigns'>('dashboard');
   const radarOpen = evaluationWorkspaceStep === 'configuration' && (evaluationJourney === 'biology' ? biologyRadarOpen : evaluationJourney === 'diagrams' && diagramLabView === 'radar');
 
@@ -2185,7 +2190,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     evaluationCancelledRef.current = false;
     const campaignId = activity.journey === 'biology' ? (crypto.randomUUID?.() ?? 'biology-' + Date.now()) : undefined;
     if (campaignId) biologyCampaign.current = campaignId;
-    setEvaluationActivity({ ...activity, status: 'running' });
+    setEvaluationActivity({ ...activity, status: 'running',
+      ...(activity.journey === 'diagrams' && radarBatteryRef.current
+        ? { radarBattery: radarBatteryRef.current } : {}),
+    });
     // A launch from the radar must show the matching test, not the previous personal-copy form.
     if (activity.journey === 'biology') {
       setEvaluationJourney('biology');
@@ -2858,6 +2866,10 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
 
   function runRadarPlan(planned: Omit<RadarMissingTestRequest, 'id'>) {
     if (busy || pilotBusy || radarAutoBusy || !aiModelProfiles.some((profile) => profile.id === planned.profileId)) return;
+    const firstBattery = planned.steps.length ? describeRadarBattery(planned, 0) : null;
+    radarBatteryRef.current = firstBattery;
+    setRadarBattery(firstBattery);
+    setEvaluationActivity(null);
     setSelectedEvaluationProfileIds([planned.profileId]);
     setRadarAutoRequest({ ...planned, id: ++radarAutoSequence.current });
     setEvaluationJourney('diagrams');
@@ -4036,6 +4048,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             : evaluationActivity.error || (evaluationActivity.status === 'completed'
               ? 'Les résultats de cette expérience sont prêts à consulter.'
               : 'Les passages déjà terminés peuvent rester disponibles dans le protocole.')}</p>
+          {evaluationActivity.journey === 'diagrams' && (radarBattery || evaluationActivity.radarBattery) &&
+            <RadarBatteryContext execution={(radarBattery || evaluationActivity.radarBattery)!} />}
           <small>{evaluationActivity.profiles}</small>
         </div>
         <div className="evaluation-activity-actions">
@@ -4083,7 +4097,18 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           onClearBlindGraphReport={() => setDiagramBlindGraphReport(null)}
           autoRequest={radarAutoRequest}
           onAutoRequestConsumed={(id) => setRadarAutoRequest((current) => current?.id === id ? null : current)}
-          onAutoBusyChange={(running) => { radarTrial.current = running ? radarAutoRequest?.trial ?? null : null; setRadarAutoBusy(running); }}
+          onAutoBusyChange={(running) => {
+            radarTrial.current = running ? radarAutoRequest?.trial ?? null : null;
+            setRadarAutoBusy(running);
+            if (!running) { radarBatteryRef.current = null; setRadarBattery(null); }
+          }}
+          onAutoStepChange={(request, index) => {
+            const execution = describeRadarBattery(request, index);
+            radarBatteryRef.current = execution;
+            setRadarBattery(execution);
+            setEvaluationActivity((current) => current?.journey === 'diagrams' && current.status === 'running'
+              ? { ...current, radarBattery: execution } : current);
+          }}
           onAutoWasStopped={() => pilotStopRef.current || evaluationCancelledRef.current}
           onAutoEvaluationFinished={async (request, steps) => {
             const failed = steps.filter((step) => !step.complete)
