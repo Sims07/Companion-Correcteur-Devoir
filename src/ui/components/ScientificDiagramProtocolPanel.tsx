@@ -476,6 +476,7 @@ export function ScientificDiagramProtocolPanel({
         }}>
         <option value="compare">Comparer toutes les méthodes compatibles (recommandé)</option>
         <option value="graph-first-v1">{diagramMethodLabels['graph-first-v1']}</option>
+        <option value="graph-first-v2">{diagramMethodLabels['graph-first-v2']}</option>
         <option value="vision-then-analysis">Vision puis analyse — 2 étapes</option>
         <option value="direct-image-generative">Image → modèle génératif — sans OCR, Think OFF</option>
         <option value="direct-image-generative-thinking">Image → modèle génératif — Think ON (Ollama compatible)</option>
