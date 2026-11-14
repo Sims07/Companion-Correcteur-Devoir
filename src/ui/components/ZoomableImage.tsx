@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Dialog } from '../design-system/index.ts';
 import './ZoomableImage.css';
 
@@ -21,7 +22,7 @@ export function ZoomableImage({ src, alt, loading = 'lazy' }: ZoomableImageProps
       <img src={src} alt={alt} loading={loading} />
       <span className="zoomable-image-hint" aria-hidden="true">⤢ Agrandir</span>
     </button>
-    {open && <Dialog title={alt} accessibleName={'Visualiseur : ' + alt}
+    {open && createPortal(<Dialog title={alt} accessibleName={'Visualiseur : ' + alt}
       closeLabel="Fermer le visualiseur" onClose={() => setOpen(false)} size="viewer">
       <div className="zoomable-image-toolbar">
         <button type="button" aria-label="Tourner à gauche de 90 degrés" onClick={() => setRotation((value) => (value + 270) % 360)}>↶ 90°</button>
@@ -34,6 +35,6 @@ export function ZoomableImage({ src, alt, loading = 'lazy' }: ZoomableImageProps
       <div className="zoomable-image-stage">
         <img src={src} alt={alt + ' agrandi'} style={{ transform: 'rotate(' + rotation + 'deg) scale(' + zoom + ')' }} />
       </div>
-    </Dialog>}
+    </Dialog>, document.body)}
   </>;
 }
