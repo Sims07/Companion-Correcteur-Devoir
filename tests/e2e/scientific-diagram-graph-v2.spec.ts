@@ -68,7 +68,9 @@ test('one-click D/E V2 traces four swapped targets without giving the grader the
   await expect.poll(()=>calls.filter(c=>c.extraction).length,{timeout:30000}).toBe(2);
   expect(calls[0]?.extraction).toBe(true);
   expect(calls[0]?.text).not.toMatch(/flèches inversées|référence 8[.,]66|0[.,]68/);
-  expect(calls.filter(c=>!c.extraction).length).toBe(2);
+  // Extraction and grading are sequential; the second graph may arrive
+  // before the second grading request has even been scheduled.
+  await expect.poll(()=>calls.filter(c=>!c.extraction).length,{timeout:30000}).toBe(2);
   for(const c of calls.filter(c=>!c.extraction)) {
     expect(c.text).toContain('visualCue');
     expect(c.image).toBeTruthy();
