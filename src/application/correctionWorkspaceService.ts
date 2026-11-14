@@ -19,6 +19,10 @@ export function createCorrectionWorkspaceService(
     ...(ollama.extractBlindDiagramGraph ? { extractBlindDiagramGraph: (endpoint: string, model: string, image: import('../domain/imageInput.ts').ImageInput, signal?: AbortSignal, onDiagnostic?: (diagnostic: import('../domain/scientificDiagramBlindGraph.ts').BlindGraphDiagnostic) => void, provider?: { apiCompatible: boolean; apiKey: string; promptVariant?: import('../domain/scientificDiagramBlindGraph.ts').BlindGraphPromptVariant }, zoomUncertainArrows?: boolean) => zoomUncertainArrows === undefined
       ? ollama.extractBlindDiagramGraph!(endpoint, model, image, signal, onDiagnostic, provider)
       : ollama.extractBlindDiagramGraph!(endpoint, model, image, signal, onDiagnostic, provider, zoomUncertainArrows) } : {}),
+    ...(ollama.extractBlindDiagramGraphV2 ? { extractBlindDiagramGraphV2: (
+      endpoint: string, model: string, image: import('../domain/imageInput.ts').ImageInput,
+      signal?: AbortSignal, provider?: {apiCompatible:boolean;apiKey:string},
+    ) => ollama.extractBlindDiagramGraphV2!(endpoint, model, image, signal, provider) } : {}),
     listModels: (endpoint) => ollama.listModels(endpoint),
     createProvider: (settings) => ollama.createProvider(settings),
     importRubricImage: (images, settings, onProgress?: (progress: RubricImportProgress) => void, signal?: AbortSignal) => ollama.importRubricImage(images, settings, onProgress, signal),
