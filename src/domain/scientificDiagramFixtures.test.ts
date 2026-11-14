@@ -283,6 +283,16 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
       status: 'inconclusive', alteredChoice: 'uncertain', proposedScoreDifference: null,
     });
     expect(incomplete.pairedDiagnostics[0]!.identicalChoices).toBeNull();
+    const differentModel = scoredFixtureRecord('E', true);
+    differentModel.configurations[0]!.analysisModel = 'different-vision:12b';
+    const mismatch = buildScientificDiagramFixtureReport([
+      { caseId: 'D', repetition: 1, record: scoredFixtureRecord('D', true) },
+      { caseId: 'E', repetition: 1, record: differentModel },
+    ], 1, '2026-11-14');
+    expect(mismatch.pairedDiagnostics).toHaveLength(2);
+    expect(mismatch.pairedDiagnostics.every((pair) => pair.status === 'inconclusive')).toBe(true);
+    expect(mismatch.pairedDiagnostics.map((pair) => pair.model).sort())
+      .toEqual(['d1:3b', 'different-vision:12b']);
   });
 
   it('n’exporte aucune photographie, clé, endpoint, prompt ou réponse brute', () => {
