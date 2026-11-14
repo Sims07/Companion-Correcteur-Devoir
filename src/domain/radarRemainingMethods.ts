@@ -20,10 +20,10 @@ export function remainingScienceMethods(entries: readonly DiagramLabArchiveEntry
     if (!trial || !(trial.method in scienceMethods) || entry.state !== 'finished') continue;
     const count = requiredCases[entry.protocol];
     if (!count || !('cases' in entry.report)) continue;
-    const required = count * entry.plannedRepetitions;
-    const successes = entry.report.cases.flatMap(c => c.experiments).filter(
-      experiment => experiment.model === model && experiment.status === 'success').length;
-    if (successes < required) continue;
+    const successfulCases = entry.report.cases.filter(item =>
+      item.experiments.filter(experiment => experiment.model === model && experiment.status === 'success')
+        .length >= entry.plannedRepetitions);
+    if (new Set(successfulCases.map(item => item.caseId)).size < count) continue;
     const group = trials.get(trial.id) ?? { method: trial.method, completed: new Set<DiagramLabProtocol>() };
     if (group.method !== trial.method) continue;
     group.completed.add(entry.protocol);
