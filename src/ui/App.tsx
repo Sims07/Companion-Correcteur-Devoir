@@ -1,4 +1,4 @@
-import { extractDiagramGraphEvidence, graphGradingContext } from '../application/diagramGraphEvidence.ts';
+import { extractDiagramGraphEvidence, extractDiagramGraphEvidenceV2, graphGradingContext } from '../application/diagramGraphEvidence.ts';
 import { biologyPoints, campaignGroups } from '../domain/radarTimeline.ts';
 import { EvaluationRadarHome } from './components/EvaluationRadarHome.tsx';
 import { restoredModelId } from './components/ScientificDiagramRadar.tsx';
@@ -1882,14 +1882,14 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
             && isVisualDecisionModel(profile.configuration.analysisModel))
     );
     const directGenerativeProfiles = (_profile: AiModelProfile) => runStage === 'integrated'
-      && (diagramMethod === 'graph-first-v1' || diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking');
+      && (diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2' || diagramMethod === 'direct-image-generative' || diagramMethod === 'direct-image-generative-thinking');
     // Only the diagram lab can override a saved visual-decision profile to test
     // its two-step System One text baseline. The teacher route is unchanged.
     const effectiveMethod = (profile: AiModelProfile) =>
       diagramMethod === 'vision-then-analysis' && profile.configuration.correctionMethod === 'visual-decision'
         ? 'decision' as const : profile.configuration.correctionMethod;
     const totalEvaluationSteps = selectedProfiles.reduce((sum, profile) =>
-      sum + (diagramMethod !== 'graph-first-v1' && (directProfiles(profile) || directGenerativeProfiles(profile)) ? 1 : measuredStages.length), 0);
+      sum + (diagramMethod !== 'graph-first-v1' && diagramMethod !== 'graph-first-v2' && (directProfiles(profile) || directGenerativeProfiles(profile)) ? 1 : measuredStages.length), 0);
     setEvaluationProgress({ completed: 0, total: selectedProfiles.length, currentConfiguration: null, status: 'running', completedSteps: 0, totalSteps: totalEvaluationSteps, currentStage: null });
     setEvaluationStage('preparing');
     setError('');
@@ -1899,7 +1899,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     const outputs = await runModelEvaluation({
       stages: [...measuredStages],
       stagesForConfiguration: (configuration) => {
-        if (diagramMethod === 'graph-first-v1') return ['reading', 'analysis'];
+        if (diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2') return ['reading', 'analysis'];
         return configuration.directVisualDecision || configuration.directGenerativeVision ? ['analysis'] : [...measuredStages];
       },
       configurations: selectedProfiles.map((profile) => ({
@@ -1986,15 +1986,29 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
         setStreamedOutput('');
         try {
           let gradingQuestion = runQuestion;
-          if (diagramMethod === 'graph-first-v1') {
-            const observe = service.extractBlindDiagramGraph;
-            if (!observe) throw new Error('Extraction de graphe indisponible.');
+          if (diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2') {
             onStage('reading');
             setEvaluationStage('reading');
-            const evidence = await extractDiagramGraphEvidence(runImages, configuration.analysisModel, abortController.signal,
-              image => awaitOrAbort(() => observe(configuration.endpoint, configuration.analysisModel, image, abortController.signal,
-                undefined, {apiCompatible: !!configuration.apiCompatible, apiKey: configuration.apiKey ?? '', promptVariant: 'isolated-arrows-outside'}),
-              abortController.signal));
+            // V1 stays byte-for-byte compatible; V2 has its own validated
+            // label -> physical line endpoint -> observed structure schema.
+            const evidence = diagramMethod === 'graph-first-v2'
+              ? await (async () => {
+                const observe = service.extractBlindDiagramGraphV2;
+                if (!observe) throw new Error('Lecteur de relations V2 indisponible.');
+                return extractDiagramGraphEvidenceV2(runImages, configuration.analysisModel, abortController.signal,
+                  image => awaitOrAbort(() => observe(configuration.endpoint, configuration.analysisModel, image,
+                    abortController.signal, {apiCompatible: !!configuration.apiCompatible, apiKey: configuration.apiKey ?? ''}),
+                  abortController.signal));
+              })()
+              : await (async () => {
+                const observe = service.extractBlindDiagramGraph;
+                if (!observe) throw new Error('Extraction de graphe indisponible.');
+                return extractDiagramGraphEvidence(runImages, configuration.analysisModel, abortController.signal,
+                  image => awaitOrAbort(() => observe(configuration.endpoint, configuration.analysisModel, image,
+                    abortController.signal, undefined, {apiCompatible: !!configuration.apiCompatible,
+                      apiKey: configuration.apiKey ?? '', promptVariant: 'isolated-arrows-outside'}),
+                  abortController.signal));
+              })();
             graphEvidence.set(configuration.id, evidence);
             gradingQuestion += graphGradingContext(evidence);
             readingMs = Math.max(0, Date.now() - startedAt);
@@ -2020,7 +2034,7 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
           }, (result) => { if (!abortController.signal.aborted) measuredRuns.push(result); }, undefined, undefined, undefined, abortController.signal), abortController.signal);
         } catch (cause) {
           const failedAt = Date.now();
-          if ((runStage === 'vision' || diagramMethod === 'graph-first-v1') && analysisStartedAt === null) readingMs = Math.max(0, failedAt - startedAt);
+          if ((runStage === 'vision' || diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2') && analysisStartedAt === null) readingMs = Math.max(0, failedAt - startedAt);
           const analysisMs = analysisStartedAt === null ? 0 : Math.max(0, failedAt - analysisStartedAt);
           const readingTokens = sumReportedTokensForStage(measuredRuns, 'reading');
           const analysisTokens = sumReportedTokensForStage(measuredRuns, 'analysis');
@@ -2097,7 +2111,8 @@ export function App({ service, archiveService, evaluationService, backgroundCorr
     // Render results immediately; IndexedDB writes must never block navigation.
     if (results.length > 0 && !options) setEvaluationWorkspaceStep('results');
     const savedRecord: ModelEvaluationRecord = {
-      ...(diagramMethod === 'graph-first-v1' ? {graphFirst: true} : {}),
+      ...(diagramMethod === 'graph-first-v1' || diagramMethod === 'graph-first-v2'
+        ? {graphFirst: true, graphVersion: diagramMethod === 'graph-first-v2' ? 'v2' as const : 'v1' as const} : {}),
       id: 'evaluation-' + Date.now() + (options ? '-' + options.pilotCase.id + '-' + runStage + (options.contractVariant ? '-' + options.contractVariant : '') : ''),
       completedAt: new Date().toISOString(),
       assignmentId: runAssignmentId,
