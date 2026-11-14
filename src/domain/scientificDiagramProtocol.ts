@@ -218,7 +218,22 @@ export function usesDirectDiagramVision(profile: AiModelProfile): boolean {
     && isVisualDecisionModel(profile.configuration.analysisModel);
 }
 
-export function diagramObservations(result: ModelEvaluationResultSnapshot, rubric: Rubric) {
+/** Reports from arbitrary copies must never expose model-authored evidence text.
+ * Only the bundled synthetic A/B/C/D/E exercise opts into a short, screened
+ * excerpt: it helps distinguish hallucinated morphology from a missed pointer.
+ * This is a diagnostic, not independent proof that a visual statement is true. */
+function syntheticDiagramEvidence(value: string | undefined): string | null {
+  const excerpt = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
+  if (!excerpt || /https?:\/\/|www\.|@|PRIVATE_|api[_ -]?key|bearer\s|base64|sk-[a-z0-9]{8,}/i.test(excerpt)) return null;
+  return excerpt.slice(0, 180);
+}
+
+export interface DiagramObservationExportOptions {
+  /** Only enable for the fixed synthetic fixtures; never on uploaded teacher copies. */
+  syntheticFixtureEvidence?: boolean;
+}
+
+export function diagramObservations(result: ModelEvaluationResultSnapshot, rubric: Rubric, options: DiagramObservationExportOptions = {}) {
   const source = result.directVisualDecision ? 'image' : 'text';
   const native = new Map(extractSystemOneDecisions(result, rubric, source).map((observation) =>
     [diagramTargetKey(observation.criterionId, observation.targetId), observation]));
@@ -227,6 +242,10 @@ export function diagramObservations(result: ModelEvaluationResultSnapshot, rubri
     const observed = native.get(key);
     const proposal = result.proposal?.criteria.find((item) => item.criterionId === criterion.id);
     const assessment = proposal?.subcriteria?.find((item) => item.subcriterionId === sub.id);
+    const validAssessment = result.status === 'success' && proposal
+      && proposal.assessmentStatus !== 'not-evaluated' && assessment
+      && assessment.assessmentStatus !== 'not-evaluated' && Number.isFinite(assessment.points)
+      && assessment.points >= 0 && assessment.points <= sub.maxPoints;
     let choice: VisualChoice = 'uncertain';
     let decisionSource: 'native-image' | 'native-text' | 'scored-proposal' | 'none' = 'none';
     if (result.status === 'success') {
@@ -235,18 +254,30 @@ export function diagramObservations(result: ModelEvaluationResultSnapshot, rubri
         // In particular, missing literal evidence must not erase TEV1 choices.
         choice = observed.choice;
         decisionSource = source === 'image' ? 'native-image' : 'native-text';
-      } else if (proposal && proposal.assessmentStatus !== 'not-evaluated' && assessment
-        && assessment.assessmentStatus !== 'not-evaluated' && Number.isFinite(assessment.points)
-        && assessment.points >= 0 && assessment.points <= sub.maxPoints) {
+      } else if (validAssessment && assessment) {
         choice = assessment.points === 0 ? 'absent'
           : Math.abs(assessment.points - sub.maxPoints) < 0.0001 ? 'present' : 'partial';
         decisionSource = 'scored-proposal';
       }
     }
+    // Never infer an awarded point value from a System One decision: native
+    // choices and numeric grades are distinct measurements.
+    const evidence = validAssessment && assessment ? assessment.evidence : undefined;
+    const evidenceState = !validAssessment ? 'unavailable' as const
+      : assessment?.evidenceStatus === 'needs-review' ? 'needs-review' as const
+        : typeof evidence === 'string' && evidence.trim() ? 'provided' as const : 'missing' as const;
+    const safeExcerpt = options.syntheticFixtureEvidence ? syntheticDiagramEvidence(evidence) : null;
     return {
       key, criterion: criterion.title, title: sub.title, choice, decisionSource,
       probability: decisionSource === 'native-image' || decisionSource === 'native-text'
         ? observed?.probability ?? null : null,
+      maxPoints: sub.maxPoints,
+      awardedPoints: validAssessment && assessment ? assessment.points : null,
+      evidenceState,
+      modelConfidence: validAssessment ? proposal?.confidence ?? null : null,
+      teacherReviewRequested: Boolean(proposal?.questionForTeacher || assessment?.questionForTeacher
+        || proposal?.assessmentStatus === 'not-evaluated' || assessment?.assessmentStatus === 'not-evaluated'),
+      ...(safeExcerpt ? { syntheticEvidenceExcerpt: safeExcerpt } : {}),
     };
   }));
 }
@@ -310,6 +341,7 @@ export function diagramAnalysisDiagnostics(
 export function buildScientificDiagramProtocolReport(
   runs: readonly DiagramProtocolRun[], rubric: Rubric, gold: DiagramGold,
   plannedRepetitions: DiagramProtocolCount, createdAt: string, imageCount: number,
+  observationOptions: DiagramObservationExportOptions = {},
 ) {
   const totalTargets = rubric.criteria.reduce((sum, criterion) => sum + getRubricSubcriteria(criterion).length, 0);
   const experiments = runs.flatMap(({ repetition, record }) => record.results.map((result) => ({
@@ -347,7 +379,7 @@ export function buildScientificDiagramProtocolReport(
     scoreStatus: result.status !== 'success' ? 'execution-failed' as const
       : result.score !== null ? 'scored' as const
       : result.proposal ? 'teacher-review-required' as const : 'invalid-or-incomplete-proposal' as const,
-    observations: diagramObservations(result, rubric),
+    observations: diagramObservations(result, rubric, observationOptions),
   })));
   const profiles = [...new Map(experiments.map((experiment) => [
     experiment.profileId + '::' + experiment.method,
