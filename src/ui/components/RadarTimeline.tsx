@@ -19,12 +19,12 @@ function ScoreChart({ points, current, axis }: {points: TimelinePoint[]; current
   const x = (p: TimelinePoint) => span ? 74 + 598 * (Date.parse(p.date) - first) / span : 373;
   const y = (v: number) => 178 - 1.38 * v;
   const value = (p: TimelinePoint) => axis ? p.axes[axis] : p.score;
-  const values = points.map(value).filter((n): n is number => n != null);
-  if (!values.length) return <p>Aucune mesure enregistrée pour ce critère.</p>;
+  if (!points.some(p => value(p) != null)) return <p>Aucune mesure enregistrée pour ce critère.</p>;
   return <figure className="lab-trend"><figcaption>{axis || 'Indice de la campagne'} <span>/ 100</span></figcaption>
     <svg viewBox="0 0 750 225" role="img" aria-label="Évolution des notes par date, sur 100">
     {[0,25,50,75,100].map(t => <g key={t}><line x1="74" x2="672" y1={y(t)} y2={y(t)} className="gridline" strokeDasharray={t ? "3 5" : undefined}/>
       <text x="63" y={y(t)+5} textAnchor="end">{t}</text></g>)}
+    <line x1="74" x2="74" y1={y(0)} y2={y(100)} className="gridline"/>
     {points.map((p,i) => {
       const v = value(p);
       if (v == null) return null;
@@ -32,7 +32,8 @@ function ScoreChart({ points, current, axis }: {points: TimelinePoint[]; current
       const pv = prev && value(prev);
       return <g key={p.id}>
         {prev && pv != null && (axis ? p.label === prev.label : comparable(p,prev)) && <line x1={x(prev)} y1={y(pv)} x2={x(p)} y2={y(v)} stroke="currentColor" strokeWidth="2" strokeDasharray={axis || complete(p) ? undefined : '5 4'}/>}
-        <circle cx={x(p)} cy={y(v)} r={p === current ? 6 : 4} stroke="currentColor" strokeWidth="2" fill={complete(p) ? 'currentColor' : 'var(--ds-color-surface, white)'}><title>{caption(p)} · {coverage(p)}</title></circle>
+        <circle cx={x(p)} cy={y(v)} r={p === current ? 6 : 4} stroke="currentColor" strokeWidth="2" fill={complete(p) ? 'currentColor' : 'var(--ds-color-surface, white)'}><title>{date(p.date)} · {p.label} · {axis || 'Indice'} {format(v)}/100 · {coverage(p)}</title></circle>
+        {(p === current || points.length <= 2) && <text className="lab-point-value" x={x(p)} y={y(v)-12} textAnchor="middle">{format(v)}</text>}
       </g>;
     })}
     <text x={span ? 74 : 373} y="202" textAnchor={span ? 'start':'middle'}>{date(points[0]!.date)}</text>

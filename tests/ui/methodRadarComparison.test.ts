@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act } from 'react';
+import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it } from 'vitest';
 import { MethodRadarComparison } from '../../src/ui/components/MethodRadarComparison.tsx';
@@ -14,9 +14,9 @@ it('compares distinct complete method radars and can isolate a targeted campaign
   });
   const node = document.createElement('div');
   const root = createRoot(node);
-  await act(async () => root.render(<MethodRadarComparison axes={axes} sorted={[
+  await act(async () => root.render(createElement(MethodRadarComparison,{axes, sorted:[
     point('A',true,14),point('B',true,13),point('A',false,12),point('B',false,11),
-  ]}/>));
+  ]})));
   expect(node.querySelectorAll('[data-method] polygon')).toHaveLength(2);
   expect(node.querySelectorAll('[data-method] circle')).toHaveLength(6);
   const [scope,method] = node.querySelectorAll('select');
