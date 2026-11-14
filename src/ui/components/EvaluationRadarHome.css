@@ -94,6 +94,21 @@
   }
 }
 
+.radar-home .radar-home-graph-status {
+  margin: 6px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--ds-color-border);
+  border-inline-start: 3px solid var(--ds-color-border-strong);
+  border-radius: 6px;
+  color: var(--ds-color-text);
+  font-size: .85rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.radar-home-graph-status strong { font-weight: 650; }
+@media (max-width: 640px) {
+  .radar-home .radar-home-graph-status { grid-column: 1 / -1; }
+}
 .radar-home-actions { justify-content: flex-start; padding-top: 12px; }
 .radar-home header { align-items: end; }
 @media (max-width: 640px) {
