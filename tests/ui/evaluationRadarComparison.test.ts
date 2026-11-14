@@ -162,3 +162,52 @@ it('exports the selected scientific model with its frozen score, weights and rel
   expect(report.campaigns![0]!.cases).toHaveLength(6);
   expect(JSON.stringify(report)).not.toContain(models[1]);
 });
+
+it('launches every remaining scientific strategy as independent, sequentially executable trials', async () => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const runScienceBatch = vi.fn();
+  await act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries: [entries[0]!], history: [], profiles, model: models[0]!, choose: vi.fn(), busy: false,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience: vi.fn(), runBiology: vi.fn(),
+    runScienceBatch,
+  })));
+  const open = [...node.querySelectorAll<HTMLButtonElement>('article:first-child button')]
+    .find(button => button.textContent === 'Analyse des méthodes')!;
+  await act(async () => open.click());
+  const launch = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
+    .find(button => button.textContent?.startsWith('Évaluer toutes les méthodes restantes'))!;
+  expect(launch.textContent).toContain('(5)');
+  await act(async () => launch.click());
+  expect(runScienceBatch).toHaveBeenCalledOnce();
+  const requests = runScienceBatch.mock.calls[0]![0];
+  expect(requests.map((request: {trial: {method: string}}) => request.trial.method))
+    .toEqual(['graph-first-v1', 'leaders-v1', 'pixel-v1', 'direct-v1', 'guided-v1']);
+  expect(new Set(requests.map((request: {trial: {id: string}}) => request.trial.id)).size).toBe(5);
+  expect(requests.every((request: {modelId: string; steps: unknown[]}) =>
+    request.modelId === models[0] && request.steps.length === 4)).toBe(true);
+  await act(async () => root.unmount());
+});
+
+it('offers only biology methods without five measured axes and disables batching while running', async () => {
+  const node = document.createElement('div');
+  const root = createRoot(node);
+  const runBiologyBatch = vi.fn();
+  const render = async (busy: boolean) => act(async () => root.render(createElement(EvaluationRadarHome, {
+    entries: [entries[0]!], history, profiles, model: models[0]!, choose: vi.fn(), busy,
+    manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience: vi.fn(), runBiology: vi.fn(),
+    runBiologyBatch,
+  })));
+  await render(false);
+  const open = [...node.querySelectorAll<HTMLButtonElement>('article[aria-label="Biologie"] button')]
+    .find(button => button.textContent === 'Analyse des méthodes')!;
+  await act(async () => open.click());
+  const launch = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')]
+    .find(button => button.textContent?.startsWith('Évaluer toutes les méthodes restantes'))!;
+  expect(launch.textContent).toContain('(1)');
+  await act(async () => launch.click());
+  expect(runBiologyBatch).toHaveBeenCalledWith('alpha:4b', ['standard']);
+  await render(true);
+  expect(launch.disabled).toBe(true);
+  await act(async () => root.unmount());
+});
