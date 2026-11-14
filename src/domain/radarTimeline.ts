@@ -1,3 +1,4 @@
+import { diagramMethodLabels, type DiagramMethod } from './scientificDiagramProtocol.ts';
 import { blindVisualObservationPrompt } from './scientificDiagramBlindGraph.ts';
 import { diagramSensitivityContext } from './scientificDiagramSensitivity.ts';
 import { BIOLOGY_RADAR_AXES, buildBiologyRadar, type BiologyRadarObservation } from './biologyTeacherRadar.ts';
@@ -30,6 +31,8 @@ export interface TimelinePoint {
   scienceMethod?: ScienceMethod;
   biologyMethod?: 'contract' | 'standard';
   instructions?: string[];
+  protocolLabel?: string;
+  comparisonBasis?: string;
   reconstructed?: boolean;
 }
 
@@ -53,8 +56,13 @@ export function sciencePoints(group: DiagramLabArchiveEntry[], weights: RadarWei
   ]))].filter(Boolean);
   return buildDiagramLabRadar(group, 'model').map(candidate => ({
     id: trial?.id ?? latest.id, date: latest.createdAt, model: candidate.id,
-    label: trial ? scienceMethods[trial.method].label : latest.title,
-    scienceMethod: trial?.method,
+    label: trial ? scienceMethods[trial.method]?.label ?? trial.method : candidate.methods.map(raw => {
+      const [method, variant] = raw.split(' · ');
+      return [diagramMethodLabels[method as DiagramMethod] ?? method, variant].filter(Boolean).join(' · ');
+    }).join(' + ') || 'Méthode non renseignée',
+    protocolLabel: [...new Set(group.map(entry => entry.title))].join(' / '),
+    comparisonBasis: JSON.stringify([group.map(e => [e.protocol, e.report.protocolId, e.plannedRepetitions]).sort(), Object.entries(trial?.weights ?? weights).sort()]),
+    scienceMethod: trial?.method ?? (candidate.methods.length === 1 && candidate.methods[0] === 'graph-first-v1' ? 'graph-first-v1' : undefined),
     instructions: trial ? [diagramSensitivityContext(scienceMethods[trial.method].promptMode),
       blindVisualObservationPrompt(scienceMethods[trial.method].graphVariant)] : undefined,
     revision: latest.revision, prompts: [...candidate.methods, ...prompts],
@@ -74,6 +82,8 @@ export function biologyPoints(group: BiologyRadarObservation[]): TimelinePoint[]
         date: latest.recordedAt, model: candidate.name, revision: latest.revision,
         label: ({ contract: 'Contrats par question', standard: 'Barème standard', pilot: 'Pilote' })[protocol] +
           ' · ' + candidate.method + ' · ' + candidate.provider,
+        protocolLabel: [...new Set(rows.map(r => r.caseId))].sort().join(' / '),
+        comparisonBasis: JSON.stringify([candidate.provider, candidate.method, rows.map(r => r.caseId).sort()]),
         biologyMethod: protocol === 'pilot' ? undefined : protocol,
         prompts: [...new Set(rows.flatMap(row => (row.prompts ?? []).map(p => p.promptId + ' v' + (p.promptVersion ?? '?'))))],
         score: candidate.score ?? candidate.partialScore,

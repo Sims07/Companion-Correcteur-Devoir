@@ -1,5 +1,5 @@
 import { buildRadarTimelineExport } from '../../domain/radarTimelineExport.ts';
-import { biologyPoints, campaignGroups, scienceMethods, sciencePoints, trialSteps, type ScienceMethod } from '../../domain/radarTimeline.ts';
+import { biologyPoints, campaignGroups, scienceMethods, sciencePoints, trialSteps, type ScienceMethod, type TimelinePoint } from '../../domain/radarTimeline.ts';
 import { RadarTimeline } from './RadarTimeline.tsx';
 import { buildRadarAnalysisExport, isRadarBenchmark } from '../../domain/radarAnalysisExport.ts';
 import { downloadJson } from '../downloadJson.ts';
@@ -72,6 +72,8 @@ export function EvaluationRadarHome({
     (science.find((candidate) => candidate.id === name)?.measured ?? 0) / 8 +
     Math.max(0, ...biology.filter((candidate) => candidate.name === name)
       .map((candidate) => candidate.measured / 5));
+  const [lab, setLab] = useState<RadarDomain | null>(null);
+  const [explicitMethod, setExplicitMethod] = useState({diagrams:false, biology:false});
   const [expanded, setExpanded] = useState<RadarDomain>('diagrams');
   const [variantId, setVariantId] = useState('');
   const variants = biology.filter((c) => c.name === selected);
@@ -110,18 +112,63 @@ export function EvaluationRadarHome({
     profileId: sci.profileId, profileName: sci.name, axis: 'graphics', steps: trialSteps(method),
   });
   const timeline = useMemo(() => ({
-    diagrams: campaignGroups(entries.filter(isRadarBenchmark), e => e.trial?.id ?? e.id).flatMap(group => {
+    diagrams: campaignGroups(entries.filter(isRadarBenchmark), e => e.trial?.id ?? e.id).flatMap<TimelinePoint>(group => {
       const last = [...group].sort((a,b) => b.createdAt.localeCompare(a.createdAt))[0]!;
-      return last.timeline ?? sciencePoints(group, weights).map(p => ({ ...p, reconstructed: true }));
+      const calculated = sciencePoints(group, weights);
+      return last.timeline?.map(p => {
+        const metadata = calculated.find(c => c.model === p.model);
+        return {...p, protocolLabel: metadata?.protocolLabel, comparisonBasis: metadata?.comparisonBasis};
+      }) ?? calculated.map(p => ({ ...p, reconstructed: true }));
     }),
     biology: campaignGroups(history, row => row.campaignId ?? row.id).flatMap(group => {
       const saved = group.flatMap(row => row.timeline ? [row.timeline] : []);
-      return biologyPoints(group).map(point => saved.find(p => p.id === point.id && p.date === point.date) ??
-        { ...point, reconstructed: true });
+      return biologyPoints(group).map(point => {
+        const stored = saved.find(p => p.id === point.id && p.date === point.date);
+        return stored ? {...point, ...stored} : {...point, reconstructed:true};
+      });
     }),
   }), [entries, history, weights]);
   const score = (value: number | null | undefined) =>
     value == null ? '—' : value.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' / 100';
+  const chosenSciencePlan = explicitMethod.diagrams ? fullPlan : plan;
+  const canLaunchScience = (request: typeof fullPlan) =>
+    Boolean(request && profiles.some(p => p.id === request.profileId));
+  function launchChosen(domain: RadarDomain) {
+    if (domain === 'diagrams' && fullPlan) {
+      runScience({...fullPlan, trial:{id:crypto.randomUUID(), method, weights}});
+    } else if (domain === 'biology' && profile) {
+      runBiology(profile.id, true, true, bioMethod);
+    }
+  }
+  function markChosen(domain: RadarDomain) {
+    setExplicitMethod(previous => ({...previous, [domain]:true}));
+  }
+  if (lab) {
+    const scientific = lab === 'diagrams';
+    return <RadarTimeline key={lab + selected} domainLabel={domainLabels[lab]} model={selected}
+      onBack={() => setLab(null)} points={timeline[lab].filter(p => p.model === selected)}
+      onExport={() => {
+        const date = new Date().toISOString();
+        const report = buildRadarTimelineExport(lab, selected, timeline[lab], entries, history, weights, date);
+        const filenameModel = selected.replace(/[^a-zA-Z0-9._-]+/g, '-');
+        downloadJson(report, 'companion-methodes-' + lab + '-' + filenameModel + '-' + date.replace(/:/g, '-') + '.json');
+      }}
+      selectMethod={point => {
+        markChosen(lab);
+        if (point.scienceMethod) setMethod(point.scienceMethod);
+        if (point.biologyMethod) setBioMethod(point.biologyMethod);
+      }}>
+      <label>Méthode du prochain essai
+        {scientific ? <select value={method} onChange={e => { setMethod(e.target.value as ScienceMethod); markChosen(lab); }}>
+          {Object.entries(scienceMethods).map(([id, item]) => <option key={id} value={id}>{item.label}</option>)}
+        </select> : <select value={bioMethod} onChange={e => { setBioMethod(e.target.value as typeof bioMethod); markChosen(lab); }}>
+          <option value="contract">Contrats par question</option><option value="standard">Barème standard</option>
+        </select>}
+      </label>
+      <Button disabled={busy || !(scientific ? canLaunchScience(fullPlan) : profile)}
+        onClick={() => launchChosen(lab)}>Évaluer avec cette méthode</Button>
+    </RadarTimeline>;
+  }
   return (
     <section className="radar-home" aria-label="Tableau de bord des radars">
       <header>
@@ -274,13 +321,14 @@ export function EvaluationRadarHome({
                 )}
               </div>
               <div className="radar-home-actions">
-                {(scientific ? count < total : true) && (
+                {(scientific ? count < total || explicitMethod.diagrams : true) && (
                   <Button
                     disabled={
-                      busy || !(scientific ? plan && profiles.some((p) => p.id === plan.profileId) : profile)
+                      busy || !(scientific ? canLaunchScience(chosenSciencePlan) : profile)
                     }
                     onClick={() => {
-                      if (scientific && plan) runScience({ ...plan, trial: {
+                      if (explicitMethod[domain]) launchChosen(domain);
+                      else if (scientific && plan) runScience({ ...plan, trial: {
                         id: crypto.randomUUID(), method: 'pixel-v1', weights,
                       } });
                       else if (!scientific && profile)
@@ -295,7 +343,7 @@ export function EvaluationRadarHome({
                         );
                     }}
                   >
-                    {!scientific && activeBio?.measured === total
+                    {explicitMethod[domain] ? 'Évaluer · ' + (scientific ? scienceMethods[method].label : bioMethod === 'contract' ? 'Contrats par question' : 'Barème standard') : !scientific && activeBio?.measured === total
                       ? 'Relancer l’évaluation'
                       : count ? 'Compléter les tests'
                         : 'Évaluer en ' + (scientific ? 'schémas scientifiques' : 'biologie')}
@@ -307,30 +355,10 @@ export function EvaluationRadarHome({
                 {ids.length > 0 && (
                   <Button variant="secondary" onClick={() => campaigns(domain, selected, ids)}>Voir les campagnes</Button>
                 )}
+                <Button variant="secondary" onClick={() => setLab(domain)}>Analyse des méthodes</Button>
                 <Button variant="secondary" onClick={() => details(domain, selected)}>Détail du radar</Button>
               </div>
-              <RadarTimeline key={selected} onExport={() => {
-                const date = new Date().toISOString();
-                const report = buildRadarTimelineExport(domain, selected, timeline[domain], entries, history, weights, date);
-                const filenameModel = selected.replace(/[^a-zA-Z0-9._-]+/g, '-');
-                downloadJson(report, 'companion-methodes-' + domain + '-' + filenameModel + '-' + date.replace(/:/g, '-') + '.json');
-              }} selectMethod={point => {
-                if (point.scienceMethod) setMethod(point.scienceMethod);
-                if (point.biologyMethod) setBioMethod(point.biologyMethod);
-              }} points={timeline[domain].filter(p => p.model === selected)}>
-                <label>Méthode du prochain essai
-                  {scientific ? <select value={method} onChange={e => setMethod(e.target.value as ScienceMethod)}>
-                    {Object.entries(scienceMethods).map(([id, item]) => <option key={id} value={id}>{item.label}</option>)}
-                  </select> : <select value={bioMethod} onChange={e => setBioMethod(e.target.value as typeof bioMethod)}>
-                    <option value="contract">Contrats par question</option><option value="standard">Barème standard</option>
-                  </select>}
-                </label>
-                <Button disabled={busy || !(scientific ? fullPlan && profiles.some(p => p.id === fullPlan.profileId) : profile)}
-                  onClick={() => {
-                    if (scientific && fullPlan) runScience({ ...fullPlan, trial: { id: crypto.randomUUID(), method, weights } });
-                    else if (!scientific && profile) runBiology(profile.id, true, true, bioMethod);
-                  }}>Évaluer avec cette méthode</Button>
-              </RadarTimeline>
+
             </article>
           );
         })}

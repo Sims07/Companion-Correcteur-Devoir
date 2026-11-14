@@ -1,60 +1,94 @@
-import { Button } from '../design-system/index.ts';
 import { useState, type ReactNode } from 'react';
 import type { TimelinePoint } from '../../domain/radarTimeline.ts';
+import { Button } from '../design-system/index.ts';
 
-const format = (n: number | null) => n == null ? '—' : n.toLocaleString('fr-FR');
-const date = (s: string) => new Date(s).toLocaleString('fr-FR', {dateStyle: 'short', timeStyle: 'short'});
+const format = (n: number | null | undefined) => n == null ? '—' : n.toLocaleString('fr-FR', {maximumFractionDigits:1});
+const date = (s: string) => new Date(s).toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'});
 const caption = (p: TimelinePoint) => date(p.date) + ' · ' + p.label + ' · ' + format(p.score) + '/100';
+const measured = (p: TimelinePoint) => Object.keys(p.axes).filter(key => p.axes[key] != null).sort();
+const complete = (p: TimelinePoint) => p.score != null && measured(p).length === Object.keys(p.axes).length;
+const coverage = (p: TimelinePoint) => complete(p) ? 'Global' : 'Partiel · ' + measured(p).length + '/' + Object.keys(p.axes).length;
+const comparable = (a: TimelinePoint, b: TimelinePoint) => !!a.comparisonBasis && a.comparisonBasis === b.comparisonBasis &&
+  JSON.stringify(measured(a)) === JSON.stringify(measured(b));
+const options = (items: TimelinePoint[]) => items.map(p => <option key={p.id} value={p.id}>{caption(p)}</option>);
 
-export function RadarTimeline({ points, children, selectMethod, onExport }: { points: TimelinePoint[]; onExport: () => void; children: ReactNode; selectMethod: (point: TimelinePoint) => void }) {
+function ScoreChart({ points, current, axis }: {points: TimelinePoint[]; current: TimelinePoint; axis: string}) {
+  const first = Date.parse(points[0]!.date);
+  const span = Date.parse(points.at(-1)!.date) - first;
+  const x = (p: TimelinePoint) => span ? 74 + 598 * (Date.parse(p.date) - first) / span : 373;
+  const y = (v: number) => 178 - 1.38 * v;
+  const value = (p: TimelinePoint) => axis ? p.axes[axis] : p.score;
+  return <svg viewBox="0 0 750 242" role="img" aria-label="Évolution des notes par date, sur 100">
+    <text x="22" y="20">{axis || 'Indice'} (/100)</text>
+    {[0,25,50,75,100].map(t => <g key={t}><line x1="74" x2="672" y1={y(t)} y2={y(t)} className="gridline"/>
+      <text x="63" y={y(t)+5} textAnchor="end">{t}</text></g>)}
+    {points.map((p,i) => {
+      const v = value(p);
+      if (v == null) return null;
+      const prev = points[i-1];
+      const pv = prev && value(prev);
+      return <g key={p.id}>
+        {prev && pv != null && comparable(p,prev) && <line x1={x(prev)} y1={y(pv)} x2={x(p)} y2={y(v)} stroke="currentColor" strokeWidth="2" strokeDasharray={axis || complete(p) ? undefined : '5 4'}/>}
+        <circle cx={x(p)} cy={y(v)} r={p === current ? 6 : 4} stroke="currentColor" strokeWidth="2" fill={complete(p) ? 'currentColor' : 'var(--ds-color-surface, white)'}><title>{caption(p)} · {coverage(p)}</title></circle>
+      </g>;
+    })}
+    <text x={span ? 74 : 373} y="202" textAnchor={span ? 'start':'middle'}>{date(points[0]!.date)}</text>
+    {span > 0 && <text x="672" y="202" textAnchor="end">{date(points.at(-1)!.date)}</text>}
+    <text x="373" y="230" textAnchor="middle">Date de l’essai</text>
+  </svg>;
+}
+
+interface Props {
+  points: TimelinePoint[]; model: string; domainLabel: string; children: ReactNode;
+  onBack: () => void; onExport: () => void; selectMethod: (p: TimelinePoint) => void;
+}
+
+export function RadarTimeline({points, model, domainLabel, children, onBack, onExport, selectMethod}:Props) {
   const [selected, setSelected] = useState('');
   const [reference, setReference] = useState('');
+  const [filter, setFilter] = useState('');
+  const [axis, setAxis] = useState('');
   const sorted = [...points].sort((a,b) => b.date.localeCompare(a.date));
-  const current = sorted.find(p => p.id === selected) ?? sorted[0];
+  const methods = [...new Set(sorted.map(p => p.label))];
+  const filtered = sorted.filter(p => !filter || p.label === filter);
+  const current = filtered.find(p => p.id === selected) ?? filtered[0];
   const others = sorted.filter(p => p !== current);
-  const before = others.find(p => p.id === reference) ?? others[0];
-  const chronological = [...sorted].reverse();
-  const start = Date.parse(chronological[0]?.date ?? '');
-  const span = Date.parse(current ? sorted[0]!.date : '') - start;
-  const x = (p: TimelinePoint) => span > 0 ? 12 + 276 * (Date.parse(p.date) - start) / span : 150;
-  const y = (score: number) => 88 - score * .76;
-  const global = (p: TimelinePoint) => p.score != null && Object.values(p.axes).every(v => v !== null);
-  const options = (items: TimelinePoint[]) => items.map(p => <option key={p.id} value={p.id}>{caption(p)}</option>);
-  return <details className="radar-timeline">
-    <summary>Évolution des notes et méthodes</summary>
-    <Button variant="secondary" disabled={!points.length} onClick={onExport}>Exporter l’historique des méthodes</Button>
-    {children}
-    {!current ? <p>Aucun essai enregistré pour ce modèle.</p> : <>
-      {chronological.length > 1 && <svg viewBox="0 0 300 100" role="img" aria-label="Évolution de l’indice global dans le temps, sur 100">
-        <path d="M12 12V88H288" fill="none" stroke="currentColor" opacity=".25" />
-        {chronological.map((p, i) => {
-          const prev = chronological[i - 1];
-          if (p.score == null) return null;
-          return <g key={p.id}>
-            {prev && global(prev) && global(p) && <line x1={x(prev)} y1={y(prev.score!)} x2={x(p)} y2={y(p.score)} stroke="currentColor" />}
-            <circle cx={x(p)} cy={y(p.score)} r={p === current ? 4 : 3} stroke="currentColor" fill={global(p) ? 'currentColor' : 'var(--ds-color-surface)'}><title>{caption(p)}</title></circle>
-          </g>;
-        })}
-      </svg>}
-      <ol aria-label="Chronologie des indices sur 100">{chronological.map(p => {
-        const axes = Object.values(p.axes);
-        const measured = axes.filter(v => v !== null).length;
-        return <li key={p.id}><button type="button" aria-pressed={current.id === p.id} onClick={() => setSelected(p.id)}>
-          <time dateTime={p.date}>{date(p.date)}</time>
-          <strong>{format(p.score)} / 100</strong>
-          <meter min="0" max="100" value={p.score ?? 0} hidden={p.score == null} />
-          <span>{p.label}</span><small>{measured === axes.length ? 'Indice global' : 'Partiel · ' + measured + '/' + axes.length + ' axes'}</small>
-        </button></li>;
-      })}</ol>
-      <label>Essai sélectionné<select value={current.id} onChange={e => setSelected(e.target.value)}>{options(sorted)}</select></label>
-      <p>{current.reconstructed ? 'Indice reconstitué depuis les archives' : 'Indice enregistré'} · Révision {current.revision?.slice(0, 8) ?? 'inconnue'}</p>
-      <p>{current.prompts.join(' · ') || 'Référence du prompt inconnue'}</p>
-      {current.instructions && <details><summary>Lire les consignes de cette méthode</summary>{current.instructions.map((text,i) => <p key={i}>{text}</p>)}</details>}
-      {(current.scienceMethod || current.biologyMethod) && <button type="button" onClick={() => selectMethod(current)}>Choisir cette méthode pour le prochain essai</button>}
-      {before && <label>Comparer avec<select value={before.id} onChange={e => setReference(e.target.value)}>{options(others)}</select></label>}
-      <table><thead><tr><th>Axe</th><th>Essai sélectionné</th>{before && <th>Comparaison</th>}</tr></thead>
-        <tbody>{Object.entries(current.axes).map(([label, value]) => <tr key={label}><th>{label}</th><td>{format(value)}</td>{before && <td>{format(before.axes[label] ?? null)}</td>}</tr>)}</tbody>
-      </table>
+  const before = others.find(p => p.id === reference) ?? others.find(p => current && comparable(current,p) && p.label !== current.label) ?? others[0];
+  const axes = [...new Set(sorted.flatMap(p => Object.keys(p.axes)))];
+  return <section className="method-lab" aria-label="Laboratoire des méthodes">
+    <nav aria-label="Fil d’Ariane"><button type="button" onClick={onBack}>Retour aux radars</button> / {domainLabel}</nav>
+    <header><div><h2>Laboratoire des méthodes</h2><p>{model} · {domainLabel}</p></div>
+      <Button variant="secondary" disabled={!points.length} onClick={onExport}>Exporter l’historique des méthodes</Button></header>
+    <section className="lab-launch">{children}</section>
+    {!points.length ? <p>Aucun essai enregistré pour ce modèle.</p> : <>
+      <section><h3>Évolution des notes</h3>
+        <div className="lab-controls"><label>Méthode affichée<select value={filter} onChange={e => setFilter(e.target.value)}>
+          <option value="">Toutes les méthodes</option>{methods.map(m => <option key={m}>{m}</option>)}</select></label>
+          <label>Mesure affichée<select value={axis} onChange={e => setAxis(e.target.value)}><option value="">Indice de l’essai</option>{axes.map(a => <option key={a}>{a}</option>)}</select></label></div>
+        {current && <ScoreChart current={current} points={[...filtered].reverse()} axis={axis}/>}
+        <small>Point plein : indice global. Point creux : essai partiel. Les traits relient les essais de même périmètre.</small>
+      </section>
+      <section><h3>Résultats par méthode</h3><div className="lab-scroll"><table><caption>Dernier essai de chaque méthode</caption>
+        <thead><tr><th>Méthode utilisée</th><th>Essais</th><th>Dernier test</th><th>Date</th><th>Indice /100</th><th>Couverture</th></tr></thead>
+        <tbody>{methods.map(m => { const rows = sorted.filter(p => p.label === m); const p = rows[0]!;
+          return <tr key={m}><th><button onClick={() => { setFilter(m); setSelected(p.id); }}>{m}</button></th><td>{rows.length}</td><td>{p.protocolLabel ?? 'Non renseigné'}</td><td>{date(p.date)}</td><td>{format(p.score)}</td><td>{coverage(p)}</td></tr>;
+        })}</tbody></table></div></section>
+      {current && <section><h3>Comparer deux essais</h3>
+        <div className="lab-controls"><label>Essai sélectionné<select value={current.id} onChange={e => setSelected(e.target.value)}>{options(filtered)}</select></label>
+        {before && <label>Comparer avec<select value={before.id} onChange={e => setReference(e.target.value)}>{options(others)}</select></label>}</div>
+        <p>{current.protocolLabel} · {current.reconstructed ? 'Indice reconstitué' : 'Indice enregistré'} · Révision {current.revision?.slice(0,8) ?? 'inconnue'}</p>
+        {before && <p>Référence : {before.protocolLabel ?? 'Test non renseigné'} · {coverage(before)}{!comparable(current,before) && ' · Périmètres différents, comparer les axes communs.'}</p>}
+        <div className="lab-scroll"><table><thead><tr><th>Mesure /100</th><th>{current.label}</th>{before && <><th>{before.label}</th><th>Écart en points</th></>}</tr></thead>
+        <tbody>{['Indice', ...axes].map(a => {
+          const overall = a === 'Indice';
+          const v = overall ? current.score : current.axes[a];
+          const b = before && (overall ? before.score : before.axes[a]);
+          const diff = v != null && b != null && (!overall || comparable(current,before!)) ? Math.round((v-b)*10)/10 : null;
+          return <tr key={a}><th>{a}</th><td>{format(v)}</td>{before && <><td>{format(b)}</td><td>{diff != null && diff > 0 ? '+' : ''}{format(diff)}</td></>}</tr>;
+        })}</tbody></table></div>
+        <details><summary>Prompts et consignes de l’essai sélectionné</summary><p>{current.prompts.join(' · ') || 'Référence inconnue'}</p>{current.instructions?.map((s,i) => <p key={i}>{s}</p>)}</details>
+        {(current.scienceMethod || current.biologyMethod) && <Button variant="secondary" onClick={() => selectMethod(current)}>Choisir cette méthode pour le prochain essai</Button>}
+      </section>}
     </>}
-  </details>;
+  </section>;
 }
