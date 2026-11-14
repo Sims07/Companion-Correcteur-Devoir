@@ -289,3 +289,10 @@
 .criterion-leader-heading strong { color:#205b68; white-space:nowrap; font-variant-numeric:tabular-nums; }
 .criterion-leader-name { margin:.35rem 0; }
 .criterion-leaders small { color:var(--ds-color-text-muted); }
+
+.radar-method-launch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
