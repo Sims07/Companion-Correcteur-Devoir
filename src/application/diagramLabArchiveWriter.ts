@@ -6,10 +6,12 @@ import type { DiagramLabArchiveRepository } from '../ports/diagramLabArchiveRepo
  * a completed archive entry with an older "running" snapshot. */
 export function createDiagramLabArchiveWriter(repository: DiagramLabArchiveRepository) {
   let pending: Promise<void> = Promise.resolve();
-  const completed = new Map<string, DiagramLabReport>();
+  const completed = new Set<string>();
+  const persisted = new WeakSet<DiagramLabReport>();
 
   const trials = new Map<string, RadarTrial>();
-  const reports = new Map<string, Map<string, DiagramLabArchiveEntry>>();
+  let currentTrial: string | undefined;
+  const reports = new Map<string, DiagramLabArchiveEntry>();
 
   function register(createdAt: string, trial: RadarTrial | null) {
     if (trial) trials.set(createdAt, trial);
@@ -19,17 +21,22 @@ export function createDiagramLabArchiveWriter(repository: DiagramLabArchiveRepos
     const entry = summarizeDiagramLabReport(report, state);
     entry.revision = import.meta.env.VITE_EVALUATION_REVISION;
     const task = pending.catch(() => undefined).then(async () => {
-      if (completed.has(entry.id) && (entry.state === 'running' || completed.get(entry.id) === report)) return;
+      if (persisted.has(report) || (completed.has(entry.id) && entry.state === 'running')) return;
       const trial = trials.get(report.createdAt);
       if (trial) {
         entry.trial = trial;
-        const group = reports.get(trial.id) ?? new Map();
-        group.set(entry.id, entry);
-        reports.set(trial.id, group);
-        entry.timeline = sciencePoints([...group.values()], trial.weights);
+        if (currentTrial !== trial.id) {
+          reports.clear();
+          currentTrial = trial.id;
+        }
+        entry.timeline = sciencePoints([...reports.values()].filter(row => row.id !== entry.id).concat(entry), trial.weights);
       }
       await repository.save(entry);
-      if (entry.state === 'finished') completed.set(entry.id, report);
+      if (trial) reports.set(entry.id, entry);
+      if (entry.state === 'finished') {
+        completed.add(entry.id);
+        persisted.add(report);
+      }
     });
     pending = task;
     return task;
