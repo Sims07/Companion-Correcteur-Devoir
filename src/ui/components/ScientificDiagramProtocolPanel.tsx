@@ -256,7 +256,8 @@ export function ScientificDiagramProtocolPanel({
     }
   }
 
-  async function runPreparedFixtures(ids: readonly ScientificDiagramFixtureId[], override?: RadarTestStep): Promise<boolean> {
+  async function runPreparedFixtures(ids: readonly ScientificDiagramFixtureId[],
+    override?: Pick<RadarTestStep, 'method' | 'repetitions'>): Promise<boolean> {
     if (!override && !canRunFixtures) return false;
     setFixtureLoading(true);
     onClearFixtureReport();
@@ -507,7 +508,15 @@ export function ScientificDiagramProtocolPanel({
           {activeProtocol === 'arrows' && <Button variant="secondary" disabled={!canRunFixtures}
             onClick={() => { void runPreparedFixtures(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS); }}>
             Tester les flèches D/E en un clic
-          </Button>}
+          </Button>
+          {activeProtocol === 'arrows' && <Button variant="secondary"
+            disabled={busy || fixtureLoading || !selectedProfiles.length
+              || selectedProfiles.some((profile) => !!diagramMethodIssue(profile, 'graph-first-v2'))}
+            onClick={() => {
+              setMethodSelection('graph-first-v2');
+              void runPreparedFixtures(SCIENTIFIC_DIAGRAM_POINTER_CASE_IDS,
+                {method:'graph-first-v2',repetitions:1});
+            }}>Tester D/E avec graphe V2</Button>}}
           {(busy || fixtureLoading) && <Button variant="secondary" onClick={stopProtocol} disabled={!busy}>Arrêter maintenant</Button>}
         </div>
         <details className="diagram-lab-explanation"><summary>Conditions de comparaison</summary><p className="pilot-evaluation-hint">Choisissez 1 à 3 configurations dans la sélection au-dessus. Pour une comparaison équitable, le même barème et les mêmes images sont utilisés à chaque passage, par méthode et par profil. Exécution séquentielle. Un seul passage ne mesure pas la répétabilité.</p></details>
@@ -634,6 +643,13 @@ export function ScientificDiagramProtocolPanel({
             <strong>{pair.profileId} · {pair.model} · {diagramMethodLabels[pair.method as keyof typeof diagramMethodLabels]} · passage {pair.repetition}</strong>
             <p>Détection D/E : {pair.status === 'detected' ? 'Réussie' : pair.status === 'missed' ? 'Échec de différenciation' : 'Non concluante'}
               {' · '}D : {pair.controlChoice} · E : {pair.alteredChoice}
+              {pair.graphV2 && <> · V2 relations : {pair.graphV2.status === 'detected' ? '4 inversions reconnues'
+                : pair.graphV2.status === 'missed' ? 'aucune différence reconnue'
+                  : pair.graphV2.status === 'partial' ? 'différence partielle' : 'inconclusif'}
+                {' (' + pair.graphV2.observedChangedTargets.length + '/4 changements, D '
+                  + pair.graphV2.controlMatched + '/6, E ' + pair.graphV2.alteredMatched
+                  + '/6, indécis ' + pair.graphV2.unresolved + ')'}
+              </>}
               {' · '}écart de notes : {pair.proposedScoreDifference === null ? 'non mesuré' : pair.proposedScoreDifference + ' pt'}
               {' (attendu : 0,68 pt)'}
               {' · '}légendes en colonne : {pair.alignmentDetectedBoth === null ? 'non mesuré'
@@ -653,6 +669,18 @@ export function ScientificDiagramProtocolPanel({
                   {' · '}non résolus : {diagnostic.unresolvedTargets.length}
                   {diagnostic.allPresentPattern ? ' · Toutes les réponses sont « présent »' : ''}
                 </p>
+                {diagnostic.graphV2 && <details>
+                  <summary>Graphe V2 · {diagnostic.graphV2.correct}/6 destinations observées conformément au dessin,
+                    {' '}{diagnostic.graphV2.wrong} erronées, {diagnostic.graphV2.uncertain} incertaines
+                  </summary>
+                  <p>Mise en page observée : {diagnostic.graphV2.observedLayout} · couverture déclarée :
+                    {' '}{diagnostic.graphV2.claimComplete ? 'complète' : 'partielle'}.
+                    Ces relations sont les déclarations du modèle, pas une validation visuelle indépendante.</p>
+                  {diagnostic.graphV2.findings.map((item) => <div key={item.phase + item.label}>
+                    <strong>{item.phase} · {item.label}</strong> : attendu {item.expectedKind} ;
+                    {' '}observé {item.observedKind ?? 'inconnu'} ({item.state})
+                  </div>)}
+                </details>}
                 {diagnostic.mismatchedTargets.map((mismatch) => {
                   const observation = caseResult.experiments.find((experiment) =>
                     experiment.profileId === diagnostic.profileId && experiment.method === diagnostic.method
