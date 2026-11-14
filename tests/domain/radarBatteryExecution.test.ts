@@ -6,7 +6,7 @@ import type { RadarMissingTestRequest } from '../../src/domain/diagramLabRadarLa
 describe('radar battery execution labels', () => {
   const request: Pick<RadarMissingTestRequest, 'trial' | 'steps'> = {
     trial: { id: 't-439', method: 'pixel-v1', weights: {
-      graphics: 1, arrows: 1, biology: 1, relations: 1,
+      graphics: 1, arrows: 1, precision: 1, biology: 1, relations: 1,
       robustness: 1, stability: 1, coverage: 1, speed: 1,
     } },
     steps: trialSteps('pixel-v1').map(step => ({
