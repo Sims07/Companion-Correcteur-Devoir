@@ -44,8 +44,8 @@ describe('runModelEvaluation', () => {
     });
     expect(execute).toHaveBeenCalledTimes(1);
     expect(outputs).toHaveLength(1);
-    expect(outputs[0].status).toBe('success');
-    expect(outputs[0].value).toBe('a');
+    expect(outputs[0].status).toBe('cancelled');
+    expect(outputs[0].value).toBeUndefined();
   });
 
   it('emits current configuration and terminal progress', async () => {
@@ -109,7 +109,7 @@ describe('runModelEvaluation', () => {
     ]);
   });
 
-  it('still runs memory cleanup when the teacher stops an experiment during a profile', async () => {
+  it('returns immediately without starting cleanup or another profile after cancellation', async () => {
     let cancelled = false;
     const cleaned = vi.fn();
     const execute = vi.fn(async () => {
@@ -123,9 +123,9 @@ describe('runModelEvaluation', () => {
       onConfigurationSettled: cleaned,
     });
     expect(outputs).toHaveLength(1);
-    expect(outputs[0].value).toBe('partial result retained');
-    expect(cleaned).toHaveBeenCalledTimes(1);
-    expect(cleaned).toHaveBeenCalledWith(config('a'), expect.objectContaining({ status: 'success' }));
+    expect(outputs[0].value).toBeUndefined();
+    expect(cleaned).not.toHaveBeenCalled();
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 
   it('does not attempt profile cleanup outside the opt-in protocol', async () => {

@@ -51,7 +51,7 @@ describe('System One scoring coverage without fabricated certainty', () => {
     expect(prepared.state.match(/RÉPONSE DE L’ÉTUDIANT/g)).toHaveLength(1);
     expect(prepared.questions.alignment.instructions).toContain('même devoir');
     expect(prepared.questions.alignment.instructions).toContain('Introduction');
-    expect(prepared.questions.criterion_1_alignment.instructions).not.toMatch(/respiration cellulaire ne traite PAS de la photosynthèse/i);
+    expect(prepared.questions.alignment.instructions).not.toMatch(/respiration cellulaire ne traite PAS de la photosynthèse/i);
     expect(prepared.questions.criterion_1_score.instructions).toContain('Photosynthèse');
   });
 

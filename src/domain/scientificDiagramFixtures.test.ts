@@ -121,7 +121,7 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
     expect(report.cases.map((item) => [item.caseId, item.referenceScore]))
       .toEqual([['A', 9.84], ['B', 7.36], ['C', 0.66], ['D', 9.34], ['E', 8.66]]);
     expect(report.cases[0]?.summaries[0]).toMatchObject({ runsCompleted: 1, complete: false });
-    expect(report.cases[1]?.summaries[0]).toMatchObject({ runsCompleted: 1, successfulRuns: 0, accuracyPercent: 0 });
+    expect(report.cases[1]?.summaries[0]).toMatchObject({ runsCompleted: 1, successfulRuns: 0, accuracyPercent: null });
     expect(report.cases[2]?.summaries).toEqual([]);
     expect(report.cases[3]?.summaries).toEqual([]);
     expect(report.cases[4]?.summaries).toEqual([]);
@@ -342,9 +342,8 @@ describe('jeu de dessins scientifiques A/B/C et contrôle de flèches D/E', () =
       controlMatched:6,alteredMatched:6,layoutRowsBoth:true,
     });
     expect(report.pairedDiagnostics[0]!.graphV2?.observedChangedTargets).toHaveLength(4);
-    // V2 can detect the swap despite a separate grader still scoring 10/10:
-    // never silently rewrite a grade from a model-asserted graph.
-    expect(report.pairedDiagnostics[0]!.status).toBe('missed');
+    // A total score alone cannot establish the grader’s decision on the pointer.
+    expect(report.pairedDiagnostics[0]!.status).toBe('inconclusive');
     expect(report.cases[4]!.experiments[0]!.score).toBe(10);
 
     const failure=buildScientificDiagramFixtureReport([

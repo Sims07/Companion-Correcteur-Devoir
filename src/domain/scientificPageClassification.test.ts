@@ -11,7 +11,7 @@ describe('scientific page classification', () => {
     ] }), 3)).toEqual([
       { pageNumber: 1, kind: 'text', confidence: 0.99, reason: 'Réponse rédigée' },
       { pageNumber: 2, kind: 'scientific-diagram', confidence: 0.96, reason: 'Schéma annoté de cellule', suggestedRotation: 90, orientationConfidence: 0.97 },
-      { pageNumber: 3, kind: 'ambiguous', confidence: 0.52, reason: 'Dessin partiel' },
+      { pageNumber: 3, kind: 'ambiguous', confidence: 0.52, reason: 'Dessin partiel', warning: 'Page 3 : classification incertaine, confiance faible.' },
     ]);
   });
 
@@ -95,11 +95,11 @@ describe('scientific page classification', () => {
     const wrapped = '<think>raisonnement</think> Résultat : {"numeroPage":"1","type_page":"schéma","confiance":"0,8","raison":"dessin"}';
     expect(parseScientificPageClassifications(wrapped, 1)[0]).toMatchObject({ kind: 'scientific-diagram', confidence: 0.8, reason: 'dessin' });
     expect(parseScientificPageClassifications('{"kind":"texte","confidence":"0.9"}', 1)[0]).toMatchObject({ kind: 'text', confidence: 0.9, reason: '' });
-    expect(parseScientificPageClassifications('{"pageNumber":1,"type":"mixte"}', 1)[0]).toMatchObject({ kind: 'mixed', confidence: 0.5, reason: '' });
+    expect(parseScientificPageClassifications('{"pageNumber":1,"type":"mixte"}', 1)[0]).toMatchObject({ kind: 'ambiguous', confidence: 0.5, reason: '' });
   });
 
   it('accepts a flat page object and warns for unknown kinds', () => {
-    expect(parseScientificPageClassifications('{"kind":"diagram"}', 1)[0].kind).toBe('scientific-diagram');
+    expect(parseScientificPageClassifications('{"kind":"diagram","confidence":0.9}', 1)[0].kind).toBe('scientific-diagram');
     expect(parseScientificPageClassifications('{"kind":"photo"}', 1)[0]).toMatchObject({ kind: 'ambiguous', warning: expect.stringContaining('type de page inconnu') });
   });
 
@@ -109,7 +109,7 @@ describe('scientific page classification', () => {
   });
 
   it('rejects unsupported page kinds and malformed JSON', () => {
-    expect(() => parseScientificPageClassifications('{bad', 1)).toThrow(/JSON valide/);
+    expect(() => parseScientificPageClassifications('{bad}', 1)).toThrow(/JSON valide/);
     expect(parseScientificPageClassifications(JSON.stringify({ pages: [
       { pageNumber: 1, kind: 'photo', confidence: 0.8, reason: '' },
     ] }), 1)[0]).toMatchObject({ kind: 'ambiguous', warning: expect.stringContaining('type de page inconnu') });

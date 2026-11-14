@@ -16,7 +16,7 @@ describe('teacher entry journey', () => {
     { ...validRubric, title: ' ' },
     { ...validRubric, criteria: [] },
     { ...validRubric, criteria: [{ ...validRubric.criteria[0], title: ' ' }] },
-    { ...validRubric, criteria: [{ ...validRubric.criteria[0], maxPoints: -1 }] },
+    { ...validRubric, criteria: [{ ...validRubric.criteria[0], maxPoints: Number.NaN }] },
   ])('keeps an incomplete or invalid assignment on the Devoir step', (rubric) => {
     expect(getTeacherEntryStep(rubric)).toBe('assignment');
   });

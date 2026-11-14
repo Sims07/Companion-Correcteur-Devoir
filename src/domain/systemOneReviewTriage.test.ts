@@ -69,7 +69,7 @@ describe('pedagogical System One uncertainty triage', () => {
     expect(scored.every((item)=>item.points===0)).toBe(true);
   });
 
-  it('does not make literal-title keyword matching a mandatory proof of scientific quality', () => {
+  it('keeps proposed points provisional when closed choices cannot locate textual evidence', () => {
     const weighted: RubricCriterion = {
       id:'introduction',title:'Introduction',description:'',maxPoints:2,
       subcriteria:[
@@ -83,9 +83,9 @@ describe('pedagogical System One uncertainty triage', () => {
       answers:{alignment:choice('aligned'),expected_1:choice('present'),support_1:choice('supported'),expected_2:choice('present'),support_2:choice('supported')},
     });
     expect(proposal.points).toBe(2);
-    expect(proposal.assessmentStatus).toBe('evaluated');
-    expect(proposal.confidence).toBe('medium');
-    expect(proposal.questionForTeacher).toBeUndefined();
+    expect(proposal.assessmentStatus).toBe('not-evaluated');
+    expect(proposal.confidence).toBe('low');
+    expect(proposal.questionForTeacher).toContain('preuve textuelle');
     expect(proposal.evidence).toMatch(/citation non localisée|présence signalée/i);
   });
 

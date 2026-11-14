@@ -33,7 +33,7 @@ export function suggestSubcriteriaFromDescription(criterion: RubricCriterion): S
     if (referenceHeading.test(clean)) continue;
     const points = clean.match(pointsSuffix);
     const title = (points ? clean.slice(0, points.index) : clean).replace(/[\s.:,;–—-]+$/u, '').trim();
-    if (title.length < 3) continue;
+    if (!title || (!points && title.length < 3)) continue;
     const key = normalizedSubcriterionTitle(title);
     if (existing.has(key) || seen.has(key)) continue;
     seen.add(key);
