@@ -23,3 +23,10 @@ export function compareAppVersions(installed: AppBuildVersion, published: unknow
 export function shortAppRevision(revision: string | null): string {
   return isCommitRevision(revision) ? revision.slice(0, 7) : 'local';
 }
+
+
+/** Only CI-generated release tags may become links in the version panel. */
+export function appReleaseUrl(tag: string | null | undefined): string | null {
+  if (!tag || !/^companion-auto-[1-9]\d*-[a-f0-9]{40}$/.test(tag)) return null;
+  return `https://github.com/Sims07/Companion-Correcteur-Devoir/releases/tag/${tag}`;
+}

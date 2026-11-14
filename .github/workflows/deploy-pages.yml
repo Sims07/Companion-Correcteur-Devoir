@@ -31,6 +31,9 @@ jobs:
       - name: Run tests
         run: npm test
       - name: Build production site
+        # Embed the release tag in the published app; PR previews have no release.
+        env:
+          VITE_APP_RELEASE_TAG: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && format('companion-auto-{0}-{1}', github.run_number, github.sha) || '' }}
         run: npm run build
       - name: Build the public Atelier B Storybook catalogue
         run: npm run build-storybook -- --output-dir dist/storybook
@@ -42,7 +45,7 @@ jobs:
           path: dist
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -55,3 +58,41 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  release:
+    name: Publish and retain 3 automatic releases
+    # Never create a public release for an untested or undeployed build.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout deployed source
+        uses: actions/checkout@v4
+      - name: Create release for published build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          tag="companion-auto-${GITHUB_RUN_NUMBER}-${GITHUB_SHA}"
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Companion v${version} · build #${GITHUB_RUN_NUMBER}" \
+            --generate-notes \
+            --latest
+      - name: Keep only the 3 most recent automatic releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # List all pages, not just the first 100 releases.
+          # Preserve manual releases, drafts and unrelated tags.
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            | jq -rs '[.[][] | select(.draft == false and (.tag_name | startswith("companion-auto-")))] | sort_by(.published_at) | reverse | .[3:] | .[].tag_name' \
+            | while IFS= read -r tag; do
+                [ -n "$tag" ] || continue
+                gh release delete "$tag" --yes --cleanup-tag --repo "$GITHUB_REPOSITORY"
+              done

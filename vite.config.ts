@@ -21,13 +21,14 @@ export default defineConfig({
       this.emitFile({
         type: 'asset',
         fileName: 'version.json',
-        source: JSON.stringify({ version: appVersion, revision: appRevision }),
+        source: JSON.stringify({ version: appVersion, revision: appRevision, releaseTag: process.env.VITE_APP_RELEASE_TAG || null }),
       });
     },
   }],
   define: {
     'import.meta.env.VITE_EVALUATION_REVISION': JSON.stringify(appRevision),
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
+    'import.meta.env.VITE_APP_RELEASE_TAG': JSON.stringify(process.env.VITE_APP_RELEASE_TAG || null),
   },
   // GitHub Pages publishes this project under /Companion-Correcteur-Devoir/.
   // Keep the root path for local development and use the repository path in CI.
