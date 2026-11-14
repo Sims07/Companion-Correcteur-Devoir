@@ -142,3 +142,21 @@ it('selects a dated score and runs its saved method again for the same model', a
   expect(request.steps.at(-1).graphVariant).toBe('pixel-leaders-v1');
   await act(async () => root.unmount());
 });
+
+it('exports the selected scientific model with its frozen score, weights and relevant case evidence', async () => {
+  const { buildRadarTimelineExport } = await import('../../src/domain/radarTimelineExport.ts');
+  const { sciencePoints } = await import('../../src/domain/radarTimeline.ts');
+  const { RADAR_PRESETS } = await import('../../src/domain/diagramLabRadar.ts');
+  const first = entries[0]!;
+  const group = [{...first, trial: {id: 'trial', method: 'pixel-v1' as const, weights: RADAR_PRESETS.balanced}}];
+  const points = sciencePoints(group, RADAR_PRESETS.scientific);
+  points[0]!.score = 42;
+  const report = buildRadarTimelineExport('diagrams', models[0]!, points, [...group, entries[1]!], history,
+    RADAR_PRESETS.scientific, '2026-11-14');
+  expect(report.trials).toHaveLength(1);
+  expect(report.trials[0]).toMatchObject({score:42, scoreType:'partial', scoreOrigin:'recorded'});
+  expect(report.campaigns).toHaveLength(1);
+  expect(report.campaigns![0]).toMatchObject({trialId:'trial', weights:RADAR_PRESETS.balanced});
+  expect(report.campaigns![0]!.cases).toHaveLength(6);
+  expect(JSON.stringify(report)).not.toContain(models[1]);
+});
