@@ -27,7 +27,7 @@ it('envoie uniquement l’image originale à Ollama et extrait le point d’arri
   expect(payload.messages[1].images).toEqual([image.base64]);
   expect(payload.think).toBe(false);
   expect(payload.options).toMatchObject({temperature:0,num_predict:2400,num_ctx:4096});
-  expect(JSON.stringify(payload)).not.toMatch(/0,68|9,34|8,66|attendu|référence|critère de note/);
+  expect(JSON.stringify(payload)).not.toMatch(/0,68|9,34|8,66|flèches inversées|score de référence/);
 });
 
 it('retente une réponse JSON invalide une seule fois, sans modifier le dessin source',async () => {
