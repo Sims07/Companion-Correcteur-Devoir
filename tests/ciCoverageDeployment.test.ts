@@ -2,9 +2,19 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const testsWorkflow = readFileSync(new URL('../.github/workflows/tests.yml', import.meta.url), 'utf8');
+const vitestConfig = readFileSync(new URL('../vite.config.ts', import.meta.url), 'utf8');
 const pagesWorkflow = readFileSync(new URL('../.github/workflows/deploy-pages.yml', import.meta.url), 'utf8');
 
 describe('CI coverage badge and Pages publication', () => {
+  it('executes colocated tests and rejects line coverage below 80%', () => {
+    expect(vitestConfig).toContain("'src/**/*.test.ts'");
+    expect(vitestConfig).toContain("'src/**/*.test.tsx'");
+    expect(vitestConfig).toContain("'tests/**/*.test.tsx'");
+    expect(vitestConfig).toMatch(/thresholds:\s*\{\s*lines:\s*80\s*\}/);
+    expect(testsWorkflow).toContain('npm run test:coverage');
+    expect(testsWorkflow).toContain('npm run test:coverage:core');
+  });
+
   it('does not restart the complete test workflow for an updated badge', () => {
     expect(testsWorkflow).toContain("paths-ignore:\n      - 'badges/coverage.json'");
     expect(testsWorkflow).toContain('git push origin HEAD:main');
