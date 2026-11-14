@@ -42,7 +42,7 @@ const decisionStates: Record<DiagramDecisionStatus, string> = {
   correct: 'Conforme', incorrect: 'Écart', mixed: 'Résultat variable', unmeasured: 'Non mesuré',
 };
 
-function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
+export function ReportDetails({ entry }: { entry: DiagramLabArchiveEntry }) {
   const report = entry.report;
   const [activeCase, setActiveCase] = useState('');
   const [onlyIssues, setOnlyIssues] = useState(false);
