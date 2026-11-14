@@ -285,3 +285,14 @@ it('freezes the weighted score and the executable graph method for each independ
   expect(frozen.score).toBe(93.8);
   expect(sciencePoints([second], RADAR_PRESETS.scientific)[0]?.scienceMethod).toBeUndefined();
 });
+
+it('identifies the actual archived method independently of the D/E battery title', async () => {
+  const { sciencePoints } = await import('../../src/domain/radarTimeline.ts');
+  const row = sample('arrows', '2026-11-14T09:16:00Z');
+  row.title = 'Sens des flèches · D/E';
+  if (row.report.format !== 'companion-scientific-diagram-fixture-report') throw Error();
+  for (const c of row.report.cases) for (const run of c.experiments) run.method = 'graph-first-v1';
+  expect(sciencePoints([row], RADAR_PRESETS.scientific)[0]).toMatchObject({
+    label:'Image → graphe → correction · v1', scienceMethod:'graph-first-v1', protocolLabel:row.title,
+  });
+});

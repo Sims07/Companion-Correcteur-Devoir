@@ -133,7 +133,9 @@ it('selects a dated score and runs its saved method again for the same model', a
     entries: [previous], history: [], profiles, model: models[0]!, choose: vi.fn(), busy: false,
     manage: vi.fn(), details: vi.fn(), campaigns: vi.fn(), runScience, runBiology: vi.fn(),
   })));
-  const buttons = [...node.querySelectorAll<HTMLButtonElement>('article:first-child details button')];
+  const open = [...node.querySelectorAll<HTMLButtonElement>('article:first-child button')].find(b => b.textContent === 'Analyse des méthodes')!;
+  await act(async () => open.click());
+  const buttons = [...node.querySelectorAll<HTMLButtonElement>('.method-lab button')];
   await act(async () => buttons.find(b => b.textContent?.startsWith('Choisir cette méthode'))!.click());
   await act(async () => buttons.find(b => b.textContent === 'Évaluer avec cette méthode')!.click());
   const request = runScience.mock.calls[0]![0];
