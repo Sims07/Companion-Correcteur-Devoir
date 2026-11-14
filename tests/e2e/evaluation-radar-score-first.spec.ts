@@ -64,7 +64,14 @@ test('reopens two dated scores for the same model and selects the older method',
   const lab = page.getByRole('region', {name:'Laboratoire des méthodes'});
   await expect(lab.getByRole('img', {name:'Radars superposés des méthodes sur 100'}).locator('g[data-method] polygon')).toHaveCount(2);
   await expect(lab.getByLabel('Méthode A', {exact:true})).not.toHaveValue(await lab.getByLabel('Méthode B', {exact:true}).inputValue());
-  await expect(lab.getByRole('img', {name:/Évolution des notes/})).toBeVisible();
+  const trend = lab.getByRole('figure', {name:/Évolution des notes/});
+  const older = trend.getByRole('button', {name:/Contrats par question/});
+  await older.click();
+  await expect(older).toHaveAttribute('aria-pressed','true');
+  await expect(lab.getByLabel('Essai sélectionné')).toHaveValue(/contract/);
+  await trend.getByRole('button', {name:/Barème standard/}).focus();
+  await page.keyboard.press('Enter');
+  await expect(lab.getByLabel('Essai sélectionné')).toHaveValue(/standard/);
   await expect(lab.getByRole('table', {name:'Dernier essai de chaque méthode'}).locator('tbody tr')).toHaveCount(2);
   const downloading = page.waitForEvent('download');
   await lab.getByRole('button', {name:'Exporter l’historique des méthodes'}).click();
