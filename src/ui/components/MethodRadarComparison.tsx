@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { radarCriterionLeaders } from '../../domain/radarCriterionLeaders.ts';
 import { RADAR_AXES } from '../../domain/diagramLabRadar.ts';
 import type { TimelinePoint } from '../../domain/radarTimeline.ts';
 
@@ -58,6 +59,21 @@ export function MethodRadarComparison({sorted, axes}: {sorted:TimelinePoint[]; a
             {vertices.map(v => <circle key={v.axis} cx={v.x} cy={v.y} r={index ? 3 : 4.5} fill={index ? 'white' : colors[index]} strokeWidth="2"><title>{p.label} · {v.axis} · {number(p.axes[v.axis])}/100</title></circle>)}</g>;
         })}
       </svg><figcaption>Du centre au bord · 0 à 100 par pas de 25</figcaption></figure></div>
+      <section className="criterion-leaders" aria-labelledby="criterion-leaders-title">
+        <h4 id="criterion-leaders-title">Méthodes en tête par critère</h4>
+        <p>Meilleures notes observées parmi les {methods.length} méthode{methods.length > 1 ? 's' : ''} du filtre « {activeProtocol || 'Radar complet en priorité'} ».</p>
+        <ul>{axes.map(axis => {
+          const result = radarCriterionLeaders(representatives, axis);
+          let comparison = 'Aucune mesure';
+          if (result.count === 1) comparison = 'Seule méthode mesurée';
+          else if (result.leaders.length > 1) comparison = 'Ex æquo';
+          else if (result.lead != null) comparison = '+' + number(result.lead) + ' pts sur la deuxième';
+          return <li key={axis}><div className="criterion-leader-heading">
+            <h5>{axis}</h5>{result.score != null && <strong>{number(result.score)} <small>/100</small></strong>}
+          </div>{result.leaders.map(method => <div className="criterion-leader-name" key={method}>{method}</div>)}
+          <small>{comparison}{result.count > 1 && ' · ' + result.count + ' méthodes mesurées'}</small></li>;
+        })}</ul>
+      </section>
       <details><summary>Valeurs par critère{second && ' et écarts entre méthodes'}</summary>
         <div className="lab-scroll"><table><thead><tr><th>Critère /100</th><th>Méthode A</th>{second && <><th>Méthode B</th><th>B − A</th></>}</tr></thead>
         <tbody>{axes.map(a => {const aScore=first.axes[a], bScore=second?.axes[a];

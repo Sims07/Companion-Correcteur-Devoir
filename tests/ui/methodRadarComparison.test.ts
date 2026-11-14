@@ -16,14 +16,20 @@ it('compares distinct complete method radars and can isolate a targeted campaign
   const root = createRoot(node);
   await act(async () => root.render(createElement(MethodRadarComparison,{axes, sorted:[
     point('A',true,14),point('B',true,13),point('A',false,12),point('B',false,11),
+    {...point('C',false,10), axes:{Flèches:99,Relations:90,Stabilité:0}},
   ]})));
   expect(node.querySelectorAll('[data-method] polygon')).toHaveLength(2);
   expect(node.querySelectorAll('[data-method] circle')).toHaveLength(6);
+  const ranking = node.querySelector('.criterion-leaders')!;
+  expect(ranking.querySelector('li')?.textContent).toContain('C');
+  expect(ranking.querySelector('li')?.textContent).toContain('+19 pts');
   const [scope,method] = node.querySelectorAll('select');
   await act(async () => {method!.value='B'; method!.dispatchEvent(new Event('change',{bubbles:true}));});
   expect([...node.querySelectorAll('[data-method]')].map(g => g.getAttribute('data-method'))).toEqual(['B','A']);
   await act(async () => {scope!.value='D/E'; scope!.dispatchEvent(new Event('change',{bubbles:true}));});
   expect(node.querySelectorAll('[data-method] polygon')).toHaveLength(0);
   expect(node.querySelectorAll('[data-method] circle')).toHaveLength(2);
+  expect(ranking.querySelector('li')?.textContent).toContain('Ex æquo');
+  expect(ranking.textContent).toContain('Aucune mesure');
   await act(async () => root.unmount());
 });
