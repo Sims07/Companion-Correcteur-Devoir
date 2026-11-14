@@ -323,9 +323,30 @@ export function diagramAnalysisDiagnostics(
     maximum: Number(match[3]),
     received: /^-?[0-9]+(?:\.[0-9]+)?$/.test(match[4]!) ? Number(match[4]) : match[4],
   }));
+  // Per-call, allowlisted counters explain slow analyses and JSON repairs,
+  // without leaking prompts, endpoints, provider exceptions or model output.
+  const measured = (value: unknown, ceiling: number): number | null =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= ceiling
+      ? Math.round(value) : null;
+  const analysisCallTraces = calls.map((call) => ({
+    role: call.promptId === 'grading.full-repair' || call.promptId === 'grading.incremental-repair'
+      || call.promptId === 'diagram.direct-repair' ? 'repair' as const : 'primary' as const,
+    provider: call.requestMetadata?.provider === 'ollama' || call.requestMetadata?.provider === 'openai-compatible'
+      ? call.requestMetadata.provider : null,
+    imageCount: measured(call.requestMetadata?.imageCount, 100),
+    elapsedMs: measured(call.elapsedMs, 24 * 3600 * 1000),
+    contextTokens: measured(call.requestMetadata?.options.contextTokens ?? call.contextTokens, 1000000),
+    outputLimit: measured(call.requestMetadata?.options.generationTokenLimit ?? call.generationTokenLimit, 65536),
+    promptTokens: measured(call.promptTokens, 1000000),
+    generatedTokens: measured(call.generatedTokens, 1000000),
+    doneReason: call.doneReason === 'length' ? 'length' as const
+      : call.doneReason === 'stop' ? 'stop' as const : 'unknown' as const,
+    thinkingObserved: typeof call.thinkingPresent === 'boolean' ? call.thinkingPresent : null,
+  }));
   return {
     ...(invalidPoints.length ? { invalidPoints } : {}),
     analysisCalls: calls.length,
+    analysisCallTraces,
     repairCalls: calls.filter((run) => run.promptId === 'grading.full-repair' || run.promptId === 'grading.incremental-repair' || run.promptId === 'diagram.direct-repair').length,
     generationLimitHits: calls.filter((run) => run.doneReason === 'length').length,
     generationBudgetTokens: budget ?? null,
