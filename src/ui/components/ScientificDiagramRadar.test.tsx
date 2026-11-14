@@ -6,7 +6,7 @@ import type { DiagramLabArchiveEntry, DiagramLabProtocol } from '../../domain/di
 import { DIAGRAM_SENSITIVITY_CASES } from '../../domain/scientificDiagramSensitivity.ts';
 import { SCIENTIFIC_DIAGRAM_LABEL_POINTER_TARGET } from '../../domain/scientificDiagramFixtures.ts';
 import { buildDiagramLabRadar, observedRadarScore, RADAR_PRESETS, rankDiagramLabRadar } from '../../domain/diagramLabRadar.ts';
-import { ScientificDiagramRadar } from './ScientificDiagramRadar.tsx';
+import { ScientificDiagramRadar, restoredWeights } from './ScientificDiagramRadar.tsx';
 
 function sample(protocol: Exclude<DiagramLabProtocol, 'personal'>, repetitions: number): DiagramLabArchiveEntry {
   const fixture = protocol === 'reference' || protocol === 'arrows';
@@ -67,6 +67,16 @@ describe('ScientificDiagramRadar score-first summary', () => {
     expect(host.querySelector('.diagram-radar-intro')).toBeNull();
     return primary!;
   }
+
+  it('migrates saved eight-axis weights while preserving previous user settings', () => {
+    const legacy = Object.fromEntries(Object.entries(RADAR_PRESETS.balanced)
+      .filter(([key]) => key !== 'precision'));
+    window.localStorage.setItem('companion:scientific-lab-radar-weights:v1', JSON.stringify(legacy));
+    expect(restoredWeights()).toEqual(RADAR_PRESETS.balanced);
+    const custom = { ...legacy, graphics: 4, speed: 3 };
+    window.localStorage.setItem('companion:scientific-lab-radar-weights:v1', JSON.stringify(custom));
+    expect(restoredWeights()).toEqual({ ...custom, precision: RADAR_PRESETS.scientific.precision });
+  });
 
   it('shows the partial index prominently instead of a missing global grade', async () => {
     const entries = reports(1);

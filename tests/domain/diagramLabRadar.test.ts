@@ -110,6 +110,10 @@ describe('scientific benchmark 9-axis radar', () => {
     expect(model.axes.arrows.value).toBe(50);
     expect(model.axes.coverage.value).toBe(100);
     expect(model.axes.graphics.value).toBeNull();
+    const combined = buildDiagramLabRadar([entry, sample('reference', '2026-11-14T12:00:00Z')], 'model')[0]!;
+    expect(combined.axes.precision.value).toBe(92.7); // (35 + 3) / (38 + 3)
+    expect(combined.axes.precision.evidence.map((source) => [source.protocol, source.observed, source.total]))
+      .toEqual([['reference', 3, 3], ['arrows', 35, 38]]);
   });
 
   it('does not mistake unfinished graphs, unobserved mutations or failed results for a zero', () => {
@@ -302,7 +306,7 @@ it('freezes the weighted score and the executable graph method for each independ
     await writer.save(row.report, 'finished');
   }
   const frozen = [...archive.values()].at(-1)!.timeline![0]!;
-  expect(frozen).toMatchObject({id: 'first', scienceMethod: 'leaders-v1', score: 93.8});
+  expect(frozen).toMatchObject({id: 'first', scienceMethod: 'leaders-v1', score: 94.4});
   expect(trialSteps('leaders-v1').at(-1)?.graphVariant).toBe('pixel-leaders-v1');
   expect(trialSteps('guided-v1').at(-1)?.graphVariant).toBe('isolated-arrows-outside');
   const second = sample('graph', '2026-11-13T17:00:00Z');
