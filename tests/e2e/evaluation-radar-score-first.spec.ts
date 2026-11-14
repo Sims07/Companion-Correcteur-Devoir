@@ -60,6 +60,8 @@ test('reopens two dated scores for the same model and selects the older method',
   const bio = home.getByRole('article', {name:'Biologie'});
   await bio.getByRole('button', {name:'Analyse des méthodes'}).click();
   const lab = page.getByRole('region', {name:'Laboratoire des méthodes'});
+  await expect(lab.getByRole('img', {name:'Radars superposés des méthodes sur 100'}).locator('g[data-method]')).toHaveCount(2);
+  await expect(lab.getByLabel('Méthode A', {exact:true})).not.toHaveValue(await lab.getByLabel('Méthode B', {exact:true}).inputValue());
   await expect(lab.getByRole('img', {name:/Évolution des notes/})).toBeVisible();
   await expect(lab.getByRole('table', {name:'Dernier essai de chaque méthode'}).locator('tbody tr')).toHaveCount(2);
   const downloading = page.waitForEvent('download');
