@@ -1,6 +1,7 @@
 import { SCIENTIFIC_DIAGRAM_REFERENCE_RUBRIC, diagramTargetKey, type DiagramGold, type DiagramProtocolCount, type DiagramProtocolRun, buildScientificDiagramProtocolReport } from './scientificDiagramProtocol.ts';
 import { getRubricSubcriteria, validateRubric, type Rubric } from './rubric.ts';
 import { sumGradeScores } from './scorePrecision.ts';
+import { auditRelationGraphV2, type RelationExpectationV2 } from './scientificDiagramRelationGraphV2.ts';
 
 /** The same teacher rubric, with the original 2-point comprehension criterion
  * made explicit for this particular mitosis exercise only. */
@@ -193,6 +194,21 @@ export const SCIENTIFIC_DIAGRAM_FIXTURES: readonly ScientificDiagramFixtureCase[
 export const SCIENTIFIC_DIAGRAM_FIXTURE_CONTEXT =
   'Travail universitaire de biologie : réaliser un dessin scientifique montrant la mitose d’une cellule végétale, avec interphase, télophase et phragmoplaste visible, puis deux autres étapes distinctes choisies parmi prophase, métaphase, anaphase. Vérifier la qualité graphique, le titre, les légendes (y compris le point d’arrivée de chaque trait de rappel) et la présence des étapes réellement dessinées.';
 
+/** The actual physical destinations are private test references, never input
+ * to the rubric-blind V2 Vision call. D/E share texts but four endpoints swap. */
+export function fixtureRelationExpectationsV2(caseId: ScientificDiagramFixtureId): RelationExpectationV2[] {
+  if (caseId !== 'D' && caseId !== 'E') return [];
+  const altered = caseId === 'E';
+  return [
+    {phase:'interphase',label:'Noyau',expectedKind:'nucleus'},
+    {phase:'prophase',label:'Chromosomes',expectedKind:'chromosomes'},
+    {phase:'metaphase',label:'Chromosomes',expectedKind:altered ? 'spindle' : 'chromosomes'},
+    {phase:'metaphase',label:'Fuseau mitotique',expectedKind:altered ? 'chromosomes' : 'spindle'},
+    {phase:'telophase',label:'Noyau fils',expectedKind:altered ? 'cell-plate' : 'nucleus'},
+    {phase:'telophase',label:'Plaque cellulaire',expectedKind:altered ? 'nucleus' : 'cell-plate'},
+  ];
+}
+
 export type ScientificDiagramFixtureRun = DiagramProtocolRun & { caseId: ScientificDiagramFixtureId };
 
 export function buildScientificDiagramFixtureReport(
@@ -212,6 +228,10 @@ export function buildScientificDiagramFixtureReport(
       const unresolved = experiment.observations.filter((observation) => observation.choice === 'uncertain');
       return {
         profileId: experiment.profileId, method: experiment.method, repetition: experiment.repetition,
+        graphV2: experiment.graphEvidence?.version === 'graph-first-v2' && experiment.graphEvidence.pages[0]
+          && fixtureRelationExpectationsV2(fixture.id).length
+          ? auditRelationGraphV2(experiment.graphEvidence.pages[0].graph, fixtureRelationExpectationsV2(fixture.id))
+          : null,
         scoreDelta: experiment.score === null ? null : Math.round((experiment.score - fixture.referenceScore) * 100) / 100,
         matchedTargets: experiment.observations.filter((observation) =>
           observation.choice !== 'uncertain' && observation.choice === fixture.gold[observation.key]).length,
@@ -274,8 +294,29 @@ export function buildScientificDiagramFixtureReport(
     const dAlign = d?.observations.find((item) => item.key === align)?.choice ?? 'uncertain';
     const eAlign = e?.observations.find((item) => item.key === align)?.choice ?? 'uncertain';
     const [profileId, model, method, repetition] = JSON.parse(key) as [string, string, string, number];
+    const dV2 = control.diagnostic.find((item) => runKey({...item, model: d?.model ?? ''}) === key)?.graphV2 ?? null;
+    const eV2 = trap.diagnostic.find((item) => runKey({...item, model: e?.model ?? ''}) === key)?.graphV2 ?? null;
+    const pairedV2 = dV2 && eV2 ? (() => {
+      const differences = dV2.findings.filter((finding) => {
+        const other = eV2.findings.find((item) => item.phase === finding.phase && item.label === finding.label);
+        return finding.observedKind !== null && other?.observedKind !== null
+          && finding.observedKind !== other.observedKind;
+      });
+      const unresolved = dV2.uncertain + eV2.uncertain;
+      return {
+        status: unresolved > 0 ? 'inconclusive' as const
+          : dV2.correct === 6 && eV2.correct === 6 && differences.length === 4
+            ? 'detected' as const : differences.length === 0 ? 'missed' as const : 'partial' as const,
+        observedChangedTargets: differences.map((item) => item.phase + '::' + item.label),
+        expectedChangedTargets: 4,
+        unresolved,
+        controlMatched: dV2.correct, alteredMatched: eV2.correct,
+        layoutRowsBoth: dV2.observedLayout === 'rows' && eV2.observedLayout === 'rows',
+      };
+    })() : null;
     return {
       profileId, model, method, repetition,
+      graphV2: pairedV2,
       status: result,
       controlChoice: dChoice, alteredChoice: eChoice,
       alignmentDetectedBoth: bothSucceeded && dAlign !== 'uncertain' && eAlign !== 'uncertain'
